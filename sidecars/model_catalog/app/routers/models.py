@@ -63,7 +63,6 @@ from ..db import (
 from ..geometry_3mf import (
     GeometryTooComplexError,
     _compute_dimensions_mm,
-    estimate_3mf_complexity,
     extract_3mf_geometry,
     extract_3mf_plates_metadata,
 )
@@ -3137,10 +3136,10 @@ GEOMETRY_TELEMETRY_FIELDS: tuple[str, ...] = (
     "processing_ms",
     "status",
     "outcome",
-    # Issue #1379: pre-flight introspection telemetry.
+    # Issue #1379 (revised): introspection telemetry derived post-parse
+    # from the actual geometry payload (no separate estimator pass).
     "estimated_triangles",
     "estimated_vertices",
-    "uncompressed_model_bytes",
     "plate_count",
 )
 
@@ -3162,41 +3161,20 @@ def _classify_geometry_outcome(status_code: int, error_text: str | None) -> str:
     return "other"
 
 
-# Issue #1379: pre-flight + post-parse fields stashed on `request.state` by
+# Issue #1379: post-parse fields stashed on `request.state` by
 # `_get_geometry_endpoint_impl` so the wrapper can attach introspection
 # headers and emit richer telemetry without changing return signatures.
 _GEOMETRY_PREFLIGHT_STATE_ATTR = "geometry_preflight"
 
 
-def _peek_geometry_lod_cache(
-    *, package_bytes: bytes, plate_id: str | None, requested_lod: str | None
-) -> tuple[str, dict[str, Any] | None]:
-    """Hash + look up the LOD cache *without* parsing geometry.
-
-    Returns ``(source_sha256, cached_entry_or_None)``. Used by the geometry
-    endpoint to skip the pre-flight estimator (#1379) when a cache hit is
-    available — the estimator is an iterparse pass over the entire
-    `.model` XML and is wasted work when the cached payload already reflects
-    a previously-validated package.
-    """
-    requested_lod_norm = _normalize_geometry_lod(requested_lod)
-    source_sha256 = hashlib.sha256(package_bytes).hexdigest()
-    cache_key = _geometry_lod_cache_key(
-        source_sha256=source_sha256,
-        plate_id=plate_id,
-        requested_lod=requested_lod_norm,
-    )
-    cached = _geometry_lod_cache_get(cache_key)
-    return source_sha256, cached
-
-
 def _preflight_state_from_cached_geometry(
     geometry: dict[str, Any], *, source_bytes: int
 ) -> dict[str, Any]:
-    """Derive the preflight state dict from an already-cached geometry payload.
+    """Derive the preflight state dict from a geometry payload (cached or fresh).
 
-    Used on cache-hit so we can attach `X-Geometry-*` headers without
-    re-running the estimator.
+    Issue #1379 (revised): introspection headers are populated post-parse
+    from the actual geometry payload — the data already exists, so this is
+    free. No separate estimator pass is needed.
     """
     state: dict[str, Any] = {"source_bytes": int(source_bytes)}
     triangle_count: Any = None
@@ -3230,10 +3208,6 @@ def _build_geometry_introspection_headers(
     state = preflight or {}
     if "source_bytes" in state:
         headers["X-Geometry-Source-Bytes"] = str(int(state["source_bytes"]))
-    if "uncompressed_model_bytes" in state:
-        headers["X-Geometry-Uncompressed-Model-Bytes"] = str(
-            int(state["uncompressed_model_bytes"])
-        )
     if "estimated_triangles" in state:
         headers["X-Geometry-Estimated-Triangles"] = str(int(state["estimated_triangles"]))
     if "estimated_vertices" in state:
@@ -3297,11 +3271,10 @@ def get_geometry_endpoint(
 
     outcome = _classify_geometry_outcome(status_code, str(error_text) if error_text else None)
 
-    # Issue #1379: pull pre-flight introspection state (if the impl populated it).
+    # Issue #1379 (revised): pull post-parse introspection state.
     preflight: dict[str, Any] = getattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, None) or {}
     estimated_triangles = preflight.get("estimated_triangles")
     estimated_vertices = preflight.get("estimated_vertices")
-    uncompressed_model_bytes = preflight.get("uncompressed_model_bytes")
     plate_count = preflight.get("plate_count")
 
     # Reason header semantics: ok | too_large | too_complex | no_geometry | <other outcomes>.
@@ -3316,8 +3289,7 @@ def get_geometry_endpoint(
         "model_ref=%s file_id=%s lod_requested=%s lod_applied=%s simplified=%s "
         "source_triangles=%s rendered_triangles=%s package_size_bytes=%s "
         "cache_hit=%s processing_ms=%.1f status=%d outcome=%s "
-        "estimated_triangles=%s estimated_vertices=%s "
-        "uncompressed_model_bytes=%s plate_count=%s",
+        "estimated_triangles=%s estimated_vertices=%s plate_count=%s",
         model_ref,
         file_id,
         requested_lod,
@@ -3332,7 +3304,6 @@ def get_geometry_endpoint(
         outcome,
         estimated_triangles,
         estimated_vertices,
-        uncompressed_model_bytes,
         plate_count,
     )
 
@@ -3439,55 +3410,6 @@ def _get_geometry_endpoint_impl(
                         debug_info["local_storage_path"] = str(storage_path)
                         payload["_debug"] = debug_info
                     return JSONResponse(status_code=422, content=payload)
-
-                # Issue #1379 + perf fix: peek the LOD cache before running the
-                # pre-flight estimator. Estimator is an iterparse pass over the
-                # full `.model` XML; on cache hits (LOD switches, plate
-                # switches, repeated views) it is wasted work and dominates
-                # request latency for large packages. When cached, derive
-                # introspection state from the cached geometry instead.
-                _peek_sha, _peek_entry = _peek_geometry_lod_cache(
-                    package_bytes=package_bytes,
-                    plate_id=plate_id,
-                    requested_lod=requested_lod,
-                )
-                if _peek_entry is not None:
-                    preflight_state.update(
-                        _preflight_state_from_cached_geometry(
-                            _peek_entry.get("geometry") or {},
-                            source_bytes=len(package_bytes),
-                        )
-                    )
-                else:
-                    # Issue #1379: cheap pre-flight scan before full parse.
-                    # Rejects pathological packages (e.g. ~80 MB zip with 50 M
-                    # triangles) without paying full mesh-materialization cost.
-                    try:
-                        estimate = estimate_3mf_complexity(
-                            package_bytes,
-                            plate_id=plate_id,
-                            triangle_budget=MAX_SERVER_SIDE_3MF_TRIANGLES,
-                        )
-                        preflight_state.update(
-                            estimated_triangles=estimate["estimated_triangles"],
-                            estimated_vertices=estimate["estimated_vertices"],
-                            uncompressed_model_bytes=estimate["uncompressed_model_bytes"],
-                            plate_count=estimate["plate_count"],
-                        )
-                    except GeometryTooComplexError as too_complex:
-                        preflight_state.update(
-                            estimated_triangles=too_complex.triangle_count,
-                        )
-                        payload = {
-                            "error": "3MF geometry is too complex for interactive viewer rendering",
-                            "triangle_count": too_complex.triangle_count,
-                            "max_server_side_triangles": too_complex.budget,
-                        }
-                        if include_debug:
-                            debug_info["local_storage_path"] = str(storage_path)
-                            debug_info["preflight_rejected"] = True
-                            payload["_debug"] = debug_info
-                        return JSONResponse(status_code=422, content=payload)
                 try:
                     (
                         geometry_payload,
@@ -3502,6 +3424,14 @@ def _get_geometry_endpoint_impl(
                         requested_lod=requested_lod,
                     )
                     debug_info["geometry_cache_hit"] = cache_hit
+                    # Issue #1379 (revised): populate introspection headers
+                    # from the actual geometry payload — free, since the data
+                    # already exists. No separate estimator pass.
+                    preflight_state.update(
+                        _preflight_state_from_cached_geometry(
+                            geometry_payload, source_bytes=len(package_bytes)
+                        )
+                    )
                     if simplified:
                         response_payload["viewer_notice"] = "Simplified preview applied for interactive performance"
                     complexity_payload = _build_geometry_complexity_error_payload(geometry_payload)
@@ -3512,6 +3442,7 @@ def _get_geometry_endpoint_impl(
                         return JSONResponse(status_code=422, content=complexity_payload)
                     response_payload["geometry"] = geometry_payload
                 except GeometryTooComplexError as too_complex:
+                    preflight_state["estimated_triangles"] = too_complex.triangle_count
                     payload: dict[str, Any] = {
                         "error": "3MF geometry is too complex for interactive viewer rendering",
                         "triangle_count": too_complex.triangle_count,
@@ -3588,9 +3519,6 @@ def _get_geometry_endpoint_impl(
                     preflight_state: dict[str, Any] = {"source_bytes": len(package_bytes)}
                     setattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, preflight_state)
 
-                    # Issue #1379: pre-flight scan rejects oversize/pathological
-                    # payloads before invoking the full parser, and populates
-                    # introspection state for response headers + telemetry.
                     if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
                         payload = {
                             "error": "3MF package too large for server-side geometry extraction",
@@ -3600,47 +3528,6 @@ def _get_geometry_endpoint_impl(
                         if include_debug:
                             payload["_debug"] = debug_info
                         return JSONResponse(status_code=422, content=payload)
-
-                    # Issue #1379 + perf fix: skip estimator on LOD cache hit
-                    # (see local-3MF block above for rationale).
-                    _peek_sha, _peek_entry = _peek_geometry_lod_cache(
-                        package_bytes=package_bytes,
-                        plate_id=plate_id,
-                        requested_lod=requested_lod,
-                    )
-                    if _peek_entry is not None:
-                        preflight_state.update(
-                            _preflight_state_from_cached_geometry(
-                                _peek_entry.get("geometry") or {},
-                                source_bytes=len(package_bytes),
-                            )
-                        )
-                    else:
-                        try:
-                            estimate = estimate_3mf_complexity(
-                                package_bytes,
-                                plate_id=plate_id,
-                                triangle_budget=MAX_SERVER_SIDE_3MF_TRIANGLES,
-                            )
-                            preflight_state.update(
-                                estimated_triangles=estimate["estimated_triangles"],
-                                estimated_vertices=estimate["estimated_vertices"],
-                                uncompressed_model_bytes=estimate["uncompressed_model_bytes"],
-                                plate_count=estimate["plate_count"],
-                            )
-                        except GeometryTooComplexError as preflight_too_complex:
-                            preflight_state.update(
-                                estimated_triangles=preflight_too_complex.triangle_count,
-                            )
-                            payload = {
-                                "error": "3MF geometry is too complex for interactive viewer rendering",
-                                "triangle_count": preflight_too_complex.triangle_count,
-                                "max_server_side_triangles": preflight_too_complex.budget,
-                            }
-                            if include_debug:
-                                debug_info["preflight_rejected"] = True
-                                payload["_debug"] = debug_info
-                            return JSONResponse(status_code=422, content=payload)
 
                     (
                         geometry_payload,
@@ -3655,6 +3542,13 @@ def _get_geometry_endpoint_impl(
                         requested_lod=requested_lod,
                     )
                     debug_info["geometry_cache_hit"] = cache_hit
+                    # Issue #1379 (revised): populate headers post-parse from
+                    # the actual geometry payload — no separate estimator pass.
+                    preflight_state.update(
+                        _preflight_state_from_cached_geometry(
+                            geometry_payload, source_bytes=len(package_bytes)
+                        )
+                    )
                     if simplified:
                         response_payload["viewer_notice"] = "Simplified preview applied for interactive performance"
                     complexity_payload = _build_geometry_complexity_error_payload(geometry_payload)
@@ -3664,6 +3558,7 @@ def _get_geometry_endpoint_impl(
                         return JSONResponse(status_code=422, content=complexity_payload)
                     response_payload["geometry"] = geometry_payload
                 except GeometryTooComplexError as too_complex:
+                    preflight_state["estimated_triangles"] = too_complex.triangle_count
                     payload = {
                         "error": "3MF geometry is too complex for interactive viewer rendering",
                         "triangle_count": too_complex.triangle_count,

@@ -7881,58 +7881,12 @@ def test_intake_queue_invalid_status_value_rejected(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Issue #1379: pre-flight 3MF complexity estimator + introspection headers.
+# Issue #1379 (revised): introspection headers populated post-parse from the
+# actual geometry payload. The original implementation also ran a separate
+# estimator iterparse pass; that turned out to be 2x parse cost on success
+# and was removed. Pathological-rejection is handled by #1378's in-parse
+# triangle budget inside `extract_3mf_geometry`.
 # ---------------------------------------------------------------------------
-
-
-def test_estimate_3mf_complexity_counts_triangles_without_materializing() -> None:
-    """`estimate_3mf_complexity` should report total + plate-projected counts
-    using only an `iterparse` walk (no full geometry materialization).
-    """
-    from sidecars.model_catalog.app.geometry_3mf import estimate_3mf_complexity
-
-    summary = estimate_3mf_complexity(_build_two_plate_3mf())
-    assert summary["plate_count"] == 2
-    assert summary["total_triangles"] == 2
-    assert summary["total_vertices"] == 6
-    # No plate filter -> projection equals totals.
-    assert summary["estimated_triangles"] == 2
-    assert summary["estimated_vertices"] == 6
-
-    plate2 = estimate_3mf_complexity(_build_two_plate_3mf(), plate_id="2")
-    assert plate2["estimated_triangles"] == 1
-    assert plate2["estimated_vertices"] == 3
-    assert plate2["total_triangles"] == 2
-    assert plate2["plate_count"] == 2
-
-
-def test_estimate_3mf_complexity_short_circuits_via_triangle_budget() -> None:
-    """Triangle budget must raise GeometryTooComplexError mid-iterparse."""
-    from sidecars.model_catalog.app.geometry_3mf import (
-        GeometryTooComplexError,
-        estimate_3mf_complexity,
-    )
-
-    with pytest.raises(GeometryTooComplexError) as excinfo:
-        estimate_3mf_complexity(_build_simple_3mf(), triangle_budget=0)
-    assert excinfo.value.budget == 0
-    assert excinfo.value.triangle_count >= 1
-
-
-def test_estimate_3mf_complexity_uncompressed_model_bytes_matches_zipinfo() -> None:
-    """`uncompressed_model_bytes` must equal sum of zipinfo.file_size for `.model` parts."""
-    from sidecars.model_catalog.app.geometry_3mf import estimate_3mf_complexity
-
-    package = _build_simple_3mf()
-    expected = 0
-    with zipfile.ZipFile(BytesIO(package)) as archive:
-        for info in archive.infolist():
-            if info.filename.lower().endswith(".model"):
-                expected += int(info.file_size or 0)
-    assert expected > 0
-
-    summary = estimate_3mf_complexity(package)
-    assert summary["uncompressed_model_bytes"] == expected
 
 
 def _setup_local_3mf_geometry_app(
@@ -7976,7 +7930,7 @@ def test_geometry_endpoint_attaches_introspection_headers_on_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Successful local-3MF geometry response must carry `X-Geometry-*` headers
-    populated from the pre-flight estimator.
+    populated post-parse from the actual geometry payload.
     """
     app, asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
 
@@ -7989,7 +7943,6 @@ def test_geometry_endpoint_attaches_introspection_headers_on_success(
     assert int(response.headers["X-Geometry-Estimated-Triangles"]) >= 1
     assert int(response.headers["X-Geometry-Estimated-Vertices"]) >= 3
     assert int(response.headers["X-Geometry-Plate-Count"]) == 2
-    assert int(response.headers["X-Geometry-Uncompressed-Model-Bytes"]) > 0
 
 
 def test_geometry_endpoint_attaches_introspection_headers_on_too_large(
@@ -8011,27 +7964,18 @@ def test_geometry_endpoint_attaches_introspection_headers_on_too_large(
     assert int(response.headers["X-Geometry-Source-Bytes"]) == asset_path.stat().st_size
 
 
-def test_geometry_endpoint_pre_rejects_via_estimator_before_full_parse(
+def test_geometry_endpoint_too_complex_returns_422_with_headers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Pathological-rejection acceptance criterion: a triangle budget of 0
-    must trigger the pre-flight estimator's GeometryTooComplexError path,
-    returning 422 too_complex with `X-Geometry-Estimated-Triangles >= 1`
-    *without* invoking the full geometry parser.
+    """Pathological-rejection: with a triangle budget of 0, the in-parse
+    short-circuit in `extract_3mf_geometry` (#1378) raises
+    GeometryTooComplexError and the endpoint must return 422 too_complex
+    with `X-Geometry-Estimated-Triangles >= 1`.
     """
     from sidecars.model_catalog.app.routers import models as models_router
 
     app, _asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
     monkeypatch.setattr(models_router, "MAX_SERVER_SIDE_3MF_TRIANGLES", 0)
-
-    full_parser_invoked = {"value": False}
-    real_extract = models_router.extract_3mf_geometry
-
-    def _spy_extract(*args: Any, **kwargs: Any) -> Any:
-        full_parser_invoked["value"] = True
-        return real_extract(*args, **kwargs)
-
-    monkeypatch.setattr(models_router, "extract_3mf_geometry", _spy_extract)
 
     with TestClient(app) as test_client:
         response = test_client.get("/api/models/local-pf/geometry/asset-1")
@@ -8042,46 +7986,3 @@ def test_geometry_endpoint_pre_rejects_via_estimator_before_full_parse(
     payload = response.json()
     assert payload["error"].startswith("3MF geometry is too complex")
     assert payload["max_server_side_triangles"] == 0
-    assert full_parser_invoked["value"] is False, (
-        "Pre-flight estimator must reject before invoking the full parser"
-    )
-
-
-def test_geometry_endpoint_skips_estimator_on_lod_cache_hit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Perf regression guard: on LOD cache hit the wrapper must NOT re-invoke
-    the pre-flight estimator (which is an iterparse pass over the entire
-    `.model` XML — wasted work when the cached payload already reflects a
-    previously-validated package).
-    """
-    from sidecars.model_catalog.app.routers import models as models_router
-
-    app, _asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
-
-    # Spy on the estimator AFTER first request primes the cache so we measure
-    # only second-request behavior.
-    with TestClient(app) as test_client:
-        first = test_client.get("/api/models/local-pf/geometry/asset-1")
-    assert first.status_code == 200
-
-    estimator_calls = {"count": 0}
-    real_estimate = models_router.estimate_3mf_complexity
-
-    def _spy_estimate(*args: Any, **kwargs: Any) -> Any:
-        estimator_calls["count"] += 1
-        return real_estimate(*args, **kwargs)
-
-    monkeypatch.setattr(models_router, "estimate_3mf_complexity", _spy_estimate)
-
-    with TestClient(app) as test_client:
-        second = test_client.get("/api/models/local-pf/geometry/asset-1")
-
-    assert second.status_code == 200
-    assert estimator_calls["count"] == 0, (
-        "Estimator must not run on LOD cache hit"
-    )
-    # Introspection headers must still be populated from the cached geometry.
-    assert second.headers.get("X-Geometry-Reason") == "ok"
-    assert int(second.headers["X-Geometry-Estimated-Triangles"]) >= 1
-    assert int(second.headers["X-Geometry-Plate-Count"]) >= 1
