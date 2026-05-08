@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Working Files · Groups view mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28, 33, 42, 0.92);
+    --bg-card-elev: rgba(38, 44, 54, 0.96);
+    --bg-strip: rgba(15, 19, 26, 0.55);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --stage-draft: #64748b;
+    --stage-progress: #f59e0b;
+    --stage-ready: #2e7d32;
+    --primary-amber: #f5c242;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1440px; margin: 0 auto 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 760px; line-height: 1.55; }
+  .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav a, .nav span.sep { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .nav span.sep { border: none; background: transparent; padding: 0 4px; color: var(--text-muted); }
+  .nav a.active { color: var(--text); border-color: var(--border-strong); background: var(--bg-card-elev); }
+  .nav a.accent { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.06); }
+
+  /* Toolbar (compact replica of working-files-toolbar.html, retained so this view reads standalone) */
+  .toolbar-shell { max-width: 1440px; margin: 0 auto; }
+  .title-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: var(--shadow); border-bottom: none;
+  }
+  .title-row strong { font-size: 17px; font-weight: 800; }
+  .title-row .subtitle { font-size: 12px; color: var(--text-muted); margin-left: 10px; }
+  .title-row .right { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .indexed-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); color: var(--accent);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .indexed-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px rgba(94,234,212,0.7); }
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text-secondary);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    transition: background .15s ease, color .15s ease, transform .15s ease;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.10); color: var(--text); transform: translateY(-1px); }
+  .icon-btn.toggle.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .inline-sort { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); }
+  .inline-sort label { font-size: 10px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
+  .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+
+  .filterbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    padding: 12px 18px; background: var(--bg-card); border: 1px solid var(--border); border-top: 1px dashed var(--border); border-radius: 0 0 14px 14px;
+  }
+  .seg {
+    display: inline-flex; padding: 2px; background: rgba(15,19,26,0.6); border: 1px solid var(--border); border-radius: 999px;
+  }
+  .seg button {
+    background: transparent; border: 0; color: var(--text-secondary); padding: 5px 14px; font-size: 12px; font-weight: 700; border-radius: 999px; cursor: pointer; min-height: 26px;
+  }
+  .seg button.active { background: rgba(94,234,212,0.14); color: var(--accent); }
+  .filterbar .grow { flex: 1; min-width: 180px; }
+  .filterbar select, .filterbar input {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 7px 10px; font-size: 12px; min-height: 32px;
+  }
+  .chip-filter {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+    padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;
+  }
+  .chip-filter.active { background: rgba(245,194,66,0.14); border-color: rgba(245,194,66,0.32); color: var(--primary-amber); }
+  .chip-filter.warn.active { background: rgba(248,113,113,0.14); border-color: rgba(248,113,113,0.32); color: #fca5a5; }
+  .chip-filter.recent.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+
+  /* Group rows */
+  .groups { max-width: 1440px; margin: 14px auto 0; display: grid; gap: 12px; }
+
+  .group-row {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px 12px 18px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  }
+  .group-row:hover { border-color: var(--border-strong); }
+  .group-row.collapsed .strip, .group-row.collapsed .actions { display: none; }
+  .group-row.collapsed { padding-bottom: 14px; }
+
+  .ribbon { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: transparent; }
+  .group-row[data-stage="draft"] .ribbon { background: var(--stage-draft); }
+  .group-row[data-stage="in_progress"] .ribbon { background: var(--stage-progress); }
+  .group-row[data-stage="ready_to_publish"] .ribbon { background: var(--stage-ready); }
+
+  .group-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: start; cursor: pointer; }
+  .group-thumb {
+    width: 64px; height: 64px; border-radius: 12px; border: 1px solid var(--border);
+    background: linear-gradient(135deg, #1a2230 0%, #0f141c 100%);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    color: var(--text-muted);
+  }
+  .group-thumb svg { width: 100%; height: 100%; display: block; }
+
+  .group-meta { min-width: 0; }
+  .group-title-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .group-title { font-size: 15px; font-weight: 700; letter-spacing: -0.005em; }
+  .folder-hint { font-size: 12px; color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px; }
+
+  .stage-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    border: 1px solid var(--border);
+  }
+  .stage-chip.draft { background: rgba(100,116,139,0.18); color: #cbd5e1; border-color: rgba(148,163,184,0.30); }
+  .stage-chip.in_progress { background: rgba(245,158,11,0.16); color: #fde68a; border-color: rgba(252,211,77,0.32); }
+  .stage-chip.ready_to_publish { background: rgba(46,125,50,0.20); color: #86efac; border-color: rgba(134,239,172,0.32); }
+
+  .group-counts { display: flex; gap: 14px; margin-top: 6px; }
+  .count { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .count .num { font-weight: 700; color: var(--text); font-size: 13px; }
+  .count.muted .num { color: var(--text-muted); font-weight: 500; }
+
+  .group-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 140px; }
+  .updated { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .updated strong { color: var(--text-secondary); font-weight: 600; }
+
+  .expander {
+    background: transparent; border: 0; color: var(--text-muted); cursor: pointer; padding: 4px;
+  }
+  .expander:hover { color: var(--text); }
+
+  /* Inline file strip */
+  .strip {
+    margin-top: 12px; padding: 10px 12px; background: var(--bg-strip); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .strip-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .strip-head .right { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); }
+
+  .file-rows { display: grid; gap: 4px; }
+  .file-row {
+    display: grid; grid-template-columns: 24px minmax(0,1fr) 70px 80px 80px auto;
+    gap: 10px; align-items: center;
+    padding: 6px 8px; border-radius: 8px;
+    transition: background 100ms ease;
+  }
+  .file-row:hover { background: rgba(255,255,255,0.03); }
+  .file-row.primary { background: rgba(245,194,66,0.06); border: 1px solid rgba(245,194,66,0.16); }
+
+  .ext-icon {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9.5px; font-weight: 800; letter-spacing: -0.02em;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary);
+  }
+  .ext-icon.x-3mf { background: rgba(94,234,212,0.14); color: var(--accent); border-color: rgba(94,234,212,0.32); }
+  .ext-icon.x-stl { background: rgba(96,165,250,0.14); color: var(--accent-blue); border-color: rgba(96,165,250,0.30); }
+  .ext-icon.x-step, .ext-icon.x-stp { background: rgba(167,139,250,0.14); color: #c4b5fd; border-color: rgba(167,139,250,0.30); }
+  .ext-icon.x-zip { background: rgba(212,200,168,0.14); color: #d4c8a8; border-color: rgba(212,200,168,0.28); }
+
+  .file-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .file-name:hover { color: var(--accent); }
+  .file-row.primary .file-name { color: #fde68a; }
+  .file-row.primary .file-name:hover { color: #fff5cf; }
+
+  .file-num { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+  .file-num .sub { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+  .primary-pill {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px;
+    background: rgba(245,194,66,0.18); border: 1px solid rgba(245,194,66,0.32); color: var(--primary-amber);
+    font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    cursor: default;
+  }
+  .set-primary {
+    background: transparent; border: 1px dashed rgba(148,163,184,0.30); color: var(--text-muted);
+    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; cursor: pointer;
+  }
+  .set-primary:hover { border-color: rgba(245,194,66,0.40); color: var(--primary-amber); border-style: solid; background: rgba(245,194,66,0.06); }
+
+  .file-actions { display: inline-flex; gap: 4px; justify-content: flex-end; }
+  .btn {
+    font-size: 11px; padding: 4px 9px; border-radius: 7px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .btn:hover { background: rgba(255,255,255,0.10); border-color: var(--border-strong); }
+  .btn.primary { background: rgba(94,234,212,0.10); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .btn.primary:hover { background: rgba(94,234,212,0.18); }
+  .btn.icon-only { padding: 4px 7px; min-width: 26px; justify-content: center; }
+
+  .more-row {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 4px 8px;
+    background: transparent; border: 0; color: var(--text-muted); cursor: pointer; font-size: 11px;
+  }
+  .more-row:hover { color: var(--accent); }
+
+  /* Other files (chip row) */
+  .other-strip {
+    margin-top: 8px; padding: 8px 10px; background: rgba(15,19,26,0.35); border: 1px dashed var(--border); border-radius: 10px;
+  }
+  .other-head { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; }
+  .other-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .other-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary);
+    font-size: 11px; cursor: pointer;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+  .other-chip:hover { background: rgba(255,255,255,0.10); color: var(--text); border-color: var(--border-strong); }
+  .other-chip .ext-mini { color: var(--text-muted); font-size: 10px; }
+  .other-chip.collapsed-summary { color: var(--text-muted); cursor: pointer; }
+
+  /* Group action row */
+  .actions {
+    display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(148,163,184,0.14);
+    align-items: center;
+  }
+  .actions .spacer { flex: 1; }
+  .bulk-select {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary);
+  }
+  .bulk-select input { accent-color: var(--accent); }
+
+  /* Sticky bulk action bar */
+  .bulk-action-bar {
+    position: sticky; top: 8px; z-index: 5;
+    max-width: 1440px; margin: 12px auto 0;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; background: rgba(94,234,212,0.10); border: 1px solid rgba(94,234,212,0.32);
+    border-radius: 12px; color: var(--accent); font-size: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.32);
+  }
+  .bulk-action-bar .count { font-weight: 700; }
+  .bulk-action-bar .right { margin-left: auto; display: inline-flex; gap: 6px; }
+
+  /* Footnote */
+  .footnote { max-width: 1440px; margin: 28px auto 0; font-size: 12px; color: var(--text-muted); padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); line-height: 1.55; }
+  .footnote code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .footnote a { color: var(--accent); }
+
+  /* Annotation callouts */
+  .annot {
+    margin: 8px 0 0; padding: 10px 12px; border-radius: 10px;
+    background: rgba(96,165,250,0.06); border: 1px solid rgba(96,165,250,0.22);
+    font-size: 11.5px; color: #cbd5e1; line-height: 1.5;
+  }
+  .annot strong { color: var(--accent-blue); letter-spacing: 0.03em; text-transform: uppercase; font-size: 10px; }
+
+  @media (max-width: 880px) {
+    .group-header { grid-template-columns: 56px minmax(0,1fr); }
+    .group-right { grid-column: 1 / -1; flex-direction: row; align-items: center; min-width: 0; justify-content: space-between; }
+    .file-row { grid-template-columns: 24px minmax(0,1fr) auto; }
+    .file-row .file-num, .file-row .primary-pill, .file-row .set-primary { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Working Files · Groups view</h1>
+    <p>Hi-fidelity mockup. Each group renders as a single expandable row — the inline <strong>Model Files</strong> strip lets the operator see <code>.3mf</code>/<code>.stl</code> entries, last-modified, primary marker, and per-file Slicer action <em>without opening the popup</em>. Stage ribbon (left) + stage chip (right) reflect <code>group.stage</code>. Group thumbs reuse the primary file's render when available. See <a href="../working-files-card-design.md" style="color:var(--accent)">working-files-card-design.md §3</a>.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">← Index</a>
+    <span class="sep">|</span>
+    <a class="active accent" href="working-files-groups.html">Groups</a>
+    <a href="working-files-files.html">Files</a>
+    <a href="working-files-toolbar.html">Toolbar</a>
+    <span class="sep">|</span>
+    <a href="../working-files-card-design.md">Design doc</a>
+  </div>
+</div>
+
+<!-- ====== Toolbar shell (mirrored from working-files-toolbar.html) ====== -->
+<div class="toolbar-shell">
+  <div class="title-row">
+    <div>
+      <strong>Working Files</strong>
+      <span class="subtitle">Root: <code style="color:var(--text-secondary);">/assets/Model Working Files</code></span>
+    </div>
+    <div class="right">
+      <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
+      <span class="inline-sort">
+        <label>Sort</label>
+        <select><option>Recently modified</option><option>Title A→Z</option><option>Most files</option><option>Stage</option></select>
+      </span>
+      <button class="icon-btn" title="Reindex">⟳</button>
+      <button class="icon-btn toggle active" title="Show thumbnails">🖼</button>
+      <button class="icon-btn" title="Collapse all">⮟</button>
+    </div>
+  </div>
+  <div class="filterbar">
+    <div class="seg" role="tablist">
+      <button class="active">Groups <span style="opacity:.6">·12</span></button>
+      <button>All Files <span style="opacity:.6">·87</span></button>
+      <button>Ungrouped <span style="opacity:.6">·23</span></button>
+    </div>
+    <input class="grow" placeholder="Search title, folder, file name…" />
+    <select><option>All extensions</option><option>.3mf</option><option>.stl</option><option>.step</option><option>.zip</option></select>
+    <span class="chip-filter recent active">⟳ Modified &lt;7d</span>
+    <span class="chip-filter">All stages</span>
+    <span class="chip-filter warn">⚠ Has warnings</span>
+  </div>
+</div>
+
+<!-- ====== Sticky bulk-action bar (shown when ≥1 row selected) ====== -->
+<div class="bulk-action-bar">
+  <span class="count">2 groups selected</span>
+  <button class="btn primary">Move selected files to group…</button>
+  <button class="btn">Reorganize selected groups</button>
+  <button class="btn">Set common stage…</button>
+  <div class="right">
+    <button class="btn icon-only">⋯</button>
+    <button class="btn">Clear</button>
+  </div>
+</div>
+
+<!-- ============ GROUPS ============ -->
+<div class="groups">
+
+  <!-- ======================== GROUP 1: Ready, primary 3mf, multiple variants ======================== -->
+  <article class="group-row" data-stage="ready_to_publish">
+    <span class="ribbon"></span>
+    <div class="group-header">
+      <div class="group-thumb">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="64" fill="#0f141c"/>
+          <polygon points="32,8 56,20 56,44 32,56 8,44 8,20" fill="#0d9488" opacity="0.85"/>
+          <polygon points="32,8 56,20 32,32 8,20" fill="#5eead4"/>
+          <polygon points="32,32 56,20 56,44 32,56" fill="#0d9488" opacity="0.55"/>
+        </svg>
+      </div>
+      <div class="group-meta">
+        <div class="group-title-row">
+          <span class="group-title">Gridfinity Holders v3</span>
+          <span class="folder-hint">/Model Working Files/gridfinity-holders-v3/</span>
+          <span class="stage-chip ready_to_publish">● Ready</span>
+        </div>
+        <div class="group-counts">
+          <span class="count" title="Model files (3MF + STL + STEP)">🧊 <span class="num">4</span> model</span>
+          <span class="count muted" title="Other supporting files">📄 <span class="num">3</span> other</span>
+          <span class="count" title="Linked archive prints">🖨 <span class="num">14</span> prints</span>
+        </div>
+      </div>
+      <div class="group-right">
+        <span class="updated"><strong>2h ago</strong> · holder_v3_final.3mf</span>
+        <button class="expander" title="Collapse">▼</button>
+      </div>
+    </div>
+
+    <div class="strip">
+      <div class="strip-head">
+        <span>Model files <span style="color:var(--text-secondary)">(.3mf priority)</span></span>
+        <span class="right">★ Primary marks the canonical variant</span>
+      </div>
+      <div class="file-rows">
+
+        <div class="file-row primary">
+          <span class="ext-icon x-3mf">3MF</span>
+          <span class="file-name" title="/Model Working Files/gridfinity-holders-v3/holder_v3_final.3mf">holder_v3_final.3mf</span>
+          <span class="file-num">12.4 MB</span>
+          <span class="file-num">2h ago<span class="sub">May 8 14:12</span></span>
+          <span class="primary-pill">★ Primary</span>
+          <span class="file-actions">
+            <button class="btn primary">🖨 Slicer</button>
+            <button class="btn icon-only" title="More">⋯</button>
+          </span>
+        </div>
+
+        <div class="file-row">
+          <span class="ext-icon x-3mf">3MF</span>
+          <span class="file-name">holder_v3_draft.3mf</span>
+          <span class="file-num">11.8 MB</span>
+          <span class="file-num">3d ago<span class="sub">May 5 09:44</span></span>
+          <button class="set-primary" title="Mark as primary">Make primary</button>
+          <span class="file-actions">
+            <button class="btn primary">🖨 Slicer</button>
+            <button class="btn icon-only">⋯</button>
+          </span>
+        </div>
+
+        <div class="file-row">
+          <span class="ext-icon x-3mf">3MF</span>
+          <span class="file-name">holder_v2_legacy.3mf</span>
+          <span class="file-num">9.1 MB</span>
+          <span class="file-num">2w ago<span class="sub">Apr 24 18:02</span></span>
+          <button class="set-primary">Make primary</button>
+          <span class="file-actions">
+            <button class="btn primary">🖨 Slicer</button>
+            <button class="btn icon-only">⋯</button>
+          </span>
+        </div>
+
+        <div class="file-row">
+          <span class="ext-icon x-stl">STL</span>
+          <span class="file-name">holder_base.stl</span>
+          <span class="file-num">3.4 MB</span>
+          <span class="file-num">3w ago<span class="sub">Apr 17 11:08</span></span>
+          <span></span>
+          <span class="file-actions">
+            <button class="btn icon-only">⋯</button>
+          </span>
+        </div>
+
+      </div>
+
+      <div class="other-strip">
+        <div class="other-head">
+          <span>Other files (3)</span>
+          <span style="color:var(--text-secondary); font-weight:600; cursor:pointer;">Show all ▾</span>
+        </div>
+        <div class="other-chips">
+          <span class="other-chip">notes.md <span class="ext-mini">· 4 KB · 2h ago</span></span>
+          <span class="other-chip">render.png <span class="ext-mini">· 820 KB · 1w ago</span></span>
+          <span class="other-chip">dimensions.svg <span class="ext-mini">· 12 KB · 3w ago</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary">📁 Open Folder</button>
+      <button class="btn">↻ Reorganize</button>
+      <button class="btn">+ Add Files</button>
+      <button class="btn icon-only" title="More group actions">⋯</button>
+      <span class="spacer"></span>
+      <label class="bulk-select"><input type="checkbox" checked /> Select group for bulk action</label>
+    </div>
+    <div class="annot">
+      <strong>Anatomy note</strong> · This row demonstrates the full expanded state with a primary <code>.3mf</code> highlighted, two `Make primary` candidates, an STL, and a collapsed-by-default Other-files chip row. The right-rail "<strong>2h ago · holder_v3_final.3mf</strong>" comes from <code>group.last_file_mtime</code> (proposed) — it tells the user what was last touched without scanning every file row.
+    </div>
+  </article>
+
+  <!-- ======================== GROUP 2: In progress, multi-group memberships ======================== -->
+  <article class="group-row" data-stage="in_progress">
+    <span class="ribbon"></span>
+    <div class="group-header">
+      <div class="group-thumb">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="64" fill="#10151d"/>
+          <rect x="14" y="18" width="36" height="34" rx="3" fill="#fb923c"/>
+          <rect x="14" y="18" width="36" height="10" fill="#fdba74"/>
+          <circle cx="32" cy="35" r="6" fill="#0f141c"/>
+        </svg>
+      </div>
+      <div class="group-meta">
+        <div class="group-title-row">
+          <span class="group-title">Filament Spool Hub — 1kg + 250g insert</span>
+          <span class="folder-hint">/Model Working Files/spool-hub-remix/</span>
+          <span class="stage-chip in_progress">● In Progress</span>
+        </div>
+        <div class="group-counts">
+          <span class="count">🧊 <span class="num">2</span> model</span>
+          <span class="count muted">📄 <span class="num">1</span> other</span>
+          <span class="count">🖨 <span class="num">3</span> prints</span>
+        </div>
+      </div>
+      <div class="group-right">
+        <span class="updated"><strong>just now</strong> · spool_hub_v2.3mf</span>
+        <button class="expander" title="Collapse">▼</button>
+      </div>
+    </div>
+
+    <div class="strip">
+      <div class="strip-head">
+        <span>Model files</span>
+        <span class="right">⚠ <span style="color:#fca5a5">spool_hub_v1 has warnings</span></span>
+      </div>
+      <div class="file-rows">
+
+        <div class="file-row primary">
+          <span class="ext-icon x-3mf">3MF</span>
+          <span class="file-name">spool_hub_v2.3mf</span>
+          <span class="file-num">8.7 MB</span>
+          <span class="file-num">just now<span class="sub">May 8 16:41</span></span>
+          <span class="primary-pill">★ Primary</span>
+          <span class="file-actions">
+            <button class="btn primary">🖨 Slicer</button>
+            <button class="btn icon-only">⋯</button>
+          </span>
+        </div>
+
+        <div class="file-row">
+          <span class="ext-icon x-3mf" style="background:rgba(248,113,113,0.14); color:#fca5a5; border-color:rgba(248,113,113,0.32);">3MF</span>
+          <span class="file-name" style="color:#fecaca;">spool_hub_v1.3mf <span style="font-size:10px; color:#fca5a5; font-weight:600; margin-left:6px;">⚠ MISSING_TEXTURE</span></span>
+          <span class="file-num">7.9 MB</span>
+          <span class="file-num">5d ago<span class="sub">May 3 22:14</span></span>
+          <button class="set-primary">Make primary</button>
+          <span class="file-actions">
+            <button class="btn primary">🖨 Slicer</button>
+            <button class="btn icon-only">⋯</button>
+          </span>
+        </div>
+
+      </div>
+
+      <div class="other-strip">
+        <div class="other-head"><span>Other files (1)</span></div>
+        <div class="other-chips">
+          <span class="other-chip">remix-source.url <span class="ext-mini">· 1 KB · 5d ago</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary">📁 Open Folder</button>
+      <button class="btn">↻ Reorganize</button>
+      <button class="btn">+ Add Files</button>
+      <button class="btn">↗ Promote to Ready</button>
+      <button class="btn icon-only">⋯</button>
+      <span class="spacer"></span>
+      <label class="bulk-select"><input type="checkbox" /> Select group for bulk action</label>
+    </div>
+    <div class="annot">
+      <strong>Validation</strong> · The file row inherits <code>files[].validation_state</code> + <code>warnings[]</code> from the existing payload — a non-clean file gets a red ext-icon, an inline warning code, and (out of frame) a tooltip with the full validation message. The toolbar's <code>⚠ Has warnings</code> chip filters down to groups containing any non-clean file.
+    </div>
+  </article>
+
+  <!-- ======================== GROUP 3: Draft, single 3mf, collapsed strip preview ======================== -->
+  <article class="group-row" data-stage="draft">
+    <span class="ribbon"></span>
+    <div class="group-header">
+      <div class="group-thumb">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="64" fill="#10151d"/>
+          <rect x="12" y="14" width="40" height="36" rx="2" fill="#475569"/>
+          <rect x="12" y="14" width="40" height="6" fill="#64748b"/>
+          <text x="32" y="38" text-anchor="middle" font-family="ui-monospace" font-size="9" fill="#cbd5e1">.STEP</text>
+        </svg>
+      </div>
+      <div class="group-meta">
+        <div class="group-title-row">
+          <span class="group-title">Vacuum Adapter — Festool to Bambu</span>
+          <span class="folder-hint">/Model Working Files/vacuum-adapter-festool/</span>
+          <span class="stage-chip draft">● Draft</span>
+        </div>
+        <div class="group-counts">
+          <span class="count">🧊 <span class="num">2</span> model</span>
+          <span class="count muted">📄 <span class="num">0</span> other</span>
+          <span class="count muted">🖨 <span class="num">0</span> prints</span>
+        </div>
+      </div>
+      <div class="group-right">
+        <span class="updated"><strong>1h ago</strong> · adapter_revB.step</span>
+        <button class="expander" title="Collapse">▼</button>
+      </div>
+    </div>
+
+    <div class="strip">
+      <div class="strip-head">
+        <span>Model files</span>
+        <span class="right">No primary set</span>
+      </div>
+      <div class="file-rows">
+        <div class="file-row">
+          <span class="ext-icon x-step">STEP</span>
+          <span class="file-name">adapter_revB.step</span>
+          <span class="file-num">8.1 MB</span>
+          <span class="file-num">1h ago<span class="sub">May 8 15:30</span></span>
+          <span></span>
+          <span class="file-actions">
+            <button class="btn icon-only" title="STEP cannot launch slicer directly">⋯</button>
+          </span>
+        </div>
+        <div class="file-row">
+          <span class="ext-icon x-stl">STL</span>
+          <span class="file-name">adapter_revA.stl</span>
+          <span class="file-num">2.1 MB</span>
+          <span class="file-num">1d ago<span class="sub">May 7 11:08</span></span>
+          <button class="set-primary">Make primary</button>
+          <span class="file-actions">
+            <button class="btn icon-only">⋯</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary">📁 Open Folder</button>
+      <button class="btn">↻ Reorganize</button>
+      <button class="btn">+ Add Files</button>
+      <button class="btn icon-only">⋯</button>
+      <span class="spacer"></span>
+      <label class="bulk-select"><input type="checkbox" /> Select group for bulk action</label>
+    </div>
+  </article>
+
+  <!-- ======================== GROUP 4: Collapsed-default state ======================== -->
+  <article class="group-row collapsed" data-stage="ready_to_publish">
+    <span class="ribbon"></span>
+    <div class="group-header">
+      <div class="group-thumb">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="64" fill="#0f141c"/>
+          <polygon points="32,12 50,22 50,42 32,52 14,42 14,22" fill="#475569"/>
+          <polygon points="32,12 50,22 32,32 14,22" fill="#94a3b8"/>
+        </svg>
+      </div>
+      <div class="group-meta">
+        <div class="group-title-row">
+          <span class="group-title">Hex Tile Set — Killteam Board</span>
+          <span class="folder-hint">/Model Working Files/hex-tile-killteam/</span>
+          <span class="stage-chip ready_to_publish">● Ready</span>
+        </div>
+        <div class="group-counts">
+          <span class="count">🧊 <span class="num">7</span> model</span>
+          <span class="count muted">📄 <span class="num">12</span> other</span>
+          <span class="count">🖨 <span class="num">38</span> prints</span>
+        </div>
+      </div>
+      <div class="group-right">
+        <span class="updated"><strong>1mo ago</strong> · tile_floor_03.3mf</span>
+        <button class="expander" title="Expand">▶</button>
+      </div>
+    </div>
+    <div class="annot">
+      <strong>Collapsed state</strong> · Header alone is enough to recognise the group; click the chevron (or anywhere on the header) to expand the inline file strip. Groups with low recent activity (mtime &gt; 30d) collapse by default to keep the active set above the fold.
+    </div>
+  </article>
+
+</div>
+
+<div class="footnote">
+  Mockup data is illustrative. Real fields originate from <code>GET /api/working-files/explorer?view=groups</code> in
+  <a href="../../../../sidecars/model_catalog/app/routers/working.py">sidecars/model_catalog/app/routers/working.py</a>.
+  Backend additions required to render every element shown here are itemised in
+  <a href="../working-files-card-design.md">working-files-card-design.md §2.2</a>; nothing in this view depends on Layer 1
+  (<code>sensor.print_history_archives</code>) per the repo layering guardrail.
+</div>
+
+</body>
+</html>

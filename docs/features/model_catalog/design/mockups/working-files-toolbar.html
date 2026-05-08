@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Working Files · Toolbar / header mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28, 33, 42, 0.92);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --primary-amber: #f5c242;
+    --warn: #fca5a5;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1320px; margin: 0 auto 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 760px; line-height: 1.55; }
+  .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav a, .nav span.sep { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .nav span.sep { border: none; background: transparent; padding: 0 4px; color: var(--text-muted); }
+  .nav a.active.accent { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.06); }
+
+  .scenario { max-width: 1320px; margin: 28px auto 0; }
+  .scenario h2 { font-size: 14px; font-weight: 700; color: var(--text); margin: 0 0 6px; letter-spacing: 0.01em; }
+  .scenario p.lead { color: var(--text-secondary); font-size: 12px; margin: 0 0 12px; line-height: 1.5; }
+
+  .toolbar-shell { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px dashed var(--border); }
+  .title-row strong { font-size: 17px; font-weight: 800; }
+  .title-row .subtitle { font-size: 12px; color: var(--text-muted); margin-left: 10px; }
+  .title-row .right { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .indexed-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .indexed-pill.warn { background: rgba(245,158,11,0.10); border-color: rgba(252,211,77,0.32); color: #fde68a; }
+  .indexed-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; opacity: 0.85; }
+  .icon-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .15s ease, color .15s ease; }
+  .icon-btn:hover { background: rgba(255,255,255,0.10); color: var(--text); }
+  .icon-btn.toggle.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .inline-sort { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); }
+  .inline-sort label { font-size: 10px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
+  .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+  .reindex-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; background: rgba(94,234,212,0.10); border: 1px solid rgba(94,234,212,0.32); color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .reindex-btn:hover { background: rgba(94,234,212,0.18); }
+
+  .filterbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 18px; border-bottom: 1px dashed var(--border); }
+  .seg { display: inline-flex; padding: 2px; background: rgba(15,19,26,0.6); border: 1px solid var(--border); border-radius: 999px; }
+  .seg button { background: transparent; border: 0; color: var(--text-secondary); padding: 5px 14px; font-size: 12px; font-weight: 700; border-radius: 999px; cursor: pointer; min-height: 26px; }
+  .seg button.active { background: rgba(94,234,212,0.14); color: var(--accent); }
+  .filterbar .grow { flex: 1; min-width: 200px; }
+  .filterbar select, .filterbar input { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 12px; min-height: 32px; }
+  .chip-filter { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; }
+  .chip-filter.active.recent { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .chip-filter.active.warn { background: rgba(248,113,113,0.14); border-color: rgba(248,113,113,0.32); color: var(--warn); }
+  .chip-filter.active.group { background: rgba(96,165,250,0.14); border-color: rgba(96,165,250,0.32); color: var(--accent-blue); }
+  .chip-filter.active.stage { background: rgba(245,194,66,0.14); border-color: rgba(245,194,66,0.32); color: var(--primary-amber); }
+
+  .page-strip { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 10px 16px; font-size: 12px; color: var(--text-secondary); }
+  .page-strip select, .page-strip button { background: rgba(255,255,255,0.04); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
+
+  .legend { max-width: 1320px; margin: 30px auto 0; padding: 16px 18px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); }
+  .legend h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+  .legend table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .legend th { text-align: left; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .legend td { padding: 8px; vertical-align: top; border-bottom: 1px solid rgba(148,163,184,0.06); color: var(--text-secondary); }
+  .legend td code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; color: var(--text); }
+  .legend td strong { color: var(--text); }
+
+  .annot { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(96,165,250,0.06); border: 1px solid rgba(96,165,250,0.22); font-size: 11.5px; color: #cbd5e1; line-height: 1.5; }
+  .annot strong { color: var(--accent-blue); letter-spacing: 0.03em; text-transform: uppercase; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Working Files · Toolbar / header redesign</h1>
+    <p>Three-row stack mirroring the Catalog Browser toolbar (issue #1216) so users moving between Catalog and Working Files don't relearn controls. Adds Working-Files-specific controls: <strong>Indexed pill + Reindex button</strong>, <strong>segmented view tabs</strong>, and new chips for <code>Modified &lt;7d</code> and <code>Has warnings</code>. See <a href="../working-files-card-design.md" style="color:var(--accent)">working-files-card-design.md §5</a>.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">← Index</a>
+    <span class="sep">|</span>
+    <a href="working-files-groups.html">Groups</a>
+    <a href="working-files-files.html">Files</a>
+    <a class="active accent" href="working-files-toolbar.html">Toolbar</a>
+    <span class="sep">|</span>
+    <a href="../working-files-card-design.md">Design doc</a>
+  </div>
+</div>
+
+<!-- ============== Scenario A: default Groups view ============== -->
+<section class="scenario">
+  <h2>A · Default state · Groups view</h2>
+  <p class="lead">Page lands here. Indexed pill is healthy. Sort defaults to <strong>Recently modified</strong> so the active set sits at the top. View tabs collapse to a tight segmented control to free toolbar real estate vs the legacy three-pill layout.</p>
+  <div class="toolbar-shell">
+    <div class="title-row">
+      <div>
+        <strong>Working Files</strong>
+        <span class="subtitle">Root: <code style="color:var(--text-secondary);">/assets/Model Working Files</code></span>
+      </div>
+      <div class="right">
+        <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
+        <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Title A→Z</option><option>Most files</option><option>Stage (Draft → Ready)</option></select></span>
+        <button class="reindex-btn" title="Re-scan filesystem and rebuild inventory">⟳ Reindex</button>
+        <button class="icon-btn toggle active" title="Show thumbnails">🖼</button>
+        <button class="icon-btn" title="Collapse all groups">⮟</button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="seg">
+        <button class="active">Groups <span style="opacity:.6">·12</span></button>
+        <button>All Files <span style="opacity:.6">·87</span></button>
+        <button>Ungrouped <span style="opacity:.6">·23</span></button>
+      </div>
+      <input class="grow" placeholder="Search title, folder, file name…" />
+      <select><option>All extensions</option><option>.3mf</option><option>.stl</option><option>.step</option></select>
+      <span class="chip-filter">All stages</span>
+      <span class="chip-filter">⟳ Modified &lt;7d</span>
+      <span class="chip-filter">⚠ Has warnings</span>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Anatomy</strong> · Title row left = brand + working-root subtitle (replaces the standalone <em>Refresh</em> button from the legacy card). Title row right = state-of-the-index pill, then sort, then primary action (Reindex), then display toggles. Filter row left = segmented view tabs (always visible), then search (flex), then dropdown filter, then quick-chip filters.
+  </div>
+</section>
+
+<!-- ============== Scenario B: index degraded ============== -->
+<section class="scenario">
+  <h2>B · Degraded state · Indexed pill warns when a reindex is overdue</h2>
+  <p class="lead">When <code>summary.last_indexed_at</code> exceeds a configurable threshold (default: 1 day) the pill turns amber and a hint appears next to the Reindex button. Surfaces a recurring source of confusion ("the file I just saved isn't here") without requiring an explicit alert.</p>
+  <div class="toolbar-shell">
+    <div class="title-row">
+      <div>
+        <strong>Working Files</strong>
+        <span class="subtitle">Root: <code style="color:var(--text-secondary);">/assets/Model Working Files</code></span>
+      </div>
+      <div class="right">
+        <span class="indexed-pill warn"><span class="dot"></span>Indexed 2d ago · stale</span>
+        <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option></select></span>
+        <button class="reindex-btn" style="background:rgba(245,158,11,0.14); border-color:rgba(252,211,77,0.32); color:#fde68a;">⟳ Reindex now</button>
+        <button class="icon-btn toggle active">🖼</button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="seg">
+        <button class="active">Groups <span style="opacity:.6">·12</span></button>
+        <button>All Files <span style="opacity:.6">·87</span></button>
+        <button>Ungrouped <span style="opacity:.6">·23</span></button>
+      </div>
+      <input class="grow" placeholder="Search title, folder, file name…" />
+      <select><option>All extensions</option></select>
+      <span class="chip-filter">All stages</span>
+      <span class="chip-filter">⟳ Modified &lt;7d</span>
+      <span class="chip-filter">⚠ Has warnings</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Scenario C: filter chips active ============== -->
+<section class="scenario">
+  <h2>C · Active filters · Multi-chip state with paginated Files view</h2>
+  <p class="lead">All Files tab active, three chips lit, group-membership chip pinned via click-from-row. Page strip appears below the filter bar (only when result count exceeds <code>per_page</code>). Pagination layout matches the Catalog list view so muscle memory transfers.</p>
+  <div class="toolbar-shell">
+    <div class="title-row">
+      <div>
+        <strong>Working Files</strong>
+        <span class="subtitle">87 files indexed across 12 groups · 23 ungrouped</span>
+      </div>
+      <div class="right">
+        <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
+        <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Name A→Z</option><option>Largest first</option><option>Most groups</option></select></span>
+        <button class="reindex-btn">⟳ Reindex</button>
+        <button class="icon-btn toggle active">🖼</button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="seg">
+        <button>Groups <span style="opacity:.6">·12</span></button>
+        <button class="active">All Files <span style="opacity:.6">·87</span></button>
+        <button>Ungrouped <span style="opacity:.6">·23</span></button>
+      </div>
+      <input class="grow" value="holder" />
+      <select><option>.3mf</option></select>
+      <span class="chip-filter active stage">● Stage: Ready ✕</span>
+      <span class="chip-filter active group">📂 Group: Gridfinity Holders v3 ✕</span>
+      <span class="chip-filter active recent">⟳ Modified &lt;7d ✕</span>
+      <span class="chip-filter active warn">⚠ Has warnings ✕</span>
+    </div>
+    <div class="page-strip">
+      <button>« First</button>
+      <button>‹ Prev</button>
+      <span style="margin: 0 10px;">Page <strong style="color:var(--text);">1</strong> of 4 · <strong style="color:var(--text);">25</strong> of 87</span>
+      <button>Next ›</button>
+      <button>Last »</button>
+      <span style="margin-left: 18px; color: var(--text-muted);">Per page</span>
+      <select><option>25</option><option>50</option></select>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Chip dismissal</strong> · Each active chip shows an inline ✕ for one-click removal (matches Catalog Browser pattern). The Group chip is added via clicking a <code>group-chip</code> in any Files-view row — this is the cross-link that makes "show me everything in group X" a single click instead of a tab+filter dance.
+  </div>
+</section>
+
+<!-- ============== Scenario D: ungrouped focused ============== -->
+<section class="scenario">
+  <h2>D · Ungrouped tab · Triage-focused defaults</h2>
+  <p class="lead">When the Ungrouped tab is active the toolbar hints at the recommended action — there's a visible "+ Group selected" CTA in the title row that lights up with the bulk-action bar from <a href="working-files-files.html" style="color:var(--accent)">Files view</a>. Sort default is <strong>Recently modified</strong> so freshly-arrived files are prominent.</p>
+  <div class="toolbar-shell">
+    <div class="title-row">
+      <div>
+        <strong>Working Files</strong>
+        <span class="subtitle">23 files awaiting group assignment</span>
+      </div>
+      <div class="right">
+        <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
+        <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Name A→Z</option><option>Largest first</option></select></span>
+        <button class="reindex-btn">⟳ Reindex</button>
+        <button class="icon-btn" title="New group from selection">＋</button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="seg">
+        <button>Groups <span style="opacity:.6">·12</span></button>
+        <button>All Files <span style="opacity:.6">·87</span></button>
+        <button class="active">Ungrouped <span style="opacity:.6">·23</span></button>
+      </div>
+      <input class="grow" placeholder="Search ungrouped file name…" />
+      <select><option>All extensions</option><option>.3mf</option><option>.stl</option><option>.step</option><option>.zip</option></select>
+      <span class="chip-filter active recent">⟳ Modified &lt;7d</span>
+      <span class="chip-filter">⚠ Has warnings</span>
+      <span class="chip-filter">🗂 In _inbox/</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Legend ============== -->
+<div class="legend">
+  <h3>Toolbar control reference</h3>
+  <table>
+    <thead>
+      <tr><th style="width:240px;">Control</th><th>Behaviour</th><th style="width:280px;">Backed by</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Indexed pill</strong></td><td>Shows time since last reindex. Turns amber when stale (configurable threshold, default 24h).</td><td><code>summary.last_indexed_at</code> (proposed)</td></tr>
+      <tr><td><strong>Reindex button</strong></td><td>Always issues <code>forceReindex: true</code>. Single-action replacement for the legacy <em>Refresh</em> button.</td><td><code>working_files/reindex</code> rest_command</td></tr>
+      <tr><td><strong>Inline sort dropdown</strong></td><td>Sort options vary per active view tab — see design doc §5.3.</td><td>card local UI state (no backend change)</td></tr>
+      <tr><td><strong>Show thumbnails toggle</strong></td><td>Off → row height drops from ~96px to ~56px; group thumb collapses to 16px badge for high-density scanning.</td><td>card local UI state</td></tr>
+      <tr><td><strong>Collapse / Expand all</strong></td><td>Toggles every Groups-view row's expanded state in one click.</td><td>card local UI state</td></tr>
+      <tr><td><strong>Segmented view tabs</strong></td><td>Replaces the legacy three pill buttons with a tighter segmented control. Active tab drives sort options + filter chip set.</td><td><code>view</code> query param on explorer endpoint</td></tr>
+      <tr><td><strong>Search input</strong></td><td>Free-text match against title, folder hint, and file name (depending on active view).</td><td><code>search</code> query param (existing)</td></tr>
+      <tr><td><strong>Extension filter</strong></td><td>Single-select dropdown over distinct extensions in the inventory.</td><td><code>file_extension</code> on file rows</td></tr>
+      <tr><td><strong>Modified &lt;7d chip</strong></td><td>Quick filter for files whose <code>source_mtime</code> is within the last 7 days.</td><td><code>source_mtime</code> (existing)</td></tr>
+      <tr><td><strong>Has warnings chip</strong></td><td>Filters to files where <code>validation_state != 'ok'</code> or <code>warnings[]</code> non-empty.</td><td><code>validation_state</code> + <code>warnings</code> (existing)</td></tr>
+      <tr><td><strong>Group filter chip</strong></td><td>Auto-pinned by clicking a group-membership chip in any Files-view row. Dismiss inline with ✕.</td><td><code>group_memberships[]</code> (existing)</td></tr>
+      <tr><td><strong>Stage filter chip</strong></td><td>Multi-state cycle: All stages → Draft → In Progress → Ready → All stages.</td><td><code>group.stage</code> (existing)</td></tr>
+      <tr><td><strong>Page-control strip</strong></td><td>Renders only when the active view returns more than <code>per_page</code> rows. Same controls as Catalog list view.</td><td><code>page</code> + <code>per_page</code> query params</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>
