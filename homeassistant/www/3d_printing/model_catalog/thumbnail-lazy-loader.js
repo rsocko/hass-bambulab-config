@@ -22,6 +22,24 @@ export const THUMBNAIL_LAZY_CONFIG = {
 // In-memory thumbnail cache (URL -> blob)
 const thumbnailCache = new Map();
 
+// Persistent object-URL cache (URL -> object URL string).
+// Lets re-renders set <img src> synchronously and avoid the blank/flash gap
+// while the observer would otherwise re-fetch (even on memory-cache hits).
+const thumbnailObjectUrlCache = new Map();
+
+/**
+ * Get a previously resolved object URL for a lazy thumbnail URL, if one
+ * has already been fetched and decoded in this session. Returns null if not
+ * yet cached.
+ *
+ * @param {string} thumbnailLazyUrl
+ * @returns {string|null}
+ */
+export function getCachedThumbnailObjectUrl(thumbnailLazyUrl) {
+  if (!thumbnailLazyUrl) return null;
+  return thumbnailObjectUrlCache.get(thumbnailLazyUrl) || null;
+}
+
 /**
  * Fetch a thumbnail image from the lazy-load URL.
  * 
@@ -166,9 +184,17 @@ export function setupThumbnailLazyObserver(config = {}) {
         const url = img.getAttribute(attrName);
         if (!url || img.src) continue; // Already loaded
 
-        const blob = await fetchThumbnailImage(url);
-        if (blob) {
-          img.src = getBlobUrl(blob);
+        // Use cached object URL if available to avoid re-creating one per render.
+        let objectUrl = thumbnailObjectUrlCache.get(url) || null;
+        if (!objectUrl) {
+          const blob = await fetchThumbnailImage(url);
+          if (blob) {
+            objectUrl = getBlobUrl(blob);
+            thumbnailObjectUrlCache.set(url, objectUrl);
+          }
+        }
+        if (objectUrl) {
+          img.src = objectUrl;
           // Remove the data attribute to prevent re-fetching
           img.removeAttribute(attrName);
         }

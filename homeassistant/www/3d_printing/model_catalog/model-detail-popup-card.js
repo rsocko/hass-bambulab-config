@@ -23,7 +23,7 @@
  * ```
  */
 
-import { setupThumbnailLazyObserver, addShimmerAnimation } from './thumbnail-lazy-loader.js';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js';
 
 class ModelDetailPopupCard extends HTMLElement {
   constructor() {
@@ -1011,13 +1011,22 @@ class ModelDetailPopupCard extends HTMLElement {
       : "Uncategorized";
     const keywords = model.keywords || [];
     const headerThumbnailUrl = this._headerThumbnailUrl(model);
-    const thumbnailHtml = headerThumbnailUrl
-      ? (
-        this._isThumbnailLazyEndpoint(headerThumbnailUrl)
-          ? `<img data-thumbnail-lazy-url="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`
-          : `<img src="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`
-      )
-      : '<ha-icon icon="mdi:cube-outline"></ha-icon>';
+    let thumbnailHtml;
+    if (headerThumbnailUrl) {
+      if (this._isThumbnailLazyEndpoint(headerThumbnailUrl)) {
+        // Reuse a previously resolved object URL when available so re-renders do not flash.
+        const cachedObjectUrl = getCachedThumbnailObjectUrl(headerThumbnailUrl);
+        if (cachedObjectUrl) {
+          thumbnailHtml = `<img src="${this._escapeHtml(cachedObjectUrl)}" alt="Model preview" loading="lazy">`;
+        } else {
+          thumbnailHtml = `<img data-thumbnail-lazy-url="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`;
+        }
+      } else {
+        thumbnailHtml = `<img src="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`;
+      }
+    } else {
+      thumbnailHtml = '<ha-icon icon="mdi:cube-outline"></ha-icon>';
+    }
     
     return `
       <div class="popup-header">

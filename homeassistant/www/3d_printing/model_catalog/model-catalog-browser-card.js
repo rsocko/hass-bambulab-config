@@ -1,4 +1,4 @@
-import { setupThumbnailLazyObserver, addShimmerAnimation } from './thumbnail-lazy-loader.js';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js';
 
 class ModelCatalogBrowserCard extends HTMLElement {
   constructor() {
@@ -968,7 +968,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var previewHtml = mediaUrl
       ? (
         this._isThumbnailLazyEndpoint(mediaUrl)
-          ? '<img data-thumbnail-lazy-url="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy">'
+          ? (function () {
+              // If a previous fetch resolved this lazy URL in-session, render with src
+              // immediately so re-renders don't show a blank flash before the observer reattaches.
+              var cachedObjectUrl = getCachedThumbnailObjectUrl(String(mediaUrl));
+              if (cachedObjectUrl) {
+                return '<img src="' + this._escapeHtml(String(cachedObjectUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy">';
+              }
+              return '<img data-thumbnail-lazy-url="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy">';
+            }).call(this)
           : '<img src="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview">'
       )
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
