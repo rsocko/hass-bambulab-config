@@ -23,7 +23,7 @@
  * ```
  */
 
-import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
 
 class ModelDetailPopupCard extends HTMLElement {
   constructor() {
