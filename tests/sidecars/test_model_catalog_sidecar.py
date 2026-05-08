@@ -875,6 +875,355 @@ def test_geometry_endpoint_rejects_overly_complex_3mf(tmp_path: Path, monkeypatc
     assert payload["max_server_side_triangles"] == models_router.MAX_SERVER_SIDE_3MF_TRIANGLES
 
 
+def test_apply_geometry_lod_low_decimates_to_target_triangles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Forced lod=low decimates a high-triangle mesh to the configured low budget."""
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    monkeypatch.setattr(models_router, "GEOMETRY_LOD_TRIANGLE_LIMITS", {"low": 4, "medium": 8})
+
+    vertices: list[float] = []
+    for triangle_index in range(20):
+        base = float(triangle_index)
+        vertices.extend([
+            base, 0.0, 0.0,
+            base + 1.0, 0.0, 0.0,
+            base, 1.0, 0.0,
+        ])
+
+    geometry_payload: dict[str, Any] = {
+        "format": "triangles",
+        "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
+        "triangle_count": 20,
+        "vertices": vertices,
+        "groups": [],
+        "dimensions_mm": {"x": 20.0, "y": 1.0, "z": 0.0},
+        "plates": [],
+        "selected_plate_id": None,
+        "color_info": {"available": False, "mode": "unavailable", "palette": []},
+    }
+
+    output, requested, applied, simplified = models_router._apply_geometry_lod(
+        geometry_payload, "low"
+    )
+
+    assert requested == "low"
+    assert applied == "low"
+    assert simplified is True
+    assert output["triangle_count"] == 4
+    assert len(output["vertices"]) == 4 * 9
+    assert output["lod"]["rendered_triangle_count"] == 4
+    assert output["lod"]["source_triangle_count"] == 20
+
+
+def test_apply_geometry_lod_full_returns_unchanged_geometry() -> None:
+    """Forced lod=full preserves source vertices and reports simplified=False."""
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    vertices = [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
+    geometry_payload: dict[str, Any] = {
+        "format": "triangles",
+        "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
+        "triangle_count": 1,
+        "vertices": list(vertices),
+        "groups": [],
+        "dimensions_mm": {"x": 10.0, "y": 20.0, "z": 0.0},
+        "plates": [],
+        "selected_plate_id": None,
+        "color_info": {"available": False, "mode": "unavailable", "palette": []},
+    }
+
+    output, requested, applied, simplified = models_router._apply_geometry_lod(
+        geometry_payload, "full"
+    )
+
+    assert requested == "full"
+    assert applied == "full"
+    assert simplified is False
+    assert output["vertices"] == vertices
+    assert output["lod"]["simplified"] is False
+    assert output["lod"]["rendered_triangle_count"] == 1
+
+
+def test_apply_geometry_lod_auto_below_low_threshold_returns_full() -> None:
+    """Auto-LOD on a small mesh (under low budget) falls through to full geometry."""
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    vertices = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    geometry_payload: dict[str, Any] = {
+        "format": "triangles",
+        "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
+        "triangle_count": 1,
+        "vertices": list(vertices),
+        "groups": [],
+        "dimensions_mm": {"x": 1.0, "y": 1.0, "z": 0.0},
+        "plates": [],
+        "selected_plate_id": None,
+        "color_info": {"available": False, "mode": "unavailable", "palette": []},
+    }
+
+    output, requested, applied, simplified = models_router._apply_geometry_lod(
+        geometry_payload, "auto"
+    )
+
+    assert requested == "auto"
+    assert applied == "full"
+    assert simplified is False
+    assert output["lod"]["source_triangle_count"] == 1
+    assert output["lod"]["rendered_triangle_count"] == 1
+
+
+def test_apply_geometry_lod_auto_picks_medium_between_thresholds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auto-LOD picks medium when source exceeds low but stays under medium threshold."""
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    monkeypatch.setattr(models_router, "GEOMETRY_LOD_TRIANGLE_LIMITS", {"low": 4, "medium": 16})
+
+    vertices: list[float] = []
+    for triangle_index in range(10):
+        base = float(triangle_index)
+        vertices.extend([
+            base, 0.0, 0.0,
+            base + 1.0, 0.0, 0.0,
+            base, 1.0, 0.0,
+        ])
+
+    geometry_payload: dict[str, Any] = {
+        "format": "triangles",
+        "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
+        "triangle_count": 10,
+        "vertices": vertices,
+        "groups": [],
+        "dimensions_mm": {"x": 10.0, "y": 1.0, "z": 0.0},
+        "plates": [],
+        "selected_plate_id": None,
+        "color_info": {"available": False, "mode": "unavailable", "palette": []},
+    }
+
+    output, requested, applied, simplified = models_router._apply_geometry_lod(
+        geometry_payload, "auto"
+    )
+
+    assert requested == "auto"
+    assert applied == "medium"
+    assert simplified is False  # 10 source triangles <= 16 medium target
+    assert output["triangle_count"] == 10
+
+
+def test_geometry_endpoint_rejects_oversize_3mf_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Local 3MF over MAX_SERVER_SIDE_3MF_BYTES returns a clear 422 size-guard payload."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    public_id = "oversize-local"
+    _insert_cached_summary(settings, public_id=public_id, model_url=f"local://{public_id}")
+
+    asset_path = tmp_path / "huge.3mf"
+    asset_path.write_bytes(b"\x00" * 4096)
+
+    monkeypatch.setattr(models_router, "MAX_SERVER_SIDE_3MF_BYTES", 1024)
+
+    class _FakeAsset:
+        asset_filename = "huge.3mf"
+        asset_type = "3mf"
+
+    monkeypatch.setattr(
+        models_router,
+        "read_model_asset",
+        lambda *, db_path, local_model_id, asset_id: _FakeAsset(),
+    )
+    monkeypatch.setattr(
+        models_router,
+        "_resolve_local_asset_storage_path",
+        lambda *, settings, asset: asset_path,
+    )
+
+    app = create_app(settings=settings, manyfold_client=None)
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            f"/api/models/{public_id}/geometry/huge-asset?include_debug=true"
+        )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["error"] == "3MF package too large for server-side geometry extraction"
+    assert payload["package_size_bytes"] == 4096
+    assert payload["max_server_side_bytes"] == 1024
+
+
+def test_get_geometry_endpoint_emits_telemetry_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Successful geometry request emits a single structured telemetry log line."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(
+        settings, public_id="abc123", model_url="http://manyfold.test/models/abc123"
+    )
+    package_bytes = _build_simple_3mf()
+
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    def _fake_extract_3mf_geometry(
+        _package_bytes: bytes, plate_id: str | None = None
+    ) -> dict[str, Any]:
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": 1,
+            "vertices": [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 10.0, "y": 20.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": None,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, _model_ref: str) -> list[dict[str, Any]]:
+            return [
+                {
+                    "id": "file123",
+                    "filename": "demo.3mf",
+                    "file_type": "model/3mf",
+                    "contentUrl": "http://manyfold.test/files/file123",
+                }
+            ]
+
+        def get_model_file_detail(self, _file_id: str, model_ref: str) -> dict[str, Any]:
+            return {"contentUrl": "http://manyfold.test/files/file123"}
+
+        def fetch_binary(self, _url: str) -> Any:
+            class _Response:
+                content = package_bytes
+
+            return _Response()
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+
+    with caplog.at_level(logging.INFO, logger="sidecars.model_catalog.app.routers.models"):
+        with TestClient(app) as test_client:
+            response = test_client.get(
+                "/api/models/abc123/geometry/file123?lod=auto&include_debug=true"
+            )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "processing_ms" in payload["_debug"]
+    assert payload["_debug"]["processing_ms"] >= 0.0
+
+    telemetry_records = [
+        record for record in caplog.records if record.message.startswith("geometry_request ")
+    ]
+    assert len(telemetry_records) == 1
+    msg = telemetry_records[0].getMessage()
+    for field in (
+        "model_ref=",
+        "file_id=",
+        "lod_requested=auto",
+        "lod_applied=full",
+        "simplified=False",
+        "source_triangles=1",
+        "rendered_triangles=1",
+        "cache_hit=",
+        "processing_ms=",
+        "status=200",
+        "outcome=ok",
+    ):
+        assert field in msg, f"missing telemetry field {field!r} in log: {msg}"
+
+
+def test_get_geometry_endpoint_telemetry_classifies_too_complex(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Complexity-422 response is classified as outcome=too_complex in telemetry."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(
+        settings, public_id="abc123", model_url="http://manyfold.test/models/abc123"
+    )
+    package_bytes = _build_simple_3mf()
+
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    def _fake_extract_3mf_geometry(
+        _package_bytes: bytes, plate_id: str | None = None
+    ) -> dict[str, Any]:
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": models_router.MAX_SERVER_SIDE_3MF_TRIANGLES + 1,
+            "vertices": [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 10.0, "y": 20.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": None,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, _model_ref: str) -> list[dict[str, Any]]:
+            return [
+                {
+                    "id": "file123",
+                    "filename": "huge.3mf",
+                    "file_type": "model/3mf",
+                    "contentUrl": "http://manyfold.test/files/file123",
+                }
+            ]
+
+        def get_model_file_detail(self, _file_id: str, model_ref: str) -> dict[str, Any]:
+            return {"contentUrl": "http://manyfold.test/files/file123"}
+
+        def fetch_binary(self, _url: str) -> Any:
+            class _Response:
+                content = package_bytes
+
+            return _Response()
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+
+    with caplog.at_level(logging.INFO, logger="sidecars.model_catalog.app.routers.models"):
+        with TestClient(app) as test_client:
+            response = test_client.get("/api/models/abc123/geometry/file123")
+
+    assert response.status_code == 422
+    telemetry_records = [
+        record for record in caplog.records if record.message.startswith("geometry_request ")
+    ]
+    assert len(telemetry_records) == 1
+    msg = telemetry_records[0].getMessage()
+    assert "status=422" in msg
+    assert "outcome=too_complex" in msg
+
+
 def test_geometry_endpoint_applies_3mf_build_transform(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

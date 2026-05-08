@@ -24,6 +24,7 @@ import base64
 import binascii
 import hashlib
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -121,6 +122,8 @@ from ..services.shared_helpers import (
 
 
 router = APIRouter(tags=["models"])
+
+logger = logging.getLogger(__name__)
 
 # ==================== CONSTANTS & HELPERS ====================
 
@@ -3101,7 +3104,122 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
+# Structured-telemetry field contract for `geometry_request` log records.
+# Fields are emitted as `key=value` pairs in a single INFO log line so they
+# can be grepped/aggregated without a structured-log backend. Field set is
+# stable and any new fields should be appended (do not rename or remove).
+GEOMETRY_TELEMETRY_FIELDS: tuple[str, ...] = (
+    "model_ref",
+    "file_id",
+    "lod_requested",
+    "lod_applied",
+    "simplified",
+    "source_triangles",
+    "rendered_triangles",
+    "package_size_bytes",
+    "cache_hit",
+    "processing_ms",
+    "status",
+    "outcome",
+)
+
+
+def _classify_geometry_outcome(status_code: int, error_text: str | None) -> str:
+    if status_code == 200:
+        return "ok"
+    text = (error_text or "").lower()
+    if status_code == 422 and "too large" in text:
+        return "too_large"
+    if status_code == 422 and "too complex" in text:
+        return "too_complex"
+    if status_code == 404 and "model" in text:
+        return "model_not_found"
+    if status_code == 404:
+        return "file_not_found"
+    if status_code >= 500:
+        return "error"
+    return "other"
+
+
 def get_geometry_endpoint(
+    request: Request,
+    model_ref: str,
+    file_id: str,
+    include_debug: bool = False,
+    plate_id: str | None = None,
+    lod: str | None = None,
+):
+    """Fetch 3D geometry file for 3D viewer (Phase 3.2).
+
+    Thin wrapper around `_get_geometry_endpoint_impl` that captures
+    per-request timing and emits a structured `geometry_request` INFO log
+    with the fields enumerated in `GEOMETRY_TELEMETRY_FIELDS`. When
+    `include_debug` is true, `processing_ms` is also injected into the
+    response `_debug` block for in-band diagnostics.
+    """
+    requested_lod = _normalize_geometry_lod(lod)
+    started_at = time.monotonic()
+    result = _get_geometry_endpoint_impl(
+        request,
+        model_ref=model_ref,
+        file_id=file_id,
+        include_debug=include_debug,
+        plate_id=plate_id,
+        lod=lod,
+    )
+    processing_ms = (time.monotonic() - started_at) * 1000.0
+
+    status_code = 200
+    body: Any = None
+    if isinstance(result, JSONResponse):
+        status_code = int(result.status_code or 500)
+        try:
+            body = json.loads(result.body)
+        except Exception:
+            body = None
+    elif isinstance(result, dict):
+        body = result
+
+    geometry: Any = body.get("geometry") if isinstance(body, dict) else None
+    lod_block: Any = geometry.get("lod") if isinstance(geometry, dict) else None
+    debug_block: Any = body.get("_debug") if isinstance(body, dict) else None
+    error_text = body.get("error") if isinstance(body, dict) else None
+
+    lod_applied = lod_block.get("applied") if isinstance(lod_block, dict) else None
+    simplified = lod_block.get("simplified") if isinstance(lod_block, dict) else None
+    source_triangles = lod_block.get("source_triangle_count") if isinstance(lod_block, dict) else None
+    rendered_triangles = lod_block.get("rendered_triangle_count") if isinstance(lod_block, dict) else None
+    cache_hit = debug_block.get("geometry_cache_hit") if isinstance(debug_block, dict) else None
+    package_size_bytes = body.get("package_size_bytes") if isinstance(body, dict) else None
+
+    outcome = _classify_geometry_outcome(status_code, str(error_text) if error_text else None)
+
+    logger.info(
+        "geometry_request "
+        "model_ref=%s file_id=%s lod_requested=%s lod_applied=%s simplified=%s "
+        "source_triangles=%s rendered_triangles=%s package_size_bytes=%s "
+        "cache_hit=%s processing_ms=%.1f status=%d outcome=%s",
+        model_ref,
+        file_id,
+        requested_lod,
+        lod_applied,
+        simplified,
+        source_triangles,
+        rendered_triangles,
+        package_size_bytes,
+        cache_hit,
+        processing_ms,
+        status_code,
+        outcome,
+    )
+
+    if include_debug and isinstance(result, dict) and isinstance(result.get("_debug"), dict):
+        result["_debug"]["processing_ms"] = round(processing_ms, 1)
+
+    return result
+
+
+def _get_geometry_endpoint_impl(
     request: Request,
     model_ref: str,
     file_id: str,
