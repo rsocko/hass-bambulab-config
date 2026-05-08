@@ -54,7 +54,8 @@ Model-catalog relevance
 
 ---
 
-### 2) Papa’s Best STL Thumbnails**Links:** [Official site](https://papasbesttools.com/) | [Windows Registry Documentation](https://papasbesttools.com/docs/)
+### 2) Papa's Best STL Thumbnails
+**Links:** [Official site](https://papas-best.com/) | [STL Thumbnails Page](https://papas-best.com/stlthumbnails_en)
 Summary
 - Windows shell extension for fast STL thumbnails in Explorer.
 
@@ -80,7 +81,7 @@ Model-catalog relevance
 ---
 
 ### 3) Maker Management Platform (MMP)
-**Links:** [GitHub Repository](https://github.com/mkwarbuton/MakerManagementPlatform) | [Project Docs](https://github.com/mkwarbuton/MakerManagementPlatform/tree/main/docs)
+**Links:** [GitHub Repository](https://github.com/Maker-Management-Platform) | [Project Docs](https://github.com/Maker-Management-Platform/docs)
 
 Summary
 - Self-hosted project/asset manager with printer/slicer adjacency and basic 3D preview flow.
@@ -138,7 +139,7 @@ Model-catalog relevance
 ---
 
 ### 5) Printventory
-**Links:** [GitHub Repository](https://github.com/Jnesselr/Printventory) | [Releases](https://github.com/Jnesselr/Printventory/releases)
+**Links:** [GitHub Repository](https://github.com/TechJeeper/Printventory) | [Releases](https://github.com/TechJeeper/Printventory/releases) | [Guide](https://github.com/TechJeeper/Printventory/blob/main/GUIDE.md)
 
 Summary
 - Electron desktop app with local/server mode, STL+3MF support, duplicate detection, AI tagging, and Docker-backed server mode.
@@ -169,13 +170,13 @@ Model-catalog relevance
 ---
 
 ### 6) STL Organizer
-**Links:** [GitHub Repository](https://github.com/Tansien/STLorganizer) | [Roadmap](https://github.com/Tansien/STLorganizer/projects)
+**Links:** [Official Site](https://stlorganizer.com/) | [Features](https://stlorganizer.com/#features) | [About](https://stlorganizer.com/#about)
 
 Summary
 - Electron/TypeScript project with ambitious roadmap centered on normalization/archiving pipelines.
 
 Evidence highlights
-- Public repo currently roadmap-heavy and partially implemented.
+- Public landing site is roadmap/feature-forward, with limited linked technical implementation artifacts.
 - Planned strengths: multithreaded processing, normalization engine, archive repack, richer model taxonomy.
 
 Strengths
@@ -196,7 +197,7 @@ Model-catalog relevance
 ---
 
 ### 7) STLVault
-**Links:** [GitHub Repository](https://github.com/STLVault/STLVault) | [itch.io Page](https://stlvault.itch.io/stlvault)
+**Links:** [GitHub Repository](https://github.com/rubenwe/StlVault) | [Official Site](http://stlvault.com/)
 
 Summary
 - Unity-based open-source organizer/viewer with preview releases; historic roadmap includes tags/search/collections and broader format ambitions.
@@ -223,13 +224,13 @@ Model-catalog relevance
 ---
 
 ### 8) Bonzai STL Browser
-**Links:** [Official Site](https://bonzaistl.com/) | [Feature Overview](https://bonzaistl.com/features) | [Patreon](https://www.patreon.com/BonzaiSTL)
+**Links:** [Project Page](https://patreon.bonzaiengine.com/stl-browser.php) | [Bonzai Engine Site](https://www.bonzaiengine.com/) | [Patreon](https://www.patreon.com/jerome_jouvie)
 
 Summary
 - Cross-platform STL-focused browser/editor with realtime viewer, filtering, multi-tab split browsing, and editing tools.
 
 Evidence highlights
-- Feature page lists robust STL browsing + editing operations (cut by plane, base/storage generation).
+- Project page lists robust STL browsing + editing operations (cut by plane, base/storage generation).
 - Distribution appears Patreon-centered rather than open repo-first.
 
 Strengths
