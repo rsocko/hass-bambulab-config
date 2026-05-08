@@ -137,10 +137,13 @@ MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
 # Keep this above common Bambu Studio 3MF sizes so viewer rendering prefers
 # server-side parsed geometry over fragile browser-side 3MF parsing.
-# Empirical guardrail: a ~169 MB / 24-plate Bambu project drove the sidecar to
-# ~9.8 GB resident memory during parse (Python tuple/list overhead per vertex
-# is ~50-100x the binary). Cap the input to keep peak memory bounded.
-MAX_SERVER_SIDE_3MF_BYTES = 75 * 1024 * 1024
+# Empirical guardrail: a ~169 MB / 24-plate Bambu project previously drove the
+# sidecar to ~9.8 GB resident memory during parse (Python tuple/list overhead
+# per vertex was ~50-100x the binary). With issue #1378 Track 1 (plate-aware
+# lazy iterparse + array.array storage + triangle_budget short-circuit), peak
+# memory is bounded per plate, so the cap can be raised. Files above this cap
+# fall back to the raw-3MF browser path (Track 2).
+MAX_SERVER_SIDE_3MF_BYTES = 256 * 1024 * 1024
 # Guard against returning extremely large JSON geometry payloads that can fail
 # in HA service proxying or browser parsing.
 MAX_SERVER_SIDE_3MF_TRIANGLES = 1_000_000

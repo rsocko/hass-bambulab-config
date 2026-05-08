@@ -657,22 +657,49 @@ class ModelDetail3DViewerTab extends HTMLElement {
       throw geometryError || new Error('3MF geometry unavailable.');
     }
 
+    // Issue #1378 Track 2: when server-side parse failed (size cap or
+    // too-complex), fetch the lightweight /plates metadata so the plate
+    // selector remains functional even though we're rendering locally.
+    let platesObjectIds = null;
+    try {
+      const platesPayload = await this._fetch3mfPlatesMetadataSafe(file);
+      if (platesPayload && Array.isArray(platesPayload.plates) && platesPayload.plates.length > 0) {
+        this._availablePlates = platesPayload.plates.map((plate) => ({
+          id: String(plate.id || ''),
+          name: String(plate.name || `Plate ${plate.id || ''}`),
+          object_ids: Array.isArray(plate.object_ids) ? plate.object_ids.map(String) : [],
+        }));
+        if (!this._selectedPlateId && this._availablePlates.length > 0) {
+          this._selectedPlateId = this._availablePlates[0].id;
+        }
+        this._syncPlateSelector();
+        const activePlate = this._availablePlates.find((p) => p.id === this._selectedPlateId)
+          || this._availablePlates[0];
+        if (activePlate && activePlate.object_ids.length > 0) {
+          platesObjectIds = new Set(activePlate.object_ids);
+        }
+      }
+    } catch (platesError) {
+      // Non-fatal: continue without plate filtering.
+      console.warn('3MF /plates metadata fetch failed; rendering full scene', platesError);
+    }
+
     const sourceUrl = this._buildFileDownloadUrl(file);
 
     try {
-      this._setRenderingStatus(`Downloading ${filename}...`);
+      this._setRenderingStatus(`Large 3MF — downloading ${filename} for local rendering...`);
       const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
       if (!response.ok) {
         throw new Error(`Download failed (${response.status})`);
       }
 
       const arrayBuffer = await response.arrayBuffer();
-      this._setRenderingStatus(`Parsing 3MF file...`);
+      this._setRenderingStatus(`Large file — parsing 3MF locally in browser...`);
       const loader = new window.THREE.ThreeMFLoader();
 
       if (typeof loader.parse === 'function') {
         const object = loader.parse(arrayBuffer);
-        this._load3mfObject(object, filename);
+        this._load3mfObject(object, filename, { plateObjectIds: platesObjectIds, renderingLocally: true });
         return;
       }
 
@@ -681,13 +708,13 @@ class ModelDetail3DViewerTab extends HTMLElement {
         url,
         (object) => {
           URL.revokeObjectURL(url);
-          this._load3mfObject(object, filename);
+          this._load3mfObject(object, filename, { plateObjectIds: platesObjectIds, renderingLocally: true });
         },
         (progress) => {
           const total = progress && progress.total ? progress.total : 0;
           const loaded = progress && progress.loaded ? progress.loaded : 0;
           const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
-          this._setRenderingStatus(`Loading 3MF ${pct}%...`);
+          this._setRenderingStatus(`Large file — loading 3MF ${pct}%...`);
         },
         (error) => {
           URL.revokeObjectURL(url);
@@ -708,6 +735,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
       });
       this._setError(userMessage);
     }
+  }
+
+  async _fetch3mfPlatesMetadataSafe(file) {
+    const url = this._build3mfPlatesUrl(file);
+    const response = await fetch(url, this._buildFetchOptions(url));
+    if (!response.ok) {
+      throw new Error(`/plates request failed (${response.status})`);
+    }
+    return response.json();
   }
 
   _build3mfFailureMessage({ filename, geometryError, downloadError }) {
@@ -891,14 +927,17 @@ class ModelDetail3DViewerTab extends HTMLElement {
     });
   }
 
-  _load3mfObject(object, filename) {
+  _load3mfObject(object, filename, options) {
+    const opts = options || {};
+    const plateObjectIds = opts.plateObjectIds instanceof Set ? opts.plateObjectIds : null;
+    const renderingLocally = Boolean(opts.renderingLocally);
     if (!object || !this._scene || !window.THREE) {
       this._setError('3MF loader returned empty geometry.');
       return;
     }
 
     if (object.scene && object.scene.isObject3D) {
-      this._load3mfObject(object.scene, filename);
+      this._load3mfObject(object.scene, filename, opts);
       return;
     }
 
@@ -934,6 +973,38 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._activeObject3D = null;
     }
 
+    // Issue #1378 Track 2: when a plate filter is provided (raw-3MF fallback
+    // path), prune meshes whose ThreeMFLoader-assigned name/userData objectId
+    // is not in the selected plate's object_ids. ThreeMFLoader sets mesh.name
+    // to the 3MF <object id="..."> attribute.
+    if (plateObjectIds && plateObjectIds.size > 0) {
+      const meshesToRemove = [];
+      object.traverse((child) => {
+        if (!child.isMesh) {
+          return;
+        }
+        const objectId = String(
+          (child.userData && (child.userData.objectId || child.userData.objectid))
+            || child.name
+            || ''
+        ).trim();
+        if (objectId && !plateObjectIds.has(objectId)) {
+          meshesToRemove.push(child);
+        }
+      });
+      meshesToRemove.forEach((mesh) => {
+        if (mesh.parent) {
+          mesh.parent.remove(mesh);
+        }
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
+        if (mesh.material && typeof mesh.material.dispose === 'function') {
+          mesh.material.dispose();
+        }
+      });
+    }
+
     let vertexCount = 0;
     object.traverse((child) => {
       if (child.isMesh) {
@@ -967,7 +1038,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._controls.update();
     }
     
-    this._setRenderingStatus(`Rendering 3MF (${triangleCount} triangles)`);
+    const localBadge = renderingLocally ? ' — rendered locally (large file)' : '';
+    this._setRenderingStatus(`Rendering 3MF (${triangleCount} triangles)${localBadge}`);
   }
 
   _buildFetchOptions(url) {
@@ -1228,6 +1300,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
     return `${base}/api/models/${modelRef}/files/${fileId}/download`;
+  }
+
+  _build3mfPlatesUrl(file) {
+    const base = this._requireSidecarBaseUrl();
+    const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
+    const normalizedFileId = this._normalizeFileId(file && file.id || '');
+    const fileId = encodeURIComponent(normalizedFileId);
+    return `${base}/api/models/${modelRef}/files/${fileId}/plates`;
   }
 
   _buildGeometryUrl(file) {
