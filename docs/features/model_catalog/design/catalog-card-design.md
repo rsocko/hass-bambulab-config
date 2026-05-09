@@ -491,6 +491,40 @@ Operator controls:
 
 This avoids flattening nested structure into one ambiguous feed while still supporting direct model actions at parent levels.
 
+Mockup fidelity note:
+
+- mixed-node examples in `mockups/collections.html` are representative placeholders for density/section behavior
+- implementation should render real collection cards for sub-collections and the selected model view variant (`Compact`/`Media`/`List`) for models
+
+### List View In Collections Scope
+
+`List` view must remain fully supported when scope is `Collections`.
+
+Rendering rules by display segment:
+
+1. `Collections only`
+  - render a collection-row table (not model-row table)
+  - row fields: collection name/path, direct model count, child collection count, last activity, actions
+2. `Models only`
+  - render the existing model list-row table exactly as in flat scope
+  - include collection-path column (or chip cell) to preserve context
+3. `Mixed`
+  - render one unified list with typed rows:
+    - collection rows first
+    - model rows second
+  - each row includes a `Type` indicator (`Collection` or `Model`) for scan clarity
+
+No Collection handling in list mode:
+
+- at root, `No Collection` appears as a collection row when `unassigned_model_count > 0`
+- opening that row with `Models only` or `Mixed` shows unassigned model rows
+
+Sorting in list mode:
+
+- collection rows use collection sort controls
+- model rows use model sort controls
+- in `Mixed`, primary sort remains type order (collections then models), with secondary sort applied within each type bucket
+
 ### Navigation Pattern
 
 In `Collections` scope, use breadcrumb navigation:

@@ -797,6 +797,135 @@
     font-weight: 600;
   }
 
+  .collection-membership {
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .membership-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .membership-head strong {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  .membership-head span {
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .membership-body {
+    display: grid;
+    gap: 8px;
+    padding: 8px 9px;
+  }
+
+  .membership-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .membership-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(126, 162, 255, 0.46);
+    color: #d1dfff;
+    background: rgba(126, 162, 255, 0.16);
+    padding: 3px 7px;
+  }
+
+  .membership-chip button {
+    border: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    font-size: 9px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .membership-chip button:hover {
+    background: rgba(240, 116, 116, 0.42);
+  }
+
+  .collection-picker {
+    display: grid;
+    gap: 5px;
+  }
+
+  .collection-picker label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .collection-picker .row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 6px;
+  }
+
+  .collection-picker input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 7px;
+    padding: 6px 8px;
+    font-size: 11px;
+    min-height: 31px;
+  }
+
+  .collection-picker button {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-size: 10px;
+    padding: 0 9px;
+    min-height: 31px;
+    cursor: pointer;
+  }
+
+  .collection-picker .hint {
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .no-collection-note {
+    border: 1px dashed rgba(155, 173, 196, 0.34);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1.4;
+    padding: 7px 8px;
+  }
+
+  .no-collection-note strong {
+    color: #ffd7a0;
+  }
+
   .footer-note {
     max-width: 1400px;
     margin: 12px auto 0;
@@ -1141,6 +1270,32 @@
             <div class="kv"><div class="k">Filament Used</div><div class="v">478 g</div></div>
             <div class="kv"><div class="k">Related Models</div><div class="v">5 candidates</div></div>
             <div class="kv"><div class="k">Advanced</div><div class="v">Link Mgmt, Queue, Publish</div></div>
+          </div>
+
+          <div class="collection-membership">
+            <div class="membership-head">
+              <strong>Collection Membership</strong>
+              <span>Editable multi-select</span>
+            </div>
+            <div class="membership-body">
+              <div class="membership-list">
+                <span class="membership-chip">Storage / Gridfinity<button title="Remove membership">x</button></span>
+                <span class="membership-chip">Functional / Hardware Bins<button title="Remove membership">x</button></span>
+                <span class="membership-chip">Print Farm Favorites<button title="Remove membership">x</button></span>
+              </div>
+
+              <div class="collection-picker">
+                <label>Add collection (typeahead)</label>
+                <div class="row">
+                  <input value="gridfin" aria-label="Collection typeahead" />
+                  <button>Pick ▾</button>
+                  <button>Create</button>
+                </div>
+                <div class="hint">Suggestions: Storage / Gridfinity Drawers · Functional / Organizers · Workshop / Screws</div>
+              </div>
+
+              <div class="no-collection-note"><strong>Empty-state:</strong> if memberships are empty, show status text <em>No Collection</em> while keeping Add collection controls enabled.</div>
+            </div>
           </div>
         </div>
       </section>
