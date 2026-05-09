@@ -229,8 +229,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._filters.to_print_priority_min = read("#mc-priority-min");
     this._filters.to_print_priority_max = read("#mc-priority-max");
     this._filters.sort = read("#mc-sort") || "recent";
+    var perPageTop = Number(read("#mc-per-page") || 0);
+    var perPageBottom = Number(read("#mc-per-page-bottom") || 0);
+    var perPage = Number.isFinite(perPageTop) && perPageTop > 0 ? perPageTop : perPageBottom;
+    if (Number.isFinite(perPage) && perPage > 0) {
+      this._pagination.per_page = Math.max(1, Math.min(96, perPage));
+    }
     this._filters.favorites_only = !!(root.querySelector("#mc-favorites-only") && root.querySelector("#mc-favorites-only").checked);
     this._filters.has_other_files = !!(root.querySelector("#mc-has-other-files") && root.querySelector("#mc-has-other-files").checked);
+  }
+
+  _applyPerPageChange(nextValue) {
+    var nextPerPage = Math.max(1, Math.min(96, Number(nextValue || 12)));
+    if (nextPerPage === Number(this._pagination.per_page || 12)) {
+      return;
+    }
+    this._pagination.per_page = nextPerPage;
+    this._cancelScheduledApply();
+    this._refreshSpin = true;
+    this._requestLoad(1, true);
+    this._render();
   }
 
   _applyFilters() {
@@ -364,11 +382,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     if (targetId === "mc-per-page" || targetId === "mc-per-page-bottom") {
-      var nextPerPage = Math.max(1, Math.min(96, Number(target.value || 12)));
-      this._pagination.per_page = nextPerPage;
-      this._cancelScheduledApply();
-      this._requestLoad(1, false);
-      this._render();
+      this._applyPerPageChange(target.value);
       return;
     }
 
@@ -536,7 +550,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var viewerModelRef = String(target.getAttribute("data-model-ref") || "").trim();
       var viewerModelName = String(target.getAttribute("data-model-name") || "Model").trim();
       if (viewerModelRef) {
-        this._openModelViewerPopup(viewerModelRef, viewerModelName);
+        await this._openModelViewerPopup(viewerModelRef, viewerModelName);
       }
       return;
     }
@@ -568,6 +582,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "open-import-browser" || action === "open-import-server") {
       event.preventDefault();
       event.stopPropagation();
+      var importMenu = target.closest ? target.closest("details.import-menu") : null;
+      if (importMenu) {
+        importMenu.open = false;
+      }
       this._openIntakePopup(action === "open-import-server" ? "server" : "browser");
       return;
     }
@@ -1231,8 +1249,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <option value="done"' + (this._filters.to_print_status === 'done' ? ' selected' : '') + '>Queue: done</option>'
       + '    <option value="none"' + (this._filters.to_print_status === 'none' ? ' selected' : '') + '>Queue: none</option>'
       + '  </select>'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.favorites_only ? ' active favorite' : '') + '" type="button" data-action="toggle-favorites-filter">Favorites only</button>'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter">Has other files</button>'
+      + '  <button class="filter-chip toggle-chip' + (this._filters.favorites_only ? ' active favorite' : '') + '" type="button" data-action="toggle-favorites-filter" aria-pressed="' + (this._filters.favorites_only ? 'true' : 'false') + '">Favorites only</button>'
+      + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
       + '  <input id="mc-favorites-only" type="checkbox" hidden ' + (this._filters.favorites_only ? 'checked' : '') + '>'
       + '  <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
       + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
@@ -1253,7 +1271,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </select>'
       + '</div>'
       + '<div class="toolbar-group display-group">'
-      + '  <label for="mc-view-mode">View variant</label>'
       + '  <select id="mc-view-mode" class="control-input compact-select">'
       + '    <option value="compact"' + (this._viewMode === 'compact' ? ' selected' : '') + '>Compact</option>'
       + '    <option value="media"' + (this._viewMode === 'media' ? ' selected' : '') + '>Media</option>'
@@ -1300,6 +1317,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       size: "wide",
       content: {
         type: "custom:model-catalog-intake-home-card",
+        launch_wizard: nextMode,
       },
     });
   }
@@ -1812,10 +1830,31 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return chips;
   }
 
-  _openModelViewerPopup(modelRef, modelName) {
+  async _openModelViewerPopup(modelRef, modelName) {
     if (!modelRef) {
       return;
     }
+
+    var detail = this._modelDetailCache[modelRef] || null;
+    if (!detail && this._hass) {
+      try {
+        detail = await this._callServiceWithResponse("rest_command", "get_model_detail", { model_ref: modelRef });
+        if (detail && typeof detail === "object") {
+          this._modelDetailCache[modelRef] = detail;
+        }
+      } catch (_error) {
+        detail = null;
+      }
+    }
+
+    var modelPayload = detail && detail.model && typeof detail.model === "object" ? Object.assign({}, detail.model) : {};
+    if (!Array.isArray(modelPayload.files) && detail && Array.isArray(detail.files)) {
+      modelPayload.files = detail.files;
+    }
+    if (!String(modelPayload.name || "").trim() && modelName) {
+      modelPayload.name = modelName;
+    }
+
     this._fireBrowserModEvent("browser_mod.popup", {
       title: (modelName || "Model") + " - 3D Viewer",
       size: "wide",
@@ -1823,6 +1862,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
         type: "custom:model-detail-3d-viewer-tab",
         model_ref: modelRef,
         model_name: modelName || "Model",
+        model_sidecar_url: this._modelSidecarUrl || (this._config && this._config.model_sidecar_url ? String(this._config.model_sidecar_url) : ""),
+        model_json: JSON.stringify(modelPayload),
       },
     });
   }
@@ -1911,7 +1952,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.import-item:hover{background:rgba(148,163,184,0.14);}'
       + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(4,minmax(130px,1fr)) auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
       + '.filter-search{grid-column:auto;}'
-      + '.filter-chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;}'
+      + '.filter-chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;appearance:none;pointer-events:auto;position:relative;z-index:1;}'
+      + '.filter-chip:hover,.filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'
       + '.filter-chip.active{color:var(--primary-text-color);}'
       + '.filter-chip.favorite.active{background:rgba(245,194,66,0.20);border-color:rgba(245,194,66,0.48);color:#f5c242;}'
       + '.filter-chip.docs.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.34);color:#93c5fd;}'

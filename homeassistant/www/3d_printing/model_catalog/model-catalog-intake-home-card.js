@@ -80,6 +80,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardCloseConfirmOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
+    this._launchWizardMode = "";
+    this._launchWizardConsumed = false;
     this._cleanupPolicyValue = null;
     this._commitMode = "queue"; // "queue" or "execute_now"
     this._destinationChoice = "curated"; // "curated" or "working"
@@ -94,7 +96,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       browsePathEntity: "input_text.intake_browse_path",
       sectionEntity: "",
       inboxSection: "inbox",
+      launch_wizard: "",
     }, config || {});
+    this._launchWizardMode = this._normalizeLaunchWizardMode(this._config.launch_wizard);
+    this._launchWizardConsumed = false;
     this._render();
   }
 
@@ -103,6 +108,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (this.isConnected && !this._loading && !this._roots.length) {
       this._refreshAll();
     }
+    this._maybeAutoLaunchWizard();
   }
 
   connectedCallback() {
@@ -114,6 +120,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.addEventListener("change", this._boundHandleChange);
       this.shadowRoot.addEventListener("input", this._boundHandleInput);
     }
+    this._maybeAutoLaunchWizard();
   }
 
   disconnectedCallback() {
@@ -127,6 +134,28 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   getCardSize() {
     return 12;
+  }
+
+  _normalizeLaunchWizardMode(value) {
+    var normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "server") {
+      return "server";
+    }
+    if (normalized === "browser") {
+      return "browser";
+    }
+    return "";
+  }
+
+  _maybeAutoLaunchWizard() {
+    var mode = this._normalizeLaunchWizardMode(this._launchWizardMode);
+    if (!mode || this._launchWizardConsumed || !this._hass || this._wizardOpen || this._loading) {
+      return;
+    }
+    this._launchWizardConsumed = true;
+    this._openWizard(mode).catch(function () {
+      // Leave the intake card visible if auto-launch fails for any reason.
+    });
   }
 
   _sourceMode() {
