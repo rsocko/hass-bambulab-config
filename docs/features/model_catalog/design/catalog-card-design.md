@@ -504,6 +504,46 @@ Search semantics:
 - global search (default): returns collections and models
 - in-node search (optional chip): scopes to current collection subtree
 
+### Unassigned Models In Collections Scope
+
+When scope is `Collections`, models with zero collection memberships must remain visible through a system bucket:
+
+- show a synthetic `No Collection` collection card at root when unassigned count > 0
+- card label: `No Collection`
+- subtitle: `System bucket` (or equivalent neutral wording)
+- clicking opens a virtual node containing unassigned models only
+
+Rules:
+
+- `No Collection` appears only at root collection level
+- it is not parentable, renamable, or deletable
+- if unassigned count is 0, hide the card
+
+This avoids silently dropping models from view when operators switch to collections scope.
+
+### Paging Contract For Mixed Mode
+
+Mixed mode (`Sub-collections` + `Models in this collection`) uses one unified pager from the top toolbar.
+
+Algorithm:
+
+1. Build ordered result stream:
+  - all matching sub-collections first
+  - all matching direct models second
+2. Apply one page slice (`page`, `per_page`) to that ordered stream.
+3. Render section headers only for item types present in the current slice.
+
+Implications:
+
+- a page may contain only sub-collections, only models, or both
+- toolbar pager remains consistent across `Mixed`, `Collections only`, and `Models only`
+- no second pager appears inside sections
+
+UI clarity aids:
+
+- show result summary chip in toolbar: `X collections · Y models`
+- keep `Show: Mixed | Collections only | Models only` segment visible to quickly constrain result type
+
 ### Minimal Data Contract (Layer 2 projection)
 
 Collection browsing should be served by Layer 2 projection data and must not move UI wording into Layer 1.
@@ -515,6 +555,7 @@ Proposed collection projection fields:
 - `child_collection_count`
 - `last_activity_at`, `last_printed_at`
 - `cover_tiles[]` (resolved media URLs + contributor model refs)
+- `unassigned_model_count` (root-only summary for `No Collection` system bucket)
 
 Layering rule:
 

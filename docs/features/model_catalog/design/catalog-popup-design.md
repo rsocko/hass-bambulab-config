@@ -178,6 +178,34 @@ Advanced Actions:
 - mirror Print History's "more" interaction language
 - includes link-management, queue operations, and maintenance/admin actions as configured
 
+## 5.5.2 Collection Membership Editor (new explicit requirement)
+
+The popup must support both viewing and editing a model's collection memberships.
+
+Placement:
+
+- right metadata workspace under summary chips (desktop)
+- stacked metadata section below linked archives (mobile)
+
+UI behavior:
+
+- show current memberships as removable chips
+- `Add collection` typeahead control (multi-select)
+- optional `Create collection` inline action (if permissions/config allow)
+- support zero memberships and show `No Collection` status text when empty
+
+Edit contract:
+
+- changes are optimistic in-session with undo toast (short window)
+- save path uses many-to-many membership semantics (model can belong to multiple collections)
+- duplicate membership add attempts are ignored with non-blocking feedback
+
+Validation/guardrails:
+
+- prevent adding the same collection twice
+- honor hierarchy constraints from collection model rules
+- if selected collection is deleted externally during popup session, show stale chip warning and refresh prompt
+
 ## 5.6 Model Files / Print Profiles (new)
 
 Add a dedicated section in the popup that lists each model file (3MF, STL, etc.) with compact print-profile metadata, inspired by MakerWorld print-profile scanning but styled with our existing chip/card language.
@@ -248,6 +276,11 @@ Needs explicit backend extension (or formalization) for the redesigned popup:
   - `match_confidence` (`0..1` or nullable)
   - `match_confidence_label` (`high`, `medium`, `low`) for direct UI display when percent precision is not desired
   - `review_required` (boolean) to distinguish actionable candidates from informational heuristics
+- collection membership editor payloads:
+  - `collection_memberships[]` (id, name, path)
+  - mutation endpoints for `add membership` and `remove membership`
+  - search endpoint for collection picker (typeahead)
+  - optional create endpoint for inline collection creation
 
 ## 7) Interaction Contract Details
 

@@ -118,6 +118,7 @@
     </div>
     <span class="chip">Sort collections: Recent activity</span>
     <span class="chip active">In-node search</span>
+    <span class="chip">42 collections · 137 models</span>
   </div>
   <div class="toolbar-bottom">
     <input class="grow" value="gridfinity" />
@@ -177,12 +178,28 @@
       </div>
       <div class="actions"><button class="primary">Open</button><button>More</button></div>
     </article>
+
+    <article class="collection-card">
+      <div class="mosaic">
+        <div class="tile">unassigned</div>
+        <div class="tile">unassigned</div>
+        <div class="tile">unassigned</div>
+        <div class="tile">unassigned</div>
+      </div>
+      <div class="card-title"><strong>No Collection</strong><span class="path">System bucket</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Models</div><div class="v">14</div></div>
+        <div class="stat"><div class="k">Sub-collections</div><div class="v">0</div></div>
+        <div class="stat"><div class="k">Prints</div><div class="v">31</div></div>
+      </div>
+      <div class="actions"><button class="primary">Open</button><button>More</button></div>
+    </article>
   </div>
 </section>
 
 <section class="section">
   <h2>B · Mixed-node rendering (sub-collections + direct models)</h2>
-  <p>When a collection includes both sub-collections and models, the UI renders two explicit sections in one page state. Sub-collections appear first to preserve structure, while direct model actions remain available below.</p>
+  <p>When a collection includes both sub-collections and models, the UI renders two explicit sections in one page state. Sub-collections appear first to preserve structure, while direct model actions remain available below. A single top-toolbar pager slices a deterministic ordered stream (collections first, then models), so section content on a page can be collections-only, models-only, or mixed.</p>
   <div class="mixed-shell">
     <span class="crumb">All Collections / Functional / Gridfinity / Drawer Organizers</span>
 
