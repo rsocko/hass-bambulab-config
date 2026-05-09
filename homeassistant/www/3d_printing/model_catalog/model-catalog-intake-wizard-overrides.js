@@ -2034,7 +2034,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + (indirectlySelected ? '    <span class="chip">Included in Selection</span>' : '')
         + (excludedNested ? '    <span class="chip warn">Excluded</span>' : '')
         + (excludedCount > 0 && !fullyExcluded ? '    <span class="chip warn" title="Items excluded from this folder">⚠ ' + String(excludedCount) + ' excluded</span>' : '')
-        + (!notSelectedAtRoot && !excludedNested ? '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>' : '')
+        + '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>'
         + folderActionButton
         + '  </div>'
         + '</article>';
@@ -2102,6 +2102,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
       var isExcluded = excludedItems.indexOf(entry.path) !== -1;
       var isArchive = entry.type !== 'folder' && fileKind(entry.path) === 'archive';
+      var selectable = entry.selectable !== false;
       var rowClass = 'entry-row'
         + (selected ? ' selected' : '')
         + (childOfSelection ? ' included-in-selection' : '')
@@ -2122,7 +2123,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + (!selected && childOfSelection ? '<span class="chip">Included in Selection</span>' : '')
         + (isArchive ? '<span class="chip">Archive Container</span>' : '')
         + (isExcluded ? '<span class="chip warn">Excluded</span>' : '')
-        + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        + ((entry.type === 'folder' || isArchive) ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        + (!selectable ? '<span class="chip">View Only</span>' : '')
         + '  </div>'
         + '</article>';
     }, this).join('') + '</div>';
@@ -2152,13 +2154,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var displayName = String(entry.name || (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename ? window.ModelCatalogIntakeShared.basename(entry.path) : entry.path) || '');
       var isFolder = entry.type === 'folder';
       var isArchive = !isFolder && fileKind(entry.path) === 'archive';
+      var selectable = entry.selectable !== false;
       var previewMarkup = !isFolder && !isArchive
         ? card._serverPreviewMarkup(entry.path, displayName)
         : folderPreviewMarkup();
       // Issue #1324: detect whether this entry is inside an already-selected folder.
       var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
       // Issue #1324: detect whether this entry is explicitly excluded.
-      var isExcluded = excludedItems.indexOf(entry.path) !== -1;
+      var isExcluded = selectable && excludedItems.indexOf(entry.path) !== -1;
       // Issue #1324: count how many excluded items live under a selected folder.
       var excludedUnder = (selected && isFolder) ? getExcludedItemsUnderPath(entry.path, excludedItems).length : 0;
       // Issue #1349: mark unselected parent folders that contain selected items
@@ -2191,20 +2194,23 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + (selected ? '<span class="chip ok" style="align-self:center;">Selected</span>' : '')
         + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;">Included in Selection</span>' : '')
         + (isArchive ? '<span class="chip" style="align-self:center;">Archive Container</span>' : '')
+        + (!selectable ? '<span class="chip" style="align-self:center;">View Only</span>' : '')
         + (isExcluded ? '<span class="chip warn" style="align-self:center;">Excluded</span>' : '')
         + (containsSelection ? '<span class="chip" style="align-self:center;">1 or more children included</span>' : '')
         + (selected && excludedUnder > 0 ? '<span class="chip warn" style="align-self:center;" title="Items excluded from this folder">⚠ ' + String(excludedUnder) + ' excluded</span>' : '')
-        // Open button for folders (always visible unless excluded)
-        + (isFolder && !isExcluded ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        // Open button for folders and archives (always visible)
+        + ((isFolder || isArchive) ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
         // Action buttons (Issue #1350: use Remove/Select labels consistently):
         //   - excluded item            → Select button (re-include via unexclude-item)
         //   - child of selected folder → Remove button (exclude-item action)
         //   - top-level / unselected   → Select / Remove toggle
-        + (isExcluded
+        + (!selectable
+          ? ''
+          : (isExcluded
           ? '<button class="button primary" data-action="unexclude-item" data-path="' + escapeHtml(entry.path) + '">Select</button>'
           : (childOfSelection
             ? '<button class="button warn" data-action="exclude-item" data-path="' + escapeHtml(entry.path) + '" title="Remove this item from the parent folder\'s intake">Remove</button>'
-            : '<button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'))
+            : '<button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>')))
         + '  </div>'
         + '</article>';
     }).join('') + '</div>';

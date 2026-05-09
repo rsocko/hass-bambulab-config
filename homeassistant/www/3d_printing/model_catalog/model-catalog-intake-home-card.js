@@ -1489,7 +1489,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return '<div class="entries">' + this._browse.entries.map(function (entry) {
       var selected = !!this._selected[entry.path];
       var displayName = String(entry.name || basename(entry.path) || "");
-      var previewMarkup = entry.type === 'file'
+      var isArchive = entry.type === 'file' && typeof isArchivePath === 'function' && isArchivePath(entry.path || '');
+      var selectable = entry.selectable !== false;
+      var previewMarkup = entry.type === 'file' && !isArchive
         ? this._serverPreviewMarkup(entry.path, displayName)
         : '<div class="entry-thumb placeholder">Folder</div>';
       return ''
@@ -1502,12 +1504,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '    </div>'
         + '    <div class="button-row">'
         + (entry.type === 'folder' ? '<span class="chip">Folder</span>' : '<span class="chip">File</span>')
+        + (isArchive ? '<span class="chip">Archive Container</span>' : '')
+        + (!selectable ? '<span class="chip">View Only</span>' : '')
         + (entry.type === 'file' && entry.size_bytes != null ? '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes)) + '</span>' : '')
         + '    </div>'
         + '  </div>'
         + '  <div class="entry-actions">'
-        + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
-        + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'
+        + ((entry.type === 'folder' || isArchive) ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        + (selectable
+          ? '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'
+          : '')
         + '  </div>'
         + '</article>';
     }, this).join('') + '</div>';

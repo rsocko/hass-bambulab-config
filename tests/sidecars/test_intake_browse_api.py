@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import os
+import zipfile
 from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database
@@ -149,3 +150,62 @@ def test_intake_browse_rejects_file_paths(monkeypatch, tmp_path: Path) -> None:
         response = test_client.get(f"/api/intake/browse?path={test_file}")
         assert response.status_code == 400
         assert response.json()["error"] == "not_a_directory"
+
+
+def test_intake_browse_allows_zip_as_virtual_folder(monkeypatch, tmp_path: Path) -> None:
+    """Browse accepts .zip file paths and returns virtual archive entries."""
+    test_dir = tmp_path / "models"
+    test_dir.mkdir()
+    archive_path = test_dir / "bundle.zip"
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("parts/base.3mf", b"mesh")
+        archive.writestr("parts/docs/readme.md", b"notes")
+
+    monkeypatch.setenv("BAMBULAB_INTAKE_ALLOWLIST", str(test_dir))
+
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        response = test_client.get(f"/api/intake/browse?path={archive_path}")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["success"] is True
+        assert payload["virtual_archive"] is True
+        assert payload["archive_source_path"] == str(archive_path)
+        assert payload["entry_count"] == 1
+        assert payload["entries"][0]["name"] == "parts"
+        assert payload["entries"][0]["type"] == "folder"
+        assert payload["entries"][0]["selectable"] is False
+
+
+def test_intake_browse_allows_zip_virtual_nested_navigation(monkeypatch, tmp_path: Path) -> None:
+    """Virtual archive browse supports nested folder navigation via :: paths."""
+    test_dir = tmp_path / "models"
+    test_dir.mkdir()
+    archive_path = test_dir / "bundle.zip"
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("parts/base.3mf", b"mesh")
+        archive.writestr("parts/docs/readme.md", b"notes")
+
+    monkeypatch.setenv("BAMBULAB_INTAKE_ALLOWLIST", str(test_dir))
+
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        response = test_client.get(f"/api/intake/browse?path={archive_path}::parts")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["success"] is True
+        assert payload["virtual_archive"] is True
+        names = {entry["name"] for entry in payload["entries"]}
+        assert "base.3mf" in names
+        assert "docs" in names
+        base_entry = next(entry for entry in payload["entries"] if entry["name"] == "base.3mf")
+        assert base_entry["type"] == "file"
+        assert base_entry["selectable"] is False
