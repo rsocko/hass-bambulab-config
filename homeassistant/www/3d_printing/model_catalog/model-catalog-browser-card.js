@@ -1476,7 +1476,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:96px minmax(0,1fr);column-gap:12px;padding:14px;align-items:start;}'
-      + '.queue-ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:20px 0 0 20px;background:transparent;pointer-events:none;}'
+      + '.queue-ribbon{position:absolute;left:1px;top:1px;bottom:1px;width:4px;border-radius:18px 0 0 18px;background:transparent;pointer-events:none;}'
       + '.queue-ribbon.is-queued{background:#f59e0b;}'
       + '.queue-ribbon.is-printing{background:#1e88e5;}'
       + '.queue-ribbon.is-done{background:#2e7d32;}'
