@@ -879,8 +879,85 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }.bind(this))
       .finally(function () {
         delete this._loadingModelMedia[modelRef];
-        this._render();
+        if (this._viewMode === "media") {
+          this._render();
+          return;
+        }
+        if (!this._updateModelCardThumb(modelRef)) {
+          this._render();
+        }
       }.bind(this));
+  }
+
+  _updateModelCardThumb(modelRef) {
+    if (!this.shadowRoot) {
+      return false;
+    }
+    var key = String(modelRef || "").trim();
+    if (!key) {
+      return false;
+    }
+
+    var model = null;
+    for (var i = 0; i < this._results.length; i++) {
+      if (this._modelRef(this._results[i]) === key) {
+        model = this._results[i];
+        break;
+      }
+    }
+    if (!model) {
+      return false;
+    }
+
+    var mediaUrls = this._modelMediaUrls(model);
+    if (!mediaUrls.length) {
+      return false;
+    }
+
+    var mediaUrl = String(mediaUrls[0] || "").trim();
+    if (!mediaUrl) {
+      return false;
+    }
+
+    var cards = this.shadowRoot.querySelectorAll('.model-card[data-model-ref]');
+    var updated = false;
+    for (var c = 0; c < cards.length; c++) {
+      var card = cards[c];
+      if (String(card.getAttribute("data-model-ref") || "").trim() !== key) {
+        continue;
+      }
+      var thumb = card.querySelector('.thumb');
+      if (!thumb) {
+        continue;
+      }
+      var img = thumb.querySelector('img');
+      if (!img) {
+        thumb.innerHTML = '<img alt="' + this._escapeHtml(String(model.name || "Model") + ' preview') + '" loading="lazy">';
+        img = thumb.querySelector('img');
+      }
+      if (!img) {
+        continue;
+      }
+      if (this._isThumbnailLazyEndpoint(mediaUrl)) {
+        var cachedObjectUrl = getCachedThumbnailObjectUrl(mediaUrl);
+        if (cachedObjectUrl) {
+          img.removeAttribute('data-thumbnail-lazy-url');
+          img.src = String(cachedObjectUrl);
+        } else {
+          img.removeAttribute('src');
+          img.setAttribute('data-thumbnail-lazy-url', mediaUrl);
+        }
+      } else {
+        img.removeAttribute('data-thumbnail-lazy-url');
+        img.src = mediaUrl;
+      }
+      updated = true;
+    }
+
+    if (updated) {
+      this._setupThumbnailLazyLoading();
+    }
+    return updated;
   }
 
   _renderModelTagChip(label, className) {
@@ -1324,7 +1401,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (this._viewMode === "media") {
       return ''
-        + '<article class="model-card view-media" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay"><span class="card-mode-pill">Media</span>' + (mediaCount > 1 ? '<span class="media-counter" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '') + '</div>'
@@ -1336,15 +1413,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (this._viewMode === "list") {
       return ''
-        + '<article class="model-card view-list" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-list' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div><span class="card-mode-pill list-mode">List</span></div>'
         + listBodyHtml
         + '</article>';
     }
 
     return ''
-      + '<article class="model-card view-compact" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
-      + '  <span class="queue-ribbon' + queueRibbonClass + '" aria-hidden="true"></span>'
+      + '<article class="model-card view-compact' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
       + compactFullHtml
@@ -1592,15 +1668,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'
       + '.results.view-list{grid-template-columns:1fr;}'
       + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease;}'
+      + '.model-card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 transparent;opacity:0;transition:opacity .16s ease,box-shadow .16s ease;pointer-events:none;}'
       + '.model-card:hover{border-color:var(--accent-strong);box-shadow:0 14px 32px rgba(15,23,42,0.18);}'
       + '.model-card:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(96,165,250,0.34);border-color:var(--accent-strong);}'
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:96px minmax(0,1fr);column-gap:12px;padding:14px;align-items:start;}'
-      + '.queue-ribbon{position:absolute;left:1px;top:1px;bottom:1px;width:4px;border-radius:18px 0 0 18px;background:transparent;pointer-events:none;}'
-      + '.queue-ribbon.is-queued{background:#f59e0b;}'
-      + '.queue-ribbon.is-printing{background:#1e88e5;}'
-      + '.queue-ribbon.is-done{background:#2e7d32;}'
+      + '.model-card.is-queued::after{opacity:1;box-shadow:inset 5px 0 0 #f59e0b;}'
+      + '.model-card.is-printing::after{opacity:1;box-shadow:inset 5px 0 0 #1e88e5;}'
+      + '.model-card.is-done::after{opacity:1;box-shadow:inset 5px 0 0 #2e7d32;}'
       + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
       + '.view-compact .compact-wrap{grid-area:thumb;}'
       + '.view-compact .compact-main{grid-area:main;}'

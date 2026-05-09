@@ -24,7 +24,7 @@ rest_command:
 
   # Catalog browser: toggle model favorite without patching unrelated fields
   model_catalog_toggle_model_favorite:
-    url: "{{ [states('input_text.model_catalog_sidecar_base_url'), states('input_text.model_catalog_sidecar_base_url'), 'http://model-catalog-sidecar:8314'] | select('defined') | select('ne', 'unknown') | select('ne', '') | first }}/api/models/{{ model_ref }}"
+    url: "{{ [states('input_text.model_catalog_sidecar_base_url'), states('input_text.model_catalog_sidecar_base_url'), 'http://model-catalog-sidecar:8314'] | select('defined') | select('ne', 'unknown') | select('ne', '') | first }}/api/models/{{ (model_ref | string) | urlencode }}"
     method: PATCH
     headers:
       Content-Type: application/json
@@ -33,7 +33,7 @@ rest_command:
         "enrichment": {
           "structured_metadata": {
             "catalog_signals": {
-              "model_favorite": {{ 'true' if model_favorite | default(false) else 'false' }}
+              "model_favorite": {{ (model_favorite | default(false)) | tojson }}
             }
           }
         }
