@@ -33,7 +33,7 @@ rest_command:
         "enrichment": {
           "structured_metadata": {
             "catalog_signals": {
-              "model_favorite": {{ model_favorite | default(false) | tojson }}
+              "model_favorite": {{ 'true' if model_favorite | default(false) else 'false' }}
             }
           }
         }

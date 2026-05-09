@@ -472,8 +472,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._setModelFavoriteState(favoriteModelRef, nextFavorite);
         this._render();
       } catch (error) {
-        this._error = error && error.message ? String(error.message) : "Could not update favorite state.";
-        this._render();
+        console.warn("Could not update favorite state", error);
       }
       return;
     }
@@ -1131,8 +1130,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var successLabel = Number.isFinite(successRatePct) ? (String(Math.round(Math.max(0, Math.min(100, successRatePct)))) + "%") : "--";
 
-    // Load model detail in all view modes to fetch preview/media URLs
-    this._loadModelMedia(model);
+    // Avoid prefetch/re-render churn in compact/list; only hydrate media galleries in media mode.
+    if (this._viewMode === "media") {
+      this._loadModelMedia(model);
+    }
 
     var previewHtml = mediaUrl
       ? (
@@ -1210,6 +1211,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<button class="icon-action favorite-action' + (modelFavorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(modelFavorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(modelFavorite ? 'Remove favorite' : 'Add favorite') + '">'
       + '  <ha-icon icon="' + this._escapeHtml(modelFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
       + '</button>';
+    var queueQuickAction = (queueStatus === "queued")
+      ? '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Dequeue</button>'
+      : '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queue</button>';
     var detailActionButton = ''
       + '<button class="icon-action" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="View model details">'
       + '  <ha-icon icon="mdi:text-box-search-outline"></ha-icon>'
@@ -1260,10 +1264,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + detailActionButton
       + advancedActions
       + '  </div>'
-      + '  <div class="compact-title-row">'
-      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
-      + '    <span class="compact-last-printed">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</span>'
-      + '  </div>'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '  <div class="chip-row provenance-row">'
       + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip')
@@ -1275,10 +1275,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var compactFullHtml = ''
       + '<div class="body compact-full">'
+      + '  <div class="compact-title-row">'
+      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '    <span class="compact-last-printed">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</span>'
+      + '  </div>'
       + '  <div class="chip-row status-line">'
       + queueChip
       + this._renderModelTagChip('Priority: ' + queuePriorityLabel, 'subtle-chip')
       + this._renderModelTagChip('Linked prints: ' + String(linkedCount), 'subtle-chip')
+      + queueQuickAction
       + '  </div>'
       + '  <div class="metrics compact-metrics">'
       + this._renderModelMetric('Archives', linkedCount)
@@ -1314,6 +1319,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="media-footer-row">'
       + '    <div class="tags">' + tagMarkup + '</div>'
       + '    <div class="media-actions">'
+      + queueQuickAction
       + favoriteButton
       + detailActionButton
       + advancedActions
@@ -1336,6 +1342,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="list-cell">' + (publishedDestinationChips || this._renderModelTagChip('Not published', 'subtle-chip')) + '</div>'
       + '    <div class="list-cell">' + tagMarkup + '</div>'
       + '    <div class="list-cell list-actions">'
+      + queueQuickAction
       + favoriteButton
       + detailActionButton
       + advancedActions
@@ -1504,10 +1511,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-compact .body,.view-list .body{padding:0;}'
       + '.compact-top-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
-      + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;}'
       + '.compact-last-printed{font-size:11px;font-weight:700;color:var(--secondary-text-color);padding-top:2px;}'
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
+      + '.queue-quick-btn{min-height:30px;padding:0 10px;font-size:11px;border-radius:999px;}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}'
