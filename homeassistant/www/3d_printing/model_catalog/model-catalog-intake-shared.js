@@ -42,6 +42,70 @@
       .join(" ");
   }
 
+  var PRINTABLE_EXTENSIONS = {
+    ".3mf": true,
+    ".stl": true,
+    ".step": true,
+    ".stp": true,
+    ".obj": true,
+    ".amf": true,
+    ".ply": true,
+  };
+
+  function normalizePath(pathValue) {
+    return String(pathValue || "").replace(/\\/g, "/");
+  }
+
+  function pathExtension(pathValue) {
+    var normalized = normalizePath(pathValue).toLowerCase();
+    var dotIndex = normalized.lastIndexOf(".");
+    return dotIndex >= 0 ? normalized.slice(dotIndex) : "";
+  }
+
+  function isArchivePath(pathValue) {
+    var normalized = normalizePath(pathValue).toLowerCase();
+    return /\.(zip|rar|7z|tar|gz|bz2|xz)$/i.test(normalized);
+  }
+
+  function fileKind(pathValue) {
+    var normalized = normalizePath(pathValue).toLowerCase();
+    var extension = pathExtension(normalized);
+    if (PRINTABLE_EXTENSIONS[extension]) {
+      return "model";
+    }
+    if (/\.(png|jpg|jpeg|webp|gif|bmp|svg|avif)$/i.test(normalized)) {
+      return "media";
+    }
+    if (isArchivePath(normalized)) {
+      return "archive";
+    }
+    return "supporting";
+  }
+
+  function fileTypeIconName(pathValue) {
+    var normalized = normalizePath(pathValue).toLowerCase();
+    var extension = pathExtension(normalized);
+    if (PRINTABLE_EXTENSIONS[extension]) {
+      return "mdi:cube-outline";
+    }
+    if (/\.(png|jpg|jpeg|webp|gif|bmp|svg|avif|heic|tif|tiff)$/i.test(normalized)) {
+      return "mdi:image-outline";
+    }
+    if (extension === ".pdf") {
+      return "mdi:file-pdf-box";
+    }
+    if (/\.(doc|docx|odt|rtf|txt|md)$/i.test(normalized)) {
+      return "mdi:file-document-outline";
+    }
+    if (isArchivePath(normalized)) {
+      return "mdi:zip-box-outline";
+    }
+    if (/\.(gcode|g)$/i.test(normalized)) {
+      return "mdi:printer-3d-nozzle";
+    }
+    return "mdi:file-outline";
+  }
+
   // Issue #1341: single source of truth for the user-facing labels of the
   // grouping_strategy enum used by both the Browser and Server intake flows.
   // Internal codes (none/by-folder/by-root/flat) are intentionally unchanged.
@@ -676,10 +740,14 @@
     callServiceWithResponse: callServiceWithResponse,
     duplicateWarnings: duplicateWarnings,
     escapeHtml: escapeHtml,
+    fileKind: fileKind,
+    fileTypeIconName: fileTypeIconName,
     formatBytes: formatBytes,
     formatLabel: formatLabel,
     fireModelCatalogDataChanged: fireModelCatalogDataChanged,
     normalizeGroupingStrategy: normalizeGroupingStrategy,
+    normalizePath: normalizePath,
+    isArchivePath: isArchivePath,
     groupingStrategyLabel: groupingStrategyLabel,
     groupingOptionsHtml: groupingOptionsHtml,
     getModelCatalogScopeStamp: getModelCatalogScopeStamp,

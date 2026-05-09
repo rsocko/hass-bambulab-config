@@ -8,6 +8,9 @@ var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback
 var groupingStrategyLabel = intakeShared.groupingStrategyLabel;
 var groupingOptionsHtml = intakeShared.groupingOptionsHtml;
 var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
+var sharedNormalizePath = intakeShared.normalizePath;
+var sharedFileTypeIconName = intakeShared.fileTypeIconName;
+var sharedFileKind = intakeShared.fileKind;
 
 var PRINTABLE_EXTENSIONS = {
   '.3mf': true,
@@ -19,12 +22,12 @@ var PRINTABLE_EXTENSIONS = {
   '.ply': true,
 };
 
-function normalizePath(pathValue) {
+var normalizePath = sharedNormalizePath || function (pathValue) {
   return String(pathValue || '').replace(/\\/g, '/');
-}
+};
 
 // Issue #1322: pick an MDI icon for the file type indicator shown in source-step rows.
-function fileTypeIconName(pathValue) {
+var fileTypeIconName = sharedFileTypeIconName || function (pathValue) {
   var normalized = normalizePath(pathValue).toLowerCase();
   var dotIndex = normalized.lastIndexOf('.');
   var extension = dotIndex >= 0 ? normalized.slice(dotIndex) : '';
@@ -47,7 +50,7 @@ function fileTypeIconName(pathValue) {
     return 'mdi:printer-3d-nozzle';
   }
   return 'mdi:file-outline';
-}
+};
 
 function entryTypeIconMarkup(pathValue, isFolder) {
   if (isFolder) {
@@ -86,7 +89,7 @@ function formatBrowsePathForDisplay(rawPath) {
   return stripped;
 }
 
-function fileKind(pathValue) {
+var fileKind = sharedFileKind || function (pathValue) {
   var normalized = normalizePath(pathValue).toLowerCase();
   var dotIndex = normalized.lastIndexOf('.');
   var extension = dotIndex >= 0 ? normalized.slice(dotIndex) : '';
@@ -96,8 +99,11 @@ function fileKind(pathValue) {
   if (/\.(png|jpg|jpeg|webp|gif|bmp|svg|avif)$/i.test(normalized)) {
     return 'media';
   }
+  if (/\.(zip|rar|7z|tar|gz|bz2|xz)$/i.test(normalized)) {
+    return 'archive';
+  }
   return 'supporting';
-}
+};
 
 function browserRootKey(relativePath) {
   var parts = normalizePath(relativePath).split('/').filter(Boolean);
@@ -192,6 +198,7 @@ function summarizeGroups(groups, strategy) {
   var plannedModels = groups.map(function (group) {
     var modelCount = 0;
     var mediaCount = 0;
+    var archiveCount = 0;
     var supportingCount = 0;
     var files = group.files.map(function (entry) {
       var relativePath = normalizePath(entry.relative_path || entry.name || entry.path || '');
@@ -200,6 +207,8 @@ function summarizeGroups(groups, strategy) {
         modelCount += 1;
       } else if (kind === 'media') {
         mediaCount += 1;
+      } else if (kind === 'archive') {
+        archiveCount += 1;
       } else {
         supportingCount += 1;
       }
@@ -215,6 +224,7 @@ function summarizeGroups(groups, strategy) {
       file_count: files.length,
       model_file_count: modelCount,
       media_file_count: mediaCount,
+      archive_file_count: archiveCount,
       supporting_file_count: supportingCount,
       files: files,
     };
@@ -1402,7 +1412,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.archive_file_count || 0) + ' archive, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
         + '  <div class="item-grid">'
         + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
         + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '"><option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>New</option><option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option></select></div>'
@@ -2091,6 +2101,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var selected = !!this._selected[entry.path];
       var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
       var isExcluded = excludedItems.indexOf(entry.path) !== -1;
+      var isArchive = entry.type !== 'folder' && fileKind(entry.path) === 'archive';
       var rowClass = 'entry-row'
         + (selected ? ' selected' : '')
         + (childOfSelection ? ' included-in-selection' : '')
@@ -2099,7 +2110,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return ''
         + '<article class="' + rowClass + '">'
         + '  <div class="entry-top">'
-        + (entry.type === 'folder' ? folderPreviewMarkup() : this._serverPreviewMarkup(entry.path, displayName))
+        + (entry.type === 'folder' || isArchive ? folderPreviewMarkup() : this._serverPreviewMarkup(entry.path, displayName))
         + '    <div class="entry-main">'
         + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(formatBrowsePathForDisplay(this._browse.path || '/')) + '</div>'
@@ -2109,6 +2120,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-actions">'
         + (selected ? '<span class="chip ok">Selected</span>' : '')
         + (!selected && childOfSelection ? '<span class="chip">Included in Selection</span>' : '')
+        + (isArchive ? '<span class="chip">Archive Container</span>' : '')
         + (isExcluded ? '<span class="chip warn">Excluded</span>' : '')
         + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
         + '  </div>'
@@ -2139,7 +2151,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var selected = !!card._selected[entry.path];
       var displayName = String(entry.name || (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename ? window.ModelCatalogIntakeShared.basename(entry.path) : entry.path) || '');
       var isFolder = entry.type === 'folder';
-      var previewMarkup = !isFolder
+      var isArchive = !isFolder && fileKind(entry.path) === 'archive';
+      var previewMarkup = !isFolder && !isArchive
         ? card._serverPreviewMarkup(entry.path, displayName)
         : folderPreviewMarkup();
       // Issue #1324: detect whether this entry is inside an already-selected folder.
@@ -2177,6 +2190,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         //   Not selected     → no border + Select (file) / Open + Select (folder)
         + (selected ? '<span class="chip ok" style="align-self:center;">Selected</span>' : '')
         + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;">Included in Selection</span>' : '')
+        + (isArchive ? '<span class="chip" style="align-self:center;">Archive Container</span>' : '')
         + (isExcluded ? '<span class="chip warn" style="align-self:center;">Excluded</span>' : '')
         + (containsSelection ? '<span class="chip" style="align-self:center;">1 or more children included</span>' : '')
         + (selected && excludedUnder > 0 ? '<span class="chip warn" style="align-self:center;" title="Items excluded from this folder">⚠ ' + String(excludedUnder) + ' excluded</span>' : '')
@@ -2213,7 +2227,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + selections.map(function (entry) {
           var entryName = String(basename(entry.path) || entry.path);
           var isFolder = entry.type === 'folder';
-          var previewMarkup = isFolder
+          var isArchive = !isFolder && fileKind(entry.path) === 'archive';
+          var previewMarkup = isFolder || isArchive
             ? folderPreviewMarkup()
             : card._serverPreviewMarkup(entry.path, entryName);
           var rawPath = String(entry.path || '').replace(/\/+$/, '');
@@ -2238,6 +2253,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             + '  </div>'
             + '  <div class="entry-actions">'
             + '<span class="chip ok">Selected</span>'
+            + (isArchive ? '<span class="chip">Archive Container</span>' : '')
             + exclusionChip
             + '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>'
             + '  </div>'
@@ -2274,7 +2290,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var titleSource = this._selectionTitleSource(entry);
         var resolvedTitle = this._resolvedGroupTitle(entry);
         var entryName = String(basename(entry.path) || entry.path);
-        var previewMarkup = entry.type === 'file'
+        var isArchive = entry.type === 'file' && fileKind(entry.path) === 'archive';
+        var previewMarkup = entry.type === 'file' && !isArchive
           ? this._serverPreviewMarkup(entry.path, entryName)
           : folderPreviewMarkup();
         // Issue #1324: exclusion count chip for selected folders.
@@ -2287,7 +2304,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var displayPath = formatBrowsePathForDisplay(entry.path);
         return ''
           + '<article class="entry-row" data-path="' + escapeHtml(entry.path) + '">'
-          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(displayPath) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
+          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(displayPath) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (isArchive ? '<span class="chip">Archive Container</span>' : '') + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
               + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'

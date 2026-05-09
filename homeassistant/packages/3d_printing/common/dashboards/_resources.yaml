@@ -5,7 +5,7 @@
   type: module
 - url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=131
+- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=133
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=29
   type: module

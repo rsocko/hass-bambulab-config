@@ -88,6 +88,8 @@ Supporting files and images do not become standalone models when `Separate Model
 
 ### Browser Upload Variant
 
+ZIP archives are expanded before submission and should be shown as folder-like container roots in the Source step, so their member files remain browsable in the wizard.
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Intake Wizard: Source                                                           [Close]   │
@@ -99,10 +101,13 @@ Supporting files and images do not become standalone models when `Separate Model
 │ Browser Upload                        │ Selected Inputs                                    │
 │ [Add Files] [Add Folder] [Clear All]  │ ┌────────────────────────────────────────────────┐ │
 │                                       │ │ Browser Upload                                 │ │
-│ Folder scope                          │ │ 12 files, 2 folders                            │ │
+│ Folder scope                          │ │ 12 files, 2 folders, 1 archive container       │ │
 │ (•) Include subfolders                │ │                                                │ │
 │ ( ) Just selected folder              │ │ Folder A/                                      │ │
 │                                       │ │   model.3mf                                    │ │
+│                                       │ │ Archive root/                                  │ │
+│                                       │ │   shell.3mf                                    │ │
+│                                       │ │   docs/readme.md                               │ │
 │ Staging controls                      │ │   image.jpg                                    │ │
 │ - remove individual items             │ │ Folder B/                                      │ │
 │ - re-add more files/folders           │ │   sub/part-a.stl                               │ │
@@ -113,6 +118,7 @@ Supporting files and images do not become standalone models when `Separate Model
 │                                       │ - source: Browser Upload                         │
 │                                       │ - printable files: 9                             │
 │                                       │ - media/supporting files: 3                      │
+│                                       │ - archive containers: 1                         │ │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
@@ -129,7 +135,7 @@ When browser transfer is active, the Source step should switch to a busy variant
 │ Uploading files...                    │ Selected Inputs                                    │
 │ 2 of 12 files                         │ ┌────────────────────────────────────────────────┐ │
 │ [███████████---------] 58%            │ │ Browser Upload                                 │ │
-│ 184 MB / 318 MB                       │ │ Transfer in progress                           │ │
+│ 184 MB / 318 MB                       │ │ Archive contents were expanded before upload   │ │
 │                                       │ │ - model-a.3mf                                 │ │
 │ Actions unavailable while upload runs │ │ - model-b.3mf                                 │ │
 │ [Cancel Upload]                       │ │ - image.jpg                                   │ │
@@ -175,6 +181,7 @@ KEY:
 - ✓ = selected (checkbox checked, item included)
 - [X] = remove button (remove this item, add to exclusions)
 - 📁 = folder, 📄 = file
+- ZIP archives are expanded to browsable folder roots before the wizard submits them, so the selected tree reflects member files rather than an opaque archive shell.
 - Left pane shows tree with ALL items, user can remove
 - Right pane shows ONLY topmost selected items (consolidation)
 - Children implicitly selected via parent selection

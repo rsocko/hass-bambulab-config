@@ -2,7 +2,7 @@
 
 > **Status**: Canonical design baseline.
 > **Created**: 2026-04-25
-> **Last updated**: 2026-05-03
+> **Last updated**: 2026-05-09
 > **Scope**: Wizard-first intake flow, queue demoted to background/staging, Job History as the visible intake outcome surface.
 
 ## Purpose
@@ -46,6 +46,7 @@ Support both intake source modes under one queue contract, but keep each queued 
 - Within the chosen mode, source selection can still include explicit files, folders, or mixed file+folder batches.
 - Folder source entries keep traversal control (`recurse` true/false) inline with the selection flow.
 - Server-browse selections may overlap hierarchically (parent folder plus child folder/file), but the canonical model is a union of unique resolved files rather than additive duplicate imports.
+- Browser-upload ZIP archives are expanded in the wizard before queue submission and are presented like browsable folders, so the operator can inspect and group their member files with the same Source-step controls used for ordinary folders.
 
 Both modes still converge on the same queue state machine and review/import UX.
 
@@ -126,12 +127,15 @@ Step 1 follows the shared split-pane rule:
   - show root/source provenance (`Browser Upload` vs actual server path)
   - show immediate batch summary counts and a grouped preview of the selected inputs
 
+Browser-upload ZIP archives should appear in this step as container roots with nested member files, not as opaque single files.
+
 Progress/busy affordances for Step 1:
 
 - Browser Upload should show upload transfer progress once the operator starts the upload-bearing transition out of Source.
 - Prefer determinate progress using bytes sent / total bytes and file count when available.
 - While transfer is active, disable add/remove/reorder actions for the submitted batch and replace the primary action with `Cancel Upload` if the request is still abortable.
 - Server browse selection itself does not need a progress bar, but expensive server-side folder resolution may show an indeterminate `Scanning selection` busy state if traversal or dedupe expansion is slow.
+- When a browser ZIP is expanded client-side, the expansion happens before queue submission so progress should continue to reflect the resulting member-file upload set rather than the archive envelope.
 
 ### Overlapping Server Selections
 

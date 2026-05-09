@@ -16,6 +16,7 @@ var setHelperValue = intakeShared.setHelperValue;
 var sharedStyles = intakeShared.sharedStyles;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
 var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
+var isArchivePath = intakeShared.isArchivePath;
 
 var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".png": true,
@@ -30,6 +31,10 @@ var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
 
 var BROWSER_PREVIEW_3MF_EXTENSIONS = {
   ".3mf": true,
+};
+
+var BROWSER_ARCHIVE_EXTENSIONS = {
+  ".zip": true,
 };
 
 var BROWSER_3MF_THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
@@ -200,6 +205,83 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var fileName = String(file.name || "");
     var extension = fileName.lastIndexOf(".") >= 0 ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase() : "";
     return !!BROWSER_PREVIEW_3MF_EXTENSIONS[extension];
+  }
+
+  _isBrowserArchiveFile(file) {
+    if (!file) {
+      return false;
+    }
+    var fileName = String(file.name || "");
+    if (typeof isArchivePath === 'function') {
+      return !!isArchivePath(fileName);
+    }
+    var extension = fileName.lastIndexOf(".") >= 0 ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase() : "";
+    return !!BROWSER_ARCHIVE_EXTENSIONS[extension];
+  }
+
+  _browserArchiveRootName(file) {
+    return pathStem(String(file && file.name || "").trim()) || basename(String(file && file.name || "").trim()) || "archive";
+  }
+
+  _normalizeBrowserArchiveMemberPath(memberPath) {
+    return String(memberPath || "")
+      .replace(/\\/g, "/")
+      .split("/")
+      .filter(function (part) {
+        return part && part !== "." && part !== "..";
+      })
+      .join("/");
+  }
+
+  async _expandBrowserArchiveFile(file, currentBrowserTitleSource, currentBrowserTitle) {
+    if (!(await this._ensureJsZipLoaded()) || typeof JSZip === "undefined") {
+      return null;
+    }
+    var archiveRoot = this._browserArchiveRootName(file);
+    var zip = await JSZip.loadAsync(file);
+    var nextEntries = [];
+    var memberNames = Object.keys(zip.files || {}).sort();
+    for (var index = 0; index < memberNames.length; index += 1) {
+      var memberName = memberNames[index];
+      var zipEntry = zip.files[memberName];
+      if (!zipEntry || zipEntry.dir) {
+        continue;
+      }
+      var normalizedMemberPath = this._normalizeBrowserArchiveMemberPath(memberName);
+      if (!normalizedMemberPath) {
+        continue;
+      }
+      var memberBlob = await zipEntry.async("blob");
+      var leafName = basename(normalizedMemberPath) || String(memberName || file.name || "archive.bin");
+      var memberFile;
+      try {
+        memberFile = new File([memberBlob], leafName, {
+          type: memberBlob.type || file.type || "application/octet-stream",
+          lastModified: file.lastModified || Date.now(),
+        });
+      } catch (_error) {
+        memberFile = memberBlob;
+        memberFile.name = leafName;
+        memberFile.lastModified = file.lastModified || Date.now();
+      }
+      var memberRelativePath = [archiveRoot].concat(normalizedMemberPath.split("/").filter(Boolean)).join("/");
+      var previewUrl = await this._createBrowserPreviewUrl(memberFile);
+      nextEntries.push({
+        file: memberFile,
+        name: leafName,
+        relative_path: memberRelativePath,
+        size_bytes: Number(memberBlob.size || 0),
+        preview_url: previewUrl,
+        grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
+        recurse: this._browserRecurse(),
+        preserve_folder_structure: true,
+        group_title_source: 'folder',
+        group_title: currentBrowserTitleSource === 'custom' ? currentBrowserTitle : '',
+        source_container_type: 'archive',
+        source_container_name: String(file.name || archiveRoot || 'archive'),
+      });
+    }
+    return nextEntries;
   }
 
   _inferImageMimeTypeFromPath(path) {
@@ -1008,6 +1090,29 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         continue;
       }
       var relativePath = String(file.webkitRelativePath || file.name || "").trim() || String(file.name || "").trim();
+      if (this._isBrowserArchiveFile(file)) {
+        try {
+          var archiveEntries = await this._expandBrowserArchiveFile(file, currentBrowserTitleSource, currentBrowserTitle);
+          if (archiveEntries && archiveEntries.length) {
+            for (var archiveIndex = 0; archiveIndex < archiveEntries.length; archiveIndex += 1) {
+              var archiveEntry = archiveEntries[archiveIndex];
+              var archiveKey = this._browserFileKey(archiveEntry);
+              var existingArchiveEntry = nextByKey[archiveKey];
+              if (existingArchiveEntry && existingArchiveEntry.preview_url && existingArchiveEntry.preview_url !== archiveEntry.preview_url) {
+                this._revokeBrowserPreviewUrl(existingArchiveEntry.preview_url);
+              }
+              nextByKey[archiveKey] = archiveEntry;
+              if (this._isBrowserKeyExcluded(archiveKey)) {
+                this._setBrowserKeyExcluded(archiveKey, false);
+              }
+            }
+            continue;
+          }
+        } catch (_error) {
+          // Fall back to treating the archive like a regular file if browser-side
+          // expansion is unavailable or the archive is unreadable.
+        }
+      }
       var previewUrl = await this._createBrowserPreviewUrl(file);
       var nextEntry = {
         file: file,
@@ -1319,6 +1424,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
       var displayName = basename(relativePath || entry.name || "") || entry.name || relativePath || "upload.bin";
       var folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+      var archiveName = String(entry.source_container_name || '').trim();
       var previewUrl = String(entry.preview_url || "");
       var previewMarkup = previewUrl
         ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
@@ -1327,7 +1433,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '<article class="entry-row">'
         + '  <div class="entry-top">'
         + previewMarkup
-        + '<div><div class="entry-name">' + escapeHtml(displayName) + '</div><div class="entry-path">' + escapeHtml(relativePath || entry.name || "") + '</div>' + (folderPath ? '<div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '') + '</div><div class="button-row"><span class="chip">browser</span>' + (folderPath ? '<span class="chip">folder upload</span>' : '<span class="chip">single file</span>') + '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
+        + '<div><div class="entry-name">' + escapeHtml(displayName) + '</div><div class="entry-path">' + escapeHtml(relativePath || entry.name || "") + '</div>' + (folderPath ? '<div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '') + (archiveName ? '<div class="muted">Archive: ' + escapeHtml(archiveName) + '</div>' : '') + '</div><div class="button-row"><span class="chip">browser</span>' + (archiveName ? '<span class="chip">archive content</span>' : (folderPath ? '<span class="chip">folder upload</span>' : '<span class="chip">single file</span>')) + '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
         + (showActions ? '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(this._browserFileKey(entry)) + '">Remove</button>' : '')
         + '  </div></div>'
         + '</article>';
@@ -1368,7 +1474,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. Image previews shown in this wizard are local browser previews before upload and are not persisted.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Catalog.' : '') + '</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. ZIP archives are expanded in the browser into browsable folder trees before upload, so the wizard can treat them like a container instead of a flat file.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Catalog.' : '') + '</div>'
         : '')
       + '</div>';
   }

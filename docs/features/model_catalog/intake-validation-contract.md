@@ -59,6 +59,8 @@ The backend currently emits these warning codes from validation:
 
 Current intake policy accepts model, image, and document/supporting files.
 
+Browser-upload ZIP archives are treated as container inputs: the wizard expands them into member files before queue submission, and the resolved member files are validated with the same rules as ordinary inputs.
+
 Supported categories:
 
 - model files: `.3mf`, `.stl`, `.obj`, `.step`, `.stp`, `.zip`

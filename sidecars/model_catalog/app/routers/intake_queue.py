@@ -22,6 +22,7 @@ import shutil
 import sqlite3
 import time
 import uuid
+import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from sqlite3 import connect
@@ -120,13 +121,141 @@ def _sanitize_browser_upload_relative_path(relative_path: str | None, fallback_n
     return sanitized
 
 
+def _expand_server_archive_source_entries(
+    settings: Settings,
+    source_entries: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Expand server-side ZIP source entries into staged file entries.
+
+    Browser ZIP files are expanded client-side before upload. This helper brings
+    server-browse ZIP selections to the same contract by expanding each archive
+    into staged member-file entries consumed by existing intake validation and
+    publish flows.
+    """
+    expanded_entries: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+
+        entry_type = str(entry.get("type") or "").strip().lower()
+        source_type = str(entry.get("source_type") or "").strip().lower()
+        entry_path_raw = str(entry.get("path") or "").strip()
+
+        if entry_type != "file" or not entry_path_raw or source_type == "browser_upload":
+            expanded_entries.append(entry)
+            continue
+
+        entry_path = Path(entry_path_raw).expanduser().resolve()
+        if entry_path.suffix.lower() != ".zip":
+            expanded_entries.append(entry)
+            continue
+        if not entry_path.exists() or not entry_path.is_file():
+            expanded_entries.append(entry)
+            continue
+
+        archive_root_name = _sanitize_filesystem_segment(entry_path.stem or entry_path.name, fallback="archive")
+        archive_upload_id = str(uuid.uuid4())
+        archive_stage_root = (_browser_intake_upload_storage_root(settings) / archive_upload_id).resolve()
+        archive_stage_root.mkdir(parents=True, exist_ok=True)
+
+        archive_member_count = 0
+        archive_member_files = 0
+        try:
+            with zipfile.ZipFile(entry_path) as archive:
+                for zip_info in archive.infolist():
+                    archive_member_count += 1
+                    if zip_info.is_dir():
+                        continue
+
+                    normalized_relative = _sanitize_browser_upload_relative_path(zip_info.filename, fallback_name=Path(zip_info.filename).name or "file.bin")
+                    member_relative = Path(archive_root_name) / normalized_relative
+                    stage_path = (archive_stage_root / member_relative).resolve()
+                    if not stage_path.is_relative_to(archive_stage_root):
+                        continue
+
+                    stage_path.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(zip_info, "r") as src, stage_path.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
+
+                    stat_result = stage_path.stat()
+                    from .._helpers import _bulk_path_source_metadata
+                    staged_metadata = _bulk_path_source_metadata(stage_path, stat_result)
+
+                    expanded_entry = {
+                        "type": "file",
+                        "path": str(stage_path),
+                        "recurse": False,
+                        "excluded_items": [],
+                        "source_mtime": staged_metadata["source_mtime"],
+                        "source_ctime": staged_metadata["source_ctime"],
+                        "source_birthtime": staged_metadata.get("source_birthtime"),
+                        "source_size_bytes": int(stat_result.st_size),
+                        "source_type": "server_archive_upload",
+                        "upload_id": archive_upload_id,
+                        "original_filename": entry_path.name,
+                        "relative_path": str(member_relative).replace("\\", "/"),
+                    }
+
+                    for carry_key in (
+                        "grouping_strategy",
+                        "preserve_folder_structure",
+                        "group_title_source",
+                        "group_title",
+                    ):
+                        carry_value = entry.get(carry_key)
+                        if carry_value not in {None, ""}:
+                            expanded_entry[carry_key] = carry_value
+
+                    expanded_entries.append(expanded_entry)
+                    archive_member_files += 1
+        except (OSError, zipfile.BadZipFile, RuntimeError) as error:
+            warnings.append(
+                {
+                    "code": "archive_expand_failed",
+                    "message": f"Could not expand archive: {entry_path.name}",
+                    "path": str(entry_path),
+                    "detail": str(error),
+                }
+            )
+            shutil.rmtree(archive_stage_root, ignore_errors=True)
+            expanded_entries.append(entry)
+            continue
+
+        if archive_member_files <= 0:
+            warnings.append(
+                {
+                    "code": "archive_empty",
+                    "message": f"Archive has no files to import: {entry_path.name}",
+                    "path": str(entry_path),
+                }
+            )
+            shutil.rmtree(archive_stage_root, ignore_errors=True)
+            expanded_entries.append(entry)
+            continue
+
+        warnings.append(
+            {
+                "code": "archive_expanded",
+                "message": f"Expanded archive {entry_path.name} into {archive_member_files} file(s).",
+                "path": str(entry_path),
+                "member_count": archive_member_count,
+                "expanded_file_count": archive_member_files,
+            }
+        )
+
+    return expanded_entries, warnings
+
+
 def _browser_upload_stage_directories(settings: Settings, source_entries: list[dict[str, Any]]) -> list[Path]:
     storage_root = _browser_intake_upload_storage_root(settings)
     directories: set[Path] = set()
     for entry in source_entries:
         if not isinstance(entry, dict):
             continue
-        if str(entry.get("source_type") or "").strip().lower() != "browser_upload":
+        source_type = str(entry.get("source_type") or "").strip().lower()
+        if source_type not in {"browser_upload", "server_archive_upload"}:
             continue
 
         upload_id = str(entry.get("upload_id") or "").strip()
@@ -858,12 +987,17 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     if replay_response is not None:
         return replay_response
 
+    expanded_entries, archive_warnings = _expand_server_archive_source_entries(
+        state.settings,
+        consolidated_entries,
+    )
+
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,
-        validated_entries=consolidated_entries,  # Use consolidated entries instead
+        validated_entries=expanded_entries,
         cleanup_policy=cleanup_policy,
         telemetry={
-            "warnings_count": 0,
+            "warnings_count": len(archive_warnings),
             "upload_duration_ms": _duration_ms(request_started),
         },
     )
@@ -874,7 +1008,8 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
         "status": "queued",
         "verification_status": "unverified",
         "cleanup_policy": cleanup_policy,
-        "source_entry_count": len(consolidated_entries),  # Use consolidated count
+        "source_entry_count": len(expanded_entries),
+        "warnings": archive_warnings,
         "created_at": now_iso,
     }
     response_payload = _response_with_idempotency(response_payload, key=idempotency_key, replayed=False)
@@ -1244,6 +1379,13 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
             shutil.rmtree(staged_root, ignore_errors=True)
         return replay_response
 
+    validated_entries, archive_warnings = _expand_server_archive_source_entries(
+        state.settings,
+        validated_entries,
+    )
+    if archive_warnings:
+        warnings.extend(archive_warnings)
+
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
@@ -1488,6 +1630,13 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
     if replay_response is not None:
         shutil.rmtree(staged_root, ignore_errors=True)
         return replay_response
+
+    validated_entries, archive_warnings = _expand_server_archive_source_entries(
+        state.settings,
+        validated_entries,
+    )
+    if archive_warnings:
+        warnings.extend(archive_warnings)
 
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,

@@ -6016,6 +6016,63 @@ def test_intake_queue_post_upload_supports_mixed_file_and_folder_entries(tmp_pat
     assert payload["source_entry_count"] == 2
 
 
+def test_intake_queue_post_upload_expands_server_zip_entries_into_staged_files(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    archive_file = tmp_path / "server-batch.zip"
+    with zipfile.ZipFile(archive_file, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("alpha/model-a.3mf", b"model-a")
+        archive.writestr("docs/readme.md", b"notes")
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(archive_file),
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["source_entry_count"] == 2
+        assert any(warning.get("code") == "archive_expanded" for warning in payload.get("warnings", []))
+        upload_id = payload["upload_id"]
+
+        connection = sqlite3.connect(settings.db_path)
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        source_entries = json.loads(str(row[0] or "[]"))
+        assert len(source_entries) == 2
+        assert all(str(entry.get("source_type") or "") == "server_archive_upload" for entry in source_entries)
+        assert all(str(entry.get("type") or "") == "file" for entry in source_entries)
+        assert all(str(entry.get("relative_path") or "").startswith("server-batch/") for entry in source_entries)
+
+        stage_upload_id = str(source_entries[0].get("upload_id") or "")
+        assert stage_upload_id
+        stage_dir = (settings.db_path.parent / "intake_browser_uploads" / stage_upload_id).resolve()
+        assert stage_dir.exists() is True
+
+        delete_response = test_client.delete(f"/api/intake/uploads/{upload_id}")
+        assert delete_response.status_code == 200
+        assert delete_response.json().get("success") is True
+        assert stage_dir.exists() is False
+
+
 def test_intake_queue_get_uploads_lists_with_optional_status_filter(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
