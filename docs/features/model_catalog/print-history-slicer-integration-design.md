@@ -1,7 +1,7 @@
 # Print History Slicer Integration Design
 
 > **Status**: Design proposal for review
-> **Last updated**: 2026-05-01
+> **Last updated**: 2026-05-09
 > **Scope**: Model Catalog orchestration for source `.3mf` validation, optional filament override, local headless slicing, and canonical Bambuddy archive creation.
 
 See also:
@@ -77,6 +77,7 @@ Supported operational modes are:
 - keep Bambuddy as the canonical archive owner
 - preserve provenance by attaching the original source `.3mf` separately when useful
 - allow a review-heavy operator flow for older-history reconstruction
+- let the operator set the historical print timestamp that should be written into Print History
 
 ## Non-Goals
 
@@ -91,6 +92,7 @@ Supported operational modes are:
 ### Owning surfaces
 
 - **Model Catalog sidecar** owns orchestration, validation, operator warnings, override state, and job audit state
+- **Model Catalog sidecar** owns the persisted backfill job record, including operator-selected historical print timestamps
 - **Local slicer worker** runs beside Model Catalog and has direct access to the source `.3mf` working set plus controlled temp/output storage
 - **Filament Catalog / Spoolman linkage** provides the deterministic filament registry used for validation suggestions and allowed substitutions
 - **Bambuddy** remains the destination system for canonical archive creation and optional source attachment
@@ -118,6 +120,26 @@ That means a local worker has concrete advantages over a Bambuddy-hosted slicer 
 - easier use of Filament Catalog linkage during validation and substitution
 - cleaner audit trail because the same sidecar family owns source selection, validation, and slice-job state
 - simpler future extension to non-Bambuddy outputs without moving the execution boundary again
+
+## Persisted Job Contract
+
+The reviewed flow should persist draft and terminal state in a dedicated Model Catalog table instead of relying on transient browser state.
+
+Current contract:
+
+- table: `model_catalog_print_history_jobs`
+- migration version: `16`
+
+Minimum persisted fields:
+
+- workflow identity and source selection (`workflow_kind`, `source_kind`, `source_ref`, `local_model_id`, `working_group_id`)
+- operator outcome intent (`archive_intent`, `attach_source_after_create`)
+- review state (`status`, `validation_warnings_json`, `overrides_json`, `last_error`)
+- historical timestamp state (`requested_print_started_at`, `requested_print_completed_at`, `requested_print_timezone`, `date_override_strategy`)
+- worker execution state (`worker_provider`, `worker_job_id`, `selected_plate_key`, `selected_plate_index`, `sliced_output_path`)
+- final commit state (`target_archive_id`, `created_archive_id`, `commit_request_json`, `result_summary_json`)
+
+The important design constraint is that historical timestamp review survives refresh, restart, and partial failure.
 
 Recommended interpretation:
 
@@ -283,6 +305,17 @@ The first slice should allow controlled fixes only:
 
 Do **not** support arbitrary free-form filament creation in the first slice.
 
+### Step 4.5: Review historical print timestamps
+
+Before execution or archive commit, require an operator review of the print-history timestamps that should represent the original event.
+
+Recommended behavior:
+
+- show any inferred timestamp candidates from source metadata, archive candidates, or filesystem evidence
+- let the operator set start and completion time explicitly
+- persist the reviewed values into the job record before slicing starts
+- include the reviewed timestamps in the final Bambuddy archive-commit request
+
 ### Step 5: Slice job execution
 
 Once the validation state is satisfiable:
@@ -297,11 +330,14 @@ Once the validation state is satisfiable:
 On success:
 
 1. upload sliced output to Bambuddy as a new canonical archive
-2. write archive linkage back into Model Catalog
-3. optionally attach the original source `.3mf` to the created archive as provenance
-4. store operator decisions and worker metadata for audit and later retry
+2. include reviewed historical timestamp fields in the archive-creation request
+3. write archive linkage back into Model Catalog
+4. optionally attach the original source `.3mf` to the created archive as provenance
+5. store operator decisions and worker metadata for audit and later retry
 
 ## Validation Layer Design
+
+The validation UI should treat timestamp review as a first-class review category beside printer, process, and filament completeness.
 
 ### Printer validation
 

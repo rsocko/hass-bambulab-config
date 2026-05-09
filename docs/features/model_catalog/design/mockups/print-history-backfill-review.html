@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Historical Print Backfill Review</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0a1016;
+    --bg-stage: rgba(7, 11, 16, 0.80);
+    --bg-shell: rgba(17, 23, 33, 0.98);
+    --bg-card: rgba(255,255,255,0.035);
+    --border: rgba(148,163,184,0.18);
+    --border-strong: rgba(148,163,184,0.34);
+    --text: #edf3fb;
+    --text-secondary: #a5b4c6;
+    --text-muted: #728295;
+    --accent: #78e3c7;
+    --blue: #8ac7ff;
+    --amber: #f4c56b;
+    --danger: #f18a8a;
+    --green: #8cdda3;
+    --shadow: 0 28px 80px rgba(0,0,0,0.48);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(120,227,199,0.12), transparent 30%),
+      radial-gradient(circle at 84% 12%, rgba(138,199,255,0.12), transparent 28%),
+      linear-gradient(180deg, #081018, #0c131b 46%, #081018 100%);
+    color: var(--text); font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  body { padding: 30px clamp(16px, 4vw, 42px); }
+  .header { max-width: 1360px; margin: 0 auto 16px; display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .header h1 { margin: 0; font-size: clamp(22px, 2.4vw, 30px); letter-spacing: -0.03em; }
+  .header p { margin: 8px 0 0; max-width: 900px; color: var(--text-secondary); font-size: 14px; line-height: 1.58; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { color: var(--text-secondary); text-decoration: none; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; }
+  .nav a.active { color: var(--text); border-color: rgba(120,227,199,0.34); background: rgba(120,227,199,0.10); }
+  .stage { max-width: 1360px; margin: 0 auto; padding: 24px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg-stage); }
+  .shell { border-radius: 24px; overflow: hidden; border: 1px solid var(--border-strong); background: var(--bg-shell); box-shadow: var(--shadow); }
+  .titlebar { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)); }
+  .titlebar strong { display: block; font-size: 18px; }
+  .titlebar span { color: var(--text-muted); font-size: 12px; }
+  .steps { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .step { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+  .step.active { color: var(--text); background: rgba(120,227,199,0.10); border-color: rgba(120,227,199,0.30); }
+  .layout { display: grid; grid-template-columns: 1.05fr 1.25fr; }
+  .left, .right { padding: 20px; }
+  .left { border-right: 1px solid var(--border); background: rgba(255,255,255,0.015); }
+  .section { margin-bottom: 16px; }
+  .section:last-child { margin-bottom: 0; }
+  .label { margin: 0 0 10px; font-size: 12px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-secondary); }
+  .card, .field, .warn, .note, .summary { border: 1px solid var(--border); border-radius: 18px; background: var(--bg-card); }
+  .card, .summary, .note { padding: 14px; }
+  .mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .mini { padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .mini span { display: block; font-size: 11px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+  .mini strong { font-size: 14px; }
+  .field { padding: 12px; margin-bottom: 10px; }
+  .field label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 13px;
+  }
+  .field textarea { min-height: 72px; resize: vertical; }
+  .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+  .tag.good { color: var(--green); border-color: rgba(140,221,163,0.30); background: rgba(140,221,163,0.10); }
+  .tag.blue { color: var(--blue); border-color: rgba(138,199,255,0.28); background: rgba(138,199,255,0.10); }
+  .tag.amber { color: var(--amber); border-color: rgba(244,197,107,0.28); background: rgba(244,197,107,0.10); }
+  .warn { padding: 14px; margin-bottom: 10px; }
+  .warn.high { border-color: rgba(241,138,138,0.28); background: rgba(241,138,138,0.08); }
+  .warn.medium { border-color: rgba(244,197,107,0.28); background: rgba(244,197,107,0.08); }
+  .warn strong { display: block; margin-bottom: 6px; font-size: 14px; }
+  .warn p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+  .summary h2 { margin: 0 0 8px; font-size: 17px; }
+  .summary p, .note p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.62; }
+  .footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .footer .status { color: var(--text-secondary); font-size: 12px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  button { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text); padding: 10px 14px; font-size: 13px; }
+  button.primary { background: rgba(120,227,199,0.12); border-color: rgba(120,227,199,0.32); color: var(--accent); }
+  @media (max-width: 1080px) {
+    .layout { grid-template-columns: 1fr; }
+    .left { border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 760px) {
+    .mini-grid, .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Historical Print Backfill · Review and persist draft</h1>
+    <p>The review flow treats the historical print date/time as a first-class decision. Validation, plate choice, and timestamp evidence all land in the same persisted job before the archive commit is allowed to proceed.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Mockup index</a>
+    <a href="print-history-backfill-entry.html">Entry</a>
+    <a class="active" href="print-history-backfill-review.html">Review</a>
+    <a href="print-history-backfill-summary.html">Summary</a>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="shell">
+    <div class="titlebar">
+      <div>
+        <strong>Create Historical Archive From Source 3MF</strong>
+        <span>Draft job saved as <strong>phj_2026_05_09_0042</strong> in model_catalog_print_history_jobs.</span>
+      </div>
+      <div class="tags">
+        <span class="tag good">Worker reachable</span>
+        <span class="tag blue">3 plates discovered</span>
+        <span class="tag amber">2 review warnings</span>
+      </div>
+    </div>
+
+    <div class="steps">
+      <span class="step">Source</span>
+      <span class="step active">Review</span>
+      <span class="step">Slice</span>
+      <span class="step">Commit</span>
+      <span class="step">Summary</span>
+    </div>
+
+    <div class="layout">
+      <div class="left">
+        <div class="section">
+          <p class="label">Source and execution context</p>
+          <div class="card">
+            <div class="mini-grid">
+              <div class="mini"><span>Source file</span><strong>holder_v3_source.3mf</strong></div>
+              <div class="mini"><span>Intent</span><strong>Create historical archive</strong></div>
+              <div class="mini"><span>Plate selection</span><strong>Plate 1 · Lid + trays</strong></div>
+              <div class="mini"><span>Worker</span><strong>Local model-catalog slicer</strong></div>
+            </div>
+            <div class="tags">
+              <span class="tag blue">Process preset found</span>
+              <span class="tag amber">Printer profile mismatch</span>
+              <span class="tag amber">1 filament substitution needed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <p class="label">Historical print timing</p>
+          <div class="field">
+            <label>Evidence source</label>
+            <select>
+              <option>Filesystem mtime + operator correction</option>
+              <option>Existing archive candidate metadata</option>
+              <option>Operator-only estimate</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Started at</label>
+              <input value="2025-09-18 19:42" />
+            </div>
+            <div class="field">
+              <label>Completed at</label>
+              <input value="2025-09-18 22:08" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Timezone</label>
+              <input value="America/Chicago" />
+            </div>
+            <div class="field">
+              <label>Confidence marker</label>
+              <select>
+                <option>Approximate but operator-confirmed</option>
+                <option>Observed directly</option>
+                <option>Needs review</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Operator note</label>
+            <textarea>Filesystem timestamp was post-slice; shifted completion back 18 minutes based on the archived photo set and nearby spool swap note.</textarea>
+          </div>
+        </div>
+
+        <div class="section">
+          <p class="label">Persisted draft outcome</p>
+          <div class="note">
+            <p>Saving this step writes the reviewed timestamp fields, validation warnings, plate choice, and archive intent back into the same job record before any slice execution begins.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="section">
+          <p class="label">Validation warnings</p>
+          <div class="warn high">
+            <strong>Printer profile mismatch</strong>
+            <p>Source metadata expects <strong>X1 Carbon 0.4</strong>; current worker default is <strong>X1 Carbon 0.6</strong>. The selected override will be stored in <strong>overrides_json</strong>.</p>
+          </div>
+          <div class="warn medium">
+            <strong>Plate 1 slot 2 filament missing</strong>
+            <p>Expected <strong>PLA Red</strong>. Ranked Filament Catalog match selected: <strong>Bambu PLA Basic Red</strong>. This substitution remains reviewable before execution.</p>
+          </div>
+        </div>
+
+        <div class="section">
+          <p class="label">Commit preview</p>
+          <div class="summary">
+            <h2>Archive commit payload</h2>
+            <p>The final Bambuddy create-archive request should receive the reviewed historical timestamps from this draft, not recompute them from the current clock. Source attachment remains a separate explicit follow-up action after archive creation succeeds.</p>
+            <div class="tags">
+              <span class="tag good">attach_source_after_create = true</span>
+              <span class="tag blue">date_override_strategy = operator_supplied</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <p class="label">Alternate action remains visible</p>
+          <div class="note">
+            <p>If review confidence drops, the operator can abandon archive creation and pivot to <strong>Attach Source Only</strong> without losing the evidence already captured in the persisted draft.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="status">Draft status: ready_to_slice after save. Historical timestamp review is complete but still editable until archive commit.</div>
+      <div class="actions">
+        <button>Cancel</button>
+        <button>Save draft</button>
+        <button class="primary">Continue to slice</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

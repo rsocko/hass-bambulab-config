@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Historical Print Backfill Summary</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0a1015;
+    --bg-stage: rgba(7, 11, 16, 0.80);
+    --bg-shell: rgba(17, 23, 33, 0.98);
+    --bg-card: rgba(255,255,255,0.035);
+    --border: rgba(148,163,184,0.18);
+    --border-strong: rgba(148,163,184,0.34);
+    --text: #edf3fb;
+    --text-secondary: #a2b2c5;
+    --text-muted: #718196;
+    --accent: #7ae3c7;
+    --blue: #8bc7ff;
+    --amber: #f4c56b;
+    --green: #8bdda2;
+    --danger: #ef8b8b;
+    --shadow: 0 28px 80px rgba(0,0,0,0.48);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(122,227,199,0.12), transparent 30%),
+      radial-gradient(circle at 86% 16%, rgba(139,199,255,0.12), transparent 28%),
+      linear-gradient(180deg, #081018, #0c131b 46%, #081018 100%);
+    color: var(--text); font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  body { padding: 30px clamp(16px, 4vw, 42px); }
+  .header { max-width: 1320px; margin: 0 auto 16px; display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .header h1 { margin: 0; font-size: clamp(22px, 2.4vw, 30px); letter-spacing: -0.03em; }
+  .header p { margin: 8px 0 0; max-width: 860px; color: var(--text-secondary); font-size: 14px; line-height: 1.58; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { color: var(--text-secondary); text-decoration: none; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; }
+  .nav a.active { color: var(--text); border-color: rgba(122,227,199,0.34); background: rgba(122,227,199,0.10); }
+  .stage { max-width: 1320px; margin: 0 auto; padding: 24px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg-stage); }
+  .shell { border-radius: 24px; overflow: hidden; border: 1px solid var(--border-strong); background: var(--bg-shell); box-shadow: var(--shadow); }
+  .titlebar { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)); }
+  .titlebar strong { display: block; font-size: 18px; }
+  .titlebar span { color: var(--text-muted); font-size: 12px; }
+  .layout { display: grid; grid-template-columns: 1.15fr 0.95fr; }
+  .main, .aside { padding: 20px; }
+  .main { border-right: 1px solid var(--border); }
+  .label { margin: 0 0 10px; font-size: 12px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-secondary); }
+  .card, .timeline, .retry, .note { border: 1px solid var(--border); border-radius: 20px; background: var(--bg-card); }
+  .card, .timeline, .retry, .note { padding: 16px; margin-bottom: 14px; }
+  .hero { border-color: rgba(139,221,162,0.28); background: rgba(139,221,162,0.10); }
+  .hero h2, .retry h2 { margin: 0 0 8px; font-size: 19px; }
+  .hero p, .retry p, .note p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.64; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+  .item { padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .item span { display: block; font-size: 11px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+  .item strong { font-size: 14px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+  .chip.good { color: var(--green); border-color: rgba(139,221,162,0.30); background: rgba(139,221,162,0.10); }
+  .chip.blue { color: var(--blue); border-color: rgba(139,199,255,0.28); background: rgba(139,199,255,0.10); }
+  .chip.amber { color: var(--amber); border-color: rgba(244,197,107,0.28); background: rgba(244,197,107,0.10); }
+  .chip.danger { color: var(--danger); border-color: rgba(239,139,139,0.28); background: rgba(239,139,139,0.10); }
+  .timeline ul { margin: 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.74; font-size: 13px; }
+  .retry { border-color: rgba(244,197,107,0.28); background: rgba(244,197,107,0.08); }
+  .footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .footer .status { color: var(--text-secondary); font-size: 12px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  button { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text); padding: 10px 14px; font-size: 13px; }
+  button.primary { background: rgba(122,227,199,0.12); border-color: rgba(122,227,199,0.32); color: var(--accent); }
+  @media (max-width: 1020px) {
+    .layout { grid-template-columns: 1fr; }
+    .main { border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 760px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Historical Print Backfill · Outcome and retry state</h1>
+    <p>The summary confirms both the archive mutation and the historical print timestamp that was applied. It also keeps the persisted job timeline visible so partial failures remain retry-safe instead of forcing the operator to reconstruct decisions.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Mockup index</a>
+    <a href="print-history-backfill-entry.html">Entry</a>
+    <a href="print-history-backfill-review.html">Review</a>
+    <a class="active" href="print-history-backfill-summary.html">Summary</a>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="shell">
+    <div class="titlebar">
+      <div>
+        <strong>Backfill job summary · phj_2026_05_09_0042</strong>
+        <span>Completed archive creation with historical timing applied, followed by source attachment.</span>
+      </div>
+      <div class="chips">
+        <span class="chip good">Archive created</span>
+        <span class="chip blue">Source attached</span>
+        <span class="chip amber">Retry state retained</span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="main">
+        <div class="card hero">
+          <h2>Archive created successfully</h2>
+          <p>The resulting Print History record reflects the reviewed historical print event rather than the archive upload time. Model Catalog keeps the archive link, reviewed timestamp values, and operator notes in the same job record for audit.</p>
+          <div class="grid">
+            <div class="item"><span>New archive</span><strong>#1842</strong></div>
+            <div class="item"><span>Linked model</span><strong>Gridfinity Bit Holder v3</strong></div>
+            <div class="item"><span>Started at</span><strong>2025-09-18 19:42</strong></div>
+            <div class="item"><span>Completed at</span><strong>2025-09-18 22:08</strong></div>
+            <div class="item"><span>Date strategy</span><strong>Operator supplied</strong></div>
+            <div class="item"><span>Source attachment</span><strong>Attached after commit</strong></div>
+          </div>
+        </div>
+
+        <div class="timeline">
+          <p class="label">Persisted job timeline</p>
+          <ul>
+            <li><strong>draft</strong> saved from model detail launch with source context and intent</li>
+            <li><strong>reviewed</strong> after printer override, filament substitution, and historical timestamp confirmation</li>
+            <li><strong>slice_succeeded</strong> with staged output retained for retry safety</li>
+            <li><strong>archive_created</strong> after Bambuddy accepted the canonical archive upload</li>
+            <li><strong>completed</strong> after source attachment and model-link writeback</li>
+          </ul>
+        </div>
+      </div>
+
+      <aside class="aside">
+        <div class="retry">
+          <h2>Why the job stays retry-safe</h2>
+          <p>If Bambuddy upload had failed after slicing, the operator would not lose the reviewed timestamp fields or override choices. The same job could retry archive commit without fabricating a second historical record.</p>
+          <div class="chips">
+            <span class="chip danger">No duplicate commit on retry</span>
+            <span class="chip blue">Sliced output retained</span>
+          </div>
+        </div>
+
+        <div class="note">
+          <p class="label">Partial failure variant</p>
+          <p>Show a second summary card when slice execution succeeded but archive commit failed. The UI should offer <strong>Retry Archive Commit</strong>, <strong>Download Output</strong>, and <strong>Convert To Attach Source Only</strong> while keeping the reviewed timestamp visible.</p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="footer">
+      <div class="status">Final status: completed. The same summary surface can render failed or attach-only outcomes without changing the job contract.</div>
+      <div class="actions">
+        <button>Open linked model</button>
+        <button>Open archive</button>
+        <button class="primary">Create another backfill job</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

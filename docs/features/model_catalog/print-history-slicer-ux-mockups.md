@@ -1,7 +1,7 @@
 # Print History Slicer UX Mockups
 
 > **Status**: UX planning reference with low-fi mockups
-> **Last updated**: 2026-05-01
+> **Last updated**: 2026-05-09
 > **Scope**: Operator-facing Model Catalog and Print History slicing wizard for source `.3mf` validation, filament substitution, and canonical archive creation.
 
 See also:
@@ -24,6 +24,7 @@ The UI should feel like a guided review flow, not a general-purpose slicer repla
 - make filament substitution the only prominent override path in the first slice
 - preserve a clear distinction between `Create Archive` and `Attach Source Only`
 - expose local worker availability explicitly so the UI does not promise background slicing where none exists
+- require explicit review of the historical print date/time before the archive commit is finalized
 
 ## Surface 1: Model Detail Entry Point
 
@@ -42,27 +43,27 @@ Must show:
 
 ```text
 +------------------------------------------------------------------------------+
-¦ Model Detail: Gridfinity Bit Holder v3                                      ¦
-+------------------------------------------------------------------------------¦
-¦ Source file: holder_v3_source.3mf       Type: source project 3MF            ¦
-¦ Linked archives: 2                     Last printed: 2025-09-18             ¦
-¦                                                                              ¦
-¦ Recovery Actions                                                             ¦
-¦ +--------------------------------------------------------------------------+ ¦
-¦ ¦ Create Historical Archive                                                ¦ ¦
-¦ ¦ Validate source, choose plate, review filament mappings, and slice on   ¦ ¦
-¦ ¦ the server before uploading to Bambuddy.                                 ¦ ¦
-¦ ¦                                                                          ¦ ¦
-¦ ¦ [Create Archive From Source 3MF]                                         ¦ ¦
-¦ +--------------------------------------------------------------------------+ ¦
-¦                                                                              ¦
-¦ +--------------------------------------------------------------------------+ ¦
-¦ ¦ Attach Source Only                                                       ¦ ¦
-¦ ¦ Keep this file as provenance for an existing archive without creating a ¦ ¦
-¦ ¦ new canonical print-history record.                                      ¦ ¦
-¦ ¦                                                                          ¦ ¦
-¦ ¦ [Attach To Existing Archive]                                             ¦ ¦
-¦ +--------------------------------------------------------------------------+ ¦
+ï¿½ Model Detail: Gridfinity Bit Holder v3                                      ï¿½
++------------------------------------------------------------------------------ï¿½
+ï¿½ Source file: holder_v3_source.3mf       Type: source project 3MF            ï¿½
+ï¿½ Linked archives: 2                     Last printed: 2025-09-18             ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Recovery Actions                                                             ï¿½
+ï¿½ +--------------------------------------------------------------------------+ ï¿½
+ï¿½ ï¿½ Create Historical Archive                                                ï¿½ ï¿½
+ï¿½ ï¿½ Validate source, choose plate, review filament mappings, and slice on   ï¿½ ï¿½
+ï¿½ ï¿½ the server before uploading to Bambuddy.                                 ï¿½ ï¿½
+ï¿½ ï¿½                                                                          ï¿½ ï¿½
+ï¿½ ï¿½ [Create Archive From Source 3MF]                                         ï¿½ ï¿½
+ï¿½ +--------------------------------------------------------------------------+ ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ +--------------------------------------------------------------------------+ ï¿½
+ï¿½ ï¿½ Attach Source Only                                                       ï¿½ ï¿½
+ï¿½ ï¿½ Keep this file as provenance for an existing archive without creating a ï¿½ ï¿½
+ï¿½ ï¿½ new canonical print-history record.                                      ï¿½ ï¿½
+ï¿½ ï¿½                                                                          ï¿½ ï¿½
+ï¿½ ï¿½ [Attach To Existing Archive]                                             ï¿½ ï¿½
+ï¿½ +--------------------------------------------------------------------------+ ï¿½
 +------------------------------------------------------------------------------+
 ```
 
@@ -83,29 +84,34 @@ Must show:
 
 ```text
 +------------------------------------------------------------------------------+
-¦ Create Archive From Source 3MF                                               ¦
-+------------------------------------------------------------------------------¦
-¦ Worker: Local Model Catalog Slicer  Status: Reachable                        ¦
-¦ Source: holder_v3_source.3mf      Plates discovered: 3                       ¦
-¦                                                                              ¦
-¦ Validation Summary                                                           ¦
-¦ [warning] Printer profile mismatch                                           ¦
-¦   Source says: X1 Carbon 0.4                                                 ¦
-¦   Worker default: X1 Carbon 0.6                                              ¦
-¦   Action: [Select Printer Profile v]                                         ¦
-¦                                                                              ¦
-¦ [warning] Plate 2 filament slot 2 is missing                                 ¦
-¦   Expected material: PLA                                                     ¦
-¦   Filament Catalog matches: 3                                                ¦
-¦   Action: [Choose Filament v]                                                ¦
-¦                                                                              ¦
-¦ [info] Process preset found                                                  ¦
-¦   0.20mm Strength                                                            ¦
-¦                                                                              ¦
-¦ Plate                                                                        ¦
-¦ [Plate 1 v]  Plate 1 cover render shown here                                 ¦
-¦                                                                              ¦
-¦ [Cancel] [Save Draft] [Continue To Slice]                                    ¦
+ï¿½ Create Archive From Source 3MF                                               ï¿½
++------------------------------------------------------------------------------ï¿½
+ï¿½ Worker: Local Model Catalog Slicer  Status: Reachable                        ï¿½
+ï¿½ Source: holder_v3_source.3mf      Plates discovered: 3                       ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Validation Summary                                                           ï¿½
+ï¿½ [warning] Printer profile mismatch                                           ï¿½
+ï¿½   Source says: X1 Carbon 0.4                                                 ï¿½
+ï¿½   Worker default: X1 Carbon 0.6                                              ï¿½
+ï¿½   Action: [Select Printer Profile v]                                         ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ [warning] Plate 2 filament slot 2 is missing                                 ï¿½
+ï¿½   Expected material: PLA                                                     ï¿½
+ï¿½   Filament Catalog matches: 3                                                ï¿½
+ï¿½   Action: [Choose Filament v]                                                ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ [info] Process preset found                                                  ï¿½
+ï¿½   0.20mm Strength                                                            ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Historical Print Timing                                                      ï¿½
+ï¿½ Started:  [2025-09-18 19:42]   Completed: [2025-09-18 22:08]                ï¿½
+ï¿½ Source: filesystem mtime + operator correction                               ï¿½
+ï¿½ [ ] Mark as approximate                                                      ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Plate                                                                        ï¿½
+ï¿½ [Plate 1 v]  Plate 1 cover render shown here                                 ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ [Cancel] [Save Draft] [Continue To Slice]                                    ï¿½
 +------------------------------------------------------------------------------+
 ```
 
@@ -126,28 +132,28 @@ Must show:
 
 ```text
 +---------------------------------------------------------------------+
-¦ Choose Filament For Plate 2 Slot 2                                 ¦
-+---------------------------------------------------------------------¦
-¦ Needed by source file                                               ¦
-¦ Material: PLA                                                       ¦
-¦ Color hint: Red / #C12E1F                                           ¦
-¦                                                                     ¦
-¦ Suggested matches                                                   ¦
-¦ +---------------------------------------------------------------+   ¦
-¦ ¦ [#C12E1F] Bambu PLA Basic Red                                ¦   ¦
-¦ ¦ Match: exact material + hex + profile name                   ¦   ¦
-¦ ¦ Spools available: 2                                           ¦   ¦
-¦ ¦ [Select]                                                      ¦   ¦
-¦ +---------------------------------------------------------------+   ¦
-¦                                                                     ¦
-¦ +---------------------------------------------------------------+   ¦
-¦ ¦ [#B92A24] Sunlu PLA+ Red                                      ¦   ¦
-¦ ¦ Match: material + nearby primary color                        ¦   ¦
-¦ ¦ Spools available: 1                                           ¦   ¦
-¦ ¦ [Select]                                                      ¦   ¦
-¦ +---------------------------------------------------------------+   ¦
-¦                                                                     ¦
-¦ [Cancel]                                                            ¦
+ï¿½ Choose Filament For Plate 2 Slot 2                                 ï¿½
++---------------------------------------------------------------------ï¿½
+ï¿½ Needed by source file                                               ï¿½
+ï¿½ Material: PLA                                                       ï¿½
+ï¿½ Color hint: Red / #C12E1F                                           ï¿½
+ï¿½                                                                     ï¿½
+ï¿½ Suggested matches                                                   ï¿½
+ï¿½ +---------------------------------------------------------------+   ï¿½
+ï¿½ ï¿½ [#C12E1F] Bambu PLA Basic Red                                ï¿½   ï¿½
+ï¿½ ï¿½ Match: exact material + hex + profile name                   ï¿½   ï¿½
+ï¿½ ï¿½ Spools available: 2                                           ï¿½   ï¿½
+ï¿½ ï¿½ [Select]                                                      ï¿½   ï¿½
+ï¿½ +---------------------------------------------------------------+   ï¿½
+ï¿½                                                                     ï¿½
+ï¿½ +---------------------------------------------------------------+   ï¿½
+ï¿½ ï¿½ [#B92A24] Sunlu PLA+ Red                                      ï¿½   ï¿½
+ï¿½ ï¿½ Match: material + nearby primary color                        ï¿½   ï¿½
+ï¿½ ï¿½ Spools available: 1                                           ï¿½   ï¿½
+ï¿½ ï¿½ [Select]                                                      ï¿½   ï¿½
+ï¿½ +---------------------------------------------------------------+   ï¿½
+ï¿½                                                                     ï¿½
+ï¿½ [Cancel]                                                            ï¿½
 +---------------------------------------------------------------------+
 ```
 
@@ -168,25 +174,26 @@ Must show:
 
 ```text
 +------------------------------------------------------------------------------+
-¦ Slice Job In Progress                                                        ¦
-+------------------------------------------------------------------------------¦
-¦ Source: holder_v3_source.3mf      Plate: 1                                   ¦
-¦ Printer: X1C 0.4                 Process: 0.20mm Strength                    ¦
-¦ Filament substitutions: 1                                                    ¦
-¦ Worker: Local Model Catalog Slicer                                           ¦
-¦                                                                              ¦
-¦ Status                                                                       ¦
-¦ [##########------] Slicing plate 1                                           ¦
-¦                                                                              ¦
-¦ Job events                                                                   ¦
-¦ - Source uploaded to worker                                                  ¦
-¦ - Validation overrides applied                                               ¦
-¦ - Slice started                                                              ¦
-¦                                                                              ¦
-¦ On success, this flow will upload the resulting .gcode.3mf to Bambuddy and  ¦
-¦ offer optional source attachment.                                            ¦
-¦                                                                              ¦
-¦ [Dismiss] [View Details]                                                     ¦
+ï¿½ Slice Job In Progress                                                        ï¿½
++------------------------------------------------------------------------------ï¿½
+ï¿½ Source: holder_v3_source.3mf      Plate: 1                                   ï¿½
+ï¿½ Printer: X1C 0.4                 Process: 0.20mm Strength                    ï¿½
+ï¿½ Filament substitutions: 1                                                    ï¿½
+ï¿½ Worker: Local Model Catalog Slicer                                           ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Status                                                                       ï¿½
+ï¿½ [##########------] Slicing plate 1                                           ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Job events                                                                   ï¿½
+ï¿½ - Source uploaded to worker                                                  ï¿½
+ï¿½ - Historical print timing saved                                              ï¿½
+ï¿½ - Validation overrides applied                                               ï¿½
+ï¿½ - Slice started                                                              ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ On success, this flow will upload the resulting .gcode.3mf to Bambuddy and  ï¿½
+ï¿½ offer optional source attachment.                                            ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ [Dismiss] [View Details]                                                     ï¿½
 +------------------------------------------------------------------------------+
 ```
 
@@ -207,15 +214,16 @@ Must show:
 
 ```text
 +------------------------------------------------------------------------------+
-¦ Archive Created                                                              ¦
-+------------------------------------------------------------------------------¦
-¦ New Bambuddy archive: #1842                                                  ¦
-¦ Model link: accepted                                                         ¦
-¦ Source 3MF attached: yes                                                     ¦
-¦ Plate used: 1                                                                ¦
-¦ Filament substitutions: 1                                                    ¦
-¦                                                                              ¦
-¦ [Open Archive] [Open Linked Model] [Create Another]                          ¦
+ï¿½ Archive Created                                                              ï¿½
++------------------------------------------------------------------------------ï¿½
+ï¿½ New Bambuddy archive: #1842                                                  ï¿½
+ï¿½ Historical print completed at: 2025-09-18 22:08                             ï¿½
+ï¿½ Model link: accepted                                                         ï¿½
+ï¿½ Source 3MF attached: yes                                                     ï¿½
+ï¿½ Plate used: 1                                                                ï¿½
+ï¿½ Filament substitutions: 1                                                    ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ [Open Archive] [Open Linked Model] [Create Another]                          ï¿½
 +------------------------------------------------------------------------------+
 ```
 
@@ -223,13 +231,13 @@ Must show:
 
 ```text
 +------------------------------------------------------------------------------+
-¦ Slice Succeeded, Archive Commit Failed                                       ¦
-+------------------------------------------------------------------------------¦
-¦ Worker output exists and can be retried.                                     ¦
-¦ Failure: Bambuddy upload returned HTTP 502                                   ¦
-¦                                                                              ¦
-¦ Safe actions                                                                 ¦
-¦ [Retry Archive Commit] [Download Output] [Discard Draft]                     ¦
+ï¿½ Slice Succeeded, Archive Commit Failed                                       ï¿½
++------------------------------------------------------------------------------ï¿½
+ï¿½ Worker output exists and can be retried.                                     ï¿½
+ï¿½ Failure: Bambuddy upload returned HTTP 502                                   ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Safe actions                                                                 ï¿½
+ï¿½ [Retry Archive Commit] [Download Output] [Discard Draft]                     ï¿½
 +------------------------------------------------------------------------------+
 ```
 
@@ -243,18 +251,18 @@ Primary purpose:
 
 ```text
 +------------------------------------------------------------------------------+
-¦ Create Archive From Source 3MF                                               ¦
-+------------------------------------------------------------------------------¦
-¦ Worker status: Unavailable                                                   ¦
-¦                                                                              ¦
-¦ Automatic server-side slicing is not configured for this environment.        ¦
-¦                                                                              ¦
-¦ Available fallbacks                                                          ¦
-¦ - Open the source in your local slicer                                       ¦
-¦ - Produce a sliced .gcode.3mf manually                                       ¦
-¦ - Return here or use the existing archive upload workflow                    ¦
-¦                                                                              ¦
-¦ [Open In Slicer] [Download Source] [Close]                                   ¦
+ï¿½ Create Archive From Source 3MF                                               ï¿½
++------------------------------------------------------------------------------ï¿½
+ï¿½ Worker status: Unavailable                                                   ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Automatic server-side slicing is not configured for this environment.        ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ Available fallbacks                                                          ï¿½
+ï¿½ - Open the source in your local slicer                                       ï¿½
+ï¿½ - Produce a sliced .gcode.3mf manually                                       ï¿½
+ï¿½ - Return here or use the existing archive upload workflow                    ï¿½
+ï¿½                                                                              ï¿½
+ï¿½ [Open In Slicer] [Download Source] [Close]                                   ï¿½
 +------------------------------------------------------------------------------+
 ```
 
@@ -264,11 +272,13 @@ Primary purpose:
 - Filament substitution should be framed as a repair for known validation gaps, not a creative customization tool.
 - `Attach Source Only` should stay visible as a separate action whenever the source file is useful but canonical archive creation is not yet justified.
 - Plate preview imagery should come from the planned `.3mf` analysis cache when available, otherwise from local worker discovery payloads.
+- The historical print date/time should be editable in the reviewed flow and should not be buried as a post-success metadata fixup.
 
 ## Recommended Implementation Order
 
 1. Entry point and worker-availability state
 2. Validation summary with printer, process, and filament warnings
 3. Deterministic filament picker backed by Filament Catalog candidates
-4. Slice job progress and completion states
-5. Backfill-specific shortcuts from model detail and working-group surfaces
+4. Historical print timestamp review and draft-save behavior
+5. Slice job progress and completion states
+6. Backfill-specific shortcuts from model detail and working-group surfaces

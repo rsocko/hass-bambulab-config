@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Historical Print Backfill Entry</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0b1218;
+    --bg-stage: rgba(8, 12, 18, 0.76);
+    --bg-shell: linear-gradient(160deg, rgba(17, 25, 36, 0.98), rgba(15, 20, 29, 0.96));
+    --bg-card: rgba(255,255,255,0.035);
+    --border: rgba(148,163,184,0.18);
+    --border-strong: rgba(148,163,184,0.34);
+    --text: #edf4fb;
+    --text-secondary: #9fb0c4;
+    --text-muted: #6d7f93;
+    --accent: #6ee7c8;
+    --blue: #88c3ff;
+    --amber: #f5c469;
+    --green: #84d69b;
+    --shadow: 0 28px 80px rgba(0,0,0,0.46);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(circle at 10% 18%, rgba(110,231,200,0.12), transparent 30%),
+      radial-gradient(circle at 88% 10%, rgba(136,195,255,0.12), transparent 28%),
+      linear-gradient(180deg, #091016, #0d141c 42%, #091016 100%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  body { padding: 28px clamp(16px, 4vw, 42px); }
+  .header { max-width: 1340px; margin: 0 auto 16px; display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .header h1 { margin: 0; font-size: clamp(22px, 2.4vw, 30px); letter-spacing: -0.03em; }
+  .header p { margin: 8px 0 0; max-width: 860px; color: var(--text-secondary); font-size: 14px; line-height: 1.58; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { color: var(--text-secondary); text-decoration: none; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; }
+  .nav a.active { color: var(--text); border-color: rgba(110,231,200,0.34); background: rgba(110,231,200,0.10); }
+  .stage { max-width: 1340px; margin: 0 auto; padding: 22px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg-stage); }
+  .shell { border-radius: 24px; overflow: hidden; border: 1px solid var(--border-strong); background: var(--bg-shell); box-shadow: var(--shadow); }
+  .titlebar { padding: 18px 20px; display: flex; justify-content: space-between; gap: 14px; align-items: center; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)); }
+  .titlebar strong { display: block; font-size: 19px; }
+  .titlebar span { color: var(--text-muted); font-size: 12px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); }
+  .chip.good { color: var(--green); border-color: rgba(132,214,155,0.30); background: rgba(132,214,155,0.10); }
+  .chip.blue { color: var(--blue); border-color: rgba(136,195,255,0.30); background: rgba(136,195,255,0.10); }
+  .chip.amber { color: var(--amber); border-color: rgba(245,196,105,0.28); background: rgba(245,196,105,0.10); }
+  .layout { display: grid; grid-template-columns: 1.35fr 0.95fr; }
+  .main, .aside { padding: 20px; }
+  .main { border-right: 1px solid var(--border); }
+  .source-card, .action, .evidence, .timeline, .persist-card { border: 1px solid var(--border); border-radius: 20px; background: var(--bg-card); }
+  .source-card { padding: 16px; margin-bottom: 16px; }
+  .source-grid { display: grid; grid-template-columns: 148px 1fr; gap: 16px; align-items: stretch; }
+  .preview {
+    min-height: 132px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background:
+      radial-gradient(circle at 30% 28%, rgba(136,195,255,0.18), transparent 30%),
+      linear-gradient(135deg, rgba(110,231,200,0.08), rgba(136,195,255,0.06)),
+      #162233;
+    position: relative;
+    overflow: hidden;
+  }
+  .preview::after { content: 'source 3mf'; position: absolute; left: 10px; bottom: 10px; padding: 5px 9px; border-radius: 999px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #d3e7ff; background: rgba(10,16,24,0.72); border: 1px solid rgba(136,195,255,0.28); }
+  .source-card h2, .aside h2 { margin: 0 0 10px; font-size: 15px; }
+  .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .meta-item { padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .meta-item span { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+  .meta-item strong { font-size: 14px; }
+  .actions { display: grid; gap: 12px; }
+  .action { padding: 16px; }
+  .action.selected { border-color: rgba(110,231,200,0.30); background: rgba(110,231,200,0.08); }
+  .action h3 { margin: 0 0 6px; font-size: 17px; }
+  .action p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.58; }
+  .action .footer { margin-top: 14px; display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .action .footer .note { color: var(--text-muted); font-size: 12px; }
+  button { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text); padding: 10px 14px; font-size: 13px; }
+  button.primary { background: rgba(110,231,200,0.12); border-color: rgba(110,231,200,0.32); color: var(--accent); }
+  button.secondary { background: rgba(136,195,255,0.10); border-color: rgba(136,195,255,0.28); color: var(--blue); }
+  .section-label { margin: 0 0 10px; font-size: 12px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-secondary); }
+  .evidence, .timeline, .persist-card { padding: 16px; margin-bottom: 14px; }
+  .evidence ul, .timeline ul { margin: 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.7; font-size: 13px; }
+  .persist-card p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
+  .persist-card strong { display: block; margin-bottom: 8px; font-size: 14px; }
+  .footerbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px 20px; border-top: 1px solid var(--border); }
+  .footerbar .status { color: var(--text-secondary); font-size: 12px; }
+  @media (max-width: 1080px) {
+    .layout { grid-template-columns: 1fr; }
+    .main { border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 760px) {
+    .source-grid, .meta { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Historical Print Backfill · Recovery entry</h1>
+    <p>Catalog-first launch for issue #1043. The operator starts from a known model, reviews the source classification and archive evidence, and chooses whether to create a canonical historical archive, attach provenance only, or link an existing archive.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Mockup index</a>
+    <a class="active" href="print-history-backfill-entry.html">Entry</a>
+    <a href="print-history-backfill-review.html">Review</a>
+    <a href="print-history-backfill-summary.html">Summary</a>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="shell">
+    <div class="titlebar">
+      <div>
+        <strong>Model Detail · Gridfinity Bit Holder v3</strong>
+        <span>Recovery actions are hidden until the operator intentionally enters historical backfill mode.</span>
+      </div>
+      <div class="chips">
+        <span class="chip good">Source 3MF found</span>
+        <span class="chip blue">2 related archives</span>
+        <span class="chip amber">Backfill evidence available</span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="main">
+        <div class="source-card">
+          <div class="source-grid">
+            <div class="preview"></div>
+            <div>
+              <h2>Source summary</h2>
+              <div class="meta">
+                <div class="meta-item">
+                  <span>Primary source</span>
+                  <strong>holder_v3_source.3mf</strong>
+                </div>
+                <div class="meta-item">
+                  <span>Classification</span>
+                  <strong>Source project 3MF</strong>
+                </div>
+                <div class="meta-item">
+                  <span>Last modified</span>
+                  <strong>2025-09-18 21:57</strong>
+                </div>
+                <div class="meta-item">
+                  <span>Archive-ready?</span>
+                  <strong>No, requires review</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="section-label">Recovery actions</p>
+        <div class="actions">
+          <div class="action selected">
+            <h3>Create Historical Archive</h3>
+            <p>Validate the source, select the correct plate and filament mappings, review the historical print date/time, and only then commit a new canonical archive into Print History.</p>
+            <div class="footer">
+              <span class="note">Persists a draft job before slicing so the reviewed timestamp and operator choices survive restarts.</span>
+              <button class="primary">Create archive from source 3MF</button>
+            </div>
+          </div>
+
+          <div class="action">
+            <h3>Attach Source Only</h3>
+            <p>Use this when the source file is useful provenance for an existing archive but you are not ready to assert a new canonical historical record.</p>
+            <div class="footer">
+              <span class="note">Still records the review path, target archive, and operator note in the persisted job.</span>
+              <button class="secondary">Attach to existing archive</button>
+            </div>
+          </div>
+
+          <div class="action">
+            <h3>Link Existing Archive</h3>
+            <p>Choose this when the historical record already exists in Bambuddy and the missing step is catalog linkage, not archive creation.</p>
+            <div class="footer">
+              <span class="note">Keeps the create-vs-attach-vs-link distinction explicit in both UI and state.</span>
+              <button>Review archive candidates</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="aside">
+        <div class="evidence">
+          <p class="section-label">Evidence summary</p>
+          <ul>
+            <li>Archive candidate #1842 matches title and dimensions but lacks source provenance.</li>
+            <li>Folder-catalog manifest found one related project export from September 2025.</li>
+            <li>Filesystem timestamp suggests print window ended after the current linked archive dates.</li>
+          </ul>
+        </div>
+
+        <div class="timeline">
+          <p class="section-label">Likely workflow</p>
+          <ul>
+            <li>Create draft job in <strong>model_catalog_print_history_jobs</strong>.</li>
+            <li>Review worker health, validation warnings, and historical timestamp fields.</li>
+            <li>Execute slice or attach-only action.</li>
+            <li>Write archive result and summary back into the same job record.</li>
+          </ul>
+        </div>
+
+        <div class="persist-card">
+          <strong>Why persist at entry?</strong>
+          <p>The historical print date/time is part of the operator-reviewed business outcome. It should not live only in browser form state or appear as a post-success metadata fixup.</p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="footerbar">
+      <div class="status">Status: no active draft yet. Launching any recovery action creates a persisted job record first.</div>
+      <div>
+        <button>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

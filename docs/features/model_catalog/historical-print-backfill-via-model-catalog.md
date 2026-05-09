@@ -1,7 +1,7 @@
 # Historical Print Backfill Via Model Catalog
 
 > **Status**: Later-phase cross-feature design reference.
-> **Last updated**: 2026-04-22
+> **Last updated**: 2026-05-09
 
 ## Purpose
 
@@ -42,6 +42,10 @@ This means the design does not need a brand-new archive recovery engine. It need
 
 ## Recommended User Flow
 
+The first implementation remains catalog-first.
+
+That means the initial reviewed flow launches from a curated Model Catalog record while preserving a later extension point for Working-group entry.
+
 ### Entry Point
 
 Start from a model-catalog detail surface for a curated model or relevant Working group.
@@ -73,6 +77,25 @@ The operator should be able to choose one of four outcomes:
 2. **Create canonical archive** from an archive-ready sliced artifact
 3. **Attach source only** to an existing archive for provenance
 4. **Defer / needs review** when the evidence is still ambiguous
+
+### Historical Timestamp Review
+
+Creating a new canonical archive is not sufficient by itself for issue `#1043`.
+
+The operator also needs an explicit historical print-date review step so the resulting Print History record can represent the original print event rather than the archive creation time.
+
+Required review fields:
+
+- `requested_print_started_at`
+- `requested_print_completed_at`
+- optional timezone or offset context when the source evidence is ambiguous
+- a short operator note when the timestamp was estimated instead of directly observed
+
+Recommended behavior:
+
+- prefill from archive candidates, source metadata, or nearby filesystem evidence when available
+- require explicit operator confirmation before archive commit if the timestamps are inferred
+- keep timestamp review visible even when the source `.3mf` validates cleanly for slicing
 
 ## Critical Distinction
 
@@ -130,9 +153,34 @@ That can mean:
 
 - launching or calling the existing runner paths
 - consuming normalized result DTOs from those workflows
-- storing only the catalog-relevant linkage or review outcome locally
+- storing the reviewed workflow state locally before and after execution
 
 The execution engines remain in the print-history recovery/forensics domain until there is clear value in consolidating them.
+
+## Persistence Direction
+
+The reviewed backfill flow now assumes a dedicated Model Catalog persistence table rather than overloading generic archive-link fields.
+
+Current schema direction:
+
+- SQLite table: `model_catalog_print_history_jobs`
+- owning migration: schema version `16`
+
+This table is intended to persist:
+
+- source selection context
+- chosen outcome (`create archive`, `attach source only`, `link existing`, `defer`)
+- historical print timestamp overrides
+- validation warnings and operator overrides
+- worker execution state and diagnostics
+- final archive ids and summary state
+
+Why a dedicated table is preferred:
+
+- the workflow state is richer than a single archive-link mutation
+- retries and partial failures need restart-safe audit state
+- the user must be able to review or amend the historical print timestamp independently from source attachment choices
+- later Working-group entry can reuse the same persisted contract without changing archive-link tables again
 
 ## Success Criteria
 
@@ -140,4 +188,5 @@ This workflow is successful when:
 
 - a user can start from a model and recover or link a missing older history record more quickly than with disconnected forensics-only tooling
 - canonical archive creation remains distinct from provenance-only source attachment
+- historical print timestamps can be reviewed and set explicitly before commit
 - the final outcome flows back into the normal archive-linkage and model-catalog experience instead of creating a detached side workflow

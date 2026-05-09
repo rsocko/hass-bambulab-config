@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Landing Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #091018;
+    --bg-glow-a: rgba(38, 119, 255, 0.16);
+    --bg-glow-b: rgba(32, 197, 163, 0.12);
+    --card: rgba(16, 23, 33, 0.86);
+    --card-strong: rgba(24, 33, 46, 0.94);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e5edf5;
+    --muted: #9fb0c3;
+    --muted-2: #6f8095;
+    --blue: #6eb8ff;
+    --teal: #6ee7cf;
+    --amber: #f5c15d;
+    --red: #f47c7c;
+    --green: #6ed59e;
+    --violet: #a78bfa;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(circle at top left, var(--bg-glow-a), transparent 38%),
+      radial-gradient(circle at 80% 18%, var(--bg-glow-b), transparent 34%),
+      linear-gradient(180deg, #0b1118 0%, var(--bg-page) 100%);
+    color: var(--text);
+    font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+  }
+
+  body {
+    padding: 28px clamp(14px, 3vw, 36px) 40px;
+  }
+
+  .page {
+    max-width: 1480px;
+    margin: 0 auto;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(16px);
+  }
+
+  .hero-main {
+    padding: 22px 24px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-main::after {
+    content: "";
+    position: absolute;
+    inset: auto -80px -80px auto;
+    width: 260px;
+    height: 260px;
+    background: radial-gradient(circle, rgba(110, 231, 207, 0.16), transparent 68%);
+    pointer-events: none;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--teal);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 3.2vw, 42px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+  }
+
+  .lead {
+    margin: 10px 0 18px;
+    max-width: 860px;
+    color: var(--muted);
+    line-height: 1.55;
+    font-size: 14px;
+  }
+
+  .search-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(110, 184, 255, 0.24);
+    background: rgba(8, 14, 24, 0.72);
+    padding: 14px 16px;
+  }
+
+  .search .icon {
+    font-size: 18px;
+    color: var(--blue);
+  }
+
+  .search .query {
+    flex: 1;
+    color: var(--text);
+    font-size: 15px;
+  }
+
+  .scope-row, .hero-actions, .chip-row, .mini-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .scope-row {
+    margin-top: 12px;
+  }
+
+  .chip, .btn, .pill, .jump {
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .chip {
+    padding: 8px 10px;
+    color: var(--muted);
+    background: rgba(148, 163, 184, 0.08);
+  }
+
+  .chip.active {
+    color: #08121b;
+    background: var(--teal);
+    border-color: rgba(110, 231, 207, 0.42);
+    font-weight: 700;
+  }
+
+  .hero-actions {
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 11px 14px;
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .btn.primary {
+    background: linear-gradient(135deg, rgba(110, 184, 255, 0.22), rgba(110, 231, 207, 0.2));
+    border-color: rgba(110, 184, 255, 0.35);
+  }
+
+  .btn.warm {
+    background: rgba(245, 193, 93, 0.14);
+    border-color: rgba(245, 193, 93, 0.3);
+  }
+
+  .summary-panel {
+    padding: 20px;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 12px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .metric {
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .metric .k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted-2);
+    margin-bottom: 8px;
+  }
+
+  .metric .v {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .metric .sub {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .col-5 { grid-column: span 5; }
+  .col-4 { grid-column: span 4; }
+  .col-3 { grid-column: span 3; }
+  .col-12 { grid-column: span 12; }
+
+  .section {
+    padding: 18px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .section-sub {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .pill {
+    padding: 8px 10px;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--muted);
+  }
+
+  .pill.blue { color: var(--blue); border-color: rgba(110, 184, 255, 0.28); background: rgba(110, 184, 255, 0.10); }
+  .pill.teal { color: var(--teal); border-color: rgba(110, 231, 207, 0.28); background: rgba(110, 231, 207, 0.10); }
+  .pill.amber { color: var(--amber); border-color: rgba(245, 193, 93, 0.3); background: rgba(245, 193, 93, 0.12); }
+  .pill.red { color: var(--red); border-color: rgba(244, 124, 124, 0.28); background: rgba(244, 124, 124, 0.12); }
+  .pill.green { color: var(--green); border-color: rgba(110, 213, 158, 0.28); background: rgba(110, 213, 158, 0.12); }
+  .pill.violet { color: var(--violet); border-color: rgba(167, 139, 250, 0.28); background: rgba(167, 139, 250, 0.12); }
+
+  .stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .attention-item, .queue-item, .mini-card, .activity-item, .route-card {
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(255, 255, 255, 0.025);
+    border-radius: 16px;
+  }
+
+  .attention-item, .queue-item, .activity-item {
+    padding: 14px;
+  }
+
+  .attention-item {
+    border-left: 4px solid transparent;
+  }
+
+  .attention-item.sev-high { border-left-color: var(--red); }
+  .attention-item.sev-med { border-left-color: var(--amber); }
+  .attention-item.sev-low { border-left-color: var(--blue); }
+
+  .row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .item-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .item-meta, .item-reason, .item-foot, .muted {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .item-reason {
+    margin: 6px 0 10px;
+  }
+
+  .jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 11px;
+    background: rgba(110, 184, 255, 0.12);
+    border-color: rgba(110, 184, 255, 0.22);
+    color: var(--blue);
+    font-weight: 700;
+  }
+
+  .mini-actions {
+    margin-top: 10px;
+  }
+
+  .mini-card {
+    padding: 14px;
+  }
+
+  .mini-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .queue-item .item-foot,
+  .activity-item .item-foot {
+    margin-top: 8px;
+  }
+
+  .queue-metrics {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .route-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .route-card {
+    padding: 16px;
+    min-height: 154px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .route-card .icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: inline-grid;
+    place-items: center;
+    font-size: 18px;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .route-card.catalog .icon { color: var(--blue); }
+  .route-card.working .icon { color: var(--teal); }
+  .route-card.queue .icon { color: var(--amber); }
+  .route-card.intake .icon { color: var(--green); }
+  .route-card.external .icon { color: var(--violet); }
+
+  .route-card h3 {
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .route-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .note {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px dashed rgba(148,163,184,0.22);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  @media (max-width: 1180px) {
+    .hero { grid-template-columns: 1fr; }
+    .col-5, .col-4, .col-3 { grid-column: span 12; }
+    .route-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 760px) {
+    body { padding: 16px 12px 28px; }
+    .search-wrap { grid-template-columns: 1fr; }
+    .hero-actions { justify-content: flex-start; }
+    .summary-grid, .mini-grid, .route-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="eyebrow">Issue #1174 · Dynamic landing hub</div>
+        <h1>Model Catalog should open like an operations dashboard, not a static menu.</h1>
+        <p class="lead">This mockup treats the landing page as the joined surface for Catalog, Working Files, Intake, External Imports, and the Unified Production Queue. It shows what needs action now, what is ready next, and exactly where to jump for deeper work.</p>
+        <div class="search-wrap">
+          <div>
+            <div class="search">
+              <div class="icon">⌕</div>
+              <div class="query">Search models, groups, queue items, captures, or recent prints...</div>
+              <div class="pill blue">/ focus</div>
+            </div>
+            <div class="scope-row">
+              <div class="chip active">All</div>
+              <div class="chip">Catalog</div>
+              <div class="chip">Working</div>
+              <div class="chip">Queue</div>
+              <div class="chip">Intake</div>
+              <div class="chip">External</div>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <div class="btn primary">Upload / Intake</div>
+            <div class="btn warm">Capture URL</div>
+            <div class="btn">Open Queue</div>
+            <div class="btn">Review Working</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel summary-panel">
+        <div>
+          <div class="section-title">System Snapshot</div>
+          <div class="section-sub">Cross-domain counts that orient the operator before they dive into any specific tab.</div>
+        </div>
+        <div class="summary-grid">
+          <div class="metric"><div class="k">Catalog</div><div class="v">412</div><div class="sub">18 need metadata attention</div></div>
+          <div class="metric"><div class="k">Working Groups</div><div class="v">37</div><div class="sub">9 ready to publish</div></div>
+          <div class="metric"><div class="k">Ungrouped Files</div><div class="v">23</div><div class="sub">7 changed in the last 24h</div></div>
+          <div class="metric"><div class="k">Queue Ready</div><div class="v">9</div><div class="sub">3 fit current AMS loadout</div></div>
+          <div class="metric"><div class="k">Intake Waiting</div><div class="v">6</div><div class="sub">2 ready to commit</div></div>
+          <div class="metric"><div class="k">External Pending</div><div class="v">4</div><div class="sub">1 collection migration paused</div></div>
+        </div>
+        <div class="note">Landing-page contract: summarize status, surface exceptions, then jump into the detailed surface with context preserved. This page is not a replacement for Catalog, Working Files, Queue, or Intake.</div>
+      </aside>
+    </section>
+
+    <section class="layout">
+      <div class="panel section col-5">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Needs Attention</h2>
+            <div class="section-sub">Prioritized exceptions across Catalog, Working Files, Queue, Intake, and External Imports.</div>
+          </div>
+          <div class="pill red">8 actionable now</div>
+        </div>
+        <div class="stack">
+          <div class="attention-item sev-high">
+            <div class="row-top">
+              <div class="item-title">Phone Dock Remix Pack</div>
+              <div class="pill violet">External · medium confidence</div>
+            </div>
+            <div class="item-reason">Capture has metadata, preview images, and creator info, but downloadable files could not be verified. Review before creating a durable catalog record.</div>
+            <div class="mini-actions">
+              <div class="btn">Review capture</div>
+              <div class="jump">Jump to External Intake →</div>
+            </div>
+          </div>
+
+          <div class="attention-item sev-med">
+            <div class="row-top">
+              <div class="item-title">Gridfinity Bit Holder v4</div>
+              <div class="pill blue">Catalog · needs preview</div>
+            </div>
+            <div class="item-reason">Model is fully published into the sidecar catalog, but still lacks a primary preview image and quality state remains open.</div>
+            <div class="mini-actions">
+              <div class="btn">Open model</div>
+              <div class="jump">Jump to Catalog Details →</div>
+            </div>
+          </div>
+
+          <div class="attention-item sev-med">
+            <div class="row-top">
+              <div class="item-title">Workshop Labels Bundle</div>
+              <div class="pill teal">Working · ungrouped files</div>
+            </div>
+            <div class="item-reason">5 related files landed from intake and remain ungrouped. Last modified 18 minutes ago, so this likely still belongs in active Working triage.</div>
+            <div class="mini-actions">
+              <div class="btn">Review group</div>
+              <div class="jump">Jump to Working Groups →</div>
+            </div>
+          </div>
+
+          <div class="attention-item sev-low">
+            <div class="row-top">
+              <div class="item-title">Desk Clamp Jig</div>
+              <div class="pill amber">Queue · blocked</div>
+            </div>
+            <div class="item-reason">Planner marked this queue item blocked because the selected plate expects PETG Black and the AMS-fit score dropped after the last spool change.</div>
+            <div class="mini-actions">
+              <div class="btn">Open queue item</div>
+              <div class="jump">Jump to Queue Planner →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-4">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Ready To Print</h2>
+            <div class="section-sub">Operator-facing queue preview. Actionable now, detailed planning later.</div>
+          </div>
+          <div class="pill amber">9 ready</div>
+        </div>
+        <div class="stack">
+          <div class="queue-item">
+            <div class="row-top">
+              <div class="item-title">Cable Comb Set</div>
+              <div class="pill green">Catalog</div>
+            </div>
+            <div class="item-meta">2 files · 5 plates · overnight · strong AMS fit</div>
+            <div class="queue-metrics">
+              <div class="pill amber">3h 40m</div>
+              <div class="pill green">Last attempt: success</div>
+              <div class="pill blue">All plates selected</div>
+            </div>
+            <div class="item-foot">Fast path from the landing page: recognize, sanity-check fit, then jump into the full queue editor only if needed.</div>
+            <div class="mini-actions">
+              <div class="btn">Open queue item</div>
+              <div class="jump">Jump to Queue →</div>
+            </div>
+          </div>
+
+          <div class="queue-item">
+            <div class="row-top">
+              <div class="item-title">AMS Purge Bin Variant B</div>
+              <div class="pill teal">Working</div>
+            </div>
+            <div class="item-meta">1 file · 2 plates · medium duration · stage ready_to_publish</div>
+            <div class="queue-metrics">
+              <div class="pill amber">1h 15m</div>
+              <div class="pill blue">Subset of plates</div>
+              <div class="pill red">No linked prints yet</div>
+            </div>
+            <div class="mini-actions">
+              <div class="btn">Send to queue</div>
+              <div class="jump">Jump to Working File →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-3">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Inbox / Intake Waiting</h2>
+            <div class="section-sub">Wizard-first intake with inbox and job history still visible.</div>
+          </div>
+          <div class="pill blue">6 waiting</div>
+        </div>
+        <div class="stack">
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Ready To Commit</div><div class="pill green">2 batches</div></div>
+            <div class="item-reason">Validation has passed and destination/cleanup policy are already chosen.</div>
+            <div class="mini-actions"><div class="btn primary">Open wizard</div><div class="jump">Jump to Commit step →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Needs Review</div><div class="pill amber">3 uploads</div></div>
+            <div class="item-reason">Grouping or warnings still need operator review before publication.</div>
+            <div class="mini-actions"><div class="btn">Review inbox</div><div class="jump">Jump to Intake Inbox →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Recent Jobs</div><div class="pill blue">1 cleanup retry</div></div>
+            <div class="item-reason">One browser-upload batch completed import but source cleanup is still pending.</div>
+            <div class="mini-actions"><div class="btn">View history</div><div class="jump">Jump to Job History →</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-4">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">External Imports</h2>
+            <div class="section-sub">Provider-aware capture backlog kept distinct from local intake.</div>
+          </div>
+          <div class="pill violet">4 pending</div>
+        </div>
+        <div class="mini-grid">
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">URL Capture</div><div class="pill violet">2</div></div>
+            <div class="item-reason">Recent captures from MakerWorld and Printables waiting for review.</div>
+            <div class="mini-actions"><div class="btn warm">Capture URL</div><div class="jump">Open workbench →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Browser Extension</div><div class="pill violet">1</div></div>
+            <div class="item-reason">Open-tab capture submitted with page metadata but file manifest still unresolved.</div>
+            <div class="mini-actions"><div class="btn">Review capture</div><div class="jump">Jump to Extension lane →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Stream Deck</div><div class="pill violet">0</div></div>
+            <div class="item-reason">No deferred quick-capture actions waiting right now.</div>
+            <div class="mini-actions"><div class="btn">Open presets</div><div class="jump">Jump to Quick Capture →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Collection Migration</div><div class="pill amber">paused</div></div>
+            <div class="item-reason">Printables collection preflight found 7 low-confidence items and paused before expansion.</div>
+            <div class="mini-actions"><div class="btn">Review migration</div><div class="jump">Jump to Migration Job →</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-4">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Working Files Snapshot</h2>
+            <div class="section-sub">Stage-based group overview plus hot file-change triage.</div>
+          </div>
+          <div class="pill teal">37 groups</div>
+        </div>
+        <div class="stack">
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Draft</div><div class="pill">14 groups</div></div>
+            <div class="item-reason">Most recently touched: Drawer Dividers Pack · 4 model files · last modified 22m ago.</div>
+            <div class="mini-actions"><div class="btn">Open groups</div><div class="jump">Jump to Draft groups →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">In Progress</div><div class="pill amber">14 groups</div></div>
+            <div class="item-reason">Top active group: Modular Battery Tray · primary 3MF changed after slicer save this morning.</div>
+            <div class="mini-actions"><div class="btn">Review active work</div><div class="jump">Jump to In Progress →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Ungrouped Files</div><div class="pill red">23 files</div></div>
+            <div class="item-reason">7 changed in the last 24 hours. Strong candidate list for the default landing-page exception block.</div>
+            <div class="mini-actions"><div class="btn">Open ungrouped</div><div class="jump">Jump to Ungrouped →</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-4">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Catalog Snapshot</h2>
+            <div class="section-sub">Curated model counts, quality-state shortcuts, and recent additions.</div>
+          </div>
+          <div class="pill blue">412 models</div>
+        </div>
+        <div class="stack">
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Quality State</div><div class="pill blue">18 open</div></div>
+            <div class="chip-row">
+              <div class="chip">Needs preview · 7</div>
+              <div class="chip">Needs tags · 6</div>
+              <div class="chip">Needs photos · 5</div>
+            </div>
+            <div class="mini-actions"><div class="btn">Browse catalog</div><div class="jump">Jump to quality filter →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Recent Models</div><div class="pill green">3 this week</div></div>
+            <div class="item-reason">Latest additions: Magnetic Allen Rack, Drawer Shim Kit, Skadis Hook Remix.</div>
+            <div class="mini-actions"><div class="btn">Open recent</div><div class="jump">Jump to recent catalog →</div></div>
+          </div>
+          <div class="mini-card">
+            <div class="row-top"><div class="item-title">Frequent / Favorite</div><div class="pill amber">quick access</div></div>
+            <div class="item-reason">The landing page can bias toward models you reopen often without becoming a browse-replacement grid.</div>
+            <div class="mini-actions"><div class="btn">Open favorites</div><div class="jump">Jump to Catalog favorites →</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-12">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Recent Activity</h2>
+            <div class="section-sub">Cross-domain motion: prints, intake commits, working-file edits, and capture events.</div>
+          </div>
+          <div class="pill green">Last 24h</div>
+        </div>
+        <div class="mini-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+          <div class="activity-item">
+            <div class="row-top"><div class="item-title">Linked print completed</div><div class="pill green">Print History</div></div>
+            <div class="item-reason">Cable Comb Set · Plate 2 auto-matched with high confidence and queue unit marked complete.</div>
+            <div class="item-foot">Jump: model prints tab or queue item detail.</div>
+          </div>
+          <div class="activity-item">
+            <div class="row-top"><div class="item-title">Working file changed</div><div class="pill teal">Working</div></div>
+            <div class="item-reason">Modular Battery Tray/main-v5.3mf updated 47 minutes ago in OrcaSlicer.</div>
+            <div class="item-foot">Jump: Working group popup focused on the changed file.</div>
+          </div>
+          <div class="activity-item">
+            <div class="row-top"><div class="item-title">Intake committed</div><div class="pill blue">Intake</div></div>
+            <div class="item-reason">Drawer Label Set imported to Working Files after validation and cleanup policy selection.</div>
+            <div class="item-foot">Jump: Job history or resulting Working group.</div>
+          </div>
+          <div class="activity-item">
+            <div class="row-top"><div class="item-title">External capture created</div><div class="pill violet">External</div></div>
+            <div class="item-reason">Browser extension captured MakerWorld page with creator, images, and probable file manifest.</div>
+            <div class="item-foot">Jump: External workbench review lane.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section col-12">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Detailed Surfaces</h2>
+            <div class="section-sub">The landing page should route into these specialized tabs and popups rather than duplicate them.</div>
+          </div>
+          <div class="pill">Jump targets</div>
+        </div>
+        <div class="route-grid">
+          <div class="route-card catalog">
+            <div class="icon">◫</div>
+            <div>
+              <h3>Catalog Browser</h3>
+              <p>Curated browse, filters, favorites, source/publish chips, detail popup, and advanced actions.</p>
+            </div>
+            <div class="jump">Jump to Catalog →</div>
+          </div>
+          <div class="route-card working">
+            <div class="icon">▤</div>
+            <div>
+              <h3>Working Files</h3>
+              <p>Groups, All Files, and Ungrouped with inline model-file visibility and reorganization actions.</p>
+            </div>
+            <div class="jump">Jump to Working →</div>
+          </div>
+          <div class="route-card queue">
+            <div class="icon">⇅</div>
+            <div>
+              <h3>Production Queue</h3>
+              <p>Mixed-source queue board with planner mode, plate/file selection, and archive-driven completion suggestions.</p>
+            </div>
+            <div class="jump">Jump to Queue →</div>
+          </div>
+          <div class="route-card intake">
+            <div class="icon">⇪</div>
+            <div>
+              <h3>Intake Wizard / Inbox</h3>
+              <p>Wizard-first local intake, inbox review, validation, commit, and job-history follow-through.</p>
+            </div>
+            <div class="jump">Jump to Intake →</div>
+          </div>
+          <div class="route-card external">
+            <div class="icon">⛓</div>
+            <div>
+              <h3>External Intake</h3>
+              <p>Provider-aware URL capture, browser extension review, Stream Deck quick capture, and collection migration.</p>
+            </div>
+            <div class="jump">Jump to External →</div>
+          </div>
+        </div>
+        <div class="note">Associated design question: keep local Intake and External Intake as separate dashboard blocks with distinct jump targets, even though both ultimately feed the catalog domain. The mockup assumes yes because their review logic and failure modes are materially different.</div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

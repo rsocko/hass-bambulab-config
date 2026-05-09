@@ -141,7 +141,7 @@ The revised plan incorporates the architecture work already tracked in the model
 - `#1037` drives prioritization around Working-file access, frequent/recent/common prints, curated quick reprint, backlog/queue, archive linkage, and source capture
 - `#1040` corrects the mistaken GraphQL and replace-in-place assumptions and pushes the design toward a source-verified REST-only baseline
 - `#1042` adds explicit duplicate-handling requirements for repeat downloads, especially Makerworld reacquisition cases that may already overlap Working groups or curated Manyfold records
-- `#1043` adds a later operator-driven flow where the model catalog can help backfill older print-history records by reusing existing forensics manifests, source-attachment flows, and archive-creation tooling
+- `#1043` adds a later operator-driven flow where the model catalog can help backfill older print-history records by reusing existing forensics manifests, source-attachment flows, archive-creation tooling, and a dedicated persisted job record that includes operator-reviewed historical print timestamps
 - `#1121` adds an early persistence-and-backup requirement for sidecar-owned state, with the default design now favoring a dedicated Docker volume for `/data`, Linux/WSL bind mounts as an opt-in visibility mode, HA as a status/trigger surface rather than the primary backup executor, and restore drills before bulk-ingest phases create harder-to-reconstruct data
 - `#1124` adds an intake-first Phase 1.5 slice for Inbox submission, validation, dedupe review, and Working-group creation before deliberate curated publish
 
@@ -153,3 +153,6 @@ Tracking note:
 ## Related Feature Docs
 
 - [Print History README](../print_history/README.md)
+- [Historical Print Backfill Via Model Catalog](historical-print-backfill-via-model-catalog.md)
+- [Print History Slicer Integration Design](print-history-slicer-integration-design.md)
+- [Print History Backfill Design](design/print-history-backfill-design.md)

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Landing Dashboard Compact</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0a1016;
+    --panel: rgba(18, 25, 36, 0.9);
+    --panel-2: rgba(12, 18, 26, 0.86);
+    --border: rgba(148, 163, 184, 0.18);
+    --text: #e6eef5;
+    --muted: #96a8bc;
+    --blue: #74b7ff;
+    --teal: #69e5cf;
+    --amber: #f6c76a;
+    --red: #f18787;
+    --green: #78d7a4;
+    --violet: #b495ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: radial-gradient(circle at top left, rgba(116,183,255,0.15), transparent 32%), linear-gradient(180deg, #0e141d, var(--bg)); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+  body { padding: 18px; }
+  .page { max-width: 1520px; margin: 0 auto; }
+  .shell { display: grid; gap: 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; backdrop-filter: blur(14px); }
+  .top { display: grid; grid-template-columns: 1.45fr 1fr; gap: 14px; }
+  .hero { padding: 16px 18px; }
+  .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--teal); font-weight: 700; }
+  h1 { margin: 6px 0 8px; font-size: 28px; letter-spacing: -0.03em; }
+  .sub { color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .search-row, .chips, .actions, .micro-actions, .legend { display: flex; gap: 8px; flex-wrap: wrap; }
+  .search-row { margin-top: 12px; align-items: center; }
+  .search { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 10px; border-radius: 14px; border: 1px solid rgba(116,183,255,0.24); background: rgba(255,255,255,0.03); padding: 11px 13px; }
+  .chip, .btn, .pill { border-radius: 999px; border: 1px solid var(--border); font-size: 11px; line-height: 1; white-space: nowrap; }
+  .chip { padding: 7px 9px; background: rgba(148,163,184,0.08); color: var(--muted); }
+  .chip.active { background: var(--teal); color: #061118; font-weight: 700; }
+  .btn { padding: 10px 12px; background: rgba(255,255,255,0.05); color: var(--text); font-weight: 700; }
+  .btn.primary { background: linear-gradient(135deg, rgba(116,183,255,0.2), rgba(105,229,207,0.18)); }
+  .btn.warm { background: rgba(246,199,106,0.12); }
+  .metrics { padding: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .metric { background: rgba(255,255,255,0.03); border: 1px solid rgba(148,163,184,0.12); border-radius: 14px; padding: 12px; }
+  .metric .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .metric .v { margin-top: 6px; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+  .metric .s { margin-top: 3px; font-size: 11px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 14px; }
+  .section { padding: 14px; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+  .title { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+  .pill { padding: 7px 9px; color: var(--muted); background: rgba(255,255,255,0.04); }
+  .pill.blue { color: var(--blue); } .pill.teal { color: var(--teal); } .pill.amber { color: var(--amber); } .pill.red { color: var(--red); } .pill.green { color: var(--green); } .pill.violet { color: var(--violet); }
+  .stack { display: grid; gap: 8px; }
+  .item { border: 1px solid rgba(148,163,184,0.12); border-radius: 14px; background: var(--panel-2); padding: 11px 12px; }
+  .item-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .item-title { font-size: 13px; font-weight: 700; }
+  .item-sub, .tiny { color: var(--muted); font-size: 11px; line-height: 1.4; }
+  .item-sub { margin-top: 4px; }
+  .bars { display: grid; gap: 8px; margin-top: 10px; }
+  .bar-row { display: grid; grid-template-columns: 88px 1fr 42px; align-items: center; gap: 8px; }
+  .bar-row span { font-size: 11px; color: var(--muted); }
+  .track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px; }
+  .cards-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  .action-card { border: 1px solid rgba(148,163,184,0.12); border-radius: 14px; padding: 12px; background: var(--panel-2); min-height: 92px; display: grid; gap: 8px; }
+  .action-card .label { font-size: 12px; font-weight: 700; }
+  .result-panel { margin-top: 10px; border: 1px solid rgba(116,183,255,0.18); border-radius: 16px; overflow: hidden; }
+  .result-head { display: flex; justify-content: space-between; padding: 10px 12px; background: rgba(116,183,255,0.08); font-size: 11px; color: var(--muted); }
+  .result-group { border-top: 1px solid rgba(148,163,184,0.1); }
+  .group-title { padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); background: rgba(255,255,255,0.025); }
+  .result-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px 12px; }
+  .jump { color: var(--blue); font-size: 11px; font-weight: 700; }
+  @media (max-width: 1200px) { .top, .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .metrics, .cards-2, .action-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="shell">
+      <section class="top">
+        <div class="panel hero">
+          <div class="eyebrow">Variant A · Compact above the fold</div>
+          <h1>Fit the operator's real first-screen decisions into one viewport.</h1>
+          <div class="sub">This variant deliberately trades explanation for density: stronger KPIs, tighter lists, a dedicated Key Actions module, and an inline grouped search-result tray.</div>
+          <div class="search-row">
+            <div class="search">⌕ Search models, groups, queue entries, captures, prints...</div>
+            <div class="btn primary">Start Intake</div>
+            <div class="btn warm">Capture URL</div>
+          </div>
+          <div class="chips" style="margin-top:8px;">
+            <div class="chip active">All</div><div class="chip">Needs attention</div><div class="chip">Ready</div><div class="chip">Recently changed</div><div class="chip">In intake</div><div class="chip">External pending</div>
+          </div>
+          <div class="result-panel">
+            <div class="result-head"><span>Search results for “gridfinity”</span><span>Grouped · direct actions</span></div>
+            <div class="result-group">
+              <div class="group-title">Catalog Models</div>
+              <div class="result-row"><div><div class="item-title">Gridfinity Bin v2</div><div class="tiny">Needs preview image · 28 linked prints</div></div><div class="pill blue">Catalog</div><div class="jump">Open model</div></div>
+            </div>
+            <div class="result-group">
+              <div class="group-title">Working Groups</div>
+              <div class="result-row"><div><div class="item-title">Gridfinity Jigs</div><div class="tiny">4 model files · modified 18m ago</div></div><div class="pill teal">Working</div><div class="jump">Open group</div></div>
+            </div>
+            <div class="result-group">
+              <div class="group-title">Queue Entries</div>
+              <div class="result-row"><div><div class="item-title">Gridfinity Cable Clamps</div><div class="tiny">Ready · overnight fit strong</div></div><div class="pill amber">Queue</div><div class="jump">Open queue item</div></div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel metrics">
+          <div class="metric"><div class="k">Catalog</div><div class="v">412</div><div class="s">18 need attention</div></div>
+          <div class="metric"><div class="k">Working</div><div class="v">37</div><div class="s">23 ungrouped files</div></div>
+          <div class="metric"><div class="k">Queue</div><div class="v">9</div><div class="s">3 AMS fit</div></div>
+          <div class="metric"><div class="k">Intake</div><div class="v">6</div><div class="s">2 ready to commit</div></div>
+          <div class="metric"><div class="k">External</div><div class="v">4</div><div class="s">1 migration paused</div></div>
+          <div class="metric"><div class="k">Linked prints</div><div class="v">14</div><div class="s">today, only when relevant</div></div>
+        </aside>
+      </section>
+
+      <section class="grid">
+        <div class="panel section">
+          <div class="head"><div><div class="title">Needs Attention</div><div class="tiny">Cross-domain exceptions with minimal prose.</div></div><div class="pill red">8 now</div></div>
+          <div class="stack">
+            <div class="item"><div class="item-top"><div class="item-title">Phone Dock Remix Pack</div><div class="pill violet">External</div></div><div class="item-sub">Medium confidence capture, files unresolved.</div><div class="micro-actions"><div class="btn">Review</div><div class="jump">Jump to External Intake →</div></div></div>
+            <div class="item"><div class="item-top"><div class="item-title">Gridfinity Bit Holder v4</div><div class="pill blue">Catalog</div></div><div class="item-sub">Needs preview image.</div><div class="micro-actions"><div class="btn">Open</div><div class="jump">Catalog details →</div></div></div>
+            <div class="item"><div class="item-top"><div class="item-title">Workshop Labels Bundle</div><div class="pill teal">Working</div></div><div class="item-sub">5 ungrouped files, modified 18m ago.</div><div class="micro-actions"><div class="btn">Review</div><div class="jump">Working groups →</div></div></div>
+            <div class="item"><div class="item-top"><div class="item-title">Desk Clamp Jig</div><div class="pill amber">Queue</div></div><div class="item-sub">Blocked by filament mismatch.</div><div class="micro-actions"><div class="btn">Open</div><div class="jump">Queue planner →</div></div></div>
+          </div>
+        </div>
+
+        <div class="panel section">
+          <div class="head"><div><div class="title">Key Actions</div><div class="tiny">Cross-domain actions ranked by real operator usefulness.</div></div><div class="pill green">adaptive</div></div>
+          <div class="action-grid">
+            <div class="action-card"><div class="label">Start local intake</div><div class="tiny">Launch wizard directly. No extra intake landing step.</div><div class="jump">Launch wizard →</div></div>
+            <div class="action-card"><div class="label">Capture external URL</div><div class="tiny">Quick-create a pending external record.</div><div class="jump">Launch capture →</div></div>
+            <div class="action-card"><div class="label">Create group from ungrouped</div><div class="tiny">7 recent files are strong candidates.</div><div class="jump">Jump to Ungrouped →</div></div>
+            <div class="action-card"><div class="label">Add ready item to queue</div><div class="tiny">Cable Comb Set has best current AMS fit.</div><div class="jump">Open queue candidate →</div></div>
+            <div class="action-card"><div class="label">Review blocked queue item</div><div class="tiny">Desk Clamp Jig is blocked now.</div><div class="jump">Queue planner →</div></div>
+            <div class="action-card"><div class="label">Reopen last active model</div><div class="tiny">Magnetic Allen Rack · edited today.</div><div class="jump">Open model →</div></div>
+          </div>
+        </div>
+
+        <div class="panel section">
+          <div class="head"><div><div class="title">Operational Snapshot</div><div class="tiny">Compact visual indicators instead of long copy.</div></div><div class="pill amber">above the fold</div></div>
+          <div class="bars">
+            <div class="bar-row"><span>Catalog quality</span><div class="track"><div class="fill" style="width:82%;background:linear-gradient(90deg,var(--blue),var(--teal));"></div></div><span>82%</span></div>
+            <div class="bar-row"><span>Working grouped</span><div class="track"><div class="fill" style="width:68%;background:linear-gradient(90deg,var(--teal),var(--green));"></div></div><span>68%</span></div>
+            <div class="bar-row"><span>Queue ready</span><div class="track"><div class="fill" style="width:74%;background:linear-gradient(90deg,var(--amber),#f6d88f);"></div></div><span>74%</span></div>
+            <div class="bar-row"><span>External confidence</span><div class="track"><div class="fill" style="width:61%;background:linear-gradient(90deg,var(--violet),#d4c2ff);"></div></div><span>61%</span></div>
+          </div>
+          <div class="cards-2" style="margin-top:10px;">
+            <div class="item"><div class="item-top"><div class="item-title">Intake</div><div class="pill blue">6 waiting</div></div><div class="item-sub">2 ready to commit, 1 cleanup retry.</div></div>
+            <div class="item"><div class="item-top"><div class="item-title">Recent linked print</div><div class="pill green">relevant</div></div><div class="item-sub">Cable Comb Set plate auto-completed in queue.</div></div>
+            <div class="item"><div class="item-top"><div class="item-title">Working hot file</div><div class="pill teal">22m ago</div></div><div class="item-sub">Drawer Dividers Pack changed in slicer.</div></div>
+            <div class="item"><div class="item-top"><div class="item-title">Recent external capture</div><div class="pill violet">medium</div></div><div class="item-sub">MakerWorld page captured, review needed.</div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

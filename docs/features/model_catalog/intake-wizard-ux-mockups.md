@@ -297,6 +297,134 @@ KEY:
 - No "special" browser-only behavior; unified with Server
 ```
 
+## Issue #1321: Drag And Drop Entry Variants
+
+These variants apply only to the **Browser Upload** path.
+
+- they are entry and staging affordances
+- they do not introduce a new source mode
+- they do not apply to Server Inbox
+
+### Browser Upload Variant — Empty Drop Zone
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Source                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Actions                         │ RIGHT: Drop Zone                                   │
+│                                       │                                                    │
+│ Browser Upload                        │ ┌────────────────────────────────────────────────┐ │
+│ [Add Files] [Add Folder]              │ │                                                │ │
+│                                       │ │             Drop files or a folder            │ │
+│ Folder scope                          │ │                     here                       │ │
+│ (•) Include subfolders                │ │                                                │ │
+│ ( ) Just selected folder              │ │      or use Add Files / Add Folder            │ │
+│                                       │ │                                                │ │
+│ Tips                                  │ │  Supported here: local files and folders      │ │
+│ - drag from desktop or explorer       │ │  Not here: server inbox items                 │ │
+│ - stage multiple drops if needed      │ └────────────────────────────────────────────────┘ │
+│                                       │                                                    │
+│ [Next]                                │ Batch Summary                                     │
+│                                       │ - source: Browser Upload                         │
+│                                       │ - 0 items staged                                 │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+```
+
+### Browser Upload Variant — Drag Active With Existing Staged Files
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Source                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Actions                         │ RIGHT: Staged Browser Upload                      │
+│                                       │                                                    │
+│ Browser Upload                        │ ┌────────────────────────────────────────────────┐ │
+│ [Add Files] [Add Folder] [Clear All]  │ │ Existing staged content remains visible below │ │
+│                                       │ │                                                │ │
+│ Staging controls                      │ │ ────────────────────────────────────────────── │ │
+│ - remove individual items             │ │         Drop to add to staged upload          │ │
+│ - drag more files at any time         │ │                                                │ │
+│                                       │ │   No per-folder target: the whole panel       │ │
+│ Folder scope                          │ │   is the drop zone                             │ │
+│ (•) Include subfolders                │ │                                                │ │
+│ ( ) Just selected folder              │ │ ────────────────────────────────────────────── │ │
+│                                       │ │                                                │ │
+│ [Next]                                │ │ Folder A/                                      │ │
+│                                       │ │   model.3mf                                    │ │
+│                                       │ │ Folder B/sub/part-a.stl                        │ │
+│                                       │ │ loose-file.3mf                                 │ │
+│                                       │ └────────────────────────────────────────────────┘ │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+```
+
+### Intake Dashboard Variant — Launchpad Drop Card
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake                                                                                     │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Drop files or a folder to start Browser Upload intake                                 │ │
+│ │                                                                                        │ │
+│ │ Opens the same intake wizard in Browser mode. Destination default: Catalog.           │ │
+│ │ [Choose Files] [Choose Folder]                                                         │ │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                            │
+│ ┌────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Existing Model Catalog Intake card remains below                                      │ │
+│ │ - Upload Files Or Folder                                                               │ │
+│ │ - Import From Server Inbox                                                             │ │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Catalog And Working Variants — Contextual Quick Drop
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Catalog                                                                                   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Quick Upload To Catalog                                                                │ │
+│ │ Drop files or a folder to open intake with destination defaulted to Catalog.          │ │
+│ │ [Choose Files]                                                                         │ │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                            │
+│ [Catalog Browser card continues below]                                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Working                                                                                   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Quick Upload To Working Files                                                          │ │
+│ │ Drop files or a folder to open intake with destination defaulted to Working Files.    │ │
+│ │ [Choose Files]                                                                         │ │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                            │
+│ [Working Files explorer card continues below]                                             │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Drag Overlay Copy Rules
+
+- Empty Browser state: `Drop files or a folder here`
+- Populated Browser state: `Drop to add to staged upload`
+- Intake launchpad card: `Drop to start Browser Upload intake`
+- Catalog quick-drop card: `Drop to start intake for Catalog`
+- Working quick-drop card: `Drop to start intake for Working Files`
+
+### Drag And Drop Guardrails
+
+- Do not show row-level folder drop targets anywhere in the staged tree.
+- Keep `Add Files` and `Add Folder` visible for non-drag workflows.
+- A drop opens or updates the Browser Upload wizard only.
+- Server Inbox remains browse/select only.
+
 ## Step 2: Organize
 
 This step must look structurally identical for Browser Upload and Server Inbox.

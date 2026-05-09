@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Landing Dashboard Analytics</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #091019;
+    --panel: rgba(16, 24, 35, 0.9);
+    --panel-2: rgba(21, 31, 45, 0.92);
+    --border: rgba(148,163,184,0.18);
+    --text: #e6eef7;
+    --muted: #9cb0c4;
+    --blue: #7ebcff;
+    --teal: #73e5d3;
+    --amber: #f2c66c;
+    --red: #ef8a8a;
+    --green: #79d6a3;
+    --violet: #b497ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: radial-gradient(circle at 12% 8%, rgba(126,188,255,0.14), transparent 30%), radial-gradient(circle at 88% 14%, rgba(115,229,211,0.12), transparent 24%), linear-gradient(180deg, #0d141d, var(--bg)); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+  body { padding: 24px; }
+  .page { max-width: 1500px; margin: 0 auto; display: grid; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(14px); }
+  .hero { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+  .hero-main { padding: 20px; }
+  .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--blue); font-weight: 700; }
+  h1 { margin: 6px 0 8px; font-size: 34px; letter-spacing: -0.04em; }
+  .sub { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .search { margin-top: 14px; display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-radius: 16px; border: 1px solid rgba(126,188,255,0.22); background: rgba(255,255,255,0.03); }
+  .toolbar, .chips, .row-actions, .search-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toolbar { margin-top: 10px; align-items: center; justify-content: space-between; }
+  .chips { margin-top: 10px; }
+  .chip, .btn, .pill { border-radius: 999px; border: 1px solid var(--border); font-size: 11px; line-height: 1; white-space: nowrap; }
+  .chip { padding: 7px 9px; color: var(--muted); background: rgba(148,163,184,0.08); }
+  .chip.active { background: var(--blue); color: #07111a; font-weight: 700; }
+  .btn { padding: 10px 12px; background: rgba(255,255,255,0.05); color: var(--text); font-weight: 700; }
+  .btn.primary { background: linear-gradient(135deg, rgba(126,188,255,0.22), rgba(115,229,211,0.18)); }
+  .summary { padding: 18px; display: grid; gap: 12px; }
+  .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ring-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(148,163,184,0.12); border-radius: 18px; padding: 14px; display: grid; place-items: center; gap: 10px; }
+  .ring { width: 94px; height: 94px; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--pct) * 1%), rgba(255,255,255,0.08) 0); }
+  .ring::after { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: #0b1119; border: 1px solid rgba(148,163,184,0.08); }
+  .ring strong { position: relative; z-index: 1; font-size: 22px; }
+  .legend { text-align: center; }
+  .legend .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+  .legend .s { margin-top: 4px; font-size: 11px; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .kpi { padding: 12px; border-radius: 15px; background: rgba(255,255,255,0.03); border: 1px solid rgba(148,163,184,0.12); }
+  .kpi .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .kpi .v { margin-top: 6px; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+  .kpi .s { margin-top: 4px; font-size: 11px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 16px; }
+  .section { padding: 16px; }
+  .head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+  .title { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+  .tiny { color: var(--muted); font-size: 11px; line-height: 1.45; }
+  .pill { padding: 7px 9px; color: var(--muted); background: rgba(255,255,255,0.04); }
+  .pill.blue { color: var(--blue); } .pill.teal { color: var(--teal); } .pill.amber { color: var(--amber); } .pill.red { color: var(--red); } .pill.green { color: var(--green); } .pill.violet { color: var(--violet); }
+  .stack { display: grid; gap: 10px; }
+  .card { border: 1px solid rgba(148,163,184,0.12); border-radius: 16px; padding: 12px; background: var(--panel-2); }
+  .card-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .card-title { font-size: 13px; font-weight: 700; }
+  .bar-grid { display: grid; gap: 9px; margin-top: 10px; }
+  .bar-row { display: grid; grid-template-columns: 78px 1fr 40px; align-items: center; gap: 8px; }
+  .track { height: 9px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px; }
+  .spark { margin-top: 10px; height: 62px; border-radius: 12px; background: linear-gradient(180deg, rgba(126,188,255,0.10), rgba(126,188,255,0.02)); border: 1px solid rgba(126,188,255,0.12); position: relative; overflow: hidden; }
+  .spark svg { width: 100%; height: 100%; display: block; }
+  .action-list { display: grid; gap: 8px; }
+  .action-row, .result-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(148,163,184,0.08); }
+  .action-row:first-child, .result-row:first-child { border-top: 0; padding-top: 0; }
+  .jump { color: var(--blue); font-size: 11px; font-weight: 700; }
+  .results { margin-top: 10px; border: 1px solid rgba(126,188,255,0.16); border-radius: 16px; overflow: hidden; }
+  .results .group { border-top: 1px solid rgba(148,163,184,0.08); }
+  .results .group:first-child { border-top: 0; }
+  .group-head { padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); background: rgba(255,255,255,0.03); }
+  .group-body { padding: 0 12px; }
+  @media (max-width: 1240px) { .hero, .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 800px) { .rings, .kpis { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="eyebrow">Variant B · KPI / visual operations</div>
+        <h1>Make the landing page feel alive with operational signals, not just text summaries.</h1>
+        <div class="sub">This variant leans harder into KPI rings, trend bars, confidence splits, and adaptive Key Actions. It is still a routing hub, but it reads more like a real operator dashboard and less like a status memo.</div>
+        <div class="search">⌕ Universal search across Catalog, Working, Queue, Intake, External, and relevant linked-print context</div>
+        <div class="toolbar">
+          <div class="chips"><div class="chip active">All</div><div class="chip">Needs attention</div><div class="chip">Ready to print</div><div class="chip">Recently changed</div></div>
+          <div class="search-actions"><div class="btn primary">Launch Intake Wizard</div><div class="btn">Open Queue Planner</div><div class="btn">Capture URL</div></div>
+        </div>
+        <div class="results">
+          <div class="group"><div class="group-head">Grouped search results</div><div class="group-body">
+            <div class="result-row"><div><div class="card-title">Gridfinity Bit Holder v4</div><div class="tiny">Catalog · Needs preview image</div></div><div class="pill blue">Catalog</div><div class="jump">Open model →</div></div>
+            <div class="result-row"><div><div class="card-title">Gridfinity Jigs</div><div class="tiny">Working · 4 model files · changed 18m ago</div></div><div class="pill teal">Working</div><div class="jump">Open group →</div></div>
+            <div class="result-row"><div><div class="card-title">Gridfinity Cable Clamp Queue</div><div class="tiny">Queue · Ready · strong overnight fit</div></div><div class="pill amber">Queue</div><div class="jump">Open queue item →</div></div>
+          </div></div>
+        </div>
+      </div>
+
+      <aside class="panel summary">
+        <div class="rings">
+          <div class="ring-card" style="--accent: var(--blue); --pct: 82;"><div class="ring"><strong>82%</strong></div><div class="legend"><div class="k">Catalog quality</div><div class="s">Complete vs attention-needed</div></div></div>
+          <div class="ring-card" style="--accent: var(--teal); --pct: 68;"><div class="ring"><strong>68%</strong></div><div class="legend"><div class="k">Working grouped</div><div class="s">Files organized into groups</div></div></div>
+          <div class="ring-card" style="--accent: var(--amber); --pct: 74;"><div class="ring"><strong>74%</strong></div><div class="legend"><div class="k">Queue ready</div><div class="s">Ready vs blocked in active queue</div></div></div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><div class="k">Catalog</div><div class="v">412</div><div class="s">18 open quality items</div></div>
+          <div class="kpi"><div class="k">Intake</div><div class="v">6</div><div class="s">2 ready to commit</div></div>
+          <div class="kpi"><div class="k">External</div><div class="v">4</div><div class="s">1 paused migration</div></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <div class="panel section">
+        <div class="head"><div><div class="title">Needs Attention + Readiness</div><div class="tiny">Two adjacent operator questions in one visual module.</div></div><div class="pill red">8 now</div></div>
+        <div class="bar-grid">
+          <div class="bar-row"><span>Catalog</span><div class="track"><div class="fill" style="width:18%;background:var(--blue);"></div></div><span>18</span></div>
+          <div class="bar-row"><span>Working</span><div class="track"><div class="fill" style="width:23%;background:var(--teal);"></div></div><span>23</span></div>
+          <div class="bar-row"><span>Queue</span><div class="track"><div class="fill" style="width:4%;background:var(--amber);"></div></div><span>4</span></div>
+          <div class="bar-row"><span>External</span><div class="track"><div class="fill" style="width:4%;background:var(--violet);"></div></div><span>4</span></div>
+        </div>
+        <div class="spark">
+          <svg viewBox="0 0 300 62" preserveAspectRatio="none" aria-hidden="true">
+            <polyline fill="none" stroke="#7ebcff" stroke-width="2.5" points="0,46 36,42 72,44 108,32 144,34 180,20 216,24 252,17 300,11" />
+            <polyline fill="none" stroke="#73e5d3" stroke-width="2.5" points="0,50 36,48 72,39 108,41 144,37 180,35 216,28 252,30 300,24" opacity="0.8" />
+          </svg>
+        </div>
+        <div class="stack" style="margin-top:10px;">
+          <div class="card"><div class="card-top"><div class="card-title">Phone Dock Remix Pack</div><div class="pill violet">External</div></div><div class="tiny">Medium confidence, files unresolved.</div><div class="row-actions"><div class="btn">Review</div><div class="pill red">attention</div><div class="jump">External Intake →</div></div></div>
+          <div class="card"><div class="card-top"><div class="card-title">Cable Comb Set</div><div class="pill amber">Queue</div></div><div class="tiny">Ready now, strong AMS fit, last print successful.</div><div class="row-actions"><div class="btn primary">Queue item</div><div class="pill green">ready</div><div class="jump">Planner →</div></div></div>
+        </div>
+      </div>
+
+      <div class="panel section">
+        <div class="head"><div><div class="title">Key Actions</div><div class="tiny">Cross-domain actions selected by recency, urgency, and operator frequency.</div></div><div class="pill green">adaptive</div></div>
+        <div class="action-list">
+          <div class="action-row"><div><div class="card-title">Launch local intake wizard</div><div class="tiny">Direct launch from dashboard, no extra intake page stop.</div></div><div class="pill blue">Intake</div><div class="jump">Launch →</div></div>
+          <div class="action-row"><div><div class="card-title">Capture external URL</div><div class="tiny">Quick-create pending external record.</div></div><div class="pill violet">External</div><div class="jump">Capture →</div></div>
+          <div class="action-row"><div><div class="card-title">Create group from recent ungrouped files</div><div class="tiny">7 candidates changed in the last 24h.</div></div><div class="pill teal">Working</div><div class="jump">Ungrouped →</div></div>
+          <div class="action-row"><div><div class="card-title">Open blocked queue item</div><div class="tiny">Desk Clamp Jig needs filament decision.</div></div><div class="pill amber">Queue</div><div class="jump">Planner →</div></div>
+          <div class="action-row"><div><div class="card-title">Reopen last active catalog model</div><div class="tiny">Magnetic Allen Rack edited today.</div></div><div class="pill blue">Catalog</div><div class="jump">Open model →</div></div>
+        </div>
+      </div>
+
+      <div class="panel section">
+        <div class="head"><div><div class="title">Domain Health</div><div class="tiny">Compact visuals instead of descriptive blocks.</div></div><div class="pill blue">signals</div></div>
+        <div class="stack">
+          <div class="card"><div class="card-top"><div class="card-title">Working stage split</div><div class="pill teal">37 groups</div></div><div class="bar-grid"><div class="bar-row"><span>Draft</span><div class="track"><div class="fill" style="width:38%;background:var(--blue);"></div></div><span>14</span></div><div class="bar-row"><span>In progress</span><div class="track"><div class="fill" style="width:38%;background:var(--amber);"></div></div><span>14</span></div><div class="bar-row"><span>Ready</span><div class="track"><div class="fill" style="width:24%;background:var(--green);"></div></div><span>9</span></div></div></div>
+          <div class="card"><div class="card-top"><div class="card-title">External confidence split</div><div class="pill violet">4 pending</div></div><div class="bar-grid"><div class="bar-row"><span>High</span><div class="track"><div class="fill" style="width:25%;background:var(--green);"></div></div><span>1</span></div><div class="bar-row"><span>Medium</span><div class="track"><div class="fill" style="width:50%;background:var(--amber);"></div></div><span>2</span></div><div class="bar-row"><span>Low</span><div class="track"><div class="fill" style="width:25%;background:var(--red);"></div></div><span>1</span></div></div></div>
+          <div class="card"><div class="card-top"><div class="card-title">Intake throughput</div><div class="pill blue">last 7d</div></div><div class="spark"><svg viewBox="0 0 300 62" preserveAspectRatio="none"><polyline fill="none" stroke="#79d6a3" stroke-width="2.5" points="0,52 42,43 84,48 126,31 168,36 210,24 252,26 300,18" /></svg></div><div class="tiny">Use compact trend visuals where they help routing or action choice, not for decorative analytics.</div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

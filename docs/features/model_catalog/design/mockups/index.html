@@ -30,7 +30,26 @@
 <body>
 
 <h1>Model Catalog · Design mockups</h1>
-<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign, the new <strong>Unified Production Queue</strong> surfaces, the new <strong>Catalog Advanced Actions</strong> popup, and external-source intake concepts. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, <a href="../working-files-card-design.md">working-files-card-design.md</a>, <a href="../unified-production-queue-design.md">unified-production-queue-design.md</a>, and <a href="../external-source-intake-design.md">external-source-intake-design.md</a>.</p>
+<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign, the new <strong>Unified Production Queue</strong> surfaces, the new <strong>Catalog Advanced Actions</strong> popup, the new <strong>Landing Dashboard</strong> hub for issue #1174, the new <strong>Historical Print Backfill</strong> workflow for issue #1043, and external-source intake concepts. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, <a href="../working-files-card-design.md">working-files-card-design.md</a>, <a href="../landing-page-dashboard-design.md">landing-page-dashboard-design.md</a>, <a href="../print-history-backfill-design.md">print-history-backfill-design.md</a>, <a href="../unified-production-queue-design.md">unified-production-queue-design.md</a>, and <a href="../external-source-intake-design.md">external-source-intake-design.md</a>.</p>
+
+<p class="section-title">Landing Hub</p>
+<div class="grid">
+  <a class="tile" href="landing-dashboard.html">
+    <span class="badge amber">NEW · ISSUE #1174</span>
+    <h2>Landing dashboard</h2>
+    <p>Dynamic operations-first home page spanning Catalog, Working Files, Intake, External Imports, and the Unified Production Queue. Focuses on actionable exceptions, recent activity, and explicit jump-to-tab routing rather than duplicating deep workflows.</p>
+  </a>
+  <a class="tile" href="landing-dashboard-compact.html">
+    <span class="badge amber">NEW · ISSUE #1174 · VARIANT A</span>
+    <h2>Landing dashboard (compact)</h2>
+    <p>Denser, above-the-fold variant with stronger KPI tiles, a dedicated cross-domain Key Actions block, reduced prose, and an inline grouped search-results tray.</p>
+  </a>
+  <a class="tile" href="landing-dashboard-analytics.html">
+    <span class="badge amber">NEW · ISSUE #1174 · VARIANT B</span>
+    <h2>Landing dashboard (analytics)</h2>
+    <p>More visual operations dashboard with health rings, trend bars, confidence splits, adaptive key actions, and search results shown as grouped operator objects.</p>
+  </a>
+</div>
 
 <p class="section-title">Catalog Browser</p>
 <div class="grid">
@@ -108,6 +127,25 @@
     <span class="badge amber">ADD FLOW · NEW</span>
     <h2>Add to queue</h2>
     <p>Hybrid quick-add plus advanced-add flow. Default is all files / all plates; advanced mode allows single-file or subset-of-plates selection with low-res previews, duration signals, and filament-fit hints before the entry is created.</p>
+  </a>
+</div>
+
+<p class="section-title">Historical Print Backfill</p>
+<div class="grid">
+  <a class="tile" href="print-history-backfill-entry.html">
+    <span class="badge amber">BACKFILL · ENTRY</span>
+    <h2>Recovery entry</h2>
+    <p>Catalog-first launch point from model detail. Separates <strong>Create Historical Archive</strong>, <strong>Attach Source Only</strong>, and <strong>Link Existing Archive</strong> while showing archive evidence, source classification, and what state will be persisted before execution.</p>
+  </a>
+  <a class="tile" href="print-history-backfill-review.html">
+    <span class="badge amber">BACKFILL · REVIEW</span>
+    <h2>Review and persist draft</h2>
+    <p>Guided review flow for worker availability, printer/process/filament validation, plate selection, and the required historical print date/time fields that must be confirmed before archive commit.</p>
+  </a>
+  <a class="tile" href="print-history-backfill-summary.html">
+    <span class="badge amber">BACKFILL · SUMMARY</span>
+    <h2>Outcome and retry state</h2>
+    <p>Success and partial-failure summary with the applied historical print timestamp, resulting archive linkage, source-attachment outcome, and the persisted job timeline that makes retry safe.</p>
   </a>
 </div>
 
