@@ -1252,8 +1252,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + detailFooter
       + '</div>';
 
-    var compactBodyHtml = ''
-      + '<div class="body compact-body">'
+    var compactMainHtml = ''
+      + '<div class="body compact-main">'
       + '  <div class="compact-top-actions">'
       + '    <button class="icon-action viewer-action" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
@@ -1271,6 +1271,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + publishedDestinationChips
       + (hiddenDestinationCount ? this._renderModelTagChip('+' + String(hiddenDestinationCount), 'publish-chip') : '')
       + '  </div>'
+      + '</div>';
+
+    var compactFullHtml = ''
+      + '<div class="body compact-full">'
       + '  <div class="chip-row status-line">'
       + queueChip
       + this._renderModelTagChip('Priority: ' + queuePriorityLabel, 'subtle-chip')
@@ -1363,7 +1367,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<article class="model-card view-compact" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
       + '  <span class="queue-ribbon' + queueRibbonClass + '" aria-hidden="true"></span>'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div><span class="card-mode-pill">Compact</span></div>'
-      + compactBodyHtml
+      + compactMainHtml
+      + compactFullHtml
       + '</article>';
   }
 
@@ -1469,7 +1474,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease;}'
       + '.model-card:hover{border-color:var(--accent-strong);box-shadow:0 14px 32px rgba(15,23,42,0.18);}'
       + '.model-card:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(96,165,250,0.34);border-color:var(--accent-strong);}'
-      + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);column-gap:18px;padding:14px;align-items:start;}'
+      + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:96px minmax(0,1fr);column-gap:12px;padding:14px;align-items:start;}'
       + '.queue-ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:20px 0 0 20px;background:transparent;pointer-events:none;}'
@@ -1477,6 +1482,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.queue-ribbon.is-printing{background:#1e88e5;}'
       + '.queue-ribbon.is-done{background:#2e7d32;}'
       + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
+      + '.view-compact .compact-wrap{grid-area:thumb;}'
+      + '.view-compact .compact-main{grid-area:main;}'
+      + '.view-compact .compact-full{grid-area:full;padding:2px 0 0;}'
       + '.compact-wrap{min-height:156px;}'
       + '.list-wrap{min-height:96px;}'
       + '.media-wrap{border-radius:18px 18px 0 0;}'
@@ -1492,7 +1500,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.thumb-empty ha-icon{--mdc-icon-size:28px;}'
       + '.thumb-empty-text{font-size:10px;margin-top:4px;}'
       + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
-      + '.compact-body{gap:8px;animation:compact-enter .24s ease-out;}'
+      + '.compact-main,.compact-full{gap:8px;animation:compact-enter .24s ease-out;}'
       + '.view-compact .body,.view-list .body{padding:0;}'
       + '.compact-top-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
