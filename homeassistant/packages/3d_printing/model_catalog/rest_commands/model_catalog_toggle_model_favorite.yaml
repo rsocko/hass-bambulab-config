@@ -1,0 +1,23 @@
+# PATCH only favorite flag via sidecar.
+# Used by model-catalog-browser-card star toggle.
+model_catalog_toggle_model_favorite:
+  url: >-
+    {{- (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) -}}/api/models/{{ (model_ref | string) | urlencode }}
+  method: PATCH
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {{- {
+      'enrichment': {
+        'structured_metadata': {
+          'catalog_signals': {
+            'model_favorite': (model_favorite | default(false) | bool)
+          }
+        }
+      }
+    } | to_json -}}
+  timeout: 15
