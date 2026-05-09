@@ -311,6 +311,42 @@ After acceptance:
 - an undo action restores previous order
 - an audit note records strategy, weights, and timestamp
 
+### Default weight profiles
+
+The planner should ship with stable default profiles so the operator gets predictable results without adjusting sliders each time.
+
+Recommended baseline weights use a 0-100 scale across five priorities:
+
+- `duration fit`
+- `loaded spool overlap`
+- `slot-count simplicity`
+- `swap minimization`
+- `deadline adherence`
+
+| Strategy preset | Duration fit | Loaded spool overlap | Slot-count simplicity | Swap minimization | Deadline adherence |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `Overnight fit` | 80 | 90 | 65 | 85 | 95 |
+| `Daytime quick-turn` | 95 | 70 | 60 | 55 | 40 |
+| `Daytime long-run` | 85 | 75 | 60 | 80 | 55 |
+| `Loaded spool overlap` | 45 | 100 | 70 | 80 | 25 |
+| `Low-slot first` | 50 | 70 | 100 | 75 | 20 |
+| `Fewest swaps` | 40 | 85 | 70 | 100 | 20 |
+
+Interpretation:
+
+- `Overnight fit` strongly favors meeting the overnight window while also minimizing swaps and reusing what is already loaded.
+- `Daytime quick-turn` strongly favors shorter, easier-to-restart work when the operator is nearby.
+- `Daytime long-run` prefers longer uninterrupted work blocks with lower intervention cost.
+- `Loaded spool overlap` is the most aggressive preset for using what is already in the AMS.
+- `Low-slot first` intentionally prefers simpler jobs that consume fewer AMS slots/colors.
+- `Fewest swaps` is the most intervention-averse profile and should be used when physical spool changes are the main cost.
+
+Guardrails:
+
+- presets are starting points, not immutable rules
+- accepting a planner rewrite should record both the preset name and the effective weights used
+- if later tuning changes the defaults, that should be documented as an explicit design/version update
+
 ## First-pass planner outputs
 
 - `Fits tonight`

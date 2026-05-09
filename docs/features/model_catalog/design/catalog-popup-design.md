@@ -289,6 +289,22 @@ Needs explicit backend extension (or formalization) for the redesigned popup:
 - popup should preserve shell size and navigation fluidity while switching models
 - optional back affordance can be added later if model-to-model hops become deep
 
+7a. Related-model mini-flow (explicit)
+- trigger: operator taps `Open` on a related-model card from the main popup
+- transition: popup shell remains open and fixed-size; only model context payload swaps
+- destination: new model opens on default summary context (`Details`) with related/archives/media refreshed
+- return affordance: lightweight `Back to previous model` chip appears when navigation depth >= 1
+- depth guidance: keep an in-session stack of up to 5 related-model hops for deterministic behavior
+- reset conditions:
+  - opening popup from browser card starts a new stack
+  - closing popup clears stack
+  - opening a model from outside related-nav (e.g., direct browser click) starts a new root
+
+7b. Mobile behavior for related-model hops
+- keep the same flow as desktop; no modal-within-modal
+- after hop, focus should return to popup top summary block for orientation
+- `Back to previous model` chip should appear near the summary header and remain visible above fold
+
 ## 8) Visual System
 
 Reuse Print History visual grammar:

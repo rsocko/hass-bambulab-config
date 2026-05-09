@@ -622,6 +622,42 @@
     padding: 3px 6px;
   }
 
+  .related-flow {
+    padding: 8px;
+    border-top: 1px dashed rgba(152, 168, 190, 0.24);
+    background: rgba(139, 174, 255, 0.08);
+  }
+
+  .related-flow strong {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    color: #d6e3ff;
+    margin-bottom: 5px;
+  }
+
+  .related-flow .steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 4px;
+  }
+
+  .related-flow .steps span {
+    font-size: 9px;
+    color: var(--sub);
+    border-radius: 999px;
+    border: 1px solid rgba(152, 168, 190, 0.3);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 6px;
+  }
+
+  .related-flow .meta {
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
   .advanced {
     padding: 10px;
     display: flex;
@@ -897,6 +933,16 @@
             </div>
             <div class="btns"><span class="score">72%</span><button>Open</button></div>
           </article>
+        </div>
+        <div class="related-flow">
+          <strong>Related-nav mini flow</strong>
+          <div class="steps">
+            <span>Tap Open</span>
+            <span>Keep popup shell</span>
+            <span>Load new model details</span>
+            <span>Show Back to previous model</span>
+          </div>
+          <div class="meta">Stack sample: Hex Tile Organizer Remix -> Hex Tile Organizer V3 -> Desk Grid Hex Insert Pack (depth cap 5).</div>
         </div>
       </section>
 
