@@ -389,7 +389,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     var rawTarget = event.target;
-    var cardTarget = rawTarget && rawTarget.closest ? rawTarget.closest(".model-card[data-action='open-model-viewer']") : null;
+    var cardTarget = rawTarget && rawTarget.closest ? rawTarget.closest(".model-card[data-action='view-model-detail']") : null;
     if (cardTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
       cardTarget.click();
@@ -1078,9 +1078,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
     var queueStatus = String(fields.to_print_status || "").trim().toLowerCase();
     var queuePriority = String(fields.to_print_priority || "").trim();
-    var queueLabel = queueStatus ? queueStatus + (queuePriority ? " (P" + queuePriority + ")" : "") : "none";
     var queueChipClass = queueStatus === "queued" ? "queue" : (queueStatus === "done" ? "complete" : "neutral");
-    var queueChip = this._renderModelTagChip("Queue: " + queueLabel, queueChipClass);
     var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
     var originType = String(model.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
     var sourcePlatform = String(model.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
@@ -1118,7 +1116,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var mediaCount = mediaUrls.length;
     var mediaIndex = this._currentModelMediaIndex(modelRef, mediaCount || 1);
     var mediaUrl = mediaCount > 0 ? mediaUrls[mediaIndex] : "";
-    var queuePriorityLabel = queuePriority ? ("P" + queuePriority) : "-";
     var previewLabel = mediaCount > 1 ? (String(mediaIndex + 1) + " / " + String(mediaCount)) : (this._loadingModelMedia[modelRef] ? "Loading media" : "Preview");
     var lastPrintedAt = String(model.last_printed_at || ranking.last_printed_at || "").trim();
     var successRatePct = Number(model.success_rate_pct);
@@ -1214,10 +1211,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var queueQuickAction = (queueStatus === "queued")
       ? '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Dequeue</button>'
       : '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queue</button>';
-    var detailActionButton = ''
-      + '<button class="icon-action" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="View model details">'
-      + '  <ha-icon icon="mdi:text-box-search-outline"></ha-icon>'
-      + '</button>';
+    var openQuickAction = ''
+      + '<button class="toolbar-btn open-quick-btn" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Open</button>';
 
     var titleCluster = ''
       + '<div class="title-cluster">'
@@ -1261,7 +1256,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="compact-top-actions">'
       + '    <button class="icon-action viewer-action" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
-      + detailActionButton
       + advancedActions
       + '  </div>'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
@@ -1279,12 +1273,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
       + '    <span class="compact-last-printed">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</span>'
       + '  </div>'
-      + '  <div class="chip-row status-line">'
-      + queueChip
-      + this._renderModelTagChip('Priority: ' + queuePriorityLabel, 'subtle-chip')
-      + this._renderModelTagChip('Linked prints: ' + String(linkedCount), 'subtle-chip')
-      + queueQuickAction
-      + '  </div>'
       + '  <div class="metrics compact-metrics">'
       + this._renderModelMetric('Archives', linkedCount)
       + this._renderModelMetric('Last printed', this._relativeTimeLabel(lastPrintedAt))
@@ -1294,6 +1282,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="compact-tags-row">'
       + '    <div class="tags">' + tagMarkup + '</div>'
       + '    <div class="media-status-chip" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._renderModelTagChip(previewLabel, mediaCount > 1 ? 'queue' : 'neutral') + '</div>'
+      + '  </div>'
+      + '  <div class="compact-action-row">'
+      + openQuickAction
+      + queueQuickAction
+      + (modelUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '">Source</button>' : '')
       + '  </div>'
       + '</div>';
 
@@ -1309,7 +1302,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + sourceChipHtml
       + publishedDestinationChips
       + (hiddenDestinationCount ? this._renderModelTagChip('+' + String(hiddenDestinationCount), 'publish-chip') : '')
-      + queueChip
       + '  </div>'
       + '  <div class="metrics media-metrics">'
       + this._renderModelMetric('Archives', linkedCount)
@@ -1319,9 +1311,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="media-footer-row">'
       + '    <div class="tags">' + tagMarkup + '</div>'
       + '    <div class="media-actions">'
+      + openQuickAction
       + queueQuickAction
       + favoriteButton
-      + detailActionButton
       + advancedActions
       + '    </div>'
       + '  </div>'
@@ -1342,9 +1334,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="list-cell">' + (publishedDestinationChips || this._renderModelTagChip('Not published', 'subtle-chip')) + '</div>'
       + '    <div class="list-cell">' + tagMarkup + '</div>'
       + '    <div class="list-cell list-actions">'
+      + openQuickAction
       + queueQuickAction
       + favoriteButton
-      + detailActionButton
       + advancedActions
       + '    </div>'
       + '  </div>'
@@ -1352,7 +1344,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (this._viewMode === "media") {
       return ''
-        + '<article class="model-card view-media" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay"><span class="card-mode-pill">Media</span>' + (mediaCount > 1 ? '<span class="media-counter" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '') + '</div>'
@@ -1364,14 +1356,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (this._viewMode === "list") {
       return ''
-        + '<article class="model-card view-list" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-list" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div><span class="card-mode-pill list-mode">List</span></div>'
         + listBodyHtml
         + '</article>';
     }
 
     return ''
-      + '<article class="model-card view-compact" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+      + '<article class="model-card view-compact" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
       + '  <span class="queue-ribbon' + queueRibbonClass + '" aria-hidden="true"></span>'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div><span class="card-mode-pill">Compact</span></div>'
       + compactMainHtml
@@ -1516,6 +1508,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
       + '.queue-quick-btn{min-height:30px;padding:0 10px;font-size:11px;border-radius:999px;}'
+      + '.open-quick-btn{min-height:30px;padding:0 10px;font-size:11px;border-radius:999px;}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}'
@@ -1544,6 +1537,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.metric-label{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.metric-value{font-size:14px;font-weight:800;line-height:1.2;}'
       + '.compact-tags-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.compact-action-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:flex-start;}'
       + '.list-body{padding:0;overflow-x:auto;}'
       + '.list-grid{display:grid;grid-template-columns:minmax(170px,2fr) minmax(120px,1fr) minmax(120px,1fr) minmax(80px,.7fr) minmax(100px,.8fr) minmax(80px,.7fr) minmax(180px,1.2fr) minmax(180px,1.2fr) auto;gap:8px;align-items:center;min-width:930px;padding:6px 0;}'
       + '.list-cell{min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}'
