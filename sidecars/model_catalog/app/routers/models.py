@@ -1599,6 +1599,77 @@ def _matches_filters(
     return True
 
 
+def _model_is_favorite(model_payload: dict[str, Any]) -> bool:
+    favorite = _coerce_boolish(model_payload.get("model_favorite"))
+    if favorite is not None:
+        return favorite
+    custom_fields = model_payload.get("custom_fields") or {}
+    if isinstance(custom_fields, dict):
+        favorite = _coerce_boolish(custom_fields.get("model_favorite"))
+        if favorite is not None:
+            return favorite
+    structured = model_payload.get("structured_metadata") or {}
+    if isinstance(structured, dict):
+        catalog_signals = structured.get("catalog_signals")
+        if isinstance(catalog_signals, dict):
+            favorite = _coerce_boolish(catalog_signals.get("model_favorite"))
+            if favorite is not None:
+                return favorite
+    return False
+
+
+def _model_has_other_files(model_payload: dict[str, Any]) -> bool:
+    candidate_maps: list[object | None] = []
+    custom_fields = model_payload.get("custom_fields")
+    if isinstance(custom_fields, dict):
+        candidate_maps.extend([
+            custom_fields.get("file_kinds"),
+            custom_fields.get("file_kind_counts"),
+        ])
+    structured = model_payload.get("structured_metadata")
+    if isinstance(structured, dict):
+        candidate_maps.extend([
+            structured.get("file_kinds"),
+            structured.get("file_kind_counts"),
+        ])
+        catalog_signals = structured.get("catalog_signals")
+        if isinstance(catalog_signals, dict):
+            candidate_maps.extend([
+                catalog_signals.get("file_kinds"),
+                catalog_signals.get("file_kind_counts"),
+            ])
+
+    for candidate in candidate_maps:
+        parsed = _parse_json_objectish(candidate)
+        if not isinstance(parsed, dict):
+            continue
+        for key in ("other", "other_files", "other_count", "docs", "documents", "docs_count"):
+            if key in parsed:
+                count = _coerce_int(parsed.get(key))
+                if count is not None and count > 0:
+                    return True
+    for key in ("other_files_count", "docs_count", "documents_count", "other_count"):
+        count = _coerce_int(model_payload.get(key))
+        if count is not None and count > 0:
+            return True
+    return False
+
+
+def _parse_json_objectish(value: object | None) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
+
+
 def _collection_filter_diagnostics(
     summaries: list[ManyfoldModelSummary],
     collection_filter: str | None,
@@ -2097,6 +2168,8 @@ def search_models(
     to_print_priority: int | None = None,
     to_print_priority_min: int | None = None,
     to_print_priority_max: int | None = None,
+    favorites_only: bool = False,
+    has_other_files: bool = False,
     sort: str = "best",
     refresh: bool = False,
     page: int = 1,
@@ -2164,6 +2237,11 @@ def search_models(
             request=request,
             settings=state.settings,
         )
+
+        if favorites_only and not _model_is_favorite(model_payload):
+            continue
+        if has_other_files and not _model_has_other_files(model_payload):
+            continue
         
         scored_models.append((score, model_payload))
 
@@ -2197,6 +2275,8 @@ def search_models(
             "to_print_priority": to_print_priority,
             "to_print_priority_min": to_print_priority_min,
             "to_print_priority_max": to_print_priority_max,
+            "favorites_only": favorites_only,
+            "has_other_files": has_other_files,
         },
         "sort": normalized_sort,
         "pagination": {

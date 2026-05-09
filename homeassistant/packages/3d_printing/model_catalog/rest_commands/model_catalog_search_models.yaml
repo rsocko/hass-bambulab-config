@@ -30,6 +30,12 @@ model_catalog_search_models:
     {%- if sort is defined and (sort | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['sort=' ~ ((sort | string) | urlencode)] -%}
     {%- endif -%}
+    {%- if favorites_only is defined -%}
+      {%- set ns.params = ns.params + ['favorites_only=' ~ ((favorites_only | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if has_other_files is defined -%}
+      {%- set ns.params = ns.params + ['has_other_files=' ~ ((has_other_files | bool) | string | lower)] -%}
+    {%- endif -%}
     {%- if refresh is defined -%}
       {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
     {%- endif -%}
