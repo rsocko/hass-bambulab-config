@@ -362,6 +362,66 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,  # Comment-only SQL
         ),
     ),
+    (
+        16,
+        (
+            """
+    CREATE TABLE IF NOT EXISTS model_catalog_print_history_jobs (
+        id INTEGER PRIMARY KEY,
+        job_id TEXT NOT NULL UNIQUE,
+        workflow_kind TEXT NOT NULL DEFAULT 'historical_backfill',
+        source_kind TEXT NOT NULL,
+        source_ref TEXT,
+        local_model_id TEXT,
+        working_group_id INTEGER,
+        working_file_path TEXT,
+        archive_intent TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',
+        requested_print_started_at TEXT,
+        requested_print_completed_at TEXT,
+        requested_print_timezone TEXT,
+        date_override_strategy TEXT NOT NULL DEFAULT 'operator_supplied',
+        target_archive_id INTEGER,
+        created_archive_id INTEGER,
+        selected_file_path TEXT,
+        selected_plate_key TEXT,
+        selected_plate_index INTEGER,
+        source_file_name TEXT,
+        source_sha256 TEXT,
+        sliced_output_path TEXT,
+        sliced_output_sha256 TEXT,
+        worker_provider TEXT,
+        worker_job_id TEXT,
+        attach_source_after_create INTEGER NOT NULL DEFAULT 0,
+        validation_warnings_json TEXT NOT NULL DEFAULT '[]',
+        overrides_json TEXT NOT NULL DEFAULT '{}',
+        commit_request_json TEXT NOT NULL DEFAULT '{}',
+        result_summary_json TEXT NOT NULL DEFAULT '{}',
+        last_error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        completed_at TEXT,
+        FOREIGN KEY (working_group_id) REFERENCES working_groups(id)
+    )
+    """,
+            """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_print_history_jobs_status
+    ON model_catalog_print_history_jobs(status)
+    """,
+            """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_print_history_jobs_source
+    ON model_catalog_print_history_jobs(source_kind, source_ref)
+    """,
+            """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_print_history_jobs_group_id
+    ON model_catalog_print_history_jobs(working_group_id)
+    """,
+            """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_print_history_jobs_created_archive
+    ON model_catalog_print_history_jobs(created_archive_id)
+    """,
+        ),
+    ),
 )
 
 
