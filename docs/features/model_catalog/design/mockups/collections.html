@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Collections mode mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28,33,42,0.92);
+    --bg-elev: rgba(38,44,54,0.96);
+    --border: rgba(148,163,184,0.18);
+    --border-strong: rgba(148,163,184,0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --amber: #f5c242;
+    --shadow: 0 4px 18px rgba(0,0,0,0.32);
+  }
+  html, body { margin: 0; background: var(--bg-page); color: var(--text); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .header { max-width: 1440px; margin: 0 auto 18px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .header h1 { margin: 0; font-size: 24px; }
+  .header p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 820px; line-height: 1.55; }
+  .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav a, .nav span { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .nav a.active { color: var(--text); border-color: var(--border-strong); background: var(--bg-elev); }
+
+  .toolbar { max-width: 1440px; margin: 0 auto 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px; }
+  .toolbar-top { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .seg { display: inline-flex; padding: 2px; border-radius: 999px; background: rgba(15,19,26,0.60); border: 1px solid var(--border); }
+  .seg button { border: 0; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
+  .seg button.active { background: rgba(96,165,250,0.16); color: var(--accent-blue); }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; font-size: 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.04); }
+  .chip.active { background: rgba(245,194,66,0.14); border-color: rgba(245,194,66,0.32); color: var(--amber); }
+  .toolbar-bottom { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toolbar-bottom input, .toolbar-bottom select { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 12px; }
+  .toolbar-bottom .grow { flex: 1; min-width: 220px; }
+
+  .section { max-width: 1440px; margin: 20px auto 0; }
+  .section h2 { margin: 0 0 6px; font-size: 15px; }
+  .section p { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  .collection-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 1200px) { .collection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 820px) { .collection-grid { grid-template-columns: 1fr; } }
+
+  .collection-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+  }
+  .mosaic { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 10px; }
+  .tile {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    height: 86px;
+    background: linear-gradient(135deg, #1b2430, #10161d);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a9b4c1;
+    font-size: 12px;
+  }
+  .card-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .card-title strong { font-size: 15px; }
+  .path { color: var(--text-muted); font-size: 11px; }
+  .stats { margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.03); padding: 7px 8px; }
+  .stat .k { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .v { margin-top: 2px; font-size: 13px; font-weight: 700; }
+  .actions { margin-top: 10px; display: flex; gap: 6px; }
+  .actions button { border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 11px; }
+  .actions button.primary { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.10); }
+
+  .mixed-shell { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+  .crumb { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text-secondary); padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,0.03); }
+  .subgrid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 980px) { .subgrid { grid-template-columns: 1fr; } }
+  .mini-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.03); }
+  .mini-card .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mini-card .meta { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
+
+  .decision-box { max-width: 1440px; margin: 22px auto 0; border: 1px dashed var(--border); border-radius: 12px; padding: 14px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+  .decision-box strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Model Catalog · Collections mode</h1>
+    <p>Collections-first browsing proposal with a top-level scope switch, deterministic cover mosaic generation, and mixed-node rendering for collections that contain both models and sub-collections.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">← Index</a>
+    <a href="toolbar.html">Toolbar</a>
+    <a class="active" href="collections.html">Collections</a>
+    <a href="compact.html">Compact</a>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-top">
+    <div class="seg" role="tablist" aria-label="Catalog scope">
+      <button>All models (flat)</button>
+      <button class="active">Collections</button>
+    </div>
+    <div class="seg" role="tablist" aria-label="Mixed node display">
+      <button class="active">Mixed</button>
+      <button>Collections only</button>
+      <button>Models only</button>
+    </div>
+    <span class="chip">Sort collections: Recent activity</span>
+    <span class="chip active">In-node search</span>
+  </div>
+  <div class="toolbar-bottom">
+    <input class="grow" value="gridfinity" />
+    <select><option>All collections</option><option selected>Functional / Gridfinity</option></select>
+    <select><option>Depth: current only</option><option selected>Depth: include descendants</option></select>
+  </div>
+</div>
+
+<section class="section">
+  <h2>A · Collections overview (card grid)</h2>
+  <p>Collection cards show deterministic 2x2 cover mosaics, direct model counts, nested collection counts, and recent activity. Cover tiles are sampled by stable priority (pinned, recent print, then name), not random each load.</p>
+  <div class="collection-grid">
+    <article class="collection-card">
+      <div class="mosaic">
+        <div class="tile">thumb A</div>
+        <div class="tile">thumb B</div>
+        <div class="tile">thumb C</div>
+        <div class="tile">thumb D</div>
+      </div>
+      <div class="card-title"><strong>Gridfinity</strong><span class="path">Functional</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Models</div><div class="v">42</div></div>
+        <div class="stat"><div class="k">Sub-collections</div><div class="v">5</div></div>
+        <div class="stat"><div class="k">Prints</div><div class="v">118</div></div>
+      </div>
+      <div class="actions"><button class="primary">Open</button><button>More</button></div>
+    </article>
+
+    <article class="collection-card">
+      <div class="mosaic">
+        <div class="tile">selected image</div>
+        <div class="tile">3mf preview</div>
+        <div class="tile">thumb C</div>
+        <div class="tile">thumb D</div>
+      </div>
+      <div class="card-title"><strong>Warhammer Terrain</strong><span class="path">Miniatures</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Models</div><div class="v">27</div></div>
+        <div class="stat"><div class="k">Sub-collections</div><div class="v">3</div></div>
+        <div class="stat"><div class="k">Prints</div><div class="v">64</div></div>
+      </div>
+      <div class="actions"><button class="primary">Open</button><button>More</button></div>
+    </article>
+
+    <article class="collection-card">
+      <div class="mosaic">
+        <div class="tile">thumb A</div>
+        <div class="tile">thumb B</div>
+        <div class="tile">placeholder</div>
+        <div class="tile">placeholder</div>
+      </div>
+      <div class="card-title"><strong>Printer Upgrades</strong><span class="path">Root</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Models</div><div class="v">8</div></div>
+        <div class="stat"><div class="k">Sub-collections</div><div class="v">0</div></div>
+        <div class="stat"><div class="k">Prints</div><div class="v">22</div></div>
+      </div>
+      <div class="actions"><button class="primary">Open</button><button>More</button></div>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <h2>B · Mixed-node rendering (sub-collections + direct models)</h2>
+  <p>When a collection includes both sub-collections and models, the UI renders two explicit sections in one page state. Sub-collections appear first to preserve structure, while direct model actions remain available below.</p>
+  <div class="mixed-shell">
+    <span class="crumb">All Collections / Functional / Gridfinity / Drawer Organizers</span>
+
+    <h3 style="margin:14px 0 8px; font-size:13px; color:var(--text-secondary); letter-spacing:0.04em; text-transform:uppercase;">Sub-collections (2)</h3>
+    <div class="subgrid">
+      <div class="mini-card">
+        <div class="head"><strong>Label Plates</strong><span class="chip">12 models</span></div>
+        <div class="meta">Updated 2d ago · 1 child collection</div>
+      </div>
+      <div class="mini-card">
+        <div class="head"><strong>Tool Holders</strong><span class="chip">9 models</span></div>
+        <div class="meta">Updated 6h ago · no children</div>
+      </div>
+    </div>
+
+    <h3 style="margin:14px 0 8px; font-size:13px; color:var(--text-secondary); letter-spacing:0.04em; text-transform:uppercase;">Models in this collection (5)</h3>
+    <div class="subgrid">
+      <div class="mini-card">
+        <div class="head"><strong>Gridfinity socket tray</strong><span class="chip active">queued</span></div>
+        <div class="meta">last printed 4d ago · source: Local original</div>
+      </div>
+      <div class="mini-card">
+        <div class="head"><strong>Hex-bin organizer V2</strong><span class="chip">ready</span></div>
+        <div class="meta">last printed 11d ago · source: Printables</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="decision-box">
+  <strong>Approved defaults:</strong>
+  1) Multi-collection membership per model is supported in v1.
+  2) Max hierarchy depth remains 4.
+  3) Collection cards do not expose print-queue actions in v1.
+  4) Cover derivation ships as deterministic auto in v1; manual curation is a later phase.
+</div>
+
+</body>
+</html>

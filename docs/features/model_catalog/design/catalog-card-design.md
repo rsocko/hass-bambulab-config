@@ -3,9 +3,11 @@
 > **Status:** Hi-fidelity design proposal.
 > **Scope:** Catalog Browser cards rendered by [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) for the three view modes the card already exposes (`compact`, `list`, `media`). This document supersedes the rough card sketches in [ux-concepts-and-mockups.md](../ux-concepts-and-mockups.md), which is retained as the low-fidelity index covering surrounding surfaces (Working Board, filter trays, etc.).
 > **Companion HTML mockups (Hi-Res, browser-viewable, fully self-contained):**
+> - [mockups/toolbar.html](mockups/toolbar.html) — toolbar/header patterns including scope toggle
 > - [mockups/compact.html](mockups/compact.html) — primary focus
 > - [mockups/list.html](mockups/list.html)
 > - [mockups/media.html](mockups/media.html)
+> - [mockups/collections.html](mockups/collections.html) — collections browse mode and hierarchy patterns
 > - [mockups/index.html](mockups/index.html) — landing page that cross-links them all
 
 ---
@@ -361,7 +363,7 @@ Collection cards are intentionally summary-first and action-forward:
 - title + optional path chip (`Parent / Child`)
 - counts row: `models`, `sub-collections`, `prints`
 - recency row: `recently updated`, `last printed`
-- quick actions: `Open`, `Queue random`, `More`
+- quick actions: `Open`, `More`
 
 Desktop recommendation:
 
@@ -409,7 +411,8 @@ Support hierarchical collections with a nullable parent pointer:
 
 Model membership rules:
 
-- A model belongs to exactly one collection node at a time.
+- A model may belong to multiple collections.
+- Membership is explicit per collection (no implied membership propagation).
 - Models may exist at any hierarchy level (root or nested).
 - No implicit inheritance of model membership to descendants.
 
@@ -471,11 +474,13 @@ Layering rule:
 
 ### Open Decisions For Review
 
-1. Should models be single-membership only, or can we support multi-collection membership later?
-2. Is max hierarchy depth `4` acceptable, or do you want stricter (`3`) / looser (`5+`)?
-3. For mixed nodes, should `Sub-collections` always render first, or should that be a user toggle?
-4. Do you want `Queue random` on collection cards in v1, or defer to `Open` only?
-5. Should `cover_mode=manual` ship in v1 or remain a follow-up after auto-cover lands?
+### Approved Defaults (2026-05-09)
+
+1. **Model membership**: multi-collection membership is supported in v1.
+2. **Hierarchy depth**: max depth recommendation remains `4`.
+3. **Mixed node ordering**: `Sub-collections` render first by default.
+4. **Collection actions**: no collection-level print queue action in v1 (`Open`, `More` only).
+5. **Cover mode**: ship `auto` in v1; `manual` remains a follow-up phase.
 
 ## 8. Comparative analysis (deep)
 
