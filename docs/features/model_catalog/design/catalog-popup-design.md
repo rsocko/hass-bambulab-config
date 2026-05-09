@@ -78,7 +78,7 @@ Use Option B. It best matches Print History's practical scan-and-act rhythm whil
 
 Left:
 - model title, creator, collection breadcrumb
-- queue state and publish destination chips
+- queue state, source chip, and publish destination chips
 
 Right (compact circular controls, card-aligned):
 - 3D Viewer quick-open
@@ -91,7 +91,7 @@ Right (compact circular controls, card-aligned):
 
 Desktop:
 - left: media stage + thumbnail rail + media source filters
-- right: linked archives panel (compact cards) + model metadata blocks
+- right: linked archives panel (compact cards) + model metadata blocks, including source provenance and publish destination sections
 
 Mobile:
 - stacked order:
@@ -121,6 +121,13 @@ Filter chips:
 Behavior:
 - preserve deterministic ordering by source priority and timestamp
 - no-source empty state with actionable guidance
+
+Source metadata row (separate from media source-type filters):
+
+- display `Source` as a model-level chip in the header and metadata panel
+- display `Published to` as a separate chip row directly below source
+- never collapse source into publish destinations, even if values overlap
+- if `source_download_url` exists, `Source` chip includes open-link affordance
 
 ## 5.4 Linked Archives Workspace
 
@@ -194,6 +201,7 @@ Available now (or partially available in current code/contracts):
 Needs explicit backend extension (or formalization) for the redesigned popup:
 - explicit media source_type normalization (`uploaded`, `derived_3mf`, `asset_image`)
 - optional media role tags (`preview`, `secondary`, `historical`)
+- explicit model provenance source fields (`source_platform`, optional `source_download_url`) in detail payload
 - related-model endpoint consistency and scoring explanation payload
 - linked-archive action payload parity (print again / archive deep-link metadata)
 - optional aggregated model metrics (success_rate_pct, last_outcome, filament rollups) if reused from card design
@@ -224,6 +232,11 @@ Needs explicit backend extension (or formalization) for the redesigned popup:
 3. Source filtering
 - does not alter canonical preview; only alters visible set
 - selection persists per popup session
+
+3a. Source vs destination rendering
+- source is singular model provenance (`source_platform`) and is rendered as one chip
+- publish destinations are rendered from `published_to[]` as a separate row
+- source chip should support "not set" and "unknown" fallback states for custom or legacy data
 
 4. Related archives visibility
 - always visible on desktop (side panel)

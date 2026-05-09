@@ -116,6 +116,14 @@ Records where a model was originally found before entering the local library. Su
 
 These fields are set at ingestion time and are rarely changed.
 
+UI contract:
+
+- `source_platform` is the primary model-level "SOURCE" attribute shown in cards and popup metadata.
+- `source_download_url` is optional detail for click-through to the original source page.
+- SOURCE is distinct from `published_to`: source answers where the model was acquired, while published-to answers where it was later published.
+- for locally created models, set `source_platform` to `original_local`; this should render as `Source: Local original`.
+- SOURCE may be empty for legacy/custom records; UI should render a muted `Source: Not set` state rather than inferring from `published_to`.
+
 ### Canonical Platform IDs
 
 Use these lowercase IDs anywhere a platform/destination needs to be stored in sidecar-owned model metadata:
@@ -136,6 +144,8 @@ Usage rules:
 - `published_to` must NOT use `original_local`; it should contain only actual publication destinations
 - `published_urls` keys should match the same canonical IDs used in `published_to`
 - UI can display friendly labels such as `MakerWorld` while storing canonical lowercase IDs
+- UI should render SOURCE and PUBLISHED TO in separate rows/chip groups
+- SOURCE should be singular in UI even if future internal lineage supports multiple source records
 
 ### `published_to` and `published_urls` (#171)
 

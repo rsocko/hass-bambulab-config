@@ -93,7 +93,12 @@
   .success-pct { font-size: 12px; font-weight: 700; min-width: 40px; text-align: right; }
   .success-pct.dim { color: var(--text-muted); font-weight: 500; }
 
-  .col-published, .col-tags { white-space: nowrap; }
+  .col-source, .col-published, .col-tags { white-space: nowrap; }
+  .chip.source { color: #d1f5ee; background: rgba(45,212,191,0.12); border-color: rgba(45,212,191,0.34); }
+  .chip.source.local { color: #c7f9f1; background: rgba(20,184,166,0.14); border-color: rgba(94,234,212,0.36); }
+  .chip.source.unknown { color: #fcd9a5; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.30); }
+  .col-source .chip.source::before { content: "⤓ "; font-size: 11px; opacity: 0.9; }
+  .col-published .chip:not(.overflow)::before { content: "⤴ "; font-size: 11px; opacity: 0.9; }
   .chip { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); display: inline-block; line-height: 1.4; }
   .chip + .chip { margin-left: 4px; }
   .chip.makerworld { color: #ffe4a1; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.30); }
@@ -138,7 +143,7 @@
 <div class="page-header">
   <div>
     <h1>Model Catalog · List view</h1>
-    <p>Hi-fidelity mockup. Tabular row layout, 60 px row height, 11 columns. Same data fields as Compact, but optimised for vertical scanning down a single metric (Archives / Last printed / Success). Bulk-select via the leftmost checkbox; horizontal-scroll engages below 880 px to preserve column structure. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §5</a>.</p>
+    <p>Hi-fidelity mockup. Tabular row layout, 60 px row height, 12 columns. Same data fields as Compact, but optimised for vertical scanning down a single metric (Archives / Last printed / Success) while keeping Source separate from Published to. Bulk-select via the leftmost checkbox; horizontal-scroll engages below 880 px to preserve column structure. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §5</a>.</p>
   </div>
   <div class="toolbar">
     <a href="index.html">← Back to Index</a>
@@ -178,6 +183,7 @@
         <th class="col-archives num">Archives</th>
         <th class="col-last num">Last printed</th>
         <th class="col-success num">Success</th>
+        <th class="col-source">Source</th>
         <th class="col-published">Published to</th>
         <th class="col-tags">Tags</th>
         <th class="col-actions"></th>
@@ -207,6 +213,7 @@
             <div class="success-pct">92%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source local">Local original</span></td>
         <td class="col-published"><span class="chip makerworld">MakerWorld</span><span class="chip manyfold">Manyfold</span></td>
         <td class="col-tags"><span class="chip t-art">articulated</span><span class="chip overflow">+6</span></td>
         <td class="col-actions">
@@ -238,6 +245,7 @@
             <div class="success-pct">100%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source">Printables</span></td>
         <td class="col-published"><span class="chip printables">Printables</span></td>
         <td class="col-tags"><span class="chip t-functional">storage</span><span class="chip overflow">+2</span></td>
         <td class="col-actions">
@@ -269,6 +277,7 @@
             <div class="success-pct">71%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source">Thingiverse</span></td>
         <td class="col-published"><span class="chip manyfold">Manyfold</span><span class="chip printables">Printables</span></td>
         <td class="col-tags"><span class="chip t-warhammer">warhammer</span><span class="chip overflow">+11</span></td>
         <td class="col-actions">
@@ -300,6 +309,7 @@
             <div class="success-pct dim">—</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source local">Local original</span></td>
         <td class="col-published"><span class="chip overflow">—</span></td>
         <td class="col-tags"><span class="chip t-functional">home</span><span class="chip t-functional">mount</span></td>
         <td class="col-actions">
@@ -331,6 +341,7 @@
             <div class="success-pct">96%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source">MakerWorld</span></td>
         <td class="col-published"><span class="chip makerworld">MakerWorld</span></td>
         <td class="col-tags"><span class="chip t-art">smiley</span><span class="chip overflow">+4</span></td>
         <td class="col-actions">
@@ -353,6 +364,7 @@
         <td class="col-archives"><div class="num-big" style="color:var(--text-muted);font-weight:500">0</div></td>
         <td class="col-last"><div class="num-big" style="color:var(--text-muted);font-weight:500">—</div></td>
         <td class="col-success"><div class="success-pct dim">—</div></td>
+        <td class="col-source"><span class="chip source unknown">Not set</span></td>
         <td class="col-published"><span class="chip overflow">—</span></td>
         <td class="col-tags"><span class="chip overflow">no tags</span></td>
         <td class="col-actions">
@@ -384,6 +396,7 @@
             <div class="success-pct">98%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source">Manyfold</span></td>
         <td class="col-published"><span class="chip manyfold">Manyfold</span></td>
         <td class="col-tags"><span class="chip t-tool">calibration</span><span class="chip overflow">+2</span></td>
         <td class="col-actions">
@@ -415,6 +428,7 @@
             <div class="success-pct">100%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source local">Local original</span></td>
         <td class="col-published"><span class="chip printables">Printables</span></td>
         <td class="col-tags"><span class="chip t-functional">home</span><span class="chip overflow">+2</span></td>
         <td class="col-actions">
@@ -446,6 +460,7 @@
             <div class="success-pct">80%</div>
           </div>
         </td>
+        <td class="col-source"><span class="chip source">Printables</span></td>
         <td class="col-published"><span class="chip makerworld">MakerWorld</span><span class="chip printables">Printables</span><span class="chip overflow">+1</span></td>
         <td class="col-tags"><span class="chip t-art">lamp</span><span class="chip overflow">+13</span></td>
         <td class="col-actions">

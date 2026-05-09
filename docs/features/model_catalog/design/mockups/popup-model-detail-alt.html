@@ -275,6 +275,10 @@
 
   .chips span.prov { color: #c7fff6; border-color: rgba(102, 219, 201, 0.45); background: rgba(102, 219, 201, 0.13); }
   .chips span.queue { color: #ffe8b8; border-color: rgba(248, 192, 91, 0.5); background: rgba(248, 192, 91, 0.14); }
+  .chips span.source { color: #d1f5ee; border-color: rgba(45, 212, 191, 0.45); background: rgba(45, 212, 191, 0.14); }
+  .chips span.dest { color: #bfecff; border-color: rgba(126, 162, 255, 0.45); background: rgba(126, 162, 255, 0.16); }
+  .chips span.source::before { content: "⤓ "; font-size: 11px; opacity: 0.9; }
+  .chips span.dest::before { content: "⤴ "; font-size: 11px; opacity: 0.9; }
 
   .kv {
     padding: 9px 10px;
@@ -682,8 +686,9 @@
           <div class="chips">
             <span class="prov">Remix</span>
             <span class="queue">Printing</span>
-            <span>MakerWorld</span>
-            <span>Manyfold</span>
+            <span class="source">MakerWorld</span>
+            <span class="dest">MakerWorld</span>
+            <span class="dest">Manyfold</span>
             <span>Favorite</span>
           </div>
         </div>

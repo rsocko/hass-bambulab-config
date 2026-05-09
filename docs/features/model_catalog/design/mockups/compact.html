@@ -52,7 +52,7 @@
     border-radius: 18px;
     padding: 14px 14px 12px 14px;
     display: grid;
-    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-columns: 176px minmax(0, 1fr);
     grid-template-rows: auto auto auto auto auto auto auto;
     gap: 10px;
     box-shadow: var(--shadow);
@@ -71,10 +71,10 @@
   .card[data-queue="done"]      .ribbon { background: var(--queue-done); }
   @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 
-  /* Thumb - landscape-oriented (120x134), matches print-history card proportions */
+  /* Thumb - 4:3 (176x132), aligned with media-card image ratio and closer to print-history compact image scale */
   .thumb {
-    width: 120px;
-    height: 134px;
+    width: 176px;
+    height: 132px;
     border-radius: 12px;
     border: 1px solid var(--border);
     background: linear-gradient(135deg, #1a2230 0%, #0f141c 100%);
@@ -144,7 +144,12 @@
   .provenance.remix { color: #99f6e4; background: rgba(20,184,166,0.18); border-color: rgba(94,234,212,0.32); }
   .provenance.derivative { color: #cbd5e1; background: rgba(100,116,139,0.20); border-color: rgba(148,163,184,0.30); }
 
+  .source { color: #d1f5ee; background: rgba(45, 212, 191, 0.12); border-color: rgba(45, 212, 191, 0.34); }
+  .source.local { color: #c7f9f1; background: rgba(20, 184, 166, 0.14); border-color: rgba(94, 234, 212, 0.36); }
+  .source.unknown { color: #fcd9a5; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.30); }
+  .source::before { content: "⤓"; font-size: 11px; opacity: 0.9; }
   .destination { color: #fff; background: rgba(255,255,255,0.06); border-color: var(--border-strong); }
+  .destination::before { content: "⤴"; font-size: 11px; opacity: 0.9; }
   .destination.makerworld { color: #ffe4a1; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.30); }
   .destination.printables { color: #ffc8a6; background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.32); }
   .destination.manyfold { color: #c4d8ff; background: rgba(59,130,246,0.16); border-color: rgba(59,130,246,0.32); }
@@ -216,7 +221,7 @@
 <div class="page-header">
   <div>
     <h1>Model Catalog &middot; Compact card</h1>
-    <p>Hi-fidelity mockup. 3-column desktop grid, info-dense. Thumb 120&times;134 (landscape, matches print-history proportions). Clicking the card opens the model detail popup. Top-right circle buttons: 3D Viewer (teal), Favorite star (amber when active), More (&ctdot;). File-type chips group files into Model Files / Images / Docs. Photo counter badge (e.g. &ldquo;1&thinsp;/&thinsp;7&rdquo;) = current photo index of total model images. Queue ribbon left-edge; provenance + publish + signal chips; 3-cell metric block; filament swatches; capped tags + overflow; primary/queue actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md</a>.</p>
+    <p>Hi-fidelity mockup. 3-column desktop grid, info-dense. Thumb 176&times;132 (4:3, aligned with media card ratio and closer to print-history compact image scale). Clicking the card opens the model detail popup. Top-right circle buttons: 3D Viewer (teal), Favorite star (amber when active), More (&ctdot;). File-type chips group files into Model Files / Images / Docs. Photo counter badge (e.g. &ldquo;1&thinsp;/&thinsp;7&rdquo;) = current photo index of total model images. Queue ribbon left-edge; provenance + source + publish + signal chips; 3-cell metric block; filament swatches; capped tags + overflow; primary/queue actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md</a>.</p>
   </div>
   <div class="toolbar">
     <a href="index.html">← Back to Index</a>
@@ -296,6 +301,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
+        <span class="chip source local">Local original</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip destination manyfold">Manyfold</span>
         <span class="chip signal recent">&#9679; Recent</span>
@@ -367,6 +373,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance remix"><span class="icon">&#8983;</span>Remix</span>
+        <span class="chip source">Printables</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip signal recent">&#9679; Recent</span>
       </div>
@@ -430,6 +437,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance derivative"><span class="icon">&#8627;</span>Derivative</span>
+        <span class="chip source">Thingiverse</span>
         <span class="chip destination manyfold">Manyfold</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip signal common">&#9733; Common</span>
@@ -503,6 +511,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
+        <span class="chip source local">Local original</span>
         <span class="chip signal recent">&#9679; Recent</span>
       </div>
       <div class="metrics">
@@ -568,6 +577,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance remix"><span class="icon">&#8983;</span>Remix</span>
+        <span class="chip source">MakerWorld</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip signal frequent">&#9889; Frequent</span>
         <span class="chip signal common">&#9733; Common</span>
@@ -632,6 +642,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
+        <span class="chip source unknown">Not set</span>
         <span class="chip" style="color:var(--text-muted)">No publishes</span>
       </div>
       <div class="metrics">
@@ -688,6 +699,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance derivative"><span class="icon">&#8627;</span>Derivative</span>
+        <span class="chip source">Manyfold</span>
         <span class="chip destination manyfold">Manyfold</span>
         <span class="chip signal frequent">&#9889; Frequent</span>
         <span class="chip signal common">&#9733; Common</span>
@@ -757,6 +769,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
+        <span class="chip source local">Local original</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip signal recent">&#9679; Recent</span>
         <span class="chip signal common">&#9733; Common</span>
@@ -825,6 +838,7 @@
       </div>
       <div class="chips">
         <span class="chip provenance remix"><span class="icon">&#8983;</span>Remix</span>
+        <span class="chip source">Printables</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip destination manyfold">Manyfold</span>
@@ -866,7 +880,7 @@
 </div>
 
 <div class="footnote">
-  Sample data only. Field bindings (existing): <code>name</code>, <code>designer</code>, <code>primary_photo</code>, <code>origin_type</code>, <code>published_to[]</code>, <code>archives_count</code>, <code>last_printed_at</code>, <code>to_print_status</code>, <code>recent</code>/<code>frequent</code>/<code>common</code>, <code>tags[]</code>, <code>is_favorite</code>. &swarr; Proposed: <code>success_rate_pct</code>, <code>last_outcome</code>, <code>primary_filament_palette[]</code>, <code>file_kinds</code> (grouped as model_files&thinsp;/&thinsp;images&thinsp;/&thinsp;docs counts), <code>notes_excerpt</code>. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md &sect;2.2</a>.
+  Sample data only. Field bindings (existing): <code>name</code>, <code>designer</code>, <code>primary_photo</code>, <code>origin_type</code>, <code>source_platform</code>, <code>source_download_url</code>, <code>published_to[]</code>, <code>archives_count</code>, <code>last_printed_at</code>, <code>to_print_status</code>, <code>recent</code>/<code>frequent</code>/<code>common</code>, <code>tags[]</code>, <code>is_favorite</code>. &swarr; Proposed: <code>success_rate_pct</code>, <code>last_outcome</code>, <code>primary_filament_palette[]</code>, <code>file_kinds</code> (grouped as model_files&thinsp;/&thinsp;images&thinsp;/&thinsp;docs counts), <code>notes_excerpt</code>. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md &sect;2.2</a>.
 </div>
 
 </body>

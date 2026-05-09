@@ -313,8 +313,11 @@ Work items:
 - add curated-model provenance metadata fields and operator editing surface for:
   - `origin_type` with explicit `custom_unique` vs `remix`/`derivative`
   - `remix_source` for "remix of what" capture
+  - `source_platform` as the model SOURCE attribute (where acquired)
+  - optional `source_download_url` for source-link click-through
   - `published_to` as a multi-destination picker/list
   - optional `published_urls` map for later direct-link support per destination
+- enforce UI distinction between SOURCE (ingress provenance) and PUBLISHED TO (egress destinations)
 - expose these fields in HA and sidecar APIs as sidecar-owned metadata, not as Manyfold-native fields
 - add HA Working-group board and detail view
 - support quick-open actions for group folder or primary file

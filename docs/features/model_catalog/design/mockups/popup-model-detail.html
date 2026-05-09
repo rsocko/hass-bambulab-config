@@ -172,8 +172,11 @@
   }
 
   .chip.queue { color: #ffe5ad; border-color: rgba(249, 189, 75, 0.42); background: rgba(249, 189, 75, 0.14); }
+  .chip.source { color: #d1f5ee; border-color: rgba(45, 212, 191, 0.42); background: rgba(45, 212, 191, 0.14); }
   .chip.dest { color: #bfecff; border-color: rgba(126, 162, 255, 0.42); background: rgba(126, 162, 255, 0.16); }
   .chip.prov { color: #aef3e6; border-color: rgba(86, 213, 197, 0.42); background: rgba(86, 213, 197, 0.14); }
+  .chip.source::before { content: "⤓ "; font-size: 11px; opacity: 0.9; }
+  .chip.dest::before { content: "⤴ "; font-size: 11px; opacity: 0.9; }
 
   .header-actions {
     display: flex;
@@ -732,7 +735,7 @@
 <div class="page-header">
   <div>
     <h1>Model Catalog Popup Mockup</h1>
-    <p>Recommended hybrid layout for issue #1376: Print History visual grammar with model-catalog-specific metadata. Includes top-right compact actions, media source filters (uploaded vs derived 3MF), thumbnail rail under main image, full-size viewer affordance, and related archives workspace.</p>
+    <p>Recommended hybrid layout for issue #1376: Print History visual grammar with model-catalog-specific metadata. Includes top-right compact actions, explicit Source vs Published chips, media source filters (uploaded vs derived 3MF), thumbnail rail under main image, full-size viewer affordance, and related archives workspace.</p>
   </div>
   <div class="toolbar">
     <a href="index.html">Cards Index</a>
@@ -757,6 +760,7 @@
         <div class="chips">
           <span class="chip prov">Custom Unique</span>
           <span class="chip queue">Queued (P1S)</span>
+          <span class="chip source">MakerWorld</span>
           <span class="chip dest">MakerWorld</span>
           <span class="chip dest">Manyfold</span>
         </div>

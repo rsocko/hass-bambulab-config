@@ -110,6 +110,11 @@
   .provenance.custom_unique { color: #c7d2fe; background: rgba(99,102,241,0.18); border-color: rgba(165,180,252,0.32); }
   .provenance.remix { color: #99f6e4; background: rgba(20,184,166,0.18); border-color: rgba(94,234,212,0.32); }
   .provenance.derivative { color: #cbd5e1; background: rgba(100,116,139,0.20); border-color: rgba(148,163,184,0.30); }
+  .source { color: #d1f5ee; background: rgba(45,212,191,0.12); border-color: rgba(45,212,191,0.34); }
+  .source.local { color: #c7f9f1; background: rgba(20,184,166,0.14); border-color: rgba(94,234,212,0.36); }
+  .source.unknown { color: #fcd9a5; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.30); }
+  .source::before { content: "⤓"; font-size: 11px; opacity: 0.9; }
+  .destination::before { content: "⤴"; font-size: 11px; opacity: 0.9; }
   .destination.makerworld { color: #ffe4a1; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.30); }
   .destination.printables { color: #ffc8a6; background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.32); }
   .destination.manyfold { color: #c4d8ff; background: rgba(59,130,246,0.16); border-color: rgba(59,130,246,0.32); }
@@ -138,7 +143,7 @@
 <div class="page-header">
   <div>
     <h1>Model Catalog · Media view</h1>
-    <p>Hi-fidelity mockup. Hero-first layout (4:3, matches source-render aspect across MakerWorld / Printables / Manyfold / Bambu plate stills), MakerWorld/Printables-inspired. Queue state overlays the photo top-left; photo count top-right; filament swatches bottom-right (Printables convention); carousel arrows appear on hover (already wired via <code>media-prev</code>/<code>media-next</code>). Caption strip below: title, designer, provenance + publish + signal chips, optional notes excerpt, metric stats + actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §6</a>.</p>
+    <p>Hi-fidelity mockup. Hero-first layout (4:3, matches source-render aspect across MakerWorld / Printables / Manyfold / Bambu plate stills), MakerWorld/Printables-inspired. Queue state overlays the photo top-left; photo count top-right; filament swatches bottom-right (Printables convention); carousel arrows appear on hover (already wired via <code>media-prev</code>/<code>media-next</code>). Caption strip below: title, designer, provenance + source + publish + signal chips, optional notes excerpt, metric stats + actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §6</a>.</p>
   </div>
   <div class="toolbar">
     <a href="index.html">← Back to Index</a>
@@ -190,6 +195,7 @@
       <div class="designer"><span class="author-dot"></span>Cinderwing3D</div>
       <div class="chips">
         <span class="chip provenance custom_unique">◆ Custom unique</span>
+        <span class="chip source local">Local original</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip destination manyfold">Manyfold</span>
         <span class="chip signal recent">● Recent</span>
@@ -236,6 +242,7 @@
       <div class="designer"><span class="author-dot"></span>Remix · @bambuOwner3D</div>
       <div class="chips">
         <span class="chip provenance remix">⎇ Remix</span>
+        <span class="chip source">Printables</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip signal recent">● Recent</span>
       </div>
@@ -282,6 +289,7 @@
       <div class="designer"><span class="author-dot"></span>Derivative · ForgeWorks</div>
       <div class="chips">
         <span class="chip provenance derivative">↳ Derivative</span>
+        <span class="chip source">Thingiverse</span>
         <span class="chip destination manyfold">Manyfold</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip signal common">★ Common</span>
@@ -313,6 +321,7 @@
       <div class="designer"><span class="author-dot"></span>Self-designed</div>
       <div class="chips">
         <span class="chip provenance custom_unique">◆ Custom unique</span>
+        <span class="chip source unknown">Not set</span>
         <span class="chip" style="color:var(--text-muted)">No publishes</span>
       </div>
       <div class="notes" style="color:var(--text-muted)">No notes captured. Upload a render or print this once to populate the gallery.</div>
@@ -359,6 +368,7 @@
       <div class="designer"><span class="author-dot"></span>Remix · @keyringqueen</div>
       <div class="chips">
         <span class="chip provenance remix">⎇ Remix</span>
+        <span class="chip source">MakerWorld</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip signal frequent">⚡ Frequent</span>
         <span class="chip signal common">★ Common</span>
@@ -402,6 +412,7 @@
       <div class="designer"><span class="author-dot"></span>Remix · @lampcrafter</div>
       <div class="chips">
         <span class="chip provenance remix">⎇ Remix</span>
+        <span class="chip source">Printables</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip destination manyfold">Manyfold</span>

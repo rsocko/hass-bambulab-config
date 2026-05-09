@@ -14,7 +14,7 @@
 
 The Catalog has three jobs that the cards must each serve at the same density they're tuned for:
 
-1. **Recognise the model fast** — primary photo, name, badge of origin (custom unique vs remix vs derivative), publish destinations.
+1. **Recognise the model fast** — primary photo, name, badge of origin (custom unique vs remix vs derivative), source platform, publish destinations.
 2. **Decide whether to act on it now** — queue state, recent/frequent/common signals, filament-fit hints, archive count (have I printed this already, and how recently?).
 3. **Act without leaving the card** — Open detail, Queue/Dequeue, Send to slicer, Open in publish destination — all reachable from the card surface without a second click into a popup.
 
@@ -29,7 +29,7 @@ The proposal layers those jobs across the three view modes so each card type has
 Print History is the closest reference inside the repo. The proposal **borrows its visual grammar** (rounded `ha-card` shells, dark translucent surfaces, pill-status chips, dot-style filament swatches with hover tooltips, action-row at the bottom of the content column) so a user moving between Print History and Model Catalog feels continuity. It **diverges** wherever a Print History pattern doesn't fit a model:
 
 - Print History keys off a single archive run; the catalog card keys off a "model with N archives", so the prominent metric block becomes **Archives count + last printed**, not duration/filament/cost from a single run.
-- Print History uses status pills (`Completed`, `Failed`, …) tied to the run outcome. The catalog uses **provenance pills** (`Custom unique`, `Remix`, `Derivative`) plus **publish destination chips** (`MakerWorld`, `Printables`, `Manyfold`).
+- Print History uses status pills (`Completed`, `Failed`, …) tied to the run outcome. The catalog uses **provenance pills** (`Custom unique`, `Remix`, `Derivative`) plus a **source chip** (`Source: MakerWorld`, `Source: Printables`, `Source: Local Original`) and **publish destination chips** (`MakerWorld`, `Printables`, `Manyfold`).
 - Print History's left rail "role emblem" is repurposed as a **queue-state ribbon** on the catalog card so the queue is always visible at a glance.
 
 ---
@@ -46,6 +46,8 @@ These come straight from the existing browser endpoint backing [model-catalog-br
 - `collection`
 - `tags[]`
 - `origin_type` — one of `custom_unique`, `remix`, `derivative`
+- `source_platform` — canonical source platform ID (`makerworld`, `printables`, `thingiverse`, `cults3d`, `manyfold`, `other`, `original_local`)
+- `source_download_url` — optional original source URL shown in detail popup and used for click-through from source chip when available
 - `published_to[]` — array of `{ destination_id, destination_label, url }` (e.g. `makerworld`, `printables`, `manyfold`)
 - `archives_count`
 - `to_print_status` — one of `none`, `queued`, `printing`, `done` (drives the queue chip and queue actions handled by the card's `queue-*` action dispatcher)
@@ -82,7 +84,7 @@ All three view modes share the same building blocks, sized differently:
 ┌─ ha-card (cursor:pointer — click opens model detail popup) ───────────────┐
 │  [QUEUE RIBBON]  [PRIMARY MEDIA]   [CIRCLE BUTTONS: Viewer · ★ · ⋯]      │
 │                                    [HEADER: NAME · DESIGNER · DATE]       │
-│                                    [PROVENANCE + PUBLISH CHIP ROW]        │
+│                                    [PROVENANCE + SOURCE + PUBLISH CHIPS]  │
 │                                    [SIGNAL CHIPS: recent/frequent/common] │
 │                                    [METRIC BLOCK: archives · last · …]    │
 │                                    [FILAMENT SWATCHES]  [FILE-KIND CHIPS] │
@@ -104,10 +106,32 @@ Color-coded edge band so the queue state is visible at the speed of skimming a p
 - `remix` → `MDI:source-branch`, teal `rgba(20,184,166,0.18)`
 - `derivative` → `MDI:graph-outline`, slate `rgba(100,116,139,0.20)`
 
-### 3.3 Publish destinations chip row
+### 3.3 Source chip (new)
+Render exactly one source chip when `source_platform` is present. This chip answers "where this came from" and is intentionally distinct from publish destinations.
+
+Display rules:
+
+- `source_platform=original_local` → `Source: Local original`
+- known platform IDs → `Source: MakerWorld` / `Source: Printables` / ...
+- `source_platform=other` with known URL host → `Source: <host>`
+- missing source platform and `origin_type=custom_unique` → `Source: Not set` (muted)
+- missing source platform and non-unique origin → `Source: Unknown` (warning-muted)
+
+Interaction rules:
+
+- if `source_download_url` exists, clicking the chip opens that source URL in a new tab
+- otherwise the chip is read-only and opens no link
+
+### 3.4 Publish destinations chip row
 Each `published_to[]` entry renders as a clickable chip with the destination's brand initial (no logos shipped — keep it text-first to avoid asset drift). Hover shows the URL; click opens in a new tab.
 
-### 3.4 Metric block
+Source-vs-destination semantics:
+
+- source is singular provenance (where the model entered your library)
+- publish destinations are zero-or-more outbound locations (where you later published it)
+- the same platform may appear in both without being redundant (for example: sourced from Printables, later published to MakerWorld + Printables)
+
+### 3.5 Metric block
 Three slots, all monospaced numerics on a 14 px baseline so they read as a single row even when one is missing:
 
 | Slot | Label | Source |
@@ -116,10 +140,10 @@ Three slots, all monospaced numerics on a 14 px baseline so they read as a singl
 | 2 | `Last printed` | `last_printed_at`, formatted `2d ago`, `3w ago`, … |
 | 3 | `Success` | `success_rate_pct` (proposed) — falls back to `—` |
 
-### 3.5 Filament swatches
+### 3.6 Filament swatches
 Reuses the Print History dot-row pattern from [print-history-color-filter-card.js](../../../../homeassistant/www/3d_printing/www/3d_printing/print_history/print-history-color-filter-card.js) — 14 px circles, inset 1 px white-alpha border, hover tooltip with the filament name and hex. Source field: `primary_filament_palette[]` (proposed) with fallback to "—".
 
-### 3.6 File-kind chips (updated)
+### 3.7 File-kind chips (updated)
 Up to **three semantic chips** group the model's files, replacing the old per-format text chips (`3MF · 4`, `STL · 2`, etc.):
 
 | Chip | Icon | Contents | Colour |
@@ -132,7 +156,7 @@ Chips are only rendered when the count > 0 (cards with only model files show one
 
 Source field: `file_kinds` (proposed) — individual counts folded in Layer 2.
 
-### 3.7 Circle icon action buttons (new)
+### 3.8 Circle icon action buttons (new)
 Three 28 px circle buttons sit **top-right of the content column** (above the name, right-aligned via `display:flex; justify-content:flex-end`). They stop click propagation so the card-level click-to-open is not triggered:
 
 | Button | Class | Icon | Colour |
@@ -143,10 +167,10 @@ Three 28 px circle buttons sit **top-right of the content column** (above the na
 
 Visual grammar matches the `print-history-browser-card.js` `.icon-action` / `.action-buttons` pattern exactly (same border-radius, hover lift, box-shadow ring, transition spec). The `⋯` More overflow menu replaces the old `<button class="btn icon-only">` in the action row; the slicer button remains in the action row.
 
-### 3.8 Clickable card
+### 3.9 Clickable card
 The whole card surface (`cursor: pointer`, `tabindex="0"`) opens the model detail popup on click. Hover adds a subtle `translateY(-1px)` lift and stronger border. Circle buttons (§3.7) call `event.stopPropagation()` so their own click targets are independent.
 
-### 3.9 Action row (revised)
+### 3.10 Action row (revised)
 Two primary actions (Open detail, Queue/Dequeue) + slicer button on the right. The `⋯` More overflow has moved to the circle button set (§3.7) — the action row no longer carries it.
 
 ```
@@ -175,7 +199,7 @@ Per the user's design direction the compact card should land closer to a Manyfol
 
 1. **Circle buttons row** — `.card-top-actions`: 3D Viewer · Favourite ★ · More ⋯ (right-aligned, stop propagation)
 2. **Name** (15 px, weight 700) + **designer** (12 px, secondary) + **last-printed timestamp** (11 px, right-aligned)
-3. **Provenance pill** + **publish chip row** + **signal chips** (`Recent`, `Frequent`, `Common`) — all on one wrapping row
+3. **Provenance pill** + **source chip** + **publish chip row** + **signal chips** (`Recent`, `Frequent`, `Common`) — all on one wrapping row
 4. **Metric block** (3 cells, 11 px label / 14 px value) — Archives · Last printed · Success
 5. **Filament swatches** (14 px dots) + **file-kind semantic chips** (right-aligned, up to 3 — Model Files · Images · Docs)
 6. **Tags** (max 3 visible + `+N` overflow)
@@ -203,9 +227,10 @@ Columns (left → right):
 6. **Archives** (right-aligned, monospace)
 7. **Last printed** (right-aligned, relative)
 8. **Success** (right-aligned, percentage; `—` when unknown)
-9. **Published-to** (chip row, max 2 visible + `+N`)
-10. **Tags** (1 visible + `+N`)
-11. **Actions** (Open · Queue · `⋯`)
+9. **Source** (`Source: MakerWorld`, compact chip)
+10. **Published-to** (chip row, max 2 visible + `+N`)
+11. **Tags** (1 visible + `+N`)
+12. **Actions** (Open · Queue · `⋯`)
 
 ---
 
@@ -220,7 +245,7 @@ The media view is the closest analog to MakerWorld's and Printables's grid cards
 
 Caption strip rows:
 1. Name + designer (single line, truncates)
-2. Provenance pill + publish chips + queue chip (when `queued`/`printing`)
+2. Provenance pill + source chip + publish chips + queue chip (when `queued`/`printing`)
 3. Filament swatches (right-aligned)
 
 ---
