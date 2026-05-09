@@ -22,6 +22,23 @@ rest_command:
         }
       }
 
+  # Catalog browser: toggle model favorite without patching unrelated fields
+  model_catalog_toggle_model_favorite:
+    url: "{{ [states('input_text.model_catalog_sidecar_base_url'), states('input_text.model_catalog_sidecar_base_url'), 'http://model-catalog-sidecar:8314'] | select('defined') | select('ne', 'unknown') | select('ne', '') | first }}/api/models/{{ model_ref }}"
+    method: PATCH
+    headers:
+      Content-Type: application/json
+    payload: >-
+      {
+        "enrichment": {
+          "structured_metadata": {
+            "catalog_signals": {
+              "model_favorite": {{ model_favorite | default(false) | tojson }}
+            }
+          }
+        }
+      }
+
   # Phase 3.1: Upload photo to model
   model_catalog_upload_photo:
     url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/photos"

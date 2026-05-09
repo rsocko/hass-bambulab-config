@@ -454,6 +454,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "toggle-favorite") {
+      event.preventDefault();
+      event.stopPropagation();
+      var favoriteModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var nextFavorite = String(target.getAttribute("data-next-favorite") || "").trim().toLowerCase() === "true";
+      if (!favoriteModelRef || this._loading) {
+        return;
+      }
+      try {
+        this._error = "";
+        this._activeActionMenu = "";
+        await this._callServiceWithResponse("rest_command", "model_catalog_toggle_model_favorite", {
+          model_ref: favoriteModelRef,
+          model_favorite: nextFavorite,
+        });
+        this._setModelFavoriteState(favoriteModelRef, nextFavorite);
+        this._render();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not update favorite state.";
+        this._render();
+      }
+      return;
+    }
+
     if (action === "open-model-viewer") {
       var viewerModelRef = String(target.getAttribute("data-model-ref") || "").trim();
       var viewerModelName = String(target.getAttribute("data-model-name") || "Model").trim();
@@ -596,6 +620,32 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       menu.classList.toggle("is-open", open);
       menu.setAttribute("aria-hidden", open ? "false" : "true");
+    }
+  }
+
+  _setModelFavoriteState(modelRef, isFavorite) {
+    var targetRef = String(modelRef || "").trim();
+    if (!targetRef) {
+      return;
+    }
+    for (var i = 0; i < this._results.length; i++) {
+      var model = this._results[i];
+      if (this._modelRef(model) !== targetRef) {
+        continue;
+      }
+      model.model_favorite = !!isFavorite;
+      if (!model.custom_fields || typeof model.custom_fields !== "object") {
+        model.custom_fields = {};
+      }
+      model.custom_fields.model_favorite = !!isFavorite;
+      if (!model.structured_metadata || typeof model.structured_metadata !== "object") {
+        model.structured_metadata = {};
+      }
+      if (!model.structured_metadata.catalog_signals || typeof model.structured_metadata.catalog_signals !== "object") {
+        model.structured_metadata.catalog_signals = {};
+      }
+      model.structured_metadata.catalog_signals.model_favorite = !!isFavorite;
+      break;
     }
   }
 
@@ -872,6 +922,91 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</div>';
   }
 
+  _platformDisplayLabel(platformId) {
+    var value = String(platformId || "").trim().toLowerCase();
+    if (!value) {
+      return "Not set";
+    }
+    var labels = {
+      makerworld: "MakerWorld",
+      printables: "Printables",
+      thingiverse: "Thingiverse",
+      cults3d: "Cults3D",
+      manyfold: "Manyfold",
+      other: "Other",
+      original_local: "Local original",
+    };
+    return labels[value] || value;
+  }
+
+  _originTypeLabel(originType) {
+    var value = String(originType || "").trim().toLowerCase();
+    if (value === "remix") {
+      return "Remix";
+    }
+    if (value === "derivative") {
+      return "Derivative";
+    }
+    if (value === "custom_unique") {
+      return "Custom unique";
+    }
+    return "Custom unique";
+  }
+
+  _coerceBoolish(value) {
+    if (value === true || value === false) {
+      return value;
+    }
+    var normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+    if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") {
+      return false;
+    }
+    return null;
+  }
+
+  _relativeTimeLabel(isoValue) {
+    var raw = String(isoValue || "").trim();
+    if (!raw) {
+      return "Never";
+    }
+    var parsed = new Date(raw);
+    if (!Number.isFinite(parsed.getTime())) {
+      return "Unknown";
+    }
+    var deltaMs = Date.now() - parsed.getTime();
+    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+      return "Now";
+    }
+    var deltaMinutes = Math.floor(deltaMs / 60000);
+    if (deltaMinutes < 60) {
+      return String(Math.max(1, deltaMinutes)) + "m ago";
+    }
+    var deltaHours = Math.floor(deltaMinutes / 60);
+    if (deltaHours < 48) {
+      return String(deltaHours) + "h ago";
+    }
+    var deltaDays = Math.floor(deltaHours / 24);
+    if (deltaDays < 28) {
+      return String(deltaDays) + "d ago";
+    }
+    var deltaWeeks = Math.floor(deltaDays / 7);
+    if (deltaWeeks < 12) {
+      return String(deltaWeeks) + "w ago";
+    }
+    var deltaMonths = Math.floor(deltaDays / 30);
+    if (deltaMonths < 24) {
+      return String(deltaMonths) + "mo ago";
+    }
+    var deltaYears = Math.floor(deltaDays / 365);
+    return String(deltaYears) + "y ago";
+  }
+
   _escapeHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -938,18 +1073,43 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var common = Number(ranking.common_score || 0);
 
     var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
-    var queueStatus = String(fields.to_print_status || "").trim();
+    var structured = model && model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
+    var provenance = structured && structured.provenance && typeof structured.provenance === "object" ? structured.provenance : {};
+    var publishing = structured && structured.publishing && typeof structured.publishing === "object" ? structured.publishing : {};
+    var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
+    var queueStatus = String(fields.to_print_status || "").trim().toLowerCase();
     var queuePriority = String(fields.to_print_priority || "").trim();
     var queueLabel = queueStatus ? queueStatus + (queuePriority ? " (P" + queuePriority + ")" : "") : "none";
     var queueChipClass = queueStatus === "queued" ? "queue" : (queueStatus === "done" ? "complete" : "neutral");
     var queueChip = this._renderModelTagChip("Queue: " + queueLabel, queueChipClass);
     var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
+    var originType = String(model.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
+    var sourcePlatform = String(model.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
+    var sourceDownloadUrl = String(model.source_download_url || provenance.source_download_url || fields.source_download_url || "").trim();
+    var rawPublishedTo = Array.isArray(model.published_to) && model.published_to.length
+      ? model.published_to
+      : (Array.isArray(publishing.published_to) ? publishing.published_to : (Array.isArray(fields.published_to) ? fields.published_to : []));
+    var publishedTo = rawPublishedTo.map(function (value) {
+      return String(value || "").trim().toLowerCase();
+    }).filter(function (value) {
+      return !!value;
+    });
+    var publishedUrlMap = model && model.published_urls && typeof model.published_urls === "object"
+      ? model.published_urls
+      : (publishing && publishing.published_urls && typeof publishing.published_urls === "object" ? publishing.published_urls : {});
+    var modelFavorite = this._coerceBoolish(model.model_favorite);
+    if (modelFavorite === null) {
+      modelFavorite = this._coerceBoolish(catalogSignals.model_favorite);
+    }
+    if (modelFavorite === null) {
+      modelFavorite = this._coerceBoolish(fields.model_favorite);
+    }
     var collectionLimit = this._viewMode === "compact" ? 2 : 3;
     var collectionChips = collections.slice(0, collectionLimit).map(function (collection) {
       return this._renderModelTagChip(collection, "subtle-chip");
     }.bind(this)).join("");
     var hiddenCollectionCount = Math.max(0, collections.length - collectionLimit);
-    var tagLimit = this._viewMode === "compact" ? 5 : 4;
+    var tagLimit = this._viewMode === "compact" ? 3 : 4;
     var visibleTags = tags.slice(0, tagLimit);
     var hiddenTagCount = Math.max(0, tags.length - visibleTags.length);
     var tagMarkup = visibleTags.map(function (tag) {
@@ -961,6 +1121,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var mediaUrl = mediaCount > 0 ? mediaUrls[mediaIndex] : "";
     var queuePriorityLabel = queuePriority ? ("P" + queuePriority) : "-";
     var previewLabel = mediaCount > 1 ? (String(mediaIndex + 1) + " / " + String(mediaCount)) : (this._loadingModelMedia[modelRef] ? "Loading media" : "Preview");
+    var lastPrintedAt = String(model.last_printed_at || ranking.last_printed_at || "").trim();
+    var successRatePct = Number(model.success_rate_pct);
+    if (!Number.isFinite(successRatePct)) {
+      var rankingSuccess = Number(ranking.success_rate_score);
+      if (Number.isFinite(rankingSuccess)) {
+        successRatePct = rankingSuccess > 1 ? rankingSuccess : rankingSuccess * 100;
+      }
+    }
+    var successLabel = Number.isFinite(successRatePct) ? (String(Math.round(Math.max(0, Math.min(100, successRatePct)))) + "%") : "--";
 
     // Load model detail in all view modes to fetch preview/media URLs
     this._loadModelMedia(model);
@@ -999,6 +1168,53 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + '</div>'
       + '</div>';
 
+    var queueRibbonClass = "";
+    if (queueStatus === "queued") {
+      queueRibbonClass = " is-queued";
+    } else if (queueStatus === "printing") {
+      queueRibbonClass = " is-printing";
+    } else if (queueStatus === "done") {
+      queueRibbonClass = " is-done";
+    }
+
+    var sourceLabel = sourcePlatform ? ("Source: " + this._platformDisplayLabel(sourcePlatform)) : "Source: Not set";
+    var sourceChipHtml = sourceDownloadUrl
+      ? '<button class="chip subtle-chip source-chip" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">' + this._escapeHtml(sourceLabel) + '</button>'
+      : this._renderModelTagChip(sourceLabel, "subtle-chip source-chip");
+
+    var publishedDestinationChips = publishedTo.slice(0, 3).map(function (platformId) {
+      var destinationLabel = this._platformDisplayLabel(platformId);
+      var destinationUrl = String(publishedUrlMap[platformId] || "").trim();
+      if (destinationUrl) {
+        return '<button class="chip publish-chip" type="button" data-action="open-model" data-url="' + this._escapeHtml(destinationUrl) + '">' + this._escapeHtml(destinationLabel) + '</button>';
+      }
+      return this._renderModelTagChip(destinationLabel, "publish-chip");
+    }.bind(this)).join("");
+    var hiddenDestinationCount = Math.max(0, publishedTo.length - 3);
+
+    var signalChips = "";
+    if (recent > 0) {
+      signalChips += this._renderModelTagChip("Recent", "signal-chip");
+    }
+    if (frequent > 0) {
+      signalChips += this._renderModelTagChip("Frequent", "signal-chip");
+    }
+    if (common > 0) {
+      signalChips += this._renderModelTagChip("Common", "signal-chip");
+    }
+    if (!signalChips) {
+      signalChips = this._renderModelTagChip("No ranking signal", "subtle-chip");
+    }
+
+    var favoriteButton = ''
+      + '<button class="icon-action favorite-action' + (modelFavorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(modelFavorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(modelFavorite ? 'Remove favorite' : 'Add favorite') + '">'
+      + '  <ha-icon icon="' + this._escapeHtml(modelFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
+      + '</button>';
+    var detailActionButton = ''
+      + '<button class="icon-action" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="View model details">'
+      + '  <ha-icon icon="mdi:text-box-search-outline"></ha-icon>'
+      + '</button>';
+
     var titleCluster = ''
       + '<div class="title-cluster">'
       + '  <h3 class="title">' + this._escapeHtml(name) + '</h3>'
@@ -1036,6 +1252,93 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + detailFooter
       + '</div>';
 
+    var compactBodyHtml = ''
+      + '<div class="body compact-body">'
+      + '  <div class="compact-top-actions">'
+      + '    <button class="icon-action viewer-action" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+      + favoriteButton
+      + detailActionButton
+      + advancedActions
+      + '  </div>'
+      + '  <div class="compact-title-row">'
+      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '    <span class="compact-last-printed">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</span>'
+      + '  </div>'
+      + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
+      + '  <div class="chip-row provenance-row">'
+      + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip')
+      + sourceChipHtml
+      + publishedDestinationChips
+      + (hiddenDestinationCount ? this._renderModelTagChip('+' + String(hiddenDestinationCount), 'publish-chip') : '')
+      + '  </div>'
+      + '  <div class="chip-row status-line">'
+      + queueChip
+      + this._renderModelTagChip('Priority: ' + queuePriorityLabel, 'subtle-chip')
+      + this._renderModelTagChip('Linked prints: ' + String(linkedCount), 'subtle-chip')
+      + '  </div>'
+      + '  <div class="metrics compact-metrics">'
+      + this._renderModelMetric('Archives', linkedCount)
+      + this._renderModelMetric('Last printed', this._relativeTimeLabel(lastPrintedAt))
+      + this._renderModelMetric('Success', successLabel)
+      + '  </div>'
+      + '  <div class="chip-row signal-row">' + signalChips + '</div>'
+      + '  <div class="compact-tags-row">'
+      + '    <div class="tags">' + tagMarkup + '</div>'
+      + '    <div class="media-status-chip" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._renderModelTagChip(previewLabel, mediaCount > 1 ? 'queue' : 'neutral') + '</div>'
+      + '  </div>'
+      + '</div>';
+
+    var mediaBodyHtml = ''
+      + '<div class="body media-body">'
+      + '  <div class="media-title-row">'
+      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '    <span class="compact-last-printed">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</span>'
+      + '  </div>'
+      + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
+      + '  <div class="chip-row provenance-row">'
+      + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip')
+      + sourceChipHtml
+      + publishedDestinationChips
+      + (hiddenDestinationCount ? this._renderModelTagChip('+' + String(hiddenDestinationCount), 'publish-chip') : '')
+      + queueChip
+      + '  </div>'
+      + '  <div class="metrics media-metrics">'
+      + this._renderModelMetric('Archives', linkedCount)
+      + this._renderModelMetric('Success', successLabel)
+      + this._renderModelMetric('Previews', mediaCount || 0)
+      + '  </div>'
+      + '  <div class="media-footer-row">'
+      + '    <div class="tags">' + tagMarkup + '</div>'
+      + '    <div class="media-actions">'
+      + favoriteButton
+      + detailActionButton
+      + advancedActions
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+
+    var listBodyHtml = ''
+      + '<div class="body list-body">'
+      + '  <div class="list-grid">'
+      + '    <div class="list-cell list-name">'
+      + '      <div class="title">' + this._escapeHtml(name) + '</div>'
+      + '      <div class="subtle-line">' + creatorChip + '</div>'
+      + '    </div>'
+      + '    <div class="list-cell">' + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip') + '</div>'
+      + '    <div class="list-cell">' + this._renderModelTagChip(sourcePlatform ? this._platformDisplayLabel(sourcePlatform) : 'Not set', 'subtle-chip') + '</div>'
+      + '    <div class="list-cell list-num">' + this._escapeHtml(String(linkedCount)) + '</div>'
+      + '    <div class="list-cell list-num">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</div>'
+      + '    <div class="list-cell list-num">' + this._escapeHtml(successLabel) + '</div>'
+      + '    <div class="list-cell">' + (publishedDestinationChips || this._renderModelTagChip('Not published', 'subtle-chip')) + '</div>'
+      + '    <div class="list-cell">' + tagMarkup + '</div>'
+      + '    <div class="list-cell list-actions">'
+      + favoriteButton
+      + detailActionButton
+      + advancedActions
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+
     if (this._viewMode === "media") {
       return ''
         + '<article class="model-card view-media" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
@@ -1044,7 +1347,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '    <div class="media-overlay"><span class="card-mode-pill">Media</span>' + (mediaCount > 1 ? '<span class="media-counter" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '') + '</div>'
         + (mediaCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" type="button" data-action="media-prev" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Previous model image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" type="button" data-action="media-next" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Next model image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div>' : '')
         + '  </div>'
-        + bodyHtml
+        + mediaBodyHtml
         + '</article>';
     }
 
@@ -1052,14 +1355,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return ''
         + '<article class="model-card view-list" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div><span class="card-mode-pill list-mode">List</span></div>'
-        + bodyHtml
+        + listBodyHtml
         + '</article>';
     }
 
     return ''
       + '<article class="model-card view-compact" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+      + '  <span class="queue-ribbon' + queueRibbonClass + '" aria-hidden="true"></span>'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div><span class="card-mode-pill">Compact</span></div>'
-      + bodyHtml
+      + compactBodyHtml
       + '</article>';
   }
 
@@ -1160,7 +1464,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.filter-actions{display:flex;justify-content:flex-start;}'
       + '.results{display:grid;gap:12px;}'
       + '.results.view-compact{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}'
-      + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}'
+      + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'
       + '.results.view-list{grid-template-columns:1fr;}'
       + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease;}'
       + '.model-card:hover{border-color:var(--accent-strong);box-shadow:0 14px 32px rgba(15,23,42,0.18);}'
@@ -1168,6 +1472,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);column-gap:18px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:96px minmax(0,1fr);column-gap:12px;padding:14px;align-items:start;}'
+      + '.queue-ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:20px 0 0 20px;background:transparent;pointer-events:none;}'
+      + '.queue-ribbon.is-queued{background:#f59e0b;}'
+      + '.queue-ribbon.is-printing{background:#1e88e5;}'
+      + '.queue-ribbon.is-done{background:#2e7d32;}'
       + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
       + '.compact-wrap{min-height:156px;}'
       + '.list-wrap{min-height:96px;}'
@@ -1184,22 +1492,48 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.thumb-empty ha-icon{--mdc-icon-size:28px;}'
       + '.thumb-empty-text{font-size:10px;margin-top:4px;}'
       + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
+      + '.compact-body{gap:8px;animation:compact-enter .24s ease-out;}'
       + '.view-compact .body,.view-list .body{padding:0;}'
+      + '.compact-top-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;}'
+      + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
+      + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.compact-last-printed{font-size:11px;font-weight:700;color:var(--secondary-text-color);padding-top:2px;}'
+      + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
+      + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
+      + '.media-body{gap:8px;padding:12px 14px 14px;}'
+      + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}'
+      + '.media-footer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}'
+      + '.media-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;}'
       + '.title-cluster{display:grid;gap:6px;min-width:0;}'
       + '.title{margin:0;font-size:15px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;}'
       + '.subtle-line,.status-line,.tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;}'
+      + '.chip-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;}'
+      + '.provenance-row{margin-top:2px;}'
       + '.header-actions{display:flex;align-items:flex-start;justify-content:flex-end;gap:8px;}'
       + '.chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;background:var(--chip-bg);border:1px solid var(--chip-line);color:var(--primary-text-color);}'
+      + 'button.chip{font:inherit;cursor:pointer;}'
       + '.chip.neutral{background:rgba(148,163,184,0.14);border-color:rgba(148,163,184,0.26);}'
       + '.chip.queue{background:rgba(16,185,129,0.16);border-color:rgba(16,185,129,0.32);}'
       + '.chip.complete{background:rgba(96,165,250,0.14);border-color:rgba(96,165,250,0.30);}'
       + '.chip.subtle-chip{background:rgba(15,23,42,0.08);border-color:rgba(148,163,184,0.16);color:var(--secondary-text-color);}'
       + '.chip.tag-chip{background:rgba(96,165,250,0.10);border-color:rgba(96,165,250,0.20);}'
+      + '.chip.origin-chip{background:rgba(99,102,241,0.18);border-color:rgba(165,180,252,0.34);}'
+      + '.chip.publish-chip{background:rgba(56,189,248,0.14);border-color:rgba(56,189,248,0.28);}'
+      + '.chip.signal-chip{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.30);}'
+      + '.chip.source-chip{max-width:100%;}'
       + '.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}'
+      + '.compact-metrics .metric-value{font-size:13px;}'
       + '.metric{display:grid;gap:3px;padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.08);}'
       + '.metric-label{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.metric-value{font-size:14px;font-weight:800;line-height:1.2;}'
+      + '.compact-tags-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.list-body{padding:0;overflow-x:auto;}'
+      + '.list-grid{display:grid;grid-template-columns:minmax(170px,2fr) minmax(120px,1fr) minmax(120px,1fr) minmax(80px,.7fr) minmax(100px,.8fr) minmax(80px,.7fr) minmax(180px,1.2fr) minmax(180px,1.2fr) auto;gap:8px;align-items:center;min-width:930px;padding:6px 0;}'
+      + '.list-cell{min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}'
+      + '.list-cell.list-num{font-size:12px;font-weight:700;justify-content:flex-end;}'
+      + '.list-cell.list-actions{justify-content:flex-end;}'
+      + '.list-cell.list-name{display:grid;gap:4px;}'
       + '.tag-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.media-status-chip{display:flex;justify-content:flex-end;}'
       + '.card-mode-pill,.media-counter{position:absolute;top:10px;z-index:1;display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.24);background:rgba(15,23,42,0.82);font-size:10px;font-weight:800;color:#fff;}'
@@ -1222,8 +1556,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.advanced-inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.state-row{padding:20px;border-radius:16px;border:1px dashed rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:13px;color:var(--secondary-text-color);}'
       + '.state-row.error{background:rgba(185,28,28,0.16);color:var(--primary-text-color);}'
+      + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@media (max-width: 1100px){.controls{grid-template-columns:repeat(3,minmax(0,1fr));}}'
-      + '@media (max-width: 820px){.controls{grid-template-columns:repeat(2,minmax(0,1fr));}.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions{justify-content:flex-start;}}'
+      + '@media (max-width: 820px){.controls{grid-template-columns:repeat(2,minmax(0,1fr));}.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.compact-top-actions,.media-actions{justify-content:flex-start;}.list-grid{min-width:760px;}}'
       + '@media (max-width: 560px){.shell{padding:14px;}.controls{grid-template-columns:1fr;}.browser-toolbar{align-items:stretch;}.toolbar-cluster{width:100%;}.pager-cluster,.view-cluster{justify-content:flex-start;}.toolbar-btn{flex:1 1 auto;}.page-status{width:100%;padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'

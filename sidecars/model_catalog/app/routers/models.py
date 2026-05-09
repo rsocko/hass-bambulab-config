@@ -984,6 +984,12 @@ def _serialize_model_summary(
             "common_score": ranking.common_score,
             "refreshed_at": ranking.refreshed_at,
         }
+    structured_metadata = _structured_detail_metadata(custom_fields)
+    provenance = structured_metadata.get("provenance") if isinstance(structured_metadata.get("provenance"), dict) else {}
+    publishing = structured_metadata.get("publishing") if isinstance(structured_metadata.get("publishing"), dict) else {}
+    catalog_signals = structured_metadata.get("catalog_signals") if isinstance(structured_metadata.get("catalog_signals"), dict) else {}
+    published_to = publishing.get("published_to") if isinstance(publishing.get("published_to"), list) else []
+    published_urls = publishing.get("published_urls") if isinstance(publishing.get("published_urls"), dict) else {}
     preview_url = summary.preview_url
     if request is not None and settings is not None and _is_local_summary(summary):
         preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip()
@@ -1016,7 +1022,15 @@ def _serialize_model_summary(
         "model_ref": model_ref,
         "local_model_id": str(summary.public_id or "").strip() if authority == "local" else None,
         "custom_fields": custom_fields,
+        "structured_metadata": structured_metadata,
+        "origin_type": provenance.get("origin_type"),
+        "source_platform": provenance.get("source_platform"),
+        "source_download_url": provenance.get("source_download_url"),
+        "published_to": published_to,
+        "published_urls": published_urls,
+        "model_favorite": catalog_signals.get("model_favorite"),
         "ranking": ranking_payload,
+        "last_printed_at": ranking.last_printed_at if ranking is not None else None,
         "linked_archive_count": int(link_counts_by_url.get(summary.model_url, 0)),
     }
 
