@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>External Intake Workbench A</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #fffdf8;
+    --panel-2: #efe9dc;
+    --text: #1f2a2e;
+    --muted: #5f6a6f;
+    --line: #d4cab6;
+    --accent: #0f766e;
+    --accent-soft: #d5edea;
+    --ok: #1f7a3d;
+    --warn: #a4511a;
+    --danger: #9b2c2c;
+    --shadow: 0 10px 28px rgba(31, 42, 46, 0.12);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: radial-gradient(circle at 20% 0%, #fdf8ec 0%, #f4f1ea 45%, #e8e2d3 100%); color: var(--text); font-family: "Segoe UI", "Trebuchet MS", sans-serif; }
+  body { padding: 18px; }
+  .frame {
+    max-width: 1400px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .topbar {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(90deg, #efe9dc, #fff8e9);
+  }
+  .title h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
+  .title p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+  .pillset { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { padding: 6px 10px; border-radius: 999px; font-size: 11px; border: 1px solid var(--line); background: #fff; }
+  .pill.active { border-color: var(--accent); background: var(--accent-soft); color: #0d4b46; font-weight: 700; }
+  .layout {
+    display: grid;
+    grid-template-columns: 320px minmax(450px, 1fr) 360px;
+    min-height: 760px;
+  }
+  .panel { border-right: 1px solid var(--line); padding: 16px; }
+  .panel:last-child { border-right: none; }
+  .section-title { margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .capture-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .capture-card h3 { margin: 0 0 7px; font-size: 15px; }
+  .capture-card p { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .input, .select {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 13px;
+    color: var(--text);
+    background: #fff;
+  }
+  .row { display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    cursor: default;
+    font-weight: 600;
+  }
+  .btn.primary { border-color: var(--accent); background: var(--accent); color: #f3fffd; }
+  .btn.warn { border-color: #d9b394; background: #fff5ea; color: #7a3f10; }
+  .list {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .list-head, .list-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .list-head { background: var(--panel-2); font-weight: 700; color: #344247; }
+  .list-row { border-top: 1px solid var(--line); background: #fff; }
+  .list-row.selected { background: #f3faf8; }
+  .status { padding: 3px 8px; border-radius: 999px; font-size: 11px; width: fit-content; border: 1px solid; }
+  .status.ok { color: var(--ok); border-color: #9ed1ad; background: #edf9f0; }
+  .status.warn { color: var(--warn); border-color: #e5c7ac; background: #fff5e8; }
+  .status.low { color: var(--danger); border-color: #edc6c6; background: #fff1f1; }
+  .detail {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .detail header {
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+    background: #f6f2e9;
+  }
+  .detail h3 { margin: 0; font-size: 16px; }
+  .detail .meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+  .detail .body { padding: 12px; display: grid; gap: 10px; }
+  .kv { display: grid; grid-template-columns: 128px 1fr; gap: 8px; font-size: 12px; }
+  .kv .k { color: var(--muted); }
+  .preview {
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    min-height: 120px;
+    background: linear-gradient(135deg, #e8f1ef, #fdfcf8);
+    display: grid;
+    place-items: center;
+    color: #597277;
+    font-size: 12px;
+    text-align: center;
+    padding: 10px;
+  }
+  .commit-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fffcf3;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .commit-card h3 { margin: 0 0 8px; font-size: 15px; }
+  .checks { margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
+  .checks li { margin-top: 5px; }
+  .timeline {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    padding: 10px;
+    font-size: 12px;
+  }
+  .event { padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .event:last-child { border-bottom: none; }
+  .event .t { color: var(--muted); font-size: 11px; }
+
+  @media (max-width: 1200px) {
+    .layout { grid-template-columns: 1fr; }
+    .panel { border-right: none; border-bottom: 1px solid var(--line); }
+    .panel:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="frame">
+    <div class="topbar">
+      <div class="title">
+        <h1>External Intake Workbench</h1>
+        <p>Variant A · Three-column operations console (issues #183, #1179, #1266)</p>
+      </div>
+      <div class="pillset">
+        <span class="pill active">Pending 14</span>
+        <span class="pill">Needs Review 5</span>
+        <span class="pill">Imported Today 9</span>
+        <span class="pill">Collection Migrations 2</span>
+      </div>
+    </div>
+
+    <section class="layout">
+      <aside class="panel">
+        <h2 class="section-title">Capture Channels</h2>
+
+        <article class="capture-card">
+          <h3>Paste URL</h3>
+          <p>Capture from MakerWorld, Printables, Thingiverse, Cults3D, or any supported provider URL.</p>
+          <input class="input" value="https://makerworld.com/en/models/1794584-ewok-wicket-500" />
+          <div class="row" style="margin-top:8px;">
+            <button class="btn">Detect Provider</button>
+            <button class="btn primary">Capture</button>
+          </div>
+        </article>
+
+        <article class="capture-card">
+          <h3>Browser Extension</h3>
+          <p>Receive signed payload from currently open page.</p>
+          <div class="row">
+            <button class="btn">Pair Browser</button>
+            <button class="btn">Show Token</button>
+          </div>
+        </article>
+
+        <article class="capture-card">
+          <h3>Stream Deck</h3>
+          <p>Quick capture actions route into the same review queue.</p>
+          <select class="select">
+            <option>Capture URL (review later)</option>
+            <option>Capture + metadata fetch</option>
+            <option>Capture + full import attempt</option>
+          </select>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn">Copy Webhook URL</button>
+          </div>
+        </article>
+
+        <article class="capture-card">
+          <h3>Collections</h3>
+          <p>Capture a collection/list and split into per-item intake records.</p>
+          <input class="input" value="https://makerworld.com/en/collections/favorites" />
+          <div class="row" style="margin-top:8px;">
+            <button class="btn">Snapshot</button>
+            <button class="btn warn">Migrate</button>
+          </div>
+        </article>
+      </aside>
+
+      <section class="panel">
+        <h2 class="section-title">Pending Intake Records</h2>
+        <div class="list">
+          <div class="list-head">
+            <div>Model</div><div>Provider</div><div>Confidence</div><div>Mode</div>
+          </div>
+          <div class="list-row selected">
+            <div>Ewok Wicket 500%</div><div>MakerWorld</div><div><span class="status ok">High</span></div><div>Metadata</div>
+          </div>
+          <div class="list-row">
+            <div>Gridfinity Spool Holder Remix</div><div>Printables</div><div><span class="status warn">Medium</span></div><div>Link Only</div>
+          </div>
+          <div class="list-row">
+            <div>Hex Driver Rack XL</div><div>Thingiverse</div><div><span class="status warn">Medium</span></div><div>Full Import</div>
+          </div>
+          <div class="list-row">
+            <div>Unknown Source Page</div><div>Other</div><div><span class="status low">Low</span></div><div>Needs Review</div>
+          </div>
+        </div>
+
+        <h2 class="section-title" style="margin-top:14px;">Selected Record Detail</h2>
+        <article class="detail">
+          <header>
+            <h3>Ewok Wicket 500% (16cm)</h3>
+            <div class="meta">source_model_id: 1794584 · capture_channel: url_paste · captured 2m ago</div>
+          </header>
+          <div class="body">
+            <div class="preview">Preview image / gallery strip placeholder</div>
+            <div class="kv"><div class="k">Canonical URL</div><div>https://makerworld.com/en/models/1794584</div></div>
+            <div class="kv"><div class="k">Creator</div><div>pippo the printer</div></div>
+            <div class="kv"><div class="k">File Manifest</div><div>3 printable files, 2 support assets, 4 preview images</div></div>
+            <div class="kv"><div class="k">Warnings</div><div>No authentication token; profile-specific download not resolved.</div></div>
+            <div class="row">
+              <button class="btn">Open Source</button>
+              <button class="btn">Compare Existing</button>
+              <button class="btn">View Raw Snapshot</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <aside class="panel">
+        <h2 class="section-title">Commit</h2>
+        <article class="commit-card">
+          <h3>Import Mode</h3>
+          <select class="select">
+            <option>Metadata Only (recommended)</option>
+            <option>Link Only</option>
+            <option>Full Import (files + images)</option>
+          </select>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn">Save Pending</button>
+            <button class="btn primary">Commit Import</button>
+          </div>
+          <ul class="checks">
+            <li>Confidence gate: High or Medium required for full import</li>
+            <li>Dedupe check: canonical URL + source model id</li>
+            <li>Destination: Intake Inbox -> Validate -> Commit</li>
+          </ul>
+        </article>
+
+        <article class="commit-card">
+          <h3>Collection Migration</h3>
+          <p style="margin:0 0 8px;font-size:12px;color:var(--muted);">Create one intake record per remote item and route outliers to manual review.</p>
+          <div class="row">
+            <button class="btn">Preview 42 items</button>
+            <button class="btn warn">Start Migration</button>
+          </div>
+        </article>
+
+        <h2 class="section-title">Recent Events</h2>
+        <article class="timeline">
+          <div class="event"><div>Capture created from browser extension</div><div class="t">12:07:22</div></div>
+          <div class="event"><div>MakerWorld metadata fetch succeeded</div><div class="t">12:07:24</div></div>
+          <div class="event"><div>Dedupe warning: possible existing curated match</div><div class="t">12:07:25</div></div>
+          <div class="event"><div>Operator committed metadata-only import</div><div class="t">12:08:02</div></div>
+        </article>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

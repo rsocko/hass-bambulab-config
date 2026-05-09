@@ -30,7 +30,7 @@
 <body>
 
 <h1>Model Catalog · Design mockups</h1>
-<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign and the new <strong>Catalog Advanced Actions</strong> popup. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, and <a href="../working-files-card-design.md">working-files-card-design.md</a>.</p>
+<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign, the new <strong>Unified Production Queue</strong> surfaces, the new <strong>Catalog Advanced Actions</strong> popup, and external-source intake concepts. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, <a href="../working-files-card-design.md">working-files-card-design.md</a>, <a href="../unified-production-queue-design.md">unified-production-queue-design.md</a>, and <a href="../external-source-intake-design.md">external-source-intake-design.md</a>.</p>
 
 <p class="section-title">Catalog Browser</p>
 <div class="grid">
@@ -55,11 +55,11 @@
   <a class="tile" href="popup-model-detail.html">
     <span class="badge">POPUP · RECOMMENDED</span>
     <h2>Model Detail Popup</h2>
-    <p>Hybrid summary + focused workspaces aligned with Print History semantics: compact top-right actions, media source filtering, full-size viewer affordance, thumbnail strip, and related archives panel.</p>
+    <p>Hybrid summary + focused workspaces aligned with Print History semantics: compact top-right actions, media source filtering, full-size viewer affordance, thumbnail strip, related archives panel, and a related-models quick-navigation rail.</p>
   </a>
   <a class="tile" href="popup-model-detail-alt.html">
     <h2>Model Detail Popup (Alternative)</h2>
-    <p>Split-pane inspector approach for power users: persistent left media rail and right detail/actions stack for archive triage, linking, and publish workflows.</p>
+    <p>Split-pane inspector approach for power users: persistent left media rail and right detail/actions stack for archive triage, related-model quick hops, linking, and publish workflows.</p>
   </a>
   <a class="tile" href="popup-model-detail-candidate-review.html">
     <span class="badge">ADVANCED REVIEW</span>
@@ -94,6 +94,39 @@
     <span class="badge amber">POPUP · NEW</span>
     <h2>Group details popup</h2>
     <p>Replaces the current <code>window.prompt</code> rename / destination-group flows with a proper edit surface — title, stage segmented, notes, reorderable file list with set-primary, per-file <strong>3D viewer</strong> (reuses catalog's <code>model-detail-3d-viewer-tab</code>) and Slicer launch, plus a linked-archive stub. Per-file metadata popup intentionally out of scope.</p>
+  </a>
+</div>
+
+<p class="section-title">Production Queue</p>
+<div class="grid">
+  <a class="tile" href="production-queue.html">
+    <span class="badge amber">QUEUE · NEW</span>
+    <h2>Unified queue view</h2>
+    <p>Operator-facing queue that mixes Catalog, Working, and Ideas entries while preserving the backend split. Includes Launch Pad widget, reorderable queue rows, file/plate drill-in, archive completion suggestions, and overnight/AMS planner hints.</p>
+  </a>
+  <a class="tile" href="production-queue-add.html">
+    <span class="badge amber">ADD FLOW · NEW</span>
+    <h2>Add to queue</h2>
+    <p>Hybrid quick-add plus advanced-add flow. Default is all files / all plates; advanced mode allows single-file or subset-of-plates selection with low-res previews, duration signals, and filament-fit hints before the entry is created.</p>
+  </a>
+</div>
+
+<p class="section-title">External Source Intake</p>
+<div class="grid">
+  <a class="tile" href="external-intake-workbench-a.html">
+    <span class="badge amber">NEW · VARIANT A</span>
+    <h2>External Intake Workbench A</h2>
+    <p>Three-column operations console for URL capture, extension/Stream Deck intake, confidence-aware review, and commit policy controls. Focuses on deterministic review-first operations.</p>
+  </a>
+  <a class="tile" href="external-intake-workbench-b.html">
+    <span class="badge amber">NEW · VARIANT B</span>
+    <h2>External Intake Workbench B</h2>
+    <p>Board-centric triage layout for larger pending queues: capture lanes, confidence chips, migration monitor, and channel-health diagnostics for high-throughput intake sessions.</p>
+  </a>
+  <a class="tile" href="external-intake-quick-capture.html">
+    <span class="badge amber">NEW · QUICK FLOW</span>
+    <h2>Quick Capture Inbox</h2>
+    <p>Extension + Stream Deck first workflow emphasizing rapid capture with deferred review, including channel-specific auto-routing rules and batch metadata-commit paths.</p>
   </a>
 </div>
 

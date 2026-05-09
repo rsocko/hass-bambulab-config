@@ -1,7 +1,7 @@
 # Model Catalog Popup Redesign (Issue #1376)
 
 > Status: Hi-fidelity design proposal
-> Date: 2026-05-08
+> Date: 2026-05-09
 > Scope: Model detail popup UX redesign aligned with Print History interaction patterns and model-catalog-specific metadata/actions.
 > Related issues: #1376, #1215
 
@@ -47,6 +47,7 @@ Create a popup that feels like the Print History popup family, but with model-ca
 3. Full-size viewing exists but is not emphasized as a primary workflow.
 4. Linked archives are present but need stronger context and faster action affordances.
 5. Related models and advanced actions are split across docs/roadmap but not surfaced as one coherent popup information architecture.
+6. There is no explicit quick-navigation pattern from one model popup to another related model while preserving popup context.
 
 ## 4) Information Architecture Options
 
@@ -149,6 +150,29 @@ Controls:
 
 Related Models:
 - compact list with similarity reason chips
+- appears as a dedicated popup section for quick model-to-model navigation without returning to the browser grid
+- each row/card includes title, creator (when available), score band, and reason chips
+- row click (or explicit open button) should navigate in-place to the selected model detail context
+- include `View all related` affordance when compact set is truncated
+
+### 5.5.1 Related Models Quick Navigation (new explicit pattern)
+
+Placement:
+- Option B (recommended): right workspace, directly below `Related Archives` and above stats/advanced metadata
+- Option C (split-pane): its own box between `Related Archives` and `Advanced Actions`
+
+Ranking signals (initial proposal):
+- shared normalized name terms/phrases
+- shared tags/keywords
+- shared creator and/or collection
+- optional future relevance boosts (recent print activity overlap, accepted manual links)
+
+Performance constraints:
+- lazy-load related models only when this section is visible (or when the related tab/expander is opened)
+- cap payload to a compact set (`limit` default 6, max 12 for popup surfaces)
+- keep server scoring bounded and deterministic; avoid unbounded client-side pairwise scans
+- cache per-model related response briefly for popup navigation loops (short TTL)
+- do not block initial popup render on related-model fetch
 
 Advanced Actions:
 - mirror Print History's "more" interaction language
@@ -203,6 +227,12 @@ Needs explicit backend extension (or formalization) for the redesigned popup:
 - optional media role tags (`preview`, `secondary`, `historical`)
 - explicit model provenance source fields (`source_platform`, optional `source_download_url`) in detail payload
 - related-model endpoint consistency and scoring explanation payload
+- related-model payload contract suitable for quick popup navigation:
+  - `model_ref` / `public_id`
+  - `name`, `creator_name`, optional preview thumbnail
+  - `relevance_score` (or `similarity_score`)
+  - `relevance_reasons[]` (name/tag/creator/collection rationale)
+  - `is_truncated` and `total_candidates` hints for `View all related`
 - linked-archive action payload parity (print again / archive deep-link metadata)
 - optional aggregated model metrics (success_rate_pct, last_outcome, filament rollups) if reused from card design
 - per-file summary payload for model files:
@@ -253,6 +283,12 @@ Needs explicit backend extension (or formalization) for the redesigned popup:
 - bulk review actions: `confirm selected`, `reject selected`, `mark unsure`
 - after review, main popup updates immediately so confirmed rows replace candidate summaries without requiring full popup reload
 
+7. Related-model navigation workflow
+- selecting a related model should replace the current popup model context in-place
+- default landing context after navigation should be `Details` (or equivalent default summary view)
+- popup should preserve shell size and navigation fluidity while switching models
+- optional back affordance can be added later if model-to-model hops become deep
+
 ## 8) Visual System
 
 Reuse Print History visual grammar:
@@ -296,6 +332,7 @@ MMP:
 4. Is the small-thumbnail-below-main-image pattern working for fast scan/select?
 5. Is related-archives context strong enough to avoid navigation friction?
 6. Do we want default open target to remain Details/Overview, or route from card icon to 3D focus by default?
+7. Is the Related Models quick-navigation section discoverable enough without overwhelming the main popup?
 
 ## 12) Implementation Notes (post-design)
 

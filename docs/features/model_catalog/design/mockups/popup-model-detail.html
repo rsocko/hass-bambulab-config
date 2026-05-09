@@ -409,6 +409,117 @@
     white-space: nowrap;
   }
 
+  .related-models {
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+
+  .related-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border-bottom: 1px solid rgba(155, 173, 196, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .related-head strong {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  .related-head button {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 4px 9px;
+  }
+
+  .related-list {
+    padding: 7px;
+    display: grid;
+    gap: 7px;
+  }
+
+  .related-item {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 7px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 6px;
+  }
+
+  .related-item img {
+    width: 100%;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+
+  .related-item .name {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .related-item .meta {
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .reason-chips {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .reason-chips span {
+    font-size: 9px;
+    color: var(--text-secondary);
+    border-radius: 999px;
+    border: 1px solid rgba(155, 173, 196, 0.26);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 2px 6px;
+  }
+
+  .related-actions {
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    min-width: 84px;
+  }
+
+  .related-actions .score {
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 999px;
+    border: 1px solid rgba(126, 162, 255, 0.46);
+    color: #c9dcff;
+    background: rgba(126, 162, 255, 0.14);
+    padding: 2px 6px;
+  }
+
+  .related-actions button {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
   .model-files {
     margin-top: 10px;
     border: 1px solid var(--border);
@@ -700,6 +811,21 @@
     .archive-card .text { grid-area: text; }
     .archive-card .actions { grid-area: actions; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
+    .related-item {
+      grid-template-columns: 44px minmax(0, 1fr);
+      grid-template-areas:
+        "img text"
+        "actions actions";
+    }
+
+    .related-item img { grid-area: img; }
+    .related-item .text { grid-area: text; }
+    .related-actions {
+      grid-area: actions;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      min-width: 0;
+    }
+
     .file-item {
       grid-template-columns: 50px minmax(0, 1fr);
       grid-template-areas:
@@ -735,7 +861,7 @@
 <div class="page-header">
   <div>
     <h1>Model Catalog Popup Mockup</h1>
-    <p>Recommended hybrid layout for issue #1376: Print History visual grammar with model-catalog-specific metadata. Includes top-right compact actions, explicit Source vs Published chips, media source filters (uploaded vs derived 3MF), thumbnail rail under main image, full-size viewer affordance, and related archives workspace.</p>
+    <p>Recommended hybrid layout for issue #1376: Print History visual grammar with model-catalog-specific metadata. Includes top-right compact actions, explicit Source vs Published chips, media source filters (uploaded vs derived 3MF), thumbnail rail under main image, full-size viewer affordance, related archives workspace, and related-model quick navigation.</p>
   </div>
   <div class="toolbar">
     <a href="index.html">Cards Index</a>
@@ -844,6 +970,47 @@
               <button>Analyze</button>
             </div>
           </article>
+
+          <div class="related-models">
+            <div class="related-head">
+              <strong>Related Models (Quick Nav)</strong>
+              <button>View All Related</button>
+            </div>
+            <div class="related-list">
+              <article class="related-item">
+                <img alt="related model" src="https://images.unsplash.com/photo-1581093458791-9d15482442f7?auto=format&fit=crop&w=120&q=80" />
+                <div class="text">
+                  <div class="name">Gridfinity Magnet Drawer V2</div>
+                  <div class="meta">by Robert S. | 6 linked archives</div>
+                  <div class="reason-chips">
+                    <span>Name overlap</span>
+                    <span>2 tag matches</span>
+                    <span>Same creator</span>
+                  </div>
+                </div>
+                <div class="related-actions">
+                  <span class="score">91% match</span>
+                  <button>Open</button>
+                </div>
+              </article>
+
+              <article class="related-item">
+                <img alt="related model" src="https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=120&q=80" />
+                <div class="text">
+                  <div class="name">Hex Bin Insert Organizer</div>
+                  <div class="meta">by Team Labform | 3 linked archives</div>
+                  <div class="reason-chips">
+                    <span>Matching phrase</span>
+                    <span>Collection overlap</span>
+                  </div>
+                </div>
+                <div class="related-actions">
+                  <span class="score">74% match</span>
+                  <button>Open</button>
+                </div>
+              </article>
+            </div>
+          </div>
 
           <div class="model-files">
             <div class="files-head">

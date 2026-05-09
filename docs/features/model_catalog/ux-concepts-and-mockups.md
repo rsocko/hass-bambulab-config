@@ -246,6 +246,78 @@ Must support:
 - `Launch File` and `Show In Explorer`
 - explicit `Reorganize` flow into group folder
 
+## Surface 4: Unified Production Queue
+
+Primary purpose:
+
+- give the operator one joined planning and execution-prep board across Catalog, Working, and Ideas
+
+Must support:
+
+- mixed-source queue items (`Catalog`, `Working`, `Idea`)
+- reorder and remove
+- drill into file and plate units
+- show complete vs pending plate state
+- archive-driven auto-complete when confidence is high
+- suggestion-only completion when confidence is medium
+- overnight and filament-aware planning hints
+- planner-accepted reorder updates to queue rank/order (with undo)
+
+Important distinction:
+
+- this is a planning/control surface, not the authoritative execution log
+- Print History remains the truth for actual successes, failures, and attempt chronology
+- `ready` means operator-ready for now, not necessarily integrated with Bambuddy queue handoff
+
+### Low-Fi Visual
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Unified Production Queue                                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Search [____________________]  State [Ready v]  Source [All v]  [Planner]   │
+│ Tonight: 2 items fit    AMS-ready now: 4    Started: 1                      │
+│                                                                              │
+│ #1 [Catalog] Gridfinity Bit Holder     Ready     5 plates pending  8h 12m   │
+│    holder_v3.3mf                                                           │
+│      - Plate 1  done      archive #8421                                    │
+│      - Plate 2  pending   AMS-ready now                                     │
+│      - Plate 3  suggest complete (78%)                                      │
+│    holder_label_set.3mf                                                     │
+│      - Plate A  pending                                                     │
+│    [Start] [Open Source] [Duplicate] [Remove]                               │
+│                                                                              │
+│ #2 [Working] Vacuum Hose Adapter v4   Started   1 of 2 plates done  3h 18m  │
+│    adapter_body.3mf                                                          │
+│      - Plate 1  done                                                         │
+│      - Plate 2  pending reprint (last attempt failed)                       │
+│    [Open Queue Item] [Block] [Remove]                                       │
+│                                                                              │
+│ #3 [Idea] Desk cable comb for USB hubs  Todo   no files yet                 │
+│    [Promote to Working] [Promote to Queue] [Dismiss]                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Add-to-Queue Variant
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Add To Queue                                                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Mode: [Quick Add] [Advanced Add]                                            │
+│                                                                              │
+│ Quick Add                                                                    │
+│ - all printable files selected                                               │
+│ - all plates selected                                                        │
+│                                                                              │
+│ Advanced Add                                                                 │
+│ - choose only one `.3mf`                                                     │
+│ - choose subset of files                                                     │
+│ - choose subset of plates with low-res previews                              │
+│ - see duration and filament fit before creating the queue entry              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
 ### Low-Fi Visual
 
 ```text

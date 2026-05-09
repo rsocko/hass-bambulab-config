@@ -24,6 +24,13 @@ Keep the hybrid approach, but align it to the approved architecture:
 - **Bambuddy queue** handles printer-ready files/projects
 - **external tools** can still hold pure ideas that do not yet have any Working group or curated model
 
+2026-05 revision:
+
+- preserve the backend split above
+- add an **operator-facing unified production queue** as a sidecar-owned projection over Catalog, Working, and Ideas sources
+- keep Bambuddy queue and Print History as adjacent but separate execution/history systems
+- see [unified-production-queue-design.md](unified-production-queue-design.md) for the joined operator model, plate tracking, and overnight-planning proposal
+
 ## Suggested Data Split
 
 ### Working Group State
@@ -70,3 +77,9 @@ Expose three queue-like views:
 3. **Printer-ready queue** — Bambuddy-native queue
 
 This gives the operator one control plane without collapsing distinct workflows into one overloaded queue model.
+
+The updated recommendation is slightly more explicit:
+
+- keep the three underlying concepts above
+- add a **Unified Production Queue** view in HA that can contain mixed-source entries from Catalog, Working Files, and Ideas
+- treat that mixed-source queue as the operator's planning/control board, not as the canonical storage home for every source-specific field

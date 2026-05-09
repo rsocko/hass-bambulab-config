@@ -1,7 +1,7 @@
 # Custom Fields Schema
 
 > **Status**: Proposed schema.
-> **Last updated**: 2026-04-21
+> **Last updated**: 2026-05-09
 > **Scope**: Fields stored in the local sidecar SQLite DB to extend what Manyfold natively supports.
 
 ## Why Custom Fields Are Needed
@@ -116,6 +116,8 @@ Records where a model was originally found before entering the local library. Su
 
 These fields are set at ingestion time and are rarely changed.
 
+For full channel and adapter behavior (URL paste, browser extension, Stream Deck, and collection migration), see [External Source Intake Design](external-source-intake-design.md).
+
 UI contract:
 
 - `source_platform` is the primary model-level "SOURCE" attribute shown in cards and popup metadata.
@@ -146,6 +148,34 @@ Usage rules:
 - UI can display friendly labels such as `MakerWorld` while storing canonical lowercase IDs
 - UI should render SOURCE and PUBLISHED TO in separate rows/chip groups
 - SOURCE should be singular in UI even if future internal lineage supports multiple source records
+
+### Third-Party Intake Addendum (#1266, #232, #1372, #189)
+
+The following fields are recommended as **intake-record metadata** in sidecar-owned intake tables, not as durable curated-model taxonomy fields:
+
+| Field key | JSON type | Allowed values | Purpose |
+|---|---|---|---|
+| `capture_channel` | string | `url_paste`, `browser_extension`, `streamdeck`, `karakeep_sync` | Where intake originated |
+| `capture_mode` | string | `link_only`, `metadata_only`, `full_import` | Operator-selected import depth |
+| `source_model_id` | string | Provider-native model ID when available | Stable provider identity |
+| `source_collection_id` | string | Provider-native collection/list ID | Collection migration tracking |
+| `source_confidence` | string | `high`, `medium`, `low`, `none` | Confidence gate for automated actions |
+| `source_warnings` | array<string> | Adapter-defined warnings | Review-time risk visibility |
+| `source_snapshot_json` | object | Raw normalized provider payload | Audit + reparse support |
+| `provider_access_mode` | string | `api`, `scrape`, `hybrid`, `manual` | Adapter execution mode used for capture/import |
+| `import_execution_policy` | string | `immediate_full_import`, `metadata_first_deferred_files`, `link_only` | Effective commit policy used |
+
+Rationale:
+
+- these values are per-capture operational context, not permanent model taxonomy
+- the same curated model may be captured multiple times from multiple channels over time
+- collection migration and quick-capture channels need auditability separate from curated model metadata
+
+Execution guidance:
+
+- `source_confidence=high` may use `import_execution_policy=immediate_full_import`
+- API-capable providers should generally prefer `metadata_first_deferred_files` unless operator explicitly requests full import
+- non-API providers may prioritize `immediate_full_import` more often to avoid future source drift and unavailable file endpoints
 
 ### `published_to` and `published_urls` (#171)
 
@@ -199,6 +229,37 @@ Status: Phase 3 queue/backlog groundwork is now implemented in the sidecar. Thes
 - when a confirmed archive link becomes `accepted` and active for a model whose current `to_print_status` is `queued`, the sidecar transitions `to_print_status` to `done`
 - this automatic transition does not change `to_print_priority`
 - if `to_print_status` is unset or already a value other than `queued`, linkage confirmation does not overwrite it
+
+2026-05 design refinement:
+
+- these remain **catalog-level hints**, not the full mixed-source queue model
+- richer queue-entry state now belongs in the sidecar-owned Unified Production Queue projection described in [unified-production-queue-design.md](unified-production-queue-design.md)
+
+That distinction matters because a joined queue can now include Working items and Ideas, not only curated models.
+
+### Unified Production Queue fields (sidecar-owned, not Manyfold custom fields)
+
+The following fields are recommended for queue entries, rather than for curated-model custom fields:
+
+- `state`: `idea`, `todo`, `ready`, `started`, `done`, `blocked`
+- `rank`: manual queue position
+- `started_at`
+- `completed_at`
+- `copies_requested`
+- `copies_completed`
+- `selection_mode`: `all_files_all_plates`, `selected_files`, `selected_plates`
+- `estimated_total_minutes`
+- `duration_bucket`: `quick`, `medium`, `overnight`, `marathon`, `unknown`
+- `ams_ready_score`
+- `overnight_fit_score`
+
+Per-file and per-plate progress also belongs in that queue projection, not in model custom fields.
+
+Why:
+
+- those values are per-entry operator state, not durable model taxonomy
+- the same model may appear in the queue multiple times over time
+- mixed-source queue entries need one consistent schema whether they came from Catalog, Working, or Ideas
 
 ### Taxonomy Extension For Issue #187 (Phase 3+)
 

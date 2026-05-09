@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>External Intake Workbench B</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0f1b2b;
+    --bg-soft: #14243a;
+    --card: #1a2f49;
+    --card-2: #213a59;
+    --line: rgba(173, 201, 228, 0.24);
+    --text: #e9f2fb;
+    --muted: #b4c8dc;
+    --cyan: #53d2dc;
+    --green: #7ed38f;
+    --amber: #f2c36b;
+    --rose: #ee9f9f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: linear-gradient(180deg, #0d1725 0%, #12243b 42%, #0f1b2b 100%); color: var(--text); font-family: "Segoe UI", Tahoma, sans-serif; }
+  body { padding: 20px; }
+  .shell {
+    max-width: 1420px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--bg-soft);
+    overflow: hidden;
+  }
+  .header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(90deg, rgba(83,210,220,0.12), rgba(83,210,220,0.02));
+  }
+  .header h1 { margin: 0; font-size: 20px; }
+  .header small { color: var(--muted); }
+  .metrics { display: flex; gap: 8px; flex-wrap: wrap; }
+  .metric { padding: 6px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(18,36,59,0.7); font-size: 11px; }
+  .grid {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    padding: 12px;
+  }
+  .card h2 { margin: 0 0 8px; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .capture { grid-column: span 4; }
+  .review { grid-column: span 5; }
+  .decision { grid-column: span 3; }
+  .collections { grid-column: span 7; }
+  .channels { grid-column: span 5; }
+
+  .lane { border: 1px solid var(--line); border-radius: 10px; background: var(--card-2); padding: 10px; margin-bottom: 8px; }
+  .lane h3 { margin: 0 0 5px; font-size: 14px; }
+  .lane p { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .input, .select {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: rgba(10, 21, 35, 0.5);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 8px 9px;
+    font-size: 12px;
+  }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 10px;
+    background: rgba(10, 21, 35, 0.4);
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .btn.primary { border-color: rgba(83,210,220,0.6); background: rgba(83,210,220,0.2); }
+  .btn.ok { border-color: rgba(126,211,143,0.6); background: rgba(126,211,143,0.2); }
+
+  .queue-item {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: rgba(10, 21, 35, 0.4);
+  }
+  .queue-item .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .queue-item .name { font-size: 14px; font-weight: 700; }
+  .queue-item .meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+  .chip { font-size: 11px; border: 1px solid; border-radius: 999px; padding: 3px 7px; }
+  .chip.high { color: var(--green); border-color: rgba(126,211,143,0.6); background: rgba(126,211,143,0.12); }
+  .chip.med { color: var(--amber); border-color: rgba(242,195,107,0.6); background: rgba(242,195,107,0.12); }
+  .chip.low { color: var(--rose); border-color: rgba(238,159,159,0.6); background: rgba(238,159,159,0.12); }
+
+  .decision-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+  .decision-list li { margin-bottom: 6px; }
+
+  .table { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .t-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; padding: 8px 10px; font-size: 12px; }
+  .t-head { background: rgba(83,210,220,0.1); font-weight: 700; }
+  .t-row + .t-row { border-top: 1px solid var(--line); }
+
+  @media (max-width: 1180px) {
+    .capture, .review, .decision, .collections, .channels { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <div>
+        <h1>External Intake Workbench</h1>
+        <small>Variant B · Board-centric triage layout for operators handling many pending captures</small>
+      </div>
+      <div class="metrics">
+        <span class="metric">Pending 22</span>
+        <span class="metric">Extension Captures 11</span>
+        <span class="metric">Stream Deck Captures 4</span>
+        <span class="metric">Collection Jobs Running 2</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card capture">
+        <h2>Capture</h2>
+        <div class="lane">
+          <h3>URL Intake</h3>
+          <p>Paste a source URL and create a pending intake record.</p>
+          <input class="input" value="https://www.printables.com/model/12345-gridfinity-rack" />
+          <div class="row">
+            <button class="btn">Preview Resolve</button>
+            <button class="btn primary">Create Pending</button>
+          </div>
+        </div>
+        <div class="lane">
+          <h3>Extension Inbox</h3>
+          <p>Last payload received from browser extension 18s ago.</p>
+          <div class="row">
+            <button class="btn">Open Pairing</button>
+            <button class="btn">Rotate Token</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="card review">
+        <h2>Review Queue</h2>
+        <div class="queue-item">
+          <div class="top"><div class="name">Gridfinity Rack Reinforced</div><span class="chip high">High</span></div>
+          <div class="meta">makerworld · extension_capture · files: 5 · warnings: 0</div>
+          <div class="row">
+            <button class="btn ok">Commit Metadata</button>
+            <button class="btn">Open Detail</button>
+          </div>
+        </div>
+        <div class="queue-item">
+          <div class="top"><div class="name">Hex Bit Drawer</div><span class="chip med">Medium</span></div>
+          <div class="meta">printables · url_paste · files: unresolved · warnings: profile id missing</div>
+          <div class="row">
+            <button class="btn">Fetch Again</button>
+            <button class="btn">Mark Needs Review</button>
+          </div>
+        </div>
+        <div class="queue-item">
+          <div class="top"><div class="name">Unknown Tool Holder</div><span class="chip low">Low</span></div>
+          <div class="meta">other · streamdeck · title-only scrape · warnings: no model id</div>
+          <div class="row">
+            <button class="btn">Convert to Link-Only</button>
+            <button class="btn">Reject</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="card decision">
+        <h2>Commit Policy</h2>
+        <p style="margin:0 0 8px;color:var(--muted);font-size:12px;">Apply one policy per commit operation:</p>
+        <select class="select">
+          <option>Review-first (default)</option>
+          <option>Allow full import when confidence is high</option>
+          <option>Always metadata-only</option>
+        </select>
+        <ul class="decision-list">
+          <li>Low confidence cannot full-import.</li>
+          <li>Dedupe by canonical URL + source id.</li>
+          <li>Collection migration exceptions pause batch.</li>
+        </ul>
+        <div class="row">
+          <button class="btn">Save As Team Preset</button>
+          <button class="btn primary">Apply</button>
+        </div>
+      </article>
+
+      <article class="card collections">
+        <h2>Collection Migration Monitor</h2>
+        <div class="table">
+          <div class="t-row t-head"><div>Collection</div><div>Provider</div><div>Items</div><div>Status</div></div>
+          <div class="t-row"><div>MakerWorld Favorites</div><div>makerworld</div><div>42</div><div>Running</div></div>
+          <div class="t-row"><div>Karakeep: To Print</div><div>karakeep</div><div>18</div><div>Ready</div></div>
+          <div class="t-row"><div>Thingiverse Likes</div><div>thingiverse</div><div>64</div><div>Paused</div></div>
+        </div>
+        <div class="row">
+          <button class="btn">Open Exceptions</button>
+          <button class="btn">Re-run Failed Items</button>
+          <button class="btn primary">Start New Migration</button>
+        </div>
+      </article>
+
+      <article class="card channels">
+        <h2>Channel Health</h2>
+        <div class="table">
+          <div class="t-row t-head"><div>Channel</div><div>Today</div><div>Failures</div><div>Last Seen</div></div>
+          <div class="t-row"><div>URL Paste</div><div>9</div><div>0</div><div>now</div></div>
+          <div class="t-row"><div>Browser Extension</div><div>11</div><div>1</div><div>18s ago</div></div>
+          <div class="t-row"><div>Stream Deck</div><div>4</div><div>0</div><div>2m ago</div></div>
+          <div class="t-row"><div>Karakeep Sync</div><div>2</div><div>0</div><div>13m ago</div></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

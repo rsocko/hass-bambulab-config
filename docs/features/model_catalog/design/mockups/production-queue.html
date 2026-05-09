@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Unified production queue mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0c1117;
+    --bg-panel: rgba(21, 28, 38, 0.95);
+    --bg-card: rgba(28, 36, 47, 0.96);
+    --bg-card-alt: rgba(18, 24, 33, 0.9);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.34);
+    --text: #e8edf2;
+    --text-secondary: #9eacba;
+    --text-muted: #6f7c8a;
+    --accent: #6ee7c8;
+    --accent-blue: #7cc7ff;
+    --accent-amber: #f2c35b;
+    --accent-red: #f59090;
+    --accent-green: #7ddc97;
+    --shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgba(124,199,255,0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(110,231,200,0.10), transparent 24%),
+      linear-gradient(180deg, #0b1015, #101821 34%, #0b1015 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  body { padding: 28px clamp(16px, 4vw, 44px) 48px; }
+  .page-header, .launch-pad, .queue-shell { max-width: 1450px; margin: 0 auto; }
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .page-header h1 { margin: 0; font-size: 28px; letter-spacing: -0.03em; }
+  .page-header p { margin: 8px 0 0; max-width: 900px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a {
+    color: var(--text-secondary); text-decoration: none; font-size: 12px; padding: 7px 10px;
+    border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.03);
+  }
+  .nav a.active { color: var(--text); border-color: rgba(110,231,200,0.34); background: rgba(110,231,200,0.10); }
+
+  .launch-pad {
+    display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; margin-bottom: 16px;
+  }
+  .panel {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  }
+  .panel-header h2 { margin: 0; font-size: 17px; }
+  .panel-header .sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pill, .chip, .tiny-btn, .stat-pill {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .pill { padding: 6px 10px; border: 1px solid rgba(110,231,200,0.28); color: var(--accent); background: rgba(110,231,200,0.08); }
+  .tiny-btn {
+    padding: 7px 12px; border: 1px solid var(--border); color: var(--text); text-transform: none; letter-spacing: 0;
+    background: rgba(255,255,255,0.05);
+  }
+  .launch-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px 18px 18px;
+  }
+  .mini-card {
+    background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 16px; padding: 14px;
+  }
+  .mini-card h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-secondary); }
+  .mini-card .big { font-size: 28px; font-weight: 800; letter-spacing: -0.04em; }
+  .mini-card p { margin: 6px 0 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .mini-list { display: grid; gap: 10px; padding: 0 18px 18px; }
+  .mini-row {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.03);
+  }
+  .drag { color: var(--text-muted); font-size: 18px; }
+  .source {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;
+    border: 1px solid var(--border);
+  }
+  .source.catalog { color: var(--accent-blue); background: rgba(124,199,255,0.10); }
+  .source.working { color: var(--accent); background: rgba(110,231,200,0.10); }
+  .source.idea { color: var(--accent-amber); background: rgba(242,195,91,0.10); }
+  .row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .row-title strong { font-size: 15px; }
+  .meta { margin-top: 5px; color: var(--text-secondary); font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 4px 8px; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.04);
+    text-transform: none; letter-spacing: 0;
+  }
+  .chip.ready { color: var(--accent-green); border-color: rgba(125,220,151,0.34); background: rgba(125,220,151,0.10); }
+  .chip.started { color: var(--accent-blue); border-color: rgba(124,199,255,0.34); background: rgba(124,199,255,0.10); }
+  .chip.blocked { color: var(--accent-red); border-color: rgba(245,144,144,0.34); background: rgba(245,144,144,0.10); }
+  .chip.overnight { color: var(--accent-amber); border-color: rgba(242,195,91,0.34); background: rgba(242,195,91,0.10); }
+  .queue-shell {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .toolbar {
+    padding: 16px 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.00));
+  }
+  .search { flex: 1; min-width: 220px; }
+  .toolbar input, .toolbar select {
+    width: 100%; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 13px;
+  }
+  .queue-layout { display: grid; grid-template-columns: 1.7fr 0.9fr; gap: 0; }
+  .queue-list { padding: 14px; border-right: 1px solid var(--border); background: rgba(255,255,255,0.01); }
+  .queue-card {
+    margin-bottom: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+  }
+  .queue-card:last-child { margin-bottom: 0; }
+  .queue-card .top {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 14px 14px 12px; align-items: start;
+  }
+  .rank {
+    width: 44px; min-height: 44px; border-radius: 14px; background: linear-gradient(180deg, rgba(124,199,255,0.14), rgba(124,199,255,0.04));
+    border: 1px solid rgba(124,199,255,0.18); display: flex; align-items: center; justify-content: center; flex-direction: column; font-weight: 800;
+  }
+  .rank span { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .actions button, .planner button {
+    border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text); border-radius: 10px; padding: 8px 10px; font-size: 12px;
+  }
+  .actions button.primary { background: rgba(110,231,200,0.12); border-color: rgba(110,231,200,0.30); color: var(--accent); }
+  .units {
+    padding: 0 14px 14px 70px; display: grid; gap: 8px;
+  }
+  .unit {
+    border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.03); overflow: hidden;
+  }
+  .unit-header, .plate {
+    display: grid; grid-template-columns: 1.2fr 0.8fr 0.8fr auto; gap: 8px; align-items: center;
+  }
+  .unit-header { padding: 10px 12px; background: rgba(255,255,255,0.02); }
+  .plate { padding: 10px 12px; border-top: 1px solid rgba(148,163,184,0.08); font-size: 12px; }
+  .plate.done { background: rgba(125,220,151,0.05); }
+  .plate.pending { background: rgba(124,199,255,0.04); }
+  .plate .thumb {
+    width: 52px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: linear-gradient(135deg, rgba(124,199,255,0.18), rgba(110,231,200,0.10));
+    display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 11px; margin-right: 10px;
+  }
+  .plate-main { display: flex; align-items: center; }
+  .sidebar { padding: 16px; display: grid; gap: 14px; }
+  .planner, .detail-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 14px;
+  }
+  .planner h3, .detail-card h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
+  .planner p, .detail-card p, .detail-card li { color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+  .detail-card ul { padding-left: 18px; margin: 8px 0 0; }
+  .stat-stack { display: grid; gap: 8px; margin: 12px 0; }
+  .stat-pill {
+    justify-content: space-between; width: 100%; padding: 10px 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); text-transform: none; letter-spacing: 0;
+  }
+  .planner-controls { display: grid; gap: 8px; margin: 12px 0; }
+  .planner-controls .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .planner-controls select, .planner-controls input {
+    width: 100%; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 12px;
+  }
+  .weight {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+    padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+    color: var(--text-secondary); font-size: 12px;
+  }
+  .weight strong { color: var(--text); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .rewrite-preview {
+    margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.03); overflow: hidden;
+  }
+  .rewrite-preview .hdr {
+    padding: 8px 10px; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border);
+  }
+  .rewrite-preview .line {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+    padding: 8px 10px; font-size: 12px; color: var(--text-secondary); border-top: 1px solid rgba(148,163,184,0.08);
+  }
+  .rewrite-preview .line:first-child { border-top: 0; }
+  .note {
+    margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(124,199,255,0.08); border: 1px solid rgba(124,199,255,0.20); color: #d5e7f7; font-size: 12px; line-height: 1.55;
+  }
+  @media (max-width: 1080px) {
+    .launch-pad, .queue-layout { grid-template-columns: 1fr; }
+    .queue-list { border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 760px) {
+    .launch-grid { grid-template-columns: 1fr; }
+    .unit-header, .plate { grid-template-columns: 1fr; }
+    .units { padding-left: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Unified Production Queue</h1>
+    <p>Operator-facing queue that joins Catalog, Working Files, and Ideas while keeping Bambuddy queue and Print History separate underneath. The Launch Pad gets a compact queue widget; the main queue view handles reorder, remove, plate progress, archive suggestions, and overnight planning.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Index</a>
+    <a class="active" href="production-queue.html">Production Queue</a>
+    <a href="production-queue-add.html">Add Flow</a>
+    <a href="working-files-groups.html">Working Files</a>
+  </div>
+</div>
+
+<section class="launch-pad">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Launch Pad queue widget</h2>
+        <div class="sub">Compact home surface for what is next, what fits tonight, and what is already started.</div>
+      </div>
+      <div class="header-right">
+        <span class="pill">AMS ready now: 4</span>
+        <span class="tiny-btn">Open full queue</span>
+      </div>
+    </div>
+    <div class="launch-grid">
+      <div class="mini-card">
+        <h3>Tonight fit</h3>
+        <div class="big">2 items</div>
+        <p>Suggested chain uses 8.1h total and finishes by 10:46 AM with no spool swaps.</p>
+      </div>
+      <div class="mini-card">
+        <h3>Started</h3>
+        <div class="big">1 active</div>
+        <p>Gridfinity Bit Holder batch is partially complete: 2 of 5 plates done.</p>
+      </div>
+      <div class="mini-card">
+        <h3>Ideas inbox</h3>
+        <div class="big">6 ideas</div>
+        <p>Three ideas are tagged urgent; two have enough notes to promote into Working.</p>
+      </div>
+    </div>
+    <div class="mini-list">
+      <div class="mini-row">
+        <div class="drag">⋮⋮</div>
+        <div>
+          <div class="row-title"><span class="source catalog">Catalog</span><strong>Gridfinity Bit Holder</strong><span class="chip ready">Ready</span><span class="chip overnight">Overnight fit</span></div>
+          <div class="meta"><span>3 files selected</span><span>5 plates pending</span><span>8h 12m remaining</span><span>AMS match: 92%</span></div>
+        </div>
+        <span class="tiny-btn">Resume</span>
+      </div>
+      <div class="mini-row">
+        <div class="drag">⋮⋮</div>
+        <div>
+          <div class="row-title"><span class="source working">Working</span><strong>Vacuum Hose Adapter v4</strong><span class="chip started">Started</span></div>
+          <div class="meta"><span>1 of 2 plates done</span><span>linked archive suggestion pending</span><span>PLA Matte already loaded</span></div>
+        </div>
+        <span class="tiny-btn">Open queue item</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Planner highlights</h2>
+          <div class="sub">Suggestions become queue-rank updates when accepted; undo remains available.</div>
+      </div>
+      <div class="header-right"><span class="tiny-btn">Quick find for tonight</span></div>
+    </div>
+    <div class="mini-list" style="padding-top:16px;">
+      <div class="mini-row">
+        <div>01</div>
+        <div>
+          <div class="row-title"><strong>Best overnight starter</strong></div>
+          <div class="meta"><span>Gridfinity Bit Holder</span><span>Start before midnight</span><span>finishes 6:11 AM</span></div>
+        </div>
+        <span class="chip overnight">Accept</span>
+      </div>
+      <div class="mini-row">
+        <div>02</div>
+        <div>
+          <div class="row-title"><strong>Low-change follow-up</strong></div>
+          <div class="meta"><span>Tool Tray Labels</span><span>shares 3 of 4 loaded colors</span><span>2h 05m</span></div>
+        </div>
+        <span class="chip ready">Queue after #1</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="queue-shell">
+  <div class="toolbar">
+    <div class="search"><input value="" placeholder="Search title, idea note, file name, plate name..." /></div>
+    <select style="width:170px"><option>All states</option><option>Todo</option><option>Ready</option><option>Started</option><option>Blocked</option><option>Done</option></select>
+    <select style="width:180px"><option>All sources</option><option>Catalog</option><option>Working</option><option>Ideas</option></select>
+    <select style="width:180px"><option>Manual rank</option><option>Overnight fit</option><option>AMS ready now</option><option>Fewest spool changes</option></select>
+    <span class="tiny-btn">Planner suggestions</span>
+    <span class="tiny-btn">Done items</span>
+  </div>
+  <div class="queue-layout">
+    <div class="queue-list">
+      <article class="queue-card">
+        <div class="top">
+          <div class="rank">1<span>Rank</span></div>
+          <div>
+            <div class="row-title">
+              <span class="source catalog">Catalog</span>
+              <strong>Gridfinity Bit Holder</strong>
+              <span class="chip ready">Ready</span>
+              <span class="chip overnight">Tonight fit</span>
+            </div>
+            <div class="meta">
+              <span>Source: curated model</span>
+              <span>Selection: 2 files / 5 plates</span>
+              <span>Remaining: 8h 12m</span>
+              <span>Copies: 1 / 1 batch</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary">Start</button>
+            <button>Open source</button>
+            <button>Duplicate</button>
+            <button>Remove</button>
+          </div>
+        </div>
+        <div class="units">
+          <div class="unit">
+            <div class="unit-header">
+              <strong>holder_v3.3mf</strong>
+              <span>5h 47m</span>
+              <span>Filaments: Black, Gray, White</span>
+              <span class="chip ready">selected</span>
+            </div>
+            <div class="plate done">
+              <div class="plate-main"><span class="thumb">plate 1</span><div><strong>Plate 1</strong><div style="color:var(--text-muted)">Auto-completed from archive #8421</div></div></div>
+              <span>1h 58m</span>
+              <span class="chip ready">Done</span>
+              <span class="tiny-btn">Undo</span>
+            </div>
+            <div class="plate pending">
+              <div class="plate-main"><span class="thumb">plate 2</span><div><strong>Plate 2</strong><div style="color:var(--text-muted)">Pending. AMS-ready now.</div></div></div>
+              <span>2h 13m</span>
+              <span class="chip started">Pending</span>
+              <span class="tiny-btn">Mark done</span>
+            </div>
+            <div class="plate pending">
+              <div class="plate-main"><span class="thumb">plate 3</span><div><strong>Plate 3</strong><div style="color:var(--text-muted)">Suggested match from archive #8424, confidence 78%.</div></div></div>
+              <span>1h 36m</span>
+              <span class="chip overnight">Suggest complete</span>
+              <span class="tiny-btn">Review</span>
+            </div>
+          </div>
+          <div class="unit">
+            <div class="unit-header">
+              <strong>holder_label_set.3mf</strong>
+              <span>2h 25m</span>
+              <span>Filaments: White</span>
+              <span class="chip ready">selected</span>
+            </div>
+            <div class="plate pending">
+              <div class="plate-main"><span class="thumb">plate A</span><div><strong>Plate A</strong><div style="color:var(--text-muted)">Pending.</div></div></div>
+              <span>2h 25m</span>
+              <span class="chip started">Pending</span>
+              <span class="tiny-btn">Block</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="queue-card">
+        <div class="top">
+          <div class="rank">2<span>Rank</span></div>
+          <div>
+            <div class="row-title">
+              <span class="source working">Working</span>
+              <strong>Vacuum Hose Adapter v4</strong>
+              <span class="chip started">Started</span>
+            </div>
+            <div class="meta">
+              <span>Source: working group</span>
+              <span>1 of 2 plates complete</span>
+              <span>Last attempt: failed</span>
+              <span>Remaining: 3h 18m</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary">Open queue item</button>
+            <button>Mark blocked</button>
+            <button>Remove</button>
+          </div>
+        </div>
+        <div class="units">
+          <div class="unit">
+            <div class="unit-header">
+              <strong>adapter_body.3mf</strong>
+              <span>3h 18m</span>
+              <span>Filaments: PETG Black</span>
+              <span class="chip started">selected</span>
+            </div>
+            <div class="plate done">
+              <div class="plate-main"><span class="thumb">plate 1</span><div><strong>Plate 1</strong><div style="color:var(--text-muted)">Done.</div></div></div>
+              <span>1h 10m</span>
+              <span class="chip ready">Done</span>
+              <span class="tiny-btn">Undo</span>
+            </div>
+            <div class="plate pending">
+              <div class="plate-main"><span class="thumb">plate 2</span><div><strong>Plate 2</strong><div style="color:var(--text-muted)">Last archive failed. Still outstanding.</div></div></div>
+              <span>2h 08m</span>
+              <span class="chip blocked">Pending reprint</span>
+              <span class="tiny-btn">Retry</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="queue-card">
+        <div class="top">
+          <div class="rank">3<span>Rank</span></div>
+          <div>
+            <div class="row-title">
+              <span class="source idea">Idea</span>
+              <strong>Desk cable comb for USB hubs</strong>
+              <span class="chip">Todo</span>
+            </div>
+            <div class="meta">
+              <span>No model yet</span>
+              <span>Captured in Ideas inbox</span>
+              <span>Next step: spawn Working group</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary">Promote to Working</button>
+            <button>Keep in ideas</button>
+            <button>Remove</button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <aside class="sidebar">
+      <div class="planner">
+        <h3>Quick Find</h3>
+        <p>Planner modes support overnight and daytime operation: quick-turn while nearby, long-run while busy, plus filament-overlap and low-slot strategies.</p>
+        <div class="planner-controls">
+          <div class="row">
+            <select>
+              <option>Strategy: Overnight fit</option>
+              <option>Strategy: Daytime quick-turn</option>
+              <option>Strategy: Daytime long-run</option>
+              <option>Strategy: Loaded spool overlap</option>
+              <option>Strategy: Low-slot first</option>
+              <option>Strategy: Fewest swaps</option>
+            </select>
+            <select>
+              <option>Rewrite scope: selected segment</option>
+              <option>Rewrite scope: full queue</option>
+            </select>
+          </div>
+          <div class="row">
+            <input value="Latest start: 12:00 AM" />
+            <input value="Target finish: 11:00 AM" />
+          </div>
+          <div class="weight"><strong>Duration fit</strong><span>80</span></div>
+          <div class="weight"><strong>Loaded spool overlap</strong><span>90</span></div>
+          <div class="weight"><strong>Slot-count simplicity</strong><span>65</span></div>
+          <div class="weight"><strong>Swap minimization</strong><span>85</span></div>
+          <div class="weight"><strong>Deadline adherence</strong><span>95</span></div>
+        </div>
+        <div class="stat-stack">
+          <div class="stat-pill"><span>Window</span><strong>9:04 PM -> 11:00 AM</strong></div>
+          <div class="stat-pill"><span>AMS loaded</span><strong>Black, Gray, White, Blue</strong></div>
+          <div class="stat-pill"><span>Best chain</span><strong>#1 then Tool Tray Labels</strong></div>
+        </div>
+        <div class="rewrite-preview">
+          <div class="hdr">Rewrite preview (before -> after)</div>
+          <div class="line"><span>#2</span><span>Vacuum Hose Adapter v4</span><strong>#1</strong></div>
+          <div class="line"><span>#1</span><span>Gridfinity Bit Holder</span><strong>#2</strong></div>
+          <div class="line"><span>#4</span><span>Tool Tray Labels</span><strong>#3</strong></div>
+        </div>
+        <button>Suggest overnight chain</button>
+        <button>Suggest daytime quick-turn chain</button>
+        <button>Suggest daytime long-run chain</button>
+        <button>Prefer no spool swaps</button>
+        <button>Prioritize low-slot prints</button>
+        <button>Apply suggested rewrite</button>
+        <button>Undo last rewrite</button>
+      </div>
+
+      <div class="detail-card">
+        <h3>Queue rules</h3>
+        <ul>
+          <li>Default add includes all printable files and all plates.</li>
+          <li>Plate selection can be narrowed later or in Advanced Add.</li>
+          <li>Failed prints do not mark work complete.</li>
+          <li>Auto-complete is only applied on high-confidence archive linkage.</li>
+          <li>The same source can appear again later as a new queue entry.</li>
+        </ul>
+        <div class="note">Catalog and Working surfaces should show queue summary and jump into this view, but this is the only place where reorder, plate completion, and overnight planning are fully editable.</div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+</body>
+</html>

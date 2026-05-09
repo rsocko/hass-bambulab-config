@@ -541,6 +541,87 @@
     padding: 3px 6px;
   }
 
+  .relateds {
+    padding: 8px;
+    display: grid;
+    gap: 7px;
+    max-height: 220px;
+    overflow: auto;
+  }
+
+  .relateds article {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 7px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .relateds img {
+    width: 100%;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+  }
+
+  .relateds .t {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .relateds .m {
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--sub);
+  }
+
+  .relateds .reasons {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .relateds .reasons span {
+    font-size: 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(152, 168, 190, 0.3);
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 6px;
+  }
+
+  .relateds .btns {
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    min-width: 82px;
+  }
+
+  .relateds .btns .score {
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 999px;
+    border: 1px solid rgba(139, 174, 255, 0.48);
+    color: #d2e0ff;
+    background: rgba(139, 174, 255, 0.14);
+    padding: 2px 6px;
+  }
+
+  .relateds .btns button {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
   .advanced {
     padding: 10px;
     display: flex;
@@ -587,6 +668,21 @@
     .archives .text { grid-area: text; }
     .archives .btns { grid-area: btn; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
+    .relateds article {
+      grid-template-columns: 44px minmax(0, 1fr);
+      grid-template-areas:
+        "img text"
+        "btn btn";
+    }
+
+    .relateds img { grid-area: img; }
+    .relateds .text { grid-area: text; }
+    .relateds .btns {
+      grid-area: btn;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      min-width: 0;
+    }
+
     .files article {
       grid-template-columns: 50px minmax(0, 1fr);
       grid-template-areas:
@@ -621,7 +717,7 @@
 <div class="head">
   <div>
     <h1>Model Catalog Popup - Alternative</h1>
-    <p>Split-pane inspector concept: persistent media pane on the left and context/action pane on the right. This approach is powerful for heavy curation sessions but denser than the recommended design.</p>
+    <p>Split-pane inspector concept: persistent media pane on the left and context/action pane on the right, including a dedicated related-model quick-nav stack. This approach is powerful for heavy curation sessions but denser than the recommended design.</p>
   </div>
   <div class="links">
     <a href="index.html">Cards Index</a>
@@ -776,6 +872,30 @@
               <div class="m">PLA Black | 4h 02m | Success</div>
             </div>
             <div class="btns"><button>View</button><button>Print Again</button></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="box">
+        <div class="h">Related Models (Quick Nav)</div>
+        <div class="relateds">
+          <article>
+            <img alt="rm1" src="https://images.unsplash.com/photo-1594552072238-b8a33785b261?auto=format&fit=crop&w=140&q=80" />
+            <div class="text">
+              <div class="t">Hex Tile Organizer V3</div>
+              <div class="m">by labform | 5 linked archives</div>
+              <div class="reasons"><span>Name overlap</span><span>Same creator</span><span>Tag match</span></div>
+            </div>
+            <div class="btns"><span class="score">89%</span><button>Open</button></div>
+          </article>
+          <article>
+            <img alt="rm2" src="https://images.unsplash.com/photo-1581092335878-1d9ff4d6b9f7?auto=format&fit=crop&w=140&q=80" />
+            <div class="text">
+              <div class="t">Desk Grid Hex Insert Pack</div>
+              <div class="m">by makergrid | 2 linked archives</div>
+              <div class="reasons"><span>Phrase match</span><span>Collection overlap</span></div>
+            </div>
+            <div class="btns"><span class="score">72%</span><button>Open</button></div>
           </article>
         </div>
       </section>

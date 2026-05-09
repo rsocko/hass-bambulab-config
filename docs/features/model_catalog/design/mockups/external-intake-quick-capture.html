@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>External Intake Quick Capture</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #18161c;
+    --ink: #f4effa;
+    --muted: #c8bdd7;
+    --card: #252031;
+    --card-2: #2f2740;
+    --line: rgba(220, 198, 255, 0.24);
+    --violet: #c89bff;
+    --teal: #7de7d3;
+    --amber: #f7d28f;
+    --danger: #f0a8a8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: radial-gradient(circle at 80% 0%, #2a203a 0%, #18161c 50%, #110f16 100%); color: var(--ink); font-family: "Segoe UI", "Verdana", sans-serif; }
+  body { padding: 18px; }
+  .stage {
+    max-width: 1100px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(24, 22, 28, 0.85);
+    backdrop-filter: blur(4px);
+  }
+  .hero {
+    padding: 18px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(120deg, rgba(200,155,255,0.18), rgba(125,231,211,0.08));
+  }
+  .hero h1 { margin: 0; font-size: 22px; }
+  .hero p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+
+  .content {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    padding: 12px;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .action {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card-2);
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .action h3 { margin: 0 0 4px; font-size: 14px; }
+  .action p { margin: 0; font-size: 12px; color: var(--muted); }
+
+  .input {
+    margin-top: 8px;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px;
+    background: rgba(16, 12, 24, 0.65);
+    color: var(--ink);
+    font-size: 12px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .btn {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 10px;
+    background: rgba(16, 12, 24, 0.55);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .btn.primary { border-color: rgba(200,155,255,0.7); background: rgba(200,155,255,0.22); }
+  .btn.teal { border-color: rgba(125,231,211,0.7); background: rgba(125,231,211,0.22); }
+
+  .queue {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .q-head, .q-item {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 8px;
+    padding: 9px 10px;
+    font-size: 12px;
+    align-items: center;
+  }
+  .q-head { background: rgba(200,155,255,0.15); font-weight: 700; }
+  .q-item { border-top: 1px solid var(--line); }
+  .badge { width: fit-content; border: 1px solid; border-radius: 999px; padding: 3px 7px; font-size: 11px; }
+  .badge.ok { color: var(--teal); border-color: rgba(125,231,211,0.7); background: rgba(125,231,211,0.12); }
+  .badge.mid { color: var(--amber); border-color: rgba(247,210,143,0.7); background: rgba(247,210,143,0.12); }
+  .badge.low { color: var(--danger); border-color: rgba(240,168,168,0.7); background: rgba(240,168,168,0.12); }
+
+  .deck {
+    margin-top: 10px;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    background: rgba(200,155,255,0.08);
+  }
+
+  @media (max-width: 900px) {
+    .content { grid-template-columns: 1fr; }
+    .q-head, .q-item { grid-template-columns: 1.6fr 1fr 0.9fr; }
+  }
+</style>
+</head>
+<body>
+  <main class="stage">
+    <header class="hero">
+      <h1>Quick Capture Inbox</h1>
+      <p>Variant C · Fast capture-first flow for browser extension and Stream Deck actions (issues #232, #1372).</p>
+    </header>
+
+    <section class="content">
+      <article class="card">
+        <h2>Capture Actions</h2>
+
+        <div class="action">
+          <h3>Browser Extension Push</h3>
+          <p>Capture from the current tab with signed payload.</p>
+          <input class="input" value="https://makerworld.com/en/models/998877-snap-fit-rack" />
+          <div class="row">
+            <button class="btn">Verify Signature</button>
+            <button class="btn primary">Create Pending Capture</button>
+          </div>
+        </div>
+
+        <div class="action">
+          <h3>Stream Deck One-Tap</h3>
+          <p>Map three commands to physical keys for immediate intake.</p>
+          <div class="row">
+            <button class="btn teal">Capture URL</button>
+            <button class="btn">Capture + Metadata</button>
+            <button class="btn">Capture + Full</button>
+          </div>
+        </div>
+
+        <div class="action">
+          <h3>Clipboard URL Fallback</h3>
+          <p>Paste URL directly when extension is unavailable.</p>
+          <input class="input" value="https://www.printables.com/model/448822-cable-chain-v2" />
+          <div class="row">
+            <button class="btn">Resolve Provider</button>
+            <button class="btn primary">Capture</button>
+          </div>
+        </div>
+
+        <div class="deck">
+          Stream Deck profile hint: map device button labels to exact webhook presets and keep default behavior in review-first mode. This avoids accidental full imports from stale tabs.
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Pending Quick Captures</h2>
+
+        <div class="queue">
+          <div class="q-head"><div>Item</div><div>Channel</div><div>Confidence</div></div>
+          <div class="q-item"><div>Snap-Fit Rack</div><div>Extension</div><div><span class="badge ok">High</span></div></div>
+          <div class="q-item"><div>Cable Chain V2</div><div>Stream Deck</div><div><span class="badge mid">Medium</span></div></div>
+          <div class="q-item"><div>Benchy Remix Collection</div><div>URL Paste</div><div><span class="badge mid">Medium</span></div></div>
+          <div class="q-item"><div>Unknown Catalog Page</div><div>Stream Deck</div><div><span class="badge low">Low</span></div></div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn">Batch Approve Metadata</button>
+          <button class="btn">Open Review Queue</button>
+          <button class="btn primary">Commit Selected</button>
+        </div>
+
+        <div class="action" style="margin-top:10px;">
+          <h3>Auto-Routing Rules</h3>
+          <p>Quick capture defaults are channel-specific and overrideable:</p>
+          <ul style="margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.45;">
+            <li>Extension: metadata-only, then review</li>
+            <li>Stream Deck Capture URL: link-only pending</li>
+            <li>Stream Deck Capture + Metadata: metadata pending</li>
+            <li>Full import requires high confidence or manual approval</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

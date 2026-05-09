@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Add to queue mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0d1219;
+    --bg-overlay: rgba(7, 10, 15, 0.78);
+    --bg-popup: rgba(23, 30, 40, 0.98);
+    --bg-strip: rgba(255,255,255,0.03);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.34);
+    --text: #e9eef5;
+    --text-secondary: #a3b0bf;
+    --text-muted: #738091;
+    --accent: #72e8ca;
+    --accent-blue: #7cc7ff;
+    --accent-amber: #f2c35b;
+    --accent-green: #82db98;
+    --shadow: 0 28px 80px rgba(0,0,0,0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background:
+      radial-gradient(circle at top left, rgba(114,232,202,0.10), transparent 26%),
+      radial-gradient(circle at bottom right, rgba(124,199,255,0.10), transparent 22%),
+      linear-gradient(180deg, #0b1015, #0f1620 42%, #0b1015 100%);
+    color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  body { padding: 30px clamp(16px, 4vw, 42px); }
+  .page-header { max-width: 1320px; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 27px; letter-spacing: -0.03em; }
+  .page-header p { margin: 8px 0 0; max-width: 860px; color: var(--text-secondary); font-size: 14px; line-height: 1.58; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { text-decoration: none; color: var(--text-secondary); font-size: 12px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+  .nav a.active { color: var(--text); border-color: rgba(114,232,202,0.32); background: rgba(114,232,202,0.10); }
+  .stage { max-width: 1320px; margin: 0 auto; padding: 24px; background: var(--bg-overlay); border: 1px dashed var(--border); border-radius: 22px; }
+  .popup {
+    max-width: 1180px; margin: 0 auto; background: var(--bg-popup); border: 1px solid var(--border-strong); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .titlebar {
+    padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  }
+  .titlebar strong { display: block; font-size: 18px; }
+  .titlebar span { color: var(--text-muted); font-size: 12px; }
+  .steps { display: flex; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .step {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; font-weight: 700;
+  }
+  .step.active { color: var(--text); background: rgba(114,232,202,0.10); border-color: rgba(114,232,202,0.28); }
+  .layout { display: grid; grid-template-columns: 1.05fr 1.25fr; }
+  .left, .right { padding: 18px; }
+  .left { border-right: 1px solid var(--border); background: rgba(255,255,255,0.015); }
+  .section { margin-bottom: 16px; }
+  .section:last-child { margin-bottom: 0; }
+  .section h2 { margin: 0 0 10px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
+  .seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+  .seg span { padding: 7px 12px; font-size: 12px; color: var(--text-secondary); border-radius: 999px; }
+  .seg span.active { background: rgba(114,232,202,0.14); color: var(--accent); }
+  .field, .summary-card, .file-card, .plate-card, .hint {
+    border: 1px solid var(--border); border-radius: 16px; background: var(--bg-strip);
+  }
+  .field { padding: 12px; margin-top: 10px; }
+  .field label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 13px;
+  }
+  .field textarea { min-height: 78px; resize: vertical; }
+  .choice-list { display: grid; gap: 10px; margin-top: 10px; }
+  .choice {
+    padding: 12px; border-radius: 16px; border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  }
+  .choice.active { border-color: rgba(114,232,202,0.28); background: rgba(114,232,202,0.08); }
+  .choice strong { display: block; font-size: 14px; margin-bottom: 4px; }
+  .choice p { margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .summary-card { padding: 14px; }
+  .summary-card h3 { margin: 0 0 8px; font-size: 16px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.04);
+  }
+  .badge.good { color: var(--accent-green); border-color: rgba(130,219,152,0.32); background: rgba(130,219,152,0.10); }
+  .badge.blue { color: var(--accent-blue); border-color: rgba(124,199,255,0.32); background: rgba(124,199,255,0.10); }
+  .badge.amber { color: var(--accent-amber); border-color: rgba(242,195,91,0.32); background: rgba(242,195,91,0.10); }
+  .file-stack, .plates-grid { display: grid; gap: 10px; }
+  .file-card { overflow: hidden; }
+  .file-head {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; padding: 12px; align-items: center; background: rgba(255,255,255,0.02);
+  }
+  .file-head .check {
+    width: 22px; height: 22px; border-radius: 7px; border: 1px solid rgba(114,232,202,0.32); background: rgba(114,232,202,0.14); display: inline-flex; align-items: center; justify-content: center; color: var(--accent);
+  }
+  .file-head strong { font-size: 14px; }
+  .file-head .meta { margin-top: 4px; font-size: 12px; color: var(--text-secondary); }
+  .plates-grid { padding: 12px; grid-template-columns: repeat(2, 1fr); }
+  .plate-card { padding: 10px; }
+  .plate-preview {
+    height: 118px; border-radius: 12px; border: 1px solid var(--border); background:
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+      radial-gradient(circle at 30% 30%, rgba(124,199,255,0.18), transparent 34%),
+      linear-gradient(135deg, rgba(114,232,202,0.08), rgba(124,199,255,0.06));
+    margin-bottom: 10px; position: relative;
+  }
+  .plate-preview::after {
+    content: 'low-res plate preview'; position: absolute; bottom: 8px; right: 8px; font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .plate-card strong { display: block; font-size: 13px; margin-bottom: 4px; }
+  .plate-card p { margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .hint { padding: 12px; color: #d5e4f1; font-size: 12px; line-height: 1.6; background: rgba(124,199,255,0.08); border-color: rgba(124,199,255,0.18); }
+  .footer {
+    display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px 18px; border-top: 1px solid var(--border);
+  }
+  .footer .status { color: var(--text-secondary); font-size: 12px; }
+  .footer .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .footer button {
+    border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text); padding: 10px 14px; font-size: 13px;
+  }
+  .footer button.primary { background: rgba(114,232,202,0.12); border-color: rgba(114,232,202,0.30); color: var(--accent); }
+  @media (max-width: 1020px) {
+    .layout { grid-template-columns: 1fr; }
+    .left { border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 760px) {
+    .plates-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Add To Queue · Hybrid flow</h1>
+    <p>Default path adds all printable files and plates. Advanced mode lets the operator narrow to a single file, a subset of files, or a subset of plates with low-res previews, filament visibility, and overnight/AMS fit hints before the queue entry is created.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Index</a>
+    <a href="production-queue.html">Production Queue</a>
+    <a class="active" href="production-queue-add.html">Add Flow</a>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="popup">
+    <div class="titlebar">
+      <div>
+        <strong>Add “Gridfinity Bit Holder” to queue</strong>
+        <span>Source: Catalog model · 3 printable files detected · 7 plates total</span>
+      </div>
+      <span class="badge blue">Hybrid add</span>
+    </div>
+
+    <div class="steps">
+      <span class="step active">1 Scope</span>
+      <span class="step">2 Files &amp; Plates</span>
+      <span class="step">3 Planning Hints</span>
+      <span class="step">4 Create Entry</span>
+    </div>
+
+    <div class="layout">
+      <div class="left">
+        <div class="section">
+          <h2>Add mode</h2>
+          <div class="seg">
+            <span>Quick Add</span>
+            <span class="active">Advanced Add</span>
+          </div>
+          <div class="choice-list">
+            <div class="choice">
+              <strong>Add all files and all plates</strong>
+              <p>Recommended default for speed. Good when the queue entry represents the whole model and the operator will trim later only if needed.</p>
+            </div>
+            <div class="choice active">
+              <strong>Choose files and plates now</strong>
+              <p>Use this when only one `.3mf` should be printed, some plates are already complete, or tonight’s sequence needs precise duration and filament control.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Entry defaults</h2>
+          <div class="field">
+            <label>Initial state</label>
+            <select>
+              <option>Ready</option>
+              <option>Todo</option>
+              <option>Started</option>
+              <option>Blocked</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Copies requested</label>
+            <input value="1" />
+          </div>
+          <div class="field">
+            <label>Queue note</label>
+            <textarea>Prefer plates that use the currently loaded matte PLA set. Save the labels pass for later if needed.</textarea>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Planning hints</h2>
+          <div class="hint">
+            The planner should not silently reorder rank. It should score this selection for overnight and daytime modes, AMS overlap, slot-count efficiency, and spool-change minimization, then apply rank updates only when the operator accepts.
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="section">
+          <div class="summary-card">
+            <h3>Selection summary</h3>
+            <div class="badges">
+              <span class="badge good">AMS ready now</span>
+              <span class="badge amber">Overnight fit: yes</span>
+              <span class="badge blue">2 files selected</span>
+              <span class="badge">4 of 7 plates selected</span>
+            </div>
+            <p>Total estimated time: 8h 12m. Current loaded AMS colors cover 92% of filament needs. Suggested start order places the 3h file first and the 5h file second so both finish by late morning.</p>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Printable files</h2>
+          <div class="file-stack">
+            <div class="file-card">
+              <div class="file-head">
+                <span class="check">✓</span>
+                <div>
+                  <strong>holder_v3.3mf</strong>
+                  <div class="meta">5 plates · 5h 47m · Black / Gray / White · strong archive history</div>
+                </div>
+                <span class="badge good">Selected</span>
+              </div>
+              <div class="plates-grid">
+                <div class="plate-card">
+                  <div class="plate-preview"></div>
+                  <strong>Plate 1</strong>
+                  <p>1h 58m · already completed once with high-confidence archive link. Defaulting to unselected in this example.</p>
+                  <div class="badges"><span class="badge">Not selected</span><span class="badge blue">archive complete</span></div>
+                </div>
+                <div class="plate-card">
+                  <div class="plate-preview"></div>
+                  <strong>Plate 2</strong>
+                  <p>2h 13m · selected · all required colors already loaded.</p>
+                  <div class="badges"><span class="badge good">Selected</span><span class="badge good">AMS ready</span></div>
+                </div>
+                <div class="plate-card">
+                  <div class="plate-preview"></div>
+                  <strong>Plate 3</strong>
+                  <p>1h 36m · selected · medium-confidence archive suggestion exists but was not accepted yet.</p>
+                  <div class="badges"><span class="badge good">Selected</span><span class="badge amber">suggested complete</span></div>
+                </div>
+                <div class="plate-card">
+                  <div class="plate-preview"></div>
+                  <strong>Plate 4</strong>
+                  <p>0h 56m · not selected · labels-only pass.</p>
+                  <div class="badges"><span class="badge">Not selected</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="file-card">
+              <div class="file-head">
+                <span class="check">✓</span>
+                <div>
+                  <strong>holder_label_set.3mf</strong>
+                  <div class="meta">2 plates · 2h 25m · White only · ideal follow-up while same spool remains loaded</div>
+                </div>
+                <span class="badge good">Selected</span>
+              </div>
+              <div class="plates-grid">
+                <div class="plate-card">
+                  <div class="plate-preview"></div>
+                  <strong>Plate A</strong>
+                  <p>1h 14m · selected.</p>
+                  <div class="badges"><span class="badge good">Selected</span></div>
+                </div>
+                <div class="plate-card">
+                  <div class="plate-preview"></div>
+                  <strong>Plate B</strong>
+                  <p>1h 11m · selected.</p>
+                  <div class="badges"><span class="badge good">Selected</span><span class="badge amber">good overnight follow-up</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="file-card">
+              <div class="file-head">
+                <span class="check" style="color:var(--text-muted);border-color:var(--border);background:rgba(255,255,255,0.04)"> </span>
+                <div>
+                  <strong>legacy_holder_v2.3mf</strong>
+                  <div class="meta">2 plates · 4h 42m · excluded to keep the queue batch focused on the current revision</div>
+                </div>
+                <span class="badge">Excluded</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="status">Default quick-add remains available from Catalog and Working rows. Advanced Add is for subset selection, low-res preview review, and better overnight/filament planning before the queue entry is created.</div>
+      <div class="actions">
+        <button>Back</button>
+        <button>Save as idea</button>
+        <button class="primary">Create queue entry</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
