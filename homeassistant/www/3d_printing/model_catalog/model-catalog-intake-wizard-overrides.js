@@ -52,9 +52,9 @@ var fileTypeIconName = sharedFileTypeIconName || function (pathValue) {
   return 'mdi:file-outline';
 };
 
-function entryTypeIconMarkup(pathValue, isFolder) {
+function entryTypeIconMarkup(pathValue, isFolder, isArchiveFolder) {
   if (isFolder) {
-    return '<span class="entry-type-icon" aria-hidden="true"><ha-icon icon="mdi:folder-outline"></ha-icon></span>';
+    return '<span class="entry-type-icon" aria-hidden="true"><ha-icon icon="' + (isArchiveFolder ? 'mdi:folder-zip-outline' : 'mdi:folder-outline') + '"></ha-icon></span>';
   }
   return '<span class="entry-type-icon" aria-hidden="true"><ha-icon icon="' + fileTypeIconName(pathValue) + '"></ha-icon></span>';
 }
@@ -62,12 +62,39 @@ function entryTypeIconMarkup(pathValue, isFolder) {
 // Issue #1323: shared markup for the "preview" thumbnail block when the entry
 // is a folder. Shows an MDI folder icon with the word "folder" underneath so
 // folders are visually distinct from files in both Server and Browser paths.
-function folderPreviewMarkup() {
+function folderPreviewMarkup(isArchiveFolder) {
   return ''
     + '<div class="entry-thumb folder-thumb" aria-hidden="true">'
-    + '<ha-icon icon="mdi:folder-outline"></ha-icon>'
-    + '<div class="folder-thumb-label">folder</div>'
+    + '<ha-icon icon="' + (isArchiveFolder ? 'mdi:folder-zip-outline' : 'mdi:folder-outline') + '"></ha-icon>'
+    + '<div class="folder-thumb-label">' + (isArchiveFolder ? 'zip' : 'folder') + '</div>'
     + '</div>';
+}
+
+function getBrowserArchiveContainerName(folderNode, folderPath) {
+  var names = {};
+  var pending = [folderNode];
+  while (pending.length) {
+    var node = pending.pop();
+    (node.files || []).forEach(function (fileItem) {
+      var entry = fileItem && fileItem.entry ? fileItem.entry : {};
+      if (String(entry.source_container_type || '').toLowerCase() !== 'archive') {
+        return;
+      }
+      var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || fileItem.path || '');
+      if (browserRootKey(relativePath) !== folderPath) {
+        return;
+      }
+      var containerName = String(entry.source_container_name || '').trim();
+      if (containerName) {
+        names[containerName] = true;
+      }
+    });
+    Object.keys(node.folders || {}).forEach(function (key) {
+      pending.push(node.folders[key]);
+    });
+  }
+  var archiveNames = Object.keys(names);
+  return archiveNames.length === 1 ? archiveNames[0] : '';
 }
 
 // Issue #1322: strip the implementation-detail "/assets/" prefix when showing the server browse path,
@@ -1966,6 +1993,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var foldersMarkup = folderNames.map(function (folderName) {
       var folderNode = node.folders[folderName];
       var folderPath = folderNode.path;
+      var archiveContainerName = !currentPath ? getBrowserArchiveContainerName(folderNode, folderPath) : '';
+      var isArchiveFolder = !!archiveContainerName;
+      var displayFolderName = isArchiveFolder ? archiveContainerName : folderName;
       var fileCount = 0;
       // Issue #1324: count active vs excluded descendants so the folder row
       // can mirror the Server path (⚠ N excluded badge + Restore when fully
@@ -2021,13 +2051,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return ''
         + '<article class="' + folderRowClass + '">'
         + '  <div class="entry-top">'
-        + folderPreviewMarkup()
+        + folderPreviewMarkup(isArchiveFolder)
         + '    <div class="entry-main">'
-        + '      <div class="entry-name">' + escapeHtml(folderName) + '</div>'
+        + '      <div class="entry-name">' + escapeHtml(displayFolderName) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(folderPath)) + '</div>'
         + '      <div class="muted">' + escapeHtml(countLine) + '</div>'
         + '    </div>'
-        + '    ' + entryTypeIconMarkup(folderPath, true)
+        + '    ' + entryTypeIconMarkup(isArchiveFolder ? archiveContainerName : folderPath, true, isArchiveFolder)
         + '  </div>'
         + '  <div class="entry-actions">'
         + (isSelected ? '    <span class="chip ok">Selected</span>' : '')
@@ -2157,7 +2187,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var selectable = entry.selectable !== false;
       var previewMarkup = !isFolder && !isArchive
         ? card._serverPreviewMarkup(entry.path, displayName)
-        : folderPreviewMarkup();
+        : folderPreviewMarkup(isArchive);
       // Issue #1324: detect whether this entry is inside an already-selected folder.
       var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
       // Issue #1324: detect whether this entry is explicitly excluded.
@@ -2182,7 +2212,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + (parentDisplayPath ? '      <div class="entry-path">' + escapeHtml(parentDisplayPath) + '</div>' : '')
         + (!isFolder && entry.size_bytes != null ? '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes)) + '</div>' : '')
         + '    </div>'
-        + '    ' + entryTypeIconMarkup(entry.path, isFolder)
+        + '    ' + entryTypeIconMarkup(entry.path, isFolder, isArchive)
         + '  </div>'
         + '  <div class="entry-actions">'
         // Issue #1350: unified chips/buttons across browser+server paths.
@@ -2235,7 +2265,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           var isFolder = entry.type === 'folder';
           var isArchive = !isFolder && fileKind(entry.path) === 'archive';
           var previewMarkup = isFolder || isArchive
-            ? folderPreviewMarkup()
+            ? folderPreviewMarkup(isArchive)
             : card._serverPreviewMarkup(entry.path, entryName);
           var rawPath = String(entry.path || '').replace(/\/+$/, '');
           var slashIdx = rawPath.lastIndexOf('/');
@@ -2255,7 +2285,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             + '      <div class="entry-name">' + escapeHtml(entryName) + '</div>'
             + '      <div class="entry-path">' + escapeHtml(displayParentPath) + '</div>'
             + '    </div>'
-            + '    ' + entryTypeIconMarkup(entry.path, isFolder)
+            + '    ' + entryTypeIconMarkup(entry.path, isFolder, isArchive)
             + '  </div>'
             + '  <div class="entry-actions">'
             + '<span class="chip ok">Selected</span>'
@@ -2299,7 +2329,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var isArchive = entry.type === 'file' && fileKind(entry.path) === 'archive';
         var previewMarkup = entry.type === 'file' && !isArchive
           ? this._serverPreviewMarkup(entry.path, entryName)
-          : folderPreviewMarkup();
+          : folderPreviewMarkup(isArchive);
         // Issue #1324: exclusion count chip for selected folders.
         var excludedUnder = (entry.type === 'folder' && excludedItems.length)
           ? getExcludedItemsUnderPath(entry.path, excludedItems).length
@@ -2310,7 +2340,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var displayPath = formatBrowsePathForDisplay(entry.path);
         return ''
           + '<article class="entry-row" data-path="' + escapeHtml(entry.path) + '">'
-          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(displayPath) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (isArchive ? '<span class="chip">Archive Container</span>' : '') + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
+          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(displayPath) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type === 'folder' || isArchive ? (isArchive ? 'archive' : entry.type) : entry.type) + '</span>' + (isArchive ? '<span class="chip">Archive Container</span>' : '') + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
               + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'

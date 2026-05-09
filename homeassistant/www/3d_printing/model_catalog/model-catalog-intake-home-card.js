@@ -1493,7 +1493,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var selectable = entry.selectable !== false;
       var previewMarkup = entry.type === 'file' && !isArchive
         ? this._serverPreviewMarkup(entry.path, displayName)
-        : '<div class="entry-thumb placeholder">Folder</div>';
+        : (isArchive 
+          ? '<div class="entry-thumb placeholder"><ha-icon icon="mdi:folder-zip-outline"></ha-icon><div style="font-size: 0.75rem; margin-top: 4px;">zip</div></div>'
+          : '<div class="entry-thumb placeholder">Folder</div>');
       return ''
         + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
         + '  <div class="entry-top">'
@@ -1503,7 +1505,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '      <div class="entry-path">' + escapeHtml(entry.path || '') + '</div>'
         + '    </div>'
         + '    <div class="button-row">'
-        + (entry.type === 'folder' ? '<span class="chip">Folder</span>' : '<span class="chip">File</span>')
+        + (entry.type === 'folder' ? '<span class="chip">Folder</span>' : (isArchive ? '<span class="chip">Archive</span>' : '<span class="chip">File</span>'))
         + (isArchive ? '<span class="chip">Archive Container</span>' : '')
         + (!selectable ? '<span class="chip">View Only</span>' : '')
         + (entry.type === 'file' && entry.size_bytes != null ? '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes)) + '</span>' : '')
