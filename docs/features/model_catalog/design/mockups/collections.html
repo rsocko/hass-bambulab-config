@@ -59,7 +59,7 @@
   .tile {
     border-radius: 10px;
     border: 1px solid var(--border);
-    height: 86px;
+    aspect-ratio: 4 / 3;
     background: linear-gradient(135deg, #1b2430, #10161d);
     display: flex;
     align-items: center;
@@ -95,7 +95,7 @@
 <div class="header">
   <div>
     <h1>Model Catalog · Collections mode</h1>
-    <p>Collections-first browsing proposal with a top-level scope switch, deterministic cover mosaic generation, and mixed-node rendering for collections that contain both models and sub-collections.</p>
+    <p>Collections-first browsing proposal with a top-level scope switch, deterministic cover mosaic generation, and mixed-node rendering for collections that contain both models and sub-collections. This page focuses on result surfaces; the merged shared-toolbar integration is shown in <a href="toolbar.html" style="color:var(--accent)">toolbar.html</a>.</p>
   </div>
   <div class="nav">
     <a href="index.html">← Index</a>
@@ -128,7 +128,7 @@
 
 <section class="section">
   <h2>A · Collections overview (card grid)</h2>
-  <p>Collection cards show deterministic 2x2 cover mosaics, direct model counts, nested collection counts, and recent activity. Cover tiles are sampled by stable priority (pinned, recent print, then name), not random each load.</p>
+  <p>Collection cards show deterministic 2x2 cover mosaics, direct model counts, nested collection counts, and recent activity. Mosaic tiles use a 4:3 frame to match compact-card thumbnail language. Cover tiles are sampled by stable priority (pinned, recent print, then name), not random each load.</p>
   <div class="collection-grid">
     <article class="collection-card">
       <div class="mosaic">

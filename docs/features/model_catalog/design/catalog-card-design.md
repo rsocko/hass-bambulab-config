@@ -254,11 +254,54 @@ Caption strip rows:
 
 ## 7. Toolbar & header redesign (issue #1216)
 
-**Job:** give the catalog browser a header that mirrors the print-history toolbar grammar without copying it wholesale, so users can move between the two surfaces without re-learning controls. See the dedicated mockup at [mockups/toolbar.html](mockups/toolbar.html) for three side-by-side layout options:
+**Job:** give the catalog browser a header that mirrors the print-history toolbar grammar without copying it wholesale, so users can move between the two surfaces without re-learning controls. See the dedicated mockup at [mockups/toolbar.html](mockups/toolbar.html) for three side-by-side layout options plus a merged collections-centric state:
 
 - **Option A (recommended)** — three rows above the grid (title with inline sort → filter bar → centered page-control strip). ~158 px of header chrome. Highest discoverability and tightest parity with print-history.
 - **Option B (denser, two rows)** — collapses Option A's title row and page-control strip into one combined header, leaving header + filter bar above the grid. ~102 px of chrome (~52 px less than A). Page nav is no longer centered.
 - **Option C (single row, filters in popover)** — title + search + Filters-button + page nav + sort/view/per-page/toggles all on one row; collection/creator/tag/queue/favorites/other-files filters move into a popover behind a single button with an active-filter count badge. ~66 px of chrome (~58 % less than A). Lowest filter discoverability.
+- **Merged collections-centric state (recommended behavior, not a fourth architecture)** — uses the same shell as Option A/B/C, but swaps in collections-specific controls when scope is `Collections`.
+
+### 7.0 Unified Integration Model (shared shell + adaptive slots)
+
+The collections-centric toolbar must be treated as a **state of the same toolbar**, not a separate toolbar design.
+
+Shared shell remains constant:
+
+1. scope selection and global identity controls
+2. search/filter row
+3. pagination/density/display controls (where applicable by option)
+
+Adaptive slots by scope:
+
+- when scope is `All models (flat)`:
+  - model sort controls
+  - model-centric filters (creator, tags, queue state, favorites, other files)
+- when scope is `Collections`:
+  - collection sort (`Name`, `Recent activity`, `Model count`)
+  - mixed-node display segment (`Mixed`, `Collections only`, `Models only`)
+  - in-node search chip/toggle
+  - path/depth controls (`current only`, `include descendants`)
+
+This keeps interaction memory intact and avoids having two toolbar systems to maintain.
+
+### 7.0.1 Per-option merge rules
+
+- Option A: collections controls appear as title-row chips/segments plus filter-row path/depth controls.
+- Option B: collections controls map to labelled selects/toggles inside the combined header trailing cluster.
+- Option C: collections controls move into the Filters popover and keep only high-priority toggles visible in-row.
+
+### 7.0.2 Control priority for wrapping
+
+When width is constrained, preserve this priority order:
+
+1. scope toggle
+2. search input
+3. mixed-node display segment
+4. sort selector
+5. path/depth selectors
+6. secondary chips
+
+If controls must collapse, move lower-priority controls into overflow/popover before hiding core controls.
 
 ### 7.1 Layout (three rows above the grid)
 
@@ -270,6 +313,12 @@ The header decomposes into three stacked, full-width rows that sit above the car
 3. **Page-control strip** — centered between the filter bar and the grid; never above the filter bar. The strip groups *navigation* + *density* + *display toggles*. A simplified mirror strip repeats below the grid.
 
 This ordering matches print-history's structure (filter pills → centered control strip → grid → mirror strip) so muscle memory transfers between the two browsers.
+
+Collections-mode integration for this same layout:
+
+- Title row keeps scope toggle and swaps sort label to `Sort collections`.
+- Filter row keeps search, adds mixed-node segment and in-node chip, and replaces model-specific filters with collection path/depth filters.
+- Page strip remains unchanged so navigation and density controls behave identically across scopes.
 
 ### 7.2 Page-control cluster (navigation)
 
@@ -324,7 +373,7 @@ Layer 1 (`sensor.print_history_archives` and the equivalent model-catalog projec
 
 ### 7.8 Mockup deliverables
 
-- [mockups/toolbar.html](mockups/toolbar.html) — Option A (recommended) and Option B (compact alternative) side-by-side, with inline anatomy notes and a per-bullet mapping table.
+- [mockups/toolbar.html](mockups/toolbar.html) — Option A (recommended) and Option B/C alternatives, plus a merged collections-centric toolbar state using the same shell, with inline anatomy notes and a per-bullet mapping table.
 - [mockups/compact.html](mockups/compact.html), [mockups/list.html](mockups/list.html), [mockups/media.html](mockups/media.html) — header banner points at toolbar.html; the existing in-mockup filter bar is retained as a placeholder so each variant continues to read standalone.
 
 ### 7.9 Intake Entry Contract (issue #1321)
@@ -359,7 +408,7 @@ Behavior contract:
 
 Collection cards are intentionally summary-first and action-forward:
 
-- cover mosaic (2x2 or adaptive 3x2 depending card size)
+- cover mosaic (2x2 or adaptive 3x2 depending card size), with each tile framed at 4:3 to align with compact/media thumbnail proportions
 - title + optional path chip (`Parent / Child`)
 - counts row: `models`, `sub-collections`, `prints`
 - recency row: `recently updated`, `last printed`

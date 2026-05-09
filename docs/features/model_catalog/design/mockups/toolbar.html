@@ -575,6 +575,103 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- MERGED STATE — Collections-centric controls on shared shell -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2>Merged state — Collections scope on shared toolbar shell <span class="badge">INTEGRATED</span></h2>
+  <p class="desc">
+    This is not a new toolbar architecture. It is Option A's same shell with collections-specific controls swapped into adaptive slots. The result keeps identity, spacing, and pagination behavior consistent with flat-model mode while exposing mixed-node and depth-aware collection browsing controls.
+  </p>
+
+  <!-- TITLE ROW -->
+  <div class="title-row">
+    <div class="title-cluster">
+      <h3>Catalog Browser</h3>
+      <span class="subtitle">Scope: Collections · Functional / Gridfinity</span>
+    </div>
+    <div class="title-actions">
+      <span class="scope-seg" role="tablist" aria-label="Catalog scope">
+        <button role="tab" aria-selected="false">All models (flat)</button>
+        <button class="active" role="tab" aria-selected="true">Collections</button>
+      </span>
+      <span class="inline-sort">
+        <label for="merged-sort">Sort collections</label>
+        <select id="merged-sort">
+          <option selected>Recent activity</option>
+          <option>Name (A–Z)</option>
+          <option>Model count</option>
+        </select>
+      </span>
+      <span class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</span>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filterbar">
+    <div class="seg" role="tablist" aria-label="Mixed node display">
+      <button class="active">Mixed</button>
+      <button>Collections only</button>
+      <button>Models only</button>
+    </div>
+    <span class="filter-chip active" title="Limit search to selected collection subtree">In-node search</span>
+    <input class="grow" value="gridfinity" aria-label="Search collections and models" />
+    <select aria-label="Current collection path">
+      <option selected>Functional / Gridfinity</option>
+      <option>Miniatures / Terrain</option>
+      <option>Printer Upgrades</option>
+    </select>
+    <select aria-label="Depth filter">
+      <option>Depth: current only</option>
+      <option selected>Depth: include descendants</option>
+    </select>
+  </div>
+
+  <!-- PAGE STRIP -->
+  <div class="page-strip" role="toolbar" aria-label="Collections page controls">
+    <span class="group">
+      <button class="icon-btn" disabled title="First page" aria-label="First page"><svg width="14" height="14"><use href="#i-first"/></svg></button>
+      <button class="icon-btn" disabled title="Previous page" aria-label="Previous page"><svg width="14" height="14"><use href="#i-prev"/></svg></button>
+      <span class="pageinfo">
+        <span class="current">1</span><span class="of">/</span><span class="total">2</span>
+        <span style="color:var(--text-muted);">·</span>
+        <span class="count">18</span><span style="color:var(--text-muted);">collections</span>
+      </span>
+      <button class="icon-btn" title="Next page" aria-label="Next page"><svg width="14" height="14"><use href="#i-next"/></svg></button>
+      <button class="icon-btn" title="Last page" aria-label="Last page"><svg width="14" height="14"><use href="#i-last"/></svg></button>
+    </span>
+
+    <span class="group">
+      <span class="label">Collections / page</span>
+      <select aria-label="Collections per page"><option>12</option><option selected>24</option><option>48</option></select>
+      <span class="label" style="margin-left:6px;">View</span>
+      <select aria-label="Collection view"><option selected>Cards</option><option>List</option></select>
+    </span>
+
+    <span class="group tight">
+      <button class="icon-btn refresh" title="Refresh collection data" aria-label="Refresh collections">
+        <svg width="14" height="14"><use href="#i-refresh"/></svg>
+      </button>
+    </span>
+  </div>
+
+  <div class="grid-placeholder">
+    <div class="skeleton-card">collection card · 1</div>
+    <div class="skeleton-card">collection card · 2</div>
+    <div class="skeleton-card">collection card · 3</div>
+  </div>
+
+  <div class="notes">
+    <h4>Merged-state integration notes</h4>
+    <ul>
+      <li><strong>Shared shell</strong> is unchanged: title row, filter row, centered page strip, and mirror behavior remain consistent with flat mode.</li>
+      <li><strong>Adaptive slots</strong> swap model filters for collections controls (mixed-node segment, in-node search, path, depth) without moving pagination controls.</li>
+      <li><strong>No collection queue actions</strong> are introduced here; collections remain organizational browse objects in this toolbar state.</li>
+      <li><strong>Control priority under wrap</strong>: scope toggle, search, mixed-node segment, sort, then path/depth controls.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- ANATOMY ANNOTATIONS -->
 <!-- ============================================================ -->
 <div class="section">
