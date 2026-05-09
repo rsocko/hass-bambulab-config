@@ -90,6 +90,30 @@
   .section h3 { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
   .section h3 .count { color: var(--text-muted); font-weight: 600; margin-left: 6px; }
 
+  .path-layout {
+    margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(96,165,250,0.06); border: 1px solid rgba(96,165,250,0.22);
+  }
+  .path-layout .summary {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; color: #bfdbfe; display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .path-layout .summary strong { color: var(--accent-blue); font-weight: 700; letter-spacing: 0.03em; }
+  .path-layout .chips { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .path-layout .chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; color: #bfdbfe; border: 1px solid rgba(96,165,250,0.24); background: rgba(96,165,250,0.10);
+  }
+
+  .folder-mini-tree { margin-top: 8px; display: grid; gap: 4px; }
+  .folder-mini-tree .row {
+    display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; align-items: center;
+    padding: 4px 6px; border-radius: 7px; font-size: 11px; color: var(--text-secondary);
+    background: rgba(255,255,255,0.02); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .folder-mini-tree .row .indent { padding-left: 14px; }
+  .folder-mini-tree .row .stat { font-size: 10px; color: var(--text-muted); }
+
   /* Notes */
   .notes-area {
     width: 100%; min-height: 84px; resize: vertical;
@@ -224,6 +248,19 @@
           <span class="dot"></span>
           <span>3 model · 4 other · 1 archive</span>
         </div>
+        <div class="path-layout">
+          <div class="summary">
+            <strong>Physical layout</strong>
+            <span>7 files across 4 folders</span>
+            <span>depth 3</span>
+            <span>root /Model Working Files/Gridfinity/Holders v3</span>
+          </div>
+          <div class="chips">
+            <span class="chip">Models (4)</span>
+            <span class="chip">Images (2)</span>
+            <span class="chip">Docs (1)</span>
+          </div>
+        </div>
       </div>
       <div class="stage-seg" role="tablist" aria-label="Stage">
         <button class="draft" type="button">Draft</button>
@@ -245,6 +282,13 @@
     <!-- Files -->
     <div class="section">
       <h3>Files in group <span class="count">· 3 model · 4 other</span></h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:11px;color:var(--text-muted);">Logical membership view</span>
+        <span style="display:inline-flex;padding:2px;border:1px solid var(--border);border-radius:999px;background:rgba(15,19,26,0.55);">
+          <button type="button" style="border:0;background:rgba(94,234,212,0.14);color:var(--accent);padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;">Files</button>
+          <button type="button" style="border:0;background:transparent;color:var(--text-secondary);padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;">Folders (physical)</button>
+        </span>
+      </div>
       <div class="files">
 
         <div class="file-row primary">
@@ -327,6 +371,13 @@
 
         <div class="add-file-row">＋ Add files from Ungrouped… &nbsp;<span style="color:var(--text-muted)">opens picker scoped to current root</span></div>
 
+      </div>
+
+      <div class="folder-mini-tree">
+        <div class="row"><span>Models/</span><span class="stat">4 files</span><span class="stat">2h ago</span></div>
+        <div class="row"><span class="indent">Final/</span><span class="stat">1 file</span><span class="stat">2h ago</span></div>
+        <div class="row"><span class="indent">Drafts/</span><span class="stat">1 file</span><span class="stat">1d ago</span></div>
+        <div class="row"><span>Images/</span><span class="stat">2 files</span><span class="stat">2h ago</span></div>
       </div>
     </div>
 

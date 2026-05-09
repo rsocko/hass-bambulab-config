@@ -68,6 +68,8 @@ The available `source_mtime` is the field that powers the "Last modified" the us
 | `files[].is_primary` *(derived)* | Inline file strip "★ Primary" badge in Groups view | Operator needs to know which `.3mf` is the canonical one when a group has multiple variants. Already implied by `group.primary_file_path`; surface as a per-file boolean computed at serialization time. | Compute in `_serialize_working_group` by comparing `item.file_path` to `group.primary_file_path`. |
 | `files[].linked_archive_count` *(optional)* | "Used in N prints" sub-label on file row | Lets the operator see if removing/moving a file would orphan archives. | Layer 2 join: count `print_history_archives` rows whose `model_ref` resolves to this file's hash or canonical path. Cache. |
 | `group.last_file_mtime` *(derived)* | Group header "Last modified · 2h ago" | `group.updated_at` reflects metadata changes; operators care about *file* changes (slicer save). | `MAX(source_mtime)` across the group's files; compute at serialization. |
+| `group.path_footprint` *(derived object)* | Group header "Physical layout" summary and folder chips | Groups are logical overlays; operators still need immediate visibility into the current physical folder spread. | Derive from `files[].source_path_canonical`: total distinct folders, max depth, dominant root segment, top folder segments with counts. |
+| `files[].relative_group_path` *(derived)* | Inline file rows and Folders subview | Shows where each file currently lives relative to the group's dominant root without exposing noisy absolute paths. | Compute as relative path from `group.path_footprint.primary_root` (fallback to `dirname(source_path_canonical)`). |
 | `group.derived_thumbnail_path` *(optional)* | Group thumbnail in Groups view | Today the explorer card has no group preview; reuse the primary `.3mf`'s plate render or a representative file thumbnail. | Layer 2: pull from existing 3MF metadata extraction; fallback to a placeholder cube SVG when absent. |
 | `files[].slicer_kind` (`bambu` / `orca` / `prusa` / `unknown`) ⚠️ best-effort | "Open in" button label / icon hint | The "Open in Slicer" tokenized launch path needs to know which protocol to fire (`bambustudio://` vs `orcaslicer://`). | Detect from `.3mf` metadata or filename heuristics; fallback to user-configured default. |
 | `summary.last_indexed_at` | Toolbar "Indexed 2m ago" pill | Operators forget when they last reindexed; surface it. | Already implied by reindex job log; expose in `summary` block. |
@@ -85,12 +87,16 @@ The Groups view today is a **two-pane split** (groups left, file list right). Th
 ```
 ┌─ ha-card row (cursor:pointer on header → toggles expand) ─────────────────────┐
 │ [STAGE RIBBON] [GROUP THUMB]  [TITLE · FOLDER HINT]   [STAGE CHIP] [UPDATED] │
+│ [PHYSICAL LAYOUT: 27 files · 6 folders · depth 3 · root /Tools/Gridfinity]   │
+│ [FOLDER CHIPS: Models (11) · Images (9) · Docs (4) · Exports (3)]             │
 │                               [COUNTS: 3 model · 4 other · 1 archive]        │
 │ ─────────────────────────────────────────────────────────────────────────────│
+│  [FILES] [FOLDERS] (physical)                                                 │
 │  MODEL FILES (always visible, .3mf first)                                    │
-│   ▸ holder_v3.3mf      12 MB   2h ago   ★ Primary  [Slicer] [⋯]            │
+│   ▸ holder_v3.3mf      Models/Final/holder_v3.3mf   12 MB  2h ago  ★ [⋯]    │
 │   ▸ holder_v2.3mf       9 MB   3d ago              [Slicer] [⋯]            │
 │   ▸ holder_v1.stl       4 MB   1w ago              [⋯]                      │
+│  FOLDERS SUBVIEW (toggle): Models/Final (4) · Images (9) · Docs (4)         │
 │  OTHER FILES (collapsed by default if >3 — chevron to expand)               │
 │   notes.md · dimensions.svg · render.png · +2 more                          │
 │ ─────────────────────────────────────────────────────────────────────────────│
@@ -135,7 +141,38 @@ Three monospaced cells, no labels (icons only) so they read as a single row:
 | 📄 | Other files | remainder of `counts.count_other` |
 | 🖨 | Linked archive prints | sum of `files[].linked_archive_count` (proposed) |
 
-### 3.5 Inline file strip — "Model Files" section (always expanded)
+### 3.5 Physical-layout summary row (always visible)
+
+Groups are logical overlays, but the operator still needs path truth in the primary row. Add a compact "Physical layout" line under the title block:
+
+- `27 files across 6 folders · deepest level 3 · root /Tools/Gridfinity`
+- Source: `group.path_footprint` (proposed)
+- Tooltip expands to show top folders and counts
+
+Under that line, render top-folder chips from `group.path_footprint.top_segments`:
+
+- `Models (11)`
+- `Images (9)`
+- `Docs (4)`
+- `Exports (3)`
+
+Clicking a chip filters the visible inline rows to that subtree (purely view-level filtering, no membership mutation).
+
+### 3.6 Files/Folders subview toggle (inside expanded row)
+
+Add a compact segmented toggle directly above the inline strip:
+
+- `Files` (default)
+- `Folders (physical)`
+
+Behavior:
+
+- `Files` shows the existing model-first rows plus other-file chips.
+- `Folders` shows a lightweight relative tree rooted at `group.path_footprint.primary_root`.
+- The toggle is local to each group row; it does not change global view tabs.
+- Row-level actions remain identical in both subviews.
+
+### 3.7 Inline file strip — "Model Files" section (always expanded)
 
 The user-facing differentiator. Shows up to **5 model files** by default with a `+N more` expander. Each row is one line:
 
@@ -145,6 +182,7 @@ The user-facing differentiator. Shows up to **5 model files** by default with a 
 
 - **Icon**: extension glyph (3MF teal, STL blue, STEP purple).
 - **Filename**: 13 px, weight 600. Click → opens the file detail popup focused on this file. Hover shows the full canonical path.
+- **Relative path**: second line under filename from `files[].relative_group_path` (e.g., `Models/Final/holder_v3.3mf`) so the operator can see physical location without leaving Group view.
 - **Size**: tabular-nums, right-aligned in its column.
 - **mtime**: relative (`2h ago`); tooltip shows absolute. Cells beyond the visible 5 fold into "+N more" — clicking expands the strip in place (no popup, no navigation).
 - **Primary badge**: amber star pill for the file matching `group.primary_file_path`. Click acts as "Set Primary" for any other `.3mf`.
@@ -152,11 +190,23 @@ The user-facing differentiator. Shows up to **5 model files** by default with a 
 
 Per [working-files-local-launch-and-slicer-integration-design.md](../working-files-local-launch-and-slicer-integration-design.md), the `Slicer` button uses the tokenized download URL approach (Option B); `Copy launch command` is the manual fallback. **No raw `file:///` link is rendered**, consistent with the browser security boundary memo recorded in repo memory.
 
-### 3.6 Inline file strip — "Other files" section (collapsed when >3)
+### 3.8 Folders subview — relative tree (physical)
+
+When `Folders` is active, replace the file-strip body with a compact tree:
+
+- Root label: `group.path_footprint.primary_root`
+- Default expansion: 2 levels
+- Folder row fields: folder name, file count, latest `mtime`
+- File leaf fields: filename, extension, relative path fragment, actions
+- Clicking a folder scopes the row to that subtree until "Clear folder filter"
+
+This tree is read-only by default. Membership changes still happen through group actions, and physical moves only happen via explicit `Reorganize`.
+
+### 3.9 Inline file strip — "Other files" section (collapsed when >3)
 
 Below the model-files section. Renders as a chip row (`name.ext` capsules) — each chip is clickable to open the file detail popup. Collapses to "📄 4 supporting files" when >3 to keep the row visually quiet; chevron to expand inline.
 
-### 3.7 Group action row
+### 3.10 Group action row
 
 Bottom of the row, single line:
 
@@ -166,9 +216,11 @@ Bottom of the row, single line:
 - `Set Primary` — only enabled when a `.3mf` row in the strip is selected
 - `bulk select ☐` (right-aligned) — when checked, the row participates in the toolbar bulk-action bar (move-to-group, delete, etc.)
 
-### 3.8 Click target precedence
+Add one helper line under `Reorganize`: "Materialize logical group into physical folder layout" so virtual-vs-physical behavior is explicit.
 
-Whole row header is clickable to toggle expansion. Inline action buttons stop propagation (matches the catalog compact-card pattern in §3.8 of [catalog-card-design.md](catalog-card-design.md)). The group title is a separate target — clicking the title (not the header background) opens the legacy detail popup for users who want the deeper tabbed surface.
+### 3.11 Click target precedence
+
+Whole row header is clickable to toggle expansion. Inline action buttons stop propagation (matches the catalog compact-card pattern in §3.8 of [catalog-card-design.md](catalog-card-design.md)). The group title is a separate target — clicking the title (not the header background) opens the legacy detail popup for users who want the deeper tabbed surface. Folder chips and Folders-tree rows are interactive but scoped to filtering and navigation, not mutation.
 
 ---
 

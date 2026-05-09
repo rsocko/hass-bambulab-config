@@ -137,6 +137,21 @@
   .count .num { font-weight: 700; color: var(--text); font-size: 13px; }
   .count.muted .num { color: var(--text-muted); font-weight: 500; }
 
+  .path-footprint {
+    margin-top: 7px; font-size: 11px; color: var(--text-secondary);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .path-footprint strong { color: var(--accent-blue); font-weight: 600; letter-spacing: 0.02em; }
+
+  .folder-segments { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .folder-chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; border: 1px solid rgba(96,165,250,0.24); color: #bfdbfe;
+    background: rgba(96,165,250,0.10);
+  }
+  .folder-chip.active { border-color: rgba(94,234,212,0.32); color: var(--accent); background: rgba(94,234,212,0.12); }
+
   .group-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 140px; }
   .updated { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .updated strong { color: var(--text-secondary); font-weight: 600; }
@@ -156,6 +171,16 @@
     margin-bottom: 8px;
   }
   .strip-head .right { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); }
+
+  .subview-toggle {
+    display: inline-flex; padding: 2px; border-radius: 999px; border: 1px solid var(--border);
+    background: rgba(15,19,26,0.55);
+  }
+  .subview-toggle button {
+    border: 0; background: transparent; color: var(--text-secondary); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.03em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  }
+  .subview-toggle button.active { color: var(--accent); background: rgba(94,234,212,0.14); }
 
   .file-rows { display: grid; gap: 4px; }
   .file-row {
@@ -182,6 +207,12 @@
   .file-name:hover { color: var(--accent); }
   .file-row.primary .file-name { color: #fde68a; }
   .file-row.primary .file-name:hover { color: #fff5cf; }
+  .file-main { min-width: 0; }
+  .file-path {
+    margin-top: 1px; font-size: 10px; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
 
   .file-num { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
   .file-num .sub { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; }
@@ -231,6 +262,25 @@
   .other-chip .ext-mini { color: var(--text-muted); font-size: 10px; }
   .other-chip.collapsed-summary { color: var(--text-muted); cursor: pointer; }
 
+  .folder-strip {
+    margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+    background: rgba(96,165,250,0.06); border: 1px solid rgba(96,165,250,0.20);
+  }
+  .folder-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #bfdbfe; font-weight: 700; margin-bottom: 6px;
+  }
+  .folder-tree { display: grid; gap: 4px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+  .folder-row {
+    display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; align-items: center;
+    padding: 4px 6px; border-radius: 7px; background: rgba(255,255,255,0.02);
+    font-size: 11px; color: var(--text-secondary);
+  }
+  .folder-row.active { background: rgba(94,234,212,0.10); border: 1px solid rgba(94,234,212,0.22); color: var(--accent); }
+  .folder-row .indent { padding-left: 14px; }
+  .folder-row .stat { color: var(--text-muted); font-size: 10px; }
+
   /* Group action row */
   .actions {
     display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(148,163,184,0.14);
@@ -279,7 +329,7 @@
 <div class="page-header">
   <div>
     <h1>Working Files · Groups view</h1>
-    <p>Hi-fidelity mockup. Each group renders as a single expandable row — the inline <strong>Model Files</strong> strip lets the operator see <code>.3mf</code>/<code>.stl</code> entries, last-modified, primary marker, and per-file Slicer action <em>without opening the popup</em>. Stage ribbon (left) + stage chip (right) reflect <code>group.stage</code>. Group thumbs reuse the primary file's render when available. See <a href="../working-files-card-design.md" style="color:var(--accent)">working-files-card-design.md §3</a>.</p>
+    <p>Hi-fidelity mockup. Each group renders as a single expandable row with both logical membership and physical path context. The inline <strong>Model Files</strong> strip shows <code>.3mf</code>/<code>.stl</code> entries, relative path, last-modified, primary marker, and per-file Slicer action <em>without opening the popup</em>. A local <strong>Files | Folders (physical)</strong> toggle and path-footprint chips expose multi-level folder structure directly in Group view. See <a href="../working-files-card-design.md" style="color:var(--accent)">working-files-card-design.md §3</a>.</p>
   </div>
   <div class="nav">
     <a href="index.html">← Index</a>
@@ -362,6 +412,17 @@
           <span class="count muted" title="Other supporting files">📄 <span class="num">3</span> other</span>
           <span class="count" title="Linked archive prints">🖨 <span class="num">14</span> prints</span>
         </div>
+        <div class="path-footprint">
+          <strong>Physical layout</strong>
+          <span>7 files across 4 folders</span>
+          <span>depth 3</span>
+          <span>root /Model Working Files/gridfinity-holders-v3</span>
+        </div>
+        <div class="folder-segments">
+          <span class="folder-chip active">Models (4)</span>
+          <span class="folder-chip">Images (2)</span>
+          <span class="folder-chip">Docs (1)</span>
+        </div>
       </div>
       <div class="group-right">
         <span class="updated"><strong>2h ago</strong> · holder_v3_final.3mf</span>
@@ -372,13 +433,19 @@
     <div class="strip">
       <div class="strip-head">
         <span>Model files <span style="color:var(--text-secondary)">(.3mf priority)</span></span>
-        <span class="right">★ Primary marks the canonical variant</span>
+        <span class="right">
+          <span class="subview-toggle"><button class="active">Files</button><button>Folders (physical)</button></span>
+          <span>★ Primary marks the canonical variant</span>
+        </span>
       </div>
       <div class="file-rows">
 
         <div class="file-row primary">
           <span class="ext-icon x-3mf">3MF</span>
-          <span class="file-name" title="/Model Working Files/gridfinity-holders-v3/holder_v3_final.3mf">holder_v3_final.3mf</span>
+          <span class="file-main">
+            <span class="file-name" title="/Model Working Files/gridfinity-holders-v3/Models/Final/holder_v3_final.3mf">holder_v3_final.3mf</span>
+            <span class="file-path">Models/Final/holder_v3_final.3mf</span>
+          </span>
           <span class="file-num">12.4 MB</span>
           <span class="file-num">2h ago<span class="sub">May 8 14:12</span></span>
           <span class="primary-pill">★ Primary</span>
@@ -390,7 +457,10 @@
 
         <div class="file-row">
           <span class="ext-icon x-3mf">3MF</span>
-          <span class="file-name">holder_v3_draft.3mf</span>
+          <span class="file-main">
+            <span class="file-name">holder_v3_draft.3mf</span>
+            <span class="file-path">Models/Drafts/holder_v3_draft.3mf</span>
+          </span>
           <span class="file-num">11.8 MB</span>
           <span class="file-num">3d ago<span class="sub">May 5 09:44</span></span>
           <button class="set-primary" title="Mark as primary">Make primary</button>
@@ -402,7 +472,10 @@
 
         <div class="file-row">
           <span class="ext-icon x-3mf">3MF</span>
-          <span class="file-name">holder_v2_legacy.3mf</span>
+          <span class="file-main">
+            <span class="file-name">holder_v2_legacy.3mf</span>
+            <span class="file-path">Models/Archive/holder_v2_legacy.3mf</span>
+          </span>
           <span class="file-num">9.1 MB</span>
           <span class="file-num">2w ago<span class="sub">Apr 24 18:02</span></span>
           <button class="set-primary">Make primary</button>
@@ -414,7 +487,10 @@
 
         <div class="file-row">
           <span class="ext-icon x-stl">STL</span>
-          <span class="file-name">holder_base.stl</span>
+          <span class="file-main">
+            <span class="file-name">holder_base.stl</span>
+            <span class="file-path">Models/Base/holder_base.stl</span>
+          </span>
           <span class="file-num">3.4 MB</span>
           <span class="file-num">3w ago<span class="sub">Apr 17 11:08</span></span>
           <span></span>
@@ -436,6 +512,20 @@
           <span class="other-chip">dimensions.svg <span class="ext-mini">· 12 KB · 3w ago</span></span>
         </div>
       </div>
+
+      <div class="folder-strip">
+        <div class="folder-head">
+          <span>Folders (physical) preview</span>
+          <span style="color:var(--text-secondary); font-weight:600; cursor:pointer;">Switch to folder mode ▸</span>
+        </div>
+        <div class="folder-tree">
+          <div class="folder-row active"><span>Models/</span><span class="stat">4 files</span><span class="stat">2h ago</span></div>
+          <div class="folder-row"><span class="indent">Final/</span><span class="stat">1 file</span><span class="stat">2h ago</span></div>
+          <div class="folder-row"><span class="indent">Drafts/</span><span class="stat">1 file</span><span class="stat">3d ago</span></div>
+          <div class="folder-row"><span>Images/</span><span class="stat">2 files</span><span class="stat">1w ago</span></div>
+          <div class="folder-row"><span>Docs/</span><span class="stat">1 file</span><span class="stat">2h ago</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="actions">
@@ -447,7 +537,7 @@
       <label class="bulk-select"><input type="checkbox" checked /> Select group for bulk action</label>
     </div>
     <div class="annot">
-      <strong>Anatomy note</strong> · This row demonstrates the full expanded state with a primary <code>.3mf</code> highlighted, two `Make primary` candidates, an STL, and a collapsed-by-default Other-files chip row. The right-rail "<strong>2h ago · holder_v3_final.3mf</strong>" comes from <code>group.last_file_mtime</code> (proposed) — it tells the user what was last touched without scanning every file row.
+      <strong>Anatomy note</strong> · This row demonstrates logical + physical context together: primary <code>.3mf</code> highlighting, relative path under each file name, top-folder chips, and an in-row Files/Folders physical toggle. The right-rail "<strong>2h ago · holder_v3_final.3mf</strong>" comes from <code>group.last_file_mtime</code> (proposed) and the path footprint is sourced from a derived <code>group.path_footprint</code> object.
     </div>
   </article>
 
@@ -474,6 +564,16 @@
           <span class="count muted">📄 <span class="num">1</span> other</span>
           <span class="count">🖨 <span class="num">3</span> prints</span>
         </div>
+        <div class="path-footprint">
+          <strong>Physical layout</strong>
+          <span>3 files across 3 folders</span>
+          <span>depth 2</span>
+          <span>root /Model Working Files/spool-hub-remix</span>
+        </div>
+        <div class="folder-segments">
+          <span class="folder-chip active">Models (2)</span>
+          <span class="folder-chip">References (1)</span>
+        </div>
       </div>
       <div class="group-right">
         <span class="updated"><strong>just now</strong> · spool_hub_v2.3mf</span>
@@ -490,7 +590,10 @@
 
         <div class="file-row primary">
           <span class="ext-icon x-3mf">3MF</span>
-          <span class="file-name">spool_hub_v2.3mf</span>
+          <span class="file-main">
+            <span class="file-name">spool_hub_v2.3mf</span>
+            <span class="file-path">Models/Final/spool_hub_v2.3mf</span>
+          </span>
           <span class="file-num">8.7 MB</span>
           <span class="file-num">just now<span class="sub">May 8 16:41</span></span>
           <span class="primary-pill">★ Primary</span>
@@ -502,7 +605,10 @@
 
         <div class="file-row">
           <span class="ext-icon x-3mf" style="background:rgba(248,113,113,0.14); color:#fca5a5; border-color:rgba(248,113,113,0.32);">3MF</span>
-          <span class="file-name" style="color:#fecaca;">spool_hub_v1.3mf <span style="font-size:10px; color:#fca5a5; font-weight:600; margin-left:6px;">⚠ MISSING_TEXTURE</span></span>
+          <span class="file-main">
+            <span class="file-name" style="color:#fecaca;">spool_hub_v1.3mf <span style="font-size:10px; color:#fca5a5; font-weight:600; margin-left:6px;">⚠ MISSING_TEXTURE</span></span>
+            <span class="file-path">Models/Legacy/spool_hub_v1.3mf</span>
+          </span>
           <span class="file-num">7.9 MB</span>
           <span class="file-num">5d ago<span class="sub">May 3 22:14</span></span>
           <button class="set-primary">Make primary</button>
