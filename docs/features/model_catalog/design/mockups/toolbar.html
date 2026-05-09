@@ -46,6 +46,28 @@
   .title-row .title-cluster h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.005em; }
   .title-row .title-cluster .subtitle { font-size: 12px; color: var(--text-muted); }
   .title-row .title-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .scope-seg {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: rgba(15,19,26,0.60);
+    border: 1px solid var(--border);
+  }
+  .scope-seg button {
+    background: transparent;
+    border: 0;
+    color: var(--text-secondary);
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    cursor: pointer;
+    min-height: 26px;
+  }
+  .scope-seg button.active {
+    background: rgba(96,165,250,0.16);
+    color: var(--accent-blue);
+  }
   .title-row .inline-sort { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); }
   .title-row .inline-sort label { font-size: 11px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
   .title-row .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
@@ -282,6 +304,10 @@
       <span class="subtitle">Shared browser shell · curated scope</span>
     </div>
     <div class="title-actions">
+      <span class="scope-seg" role="tablist" aria-label="Catalog scope">
+        <button class="active" role="tab" aria-selected="true">All models</button>
+        <button role="tab" aria-selected="false">Collections</button>
+      </span>
       <span class="inline-sort">
         <label for="opt-a-sort">Sort</label>
         <select id="opt-a-sort">
@@ -381,6 +407,7 @@
     <h4>Option A · notes</h4>
     <ul>
       <li><strong>Sort lives in the title row</strong> as an accented inline pill (matching the print-history sort placement). Keeping it out of the page strip keeps the strip purely about <em>navigation + density + display</em>.</li>
+      <li><strong>Scope toggle lives in the title row</strong> as a segmented control (<code>All models</code> / <code>Collections</code>). <code>Collections</code> switches the result surface to collection cards and collection-level sorting.</li>
       <li><strong>Import menu lives in the title row</strong> and is always visible on Catalog. Menu actions are `Browser Upload` and `Server Inbox`, each jumping into the shared intake wizard flow with mode preselected.</li>
       <li><strong>Page strip is a single centered row</strong> on desktop. On small viewports each <code>.group</code> wraps to its own line but stays centered (uses <code>flex-wrap</code>, no JS).</li>
       <li><strong>Prev/next icons</strong> use chevrons (<code>i-prev</code>/<code>i-next</code>) and double-chevrons for first/last, mirroring the print-history toolbar grammar (<code>mdi:page-first</code>, <code>mdi:chevron-left</code>, etc.).</li>
@@ -428,6 +455,7 @@
     </span>
 
     <span class="ch-trailing">
+      <select aria-label="Catalog scope"><option selected>Scope: All models</option><option>Scope: Collections</option></select>
       <select aria-label="Sort"><option>Sort: Recent</option><option>Sort: Frequent</option><option>Sort: Name</option><option>Sort: Most archived</option></select>
       <select aria-label="View variant"><option selected>View: Compact</option><option>View: Media</option><option>View: List</option></select>
       <select aria-label="Per page"><option>12 / page</option><option selected>24 / page</option><option>48 / page</option><option>96 / page</option></select>
@@ -496,6 +524,7 @@
     </span>
 
     <span class="srb-trailing">
+      <select aria-label="Catalog scope"><option selected>Scope: All models</option><option>Scope: Collections</option></select>
       <select aria-label="Sort"><option>Recent</option><option>Frequent</option><option>Name</option></select>
       <select aria-label="View"><option selected>Compact</option><option>Media</option><option>List</option></select>
       <button class="icon-btn toggle active" title="Show / hide media" aria-pressed="true"><svg width="13" height="13"><use href="#i-eye"/></svg></button>
@@ -564,6 +593,7 @@
       <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Move page controls above grid / below filters</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Centered page-strip row</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Move <code>_renderTopToolbar</code> output to render after the <code>filter-panel</code> div in <code>_render()</code>.</td></tr>
       <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Center page controls</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Strip <code>justify-content: center</code></td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Replace <code>.browser-toolbar</code> <code>justify-content: space-between</code> with <code>center</code> + <code>flex-wrap</code>; keep mirror at bottom.</td></tr>
       <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Move sorting to top (in line with title)</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Title-row inline-sort pill</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Lift <code>#mc-sort</code> out of <code>.controls</code> grid; render in <code>.title-row-main</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">View by Collection or all files (flat)</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Title-row scope toggle (<code>All models</code> / <code>Collections</code>)</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">New UI state <code>scope='flat' | 'collections'</code>; <code>collections</code> swaps result renderer to collection cards and collection-level sort controls.</td></tr>
       <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Prev / Next icons</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Chevron <code>icon-btn</code>s</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Replace text in <code>_renderPagingControls</code> with <code>&lt;ha-icon icon="mdi:chevron-left"&gt;</code> etc; preserve <code>data-action</code> values.</td></tr>
       <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Models / Page</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Density-cluster select</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">New <code>&lt;select id="mc-per-page"&gt;</code>; bind to <code>this._pagination.per_page</code>; on change, <code>_requestLoad(1, false)</code>.</td></tr>
       <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Count</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Page indicator <code>· N models</code></td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Append <code>this._pagination.total</code> to <code>_pageStatusText()</code>.</td></tr>

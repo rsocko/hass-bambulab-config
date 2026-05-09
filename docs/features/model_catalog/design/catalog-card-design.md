@@ -14,7 +14,7 @@
 
 The Catalog has three jobs that the cards must each serve at the same density they're tuned for:
 
-1. **Recognise the model fast** — primary photo, name, badge of origin (custom unique vs remix vs derivative), source platform, publish destinations.
+1. **Recognize the model fast** — primary photo, name, badge of origin (custom unique vs remix vs derivative), source platform, publish destinations.
 2. **Decide whether to act on it now** — queue state, recent/frequent/common signals, filament-fit hints, archive count (have I printed this already, and how recently?).
 3. **Act without leaving the card** — Open detail, Queue/Dequeue, Send to slicer, Open in publish destination — all reachable from the card surface without a second click into a popup.
 
@@ -335,6 +335,147 @@ Catalog includes two intake entry paths:
 Quick-drop is an acceleration path, not a replacement. Narrow layouts retain only the Import dropdown.
 
 ---
+
+## Collections Browsing Mode (new)
+
+This section adds a first-class browse scope for collections without replacing the existing flat model browser.
+
+### Collections Scope Toggle
+
+Add a required scope control in the catalog header, adjacent to sort/view controls:
+
+- `All models (flat)`
+- `Collections`
+
+Behavior contract:
+
+- `All models (flat)` preserves the current card/list/media behavior and pagination semantics.
+- `Collections` switches the primary results to collection cards (not model cards).
+- Scope choice is sticky per user (local storage helper) but does not affect backend ingest/indexing.
+
+### Collection Card Anatomy
+
+Collection cards are intentionally summary-first and action-forward:
+
+- cover mosaic (2x2 or adaptive 3x2 depending card size)
+- title + optional path chip (`Parent / Child`)
+- counts row: `models`, `sub-collections`, `prints`
+- recency row: `recently updated`, `last printed`
+- quick actions: `Open`, `Queue random`, `More`
+
+Desktop recommendation:
+
+- 3 columns at >= 1280 px
+- 2 columns at 880-1279 px
+- 1 column below 880 px
+
+### Collection Cover Image Derivation
+
+Use deterministic sampling, not random-on-each-render.
+
+Cover source priority per model:
+
+1. model selected image (operator-picked primary)
+2. model thumbnail/primary photo
+3. derived 3MF thumbnail
+4. placeholder tile
+
+Sampling strategy (deterministic, stable):
+
+- sort candidate models by:
+  - explicit pin order (if available), then
+  - `last_printed_at` desc, then
+  - name asc
+- take first `N` models where `N` equals tile slots (4 default)
+- keep this ordering stable until collection membership or pinning changes
+
+Rationale:
+
+- avoids visual flicker between refreshes
+- keeps frequently-used models visually represented
+- remains explainable to operators (not "why did the cover change?")
+
+Optional enhancement:
+
+- allow `cover_mode` per collection: `auto`, `pinned`, `manual`
+- `manual` lets operator pin up to 6 cover contributors
+
+### Hierarchy Model
+
+Support hierarchical collections with a nullable parent pointer:
+
+- `collection_id`
+- `parent_collection_id` (nullable)
+
+Model membership rules:
+
+- A model belongs to exactly one collection node at a time.
+- Models may exist at any hierarchy level (root or nested).
+- No implicit inheritance of model membership to descendants.
+
+Guardrails:
+
+- prevent cycles on create/move
+- prevent self-parenting
+- enforce max depth (recommended: 4) for dashboard usability
+
+### Rendering A Mixed Node (models + sub-collections)
+
+When opening a collection node that contains both models and sub-collections, use a two-section result list under one toolbar state:
+
+1. `Sub-collections` section (card grid)
+2. `Models in this collection` section (selected view variant: compact/list/media)
+
+Default ordering:
+
+- sub-collections first (promotes navigation)
+- then direct models
+
+Operator controls:
+
+- `Show: Mixed | Collections only | Models only`
+- `Sort collections by: Name | Recent activity | Model count`
+- model sort keeps existing sort dropdown semantics
+
+This avoids flattening nested structure into one ambiguous feed while still supporting direct model actions at parent levels.
+
+### Navigation Pattern
+
+In `Collections` scope, use breadcrumb navigation:
+
+- `All Collections / Functional / Gridfinity`
+
+Add a compact "up one level" control in the toolbar for keyboard and touch parity.
+
+Search semantics:
+
+- global search (default): returns collections and models
+- in-node search (optional chip): scopes to current collection subtree
+
+### Minimal Data Contract (Layer 2 projection)
+
+Collection browsing should be served by Layer 2 projection data and must not move UI wording into Layer 1.
+
+Proposed collection projection fields:
+
+- `collection_id`, `name`, `parent_collection_id`, `path`
+- `model_count_direct`, `model_count_total`
+- `child_collection_count`
+- `last_activity_at`, `last_printed_at`
+- `cover_tiles[]` (resolved media URLs + contributor model refs)
+
+Layering rule:
+
+- tile selection metadata can live in Layer 2
+- labels like `Models in this collection` and chip copy remain Layer 3
+
+### Open Decisions For Review
+
+1. Should models be single-membership only, or can we support multi-collection membership later?
+2. Is max hierarchy depth `4` acceptable, or do you want stricter (`3`) / looser (`5+`)?
+3. For mixed nodes, should `Sub-collections` always render first, or should that be a user toggle?
+4. Do you want `Queue random` on collection cards in v1, or defer to `Open` only?
+5. Should `cover_mode=manual` ship in v1 or remain a follow-up after auto-cover lands?
 
 ## 8. Comparative analysis (deep)
 

@@ -27,6 +27,7 @@ The redesign must support:
 - toggle views between `All` and `Ungrouped`
 - create group
 - add selected files/folders to group
+- publish a Working group to Catalog from the Working surface
 - explicit policy for single-group vs multi-group membership
 
 ## Scope Boundary
@@ -37,13 +38,14 @@ The redesign must support:
 - grouped and ungrouped browse experiences over indexed files
 - logical grouping controls and membership model
 - file-level and group-level quick actions
+- publish-to-catalog launch path from Working groups ("Promote" workflow)
 - UX mockups and implementation plan for backend + HA UI work
 
 ### Deferred (Later Phase)
 
 - full Intake/Inbox to Working Files flow (`/assets/Model Intake` or inbox queue staging)
 - cross-surface automation for inbox triage to Working assignment
-- publish-to-curated and lineage UI expansion
+- deeper lineage visualizations after publish completes
 
 ## Core Design Decisions
 
@@ -177,6 +179,7 @@ Operator actions:
 - `Open in Slicer`: preferred primary action for `.3mf` via tokenized download flow
 - `Copy Launch Command`: manual local-file fallback derived from the mapped host path
 - `Copy Explorer Command`: manual local-folder fallback derived from the mapped host path
+- `Publish to Catalog`: launch publish review for this Working group (`Publish to Catalog` is the UI label; docs may note this as Promote for continuity)
 - companion-backed `Open Local File` and `Open Folder`: optional future enhancement when a trusted local helper exists
 
 Failure behavior:
@@ -202,6 +205,9 @@ flowchart TD
    D --> I[Open in Slicer if 3MF]
    D --> J[Copy Launch or Explorer Command]
     D --> K[Reorganize Into Group Folder]
+      D --> L[Publish To Catalog Review]
+      L --> M[Commit Publish]
+      M --> N[Catalog Model Created or Updated]
     K --> A
 ```
 
@@ -222,15 +228,15 @@ flowchart TD
 │ │ Gridfinity Holders (12)               │      │ Selected Group:          │ │
 │ │  - 3mf: 4  other: 8                   │      │ Gridfinity Holders       │ │
 │ │  - updated: 1h ago                    │      │                          │ │
-│ │ [Open] [Reorganize]                   │      │ .3mf files               │ │
+│ │ [Open] [Reorganize] [Publish to Catalog]│     │ .3mf files               │ │
 │ ├────────────────────────────────────────┤      │ - holder_v3.3mf          │ │
 │ │ Vacuum Adapters (8)                   │      │   [Open in Slicer]       │ │
 │ │  - 3mf: 2  other: 6                   │      │   [More ▾]               │ │
-│ │ [Open] [Reorganize]                   │      │                          │ │
+│ │ [Open] [Reorganize] [Publish to Catalog]│     │                          │ │
 │ └────────────────────────────────────────┘      │ Supporting files          │ │
 │                                                 │ - notes.md [More ▾]       │ │
 │ Selection Actions:                              │ - dimensions.svg          │ │
-│ [Create Group] [Add To Group] [Remove From Group]│ [Add Files] [Set Primary]│ │
+│ [Create Group] [Add To Group] [Publish Selected] │ [Add Files] [Set Primary]│ │
 │                                                 └──────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```

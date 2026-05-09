@@ -238,6 +238,9 @@
   .btn:hover { background: rgba(255,255,255,0.10); border-color: var(--border-strong); }
   .btn.primary { background: rgba(94,234,212,0.10); border-color: rgba(94,234,212,0.32); color: var(--accent); }
   .btn.primary:hover { background: rgba(94,234,212,0.18); }
+  .btn.publish { background: rgba(245,194,66,0.14); border-color: rgba(245,194,66,0.34); color: var(--primary-amber); }
+  .btn.publish:hover { background: rgba(245,194,66,0.22); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
   .btn.icon-only { padding: 4px 7px; min-width: 26px; justify-content: center; }
 
   .more-row {
@@ -529,9 +532,10 @@
     </div>
 
     <div class="actions">
-      <button class="btn primary">📁 Open Folder</button>
+      <button class="btn">📁 Open Folder</button>
       <button class="btn">↻ Reorganize</button>
       <button class="btn">+ Add Files</button>
+      <button class="btn publish">⤴ Publish to Catalog</button>
       <button class="btn icon-only" title="More group actions">⋯</button>
       <span class="spacer"></span>
       <label class="bulk-select"><input type="checkbox" checked /> Select group for bulk action</label>
@@ -629,10 +633,11 @@
     </div>
 
     <div class="actions">
-      <button class="btn primary">📁 Open Folder</button>
+      <button class="btn">📁 Open Folder</button>
       <button class="btn">↻ Reorganize</button>
       <button class="btn">+ Add Files</button>
-      <button class="btn">↗ Promote to Ready</button>
+      <button class="btn">✓ Mark Ready</button>
+      <button class="btn publish" disabled title="Set stage to Ready to publish">⤴ Publish to Catalog</button>
       <button class="btn icon-only">⋯</button>
       <span class="spacer"></span>
       <label class="bulk-select"><input type="checkbox" /> Select group for bulk action</label>
@@ -702,9 +707,11 @@
     </div>
 
     <div class="actions">
-      <button class="btn primary">📁 Open Folder</button>
+      <button class="btn">📁 Open Folder</button>
       <button class="btn">↻ Reorganize</button>
       <button class="btn">+ Add Files</button>
+      <button class="btn">✓ Mark In Progress</button>
+      <button class="btn publish" disabled title="Ready stage required">⤴ Publish to Catalog</button>
       <button class="btn icon-only">⋯</button>
       <span class="spacer"></span>
       <label class="bulk-select"><input type="checkbox" /> Select group for bulk action</label>

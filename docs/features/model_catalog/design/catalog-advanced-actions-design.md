@@ -22,6 +22,11 @@ The existing model-detail popup (see [catalog-popup-design.md](catalog-popup-des
 
 These operations exist as scattered services and rest_commands today; nothing presents them as a coherent surface. The Print History "Advanced Actions" popup solved exactly this problem for archives — applying the same pattern to models is both a UX win and a way to retire ad-hoc affordances buried in the existing popup.
 
+Publish workflow boundary:
+
+- `Publish to Catalog` (operator Promote flow) is primarily launched from Working Groups surfaces.
+- Catalog Advanced Actions remains the follow-up surface for post-publish maintenance, reconciliation, and metadata repair.
+
 ### Inheritance contract
 
 The Model Catalog card **inherits the Print History card's architecture wholesale** (5-tab top nav, sub-mode drill-downs, busy/status footer, two-stage delete confirm, search modal, JSON viewer). Differences are only in the *contents* of each tab. This is deliberate so:

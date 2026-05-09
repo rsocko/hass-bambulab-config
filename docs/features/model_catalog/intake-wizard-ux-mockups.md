@@ -507,6 +507,10 @@ Choose Destination keeps the same left-actions/right-results structure as Organi
 Low-fi contract for this step:
 
 - left pane:
+  - Source context chip when launched from Working: `Working Group: <name>`
+  - Publish intent toggle when launched from Working:
+    - `Publish to Catalog (Promote from Working)`
+    - `Keep in Working Files`
   - Queue For Review / Execute Now toggle
   - Catalog / Working Files destination picker when Execute Now is selected
   - friendly cleanup labels:
@@ -516,7 +520,35 @@ Low-fi contract for this step:
 - right pane:
   - same planned model cards shown in Organize
   - destination summary per model or batch
+  - publish-mode summary when source context is Working
   - cleanup-policy summary for the batch
+
+### Step 3 Variant: Launched From Working Group
+
+When the operator launches from `Publish to Catalog` on a Working group, Choose Destination should foreground the publish intent instead of feeling like a generic intake run.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Choose Destination                                              [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Actions                         │ RIGHT: Results                                     │
+│                                       │                                                    │
+│ Source context                        │ Planned Output Models                             │
+│ [Working Group: Gridfinity Holders v3]│ ┌────────────────────────────────────────────────┐ │
+│                                       │ │ Model A -> Publish to Catalog                  │ │
+│ Publish intent                        │ │ Candidate: new revision of Gridfinity Holder   │ │
+│ (•) Publish to Catalog (Promote)      │ ├────────────────────────────────────────────────┤ │
+│ ( ) Keep in Working Files             │ │ Model B -> Keep in Working                     │ │
+│                                       │ │ Reason: validation warning unresolved          │ │
+│ Publish target                        │ └────────────────────────────────────────────────┘ │
+│ [New catalog model ▼]                 │                                                    │
+│ [Or: new canonical revision ▼]        │                                                    │
+│                                       │                                                    │
+│ [Back] [Next]                         │                                                    │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+```
 
 ## Step 4: Validate
 

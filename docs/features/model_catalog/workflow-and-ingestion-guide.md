@@ -150,6 +150,16 @@ For quick local intake:
 
 When a Working group is stable enough for long-term reuse:
 
+Preferred UI flow from the Working surface:
+
+1. in Working Files, choose a group and click `Publish to Catalog` (operator may still call this Promote)
+2. review selected canonical files, destination intent, and duplicate/revision suggestions
+3. choose `new catalog model` or `new canonical revision`
+4. commit publish and review result links to the curated model
+5. keep Working group active for iteration or move it to a closed/archived stage
+
+Lifecycle behavior:
+
 1. select the canonical file set for publication
 2. check for likely duplicate or overlapping curated records when the source was reacquired or re-downloaded
 3. create or update a curated Manyfold model record

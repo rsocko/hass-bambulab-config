@@ -190,6 +190,9 @@
   }
   .btn:hover { background: rgba(255,255,255,0.10); }
   .btn.primary { background: linear-gradient(135deg, rgba(94,234,212,0.95), rgba(96,165,250,0.85)); color: #0b1117; border-color: transparent; }
+  .btn.publish { background: rgba(245,194,66,0.16); color: var(--primary-amber); border-color: rgba(245,194,66,0.36); }
+  .btn.publish:hover { background: rgba(245,194,66,0.24); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
   .btn.danger { color: var(--warn); border-color: rgba(239,68,68,0.32); background: rgba(239,68,68,0.08); }
   .dirty-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--primary-amber); border: 1px solid rgba(245,194,66,0.32); background: rgba(245,194,66,0.10); }
   .dirty-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary-amber); }
@@ -408,6 +411,7 @@
       </div>
       <div class="footer-right">
         <span class="dirty-pill"><span class="dot"></span>Unsaved changes</span>
+        <button class="btn publish" disabled title="Set stage to Ready and resolve blockers before publishing">⤴ Publish to Catalog</button>
         <button class="btn">Cancel</button>
         <button class="btn primary">Save</button>
       </div>
@@ -433,6 +437,7 @@
     <tr><td>Last modified · indexed</td><td><code>last_file_mtime</code> · <code>summary.last_indexed_at</code></td><td>Both proposed in §2.2 of the design doc.</td></tr>
     <tr><td>Files list ordering</td><td><code>group_memberships[].position</code></td><td>Drag handle reorders; primary always sorts to top regardless of position.</td></tr>
     <tr><td>Set primary radio</td><td><code>working_groups.primary_file_path</code></td><td>Disabled for non-<code>.3mf</code> files (no slicer surface).</td></tr>
+    <tr><td>Publish to Catalog</td><td>publish-from-working launch action</td><td>Starts publish review from this group context; button is disabled until stage/readiness checks pass.</td></tr>
     <tr><td>Per-file 3D button</td><td><code>id</code> + <code>source_path_canonical</code> + <code>sha256_hash</code></td><td>Reuses catalog viewer; disabled for STEP/OBJ.</td></tr>
     <tr><td>Per-file Slicer button</td><td><code>launch</code> + tokenized URL</td><td>Per local-launch-and-slicer-integration-design.</td></tr>
     <tr><td>Linked archive prints</td><td><code>linked_archive_count</code> + archive join</td><td>Optional addition, gated behind <code>?with_archive_counts=true</code>.</td></tr>

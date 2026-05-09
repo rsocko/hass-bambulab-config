@@ -50,6 +50,9 @@
   .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
   .import-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: rgba(96,165,250,0.10); border: 1px solid rgba(96,165,250,0.30); color: var(--accent-blue); font-size: 12px; font-weight: 700; cursor: pointer; }
   .import-btn:hover { background: rgba(96,165,250,0.18); }
+  .publish-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: rgba(245,194,66,0.14); border: 1px solid rgba(245,194,66,0.34); color: var(--primary-amber); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .publish-btn:hover { background: rgba(245,194,66,0.22); }
+  .publish-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
   .reindex-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; background: rgba(94,234,212,0.10); border: 1px solid rgba(94,234,212,0.32); color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; }
   .reindex-btn:hover { background: rgba(94,234,212,0.18); }
 
@@ -101,7 +104,7 @@
 <!-- ============== Scenario A: default Groups view ============== -->
 <section class="scenario">
   <h2>A · Default state · Groups view</h2>
-  <p class="lead">Page lands here. Indexed pill is healthy. Sort defaults to <strong>Recently modified</strong> so the active set sits at the top. View tabs collapse to a tight segmented control to free toolbar real estate vs the legacy three-pill layout. Import dropdown provides mode-select jump into intake (`Browser Upload` / `Server Inbox`).</p>
+  <p class="lead">Page lands here. Indexed pill is healthy. Sort defaults to <strong>Recently modified</strong> so the active set sits at the top. View tabs collapse to a tight segmented control to free toolbar real estate vs the legacy three-pill layout. Import dropdown provides mode-select jump into intake (`Browser Upload` / `Server Inbox`). Publish is visible as a first-class action from Working (`Publish to Catalog`, also known as Promote).</p>
   <div class="toolbar-shell">
     <div class="title-row">
       <div>
@@ -112,6 +115,7 @@
         <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Title A→Z</option><option>Most files</option><option>Stage (Draft → Ready)</option></select></span>
         <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
+        <button class="publish-btn" title="Publish selected ready groups to Catalog">⤴ Publish to Catalog</button>
         <button class="reindex-btn" title="Re-scan filesystem and rebuild inventory">⟳ Reindex</button>
         <button class="icon-btn toggle active" title="Show thumbnails">🖼</button>
         <button class="icon-btn" title="Collapse all groups">⮟</button>
@@ -149,6 +153,7 @@
         <span class="indexed-pill warn"><span class="dot"></span>Indexed 2d ago · stale</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option></select></span>
         <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
+        <button class="publish-btn" title="Publish selected ready groups to Catalog">⤴ Publish to Catalog</button>
         <button class="reindex-btn" style="background:rgba(245,158,11,0.14); border-color:rgba(252,211,77,0.32); color:#fde68a;">⟳ Reindex now</button>
         <button class="icon-btn toggle active">🖼</button>
       </div>
@@ -182,6 +187,7 @@
         <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Name A→Z</option><option>Largest first</option><option>Most groups</option></select></span>
         <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
+        <button class="publish-btn" title="Publish selected ready groups to Catalog">⤴ Publish to Catalog</button>
         <button class="reindex-btn">⟳ Reindex</button>
         <button class="icon-btn toggle active">🖼</button>
       </div>
@@ -228,6 +234,7 @@
         <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Name A→Z</option><option>Largest first</option></select></span>
         <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
+        <button class="publish-btn" disabled title="No ready groups selected">⤴ Publish to Catalog</button>
         <button class="reindex-btn">⟳ Reindex</button>
         <button class="icon-btn" title="New group from selection">＋</button>
       </div>
@@ -257,6 +264,7 @@
     <tbody>
       <tr><td><strong>Indexed pill</strong></td><td>Shows time since last reindex. Turns amber when stale (configurable threshold, default 24h).</td><td><code>summary.last_indexed_at</code> (proposed)</td></tr>
       <tr><td><strong>Reindex button</strong></td><td>Always issues <code>forceReindex: true</code>. Single-action replacement for the legacy <em>Refresh</em> button.</td><td><code>working_files/reindex</code> rest_command</td></tr>
+      <tr><td><strong>Publish to Catalog button</strong></td><td>Launches publish review for selected Working groups. Disabled until at least one eligible group is selected.</td><td>new publish-from-working launch action</td></tr>
       <tr><td><strong>Inline sort dropdown</strong></td><td>Sort options vary per active view tab — see design doc §5.3.</td><td>card local UI state (no backend change)</td></tr>
       <tr><td><strong>Show thumbnails toggle</strong></td><td>Off → row height drops from ~96px to ~56px; group thumb collapses to 16px badge for high-density scanning.</td><td>card local UI state</td></tr>
       <tr><td><strong>Collapse / Expand all</strong></td><td>Toggles every Groups-view row's expanded state in one click.</td><td>card local UI state</td></tr>

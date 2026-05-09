@@ -213,14 +213,39 @@ Bottom of the row, single line:
 - `Open Folder` — primary, uses the mapped host path
 - `Reorganize` — runs the existing dry-run/confirm/execute flow from the redesign doc
 - `Add Files` — opens a file-picker scoped to ungrouped inventory + arbitrary upload (future)
+- `Publish to Catalog` — launches publish review for this group (operator-facing Promote workflow)
 - `Set Primary` — only enabled when a `.3mf` row in the strip is selected
 - `bulk select ☐` (right-aligned) — when checked, the row participates in the toolbar bulk-action bar (move-to-group, delete, etc.)
 
 Add one helper line under `Reorganize`: "Materialize logical group into physical folder layout" so virtual-vs-physical behavior is explicit.
 
+Publish button behavior:
+
+- enabled when group has at least one publishable model file and no blocking validation issues
+- if stage is not `ready_to_publish`, show a confirmation helper: `Publish anyway` vs `Mark Ready then Publish`
+- opens the same publish review shell used by intake so destination, duplicate checks, and cleanup are visible before commit
+
 ### 3.11 Click target precedence
 
 Whole row header is clickable to toggle expansion. Inline action buttons stop propagation (matches the catalog compact-card pattern in §3.8 of [catalog-card-design.md](catalog-card-design.md)). The group title is a separate target — clicking the title (not the header background) opens the legacy detail popup for users who want the deeper tabbed surface. Folder chips and Folders-tree rows are interactive but scoped to filtering and navigation, not mutation.
+
+### 3.12 Publish flow from Working (Promote)
+
+Working Files must expose publish as a first-class action, not as an intake-only side effect.
+
+Entry points:
+
+- group-row action: `Publish to Catalog`
+- group popup footer: `Publish to Catalog`
+- toolbar bulk action: `Publish selected` (visible when one or more groups are selected)
+
+Flow contract:
+
+1. capture source context (`working_group_id`, selected files, primary file)
+2. open publish review (same structure as intake `Choose Destination` + `Validate` + `Commit`)
+3. operator selects `New catalog model` or `New canonical revision`
+4. commit publish and show created/updated catalog links in result pane
+5. keep group open for iteration or mark stage `archived`
 
 ---
 
@@ -310,6 +335,7 @@ Mirrors [catalog-card-design.md §7](catalog-card-design.md) (issue #1216) so us
 
 1. **Title row** — "Working Files" + inline indexed-state pill (`Indexed 2m ago` + `Reindex` icon button). The reindex button replaces the standalone `Refresh` button from the current card; it always runs `forceReindex: true`.
   - Add an always-visible `Import` dropdown in this title row with jump actions `Browser Upload` and `Server Inbox`.
+  - Add `Publish selected` in this title row; disabled until at least one eligible group is selected.
 2. **View tabs + filter bar** — `Groups | All Files | Ungrouped` segmented control on the left (replaces three pill buttons with a tighter segmented control to free up horizontal real estate); filter inputs (search, extension, group-membership filter) stretch to the right.
 3. **Page-control strip** — only rendered when the current view returns more than `per_page` rows (Groups view today doesn't paginate; Files views can).
 
@@ -345,6 +371,7 @@ Inline with the title (matching catalog #1216 pattern):
 | List view rows | catalog list view | column set differs (size/mtime/groups instead of archives/success/published-to) |
 | Toolbar 3-row stack | catalog toolbar (issue #1216) | adds Reindex pill, segmented view tabs |
 | Import dropdown (`Browser Upload` / `Server Inbox`) | catalog toolbar grammar | always visible in Working title row; routes to shared intake wizard with source mode preselected |
+| Publish selected (`Publish to Catalog`) | catalog bulk-action placement grammar | Working-only action; launches publish review from current group selection |
 | Bulk-action bar | catalog list view bulk bar | identical visual grammar |
 | Sort dropdown in title row | catalog #1216 | different sort options |
 | `Slicer` action button | working-files local-launch design | uses tokenized download URL (Option B) |
@@ -360,6 +387,7 @@ Inline with the title (matching catalog #1216 pattern):
 | `GET /api/working-files/explorer` | sidecar (Layer 2-equivalent) | Add `last_file_mtime`, `is_primary` per file, optional `linked_archive_count`, optional `derived_thumbnail_path`, `last_indexed_at` in `summary`. |
 | `working_groups.primary_file_path` | sidecar | Already exists; the per-file `is_primary` is purely derived. |
 | Slicer launch tokenized URL | sidecar | Per the existing local-launch design doc — separate work item. |
+| Publish review start endpoint | sidecar | Add endpoint to hydrate publish review from `working_group_id` so Working can launch publish directly without restaging intake files. |
 
 ### 7.1 Intake entry behavior (issue #1321)
 
@@ -370,6 +398,7 @@ Working includes two intake entry paths:
 
 On narrow layouts, quick-drop is omitted and Import dropdown remains the canonical entry.
 | `model_catalog_explore_working_files` rest_command | HA package | No contract change required; new fields flow through transparently. |
+| `model_catalog_publish_working_group` rest_command | HA package | New wrapper for publish-review launch/commit from a Working group context. |
 | Card resource version | HA www | Bump version in [_resources.yaml](../../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml) when card JS is updated, per repo guidance. |
 
 ---
@@ -383,6 +412,7 @@ On narrow layouts, quick-drop is omitted and Import dropdown remains the canonic
 5. **`window.prompt` removal** — the current "Add to group" / "Create group" flows use `window.prompt`; the redesign assumes a small popover. Implementation effort is non-trivial; flag as a separate follow-up if it slips this iteration. The Group details popup in §4.4.2 is the canonical replacement for the rename and destination-group prompts.
 6. **Tags on working groups?** — the catalog supports tags; `working_groups` does not. The Group details popup in §4.4.2 deliberately does **not** include a Tags field pending a product decision. Adding tags would require either a `working_group_tags` join table or a JSON column on `working_groups` (Layer 2 schema add). Recommend deferring until there is operator demand; group-level `notes` covers the freeform-text use case in the meantime.
 7. **3D viewer for non-`.3mf`/`.stl` files** — STEP / OBJ extensions today lack a Three.js loader in the catalog viewer. Decision: disable the viewer affordance for those extensions in this iteration; revisit if a STEP-capable loader is added to the catalog (it would be picked up automatically since Working Files reuses the same viewer).
+8. **Publish fallback when validation warnings exist** — allow `Publish anyway` with explicit warning acknowledgement, or require user to return and resolve warnings first? Recommended default: allow with explicit acknowledgement and log the decision in the publish audit event.
 
 ---
 

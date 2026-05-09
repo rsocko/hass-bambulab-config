@@ -204,6 +204,10 @@ Recommendation:
 - keep the affordance visibly optional and intentional
 - avoid making the entire browser/explorer card droppable because that conflicts with existing click, selection, and scroll expectations
 
+Post-intake expectation:
+
+- when files are sent to Working, the Working Groups UI must expose an explicit `Publish to Catalog` action so operators can complete the promote workflow later without re-entering Intake from scratch
+
 ## Interaction Contract
 
 ### Valid Payload Detection
