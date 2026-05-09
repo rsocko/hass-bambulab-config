@@ -263,6 +263,7 @@ Caption strip rows:
 The header decomposes into three stacked, full-width rows that sit above the card grid:
 
 1. **Title row** — `Catalog Browser` + an inline `Sort` pill on the right. Per #1216, sort moves *out* of the filter panel and *into* the title row so it's always visible without scrolling.
+  - Add an always-visible `Import` dropdown in this title row with two jump actions: `Browser Upload` and `Server Inbox`.
 2. **Filter bar** — search input + the existing select filters (collection, creator, tag, queue) + two new filter chips (`Favorites only`, `Has other files`).
 3. **Page-control strip** — centered between the filter bar and the grid; never above the filter bar. The strip groups *navigation* + *density* + *display toggles*. A simplified mirror strip repeats below the grid.
 
@@ -315,6 +316,7 @@ Both share the same color treatment (amber, matching print-history's `.favorite.
 | Has-other-files filter | Layer 2 + Layer 3 | extend search payload with `has_other_files`; backend filter on `file_kinds` projection |
 | Per-card star (favorite) | Layer 1/2 + Layer 3 | `is_favorite` field already proposed in §2.2; toggle action wires through existing model-update API |
 | Per-card file-kind chips | Layer 2 + Layer 3 | `file_kinds` projection (§2.2); chip labels stay in Layer 3 |
+| Import dropdown (`Browser Upload` / `Server Inbox`) | Layer 3 + navigation action | UI-only menu in catalog header that routes into shared intake wizard with source mode preselected |
 
 Layer 1 (`sensor.print_history_archives` and the equivalent model-catalog projection) **must not** absorb chip labels, color tokens, or filter-pill wording — those are presentation concerns owned by the dashboard and the custom card.
 
@@ -322,6 +324,15 @@ Layer 1 (`sensor.print_history_archives` and the equivalent model-catalog projec
 
 - [mockups/toolbar.html](mockups/toolbar.html) — Option A (recommended) and Option B (compact alternative) side-by-side, with inline anatomy notes and a per-bullet mapping table.
 - [mockups/compact.html](mockups/compact.html), [mockups/list.html](mockups/list.html), [mockups/media.html](mockups/media.html) — header banner points at toolbar.html; the existing in-mockup filter bar is retained as a placeholder so each variant continues to read standalone.
+
+### 7.9 Intake Entry Contract (issue #1321)
+
+Catalog includes two intake entry paths:
+
+- always-visible `Import` dropdown in the catalog toolbar (`Browser Upload`, `Server Inbox`)
+- optional quick-drop card on wider layouts only
+
+Quick-drop is an acceleration path, not a replacement. Narrow layouts retain only the Import dropdown.
 
 ---
 

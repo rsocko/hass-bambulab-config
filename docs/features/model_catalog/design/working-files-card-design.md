@@ -309,6 +309,7 @@ Mirrors [catalog-card-design.md §7](catalog-card-design.md) (issue #1216) so us
 ### 5.1 Three-row stack
 
 1. **Title row** — "Working Files" + inline indexed-state pill (`Indexed 2m ago` + `Reindex` icon button). The reindex button replaces the standalone `Refresh` button from the current card; it always runs `forceReindex: true`.
+  - Add an always-visible `Import` dropdown in this title row with jump actions `Browser Upload` and `Server Inbox`.
 2. **View tabs + filter bar** — `Groups | All Files | Ungrouped` segmented control on the left (replaces three pill buttons with a tighter segmented control to free up horizontal real estate); filter inputs (search, extension, group-membership filter) stretch to the right.
 3. **Page-control strip** — only rendered when the current view returns more than `per_page` rows (Groups view today doesn't paginate; Files views can).
 
@@ -343,6 +344,7 @@ Inline with the title (matching catalog #1216 pattern):
 | Group memberships chip row | catalog publish-destination chips | identical visual grammar |
 | List view rows | catalog list view | column set differs (size/mtime/groups instead of archives/success/published-to) |
 | Toolbar 3-row stack | catalog toolbar (issue #1216) | adds Reindex pill, segmented view tabs |
+| Import dropdown (`Browser Upload` / `Server Inbox`) | catalog toolbar grammar | always visible in Working title row; routes to shared intake wizard with source mode preselected |
 | Bulk-action bar | catalog list view bulk bar | identical visual grammar |
 | Sort dropdown in title row | catalog #1216 | different sort options |
 | `Slicer` action button | working-files local-launch design | uses tokenized download URL (Option B) |
@@ -358,6 +360,15 @@ Inline with the title (matching catalog #1216 pattern):
 | `GET /api/working-files/explorer` | sidecar (Layer 2-equivalent) | Add `last_file_mtime`, `is_primary` per file, optional `linked_archive_count`, optional `derived_thumbnail_path`, `last_indexed_at` in `summary`. |
 | `working_groups.primary_file_path` | sidecar | Already exists; the per-file `is_primary` is purely derived. |
 | Slicer launch tokenized URL | sidecar | Per the existing local-launch design doc — separate work item. |
+
+### 7.1 Intake entry behavior (issue #1321)
+
+Working includes two intake entry paths:
+
+- always-visible `Import` dropdown in the Working toolbar (`Browser Upload`, `Server Inbox`)
+- optional quick-drop card on wider layouts only
+
+On narrow layouts, quick-drop is omitted and Import dropdown remains the canonical entry.
 | `model_catalog_explore_working_files` rest_command | HA package | No contract change required; new fields flow through transparently. |
 | Card resource version | HA www | Bump version in [_resources.yaml](../../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml) when card JS is updated, per repo guidance. |
 

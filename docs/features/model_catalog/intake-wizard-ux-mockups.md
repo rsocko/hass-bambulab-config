@@ -382,12 +382,15 @@ These variants apply only to the **Browser Upload** path.
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Catalog And Working Variants — Contextual Quick Drop
+### Catalog And Working Variants — Desktop/Wide Layout (Contextual Quick Drop + Import Menu)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Catalog                                                                                   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Toolbar actions: [Import ▼]                                                               │
+│ Import menu: [Browser Upload] [Server Inbox]                                              │
+│                                                                                            │
 │ ┌────────────────────────────────────────────────────────────────────────────────────────┐ │
 │ │ Quick Upload To Catalog                                                                │ │
 │ │ Drop files or a folder to open intake with destination defaulted to Catalog.          │ │
@@ -400,11 +403,36 @@ These variants apply only to the **Browser Upload** path.
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Working                                                                                   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Toolbar actions: [Import ▼]                                                               │
+│ Import menu: [Browser Upload] [Server Inbox]                                              │
+│                                                                                            │
 │ ┌────────────────────────────────────────────────────────────────────────────────────────┐ │
 │ │ Quick Upload To Working Files                                                          │ │
 │ │ Drop files or a folder to open intake with destination defaulted to Working Files.    │ │
 │ │ [Choose Files]                                                                         │ │
 │ └────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                            │
+│ [Working Files explorer card continues below]                                             │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Catalog And Working Variants — Narrow Layout (Import Menu Only)
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Catalog                                                                                   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Toolbar actions: [Import ▼]                                                               │
+│ Import menu: [Browser Upload] [Server Inbox]                                              │
+│                                                                                            │
+│ [Catalog Browser card continues below]                                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Working                                                                                   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Toolbar actions: [Import ▼]                                                               │
+│ Import menu: [Browser Upload] [Server Inbox]                                              │
 │                                                                                            │
 │ [Working Files explorer card continues below]                                             │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -424,6 +452,7 @@ These variants apply only to the **Browser Upload** path.
 - Keep `Add Files` and `Add Folder` visible for non-drag workflows.
 - A drop opens or updates the Browser Upload wizard only.
 - Server Inbox remains browse/select only.
+- Folder drag-and-drop should match `Add Folder` behavior for discovered files and relative-path handling.
 
 ## Step 2: Organize
 

@@ -49,6 +49,12 @@
   .title-row .inline-sort { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); }
   .title-row .inline-sort label { font-size: 11px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
   .title-row .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+  .title-row .import-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: 999px; background: rgba(96,165,250,0.10);
+    border: 1px solid rgba(96,165,250,0.30); color: var(--accent-blue);
+    font-size: 12px; font-weight: 700;
+  }
 
   /* Filter bar (existing pattern) */
   .filterbar {
@@ -266,7 +272,7 @@
 <div class="section">
   <h2>Option A — Recommended <span class="badge">PRIMARY</span></h2>
   <p class="desc">
-    Three stacked rows with progressive visual weight: title (with inline sort) → filter bar (text/select filters + favorites/other-files quick chips) → centered page-control strip. The strip groups <em>navigation</em> (prev/next icons + page indicator + count) on the left, <em>density</em> (Models/Page, View variant) in the middle, and <em>display toggles</em> (Show media, Refresh) on the right; whole strip is centered as a unit. Mirror strip below the grid uses the same DOM but hides the toggle group on small viewports.
+    Three stacked rows with progressive visual weight: title (with inline sort and Import menu) → filter bar (text/select filters + favorites/other-files quick chips) → centered page-control strip. The strip groups <em>navigation</em> (prev/next icons + page indicator + count) on the left, <em>density</em> (Models/Page, View variant) in the middle, and <em>display toggles</em> (Show media, Refresh) on the right; whole strip is centered as a unit. Mirror strip below the grid uses the same DOM but hides the toggle group on small viewports.
   </p>
 
   <!-- TITLE ROW -->
@@ -288,6 +294,7 @@
           <option>Most archived</option>
         </select>
       </span>
+      <span class="import-btn" title="Choose intake mode and jump into intake flow">Import ▼</span>
       <button class="icon-btn" title="Settings" onclick="event.preventDefault()" style="width:30px;height:30px;">⚙</button>
     </div>
   </div>
@@ -374,6 +381,7 @@
     <h4>Option A · notes</h4>
     <ul>
       <li><strong>Sort lives in the title row</strong> as an accented inline pill (matching the print-history sort placement). Keeping it out of the page strip keeps the strip purely about <em>navigation + density + display</em>.</li>
+      <li><strong>Import menu lives in the title row</strong> and is always visible on Catalog. Menu actions are `Browser Upload` and `Server Inbox`, each jumping into the shared intake wizard flow with mode preselected.</li>
       <li><strong>Page strip is a single centered row</strong> on desktop. On small viewports each <code>.group</code> wraps to its own line but stays centered (uses <code>flex-wrap</code>, no JS).</li>
       <li><strong>Prev/next icons</strong> use chevrons (<code>i-prev</code>/<code>i-next</code>) and double-chevrons for first/last, mirroring the print-history toolbar grammar (<code>mdi:page-first</code>, <code>mdi:chevron-left</code>, etc.).</li>
       <li><strong>Total count</strong> is part of the page indicator (<code>1 / 5 · 47 models</code>) so it doesn't compete with the title-row metadata. Accent color draws the eye to the live count.</li>

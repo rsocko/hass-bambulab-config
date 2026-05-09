@@ -48,6 +48,8 @@
   .inline-sort { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); }
   .inline-sort label { font-size: 10px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
   .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+  .import-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: rgba(96,165,250,0.10); border: 1px solid rgba(96,165,250,0.30); color: var(--accent-blue); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .import-btn:hover { background: rgba(96,165,250,0.18); }
   .reindex-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; background: rgba(94,234,212,0.10); border: 1px solid rgba(94,234,212,0.32); color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; }
   .reindex-btn:hover { background: rgba(94,234,212,0.18); }
 
@@ -99,7 +101,7 @@
 <!-- ============== Scenario A: default Groups view ============== -->
 <section class="scenario">
   <h2>A · Default state · Groups view</h2>
-  <p class="lead">Page lands here. Indexed pill is healthy. Sort defaults to <strong>Recently modified</strong> so the active set sits at the top. View tabs collapse to a tight segmented control to free toolbar real estate vs the legacy three-pill layout.</p>
+  <p class="lead">Page lands here. Indexed pill is healthy. Sort defaults to <strong>Recently modified</strong> so the active set sits at the top. View tabs collapse to a tight segmented control to free toolbar real estate vs the legacy three-pill layout. Import dropdown provides mode-select jump into intake (`Browser Upload` / `Server Inbox`).</p>
   <div class="toolbar-shell">
     <div class="title-row">
       <div>
@@ -109,6 +111,7 @@
       <div class="right">
         <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Title A→Z</option><option>Most files</option><option>Stage (Draft → Ready)</option></select></span>
+        <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
         <button class="reindex-btn" title="Re-scan filesystem and rebuild inventory">⟳ Reindex</button>
         <button class="icon-btn toggle active" title="Show thumbnails">🖼</button>
         <button class="icon-btn" title="Collapse all groups">⮟</button>
@@ -128,7 +131,7 @@
     </div>
   </div>
   <div class="annot">
-    <strong>Anatomy</strong> · Title row left = brand + working-root subtitle (replaces the standalone <em>Refresh</em> button from the legacy card). Title row right = state-of-the-index pill, then sort, then primary action (Reindex), then display toggles. Filter row left = segmented view tabs (always visible), then search (flex), then dropdown filter, then quick-chip filters.
+    <strong>Anatomy</strong> · Title row left = brand + working-root subtitle (replaces the standalone <em>Refresh</em> button from the legacy card). Title row right = state-of-the-index pill, then sort, then always-visible Import dropdown (Browser Upload / Server Inbox), then primary action (Reindex), then display toggles. Filter row left = segmented view tabs (always visible), then search (flex), then dropdown filter, then quick-chip filters.
   </div>
 </section>
 
@@ -145,6 +148,7 @@
       <div class="right">
         <span class="indexed-pill warn"><span class="dot"></span>Indexed 2d ago · stale</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option></select></span>
+        <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
         <button class="reindex-btn" style="background:rgba(245,158,11,0.14); border-color:rgba(252,211,77,0.32); color:#fde68a;">⟳ Reindex now</button>
         <button class="icon-btn toggle active">🖼</button>
       </div>
@@ -177,6 +181,7 @@
       <div class="right">
         <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Name A→Z</option><option>Largest first</option><option>Most groups</option></select></span>
+        <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
         <button class="reindex-btn">⟳ Reindex</button>
         <button class="icon-btn toggle active">🖼</button>
       </div>
@@ -222,6 +227,7 @@
       <div class="right">
         <span class="indexed-pill"><span class="dot"></span>Indexed 2m ago</span>
         <span class="inline-sort"><label>Sort</label><select><option>Recently modified</option><option>Name A→Z</option><option>Largest first</option></select></span>
+        <button class="import-btn" title="Import modes: Browser Upload, Server Inbox">Import ▼</button>
         <button class="reindex-btn">⟳ Reindex</button>
         <button class="icon-btn" title="New group from selection">＋</button>
       </div>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Intake Entry Launchpad</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0d1118;
+    --bg-panel: rgba(24, 31, 42, 0.92);
+    --bg-elev: rgba(34, 42, 55, 0.95);
+    --border: rgba(148, 163, 184, 0.2);
+    --border-strong: rgba(148, 163, 184, 0.35);
+    --text: #e6edf3;
+    --text-secondary: #9aa5b4;
+    --text-muted: #6b7481;
+    --teal: #5eead4;
+    --blue: #60a5fa;
+    --amber: #f5c242;
+    --shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  }
+  html, body {
+    margin: 0;
+    background: radial-gradient(circle at 10% 0%, rgba(96, 165, 250, 0.08), transparent 30%), var(--bg-page);
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 36px clamp(16px, 3vw, 48px); }
+  .header {
+    max-width: 1360px;
+    margin: 0 auto 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .header h1 {
+    margin: 0;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+  .header p {
+    margin: 8px 0 0;
+    max-width: 860px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .nav a {
+    text-decoration: none;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .canvas {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .surface {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .surface-head {
+    padding: 12px 14px;
+    border-bottom: 1px dashed var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .surface-head h2 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    background: rgba(96, 165, 250, 0.12);
+    color: var(--blue);
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .content {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .card {
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+  }
+  .card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .title {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 700;
+  }
+  .actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    border-radius: 999px;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    background: rgba(96, 165, 250, 0.12);
+    color: var(--blue);
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .btn {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .drop-zone {
+    border: 1px dashed rgba(94, 234, 212, 0.42);
+    background: linear-gradient(160deg, rgba(94, 234, 212, 0.08), rgba(96, 165, 250, 0.06));
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .drop-zone .big {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--teal);
+  }
+  .drop-zone .small {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+  }
+  .menu {
+    margin-top: 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elev);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .menu-item {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .menu-item:last-child { border-bottom: 0; }
+  .menu-item strong { color: var(--text); }
+  .note {
+    margin-top: 10px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .full {
+    grid-column: 1 / -1;
+  }
+  .stack {
+    display: grid;
+    gap: 10px;
+  }
+  @media (max-width: 980px) {
+    .content { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Intake Entry Launchpad · Issue #1321</h1>
+    <p>Finalized entry behavior mockup: Intake gets a prominent drop launchpad, Catalog and Working always expose an Import dropdown, and quick-drop appears only on wider layouts. Folder drop is expected to match Add Folder semantics.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">← Mockup index</a>
+    <a href="toolbar.html">Catalog toolbar</a>
+    <a href="working-files-toolbar.html">Working toolbar</a>
+  </div>
+</div>
+
+<div class="canvas">
+  <section class="surface">
+    <div class="surface-head">
+      <h2>A. Intake Tab · Launchpad (all layouts)</h2>
+      <span class="badge">recommended default</span>
+    </div>
+    <div class="content">
+      <div class="card full">
+        <div class="toolbar">
+          <span class="title">Intake workspace</span>
+          <span class="actions"><button class="btn">Open Browser Upload</button><button class="btn">Open Server Inbox</button></span>
+        </div>
+        <div class="drop-zone">
+          <div class="big">Drop files or a folder to start Browser Upload intake</div>
+          <div class="small">This launches the shared intake wizard in Browser mode and stages the dropped content on Source step 1. Use the existing Server Inbox entry for server-path imports.</div>
+        </div>
+        <div class="note">Guardrail: panel-wide drop target only. No row-level folder drop targets inside staged trees.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="surface">
+    <div class="surface-head">
+      <h2>B. Catalog Tab · Desktop / Wide</h2>
+      <span class="badge">quick-drop enabled</span>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="toolbar">
+          <span class="title">Catalog toolbar</span>
+          <span class="actions"><span class="pill">Import ▼</span></span>
+        </div>
+        <div class="menu">
+          <div class="menu-item"><strong>Browser Upload</strong> → open wizard in browser mode (destination default: Catalog)</div>
+          <div class="menu-item"><strong>Server Inbox</strong> → open wizard in server mode</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="drop-zone">
+          <div class="big">Quick Upload To Catalog</div>
+          <div class="small">Drop files or folder to open Browser Upload with staged items preloaded. This card is desktop/wide only.</div>
+        </div>
+        <div class="note">Narrow layout removes this card but keeps Import dropdown.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="surface">
+    <div class="surface-head">
+      <h2>C. Working Tab · Desktop / Wide</h2>
+      <span class="badge">quick-drop enabled</span>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="toolbar">
+          <span class="title">Working toolbar</span>
+          <span class="actions"><span class="pill">Import ▼</span></span>
+        </div>
+        <div class="menu">
+          <div class="menu-item"><strong>Browser Upload</strong> → open wizard in browser mode (destination default: Working Files)</div>
+          <div class="menu-item"><strong>Server Inbox</strong> → open wizard in server mode</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="drop-zone">
+          <div class="big">Quick Upload To Working Files</div>
+          <div class="small">Drop files or folder to open Browser Upload with staged items preloaded. This card is desktop/wide only.</div>
+        </div>
+        <div class="note">Narrow layout removes this card but keeps Import dropdown.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="surface">
+    <div class="surface-head">
+      <h2>D. Narrow Layout Contract (Catalog + Working)</h2>
+      <span class="badge">import-only entry</span>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="stack">
+          <div class="toolbar"><span class="title">Catalog narrow</span><span class="actions"><span class="pill">Import ▼</span></span></div>
+          <p>Quick-drop card hidden on narrow layout. Import menu remains the canonical entry point.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="stack">
+          <div class="toolbar"><span class="title">Working narrow</span><span class="actions"><span class="pill">Import ▼</span></span></div>
+          <p>Quick-drop card hidden on narrow layout. Import menu remains the canonical entry point.</p>
+        </div>
+      </div>
+      <div class="card full">
+        <div class="note">Folder drag/drop parity rule: when dropping a folder on supported browsers, staged results must match Add Folder behavior (recursive discovery, relative paths, and summary counts). If browser directory APIs are insufficient, UI must show an explicit warning and leave Add Folder as fallback.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+</body>
+</html>

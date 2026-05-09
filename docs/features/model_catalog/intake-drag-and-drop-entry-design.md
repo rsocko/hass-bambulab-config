@@ -4,6 +4,10 @@
 > **Created**: 2026-05-09
 > **Scope**: Drag-and-drop as an entrypoint into the Browser Upload intake wizard. Not applicable to Server Inbox.
 
+Companion high-fidelity mockup:
+
+- [design/mockups/intake-entry-launchpad.html](design/mockups/intake-entry-launchpad.html)
+
 ## Purpose
 
 Define how drag-and-drop should enter the existing Browser Upload wizard without creating a parallel upload workflow or adding Server Inbox semantics where they do not belong.
@@ -14,6 +18,15 @@ This design is intentionally narrow:
 - allow contextual launch from Intake, Catalog, and Working surfaces
 - preserve the existing queue, validation, and publish flow behind the wizard
 - avoid introducing per-folder drop targets or direct-to-destination bypasses
+
+## Decision Update (2026-05-09)
+
+Resolved from operator feedback:
+
+1. Catalog/Working quick-drop cards are desktop-first and shown only on wider layouts.
+2. Catalog and Working must expose an explicit `Import` dropdown for mode selection (`Browser Upload` vs `Server Inbox`) regardless of layout width.
+3. Folder drag-and-drop is expected to behave like `Add Folder`; this is now a requirement.
+4. Intake landing uses a prominent launchpad drop card (recommended default accepted).
 
 ## Scope And Non-Goals
 
@@ -167,7 +180,7 @@ Recommendation:
 
 ### Surface C: Catalog And Working Quick-Drop Entry
 
-Catalog and Working should optionally expose a small `Quick Upload` or `Drop To Start Intake` card near the top of the view.
+Catalog and Working should expose an explicit import entry in the toolbar/header and a quick-drop card on wider layouts.
 
 Behavior:
 
@@ -176,6 +189,14 @@ Behavior:
 - destination default is contextual:
   - Catalog view -> `curated`
   - Working view -> `working`
+- import dropdown is always available and includes:
+  - `Import > Browser Upload`
+  - `Import > Server Inbox`
+
+Layout rule:
+
+- quick-drop card appears on wider layouts only
+- narrow layouts keep the Import dropdown and omit the quick-drop card
 
 Recommendation:
 
@@ -192,6 +213,20 @@ The drag-active state should appear only when the payload includes local files.
 - accept `DataTransfer.files`
 - ignore plain text, links, and unsupported non-file drags for this feature
 - if the browser exposes dropped directories as file entries with relative paths, preserve them
+
+### Folder Drop Parity Contract
+
+Dropped folders must produce the same intake result shape as `Add Folder`.
+
+- same recursive file discovery semantics
+- same relative-path preservation behavior
+- same staging summary counts and tree behavior
+
+Implementation guidance:
+
+- use the same normalization/staging code path as `Add Folder` once payload extraction is complete
+- when browser APIs cannot provide full directory traversal details, show an explicit warning and keep file-picker fallback visible
+- do not silently degrade into ambiguous partial-folder behavior
 
 ### Additive Staging Contract
 
@@ -254,16 +289,13 @@ Current `_openWizard('browser')` hard-resets `_destinationChoice` to `curated`. 
 
 ## Open Decisions To Confirm
 
-These choices are not blockers for the design, but they should be explicitly confirmed before implementation:
-
-1. Should Catalog and Working always show the quick-drop card, or only on larger screens / expanded layouts?
-2. Should dropped folders rely only on browser-native folder expansion support, or should implementation also include `webkitGetAsEntry()` traversal for stronger folder-drop parity?
-3. Should the Intake landing surface be a prominent hero-style drop zone, or a smaller utility card above the existing intake home card?
+No unresolved product decisions remain for issue #1321 entry behavior.
 
 ## Recommended Defaults
 
-If no further decision is made, the recommended defaults are:
+Confirmed defaults:
 
-1. Show quick-drop cards on Catalog and Working as always-visible bounded cards.
-2. Support both direct file drop and directory traversal where browser APIs permit it, with graceful fallback to loose files.
-3. Use a prominent drop-launch card in the Intake section, but smaller utility quick-drop cards in Catalog and Working.
+1. Show quick-drop cards on Catalog and Working only on wider layouts.
+2. Always expose `Import` dropdown in Catalog and Working headers with `Browser Upload` and `Server Inbox` jump actions.
+3. Require folder-drop behavior to match `Add Folder` semantics.
+4. Use a prominent drop-launch card in the Intake section.
