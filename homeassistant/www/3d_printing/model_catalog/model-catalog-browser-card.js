@@ -1078,7 +1078,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
     var queueStatus = String(fields.to_print_status || "").trim().toLowerCase();
     var queuePriority = String(fields.to_print_priority || "").trim();
-    var queueChipClass = queueStatus === "queued" ? "queue" : (queueStatus === "done" ? "complete" : "neutral");
     var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
     var originType = String(model.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
     var sourcePlatform = String(model.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
@@ -1150,7 +1149,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var advancedActions = ''
       + '<div class="advanced-menu-shell">'
-      + '  <button class="icon-action" type="button" data-action="toggle-actions" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Open advanced actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
+      + '  <button class="icon-action advanced" type="button" data-action="toggle-actions" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Open advanced actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
       + '<div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
           + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
           + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
@@ -1213,43 +1212,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       : '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queue</button>';
     var openQuickAction = ''
       + '<button class="toolbar-btn open-quick-btn" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Open</button>';
-
-    var titleCluster = ''
-      + '<div class="title-cluster">'
-      + '  <h3 class="title">' + this._escapeHtml(name) + '</h3>'
-      + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip("+" + String(hiddenCollectionCount) + " more", "subtle-chip") : "") + '</div>'
-      + '</div>';
-
-    var metaLine = ''
-      + '<div class="chip-row status-line">'
-      + queueChip
-      + this._renderModelTagChip("Priority: " + queuePriorityLabel, "subtle-chip")
-      + this._renderModelTagChip("Linked prints: " + String(linkedCount), "subtle-chip")
-      + '</div>';
-
-    var metrics = ''
-      + '<div class="metrics">'
-      + this._renderModelMetric("Recent", recent.toFixed(2))
-      + this._renderModelMetric("Frequent", frequent.toFixed(2))
-      + this._renderModelMetric("Common", common.toFixed(2))
-      + '</div>';
-
-    var detailFooter = ''
-      + '<div class="tag-project-row">'
-      + '  <div class="tags">' + tagMarkup + '</div>'
-      + '  <div class="media-status-chip" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._renderModelTagChip(previewLabel, mediaCount > 1 ? "queue" : "neutral") + '</div>'
-      + '</div>';
-
-    var bodyHtml = ''
-      + '<div class="body">'
-      + '  <div class="header-row">'
-      + titleCluster
-      + '    <div class="header-actions">' + advancedActions + '</div>'
-      + '  </div>'
-      + metaLine
-      + metrics
-      + detailFooter
-      + '</div>';
 
     var compactMainHtml = ''
       + '<div class="body compact-main">'
@@ -1554,9 +1516,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.media-gallery-nav{position:absolute;left:10px;right:10px;bottom:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}'
       + '.media-gallery-nav .icon-action{pointer-events:auto;}'
       + '.advanced-menu-shell{position:relative;display:flex;justify-content:flex-end;}'
-      + '.icon-action,.mini-btn,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;}'
+      + '.icon-action,.mini-btn,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease,border-color .16s ease;}'
       + '.icon-action{width:34px;padding:0;}'
       + '.icon-action ha-icon{--mdc-icon-size:18px;}'
+      + '.icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}'
+      + '.icon-action:active{transform:translateY(0);}'
+      + '.icon-action.viewer-action{background:rgba(0,137,123,0.16);color:#7dd3c8;border-color:rgba(125,211,200,0.24);}'
+      + '.icon-action.viewer-action:hover,.icon-action.viewer-action:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}'
+      + '.icon-action.advanced{border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.78);color:var(--primary-text-color);}'
+      + '.icon-action.advanced:hover,.icon-action.advanced:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
       + '.advanced-menu{position:absolute;top:40px;right:0;z-index:4;display:none;gap:8px;min-width:220px;padding:10px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 18px 34px rgba(15,23,42,0.28);}'
       + '.advanced-menu.is-open{display:grid;}'
       + '.advanced-action{justify-content:flex-start;width:100%;padding:0 12px;border-radius:12px;background:rgba(148,163,184,0.10);}'
