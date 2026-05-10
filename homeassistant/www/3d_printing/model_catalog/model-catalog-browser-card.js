@@ -1768,18 +1768,32 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
     }
 
-    var modelFilesCount = this._readFirstCount(map, ["model_files", "model", "models", "model_count", "models_count", "files_model", "geometry"]);
-    var imageFilesCount = this._readFirstCount(map, ["images", "image", "image_files", "images_count", "image_count", "photos"]);
-    var otherFilesCount = this._readFirstCount(map, ["other", "other_files", "other_count", "docs", "documents", "docs_count"]);
+    var modelFilesCount = this._readFirstCount(map, ["model_files", "model", "models", "model_count", "models_count", "model_file_count", "model_files_count", "files_model", "geometry", "three_d_files", "3d_files"]);
+    var imageFilesCount = this._readFirstCount(map, ["images", "image", "image_files", "images_count", "image_count", "image_file_count", "media_file_count", "photos", "photos_count"]);
+    var otherFilesCount = this._readFirstCount(map, ["other", "other_files", "other_count", "other_file_count", "docs", "documents", "docs_count", "supporting_file_count", "supporting_files_count"]);
 
     if (modelFilesCount === null) {
-      modelFilesCount = this._readFirstCount(model, ["model_files_count", "model_count", "models_count"]);
+      modelFilesCount = this._readFirstCount(model, ["model_files_count", "model_file_count", "model_count", "models_count", "three_d_files_count", "3d_files_count"]);
     }
     if (imageFilesCount === null) {
-      imageFilesCount = this._readFirstCount(model, ["image_files_count", "images_count", "image_count", "photos_count"]);
+      imageFilesCount = this._readFirstCount(model, ["image_files_count", "image_file_count", "images_count", "image_count", "media_file_count", "photos_count"]);
     }
     if (otherFilesCount === null) {
-      otherFilesCount = this._readFirstCount(model, ["other_files_count", "docs_count", "documents_count", "other_count"]);
+      otherFilesCount = this._readFirstCount(model, ["other_files_count", "other_file_count", "docs_count", "documents_count", "other_count", "supporting_file_count", "supporting_files_count"]);
+    }
+
+    if (modelFilesCount === null) {
+      modelFilesCount = this._readFirstCount(fields, ["model_files_count", "model_file_count", "model_count", "models_count", "three_d_files_count", "3d_files_count"]);
+    }
+    if (imageFilesCount === null) {
+      imageFilesCount = this._readFirstCount(fields, ["image_files_count", "image_file_count", "images_count", "image_count", "media_file_count", "photos_count"]);
+    }
+    if (otherFilesCount === null) {
+      otherFilesCount = this._readFirstCount(fields, ["other_files_count", "other_file_count", "docs_count", "documents_count", "other_count", "supporting_file_count", "supporting_files_count"]);
+    }
+
+    if ((imageFilesCount === null || imageFilesCount === 0) && Number.isFinite(Number(model && model.preview_count))) {
+      imageFilesCount = Math.max(0, Number(model.preview_count));
     }
 
     if (modelFilesCount === null || imageFilesCount === null || otherFilesCount === null) {
