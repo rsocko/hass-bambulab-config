@@ -5,11 +5,6 @@ panel: true
 cards:
   - type: vertical-stack
     cards:
-      - type: markdown
-        content: |
-          # Model Catalog
-
-          Top-level dashboard tabs stay visible here. Use the local workspace nav below to move between Curated, Working, Intake, Job History, and the launch pad.
       - type: grid
         columns: 5
         square: false
@@ -26,12 +21,14 @@ cards:
                 option: home
             styles:
               card:
-                - padding: 8px 10px
-                - border-radius: 12px
-                - border: 1px solid rgba(148, 163, 184, 0.26)
-                - background: rgba(15, 23, 42, 0.08)
+                - padding: 10px 8px
+                - border-radius: 0
+                - border: 0
+                - border-top: 3px solid transparent
+                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - background: transparent
                 - box-shadow: none
-                - min-height: 50px
+                - min-height: 48px
                 - margin: 0
               grid:
                 - grid-template-areas: '"i n"'
@@ -40,9 +37,10 @@ cards:
                 - align-items: center
               name:
                 - font-size: 13px
-                - font-weight: 700
+                - font-weight: 600
                 - justify-self: start
                 - white-space: nowrap
+                - color: var(--secondary-text-color)
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
@@ -50,12 +48,13 @@ cards:
               - value: home
                 styles:
                   card:
-                    - background: rgba(30, 64, 175, 0.2)
-                    - border: 1px solid rgba(96, 165, 250, 0.5)
+                    - background: rgba(96, 165, 250, 0.08)
+                    - border-top: 3px solid var(--primary-color)
+                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
                   name:
                     - color: var(--primary-text-color)
                   icon:
-                    - color: rgba(147, 197, 253, 0.98)
+                    - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
             name: Curated
@@ -68,12 +67,14 @@ cards:
                 option: curated
             styles:
               card:
-                - padding: 8px 10px
-                - border-radius: 12px
-                - border: 1px solid rgba(148, 163, 184, 0.26)
-                - background: rgba(15, 23, 42, 0.08)
+                - padding: 10px 8px
+                - border-radius: 0
+                - border: 0
+                - border-top: 3px solid transparent
+                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - background: transparent
                 - box-shadow: none
-                - min-height: 50px
+                - min-height: 48px
                 - margin: 0
               grid:
                 - grid-template-areas: '"i n"'
@@ -82,9 +83,10 @@ cards:
                 - align-items: center
               name:
                 - font-size: 13px
-                - font-weight: 700
+                - font-weight: 600
                 - justify-self: start
                 - white-space: nowrap
+                - color: var(--secondary-text-color)
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
@@ -92,12 +94,13 @@ cards:
               - value: curated
                 styles:
                   card:
-                    - background: rgba(30, 64, 175, 0.2)
-                    - border: 1px solid rgba(96, 165, 250, 0.5)
+                    - background: rgba(96, 165, 250, 0.08)
+                    - border-top: 3px solid var(--primary-color)
+                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
                   name:
                     - color: var(--primary-text-color)
                   icon:
-                    - color: rgba(147, 197, 253, 0.98)
+                    - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
             name: Working
@@ -110,12 +113,14 @@ cards:
                 option: working
             styles:
               card:
-                - padding: 8px 10px
-                - border-radius: 12px
-                - border: 1px solid rgba(148, 163, 184, 0.26)
-                - background: rgba(15, 23, 42, 0.08)
+                - padding: 10px 8px
+                - border-radius: 0
+                - border: 0
+                - border-top: 3px solid transparent
+                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - background: transparent
                 - box-shadow: none
-                - min-height: 50px
+                - min-height: 48px
                 - margin: 0
               grid:
                 - grid-template-areas: '"i n"'
@@ -124,9 +129,10 @@ cards:
                 - align-items: center
               name:
                 - font-size: 13px
-                - font-weight: 700
+                - font-weight: 600
                 - justify-self: start
                 - white-space: nowrap
+                - color: var(--secondary-text-color)
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
@@ -134,12 +140,13 @@ cards:
               - value: working
                 styles:
                   card:
-                    - background: rgba(30, 64, 175, 0.2)
-                    - border: 1px solid rgba(96, 165, 250, 0.5)
+                    - background: rgba(96, 165, 250, 0.08)
+                    - border-top: 3px solid var(--primary-color)
+                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
                   name:
                     - color: var(--primary-text-color)
                   icon:
-                    - color: rgba(147, 197, 253, 0.98)
+                    - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
             name: Intake
@@ -152,12 +159,14 @@ cards:
                 option: intake
             styles:
               card:
-                - padding: 8px 10px
-                - border-radius: 12px
-                - border: 1px solid rgba(148, 163, 184, 0.26)
-                - background: rgba(15, 23, 42, 0.08)
+                - padding: 10px 8px
+                - border-radius: 0
+                - border: 0
+                - border-top: 3px solid transparent
+                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - background: transparent
                 - box-shadow: none
-                - min-height: 50px
+                - min-height: 48px
                 - margin: 0
               grid:
                 - grid-template-areas: '"i n"'
@@ -166,9 +175,10 @@ cards:
                 - align-items: center
               name:
                 - font-size: 13px
-                - font-weight: 700
+                - font-weight: 600
                 - justify-self: start
                 - white-space: nowrap
+                - color: var(--secondary-text-color)
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
@@ -176,12 +186,13 @@ cards:
               - value: intake
                 styles:
                   card:
-                    - background: rgba(30, 64, 175, 0.2)
-                    - border: 1px solid rgba(96, 165, 250, 0.5)
+                    - background: rgba(96, 165, 250, 0.08)
+                    - border-top: 3px solid var(--primary-color)
+                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
                   name:
                     - color: var(--primary-text-color)
                   icon:
-                    - color: rgba(147, 197, 253, 0.98)
+                    - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
             name: Job History
@@ -194,12 +205,14 @@ cards:
                 option: inbox
             styles:
               card:
-                - padding: 8px 10px
-                - border-radius: 12px
-                - border: 1px solid rgba(148, 163, 184, 0.26)
-                - background: rgba(15, 23, 42, 0.08)
+                - padding: 10px 8px
+                - border-radius: 0
+                - border: 0
+                - border-top: 3px solid transparent
+                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - background: transparent
                 - box-shadow: none
-                - min-height: 50px
+                - min-height: 48px
                 - margin: 0
               grid:
                 - grid-template-areas: '"i n"'
@@ -208,9 +221,10 @@ cards:
                 - align-items: center
               name:
                 - font-size: 13px
-                - font-weight: 700
+                - font-weight: 600
                 - justify-self: start
                 - white-space: nowrap
+                - color: var(--secondary-text-color)
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
@@ -218,12 +232,13 @@ cards:
               - value: inbox
                 styles:
                   card:
-                    - background: rgba(30, 64, 175, 0.2)
-                    - border: 1px solid rgba(96, 165, 250, 0.5)
+                    - background: rgba(96, 165, 250, 0.08)
+                    - border-top: 3px solid var(--primary-color)
+                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
                   name:
                     - color: var(--primary-text-color)
                   icon:
-                    - color: rgba(147, 197, 253, 0.98)
+                    - color: var(--primary-color)
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
@@ -350,11 +365,6 @@ cards:
         card:
           type: vertical-stack
           cards:
-            - type: markdown
-              content: |
-                ## Catalog
-
-                Browse the curated authority without leaving the main dashboard shell.
             - type: custom:model-catalog-browser-card
               title: Catalog Browser
               per_page: 12
@@ -365,11 +375,6 @@ cards:
         card:
           type: vertical-stack
           cards:
-            - type: markdown
-              content: |
-                ## Working
-
-                Inspect working files and manage group candidates inside the shared workspace shell.
             - type: custom:model-catalog-working-files-explorer-card
               title: Working Files
               per_page: 200
@@ -380,11 +385,6 @@ cards:
         card:
           type: vertical-stack
           cards:
-            - type: markdown
-              content: |
-                ## Intake
-
-                Queue intake work here, then jump to Job History from the local workspace controls.
             - type: custom:model-catalog-intake-home-card
               title: Model Catalog Intake
               sectionEntity: input_select.model_catalog_workspace_view
@@ -396,11 +396,6 @@ cards:
         card:
           type: vertical-stack
           cards:
-            - type: markdown
-              content: |
-                ## Job History
-
-                Review completed intake outcomes here. Active Queue remains a background/admin path, while this view is the primary operator outcome surface.
             - type: custom:model-catalog-inbox-review-card
               title: Job History
               defaultView: job_history
