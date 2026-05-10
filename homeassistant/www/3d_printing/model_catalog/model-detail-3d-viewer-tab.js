@@ -72,6 +72,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
       );
     });
 
+    // Prevent stale persisted index from selecting an invalid file slot.
+    if (!Number.isFinite(this._selectedFileIndex) || this._selectedFileIndex < 0 || this._selectedFileIndex >= this._files.length) {
+      this._selectedFileIndex = 0;
+    }
+
     if (this.isConnected) {
       this._render();
     }
@@ -89,14 +94,79 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
   disconnectedCallback() {
     this._saveViewerState();
+    this._teardownViewer();
+  }
+
+  _teardownViewer() {
     if (this._renderLoopId) {
       cancelAnimationFrame(this._renderLoopId);
       this._renderLoopId = null;
     }
+
+    if (this._controls && typeof this._controls.dispose === 'function') {
+      this._controls.dispose();
+    }
+    this._controls = null;
+
+    if (this._activeObject3D) {
+      this._disposeObject3D(this._activeObject3D);
+      if (this._scene) {
+        this._scene.remove(this._activeObject3D);
+      }
+      this._activeObject3D = null;
+    }
+
+    if (this._mesh) {
+      if (this._scene) {
+        this._scene.remove(this._mesh);
+      }
+      if (this._mesh.geometry && typeof this._mesh.geometry.dispose === 'function') {
+        this._mesh.geometry.dispose();
+      }
+      if (this._mesh.material && typeof this._mesh.material.dispose === 'function') {
+        this._mesh.material.dispose();
+      }
+      this._mesh = null;
+    }
+
+    if (this._geometry && typeof this._geometry.dispose === 'function') {
+      this._geometry.dispose();
+      this._geometry = null;
+    }
+
+    if (this._gridHelper && this._scene) {
+      this._scene.remove(this._gridHelper);
+    }
+    this._gridHelper = null;
+
+    if (this._buildVolumeHelper && this._scene) {
+      this._scene.remove(this._buildVolumeHelper);
+      if (this._buildVolumeHelper.geometry && typeof this._buildVolumeHelper.geometry.dispose === 'function') {
+        this._buildVolumeHelper.geometry.dispose();
+      }
+      if (this._buildVolumeHelper.material && typeof this._buildVolumeHelper.material.dispose === 'function') {
+        this._buildVolumeHelper.material.dispose();
+      }
+    }
+    this._buildVolumeHelper = null;
+
     if (this._renderer) {
+      try {
+        if (typeof this._renderer.forceContextLoss === 'function') {
+          this._renderer.forceContextLoss();
+        }
+      } catch (_error) {
+        // No-op.
+      }
+      if (this._renderer.domElement && this._renderer.domElement.parentNode) {
+        this._renderer.domElement.parentNode.removeChild(this._renderer.domElement);
+      }
       this._renderer.dispose();
       this._renderer = null;
     }
+
+    this._scene = null;
+    this._camera = null;
   }
 
   async _loadThreeJs() {
@@ -570,10 +640,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const container = this.querySelector('#canvas-container');
     if (!container || !window.THREE) return;
 
-    if (this._renderLoopId) {
-      cancelAnimationFrame(this._renderLoopId);
-      this._renderLoopId = null;
-    }
+    // Ensure each initialize cycle starts from a clean WebGL/Three.js state.
+    this._teardownViewer();
 
     const existingCanvases = Array.from(container.querySelectorAll('canvas'));
     existingCanvases.forEach((canvas) => {
@@ -2193,7 +2261,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       if (saved) {
         const state = JSON.parse(saved);
         if (typeof state === 'object' && state !== null) {
-          if (typeof state.selectedFileIndex === 'number' && state.selectedFileIndex < this._files.length) {
+          if (typeof state.selectedFileIndex === 'number' && state.selectedFileIndex >= 0 && state.selectedFileIndex < this._files.length) {
             this._selectedFileIndex = state.selectedFileIndex;
           }
           if (typeof state.selectedPlateId === 'string') {
