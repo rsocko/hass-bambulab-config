@@ -1874,9 +1874,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _getMdiPath(mdiIcon) {
     // Material Design Icon SVG paths
     var paths = {
-      "mdi:cube": "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m3.5-9h-3v-3h-1v3h-3v1h3v3h1v-3h3v-1z",
-      "mdi:image": "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
-      "mdi:file-document": "M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-8-6z"
+      "mdi:cube": "M12,2L2,7V12H2V17C2,18.1 2.9,19 4,19H20C21.1,19 22,18.1 22,17V7L12,2M12,4.18L19.5,7.5H4.5L12,4.18M4.5,9H19.5V17H4.5V9Z",
+      "mdi:image": "M21,19V5c0-1.1-.9-2-2-2H5c-1.1,0-2,.9-2,2v14c0,1.1.9,2,2,2h14c1.1,0,2-.9,2-2zM8.5,13.5l2.5,3.01L14.5,12l4.5,6H5l3.5-4.5z",
+      "mdi:file-document": "M14,2H6c-1.1,0-2,.9-2,2v16c0,1.1.9,2,2,2h12c1.1,0,2-.9,2-2V8l-8-6z"
     };
     return paths[mdiIcon] || "";
   }
