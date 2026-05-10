@@ -84,6 +84,17 @@ Unified contract note:
 
 - Legacy queue payload keys (`queue_status`, `queue_priority`, `print_file`, `print_settings`) are rejected on this endpoint to avoid overlapping queue semantics.
 
+Home Assistant package contract (UQ cutover):
+
+- `rest_command.model_catalog_update_model_queue` has been removed.
+- `model_catalog.queue_model_for_print` has been removed from package service declarations.
+- Queue actions in dashboard cards and automations use unified queue commands only:
+	- `rest_command.model_catalog_list_unified_queue_entries`
+	- `rest_command.model_catalog_add_unified_queue_entry`
+	- `rest_command.model_catalog_update_unified_queue_entry`
+	- `rest_command.model_catalog_delete_unified_queue_entry`
+- `rest_command.model_catalog_search_models` no longer forwards `to_print_status` or `to_print_priority*` parameters.
+
 Common custom-field keys exposed through the `fields` endpoints include:
 
 - `to_print_status`

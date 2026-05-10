@@ -68,26 +68,6 @@ homeassistant:
           description: Where navigation originated (for logging)
           example: "archive_detail"
 
-    model_catalog.queue_model_for_print:
-      name: Queue Model for Print
-      description: Add model to print queue
-      fields:
-        model_ref:
-          name: Model Reference
-          description: Model reference (public_id or model_id)
-          required: true
-          example: "gridfinity-bin"
-        file_id:
-          name: File ID
-          description: Specific file to print (optional)
-          example: "gridfinity-bin.stl"
-        settings:
-          name: Print Settings
-          description: Print settings override (optional)
-          example:
-            bed_temp: 60
-            nozzle_temp: 210
-
     model_catalog.bulk_discover_working_groups:
       name: Bulk Discover Working Groups
       description: Scan a folder and propose working groups without committing writes

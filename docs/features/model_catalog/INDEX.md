@@ -115,7 +115,7 @@ MODEL CATALOG PROJECT
    ├─ Timeline: Week 4 (25-30 hours, can run in parallel)
    ├─ Features: Archive navigation, related models, search
    ├─ Components: model-detail-related-models.js (new)
-   ├─ Services: navigate_to_model, queue_model_for_print
+  ├─ Services: navigate_to_model (+ unified queue rest commands)
    ├─ Tests: 10+ tests required (4 unit + 5 integration)
    └─ Guide: phase-3.3-implementation-guide.md
 ```

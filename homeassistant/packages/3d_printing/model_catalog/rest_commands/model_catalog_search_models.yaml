@@ -15,18 +15,6 @@ model_catalog_search_models:
     {%- if tag is defined and (tag | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['tag=' ~ ((tag | string) | urlencode)] -%}
     {%- endif -%}
-    {%- if to_print_status is defined and (to_print_status | string | trim) != '' -%}
-      {%- set ns.params = ns.params + ['to_print_status=' ~ ((to_print_status | string) | urlencode)] -%}
-    {%- endif -%}
-    {%- if to_print_priority is defined and (to_print_priority | string | trim) != '' -%}
-      {%- set ns.params = ns.params + ['to_print_priority=' ~ ((to_print_priority | string) | urlencode)] -%}
-    {%- endif -%}
-    {%- if to_print_priority_min is defined and (to_print_priority_min | string | trim) != '' -%}
-      {%- set ns.params = ns.params + ['to_print_priority_min=' ~ ((to_print_priority_min | string) | urlencode)] -%}
-    {%- endif -%}
-    {%- if to_print_priority_max is defined and (to_print_priority_max | string | trim) != '' -%}
-      {%- set ns.params = ns.params + ['to_print_priority_max=' ~ ((to_print_priority_max | string) | urlencode)] -%}
-    {%- endif -%}
     {%- if sort is defined and (sort | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['sort=' ~ ((sort | string) | urlencode)] -%}
     {%- endif -%}
