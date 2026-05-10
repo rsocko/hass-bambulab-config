@@ -5,9 +5,7 @@ panel: true
 cards:
   - type: vertical-stack
     cards:
-      - type: grid
-        columns: 5
-        square: false
+      - type: horizontal-stack
         cards:
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
@@ -21,15 +19,15 @@ cards:
                 option: home
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 10px
                 - border-radius: 0
                 - border: 0
-                - border-top: 1px solid rgba(148, 163, 184, 0.12)
-                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
                 - margin: 0
+                - width: max-content
+                - flex: 0 0 auto
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
@@ -44,6 +42,21 @@ cards:
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
+            extra_styles: |
+              @media (max-width: 768px) {
+                #name {
+                  display: none !important;
+                }
+                #grid {
+                  grid-template-columns: min-content !important;
+                  column-gap: 0 !important;
+                }
+                #card {
+                  min-width: 42px !important;
+                  padding-left: 8px !important;
+                  padding-right: 8px !important;
+                }
+              }
             state:
               - value: home
                 styles:
@@ -66,15 +79,15 @@ cards:
                 option: curated
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 10px
                 - border-radius: 0
                 - border: 0
-                - border-top: 1px solid rgba(148, 163, 184, 0.12)
-                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
                 - margin: 0
+                - width: max-content
+                - flex: 0 0 auto
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
@@ -89,6 +102,21 @@ cards:
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
+            extra_styles: |
+              @media (max-width: 768px) {
+                #name {
+                  display: none !important;
+                }
+                #grid {
+                  grid-template-columns: min-content !important;
+                  column-gap: 0 !important;
+                }
+                #card {
+                  min-width: 42px !important;
+                  padding-left: 8px !important;
+                  padding-right: 8px !important;
+                }
+              }
             state:
               - value: curated
                 styles:
@@ -111,15 +139,15 @@ cards:
                 option: working
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 10px
                 - border-radius: 0
                 - border: 0
-                - border-top: 1px solid rgba(148, 163, 184, 0.12)
-                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
                 - margin: 0
+                - width: max-content
+                - flex: 0 0 auto
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
@@ -134,6 +162,21 @@ cards:
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
+            extra_styles: |
+              @media (max-width: 768px) {
+                #name {
+                  display: none !important;
+                }
+                #grid {
+                  grid-template-columns: min-content !important;
+                  column-gap: 0 !important;
+                }
+                #card {
+                  min-width: 42px !important;
+                  padding-left: 8px !important;
+                  padding-right: 8px !important;
+                }
+              }
             state:
               - value: working
                 styles:
@@ -156,15 +199,15 @@ cards:
                 option: intake
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 10px
                 - border-radius: 0
                 - border: 0
-                - border-top: 1px solid rgba(148, 163, 184, 0.12)
-                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
                 - margin: 0
+                - width: max-content
+                - flex: 0 0 auto
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
@@ -179,6 +222,21 @@ cards:
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
+            extra_styles: |
+              @media (max-width: 768px) {
+                #name {
+                  display: none !important;
+                }
+                #grid {
+                  grid-template-columns: min-content !important;
+                  column-gap: 0 !important;
+                }
+                #card {
+                  min-width: 42px !important;
+                  padding-left: 8px !important;
+                  padding-right: 8px !important;
+                }
+              }
             state:
               - value: intake
                 styles:
@@ -201,15 +259,15 @@ cards:
                 option: inbox
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 10px
                 - border-radius: 0
                 - border: 0
-                - border-top: 1px solid rgba(148, 163, 184, 0.12)
-                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
                 - margin: 0
+                - width: max-content
+                - flex: 0 0 auto
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
@@ -224,6 +282,21 @@ cards:
               icon:
                 - width: 18px
                 - color: var(--secondary-text-color)
+            extra_styles: |
+              @media (max-width: 768px) {
+                #name {
+                  display: none !important;
+                }
+                #grid {
+                  grid-template-columns: min-content !important;
+                  column-gap: 0 !important;
+                }
+                #card {
+                  min-width: 42px !important;
+                  padding-left: 8px !important;
+                  padding-right: 8px !important;
+                }
+              }
             state:
               - value: inbox
                 styles:
@@ -234,6 +307,7 @@ cards:
                     - color: var(--primary-text-color)
                   icon:
                     - color: var(--primary-color)
+      - type: divider
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
