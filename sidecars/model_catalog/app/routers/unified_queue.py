@@ -447,6 +447,141 @@ def _create_quick_add_units(*, state: AppState, queue_entry_id: str, specs: list
     return file_units_created, plate_units_created
 
 
+def _parse_selected_files_payload(raw_selected_files: object) -> tuple[list[dict[str, Any]], str | None]:
+    if not isinstance(raw_selected_files, list) or not raw_selected_files:
+        return [], "selected_files must be a non-empty array"
+
+    parsed: list[dict[str, Any]] = []
+    seen_file_ids: set[str] = set()
+    for file_index, raw_file in enumerate(raw_selected_files):
+        if not isinstance(raw_file, dict):
+            return [], f"selected_files[{file_index}] must be an object"
+
+        file_id = str(raw_file.get("file_id") or raw_file.get("id") or "").strip()
+        if not file_id:
+            return [], f"selected_files[{file_index}].file_id is required"
+        if file_id in seen_file_ids:
+            return [], f"selected_files contains duplicate file_id '{file_id}'"
+        seen_file_ids.add(file_id)
+
+        selected_raw = raw_file.get("selected")
+        if selected_raw is None:
+            selected = True
+        else:
+            try:
+                selected = bool(_coerce_bool(selected_raw, field=f"selected_files[{file_index}].selected"))
+            except ValueError as exc:
+                return [], str(exc)
+
+        file_name = str(raw_file.get("file_name") or raw_file.get("name") or "").strip() or None
+
+        selected_plate_keys: set[str] = set()
+        if isinstance(raw_file.get("plate_ids"), list):
+            for plate_index, plate_id in enumerate(raw_file.get("plate_ids") or []):
+                plate_key = str(plate_id or "").strip()
+                if not plate_key:
+                    return [], f"selected_files[{file_index}].plate_ids[{plate_index}] must be a non-empty string"
+                selected_plate_keys.add(plate_key)
+        elif isinstance(raw_file.get("plates"), list):
+            for plate_index, raw_plate in enumerate(raw_file.get("plates") or []):
+                if not isinstance(raw_plate, dict):
+                    return [], f"selected_files[{file_index}].plates[{plate_index}] must be an object"
+                plate_key = str(raw_plate.get("plate_key") or raw_plate.get("plate_id") or raw_plate.get("id") or "").strip()
+                if not plate_key:
+                    return [], f"selected_files[{file_index}].plates[{plate_index}] must include plate id"
+                plate_selected_raw = raw_plate.get("selected")
+                if plate_selected_raw is None:
+                    plate_selected = True
+                else:
+                    try:
+                        plate_selected = bool(
+                            _coerce_bool(
+                                plate_selected_raw,
+                                field=f"selected_files[{file_index}].plates[{plate_index}].selected",
+                            )
+                        )
+                    except ValueError as exc:
+                        return [], str(exc)
+                if plate_selected:
+                    selected_plate_keys.add(plate_key)
+
+        parsed.append(
+            {
+                "file_id": file_id,
+                "file_name": file_name,
+                "selected": selected,
+                "selected_plate_keys": selected_plate_keys,
+            }
+        )
+
+    return parsed, None
+
+
+def _apply_advanced_selection_to_specs(
+    *,
+    specs: list[dict[str, Any]],
+    selected_files_payload: list[dict[str, Any]],
+    selection_mode: str,
+) -> tuple[list[dict[str, Any]], str | None]:
+    spec_by_file_id: dict[str, dict[str, Any]] = {}
+    for spec in specs:
+        file_id = str(spec.get("file_id") or "").strip()
+        if file_id:
+            spec_by_file_id[file_id] = spec
+
+    selected_output: list[dict[str, Any]] = []
+    total_selected_plates = 0
+    total_selected_files = 0
+
+    for payload_file in selected_files_payload:
+        if not payload_file.get("selected"):
+            continue
+
+        file_id = str(payload_file.get("file_id") or "").strip()
+        spec = spec_by_file_id.get(file_id)
+        if spec is None:
+            return [], f"selected file_id '{file_id}' is not valid for source"
+
+        total_selected_files += 1
+        source_plates = spec.get("plates") if isinstance(spec.get("plates"), list) else []
+        selected_plate_keys = payload_file.get("selected_plate_keys") or set()
+
+        if selection_mode == "selected_plates":
+            if not isinstance(selected_plate_keys, set) or not selected_plate_keys:
+                continue
+            filtered_plates = [
+                plate for plate in source_plates if str(plate.get("plate_key") or "").strip() in selected_plate_keys
+            ]
+            if len(filtered_plates) != len(selected_plate_keys):
+                available = {str(plate.get("plate_key") or "").strip() for plate in source_plates}
+                invalid = sorted([plate_key for plate_key in selected_plate_keys if plate_key not in available])
+                return [], f"selected plate ids {invalid} are not valid for file_id '{file_id}'"
+            total_selected_plates += len(filtered_plates)
+        else:
+            filtered_plates = source_plates
+            total_selected_plates += len(filtered_plates)
+
+        if not filtered_plates:
+            continue
+
+        selected_output.append(
+            {
+                "file_id": file_id,
+                "file_name": payload_file.get("file_name") or spec.get("file_name"),
+                "plates": filtered_plates,
+            }
+        )
+
+    if total_selected_files == 0:
+        return [], "At least one file must be selected"
+    if total_selected_plates == 0:
+        return [], "At least one plate must be selected"
+    if not selected_output:
+        return [], "Selected files/plates produced no queueable units"
+
+    return selected_output, None
+
+
 @router.post("/api/unified-queue/entries")
 def create_entry(request: Request, body: dict[str, Any] = Body(default_factory=dict)) -> Any:
     state: AppState = request.app.state.model_catalog
@@ -713,6 +848,7 @@ def add_queue_entry_v1(
         )
 
     quick_add_specs: list[dict[str, Any]] = []
+    advanced_add_specs: list[dict[str, Any]] = []
     duplicate_file_skips = 0
     duplicate_plate_skips = 0
 
@@ -742,6 +878,20 @@ def add_queue_entry_v1(
         overnight_fit_score = 100 if overnight_fit is True else 0
 
         quick_add = _coerce_bool(body.get("quick_add"), field="quick_add") is True
+        selected_files_payload_raw = body.get("selected_files")
+        advanced_add = isinstance(selected_files_payload_raw, list)
+        if quick_add and advanced_add:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message="quick_add and selected_files cannot be used together",
+            )
+
+        selection_mode = _validate_selection_mode(body.get("selection_mode"))
+        if advanced_add and selection_mode is None:
+            selection_mode = "selected_plates"
+        elif selection_mode is None:
+            selection_mode = "all_files_all_plates"
 
         if quick_add:
             if source_kind == "catalog_model":
@@ -772,6 +922,50 @@ def add_queue_entry_v1(
                     error="not_found",
                     message=quick_add_error,
                 )
+        elif advanced_add:
+            if source_kind == "catalog_model":
+                source_specs, _dupe_files, _dupe_plates, source_error = _resolve_catalog_quick_add_specs(
+                    state=state,
+                    request=request,
+                    source_ref=source_ref or "",
+                )
+            elif source_kind == "working_group":
+                source_specs, _dupe_files, _dupe_plates, source_error = _resolve_working_group_quick_add_specs(
+                    state=state,
+                    source_ref=source_ref or "",
+                )
+            else:
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message="advanced selected_files is only supported for source_kind catalog_model and working_group",
+                )
+
+            if source_error:
+                return _error_response(
+                    status_code=404,
+                    error="not_found",
+                    message=source_error,
+                )
+
+            if selection_mode not in {"selected_files", "selected_plates"}:
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message="selection_mode must be selected_files or selected_plates when selected_files is provided",
+                )
+
+            selected_files_payload, selected_files_error = _parse_selected_files_payload(selected_files_payload_raw)
+            if selected_files_error:
+                return _error_response(status_code=400, error="validation_error", message=selected_files_error)
+
+            advanced_add_specs, advanced_error = _apply_advanced_selection_to_specs(
+                specs=source_specs,
+                selected_files_payload=selected_files_payload,
+                selection_mode=selection_mode,
+            )
+            if advanced_error:
+                return _error_response(status_code=400, error="validation_error", message=advanced_error)
 
         queue_notes = str(body.get("queue_notes") or "").strip() or None
 
@@ -794,7 +988,7 @@ def add_queue_entry_v1(
             rank=rank,
             copies_requested=copies_requested,
             duration_bucket=duration_bucket,
-            selection_mode="all_files_all_plates",
+            selection_mode=selection_mode,
             ams_ready_score=ams_ready_score,
             overnight_fit_score=overnight_fit_score,
             queue_notes=queue_notes,
@@ -820,6 +1014,20 @@ def add_queue_entry_v1(
                 error="internal_error",
                 message=f"failed to create quick-add file/plate units: {exc}",
             )
+    elif advanced_add_specs:
+        try:
+            file_units_created, plate_units_created = _create_quick_add_units(
+                state=state,
+                queue_entry_id=created.queue_entry_id,
+                specs=advanced_add_specs,
+            )
+        except Exception as exc:
+            delete_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=created.queue_entry_id)
+            return _error_response(
+                status_code=500,
+                error="internal_error",
+                message=f"failed to create advanced-add file/plate units: {exc}",
+            )
     else:
         file_units_created = 0
         plate_units_created = 0
@@ -839,6 +1047,13 @@ def add_queue_entry_v1(
             "plate_units_created": plate_units_created,
             "duplicate_file_skips": duplicate_file_skips,
             "duplicate_plate_skips": duplicate_plate_skips,
+        }
+    if advanced_add_specs:
+        payload["advanced_add"] = {
+            "enabled": True,
+            "selection_mode": created.selection_mode,
+            "file_units_created": file_units_created,
+            "plate_units_created": plate_units_created,
         }
     return JSONResponse(status_code=201, content=payload, headers={"Location": location})
 

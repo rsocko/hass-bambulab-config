@@ -722,3 +722,169 @@ def test_queue_add_v1_quick_add_working_group_dedupes_duplicate_files_and_plates
     finally:
         client.__exit__(None, None, None)
 
+
+def test_queue_add_v1_advanced_add_selected_plates_creates_subset_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.routers import unified_queue as unified_queue_router
+
+    client, db_path = _create_client(tmp_path)
+    try:
+        def _fake_model_detail(*_args, **_kwargs):
+            return {
+                "success": True,
+                "model": {
+                    "name": "Catalog Advanced Add",
+                    "files": [
+                        {"id": "asset-1", "filename": "multi.3mf", "file_type": "3mf"},
+                        {"id": "asset-2", "filename": "single.stl", "file_type": "stl"},
+                    ],
+                },
+            }
+
+        def _fake_catalog_plates(*, request, model_ref, file_id, file_name, file_type):
+            _ = request
+            _ = model_ref
+            _ = file_name
+            _ = file_type
+            if file_id == "asset-1":
+                return [
+                    {"plate_key": "1", "plate_name": "Plate 1"},
+                    {"plate_key": "2", "plate_name": "Plate 2"},
+                ]
+            return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+        monkeypatch.setattr(unified_queue_router, "build_model_detail_response", _fake_model_detail)
+        monkeypatch.setattr(unified_queue_router, "_extract_catalog_file_plates", _fake_catalog_plates)
+
+        response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "catalog-adv-1",
+                "selection_mode": "selected_plates",
+                "selected_files": [
+                    {
+                        "file_id": "asset-1",
+                        "selected": True,
+                        "plates": [
+                            {"plate_id": "1", "selected": True},
+                            {"plate_id": "2", "selected": False},
+                        ],
+                    },
+                    {
+                        "file_id": "asset-2",
+                        "selected": False,
+                    },
+                ],
+            },
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        entry_id = payload["entry"]["queue_entry_id"]
+
+        assert payload["entry"]["selection_mode"] == "selected_plates"
+        assert payload["advanced_add"]["enabled"] is True
+        assert payload["advanced_add"]["file_units_created"] == 1
+        assert payload["advanced_add"]["plate_units_created"] == 1
+
+        connection = connect(db_path)
+        try:
+            file_count = connection.execute(
+                "SELECT COUNT(*) AS c FROM unified_queue_file_units WHERE queue_entry_id = ?",
+                (entry_id,),
+            ).fetchone()["c"]
+            plate_count = connection.execute(
+                "SELECT COUNT(*) AS c FROM unified_queue_plate_units WHERE queue_entry_id = ?",
+                (entry_id,),
+            ).fetchone()["c"]
+        finally:
+            connection.close()
+
+        assert int(file_count) == 1
+        assert int(plate_count) == 1
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_add_v1_advanced_add_rejects_empty_file_plate_selection(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.routers import unified_queue as unified_queue_router
+
+    client, _db_path = _create_client(tmp_path)
+    try:
+        def _fake_model_detail(*_args, **_kwargs):
+            return {
+                "success": True,
+                "model": {
+                    "name": "Catalog Advanced Add",
+                    "files": [{"id": "asset-1", "filename": "multi.3mf", "file_type": "3mf"}],
+                },
+            }
+
+        monkeypatch.setattr(unified_queue_router, "build_model_detail_response", _fake_model_detail)
+
+        response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "catalog-adv-2",
+                "selection_mode": "selected_plates",
+                "selected_files": [
+                    {
+                        "file_id": "asset-1",
+                        "selected": False,
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 400
+        payload = response.json()
+        assert payload["error"] == "validation_error"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_add_v1_advanced_add_rejects_invalid_file_reference(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.routers import unified_queue as unified_queue_router
+
+    client, _db_path = _create_client(tmp_path)
+    try:
+        def _fake_model_detail(*_args, **_kwargs):
+            return {
+                "success": True,
+                "model": {
+                    "name": "Catalog Advanced Add",
+                    "files": [{"id": "asset-1", "filename": "multi.3mf", "file_type": "3mf"}],
+                },
+            }
+
+        monkeypatch.setattr(unified_queue_router, "build_model_detail_response", _fake_model_detail)
+
+        response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "catalog-adv-3",
+                "selection_mode": "selected_files",
+                "selected_files": [
+                    {
+                        "file_id": "asset-does-not-exist",
+                        "selected": True,
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 400
+        payload = response.json()
+        assert payload["error"] == "validation_error"
+        assert "not valid" in payload["message"]
+    finally:
+        client.__exit__(None, None, None)
+
