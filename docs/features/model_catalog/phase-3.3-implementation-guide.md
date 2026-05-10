@@ -40,7 +40,7 @@ Phase 3.3 creates seamless navigation between models and archives, with project-
 4. **HA Services** (New)
    - `model_catalog.navigate_to_model` — Open model detail
    - `print_history.navigate_to_model` — From archive to model
-   - `model_catalog.queue_model_for_print` — Add to print queue
+   - `model_catalog.queue_model_for_print` — historical reference (retired; use unified queue commands)
 
 ---
 
@@ -221,7 +221,7 @@ fields:
     example: "archive_detail"
 ```
 
-#### model_catalog.queue_model_for_print
+#### model_catalog.queue_model_for_print (historical, retired)
 ```yaml
 description: Add model to print queue
 fields:

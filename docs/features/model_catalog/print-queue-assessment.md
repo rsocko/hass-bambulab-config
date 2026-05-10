@@ -17,12 +17,12 @@ The revised model-catalog design adds a third useful nuance:
 
 ## Recommendation
 
-Keep the hybrid approach, but align it to the approved architecture:
+Keep the split of responsibilities, but make Unified Queue the only planning/backlog queue contract:
 
 - **Working groups** handle in-flight work and lightweight stage state
-- **sidecar custom fields on curated models** handle catalog-level backlog and queue state
+- **Unified Production Queue entries** handle queue state/order across Catalog, Working, and Ideas
 - **Bambuddy queue** handles printer-ready files/projects
-- **external tools** can still hold pure ideas that do not yet have any Working group or curated model
+- **external tools** can still hold pure ideas before they are represented in unified queue
 
 2026-05 revision:
 
@@ -46,13 +46,11 @@ Use Working groups for:
 
 This belongs outside Manyfold because it describes active work, not stable catalog identity.
 
-### Curated Model Queue State
+### Curated Model Queue State (legacy note)
 
-Use sidecar custom fields for curated models:
+Curated-model custom fields `to_print_status` and `to_print_priority` are legacy metadata and no longer define active queue behavior.
 
-- `to_print_status`: `none`, `queued`, `done`
-- `to_print_priority`: numeric rank
-- optional manual `favorite` or `quick_reprint` flag later if archive-derived ranking is not sufficient
+Active queue behavior for curated models now flows through unified queue entries (`source_kind=catalog_model`) with unified queue state and rank.
 
 Phase 6 note:
 
@@ -75,7 +73,7 @@ Use Bambuddy's native queue only for printer-ready files and projects.
 Expose three queue-like views:
 
 1. **Working board** — grouped in-flight work
-2. **Catalog backlog** — curated models marked `queued`, sorted by priority and archive-derived ranking
+2. **Unified production queue** — mixed-source queue entries sorted by unified queue rank/state
 3. **Printer-ready queue** — Bambuddy-native queue
 
 This gives the operator one control plane without collapsing distinct workflows into one overloaded queue model.

@@ -485,8 +485,8 @@ Only model-level, reusable signals that matter beyond a single queue entry.
 
 Examples:
 
-- `to_print_status` as a lightweight catalog hint
-- `to_print_priority` as a lightweight catalog-level preference or default signal
+- taxonomy/provenance/favorite/rating fields that remain useful outside queue operations
+- long-lived model metadata that is not tied to a single queue entry lifecycle
 
 ## What does not belong in Catalog custom fields
 

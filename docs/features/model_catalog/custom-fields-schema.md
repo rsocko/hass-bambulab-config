@@ -67,8 +67,8 @@ Using a key/value row model rather than wide columns makes it straightforward to
 | `published_urls` | object | `{"makerworld": "https://..."}` | #171 |
 | `catalog_quality_state` | string | `needs_preview`, `needs_tags`, `needs_photos`, `complete` | Internal |
 | `internal_notes` | string | Free-text private operator notes | #171 |
-| `to_print_status` | string | `none`, `queued`, `done` | #190 |
-| `to_print_priority` | number | Integer 1–10, higher = higher priority | #190 |
+| `to_print_status` | string | Legacy-only values (`none`, `queued`, `done`) retained for historical compatibility | #190 |
+| `to_print_priority` | number | Legacy-only numeric priority retained for historical compatibility | #190 |
 | `taxonomy_origin_class` | string | `reprint`, `remix_or_tweak`, `custom_unique` | #187 |
 | `taxonomy_change_axes` | array | `[]`, `[
 "color"]`, `["model"]`, `["color", "model"]`, `["other"]` | #187 |
@@ -218,24 +218,25 @@ Private operator notes that should NOT appear in the Manyfold public-facing `des
 - Reminders about a model variant that needs finishing
 - Personal context that should not be visible in a shared Manyfold instance
 
-### `to_print_status` and `to_print_priority` (#190)
+### `to_print_status` and `to_print_priority` (#190, legacy)
 
-A minimal print queue capability directly in the catalog. See [Print Queue Assessment](print-queue-assessment.md) for the full analysis of why this approach was chosen over alternatives.
+These fields are no longer the active queue system.
 
-Status: Phase 3 queue/backlog groundwork is now implemented in the sidecar. These fields were not part of the shipped Phase 2 archive-linkage slice.
+Current contract:
 
-- `to_print_status: queued` marks a cataloged model as intended to be printed
-- `to_print_priority` allows manual ordering (1 = lowest, 10 = highest priority)
-- when a confirmed archive link becomes `accepted` and active for a model whose current `to_print_status` is `queued`, the sidecar transitions `to_print_status` to `done`
-- this automatic transition does not change `to_print_priority`
-- if `to_print_status` is unset or already a value other than `queued`, linkage confirmation does not overwrite it
+- Unified queue state and ordering now live in sidecar-owned unified queue entries.
+- `to_print_status` and `to_print_priority` are retained only as historical metadata for compatibility and auditability.
+- Queue behavior must be implemented through unified queue endpoints and HA unified queue rest commands.
 
-2026-05 design refinement:
+Historical behavior note:
 
-- these remain **catalog-level hints**, not the full mixed-source queue model
-- richer queue-entry state now belongs in the sidecar-owned Unified Production Queue projection described in [unified-production-queue-design.md](unified-production-queue-design.md)
+- Earlier phases used these fields for minimal catalog backlog semantics.
+- That contract was retired during unified queue cutover and must not be used for new queue features.
 
-That distinction matters because a joined queue can now include Working items and Ideas, not only curated models.
+Migration/deprecation references:
+
+- [unified-queue-cutover-runbook.md](unified-queue-cutover-runbook.md)
+- [unified-queue-deprecation-timeline.md](unified-queue-deprecation-timeline.md)
 
 ### Unified Production Queue fields (sidecar-owned, not Manyfold custom fields)
 
@@ -349,7 +350,7 @@ GET    /models/{model_id}/fields/{key}     — get a specific field
 PUT    /models/{model_id}/fields/{key}     — set a field value
 DELETE /models/{model_id}/fields/{key}     — clear a field
 
-GET    /models?to_print_status=queued      — filter models by field value
+GET    /models?taxonomy_origin_class=reprint — filter models by taxonomy
 GET    /models?catalog_quality_state=needs_preview — filter by quality state
 ```
 

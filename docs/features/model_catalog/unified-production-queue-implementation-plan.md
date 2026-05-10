@@ -24,7 +24,7 @@ Issue links (prepopulated title/body):
 
 ## What already exists
 
-- Catalog-level queue metadata exists (`to_print_status`, `to_print_priority`) via model queue actions.
+- Legacy catalog queue metadata (`to_print_status`, `to_print_priority`) exists only as historical compatibility data.
 - Intake queue exists for model-catalog import/review flow.
 - Bambuddy queue visibility exists in prototype form (`bambuddy/sensors.yaml`, `bambuddy/dashboards/queue.yaml`).
 - Smart queueing primitives already exist in spoolman sync for deferred/pending tray assignment queues.
@@ -130,7 +130,7 @@ Acceptance gate:
 
 - Keep Layer 1/Layer 2/Layer 3 boundaries intact for print history data contracts.
 - If JS assets are added/changed under `homeassistant/www/**`, bump matching resource URL versions in `homeassistant/packages/3d_printing/common/dashboards/_resources.yaml`.
-- Preserve compatibility with current model-catalog queue fields while introducing unified queue storage.
+- Do not introduce new queue behavior through model-catalog legacy queue fields; unified queue storage is the single queue contract.
 - Extend existing `db_migrations.py` and `db_unified_queue.py` patterns; do not introduce a second SQLite file for queue data.
 
 ## Test Plan (Minimum)

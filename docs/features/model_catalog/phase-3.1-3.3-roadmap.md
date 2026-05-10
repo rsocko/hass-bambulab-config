@@ -326,7 +326,7 @@ response:
 
 **New Services**:
 ```yaml
-# service: model_catalog.queue_model_for_print
+# service: model_catalog.queue_model_for_print (historical reference; retired)
 request:
   model_ref: string
   filament_type: string (optional)

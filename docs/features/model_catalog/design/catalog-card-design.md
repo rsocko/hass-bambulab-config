@@ -52,7 +52,7 @@ These come straight from the existing browser endpoint backing [model-catalog-br
 - `source_download_url` — optional original source URL shown in detail popup and used for click-through from source chip when available
 - `published_to[]` — array of `{ destination_id, destination_label, url }` (e.g. `makerworld`, `printables`, `manyfold`)
 - `archives_count`
-- `to_print_status` — one of `none`, `queued`, `printing`, `done` (drives the queue chip and queue actions handled by the card's `queue-*` action dispatcher)
+- `unified_queue_state` — unified queue-derived state (`idea`, `todo`, `ready`, `started`, `blocked`, `done`) projected into card ribbon/actions by the queue index
 - `recent`, `frequent`, `common` — boolean signals already exposed by the browser
 - `last_printed_at`
 - `working_state` — `draft`, `in_progress`, `ready_to_publish` (Working Board surface)

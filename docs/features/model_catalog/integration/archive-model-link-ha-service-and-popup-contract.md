@@ -243,7 +243,7 @@ archive_id: int
 query: string?
 offset: int = 0
 limit: int = 25
-sort: relevance | recent | frequent | common | favorites | queue_priority = relevance
+sort: relevance | recent | frequent | common | favorites | queue_rank = relevance
 include_facets: bool = false
 ```
 

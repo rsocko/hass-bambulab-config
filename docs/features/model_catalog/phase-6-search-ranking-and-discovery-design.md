@@ -108,7 +108,7 @@ query: string?
 entity_types: [curated_model, working_group]?
 offset: int = 0
 limit: int = 25
-sort: relevance | recent | frequent | common | favorites | rating | linked_archive_count | last_printed_at | queue_priority
+sort: relevance | recent | frequent | common | favorites | rating | linked_archive_count | last_printed_at | queue_rank
 direction: desc | asc
 include_facets: bool = false
 include_related_preview: bool = false
@@ -127,7 +127,7 @@ Initial Phase 6 facets:
 - `colors_used`
 - `model_favorite`
 - `model_rating`
-- `to_print_status`
+- `queue_state` (from unified queue entries)
 - `has_linked_archives`
 - `linked_archive_count_bucket`
 - `recent_print_window`
@@ -150,14 +150,14 @@ Required sort modes:
 - `rating`
 - `linked_archive_count`
 - `last_printed_at`
-- `queue_priority`
+- `queue_rank`
 
 Interpretation:
 
 - `relevance` is context-aware and may combine text match with ranking boosts
 - `recent`, `frequent`, and `common` use archive-derived ranking signals
 - `favorites` and `rating` are operator-controlled catalog signals
-- `queue_priority` sorts by explicit backlog priority first and falls back to rank only when priorities tie
+- `queue_rank` sorts by explicit unified queue rank first and falls back to secondary ranking only when ranks tie
 
 ## Ranking Signals
 
@@ -186,9 +186,9 @@ Phase 6 promotes the validated archive-derived ranking baseline into the active 
 
 Queue/backlog state remains a separate operator signal.
 
-- `to_print_status` and `to_print_priority` stay sidecar custom fields
+- unified queue `state` and `rank` are the queue contract; legacy `to_print_*` fields are historical-only metadata
 - archive-derived ranking can influence backlog sort defaults
-- explicit queue priority wins when a backlog view is explicitly sorted by queue semantics
+- explicit unified queue rank wins when a backlog view is explicitly sorted by queue semantics
 
 ## Archive Candidate Discovery
 

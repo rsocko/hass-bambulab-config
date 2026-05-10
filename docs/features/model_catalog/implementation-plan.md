@@ -227,9 +227,7 @@ Outcome:
 
 Work items:
 
-- add sidecar-owned queue/backlog fields:
-  - `to_print_status`
-  - `to_print_priority`
+- add sidecar-owned unified queue entities (queue entry state and rank)
 - add sidecar-owned model taxonomy/browse fields for the first curated-catalog slice:
   - `model_favorite` kept sidecar-owned because Manyfold does not currently expose a dependable documented favorite/like REST surface for this workflow
   - `model_rating` as integer `1` through `5`
@@ -243,7 +241,7 @@ Work items:
   - collection
   - linked archive count
   - recent/common/frequent indicators
-  - queue state
+  - unified queue state
   - taxonomy/favorite/rating indicators where they help browse and filtering without bloating the first shipped card
 - leave richer provenance and publish-destination metadata out of this phase so the shipped Phase 3 browse/ranking slice stays narrow
 - add filtered backlog/queue view in HA

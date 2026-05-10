@@ -122,7 +122,7 @@ Phase 3.3 (Cross-System Integration)
 ### Navigation Services
 
 - ⏳ `model_catalog.navigate_to_model` service
-- ⏳ `model_catalog.queue_model_for_print` service
+- ⏳ `model_catalog.queue_model_for_print` service (historical planning artifact; retired)
 - ⏳ `print_history.navigate_to_linked_model` service
 
 ### Optional Features
@@ -162,7 +162,7 @@ homeassistant/
 │   │   ├── update_model.yaml ........................... ⏳ Phase 3.1
 │   │   ├── upload_photo.yaml ........................... ⏳ Phase 3.1
 │   │   ├── navigate_to_model.yaml ...................... ⏳ Phase 3.3
-│   │   ├── queue_model_for_print.yaml ................. ⏳ Phase 3.3
+│   │   ├── queue_model_for_print.yaml ................. historical artifact (retired)
 │   │   └── navigate_to_linked_model.yaml .............. ⏳ Phase 3.3
 │   └── rest_commands/
 │       ├── patch_model.yaml ............................ ⏳ Phase 3.1

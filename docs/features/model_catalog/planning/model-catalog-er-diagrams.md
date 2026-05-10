@@ -52,7 +52,7 @@ erDiagram
         text entity_type "model, model_file, archive, link"
         text entity_id "manyfold_model_url or bambuddy_archive_id"
         text field_namespace "model_catalog, etc"
-        text field_key "origin_type, to_print_status, internal_notes, etc"
+        text field_key "origin_type, internal_notes, legacy to_print_status, etc"
         text field_value_json "type-safe JSON storage"
         text value_type "json, string, number, boolean"
         text created_at
@@ -125,7 +125,7 @@ erDiagram
 
 **MODEL_CATALOG_CUSTOM_FIELDS**
 - Purpose: Extensible key-value store for sidecar-owned metadata that does not belong in Manyfold
-- Ownership: Sidecar-owned; defines operator-relevant fields such as origin_type, to_print_status, internal_notes, etc
+- Ownership: Sidecar-owned; defines operator-relevant fields such as origin_type, internal_notes, and legacy compatibility fields
 - Type safety: `value_type` and `field_value_json` allow queries on specific field types
 - Entity model: supports model-level, file-level, archive-level, and link-level fields (see entity_type)
 - Unique constraint: (entity_type, entity_id, field_namespace, field_key) prevents duplicate field definitions
@@ -247,8 +247,8 @@ erDiagram
         text creator "creator name"
         text tags "keywords/tags"
         text linked_archives "count of linked prints"
-        text queue_status "unqueued, queued, done"
-        text queue_priority "1-10 if queued"
+        text queue_state "idea, todo, ready, started, blocked, done"
+        int queue_rank "explicit unified queue order"
     }
 
     ARCHIVED_PRINTS {
@@ -349,7 +349,7 @@ When operator accepts or rejects a link in the archive popup.
 | MODEL_CATALOG_LINKS | updated_at | Write | Sidecar timestamp | |
 | MODEL_CATALOG_EVENTS | event_type | Write | Sidecar | 'link_confirmed' or 'link_rejected' |
 | MODEL_CATALOG_EVENTS | payload_json | Write | Sidecar | Operator note (if provided) |
-| MODEL_CATALOG_CUSTOM_FIELDS | field_value_json | Update (conditional) | Sidecar | If to_print_status → 'done' on accept |
+| MODEL_CATALOG_CUSTOM_FIELDS | field_value_json | Update (conditional) | Sidecar | Legacy compatibility metadata only; no active queue mutation |
 
 ### Flow: Model Ranking Refresh
 
@@ -381,7 +381,7 @@ Periodic refresh of model summaries from Manyfold API.
 | MANYFOLD_MODEL_SUMMARY_CACHE | raw_json | Write | Manyfold REST API | Full model payload |
 | MANYFOLD_MODEL_SUMMARY_CACHE | refreshed_at | Write | Sidecar | Current timestamp |
 
-### Flow: Custom Field Update (e.g., to_print_status, internal_notes)
+### Flow: Custom Field Update (e.g., internal_notes, taxonomy, source metadata)
 
 When operator updates a custom field via HA service.
 
@@ -389,7 +389,7 @@ When operator updates a custom field via HA service.
 |---|---|---|---|---|
 | MODEL_CATALOG_CUSTOM_FIELDS | entity_type | Write | HA service input | Usually 'model' |
 | MODEL_CATALOG_CUSTOM_FIELDS | entity_id | Write | HA service input | manyfold_model_url |
-| MODEL_CATALOG_CUSTOM_FIELDS | field_key | Write | HA service input | e.g., 'to_print_status', 'internal_notes' |
+| MODEL_CATALOG_CUSTOM_FIELDS | field_key | Write | HA service input | e.g., 'internal_notes', 'taxonomy_origin_class' |
 | MODEL_CATALOG_CUSTOM_FIELDS | field_value_json | Write | HA service input | JSON-encoded value |
 | MODEL_CATALOG_CUSTOM_FIELDS | updated_at | Write | Sidecar | Current timestamp |
 | MODEL_CATALOG_EVENTS | event_type | Write | Sidecar | 'field_updated' |

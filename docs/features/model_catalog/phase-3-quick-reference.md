@@ -185,7 +185,7 @@ Week 4: Phase 3.3 (Cross-System) [can start Day 9]
 
 3. **Navigation Services** (2-3 hours)
    - `navigate_to_model` service
-   - `queue_model_for_print` service
+   - `queue_model_for_print` service (historical plan item; retired in unified queue cutover)
    - `navigate_to_linked_model` service
 
 4. **Archive Detail Enhancement** (1-2 hours)
