@@ -20,6 +20,7 @@ from .routers.models_search import router as models_search_router
 from .routers.models import router as models_router
 from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
+from .routers.unified_queue import router as unified_queue_router
 from .routers.working import router as working_router
 from .services.shared_helpers import _sha256_file as _shared_sha256_file
 from .services.shared_helpers import _resolve_local_asset_storage_path as _shared_resolve_local_asset_storage_path
@@ -81,6 +82,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     app.include_router(archive_links_router)
     app.include_router(working_router)
     app.include_router(intake_router)
+    app.include_router(unified_queue_router)
     app.include_router(models_search_router)
     app.include_router(models_detail_router)
     app.include_router(models_media_router)
