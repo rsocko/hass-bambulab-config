@@ -17,7 +17,7 @@
 
 title: Filament Catalog
 path: filament-catalog
-icon: mdi:format-list-bulleted
+icon: mdi:palette
 panel: true
 cards:
   - type: vertical-stack
