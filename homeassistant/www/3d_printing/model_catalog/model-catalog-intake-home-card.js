@@ -100,6 +100,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }, config || {});
     this._launchWizardMode = this._normalizeLaunchWizardMode(this._config.launch_wizard);
     this._launchWizardConsumed = false;
+    if (this._launchWizardMode) {
+      this._wizardOpen = true;
+      this._wizardMode = this._launchWizardMode;
+      this._wizardStep = 1;
+    }
     this._render();
   }
 
@@ -149,10 +154,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   _maybeAutoLaunchWizard() {
     var mode = this._normalizeLaunchWizardMode(this._launchWizardMode);
-    if (!mode || this._launchWizardConsumed || !this._hass || this._wizardOpen || this._loading) {
+    if (!mode || this._launchWizardConsumed || !this._hass) {
       return;
     }
     this._launchWizardConsumed = true;
+    this._wizardOpen = true;
+    this._wizardMode = mode;
+    this._wizardStep = 1;
+    this._render();
     this._openWizard(mode).catch(function () {
       // Leave the intake card visible if auto-launch fails for any reason.
     });
