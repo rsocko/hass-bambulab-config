@@ -1849,15 +1849,33 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var other = this._coerceNonNegativeInt(counts && counts.other);
     var chips = "";
     if (modelFiles && modelFiles > 0) {
-      chips += this._renderModelTagChip("Files " + String(modelFiles), "file-kind-chip file-kind-model");
+      chips += this._renderFileKindIconChip(modelFiles, "mdi:cube", "file-kind-chip file-kind-model");
     }
     if (images && images > 0) {
-      chips += this._renderModelTagChip("Images " + String(images), "file-kind-chip file-kind-image");
+      chips += this._renderFileKindIconChip(images, "mdi:image", "file-kind-chip file-kind-image");
     }
     if (other && other > 0) {
-      chips += this._renderModelTagChip("Other " + String(other), "file-kind-chip file-kind-other");
+      chips += this._renderFileKindIconChip(other, "mdi:file-document", "file-kind-chip file-kind-other");
     }
     return chips;
+  }
+
+  _renderFileKindIconChip(count, mdiIcon, className) {
+    var countStr = String(count || "");
+    return '<span class="chip' + (className ? (' ' + className) : '') + '">'
+      + '<svg class="icon-svg" viewBox="0 0 24 24"><path d="M' + this._getMdiPath(mdiIcon) + '"></path></svg>'
+      + '<span class="chip-count">' + this._escapeHtml(countStr) + '</span>'
+      + '</span>';
+  }
+
+  _getMdiPath(mdiIcon) {
+    // Return SVG path data for Material Design Icons
+    var paths = {
+      "mdi:cube": "12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M15.5,11H12.5V8H11.5V11H8.5V12H11.5V15H12.5V12H15.5V11Z",
+      "mdi:image": "M19,13H5V7H19M21,19V5C21,3.9 20.1,3 19,3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19M19,19H5V5H19V19M13.96,12.29L11.21,15.83L9.25,13.47L6.5,17H17.5L13.96,12.29Z",
+      "mdi:file-document": "M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+    };
+    return paths[mdiIcon] || "";
   }
 
   async _openModelViewerPopup(modelRef, modelName) {
@@ -2079,7 +2097,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.chip.publish-chip{background:rgba(56,189,248,0.14);border-color:rgba(56,189,248,0.28);}'
       + '.chip.signal-chip{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.30);}'
       + '.chip.source-chip{max-width:100%;}'
-      + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;}'
+      + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px;}'
+      + '.chip.file-kind-chip .icon-svg{width:16px;height:16px;flex-shrink:0;}'
+      + '.chip.file-kind-chip .chip-count{font-weight:600;}'
       + '.chip.file-kind-model{background:rgba(0,137,123,0.16);border-color:rgba(125,211,200,0.30);color:#7dd3c8;}'
       + '.chip.file-kind-image{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;}'
       + '.chip.file-kind-other{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;}'
