@@ -838,7 +838,17 @@ class ModelDetail3DViewerTab extends HTMLElement {
         if (!this._isActiveGeometryRequest(requestId)) {
           return;
         }
-        this._loadGeometry(parsed);
+        const mappedVertices = this._mapPrinterVerticesToViewer(parsed.vertices);
+        const alignedVertexSets = this._centerVertexSetsOnBuildSurface([mappedVertices]);
+        const alignedVertices = alignedVertexSets[0] || mappedVertices;
+        this._loadGeometry({
+          vertices: alignedVertices,
+          normals: null,
+          triangleCount: parsed.triangleCount,
+          dimensionsMm: null,
+          groups: [],
+          color: this._resolvePackageColor(),
+        });
         this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
       } catch (error) {
         if (!this._isActiveGeometryRequest(requestId)) {
@@ -1280,6 +1290,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     let minX = Number.POSITIVE_INFINITY;
     let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
     let minZ = Number.POSITIVE_INFINITY;
     let maxZ = Number.NEGATIVE_INFINITY;
 
@@ -1289,10 +1300,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
       }
       for (let index = 0; index < vertices.length; index += 3) {
         const x = Number(vertices[index]);
+        const y = Number(vertices[index + 1]);
         const z = Number(vertices[index + 2]);
         if (Number.isFinite(x)) {
           minX = Math.min(minX, x);
           maxX = Math.max(maxX, x);
+        }
+        if (Number.isFinite(y)) {
+          minY = Math.min(minY, y);
         }
         if (Number.isFinite(z)) {
           minZ = Math.min(minZ, z);
@@ -1301,7 +1316,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       }
     }
 
-    if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) {
+    if (![minX, maxX, minY, minZ, maxZ].every(Number.isFinite)) {
       return vertexSets;
     }
 
@@ -1309,6 +1324,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const sourceCenterZ = (minZ + maxZ) / 2;
     const targetCenter = this._buildPlateSizeMm / 2;
     const shiftX = targetCenter - sourceCenterX;
+    const shiftY = -minY;
     const shiftZ = targetCenter - sourceCenterZ;
 
     return vertexSets.map((vertices) => {
@@ -1318,6 +1334,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       const centered = new Float32Array(vertices);
       for (let index = 0; index < centered.length; index += 3) {
         centered[index] += shiftX;
+        centered[index + 1] += shiftY;
         centered[index + 2] += shiftZ;
       }
       return centered;
