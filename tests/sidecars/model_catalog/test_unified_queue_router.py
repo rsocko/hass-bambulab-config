@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.db import connect
 from app.main import create_app
 from app.settings import Settings
 
@@ -34,16 +35,16 @@ def _make_settings(db_path: Path) -> Settings:
     )
 
 
-def _create_client(tmp_path: Path) -> TestClient:
+def _create_client(tmp_path: Path) -> tuple[TestClient, Path]:
     db_path = tmp_path / "model_catalog.db"
     app = create_app(settings=_make_settings(db_path), manyfold_client=FakeManyfoldClient())
     client = TestClient(app)
     client.__enter__()
-    return client
+    return client, db_path
 
 
 def test_unified_queue_entry_crud_happy_path(tmp_path: Path) -> None:
-    client = _create_client(tmp_path)
+    client, _db_path = _create_client(tmp_path)
     try:
         create_response = client.post(
             "/api/unified-queue/entries",
@@ -67,12 +68,20 @@ def test_unified_queue_entry_crud_happy_path(tmp_path: Path) -> None:
         assert get_response.status_code == 200
         assert get_response.json()["entry"]["queue_entry_id"] == entry_id
 
+        to_ready_response = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={
+                "state": "ready",
+                "rank": 1,
+            },
+        )
+        assert to_ready_response.status_code == 200
+
         update_response = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
             json={
                 "state": "started",
                 "copies_completed": 1,
-                "rank": 1,
             },
         )
         assert update_response.status_code == 200
@@ -99,7 +108,7 @@ def test_unified_queue_entry_crud_happy_path(tmp_path: Path) -> None:
 
 
 def test_unified_queue_validation_and_error_responses(tmp_path: Path) -> None:
-    client = _create_client(tmp_path)
+    client, _db_path = _create_client(tmp_path)
     try:
         invalid_source_kind = client.post(
             "/api/unified-queue/entries",
@@ -122,5 +131,87 @@ def test_unified_queue_validation_and_error_responses(tmp_path: Path) -> None:
 
         not_found_delete = client.delete("/api/unified-queue/entries/missing-id")
         assert not_found_delete.status_code == 404
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_unified_queue_state_transition_matrix_and_audit_log(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Transition Test", "state": "idea", "copies": 1},
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        invalid_transition = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "started"},
+        )
+        assert invalid_transition.status_code == 400
+        invalid_payload = invalid_transition.json()
+        assert invalid_payload["error"] == "invalid_transition"
+        assert invalid_payload["from_state"] == "idea"
+        assert invalid_payload["to_state"] == "started"
+
+        to_todo = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "todo"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_todo.status_code == 200
+        assert to_todo.json()["entry"]["state"] == "todo"
+
+        to_ready = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "ready"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_ready.status_code == 200
+
+        to_started = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "started"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_started.status_code == 200
+
+        to_blocked = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "blocked", "blocked_reason": "waiting for filament"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_blocked.status_code == 200
+
+        back_to_ready = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "ready", "queue_notes": "recovered"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert back_to_ready.status_code == 200
+        assert back_to_ready.json()["entry"]["state"] == "ready"
+
+        connection = connect(db_path)
+        try:
+            rows = connection.execute(
+                """
+                SELECT event_type, entity_type, entity_id, payload_json
+                FROM model_catalog_events
+                WHERE event_type = 'unified_queue_state_transition'
+                  AND entity_id = ?
+                ORDER BY id ASC
+                """,
+                (entry_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        # We performed 5 valid transitions after creation:
+        # idea->todo, todo->ready, ready->started, started->blocked, blocked->ready
+        assert len(rows) == 5
+        assert str(rows[0]["event_type"]) == "unified_queue_state_transition"
+        assert str(rows[0]["entity_type"]) == "unified_queue_entry"
+        assert str(rows[0]["entity_id"]) == entry_id
     finally:
         client.__exit__(None, None, None)

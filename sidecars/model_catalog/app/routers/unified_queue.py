@@ -19,6 +19,7 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
 from ..db import (
+    create_unified_queue_transition_audit,
     create_unified_queue_entry,
     delete_unified_queue_entry,
     list_unified_queue_entries,
@@ -33,6 +34,14 @@ VALID_SOURCE_KINDS = {"catalog_model", "working_group", "working_file", "idea"}
 VALID_STATES = {"idea", "todo", "ready", "started", "blocked", "done"}
 VALID_DURATION_BUCKETS = {"quick", "medium", "overnight", "marathon", "unknown"}
 VALID_SELECTION_MODES = {"all_files_all_plates", "selected_files", "selected_plates"}
+STATE_TRANSITIONS: dict[str, set[str]] = {
+    "idea": {"todo"},
+    "todo": {"ready"},
+    "ready": {"started"},
+    "started": {"blocked", "done"},
+    "blocked": {"ready", "done"},
+    "done": set(),
+}
 
 _DURATION_BUCKET_ALIASES = {
     "0-2h": "quick",
@@ -86,6 +95,11 @@ def _entry_to_response(entry: Any) -> dict[str, Any]:
     payload["source_id"] = payload.get("source_ref")
     payload["copies"] = payload.get("copies_requested")
     return payload
+
+
+def _validate_state_transition(*, from_state: str, to_state: str) -> tuple[bool, list[str]]:
+    allowed = sorted(STATE_TRANSITIONS.get(from_state, set()))
+    return to_state in set(allowed), allowed
 
 
 def _validate_source_kind(value: object) -> str:
@@ -348,8 +362,47 @@ def update_entry(
     if not updates:
         return _error_response(status_code=400, error="validation_error", message="No supported fields provided")
 
+    existing = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    if existing is None:
+        return _error_response(
+            status_code=404,
+            error="not_found",
+            message="Queue entry not found",
+            extra={"queue_entry_id": queue_entry_id},
+        )
+
+    next_state = updates.get("state")
+    transitioning = bool(isinstance(next_state, str) and next_state != existing.state)
+    if transitioning:
+        allowed, allowed_targets = _validate_state_transition(from_state=existing.state, to_state=next_state)
+        if not allowed:
+            return _error_response(
+                status_code=400,
+                error="invalid_transition",
+                message=(
+                    f"Invalid state transition '{existing.state}' -> '{next_state}'. "
+                    f"Allowed targets: {allowed_targets}"
+                ),
+                extra={
+                    "from_state": existing.state,
+                    "to_state": next_state,
+                    "allowed_targets": allowed_targets,
+                },
+            )
+
     try:
         updated = update_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id, **updates)
+        if transitioning and updated is not None:
+            actor = request.headers.get("x-actor") or "api"
+            reason = str(body.get("blocked_reason") or body.get("queue_notes") or "").strip() or None
+            create_unified_queue_transition_audit(
+                db_path=state.settings.db_path,
+                queue_entry_id=queue_entry_id,
+                from_state=existing.state,
+                to_state=next_state,
+                actor=actor,
+                reason=reason,
+            )
     except sqlite3.IntegrityError as exc:
         return _error_response(status_code=400, error="integrity_error", message=str(exc))
     except Exception as exc:

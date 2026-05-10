@@ -683,3 +683,49 @@ def delete_unified_queue_plate_unit(*, db_path: Path, queue_entry_id: str, file_
         return cursor.rowcount > 0
     finally:
         connection.close()
+
+
+def create_unified_queue_transition_audit(
+    *,
+    db_path: Path,
+    queue_entry_id: str,
+    from_state: str,
+    to_state: str,
+    actor: str | None = None,
+    reason: str | None = None,
+) -> int:
+    """Record an immutable state transition event for queue entries."""
+    now = utc_now_iso()
+    payload = {
+        "queue_entry_id": queue_entry_id,
+        "from_state": from_state,
+        "to_state": to_state,
+        "actor": actor,
+        "reason": reason,
+        "transitioned_at": now,
+    }
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO model_catalog_events (
+                event_type,
+                entity_type,
+                entity_id,
+                payload_json,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "unified_queue_state_transition",
+                "unified_queue_entry",
+                queue_entry_id,
+                json.dumps(payload, separators=(",", ":")),
+                now,
+            ),
+        )
+        event_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+        connection.commit()
+        return event_id
+    finally:
+        connection.close()
