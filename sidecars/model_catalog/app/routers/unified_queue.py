@@ -16,7 +16,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Body, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from ..db import (
     create_unified_queue_transition_audit,
@@ -688,5 +688,52 @@ def delete_entry(queue_entry_id: str, request: Request) -> Any:
             extra={"queue_entry_id": queue_entry_id},
         )
     return {"success": True, "queue_entry_id": queue_entry_id, "deleted": True}
+
+
+@router.delete("/api/v1/queues/{printer_id}/entries/{queue_entry_id}")
+def delete_queue_entry_v1(
+    printer_id: str,
+    queue_entry_id: str,
+    request: Request,
+) -> Any:
+    """v1 compat: delete a queue entry by ID. Returns 204 No Content on success."""
+    state: AppState = request.app.state.model_catalog
+
+    existing = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    if existing is None:
+        return _error_response(
+            status_code=404,
+            error="not_found",
+            message="Queue entry not found",
+            extra={"queue_entry_id": queue_entry_id, "printer_id": printer_id},
+        )
+
+    try:
+        deleted = delete_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if not deleted:
+        return _error_response(
+            status_code=404,
+            error="not_found",
+            message="Queue entry not found",
+            extra={"queue_entry_id": queue_entry_id, "printer_id": printer_id},
+        )
+
+    actor = request.headers.get("x-actor") or "api"
+    try:
+        create_unified_queue_transition_audit(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            from_state=existing.state,
+            to_state="deleted",
+            actor=actor,
+            reason="entry deleted via v1 DELETE endpoint",
+        )
+    except Exception:
+        pass  # audit failure must not block successful delete response
+
+    return Response(status_code=204)
 
 

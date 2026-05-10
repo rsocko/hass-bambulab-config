@@ -373,3 +373,72 @@ def test_queue_add_v1_validation_and_unified_only_behavior(tmp_path: Path) -> No
         assert "queue_status" in legacy_payload["unsupported_fields"]
     finally:
         client.__exit__(None, None, None)
+
+
+def test_queue_delete_v1_returns_204_and_removes_entry(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        # Create an entry to delete
+        create_response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "model-to-delete",
+                "copies": 1,
+            },
+        )
+        assert create_response.status_code == 201
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        # Confirm it exists
+        get_response = client.get(f"/api/unified-queue/entries/{entry_id}")
+        assert get_response.status_code == 200
+
+        # Delete via v1 endpoint
+        delete_response = client.delete(f"/api/v1/queues/p1/entries/{entry_id}")
+        assert delete_response.status_code == 204
+        assert delete_response.content == b""
+
+        # Confirm it is gone
+        get_after = client.get(f"/api/unified-queue/entries/{entry_id}")
+        assert get_after.status_code == 404
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_delete_v1_returns_404_for_nonexistent_entry(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        delete_response = client.delete("/api/v1/queues/p1/entries/uqe-doesnotexist")
+        assert delete_response.status_code == 404
+        payload = delete_response.json()
+        assert payload["success"] is False
+        assert payload["error"] == "not_found"
+        assert payload["queue_entry_id"] == "uqe-doesnotexist"
+        assert payload["printer_id"] == "p1"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_delete_v1_printer_id_is_cosmetic(tmp_path: Path) -> None:
+    """printer_id in path is accepted for v1 compat but does not scope the delete."""
+    client, _db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/v1/queues/printer-a/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "cross-printer-model",
+                "copies": 2,
+            },
+        )
+        assert create_response.status_code == 201
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        # Delete using a different printer_id — should still succeed
+        delete_response = client.delete(f"/api/v1/queues/printer-b/entries/{entry_id}")
+        assert delete_response.status_code == 204
+        assert delete_response.content == b""
+    finally:
+        client.__exit__(None, None, None)
+
