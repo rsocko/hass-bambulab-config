@@ -307,9 +307,22 @@ cards:
                     - color: var(--primary-text-color)
                   icon:
                     - color: var(--primary-color)
-      - type: markdown
-        content: |
-          <div style="height:1px;width:100%;background:rgba(148, 163, 184, 0.22);margin:0;"></div>
+      - type: custom:button-card
+        show_name: false
+        show_icon: false
+        show_state: false
+        tap_action:
+          action: none
+        styles:
+          card:
+            - height: 1px
+            - min-height: 1px
+            - padding: 0
+            - margin: 0
+            - border-radius: 0
+            - border: none
+            - box-shadow: none
+            - background: rgba(148, 163, 184, 0.22)
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
