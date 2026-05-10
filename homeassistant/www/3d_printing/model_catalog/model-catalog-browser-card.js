@@ -1599,14 +1599,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay">'
-        + (mediaCount > 1 ? '<span class="media-counter" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '')
         + '      <div class="media-overlay-actions">'
         + '        <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
         + favoriteButton
         + advancedActions
         + '      </div>'
         + '    </div>'
-        + (mediaCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" type="button" data-action="media-prev" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Previous model image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" type="button" data-action="media-next" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Next model image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div>' : '')
+        + (mediaCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" type="button" data-action="media-prev" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Previous model image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><span class="media-counter" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span><button class="icon-action" type="button" data-action="media-next" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Next model image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div>' : '')
         + '  </div>'
         + mediaBodyHtml
         + '</article>';
@@ -2105,16 +2104,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.list-cell.list-name{display:grid;gap:4px;}'
       + '.tag-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.media-status-chip{display:flex;justify-content:flex-end;}'
-      + '.card-mode-pill,.media-counter{position:absolute;top:10px;z-index:1;display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.24);background:rgba(15,23,42,0.82);font-size:10px;font-weight:800;color:#fff;}'
+      + '.card-mode-pill{position:absolute;top:10px;z-index:1;display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.24);background:rgba(15,23,42,0.82);font-size:10px;font-weight:800;color:#fff;}'
+      + '.media-counter{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.24);background:rgba(15,23,42,0.82);font-size:10px;font-weight:800;color:#fff;white-space:nowrap;}'
       + '.card-mode-pill{left:10px;}'
       + '.card-mode-pill.list-mode{top:8px;left:8px;}'
-      + '.media-counter{right:10px;}'
       + '.media-overlay{position:absolute;inset:0;pointer-events:none;}'
       + '.media-overlay-actions{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:8px;pointer-events:auto;z-index:2;}'
       + '.media-overlay-actions .advanced-menu-shell{pointer-events:auto;}'
       + '.media-overlay-actions .icon-action{background:rgba(15,23,42,0.74);border-color:rgba(255,255,255,0.24);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 18px rgba(15,23,42,0.22);}'
       + '.media-overlay-actions .icon-action:hover,.media-overlay-actions .icon-action:focus-visible{background:rgba(30,41,59,0.9);border-color:rgba(255,255,255,0.42);box-shadow:0 10px 22px rgba(15,23,42,0.28),0 0 0 1px rgba(255,255,255,0.18);}'
-      + '.media-gallery-nav{position:absolute;left:10px;right:10px;bottom:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}'
+      + '.media-gallery-nav{position:absolute;left:10px;right:10px;bottom:10px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;pointer-events:none;}'
+      + '.media-gallery-nav .media-counter{justify-self:center;pointer-events:none;}'
       + '.media-gallery-nav .icon-action{pointer-events:auto;}'
       + '.advanced-menu-shell{position:relative;display:flex;justify-content:flex-end;}'
       + '.icon-action,.mini-btn,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease,border-color .16s ease;}'
