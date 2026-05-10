@@ -256,6 +256,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._requestLoad(1, false);
   }
 
+  _scheduleDebouncedApply() {
+    this._cancelScheduledApply();
+    this._debounceHandle = window.setTimeout(() => {
+      this._debounceHandle = null;
+      this._applyFilters();
+    }, 220);
+  }
+
+  _cancelScheduledApply() {
+    if (this._debounceHandle) {
+      window.clearTimeout(this._debounceHandle);
+      this._debounceHandle = null;
+    }
+  }
+
   _requestLoad(page, refresh) {
     var targetPage = Math.max(1, Number(page || 1));
     if (!this._hass) {

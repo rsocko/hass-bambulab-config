@@ -51,6 +51,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._geometryRequestSeq = 0;
     this._activeGeometryRequestId = 0;
     this._activeModelRef = '';
+    this._resizeObserver = null;
   }
 
   set hass(hass) {
@@ -109,6 +110,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   _teardownViewer() {
+        if (this._resizeObserver) {
+          try {
+            this._resizeObserver.disconnect();
+          } catch (_error) {
+            // No-op.
+          }
+          this._resizeObserver = null;
+        }
+
     // Invalidate any in-flight geometry load callbacks for the previous viewer state.
     this._geometryRequestSeq += 1;
     this._activeGeometryRequestId = this._geometryRequestSeq;
@@ -182,6 +192,25 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     this._scene = null;
     this._camera = null;
+  }
+
+  _syncRendererSize(container) {
+    if (!container || !this._renderer || !this._camera) {
+      return;
+    }
+
+    const rect = typeof container.getBoundingClientRect === 'function'
+      ? container.getBoundingClientRect()
+      : null;
+    const width = Math.max(1, Math.floor((rect && rect.width) || container.clientWidth || 1));
+    const height = Math.max(1, Math.floor((rect && rect.height) || container.clientHeight || 1));
+
+    const dom = this._renderer.domElement;
+    if (!dom || dom.width !== width || dom.height !== height || dom.clientWidth !== width || dom.clientHeight !== height) {
+      this._renderer.setSize(width, height, true);
+      this._camera.aspect = width / height;
+      this._camera.updateProjectionMatrix();
+    }
   }
 
   async _loadThreeJs() {
@@ -678,6 +707,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._renderer.setPixelRatio(window.devicePixelRatio || 1);
     this._renderer.setSize(width, height);
     container.appendChild(this._renderer.domElement);
+    this._syncRendererSize(container);
+
+    if (typeof ResizeObserver === 'function') {
+      this._resizeObserver = new ResizeObserver(() => {
+        this._syncRendererSize(container);
+      });
+      this._resizeObserver.observe(container);
+    }
 
     const ambientLight = new window.THREE.AmbientLight(0xffffff, 0.55);
     this._scene.add(ambientLight);
@@ -728,6 +765,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const animate = () => {
       this._renderLoopId = requestAnimationFrame(animate);
       if (this._renderer && this._scene && this._camera) {
+        this._syncRendererSize(container);
         if (this._controls) {
           this._controls.update();
         }
