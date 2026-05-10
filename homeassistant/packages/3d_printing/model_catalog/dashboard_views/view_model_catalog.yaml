@@ -26,7 +26,7 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0
+                - margin: 0 -8px 0 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -87,7 +87,7 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0
+                - margin: 0 -8px 0 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -148,7 +148,7 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0
+                - margin: 0 -8px 0 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -209,7 +209,7 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0
+                - margin: 0 -8px 0 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -270,7 +270,7 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0
+                - margin: 0 -8px 0 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -323,7 +323,7 @@ cards:
             styles:
               card:
                 - padding: 0
-                - margin: 0
+                - margin: 0 0 0 -8px
                 - border-radius: 0
                 - border: none
                 - border-bottom: 1px solid rgba(148, 163, 184, 0.22)

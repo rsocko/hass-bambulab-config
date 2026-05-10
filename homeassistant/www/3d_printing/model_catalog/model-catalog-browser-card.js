@@ -1862,18 +1862,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderFileKindIconChip(count, mdiIcon, className) {
     var countStr = String(count || "");
+    var svgPath = this._getMdiPath(mdiIcon);
     return '<span class="chip' + (className ? (' ' + className) : '') + '">'
-      + '<svg class="icon-svg" viewBox="0 0 24 24"><path d="M' + this._getMdiPath(mdiIcon) + '"></path></svg>'
+      + '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+      + '<path d="' + svgPath + '" fill="currentColor"/>'
+      + '</svg>'
       + '<span class="chip-count">' + this._escapeHtml(countStr) + '</span>'
       + '</span>';
   }
 
   _getMdiPath(mdiIcon) {
-    // Return SVG path data for Material Design Icons
+    // Material Design Icon SVG paths
     var paths = {
-      "mdi:cube": "12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M15.5,11H12.5V8H11.5V11H8.5V12H11.5V15H12.5V12H15.5V11Z",
-      "mdi:image": "M19,13H5V7H19M21,19V5C21,3.9 20.1,3 19,3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19M19,19H5V5H19V19M13.96,12.29L11.21,15.83L9.25,13.47L6.5,17H17.5L13.96,12.29Z",
-      "mdi:file-document": "M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+      "mdi:cube": "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m3.5-9h-3v-3h-1v3h-3v1h3v3h1v-3h3v-1z",
+      "mdi:image": "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
+      "mdi:file-document": "M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-8-6z"
     };
     return paths[mdiIcon] || "";
   }
@@ -1975,7 +1978,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this.shadowRoot.innerHTML = ''
       + '<style>'
       + ':host{--surface-1:rgba(15,23,42,0.12);--surface-2:rgba(15,23,42,0.22);--line:rgba(148,163,184,0.18);--line-strong:rgba(148,163,184,0.28);--accent:rgba(96,165,250,0.22);--accent-strong:rgba(96,165,250,0.38);--chip-bg:rgba(148,163,184,0.12);--chip-line:rgba(148,163,184,0.24);}'
-      + 'ha-card{border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.02));}'
+      + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}'
       + '.shell{display:grid;gap:14px;padding:16px;}'
       + '.shell-header{display:grid;gap:10px;}'
       + '.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-1);}'

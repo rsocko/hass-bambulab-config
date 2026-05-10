@@ -5,15 +5,15 @@
   type: module
 - url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=141
+- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=143
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=50
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=51
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=2
   type: module
 - url: /hacsfiles/apexcharts-card/apexcharts-card.js?hacstag=331701152223
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js?v=13
+- url: /local/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js?v=14
   type: module
 - url: /local/3d_printing/print_history/print-history-tag-colors.js?v=4
   type: module

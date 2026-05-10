@@ -676,7 +676,7 @@
   }
 
   var sharedStyles = ""
-    + "ha-card{border-radius:20px;border:1px solid rgba(148,163,184,0.18);background:linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.02));}"
+    + "ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}"
     + ".shell{display:grid;gap:14px;padding:16px;}"
     + ".header{display:grid;gap:8px;}"
     + ".title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}"

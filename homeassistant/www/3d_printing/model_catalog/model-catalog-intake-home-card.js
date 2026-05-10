@@ -1039,6 +1039,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     this._wizardCloseConfirmOpen = false;
     this._wizardOpen = false;
+    var isDirectLaunch = !!this._normalizeLaunchWizardMode(this._launchWizardMode);
     this._wizardMode = "";
     this._wizardStep = 1;
     this._cleanupPolicyValue = null;
@@ -1046,7 +1047,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._destinationChoice = 'curated';
     this._selected = {};
     this._clearBrowserFiles();
-    this._render();
+    if (isDirectLaunch && this._hass) {
+      try {
+        this._hass.callService('browser_mod', 'close_popup', {});
+      } catch (err) {
+        // If close_popup not available, just render
+        this._render();
+      }
+    } else {
+      this._render();
+    }
   }
 
   _canAdvanceWizard() {
@@ -2064,9 +2074,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
       + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
       + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
-      + '.wizard-modal.launch-direct{position:absolute;inset:0;padding:0;place-items:center;}'
+      + '.wizard-modal.launch-direct{padding:0;place-items:stretch;}'
       + '.wizard-modal.launch-direct .wizard-backdrop{background:rgba(15,23,42,0.96);backdrop-filter:none;}'
-      + '.wizard-modal.launch-direct .wizard-dialog{border-radius:12px;}'
+      + '.wizard-modal.launch-direct .wizard-dialog{width:100%;max-width:100%;height:100%;max-height:100%;border-radius:0;border:0;box-shadow:none;padding:20px;}'
       + '.wizard-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}'
       + '.wizard-progress{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}'
       + '.wizard-step{display:grid;gap:6px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(30,41,59,0.45);}'
