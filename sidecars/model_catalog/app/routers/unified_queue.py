@@ -28,6 +28,7 @@ from ..db import (
     create_unified_queue_plate_unit,
     delete_unified_queue_entry,
     list_unified_queue_entries,
+    list_unified_queue_file_units,
     read_unified_queue_entry,
     reorder_unified_queue_entries,
     update_unified_queue_entry,
@@ -445,6 +446,114 @@ def _create_quick_add_units(*, state: AppState, queue_entry_id: str, specs: list
             plate_units_created += 1
 
     return file_units_created, plate_units_created
+
+
+def _normalize_tag_values(value: object) -> set[str]:
+    values: set[str] = set()
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized:
+            values.add(normalized)
+        return values
+    if isinstance(value, list):
+        for item in value:
+            values.update(_normalize_tag_values(item))
+        return values
+    if isinstance(value, dict):
+        for item in value.values():
+            values.update(_normalize_tag_values(item))
+        return values
+    return values
+
+
+def _filename_stem(value: str | None) -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return ""
+    if "." in normalized:
+        normalized = normalized.rsplit(".", 1)[0]
+    cleaned = "".join(ch if ch.isalnum() else " " for ch in normalized)
+    return " ".join(cleaned.split())
+
+
+def _entry_estimated_minutes(entry: Any, file_units: list[Any]) -> int | None:
+    if entry.estimated_total_minutes is not None:
+        return int(entry.estimated_total_minutes)
+    minute_values = [int(unit.estimated_minutes) for unit in file_units if unit.estimated_minutes is not None]
+    if minute_values:
+        return sum(minute_values)
+    return None
+
+
+def _score_archive_match_candidate(
+    *,
+    archive_model_id: str | None,
+    archive_filename: str | None,
+    archive_filament_tags: set[str],
+    archive_estimated_minutes: int | None,
+    entry: Any,
+    file_units: list[Any],
+) -> dict[str, Any]:
+    entry_model_id = str(entry.source_ref or "").strip().lower()
+    entry_tags: set[str] = set()
+    entry_filenames: set[str] = set()
+    for unit in file_units:
+        entry_tags.update(_normalize_tag_values(unit.filament_requirements))
+        stem = _filename_stem(unit.file_name)
+        if stem:
+            entry_filenames.add(stem)
+
+    archive_filename_stem = _filename_stem(archive_filename)
+    high_match = bool(
+        archive_model_id
+        and entry_model_id
+        and archive_model_id == entry_model_id
+        and archive_filament_tags
+        and archive_filament_tags.issubset(entry_tags)
+    )
+
+    filename_match = bool(archive_filename_stem and archive_filename_stem in entry_filenames)
+    tag_subset_match = bool(archive_filament_tags and archive_filament_tags.issubset(entry_tags))
+
+    entry_minutes = _entry_estimated_minutes(entry, file_units)
+    time_match = False
+    if archive_estimated_minutes is not None and entry_minutes is not None and archive_estimated_minutes > 0:
+        delta = abs(entry_minutes - archive_estimated_minutes)
+        time_match = delta <= (archive_estimated_minutes * 0.15)
+
+    if high_match:
+        return {
+            "confidence": "high",
+            "score": 1.0,
+            "match_method": "model_id_and_filament_tags",
+            "reasons": ["exact model_id + all filament tags match"],
+        }
+    if filename_match or tag_subset_match:
+        reasons: list[str] = []
+        if filename_match:
+            reasons.append("filename match")
+        if tag_subset_match:
+            reasons.append("tag subset match")
+        score = 0.75 if (filename_match and tag_subset_match) else 0.7
+        return {
+            "confidence": "medium",
+            "score": score,
+            "match_method": "filename_or_tag_subset",
+            "reasons": reasons,
+        }
+    if time_match:
+        return {
+            "confidence": "low",
+            "score": 0.4,
+            "match_method": "estimated_time_within_15_percent",
+            "reasons": ["print time estimate within +/-15%"],
+        }
+    return {
+        "confidence": "unmatched",
+        "score": 0.0,
+        "match_method": "none",
+        "reasons": ["no criteria met"],
+    }
 
 
 def _parse_selected_files_payload(raw_selected_files: object) -> tuple[list[dict[str, Any]], str | None]:
@@ -1357,5 +1466,88 @@ def reorder_queue_entries_v1(
             {"queue_entry_id": m.queue_entry_id, "old_rank": m.old_rank, "new_rank": m.new_rank}
             for m in changed_moves
         ],
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/archive-match")
+def match_archive_to_queue_entry_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Match an archive payload to the best queue entry using confidence tiers.
+
+    Confidence order:
+    - high: exact model_id + all filament tags match
+    - medium: filename match OR tag subset match
+    - low: estimated print time within +/-15%
+    - unmatched: no criteria met
+    """
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    archive_id = str(body.get("archive_id") or "").strip() or None
+    archive_model_id = str(body.get("model_id") or "").strip().lower() or None
+    archive_filename = str(body.get("filename") or "").strip() or None
+    archive_filament_tags = _normalize_tag_values(body.get("filament_tags"))
+    try:
+        archive_estimated_minutes = _coerce_optional_int(
+            body.get("estimated_minutes"),
+            field="estimated_minutes",
+            minimum=0,
+        )
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    candidates: list[dict[str, Any]] = []
+    try:
+        entries = list_unified_queue_entries(db_path=state.settings.db_path)
+        for entry in entries:
+            file_units = list_unified_queue_file_units(db_path=state.settings.db_path, queue_entry_id=entry.queue_entry_id)
+            score_data = _score_archive_match_candidate(
+                archive_model_id=archive_model_id,
+                archive_filename=archive_filename,
+                archive_filament_tags=archive_filament_tags,
+                archive_estimated_minutes=archive_estimated_minutes,
+                entry=entry,
+                file_units=file_units,
+            )
+            candidates.append(
+                {
+                    "queue_entry_id": entry.queue_entry_id,
+                    "source_kind": entry.source_kind,
+                    "source_ref": entry.source_ref,
+                    "confidence": score_data["confidence"],
+                    "confidence_score": score_data["score"],
+                    "match_method": score_data["match_method"],
+                    "reasons": score_data["reasons"],
+                }
+            )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    confidence_rank = {"high": 3, "medium": 2, "low": 1, "unmatched": 0}
+    ordered = sorted(
+        candidates,
+        key=lambda item: (
+            confidence_rank.get(str(item["confidence"]), 0),
+            float(item["confidence_score"]),
+            str(item["queue_entry_id"]),
+        ),
+        reverse=True,
+    )
+
+    best = ordered[0] if ordered else None
+    matched = bool(best and best.get("confidence") != "unmatched")
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "archive_id": archive_id,
+        "matched": matched,
+        "unmatched": not matched,
+        "best_match": best,
+        "candidates": ordered,
     }
 

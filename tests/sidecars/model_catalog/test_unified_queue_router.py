@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.db import connect
+from app.db import connect, create_unified_queue_file_unit
 from app.main import create_app
 from app.settings import Settings
 
@@ -885,6 +885,156 @@ def test_queue_add_v1_advanced_add_rejects_invalid_file_reference(
         payload = response.json()
         assert payload["error"] == "validation_error"
         assert "not valid" in payload["message"]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_archive_match_v1_high_confidence_model_id_and_tags(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "model-123",
+                "rank": 0,
+            },
+        )
+        assert create_response.status_code == 201
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-001",
+            file_id="file-1",
+            file_name="part-a.3mf",
+            filament_requirements={"filament_tags": ["pla", "red"]},
+        )
+
+        match_response = client.post(
+            "/api/v1/queues/p1/archive-match",
+            json={
+                "archive_id": "archive-1",
+                "model_id": "model-123",
+                "filament_tags": ["pla", "red"],
+            },
+        )
+        assert match_response.status_code == 200
+        payload = match_response.json()
+        assert payload["matched"] is True
+        assert payload["unmatched"] is False
+        assert payload["best_match"]["queue_entry_id"] == entry_id
+        assert payload["best_match"]["confidence"] == "high"
+        assert payload["best_match"]["confidence_score"] == 1.0
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_archive_match_v1_medium_confidence_filename_or_tag_subset(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "working_group",
+                "source_id": "wg-1",
+                "rank": 0,
+            },
+        )
+        assert create_response.status_code == 201
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-001",
+            file_id="file-1",
+            file_name="my_widget.3mf",
+            filament_requirements={"filament_tags": ["petg", "blue", "matte"]},
+        )
+
+        filename_match = client.post(
+            "/api/v1/queues/p1/archive-match",
+            json={
+                "archive_id": "archive-2",
+                "filename": "my_widget.gcode",
+            },
+        )
+        assert filename_match.status_code == 200
+        filename_payload = filename_match.json()
+        assert filename_payload["matched"] is True
+        assert filename_payload["best_match"]["confidence"] == "medium"
+        assert filename_payload["best_match"]["confidence_score"] >= 0.7
+
+        tag_subset_match = client.post(
+            "/api/v1/queues/p1/archive-match",
+            json={
+                "archive_id": "archive-3",
+                "filament_tags": ["petg", "blue"],
+            },
+        )
+        assert tag_subset_match.status_code == 200
+        tag_payload = tag_subset_match.json()
+        assert tag_payload["matched"] is True
+        assert tag_payload["best_match"]["confidence"] == "medium"
+        assert tag_payload["best_match"]["confidence_score"] >= 0.7
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_archive_match_v1_low_confidence_time_window_and_unmatched(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        low_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Low candidate",
+                "estimated_total_minutes": 100,
+                "rank": 0,
+            },
+        )
+        assert low_response.status_code == 200
+        low_entry_id = low_response.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=low_entry_id,
+            file_unit_id="qfu-low",
+            file_id="file-low",
+            file_name="other-file.3mf",
+        )
+
+        low_match = client.post(
+            "/api/v1/queues/p1/archive-match",
+            json={
+                "archive_id": "archive-low",
+                "estimated_minutes": 110,
+            },
+        )
+        assert low_match.status_code == 200
+        low_payload = low_match.json()
+        assert low_payload["matched"] is True
+        assert low_payload["best_match"]["confidence"] == "low"
+        assert low_payload["best_match"]["confidence_score"] == 0.4
+
+        unmatched = client.post(
+            "/api/v1/queues/p1/archive-match",
+            json={
+                "archive_id": "archive-none",
+                "model_id": "missing-model",
+                "filename": "nope.3mf",
+                "filament_tags": ["abs", "black"],
+                "estimated_minutes": 1000,
+            },
+        )
+        assert unmatched.status_code == 200
+        unmatched_payload = unmatched.json()
+        assert unmatched_payload["matched"] is False
+        assert unmatched_payload["unmatched"] is True
+        assert unmatched_payload["best_match"]["confidence"] == "unmatched"
+        assert unmatched_payload["best_match"]["confidence_score"] == 0.0
     finally:
         client.__exit__(None, None, None)
 
