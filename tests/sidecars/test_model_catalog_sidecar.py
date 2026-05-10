@@ -1358,8 +1358,9 @@ def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -
 
     assert payload["selected_plate_id"] == "1"
     assert payload["plates"][0]["name"] == "Plate One"
-    assert payload["plates"][0]["bbox_xy"] == [0.0, 0.0, 10.0, 20.0]
-    assert payload["plates"][1]["bbox_xy"] == [100.0, 100.0, 110.0, 120.0]
+    # Bounding boxes are now normalized to be centered on origin (fixes misalignment issues)
+    assert payload["plates"][0]["bbox_xy"] == [-5.0, -10.0, 5.0, 10.0]
+    assert payload["plates"][1]["bbox_xy"] == [-5.0, -10.0, 5.0, 10.0]
     assert payload["triangle_count"] == 1
     assert payload["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
     assert len(payload["groups"]) == 1
@@ -1553,9 +1554,10 @@ def test_extract_3mf_plates_metadata_returns_plates_without_mesh_parse() -> None
     assert len(plates) == 2
     assert plates[0]["id"] == "1"
     assert plates[0]["name"] == "Plate One"
-    assert plates[0]["bbox_xy"] == [0.0, 0.0, 10.0, 20.0]
+    # Bounding boxes are now normalized to be centered on origin (fixes misalignment issues)
+    assert plates[0]["bbox_xy"] == [-5.0, -10.0, 5.0, 10.0]
     assert plates[1]["id"] == "2"
-    assert plates[1]["bbox_xy"] == [100.0, 100.0, 110.0, 120.0]
+    assert plates[1]["bbox_xy"] == [-5.0, -10.0, 5.0, 10.0]
     assert metadata["palette"] == ["#FF0000", "#00FF00"]
 
 

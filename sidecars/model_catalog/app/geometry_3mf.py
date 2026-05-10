@@ -132,6 +132,28 @@ def _normalize_color(value: Any) -> str | None:
     return f"#{hex_value.upper()}"
 
 
+def _normalize_bounding_box(bbox: list[float]) -> list[float]:
+    """
+    Normalize a bounding box to be centered on the origin.
+    
+    Converts bbox [min_x, min_y, max_x, max_y] to a centered box
+    [-width/2, -height/2, width/2, height/2] so all models are positioned
+    consistently regardless of their original coordinate space in the 3MF file.
+    
+    Args:
+        bbox: [min_x, min_y, max_x, max_y] from 3MF metadata
+        
+    Returns:
+        Centered bbox [-half_width, -half_height, half_width, half_height]
+    """
+    min_x, min_y, max_x, max_y = bbox
+    width = max_x - min_x
+    height = max_y - min_y
+    half_width = width / 2.0
+    half_height = height / 2.0
+    return [-half_width, -half_height, half_width, half_height]
+
+
 def _compute_dimensions_mm(vertices: list[float]) -> dict[str, float]:
     if not vertices:
         return {"x": 0.0, "y": 0.0, "z": 0.0}
@@ -430,7 +452,9 @@ def _merge_plate_metadata(
         if isinstance(plate_json, dict):
             bbox = plate_json.get("bbox_all")
             if isinstance(bbox, list) and len(bbox) == 4:
-                merged["bbox_xy"] = [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+                # Normalize bbox to be centered on origin, regardless of original 3MF coordinates
+                bbox_floats = [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+                merged["bbox_xy"] = _normalize_bounding_box(bbox_floats)
             colors = [
                 normalized
                 for normalized in (_normalize_color(value) for value in plate_json.get("filament_colors") or [])
