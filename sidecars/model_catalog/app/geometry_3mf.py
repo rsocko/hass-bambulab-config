@@ -167,6 +167,65 @@ def _compute_dimensions_mm(vertices: list[float]) -> dict[str, float]:
     }
 
 
+def _normalize_vertices(
+    vertices: list[float],
+    grouped_vertices: dict[str, dict[str, Any]],
+) -> tuple[list[float], dict[str, dict[str, Any]]]:
+    """
+    Center all vertices on the origin, regardless of their original 3MF coordinates.
+    
+    When a model is positioned at (100, 100, 0) in Bambu Studio, all its vertices
+    retain that offset. This function translates both flattened and grouped vertices
+    so the model is centered on (0, 0, 0), ensuring consistent positioning across
+    all models regardless of where they were originally placed in the 3MF file.
+    
+    Args:
+        vertices: Flattened list of [x1, y1, z1, x2, y2, z2, ...]
+        grouped_vertices: Dict of vertex groups by color/extruder
+        
+    Returns:
+        Tuple of (normalized_vertices, normalized_grouped_vertices)
+    """
+    if not vertices or len(vertices) < 3:
+        return vertices, grouped_vertices
+    
+    # Find min/max for each axis
+    x_values = vertices[0::3]
+    y_values = vertices[1::3]
+    z_values = vertices[2::3]
+    
+    min_x, max_x = min(x_values), max(x_values)
+    min_y, max_y = min(y_values), max(y_values)
+    min_z, max_z = min(z_values), max(z_values)
+    
+    # Calculate center point
+    center_x = (min_x + max_x) / 2.0
+    center_y = (min_y + max_y) / 2.0
+    center_z = (min_z + max_z) / 2.0
+    
+    # Normalize flattened vertices by translating to center on origin
+    normalized_vertices: list[float] = []
+    for i in range(0, len(vertices), 3):
+        normalized_vertices.append(vertices[i] - center_x)
+        normalized_vertices.append(vertices[i + 1] - center_y)
+        normalized_vertices.append(vertices[i + 2] - center_z)
+    
+    # Normalize grouped vertices likewise
+    normalized_groups: dict[str, dict[str, Any]] = {}
+    for group_key, group_entry in grouped_vertices.items():
+        normalized_group = dict(group_entry)
+        group_verts = group_entry.get("vertices", [])
+        normalized_group_verts: list[float] = []
+        for i in range(0, len(group_verts), 3):
+            normalized_group_verts.append(group_verts[i] - center_x)
+            normalized_group_verts.append(group_verts[i + 1] - center_y)
+            normalized_group_verts.append(group_verts[i + 2] - center_z)
+        normalized_group["vertices"] = normalized_group_verts
+        normalized_groups[group_key] = normalized_group
+    
+    return normalized_vertices, normalized_groups
+
+
 def _color_for_extruder(extruder: int | None, palette: list[str]) -> str | None:
     if extruder is None:
         return None
@@ -1133,6 +1192,10 @@ def extract_3mf_geometry(
 
     if not flattened_vertices or triangle_count <= 0:
         raise ValueError("3MF package contained no renderable mesh geometry")
+
+    # Normalize vertices to be centered on origin, fixing misalignment issues
+    # where models positioned at different locations in 3MF file retain their offsets
+    flattened_vertices, grouped_vertices = _normalize_vertices(flattened_vertices, grouped_vertices)
 
     dimensions_mm = _compute_dimensions_mm(flattened_vertices)
 

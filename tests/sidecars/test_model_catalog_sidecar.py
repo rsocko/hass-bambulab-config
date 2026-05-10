@@ -611,7 +611,8 @@ def test_geometry_endpoint_returns_parsed_3mf_mesh(tmp_path: Path) -> None:
     assert payload["geometry"]["triangle_count"] == 1
     assert payload["geometry"]["unit"] == "millimeter"
     assert payload["geometry"]["dimensions_mm"] == {"x": 10.0, "y": 20.0, "z": 0.0}
-    assert payload["geometry"]["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
+    # Vertices now centered on origin (x: 0-10 center=5, y: 0-20 center=10, z: 0)
+    assert payload["geometry"]["vertices"] == [-5.0, -10.0, 0.0, 5.0, -10.0, 0.0, -5.0, 10.0, 0.0]
 
 
 def test_apply_geometry_lod_auto_simplifies_triangle_payload(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1311,7 +1312,7 @@ def test_geometry_endpoint_applies_3mf_build_transform(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
+    assert payload["geometry"]["vertices"] == [-5.0, -10.0, 0.0, 5.0, -10.0, 0.0, -5.0, 10.0, 0.0]
 
 
 def test_geometry_endpoint_resolves_external_3mf_component_models(tmp_path: Path) -> None:
@@ -1343,14 +1344,15 @@ def test_geometry_endpoint_resolves_external_3mf_component_models(tmp_path: Path
     assert response.status_code == 200
     payload = response.json()
     assert payload["geometry"]["triangle_count"] == 1
-    assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
+    assert payload["geometry"]["vertices"] == [-5.0, -10.0, 0.0, 5.0, -10.0, 0.0, -5.0, 10.0, 0.0]
 
 
 def test_extract_3mf_geometry_applies_component_rotation_before_build_transform() -> None:
     payload = extract_3mf_geometry(_build_component_rotation_3mf())
 
     assert payload["triangle_count"] == 1
-    assert payload["vertices"] == [50.0, 60.0, 0.0, 50.0, 70.0, 0.0, 30.0, 60.0, 0.0]
+    # Vertices are now centered on origin (x: 30-50 center=40, y: 60-70 center=65, z: 0)
+    assert payload["vertices"] == [10.0, -5.0, 0.0, 10.0, 5.0, 0.0, -10.0, -5.0, 0.0]
 
 
 def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -> None:
@@ -1362,7 +1364,8 @@ def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -
     assert payload["plates"][0]["bbox_xy"] == [-5.0, -10.0, 5.0, 10.0]
     assert payload["plates"][1]["bbox_xy"] == [-5.0, -10.0, 5.0, 10.0]
     assert payload["triangle_count"] == 1
-    assert payload["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
+    # Vertices are now centered on origin (x: 0-10 center=5, y: 0-20 center=10, z: 0)
+    assert payload["vertices"] == [-5.0, -10.0, 0.0, 5.0, -10.0, 0.0, -5.0, 10.0, 0.0]
     assert len(payload["groups"]) == 1
     assert payload["groups"][0]["color"] == "#FF0000"
     assert payload["groups"][0]["extruder"] == 1
@@ -1376,7 +1379,8 @@ def test_extract_3mf_geometry_can_select_specific_plate() -> None:
 
     assert payload["selected_plate_id"] == "2"
     assert payload["triangle_count"] == 1
-    assert payload["vertices"] == [100.0, 100.0, 0.0, 110.0, 100.0, 0.0, 100.0, 120.0, 0.0]
+    # Vertices now centered on origin (x: 100-110 center=105, y: 100-120 center=110, z: 0)
+    assert payload["vertices"] == [-5.0, -10.0, 0.0, 5.0, -10.0, 0.0, -5.0, 10.0, 0.0]
     assert len(payload["groups"]) == 1
     assert payload["groups"][0]["color"] == "#00FF00"
     assert payload["groups"][0]["extruder"] == 2
@@ -1522,7 +1526,8 @@ def test_extract_3mf_geometry_skips_non_selected_plate_meshes_lazily() -> None:
     # Only plate-2's object (id=2) should be in the output.
     assert payload["selected_plate_id"] == "2"
     assert payload["triangle_count"] == 1
-    assert payload["vertices"] == [100.0, 100.0, 0.0, 110.0, 100.0, 0.0, 100.0, 120.0, 0.0]
+    # Vertices now centered on origin (x: 100-110 center=105, y: 100-120 center=110, z: 0)
+    assert payload["vertices"] == [-5.0, -10.0, 0.0, 5.0, -10.0, 0.0, -5.0, 10.0, 0.0]
     # Object id "1" (plate 1) must not appear in any group.
     all_object_ids: set[str] = set()
     for group in payload["groups"]:
