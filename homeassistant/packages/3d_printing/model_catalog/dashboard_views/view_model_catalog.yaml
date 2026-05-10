@@ -1,6 +1,6 @@
 title: Model Catalog
 path: model-catalog
-icon: mdi:bookshelf
+icon: mdi:cube-outline
 panel: true
 cards:
   - type: vertical-stack
@@ -9,7 +9,7 @@ cards:
         cards:
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
-            name: Launch Pad
+            name: Dashboard
             icon: mdi:view-dashboard-outline
             tap_action:
               action: call-service
@@ -69,8 +69,8 @@ cards:
                     - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
-            name: Curated
-            icon: mdi:bookshelf
+            name: Catalog
+            icon: mdi:cube-outline
             tap_action:
               action: call-service
               service: input_select.select_option
@@ -129,7 +129,7 @@ cards:
                     - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
-            name: Working
+            name: Working Files
             icon: mdi:briefcase-outline
             tap_action:
               action: call-service
@@ -328,8 +328,8 @@ cards:
               square: false
               cards:
                 - type: custom:button-card
-                  name: Curated
-                  icon: mdi:bookshelf
+                  name: Catalog
+                  icon: mdi:cube-outline
                   show_label: true
                   label: Browse the catalog without leaving the main dashboard view.
                   tap_action:
@@ -353,7 +353,7 @@ cards:
                       - white-space: normal
                       - color: var(--secondary-text-color)
                 - type: custom:button-card
-                  name: Working
+                  name: Working Files
                   icon: mdi:briefcase-outline
                   show_label: true
                   label: Explore working files and group review while keeping top-level navigation visible.
@@ -406,7 +406,7 @@ cards:
                   name: Job History
                   icon: mdi:history
                   show_label: true
-                  label: Review completed intake outcomes and jump back into Working or Curated from the shared workspace shell.
+                  label: Review completed intake outcomes and jump back into Working Files or Catalog from the shared workspace shell.
                   tap_action:
                     action: call-service
                     service: input_select.select_option

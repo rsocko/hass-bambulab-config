@@ -1559,6 +1559,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>'
       + '  <div class="media-footer-row">'
       + '    <div class="tags">' + tagMarkup + '</div>'
+      + '    <div class="compact-file-kinds">' + fileKindChipMarkup + '</div>'
+      + '  </div>'
+      + '  <div class="media-actions-row">'
       + '    <div class="media-actions">'
       + openQuickAction
       + queueQuickAction
@@ -2061,6 +2064,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}'
       + '.media-footer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}'
+      + '.media-actions-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}'
       + '.media-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;}'
       + '.title-cluster{display:grid;gap:6px;min-width:0;}'
       + '.title{margin:0;font-size:15px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;}'
