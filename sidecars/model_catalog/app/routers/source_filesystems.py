@@ -10,6 +10,7 @@ using `request.app.state.model_catalog.settings`.
 from __future__ import annotations
 
 import json
+import zipfile
 import uuid as _uuid_module
 from pathlib import Path
 from sqlite3 import connect
@@ -126,7 +127,34 @@ def browse_source_filesystem(request: Request, path: str | None = None) -> Any:
             ],
         }
 
-    browse_path = Path(path).expanduser().resolve()
+    browse_path = None
+    archive_path: Path | None = None
+    archive_inner_path = ""
+    archive_virtual_mode = False
+
+    raw_path = str(path).strip()
+    if "::" in raw_path:
+        archive_raw, inner_raw = raw_path.split("::", 1)
+        archive_path = Path(archive_raw).expanduser().resolve()
+        browse_path = archive_path
+        archive_inner_path = str(inner_raw or "").replace("\\", "/").strip("/")
+        archive_virtual_mode = True
+    else:
+        browse_path = Path(raw_path).expanduser().resolve()
+        if browse_path.suffix.lower() == ".zip":
+            archive_path = browse_path
+            archive_inner_path = ""
+            archive_virtual_mode = True
+
+    if browse_path is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": f"Path does not exist: {path}",
+            },
+        )
 
     if not _is_path_within_roots(browse_path, roots):
         return JSONResponse(
@@ -150,6 +178,138 @@ def browse_source_filesystem(request: Request, path: str | None = None) -> Any:
                 "message": f"Path does not exist: {path}",
             },
         )
+
+    if archive_virtual_mode:
+        if (
+            archive_path is None
+            or not archive_path.exists()
+            or not archive_path.is_file()
+            or archive_path.suffix.lower() != ".zip"
+        ):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "not_a_directory",
+                    "message": f"Path is not a directory: {path}",
+                },
+            )
+
+        entries: list[dict[str, Any]] = []
+        folder_names: set[str] = set()
+        file_entries: dict[str, dict[str, Any]] = {}
+        prefix = archive_inner_path + "/" if archive_inner_path else ""
+
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                for info in archive.infolist():
+                    normalized = str(info.filename or "").replace("\\", "/").lstrip("/")
+                    if not normalized:
+                        continue
+                    if prefix and not normalized.startswith(prefix):
+                        continue
+
+                    relative = normalized[len(prefix):] if prefix else normalized
+                    if not relative:
+                        continue
+                    parts = [
+                        part
+                        for part in relative.split("/")
+                        if part not in {"", ".", ".."}
+                    ]
+                    if not parts:
+                        continue
+
+                    if len(parts) > 1:
+                        folder_names.add(parts[0])
+                        continue
+
+                    leaf_name = parts[0]
+                    child_inner = (
+                        f"{archive_inner_path}/{leaf_name}"
+                        if archive_inner_path
+                        else leaf_name
+                    )
+                    virtual_child_path = f"{archive_path}::{child_inner}"
+                    file_entries[leaf_name] = {
+                        "path": virtual_child_path,
+                        "name": leaf_name,
+                        "type": "file",
+                        "size_bytes": int(info.file_size),
+                        "has_children": False,
+                        "extension": Path(leaf_name).suffix.lower(),
+                        "virtual_archive": True,
+                        "selectable": False,
+                    }
+        except (OSError, RuntimeError, zipfile.BadZipFile) as error:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "archive_browse_failed",
+                    "message": f"Could not browse archive: {archive_path.name}",
+                    "detail": str(error),
+                },
+            )
+
+        for folder_name in sorted(folder_names):
+            child_inner = (
+                f"{archive_inner_path}/{folder_name}"
+                if archive_inner_path
+                else folder_name
+            )
+            virtual_child_path = f"{archive_path}::{child_inner}"
+            entries.append(
+                {
+                    "path": virtual_child_path,
+                    "name": folder_name,
+                    "type": "folder",
+                    "size_bytes": None,
+                    "has_children": True,
+                    "virtual_archive": True,
+                    "selectable": False,
+                }
+            )
+
+        for file_name in sorted(file_entries.keys()):
+            entries.append(file_entries[file_name])
+
+        if archive_inner_path:
+            parent_inner = (
+                archive_inner_path.rsplit("/", 1)[0]
+                if "/" in archive_inner_path
+                else ""
+            )
+            parent_path = (
+                f"{archive_path}::{parent_inner}"
+                if parent_inner
+                else str(archive_path)
+            )
+        else:
+            parent_path = str(archive_path.parent)
+
+        display_path = (
+            f"{archive_path}::{archive_inner_path}"
+            if archive_inner_path
+            else str(archive_path)
+        )
+
+        return {
+            "success": True,
+            "path": display_path,
+            "name": (
+                archive_path.name
+                if not archive_inner_path
+                else Path(archive_inner_path).name
+            ),
+            "type": "folder",
+            "parent_path": parent_path,
+            "is_root": False,
+            "entry_count": len(entries),
+            "entries": entries,
+            "virtual_archive": True,
+            "archive_source_path": str(archive_path),
+        }
 
     if not browse_path.is_dir():
         return JSONResponse(

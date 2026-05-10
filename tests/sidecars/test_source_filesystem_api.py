@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import zipfile
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -209,6 +210,53 @@ def test_browse_returns_400_for_file_path(tmp_path: Path) -> None:
         response = client.get(f"/api/source-filesystems/browse?path={f}")
     assert response.status_code == 400
     assert response.json()["error"] == "not_a_directory"
+
+
+def test_browse_treats_zip_file_as_virtual_archive_root(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    archive_path = root / "bundle.zip"
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("parts/base.3mf", b"mesh")
+        archive.writestr("parts/docs/readme.md", b"notes")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.get(f"/api/source-filesystems/browse?path={archive_path}")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["success"] is True
+    assert payload["virtual_archive"] is True
+    assert payload["archive_source_path"] == str(archive_path)
+    assert payload["entry_count"] == 1
+    assert payload["entries"][0]["name"] == "parts"
+    assert payload["entries"][0]["type"] == "folder"
+    assert payload["entries"][0]["selectable"] is False
+
+
+def test_browse_allows_zip_virtual_nested_navigation(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    archive_path = root / "bundle.zip"
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("parts/base.3mf", b"mesh")
+        archive.writestr("parts/docs/readme.md", b"notes")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.get(f"/api/source-filesystems/browse?path={archive_path}::parts")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["success"] is True
+    assert payload["virtual_archive"] is True
+    names = {entry["name"] for entry in payload["entries"]}
+    assert "base.3mf" in names
+    assert "docs" in names
+    base_entry = next(entry for entry in payload["entries"] if entry["name"] == "base.3mf")
+    assert base_entry["type"] == "file"
+    assert base_entry["selectable"] is False
 
 
 def test_browse_includes_parent_path_within_root(tmp_path: Path) -> None:
