@@ -1761,8 +1761,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _renderWizard() {
+    var directLaunchMode = !!this._normalizeLaunchWizardMode(this._launchWizardMode);
     return ''
-      + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
+      + '<div class="wizard-modal' + (directLaunchMode ? ' launch-direct' : '') + '" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
       + '  <div class="wizard-backdrop"></div>'
       + '  <div class="wizard-dialog">'
       + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div></div></div>'
@@ -2050,6 +2051,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!this.shadowRoot || !this._config) {
       return;
     }
+    var directLaunchMode = !!this._normalizeLaunchWizardMode(this._launchWizardMode);
+    var hideBaseSurface = directLaunchMode && this._wizardOpen;
     var resultHtml = this._result
       ? '<section class="banner"><div class="title">Latest Result</div><div class="status">Upload ' + escapeHtml(this._result.upload_status) + ' / Validation ' + escapeHtml(this._result.validation_state) + ' / Cleanup ' + escapeHtml(this._result.cleanup_policy === 'keep' ? 'deferred (keep)' : 'pending policy') + (this._result.publish_status ? ' / Publish ' + escapeHtml(this._result.publish_status) : '') + '</div><div class="muted">Selection count ' + String(this._result.selection_count || 0) + ', expanded files ' + String(this._result.expanded_file_count || 0) + ', upload ' + escapeHtml(this._result.upload_id || '') + (this._result.local_model_id ? ', local model ' + escapeHtml(this._result.local_model_id) : '') + '</div>' + ((this._result.warnings || []).length ? '<div class="muted">Warnings: ' + escapeHtml((this._result.warnings || []).map(function (warning) { return warning.message || warning.code; }).join('; ')) + '</div>' : '') + '</section>'
       : '';
@@ -2061,6 +2064,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
       + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
       + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
+      + '.wizard-modal.launch-direct{padding:0;place-items:stretch;}'
+      + '.wizard-modal.launch-direct .wizard-backdrop{background:rgba(15,23,42,0.96);backdrop-filter:none;}'
+      + '.wizard-modal.launch-direct .wizard-dialog{width:100%;max-width:100%;height:100%;max-height:100%;border-radius:0;border:0;box-shadow:none;padding:20px;}'
       + '.wizard-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}'
       + '.wizard-progress{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}'
       + '.wizard-step{display:grid;gap:6px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(30,41,59,0.45);}'
@@ -2116,21 +2122,23 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = ''
       + '<style>' + sharedStyles + extraStyles + '</style>'
-      + '<ha-card>'
-      + '  <div class="shell">'
-      + '    <div class="header">'
-      + '      <div class="title-row">'
-      + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Run intake as a true stepwise flow: pick one path, review the staged batch, then commit it into Inbox.</div></div>'
-      + '      </div>'
-      + '      ' + (this._error && !this._wizardOpen ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
-      + '      ' + (this._status && !this._wizardOpen ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
-      + '    </div>'
-      + resultHtml
-      + this._queueSummaryHtml()
-      + this._renderLaunchPad()
-      + this._renderRecentActivity()
-      + '  </div>'
-      + '</ha-card>'
+      + (hideBaseSurface
+        ? ''
+        : ('<ha-card>'
+          + '  <div class="shell">'
+          + '    <div class="header">'
+          + '      <div class="title-row">'
+          + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Run intake as a true stepwise flow: pick one path, review the staged batch, then commit it into Inbox.</div></div>'
+          + '      </div>'
+          + '      ' + (this._error && !this._wizardOpen ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
+          + '      ' + (this._status && !this._wizardOpen ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+          + '    </div>'
+          + resultHtml
+          + this._queueSummaryHtml()
+          + this._renderLaunchPad()
+          + this._renderRecentActivity()
+          + '  </div>'
+          + '</ha-card>'))
       + (this._wizardOpen ? this._renderWizard() : '');
   }
 }
