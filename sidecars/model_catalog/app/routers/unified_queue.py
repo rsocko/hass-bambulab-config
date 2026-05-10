@@ -19,11 +19,13 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, Response
 
 from ..db import (
+    ReorderMove,
     create_unified_queue_transition_audit,
     create_unified_queue_entry,
     delete_unified_queue_entry,
     list_unified_queue_entries,
     read_unified_queue_entry,
+    reorder_unified_queue_entries,
     update_unified_queue_entry,
 )
 from ..state import AppState
@@ -736,4 +738,124 @@ def delete_queue_entry_v1(
 
     return Response(status_code=204)
 
+
+@router.patch("/api/v1/queues/{printer_id}/reorder")
+def reorder_queue_entries_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Batch reorder queue entries by setting new ranks.
+
+    Conflict resolution strategy (gap-fill):
+    1. Apply all requested rank values in a single transaction.
+    2. Re-normalize ALL entry ranks sequentially (0, 1, 2, ...) ordered by
+       (rank ASC, created_at ASC). This closes any gaps or collisions.
+    3. Entries not in the request may have their rank adjusted as a side effect
+       of normalization — this is expected and keeps the rank space dense.
+
+    The printer_id path parameter is accepted for v1 compat but is not used for scoping
+    (the unified queue is global, not per-printer).
+    """
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    raw_moves = body.get("moves")
+    if not isinstance(raw_moves, list):
+        return _error_response(
+            status_code=400,
+            error="validation_error",
+            message="'moves' must be an array of {id, new_rank} objects",
+        )
+    if len(raw_moves) == 0:
+        return _error_response(
+            status_code=400,
+            error="validation_error",
+            message="'moves' must contain at least one entry",
+        )
+
+    # Validate and coerce each move
+    seen_ids: set[str] = set()
+    parsed_moves: list[tuple[str, int]] = []
+    for i, move in enumerate(raw_moves):
+        if not isinstance(move, dict):
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"moves[{i}] must be an object with 'id' and 'new_rank'",
+            )
+        entry_id = str(move.get("id") or "").strip()
+        if not entry_id:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"moves[{i}].id is required and must be a non-empty string",
+            )
+        if entry_id in seen_ids:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"moves[{i}].id '{entry_id}' appears more than once — duplicate IDs are not allowed",
+            )
+        seen_ids.add(entry_id)
+        try:
+            new_rank = _coerce_int(move.get("new_rank"), field=f"moves[{i}].new_rank", minimum=0)
+        except ValueError as exc:
+            return _error_response(status_code=400, error="validation_error", message=str(exc))
+        parsed_moves.append((entry_id, new_rank))
+
+    # Capture pre-reorder ranks for audit
+    pre_reorder: dict[str, int] = {}
+    for entry_id, _ in parsed_moves:
+        entry = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=entry_id)
+        if entry is not None:
+            pre_reorder[entry_id] = entry.rank
+
+    try:
+        changed_moves, missing_ids = reorder_unified_queue_entries(
+            db_path=state.settings.db_path,
+            moves=parsed_moves,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if missing_ids:
+        return _error_response(
+            status_code=404,
+            error="not_found",
+            message=f"One or more entry IDs not found: {missing_ids}",
+            extra={"missing_ids": missing_ids},
+        )
+
+    # Write audit events for each explicitly requested entry whose rank changed
+    actor = request.headers.get("x-actor") or "api"
+    for entry_id, new_rank_requested in parsed_moves:
+        old_rank = pre_reorder.get(entry_id)
+        final_entry = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=entry_id)
+        final_rank = final_entry.rank if final_entry is not None else new_rank_requested
+        if old_rank is not None and old_rank != final_rank:
+            try:
+                create_unified_queue_transition_audit(
+                    db_path=state.settings.db_path,
+                    queue_entry_id=entry_id,
+                    from_state=f"rank:{old_rank}",
+                    to_state=f"rank:{final_rank}",
+                    actor=actor,
+                    reason=f"reorder via v1 PATCH /reorder (requested new_rank={new_rank_requested})",
+                )
+            except Exception:
+                pass  # audit failure must not block reorder response
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "moved_count": len(parsed_moves),
+        "normalization_adjustments": len(changed_moves),
+        "moves": [
+            {"queue_entry_id": m.queue_entry_id, "old_rank": m.old_rank, "new_rank": m.new_rank}
+            for m in changed_moves
+        ],
+    }
 

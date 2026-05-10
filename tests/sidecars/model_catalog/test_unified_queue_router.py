@@ -442,3 +442,120 @@ def test_queue_delete_v1_printer_id_is_cosmetic(tmp_path: Path) -> None:
     finally:
         client.__exit__(None, None, None)
 
+
+# ---------------------------------------------------------------------------
+# PATCH /api/v1/queues/{printer_id}/reorder — batch rank reorder
+# ---------------------------------------------------------------------------
+
+
+def test_reorder_v1_applies_rank_moves_and_normalizes(tmp_path: Path) -> None:
+    """Creating 3 entries with explicit ranks, reordering them, verifies sequential ranks."""
+    client, _db_path = _create_client(tmp_path)
+    try:
+        ids: list[str] = []
+        for i in range(3):
+            r = client.post(
+                "/api/v1/queues/printer-x/add",
+                json={"source_kind": "catalog_model", "source_id": f"model-{i}", "rank": i},
+            )
+            assert r.status_code == 201
+            ids.append(r.json()["entry"]["queue_entry_id"])
+
+        # Verify initial ranks 0, 1, 2
+        list_r = client.get("/api/v1/queues/printer-x/entries")
+        assert list_r.status_code == 200
+        initial_entries = list_r.json()["entries"]
+        initial_ranks = {e["queue_entry_id"]: e["rank"] for e in initial_entries}
+        assert initial_ranks[ids[0]] == 0
+        assert initial_ranks[ids[1]] == 1
+        assert initial_ranks[ids[2]] == 2
+
+        # Move entry 0 to rank 99 (should be normalized back to 2)
+        reorder_r = client.patch(
+            "/api/v1/queues/printer-x/reorder",
+            json={"moves": [{"id": ids[0], "new_rank": 99}]},
+        )
+        assert reorder_r.status_code == 200
+        data = reorder_r.json()
+        assert data["success"] is True
+        assert data["contract"] == "unified-queue.v1"
+        assert data["printer_id"] == "printer-x"
+        assert isinstance(data["moved_count"], int)
+        assert isinstance(data["normalization_adjustments"], int)
+        assert isinstance(data["moves"], list)
+
+        # Verify ranks are still sequential 0,1,2
+        list_r2 = client.get("/api/v1/queues/printer-x/entries")
+        assert list_r2.status_code == 200
+        final_entries = list_r2.json()["entries"]
+        final_ranks = sorted(e["rank"] for e in final_entries)
+        assert final_ranks == [0, 1, 2]
+
+        # id[0] should now be last (rank 2)
+        rank_map = {e["queue_entry_id"]: e["rank"] for e in final_entries}
+        assert rank_map[ids[0]] == 2
+        assert rank_map[ids[1]] == 0
+        assert rank_map[ids[2]] == 1
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reorder_v1_returns_404_for_missing_entry(tmp_path: Path) -> None:
+    """If any move references a nonexistent entry ID, 404 is returned with missing_ids."""
+    client, _db_path = _create_client(tmp_path)
+    try:
+        r = client.post(
+            "/api/v1/queues/printer-x/add",
+            json={"source_kind": "catalog_model", "source_id": "real-model"},
+        )
+        assert r.status_code == 201
+        real_id = r.json()["entry"]["queue_entry_id"]
+
+        reorder_r = client.patch(
+            "/api/v1/queues/printer-x/reorder",
+            json={"moves": [{"id": real_id, "new_rank": 0}, {"id": "ghost-entry-id", "new_rank": 1}]},
+        )
+        assert reorder_r.status_code == 404
+        data = reorder_r.json()
+        assert data["error"] == "not_found"
+        assert "ghost-entry-id" in data["missing_ids"]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reorder_v1_empty_moves_rejected(tmp_path: Path) -> None:
+    """An empty moves array returns 400."""
+    client, _db_path = _create_client(tmp_path)
+    try:
+        reorder_r = client.patch(
+            "/api/v1/queues/printer-x/reorder",
+            json={"moves": []},
+        )
+        assert reorder_r.status_code == 400
+        data = reorder_r.json()
+        assert data["error"] == "validation_error"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reorder_v1_duplicate_id_rejected(tmp_path: Path) -> None:
+    """Providing the same entry ID twice in moves returns 400."""
+    client, _db_path = _create_client(tmp_path)
+    try:
+        r = client.post(
+            "/api/v1/queues/printer-x/add",
+            json={"source_kind": "catalog_model", "source_id": "dup-model"},
+        )
+        assert r.status_code == 201
+        entry_id = r.json()["entry"]["queue_entry_id"]
+
+        reorder_r = client.patch(
+            "/api/v1/queues/printer-x/reorder",
+            json={"moves": [{"id": entry_id, "new_rank": 0}, {"id": entry_id, "new_rank": 1}]},
+        )
+        assert reorder_r.status_code == 400
+        data = reorder_r.json()
+        assert data["error"] == "validation_error"
+    finally:
+        client.__exit__(None, None, None)
+

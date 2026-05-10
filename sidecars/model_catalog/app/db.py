@@ -63,10 +63,12 @@ from .db_models import (
     set_model_field,
 )
 from .db_unified_queue import (
+    ReorderMove,
     UnifiedQueueEntry,
     UnifiedQueueFileUnit,
     UnifiedQueuePlateUnit,
     create_unified_queue_transition_audit,
+    reorder_unified_queue_entries,
     create_unified_queue_entry,
     create_unified_queue_file_unit,
     create_unified_queue_plate_unit,
@@ -170,10 +172,12 @@ __all__ = [
     "read_model_field",
     "delete_model_field",
     # Unified queue operations
+    "ReorderMove",
     "UnifiedQueueEntry",
     "UnifiedQueueFileUnit",
     "UnifiedQueuePlateUnit",
     "create_unified_queue_transition_audit",
+    "reorder_unified_queue_entries",
     "create_unified_queue_entry",
     "read_unified_queue_entry",
     "list_unified_queue_entries",
