@@ -2001,6 +2001,61 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this.dispatchEvent(event);
   }
 
+  _renderLoadingPlaceholders() {
+    var count = Math.max(3, Math.min(8, Number(this._pagination.per_page || 12)));
+    var markup = [];
+    for (var i = 0; i < count; i++) {
+      markup.push(this._renderPlaceholderCard());
+    }
+    return markup.join("");
+  }
+
+  _renderPlaceholderCard() {
+    if (this._viewMode === "media") {
+      return ''
+        + '<article class="model-card skeleton view-media" aria-hidden="true">'
+        + '  <div class="thumb-wrap media-wrap">'
+        + '    <div class="media-preview skeleton-block"></div>'
+        + '  </div>'
+        + '  <div class="body media-body">'
+        + '    <div class="skeleton-line skeleton-block w-80"></div>'
+        + '    <div class="skeleton-line skeleton-block w-55"></div>'
+        + '    <div class="skeleton-line skeleton-block w-95"></div>'
+        + '  </div>'
+        + '</article>';
+    }
+
+    if (this._viewMode === "list") {
+      return ''
+        + '<article class="model-card skeleton view-list" aria-hidden="true">'
+        + '  <div class="thumb-wrap list-wrap">'
+        + '    <div class="thumb list-thumb skeleton-block"></div>'
+        + '  </div>'
+        + '  <div class="body list-body">'
+        + '    <div class="skeleton-line skeleton-block w-70"></div>'
+        + '    <div class="skeleton-line skeleton-block w-50"></div>'
+        + '    <div class="skeleton-line skeleton-block w-90"></div>'
+        + '  </div>'
+        + '</article>';
+    }
+
+    return ''
+      + '<article class="model-card skeleton view-compact" aria-hidden="true">'
+      + '  <div class="thumb-wrap compact-wrap">'
+      + '    <div class="thumb skeleton-block"></div>'
+      + '  </div>'
+      + '  <div class="body compact-main">'
+      + '    <div class="skeleton-line skeleton-block w-85"></div>'
+      + '    <div class="skeleton-line skeleton-block w-60"></div>'
+      + '    <div class="skeleton-line skeleton-block w-95"></div>'
+      + '  </div>'
+      + '  <div class="body compact-full">'
+      + '    <div class="skeleton-line skeleton-block w-75"></div>'
+      + '    <div class="skeleton-line skeleton-block w-90"></div>'
+      + '  </div>'
+      + '</article>';
+  }
+
   _render() {
     if (!this.shadowRoot || !this._config) {
       return;
@@ -2008,7 +2063,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var resultsHtml = "";
     if (this._loading) {
-      resultsHtml = '<div class="state-row">Loading catalog...</div>';
+      resultsHtml = this._renderLoadingPlaceholders();
     } else if (this._error) {
       resultsHtml = '<div class="state-row error">' + this._escapeHtml(this._error) + '</div>';
     } else if (!this._results.length) {
@@ -2085,6 +2140,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + 'select.control-input{color-scheme:light dark;}'
       + '.control-input option,.control-input optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
       + '.results{display:grid;gap:12px;}'
+      + '.results.is-loading{pointer-events:none;}'
       + '.results.view-compact{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}'
       + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'
       + '.results.view-list{grid-template-columns:1fr;}'
@@ -2119,7 +2175,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.thumb img,.media-preview img{width:100%;height:100%;object-fit:cover;display:block;}'
       // Suppress alt-text "flash" on lazy-loaded thumbnails: hide alt text and show a subtle placeholder gradient until src is set (issue #1383)
       + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));}'
+      + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;}'
       + '.thumb img[data-thumbnail-lazy-url]:not([src])::before,.media-preview img[data-thumbnail-lazy-url]:not([src])::before{content:"";display:block;width:100%;height:100%;}'
+      + '.model-card.skeleton{cursor:default;pointer-events:none;}'
+      + '.skeleton-block{position:relative;overflow:hidden;background:linear-gradient(120deg,rgba(148,163,184,0.14),rgba(148,163,184,0.05),rgba(148,163,184,0.14));background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;border-radius:10px;}'
+      + '.skeleton-line{height:12px;}'
+      + '.skeleton-line.w-50{width:50%;}'
+      + '.skeleton-line.w-55{width:55%;}'
+      + '.skeleton-line.w-60{width:60%;}'
+      + '.skeleton-line.w-70{width:70%;}'
+      + '.skeleton-line.w-75{width:75%;}'
+      + '.skeleton-line.w-80{width:80%;}'
+      + '.skeleton-line.w-85{width:85%;}'
+      + '.skeleton-line.w-90{width:90%;}'
+      + '.skeleton-line.w-95{width:95%;}'
       + '.thumb-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:.72;}'
       + '.thumb-empty ha-icon{--mdc-icon-size:28px;}'
       + '.thumb-empty-text{font-size:10px;margin-top:4px;}'
@@ -2217,6 +2286,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.advanced-inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.state-row{padding:20px;border-radius:16px;border:1px dashed rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:13px;color:var(--secondary-text-color);}'
       + '.state-row.error{background:rgba(185,28,28,0.16);color:var(--primary-text-color);}'
+      + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto;}}'
@@ -2230,7 +2300,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderFilterBar()
       + this._renderPageControlStrip()
       + '    </div>'
-      + '    <div class="results view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
+      + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + '  </div>'
       + '</ha-card>';
