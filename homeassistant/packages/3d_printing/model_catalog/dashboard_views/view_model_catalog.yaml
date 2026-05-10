@@ -22,11 +22,10 @@ cards:
                 - padding: 10px 10px
                 - border-radius: 0
                 - border: none
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0 -8px 0 0
+                - margin: 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -83,11 +82,10 @@ cards:
                 - padding: 10px 10px
                 - border-radius: 0
                 - border: none
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0 -8px 0 0
+                - margin: 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -144,11 +142,10 @@ cards:
                 - padding: 10px 10px
                 - border-radius: 0
                 - border: none
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0 -8px 0 0
+                - margin: 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -205,11 +202,10 @@ cards:
                 - padding: 10px 10px
                 - border-radius: 0
                 - border: none
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0 -8px 0 0
+                - margin: 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -266,11 +262,10 @@ cards:
                 - padding: 10px 10px
                 - border-radius: 0
                 - border: none
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
-                - margin: 0 -8px 0 0
+                - margin: 0
                 - width: max-content
                 - flex: 0 0 auto
               grid:
@@ -323,7 +318,7 @@ cards:
             styles:
               card:
                 - padding: 0
-                - margin: 0 0 0 -8px
+                - margin: 0
                 - border-radius: 0
                 - border: none
                 - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
@@ -332,6 +327,22 @@ cards:
                 - min-height: 48px
                 - height: 48px
                 - width: 100%
+      - type: custom:button-card
+        show_name: false
+        show_icon: false
+        show_state: false
+        tap_action:
+          action: none
+        styles:
+          card:
+            - height: 1px
+            - min-height: 1px
+            - padding: 0
+            - margin: -1px 0 0 0
+            - border: none
+            - border-radius: 0
+            - box-shadow: none
+            - background: rgba(148, 163, 184, 0.22)
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
@@ -341,9 +352,13 @@ cards:
           cards:
             - type: markdown
               content: |
+                <div style="padding:0 10px;">
+
                 **Workspace overview**
 
                 Keep the 3D Printing dashboard tabs visible while switching between the Model Catalog work areas below.
+
+                </div>
             - type: grid
               columns: 2
               square: false
@@ -362,6 +377,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
+                      - margin: 0 6px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -386,6 +402,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
+                      - margin: 0 6px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -410,6 +427,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
+                      - margin: 0 6px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -434,6 +452,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
+                      - margin: 0 6px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -446,11 +465,15 @@ cards:
                       - color: var(--secondary-text-color)
             - type: markdown
               content: |
+                <div style="padding:0 10px;">
+
                 **Workspace shell**
 
                 - The Model Catalog launcher now stays inside the main 3D Printing dashboard.
                 - Use the workspace nav above to jump between sections at any time.
                 - Other top-level dashboard tabs remain available throughout.
+
+                </div>
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view

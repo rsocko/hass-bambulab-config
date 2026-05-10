@@ -677,7 +677,7 @@
 
   var sharedStyles = ""
     + "ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}"
-    + ".shell{display:grid;gap:14px;padding:16px;}"
+    + ".shell{display:grid;gap:14px;padding:10px;}"
     + ".header{display:grid;gap:8px;}"
     + ".title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}"
     + ".title{font-size:18px;font-weight:800;line-height:1.2;}"
