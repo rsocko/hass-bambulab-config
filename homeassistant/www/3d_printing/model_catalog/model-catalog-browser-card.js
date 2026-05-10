@@ -1572,24 +1572,39 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var listBodyHtml = ''
       + '<div class="body list-body">'
-      + '  <div class="list-grid">'
-      + '    <div class="list-cell list-name">'
-      + '      <div class="title">' + this._escapeHtml(name) + '</div>'
-      + '      <div class="subtle-line">' + creatorChip + '</div>'
+      + '  <div class="list-top-row">'
+      + '    <div class="list-title-block">'
+      + '      <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '      <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '    </div>'
-      + '    <div class="list-cell">' + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip') + '</div>'
-      + '    <div class="list-cell">' + this._renderModelTagChip(sourcePlatform ? this._platformDisplayLabel(sourcePlatform) : 'Not set', 'subtle-chip') + '</div>'
-      + '    <div class="list-cell list-num">' + this._escapeHtml(String(linkedCount)) + '</div>'
-      + '    <div class="list-cell list-num">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</div>'
-      + '    <div class="list-cell list-num">' + this._escapeHtml(successLabel) + '</div>'
-      + '    <div class="list-cell">' + (publishedDestinationChips || this._renderModelTagChip('Not published', 'subtle-chip')) + '</div>'
-      + '    <div class="list-cell">' + tagMarkup + '</div>'
-      + '    <div class="list-cell list-actions">'
-      + openQuickAction
-      + queueQuickAction
+      + '    <div class="list-action-stack">'
+      + '      <div class="list-top-actions">'
+      + '        <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
       + advancedActions
+      + '      </div>'
+      + '      <div class="list-quick-actions">'
+      + openQuickAction
+      + queueQuickAction
+      + '      </div>'
       + '    </div>'
+      + '  </div>'
+      + '  <div class="chip-row provenance-row">'
+      + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip')
+      + sourceChipHtml
+      + (publishedDestinationChips || this._renderModelTagChip('Not published', 'subtle-chip'))
+      + (hiddenDestinationCount ? this._renderModelTagChip('+' + String(hiddenDestinationCount), 'publish-chip') : '')
+      + '  </div>'
+      + '  <div class="list-metrics-shell">'
+      + '    <div class="metrics list-metrics">'
+      + this._renderModelMetric('Prints', linkedCount)
+      + this._renderModelMetric('Last printed', this._relativeTimeLabel(lastPrintedAt))
+      + this._renderModelMetric('Success', successLabel)
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="list-bottom-row">'
+      + '    <div class="tags">' + tagMarkup + '</div>'
+      + '    <div class="compact-file-kinds list-file-kinds">' + fileKindChipMarkup + '</div>'
       + '  </div>'
       + '</div>';
 
@@ -1614,7 +1629,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "list") {
       return ''
         + '<article class="model-card view-list' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
-        + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div><span class="card-mode-pill list-mode">List</span></div>'
+        + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div></div>'
         + listBodyHtml
         + '</article>';
     }
@@ -1822,24 +1837,27 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var other = this._coerceNonNegativeInt(counts && counts.other);
     var chips = "";
     if (modelFiles && modelFiles > 0) {
-      chips += this._renderFileKindIconChip(modelFiles, "mdi:cube-outline", "file-kind-chip file-kind-model");
+      chips += this._renderFileKindIconChip(modelFiles, "mdi:cube-outline", "Models", "file-kind-chip file-kind-model");
     }
     if (images && images > 0) {
-      chips += this._renderFileKindIconChip(images, "mdi:image-outline", "file-kind-chip file-kind-image");
+      chips += this._renderFileKindIconChip(images, "mdi:image-outline", "Images", "file-kind-chip file-kind-image");
     }
     if (other && other > 0) {
-      chips += this._renderFileKindIconChip(other, "mdi:file-outline", "file-kind-chip file-kind-other");
+      chips += this._renderFileKindIconChip(other, "mdi:file-outline", "Files", "file-kind-chip file-kind-other");
     }
     return chips;
   }
 
-  _renderFileKindIconChip(count, mdiIcon, className) {
+  _renderFileKindIconChip(count, mdiIcon, label, className) {
     var countStr = String(count || "");
+    var safeLabel = String(label || "").trim();
+    var labelHtml = safeLabel ? ('<span class="chip-label">' + this._escapeHtml(safeLabel) + '</span>') : '';
     if (mdiIcon === "mdi:cube-outline") {
       return '<span class="chip' + (className ? (' ' + className) : '') + '">'
         + '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
         + '<path d="M12 3 L4 7.5 L12 12 L20 7.5 Z M4 7.5 V16.5 L12 21 L20 16.5 V7.5 M12 12 V21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>'
         + '</svg>'
+        + labelHtml
         + '<span class="chip-count">' + this._escapeHtml(countStr) + '</span>'
         + '</span>';
     }
@@ -1848,6 +1866,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
       + '<path d="' + svgPath + '" fill="currentColor"/>'
       + '</svg>'
+      + labelHtml
       + '<span class="chip-count">' + this._escapeHtml(countStr) + '</span>'
       + '</span>';
   }
@@ -2025,7 +2044,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(96,165,250,0.34);border-color:var(--accent-strong);}'
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
-      + '.model-card.view-list{grid-template-columns:96px minmax(0,1fr);column-gap:12px;padding:14px;align-items:start;}'
+      + '.model-card.view-list{grid-template-columns:88px minmax(0,1fr);column-gap:10px;padding:10px 12px;align-items:start;}'
       + '.model-card.is-queued::after{opacity:1;box-shadow:inset 5px 0 0 #f59e0b;}'
       + '.model-card.is-printing::after{opacity:1;box-shadow:inset 5px 0 0 #1e88e5;}'
       + '.model-card.is-done::after{opacity:1;box-shadow:inset 5px 0 0 #2e7d32;}'
@@ -2034,11 +2053,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-compact .compact-main{grid-area:main;}'
       + '.view-compact .compact-full{grid-area:full;padding:2px 0 0;}'
       + '.compact-wrap{min-height:156px;}'
-      + '.list-wrap{min-height:96px;}'
+      + '.list-wrap{min-height:88px;}'
       + '.media-wrap{border-radius:18px 18px 0 0;}'
       + '.thumb,.media-preview{display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.24);overflow:hidden;}'
       + '.thumb{width:100%;height:156px;}'
-      + '.list-thumb{min-height:96px;height:96px;}'
+      + '.list-thumb{min-height:88px;height:88px;}'
       + '.media-preview{width:100%;aspect-ratio:16/9;min-height:220px;}'
       + '.thumb img,.media-preview img{width:100%;height:100%;object-fit:cover;display:block;}'
       // Suppress alt-text "flash" on lazy-loaded thumbnails: hide alt text and show a subtle placeholder gradient until src is set (issue #1383)
@@ -2082,8 +2101,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.chip.publish-chip{background:rgba(56,189,248,0.14);border-color:rgba(56,189,248,0.28);}'
       + '.chip.signal-chip{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.30);}'
       + '.chip.source-chip{max-width:100%;}'
-      + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px;}'
+      + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:6px;}'
       + '.chip.file-kind-chip .icon-svg{width:16px;height:16px;flex-shrink:0;}'
+      + '.chip.file-kind-chip .chip-label{font-weight:700;letter-spacing:.01em;}'
       + '.chip.file-kind-chip .chip-count{font-weight:600;}'
       + '.chip.file-kind-model{background:rgba(0,137,123,0.16);border-color:rgba(125,211,200,0.30);color:#7dd3c8;}'
       + '.chip.file-kind-image{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;}'
@@ -2096,12 +2116,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.compact-tags-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.compact-file-kinds{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px;min-height:26px;}'
       + '.compact-action-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:flex-start;}'
-      + '.list-body{padding:0;overflow-x:auto;}'
-      + '.list-grid{display:grid;grid-template-columns:minmax(170px,2fr) minmax(120px,1fr) minmax(120px,1fr) minmax(80px,.7fr) minmax(100px,.8fr) minmax(80px,.7fr) minmax(180px,1.2fr) minmax(180px,1.2fr) auto;gap:8px;align-items:center;min-width:930px;padding:6px 0;}'
-      + '.list-cell{min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}'
-      + '.list-cell.list-num{font-size:12px;font-weight:700;justify-content:flex-end;}'
-      + '.list-cell.list-actions{justify-content:flex-end;}'
-      + '.list-cell.list-name{display:grid;gap:4px;}'
+      + '.list-body{padding:0;gap:8px;}'
+      + '.list-top-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.list-title-block{display:grid;gap:6px;min-width:0;}'
+      + '.list-action-stack{display:grid;gap:6px;justify-items:end;}'
+      + '.list-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
+      + '.list-top-actions .advanced-menu-shell{margin-left:0;}'
+      + '.list-quick-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
+      + '.list-metrics-shell{padding:8px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.09);}'
+      + '.list-metrics{gap:6px;}'
+      + '.list-bottom-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.list-file-kinds{justify-content:flex-end;}'
       + '.tag-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.media-status-chip{display:flex;justify-content:flex-end;}'
       + '.card-mode-pill{position:absolute;top:10px;z-index:1;display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.24);background:rgba(15,23,42,0.82);font-size:10px;font-weight:800;color:#fff;}'
@@ -2138,7 +2163,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto;}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds{justify-content:flex-start;}.list-grid{min-width:760px;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions,.list-quick-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'
