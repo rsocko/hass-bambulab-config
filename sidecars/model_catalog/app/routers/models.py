@@ -943,6 +943,46 @@ def _preview_source_candidates(source: str) -> list[str]:
     return candidates
 
 
+_ASSET_TYPE_IMAGE = frozenset({"image", "jpg", "jpeg", "png", "webp", "gif", "svg", "avif", "bmp", "tiff"})
+_ASSET_TYPE_MODEL = frozenset({"3mf", "stl", "obj", "step", "stp", "gcode", "scad", "amf", "ply", "dxf", "wrl", "x3d"})
+
+
+def _read_local_asset_kind_counts_bulk(*, db_path: Any) -> dict[str, dict[str, int]]:
+    """Return {local_model_id: {"model_files": n, "images": n, "other": n}} in one query."""
+    try:
+        conn = connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                """
+                SELECT e.local_model_id, a.asset_type, COUNT(*) AS cnt
+                FROM model_catalog_assets a
+                JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
+                WHERE e.archived_at IS NULL
+                GROUP BY e.local_model_id, a.asset_type
+                """,
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        return {}
+
+    result: dict[str, dict[str, int]] = {}
+    for row in rows:
+        local_model_id = str(row["local_model_id"])
+        asset_type = str(row["asset_type"] or "").lower().strip(".")
+        count = int(row["cnt"])
+        if local_model_id not in result:
+            result[local_model_id] = {"model_files": 0, "images": 0, "other": 0}
+        if asset_type in _ASSET_TYPE_IMAGE:
+            result[local_model_id]["images"] += count
+        elif asset_type in _ASSET_TYPE_MODEL:
+            result[local_model_id]["model_files"] += count
+        else:
+            result[local_model_id]["other"] += count
+    return result
+
+
 def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
     ranking = model_payload.get("ranking") or {}
     if sort_by == "priority":
@@ -2201,7 +2241,10 @@ def search_models(
     collection_diagnostics = None
     if debug_collection_lookup:
         collection_diagnostics = _collection_filter_diagnostics(summaries, collection)
-    
+
+    # Bulk-load local model asset counts (one query, avoids N+1 per model)
+    local_asset_kind_counts = _read_local_asset_kind_counts_bulk(db_path=state.settings.db_path)
+
     # Filter and score models
     scored_models: list[tuple[float, dict[str, Any]]] = []
     for summary in summaries:
@@ -2237,6 +2280,13 @@ def search_models(
             request=request,
             settings=state.settings,
         )
+
+        # Inject local asset counts so the card can render file-kind chips
+        if _is_local_summary(summary) and summary.public_id:
+            _counts = local_asset_kind_counts.get(str(summary.public_id), {})
+            model_payload["model_files_count"] = _counts.get("model_files", 0)
+            model_payload["image_files_count"] = _counts.get("images", 0)
+            model_payload["other_files_count"] = _counts.get("other", 0)
 
         if favorites_only and not _model_is_favorite(model_payload):
             continue

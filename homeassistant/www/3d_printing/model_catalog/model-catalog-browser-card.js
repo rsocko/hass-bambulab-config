@@ -1329,7 +1329,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._fireBrowserModEvent("browser_mod.popup", {
       title: nextMode === "server" ? "Import From Server Inbox" : "Upload Files or Folders",
-      size: "wide",
+      size: "fullscreen",
       dismissable: false,
       content: {
         type: "custom:model-catalog-intake-home-card",
@@ -1964,9 +1964,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.title-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}'
       + '.title-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}'
       + '.card-title{font-size:18px;font-weight:800;line-height:1.2;}'
-      + '.sort-group{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}'
-      + '.sort-group label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
-      + '.title-select{min-width:130px;}'
+      + '.sort-group{display:inline-flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0;}'
+      + '.sort-group label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}'
+      + '.sort-group .title-select{width:auto;flex:0 0 auto;min-width:130px;}'
       + '.segmented-toggle{display:inline-flex;align-items:center;padding:3px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.12);}'
       + '.segmented-btn{min-height:34px;padding:0 12px;border:0;background:transparent;color:var(--secondary-text-color);font-size:12px;font-weight:800;border-radius:999px;cursor:pointer;}'
       + '.segmented-btn.active{background:var(--accent);color:var(--primary-text-color);}'
