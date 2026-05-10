@@ -373,6 +373,54 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return "compact";
   }
 
+  _viewModeLabel(mode) {
+    var normalized = this._normalizedViewMode(mode);
+    if (normalized === "media") {
+      return "Media";
+    }
+    if (normalized === "list") {
+      return "List";
+    }
+    return "Compact";
+  }
+
+  _viewModeIcon(mode) {
+    var normalized = this._normalizedViewMode(mode);
+    if (normalized === "media") {
+      return "mdi:image-multiple-outline";
+    }
+    if (normalized === "list") {
+      return "mdi:format-list-bulleted";
+    }
+    return "mdi:view-grid-outline";
+  }
+
+  _renderViewModeMenuItem(mode) {
+    var normalized = this._normalizedViewMode(mode);
+    return ''
+      + '<button class="view-mode-item' + (this._viewMode === normalized ? ' active' : '') + '" type="button" data-action="set-view" data-view-mode="' + this._escapeHtml(normalized) + '" ' + (this._loading ? 'disabled' : '') + '>'
+      + '  <ha-icon icon="' + this._escapeHtml(this._viewModeIcon(normalized)) + '"></ha-icon>'
+      + '  <span>' + this._escapeHtml(this._viewModeLabel(normalized)) + '</span>'
+      + '</button>';
+  }
+
+  _renderViewModePicker() {
+    var currentMode = this._normalizedViewMode(this._viewMode);
+    return ''
+      + '<details class="view-mode-menu">'
+      + '  <summary class="toolbar-btn view-mode-trigger" aria-label="Card type: ' + this._escapeHtml(this._viewModeLabel(currentMode)) + '">'
+      + '    <ha-icon icon="' + this._escapeHtml(this._viewModeIcon(currentMode)) + '"></ha-icon>'
+      + '    <span class="view-mode-label">' + this._escapeHtml(this._viewModeLabel(currentMode)) + '</span>'
+      + '    <ha-icon class="view-mode-caret" icon="mdi:chevron-down"></ha-icon>'
+      + '  </summary>'
+      + '  <div class="view-mode-items">'
+      + this._renderViewModeMenuItem("compact")
+      + this._renderViewModeMenuItem("media")
+      + this._renderViewModeMenuItem("list")
+      + '  </div>'
+      + '</details>';
+  }
+
   _handleInput(event) {
     var target = event && event.target;
     if (!target || !target.classList || !target.classList.contains("control-input")) {
@@ -474,6 +522,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (action === "set-view") {
+      var viewModeMenu = target.closest ? target.closest("details.view-mode-menu") : null;
+      if (viewModeMenu) {
+        viewModeMenu.open = false;
+      }
       var nextViewMode = this._normalizedViewMode(target.getAttribute("data-view-mode"));
       if (nextViewMode !== this._viewMode) {
         this._viewMode = nextViewMode;
@@ -1269,11 +1321,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </select>'
       + '</div>'
       + '<div class="toolbar-group display-group">'
-      + '  <select id="mc-view-mode" class="control-input compact-select">'
-      + '    <option value="compact"' + (this._viewMode === 'compact' ? ' selected' : '') + '>Compact</option>'
-      + '    <option value="media"' + (this._viewMode === 'media' ? ' selected' : '') + '>Media</option>'
-      + '    <option value="list"' + (this._viewMode === 'list' ? ' selected' : '') + '>List</option>'
-      + '  </select>'
+      + this._renderViewModePicker()
       + '  <button class="toolbar-icon-btn media-toggle' + (this._showMedia ? ' active' : '') + '" type="button" data-action="toggle-show-media" aria-pressed="' + (this._showMedia ? 'true' : 'false') + '" title="' + (this._showMedia ? 'Hide media' : 'Show media') + '"><ha-icon icon="mdi:eye' + (this._showMedia ? '' : '-off') + '"></ha-icon></button>'
       + '  <button class="toolbar-icon-btn refresh-btn' + (this._refreshSpin ? ' spinning' : '') + '" type="button" data-action="refresh-page" aria-label="Refresh results" title="Refresh" ' + (this._loading ? 'disabled' : '') + '><ha-icon icon="mdi:refresh"></ha-icon></button>'
       + '</div>'
@@ -2001,6 +2049,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.import-menu-items{position:absolute;top:38px;right:0;display:grid;min-width:180px;padding:8px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 16px 28px rgba(15,23,42,0.28);z-index:5;}'
       + '.import-item{min-height:34px;padding:0 10px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--primary-text-color);font-size:12px;font-weight:700;text-align:left;cursor:pointer;}'
       + '.import-item:hover{background:rgba(148,163,184,0.14);}'
+      + '.display-group{gap:8px;}'
+      + '.view-mode-menu{position:relative;}'
+      + '.view-mode-trigger{display:inline-flex;align-items:center;gap:6px;list-style:none;padding:0 12px;min-height:34px;}'
+      + '.view-mode-trigger::-webkit-details-marker{display:none;}'
+      + '.view-mode-trigger ha-icon{--mdc-icon-size:16px;}'
+      + '.view-mode-trigger .view-mode-label{font-size:12px;font-weight:800;line-height:1;}'
+      + '.view-mode-trigger .view-mode-caret{--mdc-icon-size:14px;opacity:.86;}'
+      + '.view-mode-items{position:absolute;top:38px;right:0;display:grid;gap:4px;min-width:176px;padding:8px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 16px 28px rgba(15,23,42,0.28);z-index:6;}'
+      + '.view-mode-item{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--primary-text-color);font-size:12px;font-weight:700;text-align:left;cursor:pointer;}'
+      + '.view-mode-item ha-icon{--mdc-icon-size:16px;opacity:.92;}'
+      + '.view-mode-item:hover,.view-mode-item:focus-visible{background:rgba(148,163,184,0.16);outline:none;}'
+      + '.view-mode-item.active{background:var(--accent);border-color:var(--accent-strong);}'
+      + '.view-mode-item:disabled{opacity:.55;cursor:not-allowed;}'
       + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(4,minmax(130px,1fr)) auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
       + '.filter-search{grid-column:auto;}'
       + '.filter-chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;appearance:none;pointer-events:auto;position:relative;z-index:1;}'
