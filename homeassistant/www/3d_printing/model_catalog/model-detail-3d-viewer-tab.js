@@ -48,6 +48,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._currentLodInfo = null;
     this._progressLabel = '';
     this._progressPercent = null;
+    this._geometryRequestSeq = 0;
+    this._activeGeometryRequestId = 0;
+    this._activeModelRef = '';
   }
 
   set hass(hass) {
@@ -57,6 +60,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
   setConfig(config) {
     this._config = config || {};
     this._model = this._parseModelConfig(this._config.model_json || null);
+    const nextModelRef = String(this._config.model_ref || '').trim();
+    if (nextModelRef !== this._activeModelRef) {
+      this._selectedFileIndex = 0;
+      this._selectedPlateId = '';
+      this._geometryRequestSeq += 1;
+      this._activeGeometryRequestId = this._geometryRequestSeq;
+      this._activeModelRef = nextModelRef;
+    }
 
     const modelFiles = this._model && Array.isArray(this._model.files) ? this._model.files : [];
     this._files = modelFiles.filter((file) => {
@@ -98,6 +109,10 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   _teardownViewer() {
+    // Invalidate any in-flight geometry load callbacks for the previous viewer state.
+    this._geometryRequestSeq += 1;
+    this._activeGeometryRequestId = this._geometryRequestSeq;
+
     if (this._renderLoopId) {
       cancelAnimationFrame(this._renderLoopId);
       this._renderLoopId = null;
@@ -733,9 +748,12 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   async _loadSelectedGeometry() {
+    const requestId = this._nextGeometryRequestId();
     const file = this._files[this._selectedFileIndex];
     if (!file) {
-      this._setError('No geometry file selected.');
+      if (this._isActiveGeometryRequest(requestId)) {
+        this._setError('No geometry file selected.');
+      }
       return;
     }
 
@@ -745,7 +763,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const is3mf = filename.endsWith('.3mf') || fileType.includes('3mf');
     
     if (!isStl && !is3mf) {
-      this._setError(`Unsupported file type: ${file.file_type || file.filename || 'unknown'}. Supported: STL, 3MF.`);
+      if (this._isActiveGeometryRequest(requestId)) {
+        this._setError(`Unsupported file type: ${file.file_type || file.filename || 'unknown'}. Supported: STL, 3MF.`);
+      }
       return;
     }
     
@@ -765,23 +785,35 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
       try {
         const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
+        if (!this._isActiveGeometryRequest(requestId)) {
+          return;
+        }
         if (!response.ok) {
           throw new Error(`Download failed (${response.status})`);
         }
 
         const arrayBuffer = await response.arrayBuffer();
+        if (!this._isActiveGeometryRequest(requestId)) {
+          return;
+        }
         const parsed = this._parseStl(arrayBuffer);
+        if (!this._isActiveGeometryRequest(requestId)) {
+          return;
+        }
         this._loadGeometry(parsed);
         this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
       } catch (error) {
+        if (!this._isActiveGeometryRequest(requestId)) {
+          return;
+        }
         throw new Error(this._formatFetchError(sourceUrl, error, 'STL download'));
       }
     } else if (is3mf) {
-      await this._load3mf(file);
+      await this._load3mf(file, requestId);
     }
   }
 
-  async _load3mf(file) {
+  async _load3mf(file, requestId) {
     const filename = String(file && file.filename || 'model');
     const geometryUrl = this._buildGeometryUrl(file);
     let geometryError = null;
@@ -799,8 +831,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
         percent: null,
       });
       const binaryParsed = await this._fetchGeometryDirectBinary(file);
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       if (binaryParsed) {
         const parsed = this._normalizeParsedGeometryPayload(binaryParsed);
+        if (!this._isActiveGeometryRequest(requestId)) {
+          return;
+        }
         if (parsed) {
           this._loadGeometry(parsed);
           const plateLabel = this._selectedPlateLabel();
@@ -824,7 +862,13 @@ class ModelDetail3DViewerTab extends HTMLElement {
         percent: null,
       });
       const payload = await this._fetchGeometryViaHaService(file);
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       const parsed = this._normalizeParsedGeometryPayload(payload);
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       if (parsed) {
         this._loadGeometry(parsed);
         const plateLabel = this._selectedPlateLabel();
@@ -845,6 +889,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
         percent: null,
       });
       const response = await fetch(geometryUrl, this._buildFetchOptions(geometryUrl));
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       if (!response.ok) {
         let serverDetail = '';
         try {
@@ -865,7 +912,13 @@ class ModelDetail3DViewerTab extends HTMLElement {
       }
 
       const payload = await response.json();
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       const parsed = this._normalizeParsedGeometryPayload(payload);
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       if (parsed) {
         this._loadGeometry(parsed);
         const plateLabel = this._selectedPlateLabel();
@@ -888,6 +941,10 @@ class ModelDetail3DViewerTab extends HTMLElement {
       throw geometryError || new Error('3MF geometry unavailable.');
     }
 
+    if (!this._isActiveGeometryRequest(requestId)) {
+      return;
+    }
+
     // Skip the browser fallback when the server has clearly indicated the
     // model cannot be rendered interactively. Both `too_complex` (>1M
     // triangles) and `too_large` (>256MB) cases would force the browser to
@@ -904,7 +961,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
         geometryError,
         downloadError: new Error('browser fallback skipped to avoid OOM on oversized/over-complex 3MF'),
       });
-      this._setError(userMessage);
+      if (this._isActiveGeometryRequest(requestId)) {
+        this._setError(userMessage);
+      }
       return;
     }
 
@@ -914,6 +973,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
     let platesObjectIds = null;
     try {
       const platesPayload = await this._fetch3mfPlatesMetadataSafe(file);
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       if (platesPayload && Array.isArray(platesPayload.plates) && platesPayload.plates.length > 0) {
         this._availablePlates = platesPayload.plates.map((plate) => ({
           id: String(plate.id || ''),
@@ -945,16 +1007,25 @@ class ModelDetail3DViewerTab extends HTMLElement {
         percent: null,
       });
       const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       if (!response.ok) {
         throw new Error(`Download failed (${response.status})`);
       }
 
       const arrayBuffer = await response.arrayBuffer();
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       this._setRenderingStatus(`Large file — parsing 3MF locally in browser...`);
       const loader = new window.THREE.ThreeMFLoader();
 
       if (typeof loader.parse === 'function') {
         const object = loader.parse(arrayBuffer);
+        if (!this._isActiveGeometryRequest(requestId)) {
+          return;
+        }
         this._load3mfObject(object, filename, { plateObjectIds: platesObjectIds, renderingLocally: true });
         return;
       }
@@ -964,9 +1035,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
         url,
         (object) => {
           URL.revokeObjectURL(url);
+          if (!this._isActiveGeometryRequest(requestId)) {
+            return;
+          }
           this._load3mfObject(object, filename, { plateObjectIds: platesObjectIds, renderingLocally: true });
         },
         (progress) => {
+          if (!this._isActiveGeometryRequest(requestId)) {
+            return;
+          }
           const total = progress && progress.total ? progress.total : 0;
           const loaded = progress && progress.loaded ? progress.loaded : 0;
           const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
@@ -979,6 +1056,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
         },
         (error) => {
           URL.revokeObjectURL(url);
+          if (!this._isActiveGeometryRequest(requestId)) {
+            return;
+          }
           const userMessage = this._build3mfFailureMessage({
             filename,
             geometryError,
@@ -988,6 +1068,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
         },
       );
     } catch (error) {
+      if (!this._isActiveGeometryRequest(requestId)) {
+        return;
+      }
       const fetchDetail = this._formatFetchError(sourceUrl, error, '3MF download');
       const userMessage = this._build3mfFailureMessage({
         filename,
@@ -996,6 +1079,16 @@ class ModelDetail3DViewerTab extends HTMLElement {
       });
       this._setError(userMessage);
     }
+  }
+
+  _nextGeometryRequestId() {
+    this._geometryRequestSeq += 1;
+    this._activeGeometryRequestId = this._geometryRequestSeq;
+    return this._activeGeometryRequestId;
+  }
+
+  _isActiveGeometryRequest(requestId) {
+    return Number(requestId) === Number(this._activeGeometryRequestId);
   }
 
   async _fetch3mfPlatesMetadataSafe(file) {
