@@ -7444,6 +7444,87 @@ def test_queue_publish_to_local_custom_group_title_is_suffixed_per_folder(tmp_pa
         assert "My Custom - TopB" in model_names
 
 
+def test_validate_flags_soft_duplicate_name_variant_against_indexed_inventory(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    existing_file = source_root / "widget.3mf"
+    existing_file.write_bytes(b"widget-original")
+    variant_file = source_root / "widget (2).3mf"
+    variant_file.write_bytes(b"widget-modified")
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-05-10T00:00:00Z"
+        connection.execute(
+            """
+            INSERT INTO working_groups (
+                slug, title, stage, notes, primary_file_path, folder_hint,
+                related_manyfold_model_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "widget-group",
+                "Widget Group",
+                "draft",
+                None,
+                str(existing_file),
+                str(existing_file.parent),
+                None,
+                now,
+                now,
+            ),
+        )
+        group_id = int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
+        connection.execute(
+            """
+            INSERT INTO working_items (
+                working_group_id, file_path, item_role, created_at, updated_at,
+                file_hash, file_size, source_metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                group_id,
+                str(existing_file),
+                "primary",
+                now,
+                now,
+                hashlib.sha256(existing_file.read_bytes()).hexdigest(),
+                existing_file.stat().st_size,
+                "{}",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        submit = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(variant_file)}]},
+        )
+        assert submit.status_code == 200
+        item_id = submit.json()["upload_id"]
+
+        validate = test_client.post(f"/api/intake/items/{item_id}/validate")
+        assert validate.status_code == 200
+        payload = validate.json()
+        assert payload["validation"]["validation_state"] == "duplicate_candidate"
+        warning_codes = {
+            str(warning.get("code") or "")
+            for warning in (payload["validation"].get("warnings") or [])
+            if isinstance(warning, dict)
+        }
+        assert "duplicate_name_soft_match" in warning_codes
+
+
 def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()

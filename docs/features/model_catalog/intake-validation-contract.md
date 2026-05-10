@@ -19,7 +19,7 @@ The shipped validation step currently performs these checks in order:
 
 1. Selected sources are present and readable.
 2. Resolved files use supported model or image types.
-3. Resolved file hashes do not match existing Working items.
+3. Resolved files do not collide with existing indexed inventory (hard hash and soft filename variants).
 4. The resolved plan contains at least one file to commit.
 
 These checks operate on the resolved file list produced from the queued source entries. The endpoint does not just validate raw selections; it validates the exact prepared upload snapshot that Commit will reuse.
@@ -32,7 +32,7 @@ This table is the canonical, append-friendly inventory of validation rules for t
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `source_access` | Selected sources still exist and are readable at validate time. | pass/fail | yes | yes | yes | `missing_source`, `source_unreadable` | Fails if one or more selected paths cannot be read or no longer exist. |
 | `supported_types` | Resolved files are allowed intake types (model, image, or documentation/supporting). | pass/fail | yes | yes | yes | `unsupported_type` | Unsupported files are excluded from resolved set and surfaced as warnings. |
-| `duplicate_scan` | Resolved file hashes do not collide with existing Working inventory. | pass/fail | yes | yes | yes (current wizard behavior) | `working_group_hash_match` | Current wizard requires `ready` to continue, so duplicate candidates block commit in wizard path. |
+| `duplicate_scan` | Resolved files do not collide with existing indexed inventory using hard hash and soft filename matching. | pass/fail | yes | yes | yes (current wizard behavior) | `working_group_hash_match`, `duplicate_name_exact_match`, `duplicate_name_soft_match` | Current wizard requires `ready` to continue, so duplicate candidates block commit in wizard path. |
 | `commit_ready` | Resolved plan contains at least one file to commit. | pass/fail | yes | yes | yes | `needs_manual_grouping` | Prevents empty commits after filtering or missing/unreadable files. |
 | `excluded_items_summary` | Informational count of excluded files/folders carried from Source step. | informational | yes (informational) | no | no | none (informational check) | Always `passed: true`; intended to provide visibility, not block commit. |
 
@@ -52,7 +52,9 @@ The backend currently emits these warning codes from validation:
 | `missing_source` | A selected file no longer exists at validation time. |
 | `source_unreadable` | A file exists but could not be read or hashed. |
 | `unsupported_type` | A selected file resolved to an unsupported extension. |
-| `working_group_hash_match` | A resolved file hash already exists in Working inventory. |
+| `working_group_hash_match` | A resolved file hash already exists in indexed inventory (working or queue). |
+| `duplicate_name_exact_match` | A resolved filename exactly matches an existing indexed filename. |
+| `duplicate_name_soft_match` | A resolved filename variant (for example, `name (2)`) matches an indexed filename after normalization. |
 | `needs_manual_grouping` | Validation resolved zero files, so Commit cannot proceed. |
 
 ## File Type Policy
@@ -93,7 +95,7 @@ The endpoint summarizes the result into `validation.validation_state`.
 | `missing_source` | At least one selected source is missing or unreadable. |
 | `unsupported_type` | Only unsupported files resolved, so nothing valid remains. |
 | `source_warning` | Source expansion produced warnings that require operator attention. |
-| `duplicate_candidate` | One or more resolved files match existing Working hashes. |
+| `duplicate_candidate` | One or more resolved files match existing indexed hashes or soft filename patterns. |
 | `needs_manual_grouping` | No files resolved from the selected source entries. |
 
 Queue state mapping:

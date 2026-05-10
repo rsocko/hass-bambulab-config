@@ -506,9 +506,9 @@ function renderValidationSummary(card) {
         },
         {
           key: 'duplicate_scan',
-          label: 'Resolved files do not match existing working items',
+          label: 'Resolved files do not match existing indexed files (hard/soft)',
           passed: card._validationData.validation_state !== 'duplicate_candidate',
-          detail: 'Duplicate detection compares resolved file hashes against working inventory.',
+          detail: 'Duplicate detection compares hard hash matches plus soft filename variants (for example, copy suffixes like (2)).',
         },
         {
           key: 'commit_ready',

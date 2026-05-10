@@ -203,6 +203,27 @@ class TestExcludedItemsSummaryCheck:
         # Should count only valid excluded_items from valid entries
         assert "2 items excluded" in summary_check["detail"]
 
+    def test_duplicate_scan_reports_hard_and_soft_match_counts(self):
+        """Duplicate check detail should include hard+soft match counts when present."""
+        checks = _build_validation_checks(
+            warning_codes={
+                "working_group_hash_match",
+                "duplicate_name_exact_match",
+                "duplicate_name_soft_match",
+            },
+            expanded_files=[{"path": "/tmp/widget (2).3mf"}],
+            duplicate_hashes=["hash-a", "hash-b"],
+            duplicate_name_exact_count=1,
+            duplicate_name_soft_count=3,
+            source_entries=[],
+        )
+
+        duplicate_check = next(c for c in checks if c["key"] == "duplicate_scan")
+        assert duplicate_check["passed"] is False
+        assert "2 hard hash match(es)" in duplicate_check["detail"]
+        assert "1 exact filename match(es)" in duplicate_check["detail"]
+        assert "3 soft filename variant match(es)" in duplicate_check["detail"]
+
 
 class TestValidationChecksIntegration:
     """Integration tests for validation checks."""

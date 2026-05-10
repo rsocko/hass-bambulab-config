@@ -11,6 +11,7 @@ Handles:
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 import uuid
@@ -293,11 +294,112 @@ def _read_existing_working_hashes(db_path: Path) -> set[str]:
         connection.close()
 
 
+def _normalized_duplicate_name(filename: str) -> str:
+    """Normalize filename variants so re-download copies map to a common key."""
+    stem = Path(str(filename or "")).stem.strip().lower()
+    if not stem:
+        return ""
+
+    candidate = re.sub(r"[_\-.]+", " ", stem)
+    candidate = re.sub(r"\s+", " ", candidate).strip()
+
+    copy_suffix_patterns = (
+        r"\s*\(\d+\)$",  # common browser suffix: "model (2)"
+        r"\s*(?:-|_)?copy(?:\s*\(\d+\))?$",  # copy, copy (2), -copy
+    )
+    previous = None
+    while candidate and candidate != previous:
+        previous = candidate
+        for pattern in copy_suffix_patterns:
+            candidate = re.sub(pattern, "", candidate).strip()
+
+    return re.sub(r"\s+", " ", candidate).strip()
+
+
+def _read_indexed_filename_maps(
+    db_path: Path,
+    *,
+    exclude_upload_id: str | None = None,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Build exact+soft filename indexes from working, queue, and catalog assets."""
+    exact_map: dict[str, set[str]] = {}
+    normalized_map: dict[str, set[str]] = {}
+
+    def _add_filename(raw_name: object) -> None:
+        name = str(raw_name or "").strip().replace("\\", "/")
+        if not name:
+            return
+        base_name = Path(name).name or name
+        if not base_name:
+            return
+        exact_key = base_name.lower()
+        exact_map.setdefault(exact_key, set()).add(base_name)
+        normalized_key = _normalized_duplicate_name(base_name)
+        if normalized_key:
+            normalized_map.setdefault(normalized_key, set()).add(base_name)
+
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT file_path FROM working_items WHERE file_path IS NOT NULL AND TRIM(file_path) != ''"
+        ).fetchall()
+        for row in rows:
+            _add_filename(row[0])
+
+        if exclude_upload_id:
+            queue_rows = connection.execute(
+                """
+                SELECT source_entries_json
+                FROM intake_queue_uploads
+                WHERE source_entries_json IS NOT NULL
+                  AND upload_id != ?
+                """,
+                (exclude_upload_id,),
+            ).fetchall()
+        else:
+            queue_rows = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE source_entries_json IS NOT NULL"
+            ).fetchall()
+
+        for row in queue_rows:
+            payload = str(row[0] or "").strip()
+            if not payload:
+                continue
+            try:
+                entries = json.loads(payload)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                entry_type = str(entry.get("type") or "").strip().lower()
+                if entry_type == "folder":
+                    continue
+                _add_filename(entry.get("filename") or entry.get("relative_path") or entry.get("path"))
+
+        try:
+            asset_rows = connection.execute(
+                "SELECT asset_filename FROM model_catalog_assets WHERE asset_filename IS NOT NULL AND TRIM(asset_filename) != ''"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            asset_rows = []
+        for row in asset_rows:
+            _add_filename(row[0])
+    finally:
+        connection.close()
+
+    return exact_map, normalized_map
+
+
 def _build_validation_checks(
     *,
     warning_codes: set[str],
     expanded_files: list[dict[str, Any]],
     duplicate_hashes: list[str],
+    duplicate_name_exact_count: int = 0,
+    duplicate_name_soft_count: int = 0,
     source_entries: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     resolved_count = len(expanded_files)
@@ -346,12 +448,32 @@ def _build_validation_checks(
         },
         {
             "key": "duplicate_scan",
-            "label": "Resolved files do not match existing working items",
-            "passed": "working_group_hash_match" not in warning_codes,
+            "label": "Resolved files do not match existing indexed files (hard/soft)",
+            "passed": not (
+                {"working_group_hash_match", "duplicate_name_exact_match", "duplicate_name_soft_match"}
+                & warning_codes
+            ),
             "detail": (
-                "No duplicate working-file hashes were detected."
-                if "working_group_hash_match" not in warning_codes
-                else f"Detected {duplicate_count} file hash match(es) in working inventory."
+                "No duplicate hard or soft filename matches were detected."
+                if not (
+                    {"working_group_hash_match", "duplicate_name_exact_match", "duplicate_name_soft_match"}
+                    & warning_codes
+                )
+                else (
+                    "Detected "
+                    + ", ".join(
+                        [
+                            segment
+                            for segment in [
+                                f"{duplicate_count} hard hash match(es)" if duplicate_count else "",
+                                f"{duplicate_name_exact_count} exact filename match(es)" if duplicate_name_exact_count else "",
+                                f"{duplicate_name_soft_count} soft filename variant match(es)" if duplicate_name_soft_count else "",
+                            ]
+                            if segment
+                        ]
+                    )
+                    + " in indexed inventory."
+                )
             ),
         },
         {
@@ -1511,24 +1633,66 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
     elif expansion_warnings:
         validation_state = "source_warning"
 
-    existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+    existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
+    indexed_exact_names, indexed_normalized_names = _read_indexed_filename_maps(
+        state.settings.db_path,
+        exclude_upload_id=item_id,
+    )
     file_hashes: list[str] = []
     duplicate_hashes: list[str] = []
+    duplicate_name_exact_count = 0
+    duplicate_name_soft_count = 0
     for file_item in expanded_files:
         file_hash = str(file_item.get("file_hash") or "").strip().lower()
+        filename = str(file_item.get("filename") or Path(str(file_item.get("path") or "")).name).strip()
+        filename_key = filename.lower()
         if not file_hash:
-            continue
-        file_hashes.append(file_hash)
-        if file_hash in existing_hashes:
-            duplicate_hashes.append(file_hash)
+            pass
+        else:
+            file_hashes.append(file_hash)
+            if file_hash in existing_hashes:
+                duplicate_hashes.append(file_hash)
+                validation_state = "duplicate_candidate"
+                warnings.append(
+                    {
+                        "code": "working_group_hash_match",
+                        "message": "Hard duplicate: hash matched an existing indexed file.",
+                        "sha256": file_hash,
+                    }
+                )
+
+        exact_name_matches = sorted(indexed_exact_names.get(filename_key, set())) if filename_key else []
+        if exact_name_matches:
+            duplicate_name_exact_count += 1
             validation_state = "duplicate_candidate"
             warnings.append(
                 {
-                    "code": "working_group_hash_match",
-                    "message": "Hash matched an existing working item.",
-                    "sha256": file_hash,
+                    "code": "duplicate_name_exact_match",
+                    "message": "Exact filename matched an existing indexed file.",
+                    "filename": filename,
+                    "matches": exact_name_matches[:3],
                 }
             )
+
+        normalized_name = _normalized_duplicate_name(filename)
+        if normalized_name:
+            soft_name_matches = [
+                candidate
+                for candidate in sorted(indexed_normalized_names.get(normalized_name, set()))
+                if candidate.lower() != filename_key
+            ]
+            if soft_name_matches:
+                duplicate_name_soft_count += 1
+                validation_state = "duplicate_candidate"
+                warnings.append(
+                    {
+                        "code": "duplicate_name_soft_match",
+                        "message": "Soft duplicate: filename variant matched an existing indexed file.",
+                        "filename": filename,
+                        "normalized_name": normalized_name,
+                        "matches": soft_name_matches[:3],
+                    }
+                )
 
     if not expanded_files and validation_state == "ready":
         validation_state = "needs_manual_grouping"
@@ -1543,6 +1707,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         warning_codes=warning_codes,
         expanded_files=expanded_files,
         duplicate_hashes=duplicate_hashes,
+        duplicate_name_exact_count=duplicate_name_exact_count,
+        duplicate_name_soft_count=duplicate_name_soft_count,
         source_entries=source_entries,
     )
 
