@@ -47,6 +47,64 @@
       .join(" ");
   }
 
+  function parseIsoDate(value) {
+    if (!value) {
+      return null;
+    }
+    var parsed = Date.parse(String(value));
+    return Number.isFinite(parsed) ? new Date(parsed) : null;
+  }
+
+  function formatRelativeTime(value) {
+    var parsed = parseIsoDate(value);
+    if (!parsed) {
+      return "-";
+    }
+    var seconds = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+    if (seconds < 60) {
+      return "just now";
+    }
+    if (seconds < 3600) {
+      return String(Math.floor(seconds / 60)) + "m ago";
+    }
+    if (seconds < 86400) {
+      return String(Math.floor(seconds / 3600)) + "h ago";
+    }
+    if (seconds < 604800) {
+      return String(Math.floor(seconds / 86400)) + "d ago";
+    }
+    return String(Math.floor(seconds / 604800)) + "w ago";
+  }
+
+  function normalizePath(pathValue) {
+    return String(pathValue || "").replace(/\\/g, "/");
+  }
+
+  function extensionFromPath(pathValue) {
+    var name = basename(pathValue).toLowerCase();
+    var index = name.lastIndexOf(".");
+    return index >= 0 ? name.slice(index) : "";
+  }
+
+  function isModelExtension(extension) {
+    return [".3mf", ".stl", ".step", ".stp", ".obj"].indexOf(String(extension || "").toLowerCase()) >= 0;
+  }
+
+  function extensionBadge(extension) {
+    return String(extension || "").replace(/^\./, "").toUpperCase() || "FILE";
+  }
+
+  function stageClassName(stage) {
+    var normalized = String(stage || "draft").toLowerCase();
+    if (normalized === "ready_to_publish") {
+      return "ready_to_publish";
+    }
+    if (normalized === "in_progress") {
+      return "in_progress";
+    }
+    return "draft";
+  }
+
   function toFileUri(pathValue) {
     var normalized = String(pathValue || "").replace(/\\/g, "/");
     if (!normalized) {
@@ -171,37 +229,84 @@
     + '.subtitle{font-size:12px;color:var(--secondary-text-color);}'
     + '.status{font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
     + '.status.error{color:#f87171;}'
-    + '.toolbar,.panel,.section{border-radius:18px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);padding:14px;}'
+    + '.toolbar,.section{border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.14);padding:14px;}'
     + '.toolbar-row,.button-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}'
     + '.tab-row{display:inline-flex;gap:8px;flex-wrap:wrap;}'
-    + '.tab{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);font-size:12px;font-weight:700;cursor:pointer;}'
-    + '.tab.active{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.5);}'
-    + '.button{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
-    + '.button.primary{background:rgba(30,64,175,0.22);border-color:rgba(96,165,250,0.4);}'
+    + '.tab{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);font-size:12px;font-weight:700;cursor:pointer;}'
+    + '.tab.active{background:rgba(20,184,166,0.2);border-color:rgba(94,234,212,0.36);color:#99f6e4;}'
+    + '.button{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
+    + '.button.primary{background:rgba(20,184,166,0.2);border-color:rgba(94,234,212,0.34);color:#99f6e4;}'
     + '.button.warn{background:rgba(180,83,9,0.2);border-color:rgba(245,158,11,0.4);}'
-    + '.button.danger{background:rgba(153,27,27,0.22);border-color:rgba(248,113,113,0.4);}'
     + '.button:disabled{opacity:.6;cursor:not-allowed;}'
     + '.field{display:grid;gap:6px;min-width:0;}'
     + '.field label{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
-    + '.input,.select{width:100%;box-sizing:border-box;min-height:38px;padding:8px 10px;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.16);color:var(--primary-text-color);}'
+    + '.input,.select{width:100%;box-sizing:border-box;min-height:36px;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.16);color:var(--primary-text-color);}'
     + '.select{color-scheme:light dark;}'
     + '.select option,.select optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
     + '.grow{flex:1 1 220px;}'
-    + '.grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));}'
-    + '.groups{display:grid;gap:10px;}'
-    + '.group-card{display:grid;gap:8px;padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.1);cursor:pointer;}'
-    + '.group-card.active{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.16);}'
-    + '.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;border:1px solid rgba(96,165,250,0.35);background:rgba(30,64,175,0.2);font-size:11px;font-weight:700;text-transform:uppercase;}'
-    + '.list{display:grid;gap:10px;}'
-    + '.list-row{display:grid;gap:8px;padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.1);}'
-    + '.list-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}'
-    + '.row-title{font-size:14px;font-weight:700;overflow-wrap:anywhere;}'
-    + '.row-subtitle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}'
-    + '.meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--secondary-text-color);font-size:12px;}'
     + '.state-row{padding:18px;border-radius:14px;border:1px dashed rgba(148,163,184,0.28);text-align:center;color:var(--secondary-text-color);}'
-    + '.split{display:grid;gap:12px;grid-template-columns:minmax(260px, 1fr) minmax(360px, 2fr);}'
-    + '.selector{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
-    + '@media (max-width: 900px){.split,.grid{grid-template-columns:1fr;}.shell{padding:6px 10px 10px;}}';
+    + '.bulk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border:1px solid rgba(94,234,212,0.3);background:rgba(94,234,212,0.08);border-radius:12px;color:#99f6e4;font-size:12px;}'
+    + '.bulk-bar .spacer{flex:1;}'
+    + '.groups{display:grid;gap:10px;}'
+    + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;}'
+    + '.group-row.active{border-color:rgba(94,234,212,0.34);background:rgba(20,184,166,0.08);}'
+    + '.group-row .ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;background:#64748b;}'
+    + '.group-row.stage-in_progress .ribbon{background:#f59e0b;}'
+    + '.group-row.stage-ready_to_publish .ribbon{background:#2e7d32;}'
+    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
+    + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--secondary-text-color);background:rgba(15,23,42,0.35);}'
+    + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
+    + '.folder-hint{font-size:11px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.group-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;color:var(--secondary-text-color);font-size:11px;}'
+    + '.stage-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.3);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}'
+    + '.stage-chip.in_progress{border-color:rgba(252,211,77,0.3);color:#fde68a;background:rgba(245,158,11,0.16);}'
+    + '.stage-chip.ready_to_publish{border-color:rgba(134,239,172,0.3);color:#86efac;background:rgba(46,125,50,0.18);}'
+    + '.group-right{text-align:right;display:grid;gap:6px;justify-items:end;}'
+    + '.updated{font-size:11px;color:var(--secondary-text-color);}'
+    + '.expander{border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.25);color:var(--secondary-text-color);border-radius:8px;min-width:28px;height:28px;cursor:pointer;}'
+    + '.strip{margin-top:10px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.24);border-radius:12px;padding:10px;display:grid;gap:8px;}'
+    + '.strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color);font-weight:700;}'
+    + '.subview-toggle{display:inline-flex;padding:2px;border:1px solid rgba(148,163,184,0.24);border-radius:999px;background:rgba(15,23,42,0.35);}'
+    + '.subview-toggle button{border:0;background:transparent;color:var(--secondary-text-color);font-size:10px;padding:4px 10px;border-radius:999px;cursor:pointer;}'
+    + '.subview-toggle button.active{background:rgba(94,234,212,0.18);color:#99f6e4;}'
+    + '.file-list{display:grid;gap:4px;}'
+    + '.file-row{display:grid;grid-template-columns:26px minmax(0,1fr)72px 72px auto auto;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
+    + '.file-row:hover{background:rgba(255,255,255,0.03);}'
+    + '.file-row.primary{background:rgba(245,194,66,0.08);border:1px solid rgba(245,194,66,0.22);}'
+    + '.ext-badge{width:26px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
+    + '.ext-badge.x-3mf{color:#5eead4;border-color:rgba(94,234,212,0.3);background:rgba(94,234,212,0.12);}'
+    + '.ext-badge.x-stl,.ext-badge.x-step,.ext-badge.x-stp,.ext-badge.x-obj{color:#93c5fd;border-color:rgba(96,165,250,0.32);background:rgba(96,165,250,0.12);}'
+    + '.file-main{min-width:0;}'
+    + '.file-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.file-path{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
+    + '.file-num{font-size:11px;color:var(--secondary-text-color);text-align:right;}'
+    + '.primary-pill{display:inline-flex;padding:2px 7px;border-radius:999px;background:rgba(245,194,66,0.15);border:1px solid rgba(245,194,66,0.33);color:#f5c242;font-size:10px;font-weight:700;}'
+    + '.selector{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);}'
+    + '.group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);}'
+    + '.group-actions .spacer{flex:1;}'
+    + '.other-strip{border:1px dashed rgba(148,163,184,0.26);border-radius:10px;padding:8px;display:grid;gap:6px;}'
+    + '.other-head{display:flex;justify-content:space-between;font-size:10px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}'
+    + '.other-chips{display:flex;gap:5px;flex-wrap:wrap;}'
+    + '.other-chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);font-size:10px;color:var(--secondary-text-color);}'
+    + '.folder-list{display:grid;gap:4px;}'
+    + '.folder-row{display:grid;grid-template-columns:minmax(0,1fr)auto auto;gap:8px;padding:6px;border-radius:8px;background:rgba(96,165,250,0.08);font-size:11px;color:#bfdbfe;}'
+    + '.files-table{border:1px solid rgba(148,163,184,0.18);border-radius:12px;overflow:auto;background:rgba(15,23,42,0.1);}'
+    + '.files-table table{width:100%;border-collapse:collapse;min-width:860px;}'
+    + '.files-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color);padding:10px;border-bottom:1px solid rgba(148,163,184,0.2);text-align:left;background:rgba(15,23,42,0.35);}'
+    + '.files-table td{padding:10px;border-bottom:1px solid rgba(148,163,184,0.12);font-size:12px;vertical-align:middle;}'
+    + '.files-table tr:hover{background:rgba(94,234,212,0.06);}'
+    + '.files-table tr.selected{background:rgba(94,234,212,0.1);}'
+    + '.row-name{display:flex;gap:10px;align-items:center;min-width:0;}'
+    + '.row-name-text{min-width:0;}'
+    + '.row-name-title{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.row-name-sub{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
+    + '.group-chips{display:flex;gap:4px;flex-wrap:wrap;}'
+    + '.group-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:10px;border:1px solid rgba(96,165,250,0.28);background:rgba(96,165,250,0.12);color:#bfdbfe;}'
+    + '.group-chip.empty{border-style:dashed;color:var(--secondary-text-color);background:transparent;}'
+    + '.validation{font-size:11px;color:#86efac;}'
+    + '.validation.warn{color:#fca5a5;}'
+    + '.right{text-align:right;}'
+    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:26px minmax(0,1fr)auto;}.file-row .file-num,.file-row .primary-pill{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
     constructor() {
@@ -222,6 +327,8 @@
       this._hasAttemptedInitialReindex = false;
       this._selectedGroupId = 0;
       this._selectedPaths = {};
+      this._collapsedGroups = {};
+      this._groupSubViews = {};
       this._lastAppliedScopeStamp = 0;
       this._catalogScope = 'working';
       this._boundClick = this._handleClick.bind(this);
@@ -330,6 +437,19 @@
         this._summary = response.summary || {};
         this._groups = Array.isArray(response.groups) ? response.groups : [];
         this._files = Array.isArray(response.files) ? response.files : [];
+
+        this._groups.forEach(function (group) {
+          var id = Number(group && group.id);
+          if (!id) {
+            return;
+          }
+          if (!Object.prototype.hasOwnProperty.call(this._collapsedGroups, id)) {
+            this._collapsedGroups[id] = false;
+          }
+          if (!Object.prototype.hasOwnProperty.call(this._groupSubViews, id)) {
+            this._groupSubViews[id] = 'files';
+          }
+        }, this);
 
         if (this._view === 'groups') {
           if (!this._groups.length) {
@@ -525,7 +645,10 @@
       }
     }
 
-    async _runReorganize() {
+    async _runReorganize(groupId) {
+      if (groupId) {
+        this._selectedGroupId = Number(groupId);
+      }
       var group = this._currentSelectedGroup();
       if (!group) {
         this._error = 'Select a group first.';
@@ -628,6 +751,119 @@
       return latest > (Number(this._lastAppliedScopeStamp) || 0);
     }
 
+    _entryPath(entry) {
+      return String((entry && (entry.source_path_canonical || entry.file_path || entry.source_path_raw)) || '').trim();
+    }
+
+    _entryExtension(entry) {
+      return String((entry && entry.file_extension) || extensionFromPath(this._entryPath(entry)) || '').toLowerCase();
+    }
+
+    _entryMtime(entry) {
+      if (!entry || typeof entry !== 'object') {
+        return '';
+      }
+      if (entry.source_mtime) {
+        return String(entry.source_mtime);
+      }
+      if (entry.source_metadata && entry.source_metadata.source_mtime) {
+        return String(entry.source_metadata.source_mtime);
+      }
+      return '';
+    }
+
+    _entrySize(entry) {
+      if (!entry || typeof entry !== 'object') {
+        return 0;
+      }
+      var bytes = entry.file_size_bytes;
+      if (!Number.isFinite(Number(bytes))) {
+        bytes = entry.file_size;
+      }
+      return Number(bytes || 0);
+    }
+
+    _entryRelativePath(entry, group) {
+      var fullPath = normalizePath(this._entryPath(entry));
+      var groupRoot = normalizePath(group && group.folder_hint ? group.folder_hint : '');
+      if (groupRoot && fullPath.toLowerCase().indexOf(groupRoot.toLowerCase()) === 0) {
+        return fullPath.slice(groupRoot.length).replace(/^\/+/, '');
+      }
+      return fullPath;
+    }
+
+    _groupFiles(group) {
+      return Array.isArray(group && group.files) ? group.files : [];
+    }
+
+    _latestGroupFile(group) {
+      var files = this._groupFiles(group);
+      var latest = null;
+      var latestTime = 0;
+      files.forEach(function (entry) {
+        var date = parseIsoDate(this._entryMtime(entry));
+        var stamp = date ? date.getTime() : 0;
+        if (stamp > latestTime) {
+          latestTime = stamp;
+          latest = entry;
+        }
+      }, this);
+      return latest;
+    }
+
+    _buildFolderRows(groupFiles, group) {
+      var byFolder = {};
+      groupFiles.forEach(function (entry) {
+        var rel = this._entryRelativePath(entry, group) || basename(this._entryPath(entry));
+        var folder = dirname(rel) || '.';
+        if (!byFolder[folder]) {
+          byFolder[folder] = { count: 0, latestMtime: '' };
+        }
+        byFolder[folder].count += 1;
+        var current = parseIsoDate(byFolder[folder].latestMtime);
+        var candidate = parseIsoDate(this._entryMtime(entry));
+        if (candidate && (!current || candidate.getTime() > current.getTime())) {
+          byFolder[folder].latestMtime = this._entryMtime(entry);
+        }
+      }, this);
+
+      var folders = Object.keys(byFolder).sort();
+      if (!folders.length) {
+        return '<div class="state-row">No folders in this group.</div>';
+      }
+      return '<div class="folder-list">' + folders.map(function (folder) {
+        var summary = byFolder[folder];
+        return ''
+          + '<div class="folder-row">'
+          + '<span>' + escapeHtml(folder) + '</span>'
+          + '<span>' + String(summary.count) + ' file(s)</span>'
+          + '<span>' + escapeHtml(formatRelativeTime(summary.latestMtime)) + '</span>'
+          + '</div>';
+      }).join('') + '</div>';
+    }
+
+    _toggleAllVisibleSelections() {
+      var paths = (this._files || []).map(function (entry) {
+        return this._entryPath(entry);
+      }, this).filter(Boolean);
+      if (!paths.length) {
+        return;
+      }
+      var allSelected = paths.every(function (pathValue) {
+        return !!this._selectedPaths[pathValue];
+      }, this);
+      if (allSelected) {
+        paths.forEach(function (pathValue) {
+          delete this._selectedPaths[pathValue];
+        }, this);
+      } else {
+        paths.forEach(function (pathValue) {
+          this._selectedPaths[pathValue] = true;
+        }, this);
+      }
+      this._render();
+    }
+
     _handleClick(event) {
       var target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
       if (!target) {
@@ -654,12 +890,32 @@
       }
       if (action === 'select-group') {
         this._selectedGroupId = Number(target.getAttribute('data-group-id') || 0);
-        this._selectedPaths = {};
         this._render();
+        return;
+      }
+      if (action === 'toggle-group-collapsed') {
+        var collapseGroupId = Number(target.getAttribute('data-group-id') || 0);
+        if (collapseGroupId) {
+          this._collapsedGroups[collapseGroupId] = !this._collapsedGroups[collapseGroupId];
+          this._render();
+        }
+        return;
+      }
+      if (action === 'set-group-subview') {
+        var subViewGroupId = Number(target.getAttribute('data-group-id') || 0);
+        var nextSubView = String(target.getAttribute('data-subview') || 'files');
+        if (subViewGroupId) {
+          this._groupSubViews[subViewGroupId] = nextSubView === 'folders' ? 'folders' : 'files';
+          this._render();
+        }
         return;
       }
       if (action === 'toggle-select-path') {
         this._togglePathSelection(String(target.getAttribute('data-file-path') || ''));
+        return;
+      }
+      if (action === 'toggle-select-all-visible') {
+        this._toggleAllVisibleSelections();
         return;
       }
       if (action === 'create-group-from-selection') {
@@ -674,8 +930,24 @@
         this._removeSelectionFromSelectedGroup();
         return;
       }
+      if (action === 'remove-selection-from-row-group') {
+        var removeGroupId = Number(target.getAttribute('data-group-id') || 0);
+        if (removeGroupId) {
+          this._selectedGroupId = removeGroupId;
+          this._removeSelectionFromSelectedGroup();
+        }
+        return;
+      }
       if (action === 'reorganize-selected-group') {
         this._runReorganize();
+        return;
+      }
+      if (action === 'reorganize-group') {
+        this._runReorganize(Number(target.getAttribute('data-group-id') || 0));
+        return;
+      }
+      if (action === 'open-group-folder') {
+        this._openLocalPath(String(target.getAttribute('data-path') || ''));
       }
     }
 
@@ -684,67 +956,144 @@
         return '<div class="state-row">No working groups are available.</div>';
       }
       return '<div class="groups">' + this._groups.map(function (group) {
-        var active = Number(group.id) === Number(this._selectedGroupId || 0);
+        var groupId = Number(group.id || 0);
+        var active = groupId === Number(this._selectedGroupId || 0);
+        var collapsed = !!this._collapsedGroups[groupId];
+        var subView = this._groupSubViews[groupId] === 'folders' ? 'folders' : 'files';
         var counts = group.counts || {};
-        return ''
-          + '<article class="group-card' + (active ? ' active' : '') + '" data-action="select-group" data-group-id="' + String(group.id) + '">'
-          + '  <div class="title-row"><div><div class="row-title">' + escapeHtml(group.title || 'Untitled Group') + '</div><div class="row-subtitle">' + escapeHtml(group.notes || group.folder_hint || '') + '</div></div><span class="chip">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
-          + '  <div class="meta"><span>3MF ' + String(counts.count_3mf || 0) + '</span><span>Other ' + String(counts.count_other || 0) + '</span><span>Total ' + String(counts.total || 0) + '</span></div>'
-          + '</article>';
-      }, this).join('') + '</div>';
-    }
-
-    _renderFileRows(fileRows) {
-      if (!fileRows || !fileRows.length) {
-        return '<div class="state-row">No files in this view.</div>';
-      }
-      return '<div class="list">' + fileRows.map(function (entry) {
-        var canonicalPath = String(entry.source_path_canonical || entry.file_path || '');
-        var launch = entry.launch || {};
-        var windowsPath = String(launch.windows_path || '');
-        var sourcePath = String(entry.file_path || entry.source_path_canonical || entry.source_path_raw || '');
-        if (!windowsPath && /^[a-zA-Z]:[\\/]/.test(sourcePath)) {
-          windowsPath = sourcePath;
+        var stageClass = stageClassName(group.stage);
+        var files = this._groupFiles(group);
+        var modelFiles = files.filter(function (entry) {
+          return isModelExtension(this._entryExtension(entry));
+        }, this);
+        var otherFiles = files.filter(function (entry) {
+          return !isModelExtension(this._entryExtension(entry));
+        }, this);
+        var latest = this._latestGroupFile(group);
+        var latestName = latest ? basename(this._entryPath(latest)) : '';
+        var modelRowsHtml = '';
+        if (!modelFiles.length) {
+          modelRowsHtml = '<div class="state-row">No model files in this group.</div>';
+        } else {
+          modelRowsHtml = '<div class="file-list">' + modelFiles.map(function (entry) {
+            var pathValue = this._entryPath(entry);
+            var isPrimary = normalizePath(pathValue).toLowerCase() === normalizePath(group.primary_file_path || '').toLowerCase();
+            var ext = this._entryExtension(entry);
+            var extClass = 'x-' + ext.replace(/^\./, '');
+            var selected = !!this._selectedPaths[pathValue];
+            return ''
+              + '<div class="file-row' + (isPrimary ? ' primary' : '') + '">' 
+              + '<span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(ext)) + '</span>'
+              + '<span class="file-main"><div class="file-name">' + escapeHtml(basename(pathValue)) + '</div><div class="file-path">' + escapeHtml(this._entryRelativePath(entry, group)) + '</div></span>'
+              + '<span class="file-num">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
+              + '<span class="file-num">' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</span>'
+              + '<span>' + (isPrimary ? '<span class="primary-pill">Primary</span>' : '') + '</span>'
+              + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label>'
+              + '</div>';
+          }, this).join('') + '</div>';
         }
-        var memberships = Array.isArray(entry.group_memberships) ? entry.group_memberships : [];
-        var selected = !!this._selectedPaths[canonicalPath];
+
+        var stripBody = subView === 'folders'
+          ? this._buildFolderRows(files, group)
+          : modelRowsHtml
+            + (otherFiles.length
+              ? '<div class="other-strip"><div class="other-head"><span>Other files (' + String(otherFiles.length) + ')</span></div><div class="other-chips">'
+                + otherFiles.slice(0, 8).map(function (entry) {
+                  return '<span class="other-chip">' + escapeHtml(basename(this._entryPath(entry))) + '</span>';
+                }, this).join('')
+                + (otherFiles.length > 8 ? '<span class="other-chip">+' + String(otherFiles.length - 8) + ' more</span>' : '')
+                + '</div></div>'
+              : '');
+
         return ''
-          + '<article class="list-row">'
-          + '  <div class="list-top">'
+          + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '">'
+          + '  <span class="ribbon"></span>'
+          + '  <div class="group-header">'
+          + '    <div class="thumb">' + escapeHtml(extensionBadge(this._entryExtension(latest || {}))) + '</div>'
           + '    <div>'
-          + '      <div class="row-title">' + escapeHtml(entry.file_name_raw || basename(canonicalPath)) + '</div>'
-          + '      <div class="row-subtitle">' + escapeHtml(canonicalPath) + '</div>'
+          + '      <div class="group-title" data-action="select-group" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div>'
+          + '      <div class="folder-hint">' + escapeHtml(group.folder_hint || group.notes || '') + '</div>'
+          + '      <div class="group-meta"><span>Model ' + String(counts.count_3mf || 0) + '</span><span>Other ' + String(counts.count_other || 0) + '</span><span>Total ' + String(counts.total || 0) + '</span><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '    </div>'
-          + '    <label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(canonicalPath) + '"' + (selected ? ' checked' : '') + '> Select</label>'
+          + '    <div class="group-right"><span class="updated">' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
           + '  </div>'
-          + '  <div class="meta"><span>Ext ' + escapeHtml(String(entry.file_extension || '').replace(/^\./, '') || 'file') + '</span><span>Size ' + escapeHtml(formatBytes(entry.file_size_bytes || 0)) + '</span><span>Groups ' + String(memberships.length) + '</span></div>'
+          + (collapsed ? '' : ''
+            + '<div class="strip">'
+            + '  <div class="strip-head"><span>Model files (.3mf priority)</span><span class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></span></div>'
+            + stripBody
+            + '</div>'
+            + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button><button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
 
     _renderGroupsView() {
-      var selectedGroup = this._currentSelectedGroup();
-      var selectedFiles = selectedGroup && Array.isArray(selectedGroup.files) ? selectedGroup.files : [];
+      var selectedCount = this._selectedPathList().length;
       return ''
-        + '<div class="split">'
-        + '  <section class="section">'
-        + '    <div class="title-row"><div><div class="title">Groups</div><div class="subtitle">Group-first view with .3mf priority and reorganization support.</div></div></div>'
+        + '<section class="section">'
+        + '  <div class="title-row"><div><div class="title">Groups</div><div class="subtitle">Expanded rows show model files, modification timing, and reorganize actions without opening popups.</div></div><div class="status">Selected files ' + String(selectedCount) + '</div></div>'
+        + (selectedCount
+          ? '<div class="bulk-bar"><span>' + String(selectedCount) + ' file(s) selected</span><button class="button primary" data-action="add-selection-to-group">Add To Group</button><button class="button" data-action="create-group-from-selection">Create Group</button><span class="spacer"></span><button class="button warn" data-action="remove-selection-from-group">Remove From Active Group</button></div>'
+          : '')
         + this._renderGroupsPane()
-        + '  </section>'
-        + '  <section class="section">'
-        + '    <div class="title-row"><div><div class="title">' + escapeHtml(selectedGroup ? selectedGroup.title : 'Select a Group') + '</div><div class="subtitle">' + escapeHtml(selectedGroup ? (selectedGroup.folder_hint || '') : 'Pick a group to inspect files and run actions.') + '</div></div><div class="button-row"><button class="button warn" data-action="remove-selection-from-group"' + (selectedGroup ? '' : ' disabled') + '>Remove Selected</button><button class="button primary" data-action="reorganize-selected-group"' + (selectedGroup ? '' : ' disabled') + '>Reorganize</button></div></div>'
-        + this._renderFileRows(selectedFiles)
-        + '  </section>'
-        + '</div>';
+        + '</section>';
     }
 
     _renderAllOrUngrouped() {
       var selectedCount = this._selectedPathList().length;
+      var allVisiblePaths = (this._files || []).map(function (entry) {
+        return this._entryPath(entry);
+      }, this).filter(Boolean);
+      var allChecked = !!allVisiblePaths.length && allVisiblePaths.every(function (pathValue) {
+        return !!this._selectedPaths[pathValue];
+      }, this);
+      var rowsHtml = '';
+      if (!this._files.length) {
+        rowsHtml = '<div class="state-row">No files in this view.</div>';
+      } else {
+        rowsHtml = ''
+          + '<div class="files-table"><table><thead><tr>'
+          + '<th><input type="checkbox" data-action="toggle-select-all-visible"' + (allChecked ? ' checked' : '') + '></th>'
+          + '<th>Type</th>'
+          + '<th>Name & folder</th>'
+          + '<th class="right">Size</th>'
+          + '<th class="right">Modified</th>'
+          + '<th>Groups</th>'
+          + '<th>Validation</th>'
+          + '</tr></thead><tbody>'
+          + this._files.map(function (entry) {
+            var pathValue = this._entryPath(entry);
+            var ext = this._entryExtension(entry);
+            var extClass = 'x-' + ext.replace(/^\./, '');
+            var memberships = Array.isArray(entry.group_memberships) ? entry.group_memberships : [];
+            var selected = !!this._selectedPaths[pathValue];
+            var warningCount = Array.isArray(entry.warnings) ? entry.warnings.length : 0;
+            var validationState = String(entry.validation_state || 'clean').toLowerCase();
+            return ''
+              + '<tr' + (selected ? ' class="selected"' : '') + '>'
+              + '<td><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '></td>'
+              + '<td><span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(ext)) + '</span></td>'
+              + '<td><div class="row-name"><div class="row-name-text"><div class="row-name-title">' + escapeHtml(entry.file_name_raw || basename(pathValue)) + '</div><div class="row-name-sub">' + escapeHtml(dirname(pathValue)) + '</div></div></div></td>'
+              + '<td class="right">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</td>'
+              + '<td class="right">' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</td>'
+              + '<td><div class="group-chips">'
+              + (memberships.length
+                ? memberships.map(function (membership) {
+                  return '<span class="group-chip">' + escapeHtml(membership.group_title || ('Group ' + String(membership.group_id || ''))) + '</span>';
+                }).join('')
+                : '<span class="group-chip empty">Ungrouped</span>')
+              + '</div></td>'
+              + '<td><span class="validation' + ((validationState !== 'clean' || warningCount) ? ' warn' : '') + '">' + ((validationState !== 'clean' || warningCount) ? (String(warningCount || 1) + ' warning') : 'Clean') + '</span></td>'
+              + '</tr>';
+          }, this).join('')
+          + '</tbody></table></div>';
+      }
+
       return ''
         + '<section class="section">'
-        + '  <div class="title-row"><div><div class="title">' + (this._view === 'all' ? 'All Files' : 'Ungrouped Files') + '</div><div class="subtitle">Select files and create/add group memberships.</div></div><div class="status">Selected ' + String(selectedCount) + '</div></div>'
+        + '  <div class="title-row"><div><div class="title">' + (this._view === 'all' ? 'All Files' : 'Ungrouped Files') + '</div><div class="subtitle">Table-first triage with group membership visibility (issues #1076 and #1132 alignment).</div></div><div class="status">Selected ' + String(selectedCount) + '</div></div>'
         + '  <div class="button-row"><button class="button primary" data-action="create-group-from-selection"' + (selectedCount ? '' : ' disabled') + '>Create Group</button><button class="button" data-action="add-selection-to-group"' + (selectedCount ? '' : ' disabled') + '>Add To Group</button></div>'
-        + this._renderFileRows(this._files)
+        + rowsHtml
         + '</section>';
     }
 
