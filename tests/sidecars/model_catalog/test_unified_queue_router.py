@@ -380,3 +380,65 @@ def test_queue_entries_v1_validation_errors(tmp_path: Path) -> None:
         assert bad_limit.status_code == 400
     finally:
         client.__exit__(None, None, None)
+
+
+def test_queue_add_v1_creates_entry_and_returns_location(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "model-id-123",
+                "copies": 1,
+                "duration_bucket": "2-4h",
+                "ams_fit": True,
+                "overnight_fit": False,
+            },
+        )
+        assert create_response.status_code == 201
+        assert "location" in {key.lower() for key in create_response.headers.keys()}
+
+        payload = create_response.json()
+        assert payload["success"] is True
+        assert payload["contract"] == "unified-queue.v1"
+        assert payload["printer_id"] == "p1"
+        assert payload["entry"]["queue_entry_id"].startswith("uqe-")
+        assert payload["entry"]["source_kind"] == "catalog_model"
+        assert payload["entry"]["source_id"] == "model-id-123"
+        assert payload["entry"]["copies"] == 1
+        assert payload["entry"]["duration_bucket"] == "medium"
+        assert payload["entry"]["ams_ready_score"] == 100
+        assert payload["entry"]["overnight_fit_score"] == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_add_v1_validation_and_unified_only_behavior(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        missing_source = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "copies": 1,
+            },
+        )
+        assert missing_source.status_code == 400
+        assert missing_source.json()["error"] == "validation_error"
+
+        unsupported_legacy_fields = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "model-id-legacy",
+                "queue_status": "queued",
+            },
+        )
+        assert unsupported_legacy_fields.status_code == 400
+        legacy_payload = unsupported_legacy_fields.json()
+        assert legacy_payload["error"] == "validation_error"
+        assert "unsupported_fields" in legacy_payload
+        assert "queue_status" in legacy_payload["unsupported_fields"]
+    finally:
+        client.__exit__(None, None, None)

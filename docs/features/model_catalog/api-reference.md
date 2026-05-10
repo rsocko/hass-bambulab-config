@@ -45,6 +45,7 @@ When the sidecar is running:
 - `DELETE /api/unified-queue/entries/{queue_entry_id}`
 - `POST /api/unified-queue/migrate-legacy`
 - `GET /api/v1/queues/{printer_id}/entries`
+- `POST /api/v1/queues/{printer_id}/add`
 
 `GET /api/v1/queues/{printer_id}/entries` query parameters:
 
@@ -61,6 +62,28 @@ Response includes:
 - `pagination`: `{ limit, offset, count, total, has_more }`
 - `filters`: normalized applied filters
 - `sort`: resolved sort field and direction
+
+`POST /api/v1/queues/{printer_id}/add` request body:
+
+- `source_kind`: required (`catalog_model`, `working_group`, `working_file`, `idea`)
+- `source_id`: required unless `source_kind=idea`
+- `copies`: optional integer (default `1`, min `1`)
+- `duration_bucket`: optional (`quick`, `medium`, `overnight`, `marathon`, `unknown`; accepts aliases like `2-4h`)
+- `ams_fit`: optional boolean (maps to `ams_ready_score`)
+- `overnight_fit`: optional boolean (maps to `overnight_fit_score`)
+- `state`: optional queue state override (default `todo`)
+- `rank`: optional rank override (lower ranks are scheduled first)
+- `queue_notes`: optional notes
+
+Response:
+
+- `201 Created`
+- `Location` header set to `/api/unified-queue/entries/{queue_entry_id}`
+- body includes `{ success, contract, printer_id, entry }`
+
+Unified contract note:
+
+- Legacy queue payload keys (`queue_status`, `queue_priority`, `print_file`, `print_settings`) are rejected on this endpoint to avoid overlapping queue semantics.
 
 Common custom-field keys exposed through the `fields` endpoints include:
 

@@ -98,6 +98,24 @@ def _entry_to_response(entry: Any) -> dict[str, Any]:
     return payload
 
 
+def _coerce_bool(value: object | None, *, field: str) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if value in {0, 1}:
+            return bool(value)
+        raise ValueError(f"{field} must be a boolean")
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "on"}:
+            return True
+        if lowered in {"false", "0", "no", "off"}:
+            return False
+    raise ValueError(f"{field} must be a boolean")
+
+
 def _validate_state_transition(*, from_state: str, to_state: str) -> tuple[bool, list[str]]:
     allowed = sorted(STATE_TRANSITIONS.get(from_state, set()))
     return to_state in set(allowed), allowed
@@ -444,6 +462,99 @@ def list_queue_entries_v1(
             "direction": sort_direction,
         },
     }
+
+
+@router.post("/api/v1/queues/{printer_id}/add")
+def add_queue_entry_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Add endpoint for v1 queue contract backed by unified queue storage."""
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    legacy_fields = [
+        field_name
+        for field_name in ["queue_status", "queue_priority", "print_file", "print_settings"]
+        if field_name in body
+    ]
+    if legacy_fields:
+        return _error_response(
+            status_code=400,
+            error="validation_error",
+            message=(
+                "legacy queue fields are not supported in unified queue add endpoint; "
+                "use state, rank, and queue_notes"
+            ),
+            extra={"unsupported_fields": legacy_fields},
+        )
+
+    try:
+        source_kind = _validate_source_kind(body.get("source_kind") or "catalog_model")
+        source_ref = str(body.get("source_id") or body.get("source_ref") or "").strip() or None
+        if source_kind != "idea" and not source_ref:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message="source_id is required unless source_kind is 'idea'",
+            )
+
+        requested_state = _validate_state(body.get("state"))
+        entry_state = requested_state or "todo"
+
+        copies_requested = _coerce_int(body.get("copies", 1), field="copies", minimum=1)
+        duration_bucket = _validate_duration_bucket(body.get("duration_bucket")) or "unknown"
+
+        rank = _coerce_optional_int(body.get("rank"), field="rank", minimum=0) or 0
+
+        ams_fit = _coerce_bool(body.get("ams_fit"), field="ams_fit")
+        overnight_fit = _coerce_bool(body.get("overnight_fit"), field="overnight_fit")
+        ams_ready_score = 100 if ams_fit is True else 0
+        overnight_fit_score = 100 if overnight_fit is True else 0
+
+        queue_notes = str(body.get("queue_notes") or "").strip() or None
+
+        title = str(body.get("title") or "").strip()
+        if not title:
+            if source_ref:
+                title = f"{source_kind.replace('_', ' ').title()}: {source_ref}"
+            else:
+                title = "Queue Entry"
+
+        queue_entry_id = str(body.get("queue_entry_id") or "").strip() or f"uqe-{uuid.uuid4().hex[:12]}"
+
+        created = create_unified_queue_entry(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            source_kind=source_kind,
+            source_ref=source_ref,
+            title=title,
+            state=entry_state,
+            rank=rank,
+            copies_requested=copies_requested,
+            duration_bucket=duration_bucket,
+            selection_mode="all_files_all_plates",
+            ams_ready_score=ams_ready_score,
+            overnight_fit_score=overnight_fit_score,
+            queue_notes=queue_notes,
+        )
+    except sqlite3.IntegrityError as exc:
+        return _error_response(status_code=400, error="integrity_error", message=str(exc))
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    location = f"/api/unified-queue/entries/{created.queue_entry_id}"
+    payload = {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "entry": _entry_to_response(created),
+    }
+    return JSONResponse(status_code=201, content=payload, headers={"Location": location})
 
 
 @router.patch("/api/unified-queue/entries/{queue_entry_id}")
