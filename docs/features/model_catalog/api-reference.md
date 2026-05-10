@@ -42,7 +42,6 @@ When the sidecar is running:
 - `GET /api/unified-queue/entries`
 - `PATCH /api/unified-queue/entries/{queue_entry_id}`
 - `DELETE /api/unified-queue/entries/{queue_entry_id}`
-- `POST /api/unified-queue/migrate-legacy`
 - `GET /api/v1/queues/{printer_id}/entries`
 - `POST /api/v1/queues/{printer_id}/add`
 
@@ -83,6 +82,8 @@ Response:
 Unified contract note:
 
 - Legacy queue payload keys (`queue_status`, `queue_priority`, `print_file`, `print_settings`) are rejected on this endpoint to avoid overlapping queue semantics.
+- The transitional `POST /api/unified-queue/migrate-legacy` bridge has been retired after cutover completion.
+- One-time migration/validation steps are captured in `docs/features/model_catalog/unified-queue-cutover-runbook.md`.
 
 Home Assistant package contract (UQ cutover):
 
