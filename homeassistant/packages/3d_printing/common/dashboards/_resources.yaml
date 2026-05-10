@@ -7,7 +7,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=145
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=55
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=56
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=2
   type: module

@@ -1861,6 +1861,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderFileKindIconChip(count, mdiIcon, className) {
     var countStr = String(count || "");
+    if (mdiIcon === "mdi:cube-outline") {
+      return '<span class="chip' + (className ? (' ' + className) : '') + '">'
+        + '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+        + '<path d="M12 3 L4 7.5 L12 12 L20 7.5 Z M4 7.5 V16.5 L12 21 L20 16.5 V7.5 M12 12 V21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '</svg>'
+        + '<span class="chip-count">' + this._escapeHtml(countStr) + '</span>'
+        + '</span>';
+    }
     var svgPath = this._getMdiPath(mdiIcon);
     return '<span class="chip' + (className ? (' ' + className) : '') + '">'
       + '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
