@@ -307,7 +307,9 @@ cards:
                     - color: var(--primary-text-color)
                   icon:
                     - color: var(--primary-color)
-      - type: divider
+      - type: markdown
+        content: |
+          <div style="height:1px;width:100%;background:rgba(148, 163, 184, 0.22);margin:0;"></div>
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
