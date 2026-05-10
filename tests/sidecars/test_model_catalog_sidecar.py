@@ -3446,7 +3446,7 @@ def test_model_fields_can_be_managed_and_used_for_model_list_filters(tmp_path: P
         assert missing.status_code == 404
 
 
-def test_model_queue_endpoint_supports_status_and_priority_actions(tmp_path: Path) -> None:
+def test_legacy_model_queue_endpoint_is_removed(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
@@ -3486,27 +3486,11 @@ def test_model_queue_endpoint_supports_status_and_priority_actions(tmp_path: Pat
         connection.close()
 
     with TestClient(app) as test_client:
-        mark_queued = test_client.post(
+        removed = test_client.post(
             "/api/models/gridfinity-bin/queue",
             json={"action": "mark_queued", "to_print_priority": 3},
         )
-        assert mark_queued.status_code == 200
-        assert mark_queued.json()["queue"]["to_print_status"] == "queued"
-        assert mark_queued.json()["queue"]["to_print_priority"] == 3
-
-        bump_priority = test_client.post(
-            "/api/models/gridfinity-bin/queue",
-            json={"action": "priority_up"},
-        )
-        assert bump_priority.status_code == 200
-        assert bump_priority.json()["queue"]["to_print_priority"] == 4
-
-        mark_done = test_client.post(
-            "/api/models/gridfinity-bin/queue",
-            json={"action": "mark_done"},
-        )
-        assert mark_done.status_code == 200
-        assert mark_done.json()["queue"]["to_print_status"] == "done"
+        assert removed.status_code == 405
 
 
 def test_model_search_supports_priority_filters(tmp_path: Path) -> None:
@@ -4561,7 +4545,7 @@ def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
         assert default_links_after_refresh[candidate_ids[1]]["review_state"] == "new"
 
 
-def test_accepting_candidate_transitions_queued_model_to_done(tmp_path: Path) -> None:
+def test_accepting_candidate_does_not_mutate_legacy_queue_fields(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     connection = sqlite3.connect(settings.db_path)
@@ -4636,16 +4620,15 @@ def test_accepting_candidate_transitions_queued_model_to_done(tmp_path: Path) ->
         accepted = test_client.post("/api/archive-links/8301/301/accept", json={"review_note": "printed successfully"})
         assert accepted.status_code == 200
         accepted_payload = accepted.json()
-        assert accepted_payload["queue_update"]["previous_value"] == "queued"
-        assert accepted_payload["queue_update"]["field_value"] == "done"
+        assert "queue_update" not in accepted_payload
 
         fields = test_client.get("/api/models/gridfinity-bin/fields")
         assert fields.status_code == 200
-        assert fields.json()["fields"]["to_print_status"] == "done"
+        assert fields.json()["fields"]["to_print_status"] == "queued"
         assert fields.json()["fields"]["to_print_priority"] == 7
 
 
-def test_manual_confirmed_link_creation_transitions_queued_model_to_done(tmp_path: Path) -> None:
+def test_manual_confirmed_link_creation_does_not_mutate_legacy_queue_fields(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     connection = sqlite3.connect(settings.db_path)
@@ -4696,11 +4679,11 @@ def test_manual_confirmed_link_creation_transitions_queued_model_to_done(tmp_pat
         )
         assert created.status_code == 200
         created_payload = created.json()
-        assert created_payload["queue_update"]["field_value"] == "done"
+        assert "queue_update" not in created_payload
 
         fields = test_client.get("/api/models/tool-rack/fields")
         assert fields.status_code == 200
-        assert fields.json()["fields"] == {"to_print_priority": 3, "to_print_status": "done"}
+        assert fields.json()["fields"] == {"to_print_priority": 3, "to_print_status": "queued"}
 
 
 def test_candidate_refresh_uses_filename_and_time_proximity_rationale(tmp_path: Path) -> None:

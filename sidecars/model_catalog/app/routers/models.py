@@ -738,15 +738,6 @@ def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
     return asset_id or None
 
 
-def _normalize_queue_status(value: object | None) -> str | None:
-    normalized = str(value or "").strip().lower()
-    if not normalized:
-        return None
-    if normalized in {"none", "queued", "done"}:
-        return normalized
-    return None
-
-
 def _detect_upload_photo_mime(photo_bytes: bytes) -> str | None:
     if photo_bytes.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
@@ -1542,42 +1533,6 @@ def _normalized_model_url(settings: Settings, model_url: str | None) -> str | No
     if not normalized:
         return None
     return canonicalize_model_url(settings.manyfold_base_url, normalized)
-
-
-def _resolved_model_field_ref(summary: ManyfoldModelSummary) -> str:
-    return str(summary.public_id or summary.model_id or summary.model_url)
-
-
-def _apply_confirmed_link_queue_updates(state: AppState, link: ArchiveModelLink) -> dict[str, object] | None:
-    if link.review_state != "accepted" or not link.is_active:
-        return None
-
-    summary = _resolve_model_summary(_summary_map(state.settings.db_path), link.manyfold_model_url)
-    if summary is None:
-        return None
-
-    model_ref = _resolved_model_field_ref(summary)
-    current_status = read_model_field(
-        db_path=state.settings.db_path,
-        model_ref=model_ref,
-        field_key="to_print_status",
-    )
-    if str(current_status or "") != "queued":
-        return None
-
-    updated_status = set_model_field(
-        db_path=state.settings.db_path,
-        model_ref=model_ref,
-        field_key="to_print_status",
-        field_value="done",
-    )
-    return {
-        "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
-        "field_key": "to_print_status",
-        "previous_value": current_status,
-        "field_value": updated_status,
-    }
 
 
 def _cleanup_sort_key(link: ArchiveModelLink) -> tuple[int, int, str, int]:
@@ -2714,71 +2669,6 @@ def remove_model_field(request: Request, model_ref: str, field_key: str) -> dict
     if not deleted:
         return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
     return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
-
-@router.post("/api/models/{model_ref:path}/queue")
-def update_model_queue(request: Request, model_ref: str, payload: dict[str, Any]) -> Any:
-    state: AppState = request.app.state.model_catalog
-    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-    if summary is None:
-        return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
-
-    resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
-    current_fields = read_model_fields(db_path=state.settings.db_path, model_ref=resolved_ref)
-    current_status = _normalize_queue_status(current_fields.get("to_print_status"))
-    current_priority = _coerce_int(current_fields.get("to_print_priority"))
-
-    action = str(payload.get("action") or "").strip().lower()
-    next_status = _normalize_queue_status(payload.get("to_print_status"))
-    explicit_priority = _coerce_int(payload.get("to_print_priority"))
-    priority_delta = _coerce_int(payload.get("priority_delta"))
-
-    if action == "mark_queued":
-        next_status = "queued"
-    elif action == "mark_done":
-        next_status = "done"
-    elif action in {"clear", "clear_status"}:
-        next_status = "none"
-    elif action == "priority_up":
-        priority_delta = 1
-    elif action == "priority_down":
-        priority_delta = -1
-
-    next_priority = current_priority
-    if explicit_priority is not None:
-        next_priority = explicit_priority
-    elif priority_delta is not None:
-        next_priority = (current_priority or 0) + priority_delta
-
-    changed: dict[str, object] = {}
-
-    if next_status is not None and next_status != current_status:
-        changed["to_print_status"] = set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=resolved_ref,
-            field_key="to_print_status",
-            field_value=next_status,
-        )
-
-    if next_priority is not None and next_priority != current_priority:
-        changed["to_print_priority"] = set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=resolved_ref,
-            field_key="to_print_priority",
-            field_value=next_priority,
-        )
-
-    updated_fields = read_model_fields(db_path=state.settings.db_path, model_ref=resolved_ref)
-    return {
-        "success": True,
-        "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
-        "action": action or None,
-        "changed": changed,
-        "queue": {
-            "to_print_status": updated_fields.get("to_print_status"),
-            "to_print_priority": updated_fields.get("to_print_priority"),
-        },
-    }
 
 def get_model_ranking_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog

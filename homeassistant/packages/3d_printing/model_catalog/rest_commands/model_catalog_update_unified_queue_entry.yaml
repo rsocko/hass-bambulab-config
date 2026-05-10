@@ -1,0 +1,23 @@
+# Patch a unified queue entry.
+model_catalog_update_unified_queue_entry:
+  url: >-
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/unified-queue/entries/{{ (queue_entry_id | string) | urlencode }}
+  method: PATCH
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {%- set ns = namespace(body={}) -%}
+    {%- if state is defined and (state | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, state=(state | string | trim)) -%}
+    {%- endif -%}
+    {%- if rank is defined and (rank | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, rank=(rank | int(0))) -%}
+    {%- endif -%}
+    {%- if queue_notes is defined and (queue_notes | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, queue_notes=(queue_notes | string | trim)) -%}
+    {%- endif -%}
+    {{- ns.body | to_json -}}

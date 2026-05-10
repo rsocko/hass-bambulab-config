@@ -1,0 +1,25 @@
+# List unified queue entries through the sidecar v1 compatibility endpoint.
+model_catalog_list_unified_queue_entries:
+  url: >-
+    {%- set _printer_id = (printer_id | default('p1', true) | string | trim) -%}
+    {%- set ns = namespace(params=[]) -%}
+    {%- if source_kind is defined and (source_kind | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['source_kind=' ~ ((source_kind | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if state is defined and (state | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['state=' ~ ((state | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if sort is defined and (sort | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['sort=' ~ ((sort | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if order is defined and (order | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['order=' ~ ((order | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(200, true)) | int(200) | string)] -%}
+    {%- set ns.params = ns.params + ['offset=' ~ ((offset | default(0, true)) | int(0) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/v1/queues/{{ (_printer_id | urlencode) }}/entries{%- if ns.params | count > 0 %}?{{ ns.params | join('&') }}{%- endif -%}
+  method: GET

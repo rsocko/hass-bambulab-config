@@ -22,6 +22,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._pendingLoad = null;
     this._debounceHandle = null;
     this._modelSidecarUrl = "";
+    this._unifiedQueueByModelRef = {};
 
     this._boundClick = this._handleClick.bind(this);
     this._boundInput = this._handleInput.bind(this);
@@ -41,9 +42,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       collection: "",
       creator: "",
       tag: "",
-      to_print_status: "",
-      to_print_priority_min: "",
-      to_print_priority_max: "",
       sort: "recent",
       favorites_only: false,
       has_other_files: false,
@@ -56,6 +54,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       per_page: config && Number.isFinite(Number(config.per_page))
         ? Math.max(1, Math.min(50, Number(config.per_page)))
         : 12,
+      queue_printer_id: config && config.queue_printer_id ? String(config.queue_printer_id) : "p1",
       model_entity: config && config.model_entity ? String(config.model_entity) : "",
       model_sidecar_url: config && config.model_sidecar_url ? String(config.model_sidecar_url) : "",
     };
@@ -225,9 +224,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._filters.collection = read("#mc-collection");
     this._filters.creator = read("#mc-creator");
     this._filters.tag = read("#mc-tag");
-    this._filters.to_print_status = read("#mc-queue");
-    this._filters.to_print_priority_min = read("#mc-priority-min");
-    this._filters.to_print_priority_max = read("#mc-priority-max");
     this._filters.sort = read("#mc-sort") || "recent";
     var perPageTop = Number(read("#mc-per-page") || 0);
     var perPageBottom = Number(read("#mc-per-page-bottom") || 0);
@@ -325,9 +321,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
         collection: this._filters.collection,
         creator: this._filters.creator,
         tag: this._filters.tag,
-        to_print_status: this._filters.to_print_status,
-        to_print_priority_min: this._filters.to_print_priority_min,
-        to_print_priority_max: this._filters.to_print_priority_max,
         sort: this._filters.sort,
         favorites_only: !!this._filters.favorites_only,
         has_other_files: !!this._filters.has_other_files,
@@ -344,6 +337,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.per_page = Number(pagination.per_page || this._pagination.per_page) || this._pagination.per_page;
       this._pagination.total = Number(pagination.total || 0) || 0;
       this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
+      await this._refreshUnifiedQueueIndex();
       if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
@@ -352,6 +346,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.page = 1;
       this._pagination.total = 0;
       this._pagination.total_pages = 0;
+      this._unifiedQueueByModelRef = {};
       this._error = error && error.message ? String(error.message) : "Could not load model catalog.";
     } finally {
       this._loading = false;
@@ -362,6 +357,56 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._pendingLoad = null;
         this._requestLoad(pendingLoad.page, pendingLoad.refresh);
       }
+    }
+  }
+
+  _choosePreferredQueueEntry(current, candidate) {
+    if (!current) {
+      return candidate;
+    }
+    var currentActive = this._isUnifiedQueueActiveState(current.state);
+    var candidateActive = this._isUnifiedQueueActiveState(candidate.state);
+    if (candidateActive && !currentActive) {
+      return candidate;
+    }
+    if (candidateActive === currentActive) {
+      if (Number(candidate.rank || 0) < Number(current.rank || 0)) {
+        return candidate;
+      }
+    }
+    return current;
+  }
+
+  async _refreshUnifiedQueueIndex() {
+    try {
+      var queuePayload = await this._callServiceWithResponse("rest_command", "model_catalog_list_unified_queue_entries", {
+        printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
+        source_kind: "catalog_model",
+        sort: "rank:asc",
+        limit: 200,
+        offset: 0,
+      });
+      var entries = Array.isArray(queuePayload && queuePayload.entries) ? queuePayload.entries : [];
+      var byModelRef = {};
+      for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i] || {};
+        if (String(entry.source_kind || "").toLowerCase() !== "catalog_model") {
+          continue;
+        }
+        var modelRef = String(entry.source_id || entry.source_ref || "").trim();
+        if (!modelRef) {
+          continue;
+        }
+        var candidate = {
+          queue_entry_id: String(entry.queue_entry_id || ""),
+          state: String(entry.state || "").toLowerCase(),
+          rank: Number(entry.rank || 0),
+        };
+        byModelRef[modelRef] = this._choosePreferredQueueEntry(byModelRef[modelRef], candidate);
+      }
+      this._unifiedQueueByModelRef = byModelRef;
+    } catch (_error) {
+      this._unifiedQueueByModelRef = {};
     }
   }
 
@@ -694,7 +739,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       var queueModelRef = String(target.getAttribute("data-model-ref") || "").trim();
-      var queueStatus = String(target.getAttribute("data-queue-status") || "").trim().toLowerCase();
       if (!queueModelRef || this._loading) {
         return;
       }
@@ -703,46 +747,162 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = "";
         this._activeActionMenu = "";
 
-        if (action === "queue-priority-up") {
-          var priorityUpPayload = {
-            model_ref: queueModelRef,
-            action: "priority_up",
-          };
-          if (!queueStatus || queueStatus === "none") {
-            priorityUpPayload.to_print_status = "queued";
-          }
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", priorityUpPayload);
-        } else if (action === "queue-priority-down") {
-          var priorityDownPayload = {
-            model_ref: queueModelRef,
-            action: "priority_down",
-          };
-          if (!queueStatus || queueStatus === "none") {
-            priorityDownPayload.to_print_status = "queued";
-          }
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", priorityDownPayload);
-        } else if (action === "queue-mark-queued") {
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
-            model_ref: queueModelRef,
-            action: "mark_queued",
-          });
-        } else if (action === "queue-mark-done") {
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
-            model_ref: queueModelRef,
-            action: "mark_done",
-          });
-        } else if (action === "queue-clear") {
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
-            model_ref: queueModelRef,
-            action: "clear",
-          });
-        }
+        await this._applyUnifiedQueueAction(action, queueModelRef);
 
         await this._loadPage(this._currentPage(), false);
       } catch (error) {
         this._error = error && error.message ? String(error.message) : "Could not update queue state.";
         this._render();
       }
+    }
+  }
+
+  _isUnifiedQueueActiveState(state) {
+    var normalized = String(state || "").trim().toLowerCase();
+    return ["todo", "ready", "started", "blocked", "idea"].indexOf(normalized) >= 0;
+  }
+
+  _queueStateToRibbonState(state) {
+    var normalized = String(state || "").trim().toLowerCase();
+    if (normalized === "started") {
+      return "printing";
+    }
+    if (normalized === "done") {
+      return "done";
+    }
+    if (this._isUnifiedQueueActiveState(normalized)) {
+      return "queued";
+    }
+    return "none";
+  }
+
+  async _listUnifiedQueueEntriesForModel(modelRef) {
+    var payload = await this._callServiceWithResponse("rest_command", "model_catalog_list_unified_queue_entries", {
+      printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
+      source_kind: "catalog_model",
+      sort: "rank:asc",
+      limit: 200,
+      offset: 0,
+    });
+    var entries = Array.isArray(payload && payload.entries) ? payload.entries : [];
+    return entries.filter(function (entry) {
+      var sourceRef = String((entry && (entry.source_id || entry.source_ref)) || "").trim();
+      return sourceRef === modelRef;
+    });
+  }
+
+  _preferredUnifiedQueueEntry(entries) {
+    if (!Array.isArray(entries) || !entries.length) {
+      return null;
+    }
+    var preferred = null;
+    for (var i = 0; i < entries.length; i++) {
+      var candidate = entries[i] || {};
+      if (!preferred) {
+        preferred = candidate;
+        continue;
+      }
+      var preferredActive = this._isUnifiedQueueActiveState(preferred.state);
+      var candidateActive = this._isUnifiedQueueActiveState(candidate.state);
+      if (candidateActive && !preferredActive) {
+        preferred = candidate;
+        continue;
+      }
+      if (candidateActive === preferredActive && Number(candidate.rank || 0) < Number(preferred.rank || 0)) {
+        preferred = candidate;
+      }
+    }
+    return preferred;
+  }
+
+  async _addUnifiedQueueEntryForModel(modelRef, options) {
+    var body = options && typeof options === "object" ? options : {};
+    return this._callServiceWithResponse("rest_command", "model_catalog_add_unified_queue_entry", {
+      printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
+      source_kind: "catalog_model",
+      source_id: modelRef,
+      copies: body.copies != null ? body.copies : 1,
+      state: body.state || "todo",
+      rank: body.rank != null ? body.rank : 0,
+      queue_notes: body.queue_notes || "",
+    });
+  }
+
+  async _patchUnifiedQueueEntry(queueEntryId, patchBody) {
+    return this._callServiceWithResponse("rest_command", "model_catalog_update_unified_queue_entry", Object.assign({
+      queue_entry_id: queueEntryId,
+    }, patchBody || {}));
+  }
+
+  async _deleteUnifiedQueueEntry(queueEntryId) {
+    return this._callServiceWithResponse("rest_command", "model_catalog_delete_unified_queue_entry", {
+      queue_entry_id: queueEntryId,
+    });
+  }
+
+  async _transitionQueueEntryToDone(entry) {
+    var entryId = String(entry && entry.queue_entry_id || "").trim();
+    var state = String(entry && entry.state || "").trim().toLowerCase();
+    if (!entryId || !state) {
+      return;
+    }
+    var paths = {
+      idea: ["todo", "ready", "started", "done"],
+      todo: ["ready", "started", "done"],
+      ready: ["started", "done"],
+      started: ["done"],
+      blocked: ["done"],
+      done: [],
+    };
+    var steps = paths[state] || [];
+    for (var i = 0; i < steps.length; i++) {
+      await this._patchUnifiedQueueEntry(entryId, { state: steps[i] });
+    }
+  }
+
+  async _applyUnifiedQueueAction(action, modelRef) {
+    var entries = await this._listUnifiedQueueEntriesForModel(modelRef);
+    var preferred = this._preferredUnifiedQueueEntry(entries);
+
+    if (action === "queue-clear") {
+      for (var i = 0; i < entries.length; i++) {
+        var entryId = String(entries[i] && entries[i].queue_entry_id || "").trim();
+        if (entryId) {
+          await this._deleteUnifiedQueueEntry(entryId);
+        }
+      }
+      return;
+    }
+
+    if (action === "queue-mark-queued") {
+      if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "todo" });
+        return;
+      }
+      var preferredState = String(preferred.state || "").toLowerCase();
+      if (preferredState === "idea") {
+        await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "todo" });
+      }
+      return;
+    }
+
+    if (action === "queue-mark-done") {
+      if (!preferred) {
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "done" });
+        return;
+      }
+      await this._transitionQueueEntryToDone(preferred);
+      return;
+    }
+
+    if (action === "queue-priority-up" || action === "queue-priority-down") {
+      if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "todo", rank: 0 });
+        return;
+      }
+      var delta = action === "queue-priority-up" ? -1 : 1;
+      var nextRank = Math.max(0, Number(preferred.rank || 0) + delta);
+      await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { rank: nextRank });
     }
   }
 
@@ -1271,7 +1431,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recent</option>'
       + '        <option value="frequent"' + (this._filters.sort === 'frequent' ? ' selected' : '') + '>Frequent</option>'
       + '        <option value="common"' + (this._filters.sort === 'common' ? ' selected' : '') + '>Common</option>'
-      + '        <option value="priority"' + (this._filters.sort === 'priority' ? ' selected' : '') + '>Queue priority</option>'
       + '        <option value="name"' + (this._filters.sort === 'name' ? ' selected' : '') + '>Name</option>'
       + '      </select>'
       + '    </div>'
@@ -1293,12 +1452,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <input id="mc-collection" class="control-input" type="text" placeholder="Collection" value="' + this._escapeHtml(this._filters.collection) + '">'
       + '  <input id="mc-creator" class="control-input" type="text" placeholder="Creator" value="' + this._escapeHtml(this._filters.creator) + '">'
       + '  <input id="mc-tag" class="control-input" type="text" placeholder="Tag" value="' + this._escapeHtml(this._filters.tag) + '">'
-      + '  <select id="mc-queue" class="control-input">'
-      + '    <option value=""' + (this._filters.to_print_status === '' ? ' selected' : '') + '>Queue: all</option>'
-      + '    <option value="queued"' + (this._filters.to_print_status === 'queued' ? ' selected' : '') + '>Queue: queued</option>'
-      + '    <option value="done"' + (this._filters.to_print_status === 'done' ? ' selected' : '') + '>Queue: done</option>'
-      + '    <option value="none"' + (this._filters.to_print_status === 'none' ? ' selected' : '') + '>Queue: none</option>'
-      + '  </select>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.favorites_only ? ' active favorite' : '') + '" type="button" data-action="toggle-favorites-filter" aria-pressed="' + (this._filters.favorites_only ? 'true' : 'false') + '">Favorites only</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
       + '  <input id="mc-favorites-only" type="checkbox" hidden ' + (this._filters.favorites_only ? 'checked' : '') + '>'
@@ -1418,8 +1571,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       seenTags[tagKey] = true;
       tags.push(normalizedTag);
     }
-    var queueStatus = String(fields.to_print_status || "").trim().toLowerCase();
-    var queuePriority = String(fields.to_print_priority || "").trim();
+    var queueStateInfo = this._unifiedQueueByModelRef[modelRef] || null;
+    var queueStatus = queueStateInfo ? this._queueStateToRibbonState(queueStateInfo.state) : "none";
     var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
     var originType = String(model.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
     var sourcePlatform = String(model.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
@@ -1508,8 +1661,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + (modelUrl ? '  <button class="advanced-action" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '"><ha-icon icon="mdi:open-in-new"></ha-icon><span>Open source page</span></button>' : '')
           + '  <div class="advanced-group-label">Queue actions</div>'
           + '  <div class="advanced-inline-grid">'
-          + '    <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">-P</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">+P</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '">-P</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '">+P</button>'
           + '    <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
           + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
           + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
@@ -2107,7 +2260,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-mode-item:hover,.view-mode-item:focus-visible{background:rgba(148,163,184,0.16);outline:none;}'
       + '.view-mode-item.active{background:var(--accent);border-color:var(--accent-strong);}'
       + '.view-mode-item:disabled{opacity:.55;cursor:not-allowed;}'
-      + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(4,minmax(130px,1fr)) auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
+      + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(3,minmax(130px,1fr)) auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
       + '.filter-search{grid-column:auto;}'
       + '.filter-chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;appearance:none;pointer-events:auto;position:relative;z-index:1;}'
       + '.filter-chip:hover,.filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'

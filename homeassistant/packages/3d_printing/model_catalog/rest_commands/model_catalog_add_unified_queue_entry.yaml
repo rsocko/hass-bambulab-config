@@ -1,0 +1,42 @@
+# Add a unified queue entry using the v1 queue add contract.
+model_catalog_add_unified_queue_entry:
+  url: >-
+    {%- set _printer_id = (printer_id | default('p1', true) | string | trim) -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/v1/queues/{{ (_printer_id | urlencode) }}/add
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {%- set ns = namespace(body={}) -%}
+    {%- if source_kind is defined and (source_kind | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, source_kind=(source_kind | string | trim)) -%}
+    {%- endif -%}
+    {%- if source_id is defined and (source_id | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, source_id=(source_id | string | trim)) -%}
+    {%- endif -%}
+    {%- if copies is defined and (copies | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, copies=(copies | int(1))) -%}
+    {%- endif -%}
+    {%- if duration_bucket is defined and (duration_bucket | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, duration_bucket=(duration_bucket | string | trim)) -%}
+    {%- endif -%}
+    {%- if ams_fit is defined -%}
+      {%- set ns.body = dict(ns.body, ams_fit=(ams_fit | bool)) -%}
+    {%- endif -%}
+    {%- if overnight_fit is defined -%}
+      {%- set ns.body = dict(ns.body, overnight_fit=(overnight_fit | bool)) -%}
+    {%- endif -%}
+    {%- if state is defined and (state | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, state=(state | string | trim)) -%}
+    {%- endif -%}
+    {%- if rank is defined and (rank | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, rank=(rank | int(0))) -%}
+    {%- endif -%}
+    {%- if queue_notes is defined and (queue_notes | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, queue_notes=(queue_notes | string | trim)) -%}
+    {%- endif -%}
+    {{- ns.body | to_json -}}

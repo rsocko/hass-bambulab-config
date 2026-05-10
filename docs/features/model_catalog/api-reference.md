@@ -31,7 +31,6 @@ When the sidecar is running:
 - `GET /api/models/{model_ref}/fields/{field_key}`
 - `PUT /api/models/{model_ref}/fields/{field_key}`
 - `DELETE /api/models/{model_ref}/fields/{field_key}`
-- `POST /api/models/{model_ref}/queue`
 - `GET /api/models/{model_ref}/ranking`
 - `PUT /api/models/{model_ref}/ranking`
 - `POST /api/models/ranking/refresh`
