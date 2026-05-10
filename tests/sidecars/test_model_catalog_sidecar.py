@@ -1394,10 +1394,9 @@ def test_extract_3mf_geometry_returns_multiple_color_groups_for_multi_part_model
 
 def test_dominant_extruder_from_paint_color_handles_simple_and_subdivided() -> None:
     """Unit test for the per-triangle paint_color decoder. Bambu / Orca
-    encode a single-color whole triangle as a one-char hex value (= the
-    extruder index). Subdivided triangles use longer strings where each
-    character is a tree-walk node state; the *first non-zero* nibble is the
-    closest single-color preview proxy.
+    encode compact filament tokens (not direct hex extruder ids). For
+    subdivided triangles, the decoder picks the most frequent decoded token
+    as the dominant preview color.
     """
     from sidecars.model_catalog.app.geometry_3mf import (
         _dominant_extruder_from_paint_color,
@@ -1415,8 +1414,8 @@ def test_dominant_extruder_from_paint_color_handles_simple_and_subdivided() -> N
     assert _dominant_extruder_from_paint_color("0C") == 3
     assert _dominant_extruder_from_paint_color("1C") == 4
 
-    # Subdivided strings should still pick a stable token-derived color.
-    assert _dominant_extruder_from_paint_color("1C0C0C20C0C2") == 4
+    # Subdivided strings should pick the most frequent token-derived color.
+    assert _dominant_extruder_from_paint_color("1C0C0C20C0C2") == 3
     assert _dominant_extruder_from_paint_color("00C0C20C0C6") == 3
 
     # Legacy fallback for non-token variants.

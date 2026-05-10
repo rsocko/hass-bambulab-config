@@ -235,9 +235,12 @@ def _dominant_extruder_from_paint_color(value: Any) -> int:
     a triangle-subdivision tree where each character is a 4-bit node state
     in depth-first order, with `0` meaning "unpainted / inherit".
 
-        Strategy:
-            * Prefer Bambu filament token decoding (exact for Bambu/Orca exports).
-            * Fall back to legacy nibble decoding for non-Bambu variants.
+                Strategy:
+                        * Prefer Bambu filament token decoding (exact for whole-triangle
+                            Bambu/Orca exports).
+                        * For subdivided strings, count all decoded Bambu filament tokens
+                            and return the most frequent token as the dominant preview color.
+                        * Fall back to legacy nibble decoding for non-Bambu variants.
 
     Returns the resolved 1-based extruder index, or ``0`` if no paint info
     is present (caller should then fall back to the inherited object
@@ -257,18 +260,37 @@ def _dominant_extruder_from_paint_color(value: Any) -> int:
         resolved = _BAMBU_FILAMENT_CODE_TO_EXTRUDER[text]
     else:
         # Subdivided paint strings contain a stream of serialized selector
-        # states. Find the first known filament token to get a stable color
-        # representative for preview grouping.
+        # states. Decode all known filament tokens and choose the most
+        # frequent token as a stable dominant-color proxy for preview grouping.
         resolved = 0
-        for start in range(len(text)):
-            matched = False
+        counts: dict[int, int] = {}
+        best_extruder = 0
+        best_count = 0
+        best_first_pos = len(text) + 1
+        start = 0
+        while start < len(text):
+            matched_code: str | None = None
             for code in _BAMBU_FILAMENT_CODES_DESC:
                 if text.startswith(code, start):
-                    resolved = _BAMBU_FILAMENT_CODE_TO_EXTRUDER[code]
-                    matched = True
+                    matched_code = code
                     break
-            if matched:
-                break
+            if matched_code is not None:
+                extruder = _BAMBU_FILAMENT_CODE_TO_EXTRUDER[matched_code]
+                new_count = counts.get(extruder, 0) + 1
+                counts[extruder] = new_count
+                # Tie-break by first-seen position to keep result stable.
+                if new_count > best_count or (
+                    new_count == best_count and start < best_first_pos
+                ):
+                    best_extruder = extruder
+                    best_count = new_count
+                    best_first_pos = start
+                start += len(matched_code)
+                continue
+            start += 1
+
+        if best_count > 0:
+            resolved = best_extruder
 
         # Legacy fallback for non-Bambu paint strings.
         if resolved == 0:
