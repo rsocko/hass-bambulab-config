@@ -559,3 +559,166 @@ def test_reorder_v1_duplicate_id_rejected(tmp_path: Path) -> None:
     finally:
         client.__exit__(None, None, None)
 
+
+def test_queue_add_v1_quick_add_catalog_model_creates_all_file_plate_units(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.routers import unified_queue as unified_queue_router
+
+    client, db_path = _create_client(tmp_path)
+    try:
+        seed = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Seed",
+                "rank": 4,
+            },
+        )
+        assert seed.status_code == 200
+
+        def _fake_model_detail(*_args, **_kwargs):
+            return {
+                "success": True,
+                "model": {
+                    "name": "Catalog Quick Add",
+                    "files": [
+                        {"id": "asset-1", "filename": "multi.3mf", "file_type": "3mf"},
+                        {"id": "asset-2", "filename": "single.stl", "file_type": "stl"},
+                    ],
+                },
+            }
+
+        def _fake_catalog_plates(*, request, model_ref, file_id, file_name, file_type):
+            _ = request
+            _ = model_ref
+            _ = file_name
+            _ = file_type
+            if file_id == "asset-1":
+                return [
+                    {"plate_key": "1", "plate_name": "Plate 1"},
+                    {"plate_key": "2", "plate_name": "Plate 2"},
+                ]
+            return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+        monkeypatch.setattr(unified_queue_router, "build_model_detail_response", _fake_model_detail)
+        monkeypatch.setattr(unified_queue_router, "_extract_catalog_file_plates", _fake_catalog_plates)
+
+        response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "catalog-quick-1",
+                "quick_add": True,
+            },
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        entry_id = payload["entry"]["queue_entry_id"]
+
+        assert payload["entry"]["rank"] == 5
+        assert payload["quick_add"]["enabled"] is True
+        assert payload["quick_add"]["file_units_created"] == 2
+        assert payload["quick_add"]["plate_units_created"] == 3
+        assert payload["quick_add"]["duplicate_file_skips"] == 0
+        assert payload["quick_add"]["duplicate_plate_skips"] == 0
+
+        connection = connect(db_path)
+        try:
+            file_count = connection.execute(
+                "SELECT COUNT(*) AS c FROM unified_queue_file_units WHERE queue_entry_id = ?",
+                (entry_id,),
+            ).fetchone()["c"]
+            plate_count = connection.execute(
+                "SELECT COUNT(*) AS c FROM unified_queue_plate_units WHERE queue_entry_id = ?",
+                (entry_id,),
+            ).fetchone()["c"]
+        finally:
+            connection.close()
+
+        assert int(file_count) == 2
+        assert int(plate_count) == 3
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_add_v1_quick_add_working_group_dedupes_duplicate_files_and_plates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.routers import unified_queue as unified_queue_router
+
+    client, db_path = _create_client(tmp_path)
+    try:
+        working_file = tmp_path / "duplicate.3mf"
+        working_file.write_bytes(b"fake-3mf-content")
+
+        now = "2026-05-10T00:00:00Z"
+        connection = connect(db_path)
+        try:
+            connection.execute(
+                "INSERT INTO working_groups (slug, title, stage, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                ("wg-quick", "WG Quick", "active", now, now),
+            )
+            group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+
+            connection.execute(
+                "INSERT INTO working_items (working_group_id, file_path, item_role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (group_id, str(working_file), "supporting", now, now),
+            )
+            connection.execute(
+                "INSERT INTO working_items (working_group_id, file_path, item_role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (group_id, str(working_file), "supporting", now, now),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        def _fake_extract_plates(_package_bytes):
+            return {
+                "plates": [
+                    {"id": "1", "name": "Plate 1"},
+                    {"id": "1", "name": "Plate 1 duplicate"},
+                    {"id": "2", "name": "Plate 2"},
+                ]
+            }
+
+        monkeypatch.setattr(unified_queue_router, "extract_3mf_plates_metadata", _fake_extract_plates)
+
+        response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "working_group",
+                "source_id": str(group_id),
+                "quick_add": True,
+            },
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        entry_id = payload["entry"]["queue_entry_id"]
+
+        assert payload["quick_add"]["enabled"] is True
+        assert payload["quick_add"]["file_units_created"] == 1
+        assert payload["quick_add"]["plate_units_created"] == 2
+        assert payload["quick_add"]["duplicate_file_skips"] == 1
+        assert payload["quick_add"]["duplicate_plate_skips"] == 1
+
+        verify = connect(db_path)
+        try:
+            file_count = verify.execute(
+                "SELECT COUNT(*) AS c FROM unified_queue_file_units WHERE queue_entry_id = ?",
+                (entry_id,),
+            ).fetchone()["c"]
+            plate_count = verify.execute(
+                "SELECT COUNT(*) AS c FROM unified_queue_plate_units WHERE queue_entry_id = ?",
+                (entry_id,),
+            ).fetchone()["c"]
+        finally:
+            verify.close()
+
+        assert int(file_count) == 1
+        assert int(plate_count) == 2
+    finally:
+        client.__exit__(None, None, None)
+

@@ -11,6 +11,7 @@ Issue #1406 scope:
 from __future__ import annotations
 
 from dataclasses import asdict
+from pathlib import Path
 import sqlite3
 import uuid
 from typing import Any
@@ -20,14 +21,19 @@ from fastapi.responses import JSONResponse, Response
 
 from ..db import (
     ReorderMove,
+    connect,
     create_unified_queue_transition_audit,
     create_unified_queue_entry,
+    create_unified_queue_file_unit,
+    create_unified_queue_plate_unit,
     delete_unified_queue_entry,
     list_unified_queue_entries,
     read_unified_queue_entry,
     reorder_unified_queue_entries,
     update_unified_queue_entry,
 )
+from ..geometry_3mf import extract_3mf_plates_metadata
+from ..services.model_detail_service import build_model_detail_response
 from ..state import AppState
 
 router = APIRouter(tags=["unified-queue"])
@@ -225,6 +231,220 @@ def _sort_entries(entries: list[Any], field: str, direction: str) -> list[Any]:
             reverse=reverse,
         )
     return entries
+
+
+def _next_append_rank(*, db_path: Path) -> int:
+    entries = list_unified_queue_entries(db_path=db_path)
+    if not entries:
+        return 0
+    return max(int(entry.rank) for entry in entries) + 1
+
+
+def _normalize_plate_specs(raw_plates: object) -> tuple[list[dict[str, str]], int]:
+    normalized: list[dict[str, str]] = []
+    duplicate_skips = 0
+    seen_ids: set[str] = set()
+
+    if isinstance(raw_plates, list):
+        for idx, raw_plate in enumerate(raw_plates):
+            if not isinstance(raw_plate, dict):
+                continue
+            plate_key = str(raw_plate.get("id") or raw_plate.get("plate_id") or "").strip() or str(idx + 1)
+            plate_name = str(raw_plate.get("name") or raw_plate.get("plate_name") or "").strip() or f"Plate {idx + 1}"
+            if plate_key in seen_ids:
+                duplicate_skips += 1
+                continue
+            seen_ids.add(plate_key)
+            normalized.append({"plate_key": plate_key, "plate_name": plate_name})
+
+    if normalized:
+        return normalized, duplicate_skips
+
+    return ([{"plate_key": "default", "plate_name": "Default Plate"}], duplicate_skips)
+
+
+def _extract_catalog_file_plates(
+    *,
+    request: Request,
+    model_ref: str,
+    file_id: str,
+    file_name: str,
+    file_type: str | None,
+) -> list[dict[str, str]]:
+    is_3mf = file_name.lower().endswith(".3mf") or "3mf" in str(file_type or "").lower()
+    if not is_3mf:
+        return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+    try:
+        from . import models as models_router
+
+        payload = models_router.get_3mf_plates_endpoint(request=request, model_ref=model_ref, file_id=file_id)
+        if isinstance(payload, JSONResponse):
+            return [{"plate_key": "default", "plate_name": "Default Plate"}]
+        raw_plates = payload.get("plates")
+        if isinstance(raw_plates, list) and raw_plates:
+            return raw_plates
+        return [{"plate_key": "default", "plate_name": "Default Plate"}]
+    except Exception:
+        return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+
+def _extract_working_file_plates(file_path: Path) -> list[dict[str, str]]:
+    if file_path.suffix.lower() != ".3mf":
+        return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+    try:
+        package_bytes = file_path.read_bytes()
+    except Exception:
+        return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+    try:
+        metadata = extract_3mf_plates_metadata(package_bytes)
+    except Exception:
+        return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+    raw_plates = metadata.get("plates")
+    if isinstance(raw_plates, list) and raw_plates:
+        return raw_plates
+    return [{"plate_key": "default", "plate_name": "Default Plate"}]
+
+
+def _resolve_catalog_quick_add_specs(
+    *,
+    state: AppState,
+    request: Request,
+    source_ref: str,
+) -> tuple[list[dict[str, Any]], int, int, str | None]:
+    client = request.app.state.manyfold_client
+    detail = build_model_detail_response(state, client, source_ref, request=request)
+    if detail.get("success") is not True:
+        return [], 0, 0, "catalog model not found"
+
+    model_payload = detail.get("model") if isinstance(detail.get("model"), dict) else {}
+    files = model_payload.get("files") if isinstance(model_payload.get("files"), list) else []
+    if not files:
+        return [], 0, 0, "catalog model has no files"
+
+    specs: list[dict[str, Any]] = []
+    duplicate_file_skips = 0
+    duplicate_plate_skips = 0
+    seen_files: set[str] = set()
+
+    for index, file_obj in enumerate(files):
+        if not isinstance(file_obj, dict):
+            continue
+        file_id = str(file_obj.get("id") or file_obj.get("file_id") or "").strip() or f"catalog-file-{index + 1}"
+        file_name = str(file_obj.get("filename") or file_obj.get("name") or "").strip() or file_id
+        dedupe_key = file_id.lower()
+        if dedupe_key in seen_files:
+            duplicate_file_skips += 1
+            continue
+        seen_files.add(dedupe_key)
+
+        raw_plates = _extract_catalog_file_plates(
+            request=request,
+            model_ref=source_ref,
+            file_id=file_id,
+            file_name=file_name,
+            file_type=str(file_obj.get("file_type") or file_obj.get("content_type") or file_obj.get("asset_type") or ""),
+        )
+        plates, plate_dupes = _normalize_plate_specs(raw_plates)
+        duplicate_plate_skips += plate_dupes
+        specs.append({"file_id": file_id, "file_name": file_name, "plates": plates})
+
+    if not specs:
+        return [], duplicate_file_skips, duplicate_plate_skips, "catalog model has no queueable files"
+
+    return specs, duplicate_file_skips, duplicate_plate_skips, None
+
+
+def _resolve_working_group_quick_add_specs(
+    *,
+    state: AppState,
+    source_ref: str,
+) -> tuple[list[dict[str, Any]], int, int, str | None]:
+    connection = connect(state.settings.db_path)
+    try:
+        group_row = None
+        if source_ref.isdigit():
+            group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (int(source_ref),)).fetchone()
+        if group_row is None:
+            group_row = connection.execute("SELECT * FROM working_groups WHERE slug = ?", (source_ref,)).fetchone()
+        if group_row is None:
+            return [], 0, 0, "working group not found"
+
+        item_rows = connection.execute(
+            "SELECT id, file_path FROM working_items WHERE working_group_id = ? ORDER BY id ASC",
+            (int(group_row["id"]),),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    if not item_rows:
+        return [], 0, 0, "working group has no files"
+
+    specs: list[dict[str, Any]] = []
+    duplicate_file_skips = 0
+    duplicate_plate_skips = 0
+    seen_paths: set[str] = set()
+
+    for row in item_rows:
+        file_path = Path(str(row["file_path"] or "")).expanduser()
+        dedupe_key = str(file_path).replace("\\", "/").lower()
+        if dedupe_key in seen_paths:
+            duplicate_file_skips += 1
+            continue
+        seen_paths.add(dedupe_key)
+
+        file_name = file_path.name or f"working-item-{int(row['id'])}"
+        file_id = f"working-item-{int(row['id'])}"
+        raw_plates = _extract_working_file_plates(file_path)
+        plates, plate_dupes = _normalize_plate_specs(raw_plates)
+        duplicate_plate_skips += plate_dupes
+        specs.append({"file_id": file_id, "file_name": file_name, "plates": plates})
+
+    if not specs:
+        return [], duplicate_file_skips, duplicate_plate_skips, "working group has no queueable files"
+
+    return specs, duplicate_file_skips, duplicate_plate_skips, None
+
+
+def _create_quick_add_units(*, state: AppState, queue_entry_id: str, specs: list[dict[str, Any]]) -> tuple[int, int]:
+    file_units_created = 0
+    plate_units_created = 0
+
+    for file_index, file_spec in enumerate(specs):
+        file_unit_id = f"qfu-{file_index + 1:03d}"
+        created_file = create_unified_queue_file_unit(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            file_unit_id=file_unit_id,
+            file_id=str(file_spec.get("file_id") or "").strip() or None,
+            file_name=str(file_spec.get("file_name") or "").strip() or file_unit_id,
+            selected=True,
+        )
+        file_units_created += 1
+
+        plates = file_spec.get("plates") if isinstance(file_spec.get("plates"), list) else []
+        for plate_index, plate in enumerate(plates):
+            if not isinstance(plate, dict):
+                continue
+            plate_key = str(plate.get("plate_key") or "").strip() or f"plate-{plate_index + 1}"
+            plate_name = str(plate.get("plate_name") or "").strip() or f"Plate {plate_index + 1}"
+            plate_unit_id = f"qpu-{file_index + 1:03d}-{plate_index + 1:03d}"
+            create_unified_queue_plate_unit(
+                db_path=state.settings.db_path,
+                queue_entry_id=queue_entry_id,
+                file_unit_id=created_file.file_unit_id,
+                plate_unit_id=plate_unit_id,
+                plate_key=plate_key,
+                plate_name=plate_name,
+                selected=True,
+                state="pending",
+            )
+            plate_units_created += 1
+
+    return file_units_created, plate_units_created
 
 
 @router.post("/api/unified-queue/entries")
@@ -492,6 +712,10 @@ def add_queue_entry_v1(
             extra={"unsupported_fields": legacy_fields},
         )
 
+    quick_add_specs: list[dict[str, Any]] = []
+    duplicate_file_skips = 0
+    duplicate_plate_skips = 0
+
     try:
         source_kind = _validate_source_kind(body.get("source_kind") or "catalog_model")
         source_ref = str(body.get("source_id") or body.get("source_ref") or "").strip() or None
@@ -508,12 +732,46 @@ def add_queue_entry_v1(
         copies_requested = _coerce_int(body.get("copies", 1), field="copies", minimum=1)
         duration_bucket = _validate_duration_bucket(body.get("duration_bucket")) or "unknown"
 
-        rank = _coerce_optional_int(body.get("rank"), field="rank", minimum=0) or 0
+        rank = _coerce_optional_int(body.get("rank"), field="rank", minimum=0)
+        if rank is None:
+            rank = _next_append_rank(db_path=state.settings.db_path)
 
         ams_fit = _coerce_bool(body.get("ams_fit"), field="ams_fit")
         overnight_fit = _coerce_bool(body.get("overnight_fit"), field="overnight_fit")
         ams_ready_score = 100 if ams_fit is True else 0
         overnight_fit_score = 100 if overnight_fit is True else 0
+
+        quick_add = _coerce_bool(body.get("quick_add"), field="quick_add") is True
+
+        if quick_add:
+            if source_kind == "catalog_model":
+                quick_add_specs, duplicate_file_skips, duplicate_plate_skips, quick_add_error = (
+                    _resolve_catalog_quick_add_specs(
+                        state=state,
+                        request=request,
+                        source_ref=source_ref or "",
+                    )
+                )
+            elif source_kind == "working_group":
+                quick_add_specs, duplicate_file_skips, duplicate_plate_skips, quick_add_error = (
+                    _resolve_working_group_quick_add_specs(
+                        state=state,
+                        source_ref=source_ref or "",
+                    )
+                )
+            else:
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message="quick_add is only supported for source_kind catalog_model and working_group",
+                )
+
+            if quick_add_error:
+                return _error_response(
+                    status_code=404,
+                    error="not_found",
+                    message=quick_add_error,
+                )
 
         queue_notes = str(body.get("queue_notes") or "").strip() or None
 
@@ -548,6 +806,24 @@ def add_queue_entry_v1(
     except Exception as exc:
         return _error_response(status_code=500, error="internal_error", message=str(exc))
 
+    if quick_add_specs:
+        try:
+            file_units_created, plate_units_created = _create_quick_add_units(
+                state=state,
+                queue_entry_id=created.queue_entry_id,
+                specs=quick_add_specs,
+            )
+        except Exception as exc:
+            delete_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=created.queue_entry_id)
+            return _error_response(
+                status_code=500,
+                error="internal_error",
+                message=f"failed to create quick-add file/plate units: {exc}",
+            )
+    else:
+        file_units_created = 0
+        plate_units_created = 0
+
     location = f"/api/unified-queue/entries/{created.queue_entry_id}"
     payload = {
         "success": True,
@@ -555,6 +831,15 @@ def add_queue_entry_v1(
         "printer_id": printer_id,
         "entry": _entry_to_response(created),
     }
+    if quick_add_specs:
+        payload["quick_add"] = {
+            "enabled": True,
+            "selection_mode": "all_files_all_plates",
+            "file_units_created": file_units_created,
+            "plate_units_created": plate_units_created,
+            "duplicate_file_skips": duplicate_file_skips,
+            "duplicate_plate_skips": duplicate_plate_skips,
+        }
     return JSONResponse(status_code=201, content=payload, headers={"Location": location})
 
 
