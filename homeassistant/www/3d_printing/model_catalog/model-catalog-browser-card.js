@@ -1849,13 +1849,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var other = this._coerceNonNegativeInt(counts && counts.other);
     var chips = "";
     if (modelFiles && modelFiles > 0) {
-      chips += this._renderFileKindIconChip(modelFiles, "mdi:cube", "file-kind-chip file-kind-model");
+      chips += this._renderFileKindIconChip(modelFiles, "mdi:cube-outline", "file-kind-chip file-kind-model");
     }
     if (images && images > 0) {
-      chips += this._renderFileKindIconChip(images, "mdi:image", "file-kind-chip file-kind-image");
+      chips += this._renderFileKindIconChip(images, "mdi:image-outline", "file-kind-chip file-kind-image");
     }
     if (other && other > 0) {
-      chips += this._renderFileKindIconChip(other, "mdi:file-document", "file-kind-chip file-kind-other");
+      chips += this._renderFileKindIconChip(other, "mdi:file-outline", "file-kind-chip file-kind-other");
     }
     return chips;
   }
@@ -1874,9 +1874,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _getMdiPath(mdiIcon) {
     // Material Design Icon SVG paths
     var paths = {
-      "mdi:cube": "M12,2L2,7V12H2V17C2,18.1 2.9,19 4,19H20C21.1,19 22,18.1 22,17V7L12,2M12,4.18L19.5,7.5H4.5L12,4.18M4.5,9H19.5V17H4.5V9Z",
-      "mdi:image": "M21,19V5c0-1.1-.9-2-2-2H5c-1.1,0-2,.9-2,2v14c0,1.1.9,2,2,2h14c1.1,0,2-.9,2-2zM8.5,13.5l2.5,3.01L14.5,12l4.5,6H5l3.5-4.5z",
-      "mdi:file-document": "M14,2H6c-1.1,0-2,.9-2,2v16c0,1.1.9,2,2,2h12c1.1,0,2-.9,2-2V8l-8-6z"
+      "mdi:cube-outline": "M21,16V8L12,3L3,8V16L12,21L21,16M12,5.15L18,8.82V15.18L12,18.85L6,15.18V8.82L12,5.15Z",
+      "mdi:image-outline": "M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19C20.1,21 21,20.1 21,19M19,19H5V5H19V19M18,17H6L10.5,11L13.5,15L15.5,12.5L18,17Z",
+      "mdi:file-outline": "M14,2H6C4.89,2 4,2.89 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M14,4L18,8H14V4M18,20H6V4H12V10H18V20Z"
     };
     return paths[mdiIcon] || "";
   }
