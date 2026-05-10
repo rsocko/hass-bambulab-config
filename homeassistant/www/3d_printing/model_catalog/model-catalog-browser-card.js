@@ -1510,20 +1510,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }.bind(this)).join("");
     var hiddenDestinationCount = Math.max(0, publishedTo.length - 3);
 
-    var signalChips = "";
-    if (recent > 0) {
-      signalChips += this._renderModelTagChip("Recent", "signal-chip");
-    }
-    if (frequent > 0) {
-      signalChips += this._renderModelTagChip("Frequent", "signal-chip");
-    }
-    if (common > 0) {
-      signalChips += this._renderModelTagChip("Common", "signal-chip");
-    }
-    if (!signalChips) {
-      signalChips = this._renderModelTagChip("No ranking signal", "subtle-chip");
-    }
-
     var favoriteButton = ''
       + '<button class="icon-action favorite-action' + (modelFavorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(modelFavorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(modelFavorite ? 'Remove favorite' : 'Add favorite') + '">'
       + '  <ha-icon icon="' + this._escapeHtml(modelFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
@@ -1554,14 +1540,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="body compact-full">'
       + '  <div class="compact-title-row">'
       + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
-      + '    <span class="compact-last-printed">' + this._escapeHtml(this._relativeTimeLabel(lastPrintedAt)) + '</span>'
       + '  </div>'
       + '  <div class="metrics compact-metrics">'
-      + this._renderModelMetric('Archives', linkedCount)
+      + this._renderModelMetric('Prints', linkedCount)
       + this._renderModelMetric('Last printed', this._relativeTimeLabel(lastPrintedAt))
       + this._renderModelMetric('Success', successLabel)
       + '  </div>'
-      + '  <div class="chip-row signal-row">' + signalChips + '</div>'
       + '  <div class="compact-tags-row">'
       + '    <div class="tags">' + tagMarkup + '</div>'
       + '    <div class="compact-file-kinds">' + fileKindChipMarkup + '</div>'
