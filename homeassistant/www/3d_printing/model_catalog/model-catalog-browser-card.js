@@ -1545,17 +1545,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<button class="icon-action favorite-action' + (modelFavorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(modelFavorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(modelFavorite ? 'Remove favorite' : 'Add favorite') + '">'
       + '  <ha-icon icon="' + this._escapeHtml(modelFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
       + '</button>';
-    var queueQuickAction = (queueStatus === "queued")
-      ? '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Dequeue</button>'
-      : '<button class="toolbar-btn queue-quick-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queue</button>';
-    var openQuickAction = ''
-      + '<button class="toolbar-btn open-quick-btn" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Open</button>';
+    var queueButtonQueued = queueStatus === "queued";
+    var queueButton = ''
+      + '<button class="icon-action queue-action' + (queueButtonQueued ? ' is-queued' : '') + '" type="button" data-action="' + this._escapeHtml(queueButtonQueued ? 'queue-clear' : 'queue-mark-queued') + '" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="' + this._escapeHtml(queueButtonQueued ? 'Dequeue' : 'Queue') + '">'
+      + '  <ha-icon icon="' + this._escapeHtml(queueButtonQueued ? 'mdi:playlist-remove' : 'mdi:playlist-plus') + '"></ha-icon>'
+      + '</button>';
 
     var compactMainHtml = ''
       + '<div class="body compact-main">'
       + '  <div class="compact-top-actions">'
       + '    <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
+      + queueButton
       + advancedActions
       + '  </div>'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
@@ -1582,8 +1583,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="compact-file-kinds">' + fileKindChipMarkup + '</div>'
       + '  </div>'
       + '  <div class="compact-action-row">'
-      + openQuickAction
-      + queueQuickAction
       + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Source</button>' : '')
       + '  </div>'
       + '</div>';
@@ -1611,8 +1610,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>'
       + '  <div class="media-actions-row">'
       + '    <div class="media-actions">'
-      + openQuickAction
-      + queueQuickAction
       + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Source</button>' : '')
       + '    </div>'
       + '  </div>'
@@ -1629,11 +1626,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '      <div class="list-top-actions">'
       + '        <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
+      + queueButton
       + advancedActions
-      + '      </div>'
-      + '      <div class="list-quick-actions">'
-      + openQuickAction
-      + queueQuickAction
       + '      </div>'
       + '    </div>'
       + '  </div>'
@@ -2158,7 +2152,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:88px minmax(0,1fr);column-gap:10px;padding:10px 12px;align-items:start;}'
-      + '.model-card.is-queued::after{opacity:1;box-shadow:inset 5px 0 0 #f59e0b;}'
+      + '.model-card.is-queued::after{opacity:1;box-shadow:inset 5px 0 0 #3b82f6;}'
       + '.model-card.is-printing::after{opacity:1;box-shadow:inset 5px 0 0 #1e88e5;}'
       + '.model-card.is-done::after{opacity:1;box-shadow:inset 5px 0 0 #2e7d32;}'
       + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
@@ -2202,8 +2196,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
       + '.favorite-action.is-active:hover,.favorite-action.is-active:focus-visible{background:rgba(245,194,66,0.26);color:#f5c242;border-color:rgba(245,194,66,0.62);box-shadow:0 0 0 1px rgba(245,194,66,0.28);transform:translateY(-1px);outline:none;}'
-      + '.queue-quick-btn{min-height:30px;padding:0 10px;font-size:11px;border-radius:999px;}'
-      + '.open-quick-btn{min-height:30px;padding:0 10px;font-size:11px;border-radius:999px;}'
+      + '.queue-action{border-color:rgba(96,165,250,0.30);background:rgba(30,64,175,0.14);color:#93c5fd;}'
+      + '.queue-action:hover,.queue-action:focus-visible{background:rgba(59,130,246,0.20);color:#dbeafe;border-color:rgba(96,165,250,0.52);box-shadow:0 0 0 1px rgba(96,165,250,0.20),0 8px 18px rgba(15,23,42,0.20);transform:translateY(-1px);outline:none;}'
+      + '.queue-action.is-queued{background:rgba(59,130,246,0.24);color:#bfdbfe;border-color:rgba(96,165,250,0.50);}'
+      + '.queue-action.is-queued:hover,.queue-action.is-queued:focus-visible{background:rgba(59,130,246,0.30);color:#eff6ff;border-color:rgba(147,197,253,0.66);box-shadow:0 0 0 1px rgba(96,165,250,0.28),0 10px 22px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}'
@@ -2248,7 +2244,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.list-action-stack{display:grid;gap:6px;justify-items:end;}'
       + '.list-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
       + '.list-top-actions .advanced-menu-shell{margin-left:0;}'
-      + '.list-quick-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
       + '.list-metrics-shell{padding:8px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.09);}'
       + '.list-metrics{gap:6px;}'
       + '.list-bottom-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
@@ -2290,7 +2285,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto;}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions,.list-quick-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'
