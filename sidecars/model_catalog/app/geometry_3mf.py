@@ -161,6 +161,58 @@ def _color_for_extruder(extruder: int | None, palette: list[str]) -> str | None:
 _PAINT_COLOR_DEBUG_LIMIT = 32
 _PAINT_COLOR_DEBUG_SAMPLES: list[tuple[str, int]] = []
 
+# Bambu Studio serializes MMU paint states into compact hex token strings,
+# not direct hex representations of extruder indices. This mirrors the
+# `CONST_FILAMENTS` table in BambuStudio `Model.cpp`.
+_BAMBU_FILAMENT_CODES: list[str] = [
+    "",
+    "4",
+    "8",
+    "0C",
+    "1C",
+    "2C",
+    "3C",
+    "4C",
+    "5C",
+    "6C",
+    "7C",
+    "8C",
+    "9C",
+    "AC",
+    "BC",
+    "CC",
+    "DC",
+    "EC",
+    "0FC",
+    "1FC",
+    "2FC",
+    "3FC",
+    "4FC",
+    "5FC",
+    "6FC",
+    "7FC",
+    "8FC",
+    "9FC",
+    "AFC",
+    "BFC",
+    "CFC",
+    "DFC",
+    "EFC",
+]
+
+_BAMBU_FILAMENT_CODE_TO_EXTRUDER: dict[str, int] = {
+    code: index
+    for index, code in enumerate(_BAMBU_FILAMENT_CODES)
+    if index > 0 and code
+}
+
+# Longest-first match so `1FC` wins over `1C` / `C` prefixes.
+_BAMBU_FILAMENT_CODES_DESC: list[str] = sorted(
+    _BAMBU_FILAMENT_CODE_TO_EXTRUDER.keys(),
+    key=len,
+    reverse=True,
+)
+
 
 def _paint_color_debug_enabled() -> bool:
     return str(os.environ.get("MODEL_CATALOG_PAINT_DEBUG") or "").strip().lower() in {
@@ -183,15 +235,9 @@ def _dominant_extruder_from_paint_color(value: Any) -> int:
     a triangle-subdivision tree where each character is a 4-bit node state
     in depth-first order, with `0` meaning "unpainted / inherit".
 
-    Strategy:
-      * Single-char value -> use it directly (this matches Bambu Studio's
-        per-triangle solid-paint encoding and is exact, not heuristic).
-      * Multi-char value  -> use the FIRST non-zero nibble. This is the
-        root-or-first-leaf state in the depth-first tree walk and is a
-        reasonable preview proxy. It is dramatically more accurate than
-        "most-frequent nibble" for subdivided triangles, where structural
-        bits of the tree encoding can dominate the histogram and produce
-        plausible-but-wrong colors.
+        Strategy:
+            * Prefer Bambu filament token decoding (exact for Bambu/Orca exports).
+            * Fall back to legacy nibble decoding for non-Bambu variants.
 
     Returns the resolved 1-based extruder index, or ``0`` if no paint info
     is present (caller should then fall back to the inherited object
@@ -202,24 +248,44 @@ def _dominant_extruder_from_paint_color(value: Any) -> int:
         return 0
     if text.lower().startswith("0x"):
         text = text[2:]
+    text = text.upper()
     if not text:
         return 0
 
-    resolved = 0
-    if len(text) == 1:
-        try:
-            resolved = int(text, 16)
-        except ValueError:
-            resolved = 0
+    # Exact code match is common for whole-triangle paint.
+    if text in _BAMBU_FILAMENT_CODE_TO_EXTRUDER:
+        resolved = _BAMBU_FILAMENT_CODE_TO_EXTRUDER[text]
     else:
-        for ch in text:
-            try:
-                nibble = int(ch, 16)
-            except ValueError:
-                continue
-            if nibble != 0:
-                resolved = nibble
+        # Subdivided paint strings contain a stream of serialized selector
+        # states. Find the first known filament token to get a stable color
+        # representative for preview grouping.
+        resolved = 0
+        for start in range(len(text)):
+            matched = False
+            for code in _BAMBU_FILAMENT_CODES_DESC:
+                if text.startswith(code, start):
+                    resolved = _BAMBU_FILAMENT_CODE_TO_EXTRUDER[code]
+                    matched = True
+                    break
+            if matched:
                 break
+
+        # Legacy fallback for non-Bambu paint strings.
+        if resolved == 0:
+            if len(text) == 1:
+                try:
+                    resolved = int(text, 16)
+                except ValueError:
+                    resolved = 0
+            else:
+                for ch in text:
+                    try:
+                        nibble = int(ch, 16)
+                    except ValueError:
+                        continue
+                    if nibble != 0:
+                        resolved = nibble
+                        break
 
     if _paint_color_debug_enabled() and len(_PAINT_COLOR_DEBUG_SAMPLES) < _PAINT_COLOR_DEBUG_LIMIT:
         _PAINT_COLOR_DEBUG_SAMPLES.append((text, resolved))

@@ -1408,19 +1408,21 @@ def test_dominant_extruder_from_paint_color_handles_simple_and_subdivided() -> N
     assert _dominant_extruder_from_paint_color(None) == 0
     assert _dominant_extruder_from_paint_color("0") == 0
 
-    # Single-char whole-triangle paint -> exact extruder index.
-    assert _dominant_extruder_from_paint_color("1") == 1
-    assert _dominant_extruder_from_paint_color("4") == 4
-    assert _dominant_extruder_from_paint_color("C") == 12
-    assert _dominant_extruder_from_paint_color("0xC") == 12
+    # Bambu filament token codes are not plain hex extruder indices.
+    # (See BambuStudio `CONST_FILAMENTS` mapping.)
+    assert _dominant_extruder_from_paint_color("4") == 1
+    assert _dominant_extruder_from_paint_color("8") == 2
+    assert _dominant_extruder_from_paint_color("0C") == 3
+    assert _dominant_extruder_from_paint_color("1C") == 4
 
-    # Multi-char (subdivided) -> first non-zero nibble wins. This is the
-    # critical fix vs. the older "most-frequent" heuristic, which would
-    # have returned 4 for "4C" (tie -> smallest) but 4 for "C4" too --
-    # losing the leading state. The new behaviour preserves leading-state.
-    assert _dominant_extruder_from_paint_color("4C") == 4
-    assert _dominant_extruder_from_paint_color("C4") == 12
-    assert _dominant_extruder_from_paint_color("0024") == 2
+    # Subdivided strings should still pick a stable token-derived color.
+    assert _dominant_extruder_from_paint_color("1C0C0C20C0C2") == 4
+    assert _dominant_extruder_from_paint_color("00C0C20C0C6") == 3
+
+    # Legacy fallback for non-token variants.
+    assert _dominant_extruder_from_paint_color("1") == 1
+    assert _dominant_extruder_from_paint_color("0xC") == 12
+    assert _dominant_extruder_from_paint_color("0xE") == 14
     assert _dominant_extruder_from_paint_color("zzz") == 0
 
 
