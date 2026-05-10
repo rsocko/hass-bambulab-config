@@ -1324,6 +1324,61 @@ class ModelDetail3DViewerTab extends HTMLElement {
     });
   }
 
+  _normalizeLocal3mfObjectForViewer(object) {
+    if (!object || !window.THREE) {
+      return;
+    }
+
+    // Keep local-browser 3MF rendering consistent with server geometry path:
+    // map printer XYZ -> viewer XYZ and then center on build surface.
+    object.traverse((child) => {
+      if (!child.isMesh || !child.geometry || !child.geometry.attributes || !child.geometry.attributes.position) {
+        return;
+      }
+      const position = child.geometry.attributes.position;
+      const array = position.array;
+      if (!array || array.length < 3) {
+        return;
+      }
+
+      for (let index = 0; index < array.length; index += 3) {
+        const x = Number(array[index]) || 0;
+        const y = Number(array[index + 1]) || 0;
+        const z = Number(array[index + 2]) || 0;
+
+        array[index] = x;
+        array[index + 1] = z;
+        array[index + 2] = -y;
+      }
+
+      position.needsUpdate = true;
+      child.geometry.computeVertexNormals();
+      child.geometry.computeBoundingBox();
+      child.geometry.computeBoundingSphere();
+    });
+
+    object.updateMatrixWorld(true);
+    const bbox = new window.THREE.Box3().setFromObject(object);
+    if (!bbox || !Number.isFinite(bbox.min.x) || !Number.isFinite(bbox.max.x)
+      || !Number.isFinite(bbox.min.y) || !Number.isFinite(bbox.max.y)
+      || !Number.isFinite(bbox.min.z) || !Number.isFinite(bbox.max.z)) {
+      return;
+    }
+
+    const center = new window.THREE.Vector3();
+    bbox.getCenter(center);
+    const targetCenter = this._buildPlateSizeMm / 2;
+
+    const shiftX = targetCenter - center.x;
+    const shiftZ = targetCenter - center.z;
+    const shiftY = -bbox.min.y;
+
+    object.position.x += shiftX;
+    object.position.y += shiftY;
+    object.position.z += shiftZ;
+    object.updateMatrixWorld(true);
+  }
+
   _load3mfObject(object, filename, options) {
     const opts = options || {};
     const plateObjectIds = opts.plateObjectIds instanceof Set ? opts.plateObjectIds : null;
@@ -1341,7 +1396,17 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
 
     if (object.geometry && object.geometry.isBufferGeometry) {
-      this._loadGeometry({
+      const normalized = this._normalizeParsedGeometryPayload({
+        geometry: {
+          format: 'triangles',
+          coordinate_system: 'printer_xyz',
+          triangle_count: Math.floor(object.geometry.attributes.position.count / 3),
+          vertices: object.geometry.attributes.position.array,
+          groups: [],
+        },
+      });
+
+      this._loadGeometry(normalized || {
         vertices: object.geometry.attributes.position.array,
         normals: object.geometry.attributes.normal ? object.geometry.attributes.normal.array : null,
         triangleCount: Math.floor(object.geometry.attributes.position.count / 3),
@@ -1403,6 +1468,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
         }
       });
     }
+
+    this._normalizeLocal3mfObjectForViewer(object);
 
     let vertexCount = 0;
     object.traverse((child) => {

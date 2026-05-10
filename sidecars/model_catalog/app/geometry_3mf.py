@@ -172,12 +172,11 @@ def _normalize_vertices(
     grouped_vertices: dict[str, dict[str, Any]],
 ) -> tuple[list[float], dict[str, dict[str, Any]]]:
     """
-    Center all vertices on the origin, regardless of their original 3MF coordinates.
-    
-    When a model is positioned at (100, 100, 0) in Bambu Studio, all its vertices
-    retain that offset. This function translates both flattened and grouped vertices
-    so the model is centered on (0, 0, 0), ensuring consistent positioning across
-    all models regardless of where they were originally placed in the 3MF file.
+    Normalize model placement from slicer coordinates.
+
+    In printer space, X/Y represent the bed plane and Z is height above the bed.
+    We center only the bed-plane footprint (X/Y) and floor-snap Z (min Z -> 0)
+    so models are consistently centered without appearing to float.
     
     Args:
         vertices: Flattened list of [x1, y1, z1, x2, y2, z2, ...]
@@ -198,17 +197,17 @@ def _normalize_vertices(
     min_y, max_y = min(y_values), max(y_values)
     min_z, max_z = min(z_values), max(z_values)
     
-    # Calculate center point
+    # Center bed-plane footprint (X/Y); keep Z grounded on the bed.
     center_x = (min_x + max_x) / 2.0
     center_y = (min_y + max_y) / 2.0
-    center_z = (min_z + max_z) / 2.0
+    z_floor = min_z
     
-    # Normalize flattened vertices by translating to center on origin
+    # Normalize flattened vertices (center X/Y, floor-snap Z)
     normalized_vertices: list[float] = []
     for i in range(0, len(vertices), 3):
         normalized_vertices.append(vertices[i] - center_x)
         normalized_vertices.append(vertices[i + 1] - center_y)
-        normalized_vertices.append(vertices[i + 2] - center_z)
+        normalized_vertices.append(vertices[i + 2] - z_floor)
     
     # Normalize grouped vertices likewise
     normalized_groups: dict[str, dict[str, Any]] = {}
@@ -219,7 +218,7 @@ def _normalize_vertices(
         for i in range(0, len(group_verts), 3):
             normalized_group_verts.append(group_verts[i] - center_x)
             normalized_group_verts.append(group_verts[i + 1] - center_y)
-            normalized_group_verts.append(group_verts[i + 2] - center_z)
+            normalized_group_verts.append(group_verts[i + 2] - z_floor)
         normalized_group["vertices"] = normalized_group_verts
         normalized_groups[group_key] = normalized_group
     
