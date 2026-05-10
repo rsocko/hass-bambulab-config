@@ -4,6 +4,11 @@
 > Last updated: 2026-05-09
 > Scope: Operator-facing print queue spanning Curated Catalog models, Working Files / groups, and an Ideas inbox, while preserving the existing backend split across catalog metadata, working-group state, and Bambuddy execution queue.
 
+Implementation companion docs:
+
+- `unified-production-queue-implementation-plan.md`
+- `unified-production-queue-github-issues.md`
+
 ## Purpose
 
 Define a single operator-facing queue that can include:

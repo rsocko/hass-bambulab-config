@@ -38,6 +38,11 @@
 - **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
 - **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 
+### 🧠 Unified Production Queue (Planning + Tracking)
+- **[Unified Production Queue Design](unified-production-queue-design.md)** ← Approved operator-surface design and object model
+- **[Unified Production Queue Implementation Plan](unified-production-queue-implementation-plan.md)** ← End-to-end backend/frontend implementation sequence
+- **[Unified Production Queue GitHub Issues](unified-production-queue-github-issues.md)** ← Click-to-create issue links with prepopulated title/body
+
 ### 🧩 Upload Transport + Desktop Automation (New)
 - **[Intake Browser Upload V2 Contract Design](integration/intake-browser-upload-v2-contract-design.md)** ← Multipart/resumable contract, idempotency, migration, and rollout plan
 - **[StreamDeck Upload Functionality Design](integration/streamdeck-upload-functionality-design.md)** ← Desktop quick-action architecture, workflow modes, retries, and operator feedback
