@@ -23,6 +23,7 @@ from ..db import (
     create_unified_queue_entry,
     delete_unified_queue_entry,
     list_unified_queue_entries,
+    migrate_legacy_catalog_queue_fields,
     read_unified_queue_entry,
     update_unified_queue_entry,
 )
@@ -434,3 +435,18 @@ def delete_entry(queue_entry_id: str, request: Request) -> Any:
             extra={"queue_entry_id": queue_entry_id},
         )
     return {"success": True, "queue_entry_id": queue_entry_id, "deleted": True}
+
+
+@router.post("/api/unified-queue/migrate-legacy")
+def migrate_legacy_queue_compatibility(request: Request, payload: dict[str, Any] = Body(default_factory=dict)) -> Any:
+    """Create unified queue entries from legacy model_catalog queue metadata.
+
+    This operation is idempotent and does not delete legacy fields.
+    """
+    state: AppState = request.app.state.model_catalog
+    actor = str(payload.get("actor") or "api").strip() or "api"
+    try:
+        result = migrate_legacy_catalog_queue_fields(db_path=state.settings.db_path, actor=actor)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+    return result

@@ -215,3 +215,72 @@ def test_unified_queue_state_transition_matrix_and_audit_log(tmp_path: Path) -> 
         assert str(rows[0]["entity_id"]) == entry_id
     finally:
         client.__exit__(None, None, None)
+
+
+def test_unified_queue_migrate_legacy_metadata_creates_entries_and_preserves_fields(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        connection = connect(db_path)
+        try:
+            # Legacy source model queue metadata
+            rows = [
+                ("manyfold_model", "gridfinity-bin", "model_catalog", "to_print_status", '"queued"', "str"),
+                ("manyfold_model", "gridfinity-bin", "model_catalog", "to_print_priority", "8", "int"),
+                ("manyfold_model", "tool-rack", "model_catalog", "to_print_status", '"done"', "str"),
+                ("manyfold_model", "tool-rack", "model_catalog", "to_print_priority", "3", "int"),
+                ("manyfold_model", "phone-stand", "model_catalog", "to_print_status", '"none"', "str"),
+                ("manyfold_model", "phone-stand", "model_catalog", "to_print_priority", "10", "int"),
+            ]
+            for entity_type, entity_id, ns, key, value_json, value_type in rows:
+                connection.execute(
+                    """
+                    INSERT INTO model_catalog_custom_fields (
+                        entity_type, entity_id, field_namespace, field_key, field_value_json, value_type, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                    """,
+                    (entity_type, entity_id, ns, key, value_json, value_type),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+
+        migrate = client.post("/api/unified-queue/migrate-legacy", json={"actor": "test-suite"})
+        assert migrate.status_code == 200
+        payload = migrate.json()
+        assert payload["success"] is True
+        assert payload["legacy_models_detected"] == 3
+        assert payload["candidates"] == 2
+        assert payload["migrated"] == 2
+        assert payload["skipped_none"] == 1
+
+        listing = client.get("/api/unified-queue/entries", params={"source_kind": "catalog_model", "limit": 10, "offset": 0})
+        assert listing.status_code == 200
+        entries = listing.json()["entries"]
+        refs = {entry["source_ref"]: entry for entry in entries}
+        assert "gridfinity-bin" in refs
+        assert "tool-rack" in refs
+        assert refs["gridfinity-bin"]["state"] == "todo"
+        assert refs["tool-rack"]["state"] == "done"
+
+        # Verify legacy custom fields still exist (no data loss)
+        connection = connect(db_path)
+        try:
+            count_row = connection.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM model_catalog_custom_fields
+                WHERE field_key IN ('to_print_status', 'to_print_priority')
+                """
+            ).fetchone()
+        finally:
+            connection.close()
+        assert int(count_row["count"]) == 6
+
+        # Idempotency: re-run migration should not create duplicates
+        rerun = client.post("/api/unified-queue/migrate-legacy", json={"actor": "test-suite"})
+        assert rerun.status_code == 200
+        rerun_payload = rerun.json()
+        assert rerun_payload["migrated"] == 0
+        assert rerun_payload["skipped_existing"] == 2
+    finally:
+        client.__exit__(None, None, None)

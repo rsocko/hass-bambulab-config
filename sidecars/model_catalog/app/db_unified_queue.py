@@ -9,6 +9,7 @@ This module provides CRUD helpers for:
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -727,5 +728,170 @@ def create_unified_queue_transition_audit(
         event_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
         connection.commit()
         return event_id
+    finally:
+        connection.close()
+
+
+def _slugify_legacy_source_ref(value: str) -> str:
+    text = re.sub(r"[^a-zA-Z0-9]+", "-", str(value or "").strip()).strip("-").lower()
+    return text or "legacy"
+
+
+def _legacy_status_to_unified_state(value: object | None) -> str | None:
+    status = str(value or "").strip().lower()
+    if status == "queued":
+        return "todo"
+    if status == "done":
+        return "done"
+    if status in {"", "none", "null"}:
+        return None
+    return None
+
+
+def _legacy_priority_to_int(value: object | None) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def migrate_legacy_catalog_queue_fields(*, db_path: Path, actor: str = "migration") -> dict[str, object]:
+    """Migrate legacy model_catalog custom queue fields into unified queue entries.
+
+    Source fields:
+    - to_print_status
+    - to_print_priority
+    """
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT entity_id, field_key, field_value_json
+            FROM model_catalog_custom_fields
+            WHERE entity_type = 'manyfold_model'
+              AND field_namespace = 'model_catalog'
+              AND field_key IN ('to_print_status', 'to_print_priority')
+            ORDER BY entity_id ASC
+            """
+        ).fetchall()
+
+        by_model: dict[str, dict[str, object]] = {}
+        for row in rows:
+            entity_id = str(row["entity_id"])
+            field_key = str(row["field_key"])
+            try:
+                value = json.loads(str(row["field_value_json"]))
+            except json.JSONDecodeError:
+                value = str(row["field_value_json"])
+            bucket = by_model.setdefault(entity_id, {})
+            bucket[field_key] = value
+
+        existing = connection.execute(
+            """
+            SELECT source_ref
+            FROM unified_queue_entries
+            WHERE source_kind = 'catalog_model'
+            """
+        ).fetchall()
+        existing_refs = {str(row["source_ref"] or "").strip() for row in existing}
+
+        candidates: list[tuple[str, str, int]] = []
+        skipped_none = 0
+        for entity_id, fields in by_model.items():
+            state = _legacy_status_to_unified_state(fields.get("to_print_status"))
+            if state is None:
+                skipped_none += 1
+                continue
+            priority = _legacy_priority_to_int(fields.get("to_print_priority"))
+            candidates.append((entity_id, state, priority))
+
+        candidates.sort(key=lambda item: (-item[2], item[0]))
+
+        migrated_count = 0
+        skipped_existing = 0
+        audit_ids: list[int] = []
+        now = utc_now_iso()
+        for index, (source_ref, unified_state, _priority) in enumerate(candidates, start=1):
+            if source_ref in existing_refs:
+                skipped_existing += 1
+                continue
+
+            queue_entry_id = f"uqe-legacy-{_slugify_legacy_source_ref(source_ref)}"
+            collision = connection.execute(
+                "SELECT 1 FROM unified_queue_entries WHERE queue_entry_id = ?",
+                (queue_entry_id,),
+            ).fetchone()
+            if collision is not None:
+                queue_entry_id = f"{queue_entry_id}-{index}"
+
+            title = f"Legacy Catalog: {source_ref}"
+            connection.execute(
+                """
+                INSERT INTO unified_queue_entries (
+                    queue_entry_id,
+                    source_kind,
+                    source_ref,
+                    title,
+                    state,
+                    rank,
+                    copies_requested,
+                    copies_completed,
+                    selection_mode,
+                    duration_bucket,
+                    ams_ready_score,
+                    overnight_fit_score,
+                    queue_notes,
+                    created_at,
+                    updated_at
+                ) VALUES (?, 'catalog_model', ?, ?, ?, ?, 1, 0, 'all_files_all_plates', 'unknown', 0, 0, ?, ?, ?)
+                """,
+                (
+                    queue_entry_id,
+                    source_ref,
+                    title,
+                    unified_state,
+                    index,
+                    "Migrated from legacy model_catalog queue fields",
+                    now,
+                    now,
+                ),
+            )
+
+            payload = {
+                "queue_entry_id": queue_entry_id,
+                "source_ref": source_ref,
+                "from": {
+                    "to_print_status": by_model.get(source_ref, {}).get("to_print_status"),
+                    "to_print_priority": by_model.get(source_ref, {}).get("to_print_priority"),
+                },
+                "to": {
+                    "state": unified_state,
+                    "rank": index,
+                },
+                "actor": actor,
+                "migrated_at": now,
+            }
+            connection.execute(
+                """
+                INSERT INTO model_catalog_events (event_type, entity_type, entity_id, payload_json, created_at)
+                VALUES ('unified_queue_legacy_migration', 'unified_queue_entry', ?, ?, ?)
+                """,
+                (queue_entry_id, json.dumps(payload, separators=(",", ":")), now),
+            )
+            audit_ids.append(int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]))
+            existing_refs.add(source_ref)
+            migrated_count += 1
+
+        connection.commit()
+        return {
+            "success": True,
+            "legacy_models_detected": len(by_model),
+            "candidates": len(candidates),
+            "migrated": migrated_count,
+            "skipped_existing": skipped_existing,
+            "skipped_none": skipped_none,
+            "audit_event_count": len(audit_ids),
+            "audit_event_ids": audit_ids,
+        }
     finally:
         connection.close()
