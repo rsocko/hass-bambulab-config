@@ -24,8 +24,8 @@ cards:
                 - padding: 10px 8px
                 - border-radius: 0
                 - border: 0
-                - border-top: 3px solid transparent
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - border-top: 1px solid rgba(148, 163, 184, 0.12)
+                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
@@ -49,8 +49,7 @@ cards:
                 styles:
                   card:
                     - background: rgba(96, 165, 250, 0.08)
-                    - border-top: 3px solid var(--primary-color)
-                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
+                    - border-bottom: 3px solid var(--primary-color)
                   name:
                     - color: var(--primary-text-color)
                   icon:
@@ -70,8 +69,8 @@ cards:
                 - padding: 10px 8px
                 - border-radius: 0
                 - border: 0
-                - border-top: 3px solid transparent
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - border-top: 1px solid rgba(148, 163, 184, 0.12)
+                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
@@ -95,8 +94,7 @@ cards:
                 styles:
                   card:
                     - background: rgba(96, 165, 250, 0.08)
-                    - border-top: 3px solid var(--primary-color)
-                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
+                    - border-bottom: 3px solid var(--primary-color)
                   name:
                     - color: var(--primary-text-color)
                   icon:
@@ -116,8 +114,8 @@ cards:
                 - padding: 10px 8px
                 - border-radius: 0
                 - border: 0
-                - border-top: 3px solid transparent
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - border-top: 1px solid rgba(148, 163, 184, 0.12)
+                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
@@ -141,8 +139,7 @@ cards:
                 styles:
                   card:
                     - background: rgba(96, 165, 250, 0.08)
-                    - border-top: 3px solid var(--primary-color)
-                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
+                    - border-bottom: 3px solid var(--primary-color)
                   name:
                     - color: var(--primary-text-color)
                   icon:
@@ -162,8 +159,8 @@ cards:
                 - padding: 10px 8px
                 - border-radius: 0
                 - border: 0
-                - border-top: 3px solid transparent
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - border-top: 1px solid rgba(148, 163, 184, 0.12)
+                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
@@ -187,8 +184,7 @@ cards:
                 styles:
                   card:
                     - background: rgba(96, 165, 250, 0.08)
-                    - border-top: 3px solid var(--primary-color)
-                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
+                    - border-bottom: 3px solid var(--primary-color)
                   name:
                     - color: var(--primary-text-color)
                   icon:
@@ -208,8 +204,8 @@ cards:
                 - padding: 10px 8px
                 - border-radius: 0
                 - border: 0
-                - border-top: 3px solid transparent
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
+                - border-top: 1px solid rgba(148, 163, 184, 0.12)
+                - border-bottom: 3px solid transparent
                 - background: transparent
                 - box-shadow: none
                 - min-height: 48px
@@ -233,8 +229,7 @@ cards:
                 styles:
                   card:
                     - background: rgba(96, 165, 250, 0.08)
-                    - border-top: 3px solid var(--primary-color)
-                    - border-bottom: 1px solid rgba(96, 165, 250, 0.32)
+                    - border-bottom: 3px solid var(--primary-color)
                   name:
                     - color: var(--primary-text-color)
                   icon:
