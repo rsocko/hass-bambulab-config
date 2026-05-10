@@ -150,6 +150,64 @@ def _validate_attempt_outcome(value: object | None) -> str | None:
     return outcome
 
 
+def _parse_csv_values(value: str | None) -> list[str]:
+    if value is None:
+        return []
+    values = [item.strip().lower() for item in str(value).split(",")]
+    return [item for item in values if item]
+
+
+def _parse_sort(sort: str | None, order: str | None) -> tuple[str, str] | None:
+    if not sort:
+        return ("rank", "asc")
+
+    candidate = str(sort).strip().lower()
+    direction = str(order or "").strip().lower() or None
+    field = candidate
+
+    if ":" in candidate:
+        field, suffix = candidate.split(":", 1)
+        if suffix in {"asc", "desc"}:
+            direction = suffix
+    elif candidate.startswith("-"):
+        field = candidate[1:]
+        direction = direction or "desc"
+
+    if field not in {"rank", "created_at", "duration_bucket"}:
+        return None
+
+    resolved_direction = direction or "asc"
+    if resolved_direction not in {"asc", "desc"}:
+        return None
+    return (field, resolved_direction)
+
+
+def _duration_bucket_weight(bucket: str) -> int:
+    mapping = {
+        "quick": 1,
+        "medium": 2,
+        "overnight": 3,
+        "marathon": 4,
+        "unknown": 5,
+    }
+    return mapping.get(str(bucket or "unknown").strip().lower(), 5)
+
+
+def _sort_entries(entries: list[Any], field: str, direction: str) -> list[Any]:
+    reverse = direction == "desc"
+    if field == "rank":
+        return sorted(entries, key=lambda entry: (int(entry.rank), str(entry.created_at)), reverse=reverse)
+    if field == "created_at":
+        return sorted(entries, key=lambda entry: str(entry.created_at), reverse=reverse)
+    if field == "duration_bucket":
+        return sorted(
+            entries,
+            key=lambda entry: (_duration_bucket_weight(str(entry.duration_bucket)), int(entry.rank), str(entry.created_at)),
+            reverse=reverse,
+        )
+    return entries
+
+
 @router.post("/api/unified-queue/entries")
 def create_entry(request: Request, body: dict[str, Any] = Body(default_factory=dict)) -> Any:
     state: AppState = request.app.state.model_catalog
@@ -299,6 +357,91 @@ def list_entries(
             "source_ref": source_ref,
             "state": state,
             "q": q,
+        },
+    }
+
+
+@router.get("/api/v1/queues/{printer_id}/entries")
+def list_queue_entries_v1(
+    printer_id: str,
+    request: Request,
+    state: str | None = None,
+    source_kind: str | None = None,
+    sort: str | None = None,
+    order: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Any:
+    """Compatibility endpoint for queue entry listing with filters and pagination."""
+    state_obj: AppState = request.app.state.model_catalog
+    state_filters = _parse_csv_values(state)
+    source_kind_filters = _parse_csv_values(source_kind)
+    sort_spec = _parse_sort(sort, order)
+
+    try:
+        if limit < 1 or limit > 200:
+            return _error_response(status_code=400, error="validation_error", message="limit must be between 1 and 200")
+        if offset < 0:
+            return _error_response(status_code=400, error="validation_error", message="offset must be >= 0")
+        if sort_spec is None:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message="sort must be one of rank, created_at, duration_bucket with optional :asc or :desc",
+            )
+
+        invalid_states = [candidate for candidate in state_filters if candidate not in VALID_STATES]
+        if invalid_states:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"invalid state filters: {invalid_states}",
+            )
+
+        invalid_sources = [candidate for candidate in source_kind_filters if candidate not in VALID_SOURCE_KINDS]
+        if invalid_sources:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"invalid source_kind filters: {invalid_sources}",
+            )
+
+        entries = list_unified_queue_entries(db_path=state_obj.settings.db_path)
+        filtered = entries
+        if state_filters:
+            allowed_states = set(state_filters)
+            filtered = [entry for entry in filtered if entry.state in allowed_states]
+        if source_kind_filters:
+            allowed_sources = set(source_kind_filters)
+            filtered = [entry for entry in filtered if entry.source_kind in allowed_sources]
+
+        sort_field, sort_direction = sort_spec
+        ordered = _sort_entries(filtered, sort_field, sort_direction)
+
+        total = len(ordered)
+        paged = ordered[offset: offset + limit]
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "entries": [_entry_to_response(entry) for entry in paged],
+        "pagination": {
+            "limit": limit,
+            "offset": offset,
+            "count": len(paged),
+            "total": total,
+            "has_more": (offset + len(paged)) < total,
+        },
+        "filters": {
+            "state": state_filters,
+            "source_kind": source_kind_filters,
+        },
+        "sort": {
+            "field": sort_field,
+            "direction": sort_direction,
         },
     }
 

@@ -36,6 +36,32 @@ When the sidecar is running:
 - `PUT /api/models/{model_ref}/ranking`
 - `POST /api/models/ranking/refresh`
 
+### Unified Queue
+
+- `POST /api/unified-queue/entries`
+- `GET /api/unified-queue/entries/{queue_entry_id}`
+- `GET /api/unified-queue/entries`
+- `PATCH /api/unified-queue/entries/{queue_entry_id}`
+- `DELETE /api/unified-queue/entries/{queue_entry_id}`
+- `POST /api/unified-queue/migrate-legacy`
+- `GET /api/v1/queues/{printer_id}/entries`
+
+`GET /api/v1/queues/{printer_id}/entries` query parameters:
+
+- `state`: comma-separated states (`idea,todo,ready,started,blocked,done`)
+- `source_kind`: comma-separated source kinds (`catalog_model,working_group,working_file,idea`)
+- `sort`: `rank`, `created_at`, or `duration_bucket` with optional `:asc|:desc` (default `rank:asc`)
+- `order`: optional override direction (`asc|desc`) when `sort` does not include suffix
+- `limit`: max results per page (default `50`, max `200`)
+- `offset`: pagination offset (default `0`)
+
+Response includes:
+
+- `entries`: paged queue entries
+- `pagination`: `{ limit, offset, count, total, has_more }`
+- `filters`: normalized applied filters
+- `sort`: resolved sort field and direction
+
 Common custom-field keys exposed through the `fields` endpoints include:
 
 - `to_print_status`

@@ -284,3 +284,99 @@ def test_unified_queue_migrate_legacy_metadata_creates_entries_and_preserves_fie
         assert rerun_payload["skipped_existing"] == 2
     finally:
         client.__exit__(None, None, None)
+
+
+def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        seeds = [
+            {
+                "source_kind": "catalog_model",
+                "source_id": "cat-1",
+                "title": "Catalog One",
+                "state": "todo",
+                "rank": 3,
+                "duration_bucket": "quick",
+            },
+            {
+                "source_kind": "working_group",
+                "source_id": "wg-1",
+                "title": "WG One",
+                "state": "ready",
+                "rank": 1,
+                "duration_bucket": "overnight",
+            },
+            {
+                "source_kind": "working_file",
+                "source_id": "wf-1",
+                "title": "WF One",
+                "state": "started",
+                "rank": 2,
+                "duration_bucket": "medium",
+            },
+            {
+                "source_kind": "idea",
+                "title": "Idea One",
+                "state": "idea",
+                "rank": 4,
+                "duration_bucket": "marathon",
+            },
+        ]
+        for seed in seeds:
+            response = client.post("/api/unified-queue/entries", json=seed)
+            assert response.status_code == 200
+
+        filtered = client.get(
+            "/api/v1/queues/printer-main/entries",
+            params={
+                "state": "todo,ready",
+                "source_kind": "catalog_model,working_group",
+                "sort": "rank:asc",
+                "limit": 10,
+                "offset": 0,
+            },
+        )
+        assert filtered.status_code == 200
+        payload = filtered.json()
+        assert payload["success"] is True
+        assert payload["printer_id"] == "printer-main"
+        assert payload["pagination"]["total"] == 2
+        assert [entry["source_ref"] for entry in payload["entries"]] == ["wg-1", "cat-1"]
+
+        paged = client.get(
+            "/api/v1/queues/printer-main/entries",
+            params={"sort": "rank:asc", "limit": 2, "offset": 1},
+        )
+        assert paged.status_code == 200
+        page_payload = paged.json()
+        assert page_payload["pagination"]["count"] == 2
+        assert page_payload["pagination"]["total"] == 4
+        assert page_payload["pagination"]["has_more"] is True
+
+        duration_sorted = client.get(
+            "/api/v1/queues/printer-main/entries",
+            params={"sort": "duration_bucket:desc", "limit": 10, "offset": 0},
+        )
+        assert duration_sorted.status_code == 200
+        ordered_states = [entry["duration_bucket"] for entry in duration_sorted.json()["entries"]]
+        assert ordered_states[0] == "unknown" or ordered_states[0] == "marathon"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_queue_entries_v1_validation_errors(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        bad_state = client.get("/api/v1/queues/p1/entries", params={"state": "todo,wat"})
+        assert bad_state.status_code == 400
+
+        bad_source = client.get("/api/v1/queues/p1/entries", params={"source_kind": "catalog_model,bad"})
+        assert bad_source.status_code == 400
+
+        bad_sort = client.get("/api/v1/queues/p1/entries", params={"sort": "priority:asc"})
+        assert bad_sort.status_code == 400
+
+        bad_limit = client.get("/api/v1/queues/p1/entries", params={"limit": 0})
+        assert bad_limit.status_code == 400
+    finally:
+        client.__exit__(None, None, None)
