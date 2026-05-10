@@ -12,6 +12,11 @@ Use the links below to create GitHub issues with prepopulated title and body.
 2. Create UQ-06 through UQ-09 (frontend implementation).
 3. Create UQ-10 last (integration hardening and release checklist).
 
+Database guardrail for all backend issues:
+
+- Unified queue tables belong in the existing sidecar database (`model_catalog.db`, via `MODEL_CATALOG_DB_PATH`) using normal migrations.
+- Do not create a separate `queue.db` or second queue-only database.
+
 ## Implementation References
 
 - `unified-production-queue-design.md`
@@ -24,6 +29,8 @@ Use the links below to create GitHub issues with prepopulated title and body.
 ## UQ-01
 
 [Create UQ-01](https://github.com/rsocko/hass-bambulab-config/issues/new?title=UQ-01:%20Backend%20schema%20for%20unified%20production%20queue%20entries%20and%20printable%20units&body=Parent:%20%23unified-production-queue-epic%0ASummary:%20Implement%20sidecar%20schema%20and%20persistence%20for%20queue%20entries%2C%20file%20units%2C%20and%20plate%20units.%0AAcceptance:%20CRUD%20round-trip%20tests%20pass%20for%20entry%2Ffile%2Fplate%20records.%0ARefs:%20docs/features/model_catalog/unified-production-queue-design.md%2C%20docs/features/model_catalog/unified-production-queue-implementation-plan.md)
+
+Implementation note: Use existing `model_catalog.db` migrations; do not create a separate queue database.
 
 ## UQ-02
 

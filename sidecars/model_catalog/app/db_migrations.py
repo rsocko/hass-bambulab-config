@@ -422,6 +422,114 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,
         ),
     ),
+        (
+        17,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS unified_queue_entries (
+        id INTEGER PRIMARY KEY,
+        queue_entry_id TEXT NOT NULL UNIQUE,
+        source_kind TEXT NOT NULL,
+        source_ref TEXT,
+        title TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'todo',
+        rank INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT,
+        completed_at TEXT,
+        blocked_reason TEXT,
+        copies_requested INTEGER NOT NULL DEFAULT 1,
+        copies_completed INTEGER NOT NULL DEFAULT 0,
+        selection_mode TEXT NOT NULL DEFAULT 'all_files_all_plates',
+        estimated_total_minutes INTEGER,
+        duration_bucket TEXT NOT NULL DEFAULT 'unknown',
+        ams_ready_score INTEGER NOT NULL DEFAULT 0,
+        overnight_fit_score INTEGER NOT NULL DEFAULT 0,
+        queue_notes TEXT,
+        last_archive_id TEXT,
+        last_attempt_outcome TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (source_kind IN ('catalog_model', 'working_group', 'working_file', 'idea')),
+        CHECK (state IN ('idea', 'todo', 'ready', 'started', 'done', 'blocked')),
+        CHECK (selection_mode IN ('all_files_all_plates', 'selected_files', 'selected_plates')),
+        CHECK (duration_bucket IN ('quick', 'medium', 'overnight', 'marathon', 'unknown')),
+        CHECK (last_attempt_outcome IS NULL OR last_attempt_outcome IN ('success', 'failed', 'aborted', 'unknown'))
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_entries_rank
+        ON unified_queue_entries(rank ASC, created_at ASC)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_entries_state
+        ON unified_queue_entries(state)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_entries_source
+        ON unified_queue_entries(source_kind, source_ref)
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS unified_queue_file_units (
+        id INTEGER PRIMARY KEY,
+        queue_entry_id TEXT NOT NULL,
+        file_unit_id TEXT NOT NULL,
+        file_id TEXT,
+        file_name TEXT NOT NULL,
+        selected INTEGER NOT NULL DEFAULT 1,
+        estimated_minutes INTEGER,
+        filament_requirements_json TEXT NOT NULL DEFAULT '{}',
+        archive_link_summary_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (queue_entry_id) REFERENCES unified_queue_entries(queue_entry_id) ON DELETE CASCADE,
+        UNIQUE(queue_entry_id, file_unit_id)
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_file_units_entry
+        ON unified_queue_file_units(queue_entry_id)
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS unified_queue_plate_units (
+        id INTEGER PRIMARY KEY,
+        queue_entry_id TEXT NOT NULL,
+        file_unit_id TEXT NOT NULL,
+        plate_unit_id TEXT NOT NULL,
+        plate_key TEXT NOT NULL,
+        plate_name TEXT,
+        preview_image_path TEXT,
+        selected INTEGER NOT NULL DEFAULT 1,
+        state TEXT NOT NULL DEFAULT 'pending',
+        completed_by_archive_id TEXT,
+        completion_confidence TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        last_attempt_outcome TEXT,
+        estimated_minutes INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (queue_entry_id, file_unit_id)
+            REFERENCES unified_queue_file_units(queue_entry_id, file_unit_id)
+            ON DELETE CASCADE,
+        UNIQUE(queue_entry_id, file_unit_id, plate_unit_id),
+        CHECK (state IN ('pending', 'started', 'done', 'blocked')),
+        CHECK (completion_confidence IS NULL OR completion_confidence IN ('high', 'medium', 'low')),
+        CHECK (last_attempt_outcome IS NULL OR last_attempt_outcome IN ('success', 'failed', 'aborted', 'unknown'))
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_plate_units_entry
+        ON unified_queue_plate_units(queue_entry_id)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_plate_units_file
+        ON unified_queue_plate_units(queue_entry_id, file_unit_id)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_plate_units_state
+        ON unified_queue_plate_units(state)
+        """,
+        ),
+        ),
 )
 
 

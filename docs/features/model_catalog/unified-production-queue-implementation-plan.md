@@ -46,6 +46,11 @@ Issue links (prepopulated title/body):
 - Home Assistant frontend (custom JS cards) owns operator UX.
 - Bambuddy remains execution queue/history-adjacent and should not be overloaded as the unified planning store.
 
+Database guardrail:
+
+- Unified queue storage must use the existing sidecar SQLite database (`model_catalog.db` via `MODEL_CATALOG_DB_PATH`) and existing migration system.
+- Do not create a separate `queue.db` or any second queue-specific database file.
+
 ## Data model (minimum implementation slice)
 
 - Queue Entry: source identity, state, rank, notes, copies, estimate, planner scores.
@@ -65,7 +70,7 @@ Issue links (prepopulated title/body):
 
 Deliverables:
 
-- Persistent schema for queue entries + file/plate units.
+- Persistent schema for queue entries + file/plate units in the existing `model_catalog.db` (migration-managed).
 - API for queue CRUD + reorder + valid state transitions.
 - Add-to-queue service contract for quick/advanced selection.
 
@@ -126,6 +131,7 @@ Acceptance gate:
 - Keep Layer 1/Layer 2/Layer 3 boundaries intact for print history data contracts.
 - If JS assets are added/changed under `homeassistant/www/**`, bump matching resource URL versions in `homeassistant/packages/3d_printing/common/dashboards/_resources.yaml`.
 - Preserve compatibility with current model-catalog queue fields while introducing unified queue storage.
+- Extend existing `db_migrations.py` and `db_unified_queue.py` patterns; do not introduce a second SQLite file for queue data.
 
 ## Test Plan (Minimum)
 

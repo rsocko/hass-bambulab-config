@@ -62,6 +62,26 @@ from .db_models import (
     read_model_fields,
     set_model_field,
 )
+from .db_unified_queue import (
+    UnifiedQueueEntry,
+    UnifiedQueueFileUnit,
+    UnifiedQueuePlateUnit,
+    create_unified_queue_entry,
+    create_unified_queue_file_unit,
+    create_unified_queue_plate_unit,
+    delete_unified_queue_entry,
+    delete_unified_queue_file_unit,
+    delete_unified_queue_plate_unit,
+    list_unified_queue_entries,
+    list_unified_queue_file_units,
+    list_unified_queue_plate_units,
+    read_unified_queue_entry,
+    read_unified_queue_file_unit,
+    read_unified_queue_plate_unit,
+    update_unified_queue_entry,
+    update_unified_queue_file_unit,
+    update_unified_queue_plate_unit,
+)
 
 
 @dataclass(frozen=True)
@@ -148,6 +168,25 @@ __all__ = [
     "read_model_fields",
     "read_model_field",
     "delete_model_field",
+    # Unified queue operations
+    "UnifiedQueueEntry",
+    "UnifiedQueueFileUnit",
+    "UnifiedQueuePlateUnit",
+    "create_unified_queue_entry",
+    "read_unified_queue_entry",
+    "list_unified_queue_entries",
+    "update_unified_queue_entry",
+    "delete_unified_queue_entry",
+    "create_unified_queue_file_unit",
+    "read_unified_queue_file_unit",
+    "list_unified_queue_file_units",
+    "update_unified_queue_file_unit",
+    "delete_unified_queue_file_unit",
+    "create_unified_queue_plate_unit",
+    "read_unified_queue_plate_unit",
+    "list_unified_queue_plate_units",
+    "update_unified_queue_plate_unit",
+    "delete_unified_queue_plate_unit",
     # Migrations (re-exported for backward compatibility)
     "MIGRATION_TABLE_STATEMENT",
     "MIGRATIONS",
