@@ -239,7 +239,7 @@ After all Phase 2 refactoring is complete, run comprehensive test suite and perf
 
 ### Acceptance Criteria
 - [ ] Run `pytest tests/sidecars/test_model_catalog_sidecar.py -v` - 100% pass rate
-- [ ] Run `pytest tests/sidecars/test_manyfold_upload_adapter.py -v` - 100% pass rate
+- [ ] Legacy Manyfold adapter tests are archived at `archive/model_catalog/legacy_tests/test_manyfold_upload_adapter.py` and excluded from default suite
 - [ ] Code coverage >= 80% for all routers and services
 - [ ] No performance regression on key operations:
   - Model list (< 500ms for 1000 models)

@@ -112,7 +112,8 @@ Compatibility aliases:
 Post-Manyfold note:
 
 - The queue, source-selection, and cleanup-policy routes below remain valid and shipped.
-- The `upload-to-manyfold` route is retained as a legacy transition adapter, not the active authoritative path.
+- `POST /api/intake/uploads/{upload_id}/publish-to-local` is the authoritative publish path.
+- `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` is retained only as a legacy transition adapter and should not be used for new primary workflows.
 - The active migration direction is sidecar-owned catalog authority as documented in `post-manyfold-transition-plan-2026-04.md`.
 
 Route family:

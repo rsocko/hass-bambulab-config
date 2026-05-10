@@ -15,6 +15,7 @@
   
 - **Requirement:** Run `pytest tests/sidecars/test_manyfold_upload_adapter.py -v` - 100% pass rate
   - **Result:** ✅ **11 PASSED** (100% pass rate)
+  - **Note (Issue #1222):** Test suite archived to `archive/model_catalog/legacy_tests/test_manyfold_upload_adapter.py` post-Manyfold transition (Manyfold no longer the authoritative publish path; authoritative path is `/publish-to-local`)
   
 - **Combined Total:** ✅ **66 TESTS PASSING**
 
@@ -58,10 +59,12 @@
 ### ✅ Test Results Summary
 ```
 tests/sidecars/test_model_catalog_sidecar.py    53 PASSED
-tests/sidecars/test_manyfold_upload_adapter.py  11 PASSED
+tests/sidecars/test_manyfold_upload_adapter.py  11 PASSED (archived to legacy_tests/)
                                           ──────────────
                                     TOTAL: 66 PASSED
 ```
+
+**Archive Note (Issue #1222):** Manyfold adapter tests archived post-Manyfold transition. See `archive/model_catalog/legacy_tests/` for complete test suite and rationale.
 
 ### ✅ Performance Improvement Summary
 - **Implementation:** Added missing `upload-to-manyfold` endpoint

@@ -152,6 +152,8 @@ detail_payload = None
 - ✅ Model catalog sidecar tests (89+ tests) - PASS
 - ✅ Zero regressions on existing endpoint tests
 
+**Note (Issue #1222):** Manyfold adapter tests archived post-Manyfold transition (no longer the authoritative publish path). See `archive/model_catalog/legacy_tests/test_manyfold_upload_adapter.py` for historical test suite. Results below retained for reference.
+
 ### Key Test Validations
 ```
 ============================= test session starts =============================
@@ -255,13 +257,13 @@ tests/sidecars/test_model_catalog_sidecar.py & test_manyfold_upload_adapter.py
 For verification, run:
 
 ```bash
-# Verify critical test passes
-pytest tests/sidecars/test_manyfold_upload_adapter.py::test_intake_cleanup_endpoint_retries_cleanup_failed_upload -v
+# Verify critical test passes (archived; see archive/model_catalog/legacy_tests/)
+pytest archive/model_catalog/legacy_tests/test_manyfold_upload_adapter.py::test_intake_cleanup_endpoint_retries_cleanup_failed_upload -v
 
-# Verify all adapter tests pass
-pytest tests/sidecars/test_manyfold_upload_adapter.py -v
+# Verify all adapter tests pass (archived; see archive/model_catalog/legacy_tests/)
+pytest archive/model_catalog/legacy_tests/test_manyfold_upload_adapter.py -v
 
-# Verify model catalog tests pass
+# Verify model catalog tests pass (active)
 pytest tests/sidecars/test_model_catalog_sidecar.py -v
 ```
 

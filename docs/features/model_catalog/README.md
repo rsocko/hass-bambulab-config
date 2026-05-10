@@ -63,6 +63,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 ### Historical/Compatibility Context
 
 - [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md) — Authoritative migration plan and sequential phase roadmap
+- [Legacy Router Snapshot Policy](../../../archive/model_catalog/legacy_router_snapshots/README.md) — Maintainer rule for where inactive router backups must live
 - [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Historical analysis retained for context and optional future adapter work
 - [External Storage Behavior](external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
 - [Implementation Strategy Options](implementation-strategy-options.md) — Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking

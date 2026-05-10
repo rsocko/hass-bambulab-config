@@ -80,7 +80,7 @@ sidecars/model_catalog/app/routers/
 - Backward-compatible helper exports for tests
 - Router re-exports for smooth migration
 
-**Note:** The legacy `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` endpoint (1000+ lines) remains in the original backup due to complexity and token constraints. It can be refactored in a separate task if needed.
+**Note:** `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` remains shipped as a legacy transition adapter in the active `intake.py` router. It is not the authoritative publish path.
 
 ## Backward Compatibility
 
@@ -133,7 +133,7 @@ All routers have valid Python syntax. Integration tests should verify:
 1. Queue endpoints work with validation
 2. Verification endpoints create working groups correctly
 3. Cleanup operations execute with proper policies
-4. Publishing endpoints remain functional (legacy support)
+4. Publishing endpoints remain functional (`publish-to-local` authoritative; `upload-to-manyfold` transition-only)
 5. State machine transitions are enforced
 
 ## Files Modified/Created
@@ -147,16 +147,21 @@ CREATED:
 MODIFIED:
 - sidecars/model_catalog/app/routers/intake.py (3161 → 600 lines, now coordinator)
 
-PRESERVED:
-- sidecars/model_catalog/app/routers/intake_old.py (backup of original)
+ARCHIVED (historical reference only):
+- archive/model_catalog/legacy_router_snapshots/intake_old.py (snapshot of original pre-decomposition router)
 ```
 
 ## Future Work
 
-1. **Complete Manyfold Adapter Refactoring**: The `upload-to-manyfold` endpoint can be moved to `intake_publishing.py` when appropriate
+1. **Complete Manyfold Adapter Refactoring**: If retained, keep `upload-to-manyfold` isolated as transition-only adapter logic
 2. **Service Layer Extraction**: Consider extracting queue logic to `services/intake_queue_service.py` if more complex operations are added
 3. **Integration Tests**: Add comprehensive integration tests for the new router structure
 4. **Performance Monitoring**: Monitor if the router split affects performance in any way
+
+## Maintainer Note
+
+- Keep inactive router snapshots out of `sidecars/model_catalog/app/routers/`.
+- Store historical snapshots under `archive/model_catalog/legacy_router_snapshots/` with an explicit reference-only header.
 
 ## Deployment Notes
 
