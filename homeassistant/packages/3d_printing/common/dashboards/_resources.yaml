@@ -5,9 +5,9 @@
   type: module
 - url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=139
+- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=140
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=47
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=48
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=2
   type: module

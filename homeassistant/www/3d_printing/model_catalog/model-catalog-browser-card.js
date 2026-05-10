@@ -1329,7 +1329,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._fireBrowserModEvent("browser_mod.popup", {
       title: nextMode === "server" ? "Import From Server Inbox" : "Upload Files or Folders",
-      size: "fullscreen",
+      size: "wide",
+      dismissable: false,
       content: {
         type: "custom:model-catalog-intake-home-card",
         launch_wizard: nextMode,
