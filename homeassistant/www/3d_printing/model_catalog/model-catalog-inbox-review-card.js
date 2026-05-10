@@ -860,6 +860,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       ? '<section class="section"><div class="toolbar-row"><div class="button-row"><button class="button' + (isActiveQueueView ? ' primary' : '') + '" data-action="switch-view" data-view="active_queue">Active Queue (' + String(activeQueueCount) + ')</button><button class="button' + (this._currentView === 'job_history' ? ' primary' : '') + '" data-action="switch-view" data-view="job_history">Job History (' + String(jobHistoryCount) + ')</button></div></div></section>'
       : '<section class="section"><div class="toolbar-row"><div class="status">Showing completed Job History only. Active Queue remains available through background/admin paths.</div></div></section>';
     var confirmStyles = ''
+      + 'ha-card{border-radius:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;}'
       + '.confirm-overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;box-sizing:border-box;}'
       + '.confirm-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);}'
       + '.confirm-dialog{position:relative;display:grid;gap:10px;width:min(460px,100%);max-height:calc(100% - 16px);overflow:auto;padding:16px;border-radius:14px;border:1px solid rgba(148,163,184,0.28);background:var(--card-background-color,rgba(15,23,42,0.98));box-shadow:0 18px 42px rgba(2,6,23,0.45);}'

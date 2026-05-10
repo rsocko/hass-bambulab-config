@@ -19,7 +19,7 @@ cards:
                 option: home
             styles:
               card:
-                - padding: 10px 10px
+                - padding: 10px 8px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -31,7 +31,7 @@ cards:
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
-                - column-gap: 8px
+                - column-gap: 6px
                 - align-items: center
               name:
                 - font-size: 13px
@@ -79,7 +79,7 @@ cards:
                 option: curated
             styles:
               card:
-                - padding: 10px 10px
+                - padding: 10px 8px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -91,7 +91,7 @@ cards:
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
-                - column-gap: 8px
+                - column-gap: 6px
                 - align-items: center
               name:
                 - font-size: 13px
@@ -139,7 +139,7 @@ cards:
                 option: working
             styles:
               card:
-                - padding: 10px 10px
+                - padding: 10px 8px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -151,7 +151,7 @@ cards:
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
-                - column-gap: 8px
+                - column-gap: 6px
                 - align-items: center
               name:
                 - font-size: 13px
@@ -199,7 +199,7 @@ cards:
                 option: intake
             styles:
               card:
-                - padding: 10px 10px
+                - padding: 10px 8px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -211,7 +211,7 @@ cards:
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
-                - column-gap: 8px
+                - column-gap: 6px
                 - align-items: center
               name:
                 - font-size: 13px
@@ -259,7 +259,7 @@ cards:
                 option: inbox
             styles:
               card:
-                - padding: 10px 10px
+                - padding: 10px 8px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -271,7 +271,7 @@ cards:
               grid:
                 - grid-template-areas: '"i n"'
                 - grid-template-columns: min-content 1fr
-                - column-gap: 8px
+                - column-gap: 6px
                 - align-items: center
               name:
                 - font-size: 13px
@@ -307,42 +307,6 @@ cards:
                     - color: var(--primary-text-color)
                   icon:
                     - color: var(--primary-color)
-          - type: custom:button-card
-            show_name: false
-            show_icon: false
-            show_state: false
-            tap_action:
-              action: none
-            hold_action:
-              action: none
-            styles:
-              card:
-                - padding: 0
-                - margin: 0
-                - border-radius: 0
-                - border: none
-                - border-bottom: 1px solid rgba(148, 163, 184, 0.22)
-                - background: transparent
-                - box-shadow: none
-                - min-height: 48px
-                - height: 48px
-                - width: 100%
-      - type: custom:button-card
-        show_name: false
-        show_icon: false
-        show_state: false
-        tap_action:
-          action: none
-        styles:
-          card:
-            - height: 1px
-            - min-height: 1px
-            - padding: 0
-            - margin: -1px 0 0 0
-            - border: none
-            - border-radius: 0
-            - box-shadow: none
-            - background: rgba(148, 163, 184, 0.22)
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
@@ -352,7 +316,7 @@ cards:
           cards:
             - type: markdown
               content: |
-                <div style="padding:0 10px;">
+                <div style="padding:0 14px;">
 
                 **Workspace overview**
 
@@ -377,7 +341,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
-                      - margin: 0 6px
+                      - margin: 0 10px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -402,7 +366,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
-                      - margin: 0 6px
+                      - margin: 0 10px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -427,7 +391,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
-                      - margin: 0 6px
+                      - margin: 0 10px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -452,7 +416,7 @@ cards:
                   styles:
                     card:
                       - padding: 18px
-                      - margin: 0 6px
+                      - margin: 0 10px
                       - border-radius: 20px
                       - text-align: left
                     name:
@@ -465,7 +429,7 @@ cards:
                       - color: var(--secondary-text-color)
             - type: markdown
               content: |
-                <div style="padding:0 10px;">
+                <div style="padding:0 14px;">
 
                 **Workspace shell**
 

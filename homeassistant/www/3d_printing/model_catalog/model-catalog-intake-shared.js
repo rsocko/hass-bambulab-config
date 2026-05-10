@@ -677,7 +677,7 @@
 
   var sharedStyles = ""
     + "ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}"
-    + ".shell{display:grid;gap:14px;padding:10px;}"
+    + ".shell{display:grid;gap:14px;padding:6px 10px 10px;}"
     + ".header{display:grid;gap:8px;}"
     + ".title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}"
     + ".title{font-size:18px;font-weight:800;line-height:1.2;}"
@@ -731,7 +731,7 @@
     + ".link-button{background:transparent;border:0;padding:0;margin-left:8px;font:inherit;color:#fbbf24;text-decoration:underline;cursor:pointer;}"
     + ".link-button:hover{color:#fde047;}"
     + ".hidden-upload-input{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}"
-    + "@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:14px;}}";
+    + "@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:6px 10px 10px;}}";
 
   window.ModelCatalogIntakeShared = {
     authHeaders: authHeaders,

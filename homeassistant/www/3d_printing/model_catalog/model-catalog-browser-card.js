@@ -1328,8 +1328,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     this._fireBrowserModEvent("browser_mod.popup", {
-      title: nextMode === "server" ? "Import From Server Inbox" : "Upload Files or Folders",
-      size: "fullscreen",
+      size: "wide",
       dismissable: false,
       content: {
         type: "custom:model-catalog-intake-home-card",
@@ -1874,7 +1873,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _getMdiPath(mdiIcon) {
     // Material Design Icon SVG paths
     var paths = {
-      "mdi:cube-outline": "M21,16V8L12,3L3,8V16L12,21L21,16M12,5.15L18,8.82V15.18L12,18.85L6,15.18V8.82L12,5.15Z",
+      "mdi:cube-outline": "M21,16V8L12,3L3,8V16L12,21L21,16M12,5.15L18.74,9L12,12.85L5.26,9L12,5.15M5,10.73L11,14.16V19.54L5,16.11V10.73M13,19.54V14.16L19,10.73V16.11L13,19.54Z",
       "mdi:image-outline": "M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19C20.1,21 21,20.1 21,19M19,19H5V5H19V19M18,17H6L10.5,11L13.5,15L15.5,12.5L18,17Z",
       "mdi:file-outline": "M14,2H6C4.89,2 4,2.89 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M14,4L18,8H14V4M18,20H6V4H12V10H18V20Z"
     };
@@ -1979,7 +1978,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<style>'
       + ':host{--surface-1:rgba(15,23,42,0.12);--surface-2:rgba(15,23,42,0.22);--line:rgba(148,163,184,0.18);--line-strong:rgba(148,163,184,0.28);--accent:rgba(96,165,250,0.22);--accent-strong:rgba(96,165,250,0.38);--chip-bg:rgba(148,163,184,0.12);--chip-line:rgba(148,163,184,0.24);}'
       + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}'
-      + '.shell{display:grid;gap:14px;padding:10px;}'
+      + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
       + '.shell-header{display:grid;gap:10px;}'
       + '.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-1);}'
       + '.title-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}'
@@ -2152,7 +2151,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto;}}'
       + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds{justify-content:flex-start;}.list-grid{min-width:760px;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.page-control-strip{justify-content:flex-start;}}'
-      + '@media (max-width: 560px){.shell{padding:10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
+      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'
       + '  <div class="shell">'

@@ -165,7 +165,7 @@
 
   var sharedStyles = ''
     + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}'
-    + '.shell{display:grid;gap:14px;padding:10px;}'
+    + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
     + '.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
     + '.title{font-size:18px;font-weight:800;line-height:1.2;}'
     + '.subtitle{font-size:12px;color:var(--secondary-text-color);}'
@@ -201,7 +201,7 @@
     + '.state-row{padding:18px;border-radius:14px;border:1px dashed rgba(148,163,184,0.28);text-align:center;color:var(--secondary-text-color);}'
     + '.split{display:grid;gap:12px;grid-template-columns:minmax(260px, 1fr) minmax(360px, 2fr);}'
     + '.selector{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
-    + '@media (max-width: 900px){.split,.grid{grid-template-columns:1fr;}.shell{padding:10px;}}';
+    + '@media (max-width: 900px){.split,.grid{grid-template-columns:1fr;}.shell{padding:6px 10px 10px;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
     constructor() {
