@@ -1787,8 +1787,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _renderWizard() {
+    var directLaunchMode = !!this._normalizeLaunchWizardMode(this._launchWizardMode);
     return ''
-      + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
+      + '<div class="wizard-modal' + (directLaunchMode ? ' launch-direct' : '') + '" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
       + '  <div class="wizard-backdrop"></div>'
       + '  <div class="wizard-dialog">'
       + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div></div></div>'
@@ -2090,6 +2091,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
       + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
       + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
+      + '.wizard-modal.launch-direct{position:relative;inset:auto;z-index:auto;display:block;padding:0;}'
+      + '.wizard-modal.launch-direct .wizard-backdrop{display:none;}'
+      + '.wizard-modal.launch-direct .wizard-dialog{width:100%;max-width:100%;max-height:none;border-radius:0;border:0;box-shadow:none;padding:16px;}'
       + '.wizard-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}'
       + '.wizard-progress{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}'
       + '.wizard-step{display:grid;gap:6px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(30,41,59,0.45);}'
