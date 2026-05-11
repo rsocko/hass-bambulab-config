@@ -141,10 +141,22 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _toggleSourceFilter(source) {
-    if (this._filters.sources.includes(source)) {
-      this._filters.sources = this._filters.sources.filter(s => s !== source);
+    if (source === 'working_files') {
+      const workingKinds = ['working_group', 'working_file'];
+      const anyActive = workingKinds.some(k => this._filters.sources.includes(k));
+      if (anyActive) {
+        this._filters.sources = this._filters.sources.filter(s => !workingKinds.includes(s));
+      } else {
+        workingKinds.forEach(k => {
+          if (!this._filters.sources.includes(k)) this._filters.sources.push(k);
+        });
+      }
     } else {
-      this._filters.sources.push(source);
+      if (this._filters.sources.includes(source)) {
+        this._filters.sources = this._filters.sources.filter(s => s !== source);
+      } else {
+        this._filters.sources.push(source);
+      }
     }
     this._saveFilterState();
     this._render();
@@ -714,8 +726,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const sourceId = String(entry.source_id || entry.source_ref || '').trim() || 'n/a';
     const sourceMap = {
       catalog_model: { icon: 'CAT', label: 'Catalog' },
-      working_group: { icon: 'WRK', label: 'Working Group' },
-      working_file: { icon: 'FIL', label: 'Working File' },
+      working_group: { icon: 'WRK', label: 'Working File' },
+      working_file: { icon: 'WRK', label: 'Working File' },
       idea: { icon: 'IDE', label: 'Idea' },
     };
     const mapped = sourceMap[sourceKind] || { icon: 'SRC', label: 'Source' };
@@ -1496,23 +1508,27 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _renderSourceFilterButtons() {
-    const sources = ['catalog_model', 'working_group', 'working_file', 'idea'];
-    const labels = {
-      'catalog_model': 'Catalog',
-      'working_group': 'Working',
-      'working_file': 'File',
-      'idea': 'Ideas',
-    };
-    return sources.map(source => `
-      <button 
-        class="filter-btn ${this._filters.sources.includes(source) ? 'active' : ''}"
-        data-action="toggle-source"
-        data-source="${source}"
-        title="Toggle ${labels[source]} filter"
-      >
-        ${labels[source]}
-      </button>
-    `).join('');
+    const uiSources = [
+      { key: 'catalog_model', label: 'Catalog' },
+      { key: 'working_files', label: 'Working Files' },
+      { key: 'idea', label: 'Ideas' },
+    ];
+    const isWorkingFilesActive = this._filters.sources.includes('working_group') || this._filters.sources.includes('working_file');
+    return uiSources.map(({ key, label }) => {
+      const isActive = key === 'working_files'
+        ? isWorkingFilesActive
+        : this._filters.sources.includes(key);
+      return `
+        <button 
+          class="filter-btn ${isActive ? 'active' : ''}"
+          data-action="toggle-source"
+          data-source="${key}"
+          title="Toggle ${label} filter"
+        >
+          ${label}
+        </button>
+      `;
+    }).join('');
   }
 
   _getStateLabel(state) {
@@ -1586,7 +1602,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const durationMinutes = entry.estimated_total_minutes || 0;
     const durationStr = this._formatDuration(durationMinutes);
     const sourceMeta = this._getSourceMeta(entry);
-    const sourceLabel = entry.source_kind.replace(/_/g, ' ').toUpperCase();
+    const sourceLabel = (['working_group', 'working_file'].includes(entry.source_kind) ? 'working file' : entry.source_kind.replace(/_/g, ' ')).toUpperCase();
     const copiesRequested = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
     const fullInfo = [
       `Title: ${entry.title || 'Untitled'}`,
