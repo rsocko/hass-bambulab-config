@@ -53,6 +53,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       states: [...QUEUE_DEFAULT_VISIBLE_STATES],
       sources: [],  // Empty = all sources
       sort: 'rank',  // Default: sort by rank
+      search: '',  // Free-text search across title + source
     };
     // View state (list | kanban). Persisted per printer.
     this._view = 'list';
@@ -153,10 +154,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
           .filter(source => VALID_QUEUE_SOURCES.includes(source)))]
       : [];
     const normalizedSort = String(this._filters.sort || '').trim();
+    const normalizedSearch = String(this._filters.search || '').slice(0, 200);
 
     this._filters.states = normalizedStates.length > 0 ? normalizedStates : [...QUEUE_DEFAULT_VISIBLE_STATES];
     this._filters.sources = normalizedSources;
     this._filters.sort = VALID_QUEUE_SORTS.has(normalizedSort) ? normalizedSort : 'rank';
+    this._filters.search = normalizedSearch;
   }
 
   _hasDefaultStateFilter() {
@@ -202,13 +205,24 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._render();
   }
 
+  _setSearchQuery(query) {
+    const next = String(query || '').slice(0, 200);
+    if (next === this._filters.search) return;
+    this._filters.search = next;
+    // Mark that we want to keep focus on the search input after the next render.
+    this._restoreSearchFocus = true;
+    this._saveFilterState();
+    this._render();
+  }
+
   _clearAllFilters() {
-    // Preserve current sort order — clear only resets state and source filters.
+    // Preserve current sort order — clear only resets state, source, and search filters.
     const preservedSort = this._filters.sort;
     this._filters = {
       states: [...QUEUE_DEFAULT_VISIBLE_STATES],
       sources: [],
       sort: preservedSort,
+      search: '',
     };
     this._saveFilterState();
     this._render();
@@ -1874,6 +1888,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _getFilteredAndSortedEntries() {
+    const searchTerm = String(this._filters.search || '').trim().toLowerCase();
     // Apply filters
     let filtered = this._entries.filter(entry => {
       // State filter
@@ -1883,6 +1898,16 @@ class UnifiedQueueBoardCard extends HTMLElement {
       // Source filter
       if (this._filters.sources.length > 0 && !this._filters.sources.includes(entry.source_kind)) {
         return false;
+      }
+      // Search filter (title + source kind + source id, case-insensitive)
+      if (searchTerm) {
+        const haystack = [
+          entry.title || '',
+          entry.source_kind || '',
+          entry.source_id || entry.source_ref || '',
+          entry.block_reason || '',
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(searchTerm)) return false;
       }
       return true;
     });
@@ -1961,7 +1986,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
   _renderFilterControls() {
     const hasActiveFilters =
       !this._hasDefaultStateFilter() ||
-      this._filters.sources.length > 0;
+      this._filters.sources.length > 0 ||
+      (this._filters.search && this._filters.search.trim().length > 0);
+
+    const searchValue = this._escapeHtml(this._filters.search || '');
 
     return `
       <div class="toolbar">
@@ -1991,7 +2019,16 @@ class UnifiedQueueBoardCard extends HTMLElement {
           </div>
         </details>
 
-        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear" title="Reset state and source filters (sort unchanged)">Clear filters</button>` : ''}
+        <div class="search-box">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input type="search" class="search-input" data-action="search"
+                 placeholder="Search title, source…"
+                 value="${searchValue}"
+                 aria-label="Search queue entries" />
+          ${this._filters.search ? `<button type="button" class="search-clear" data-action="search-clear" title="Clear search" aria-label="Clear search">×</button>` : ''}
+        </div>
+
+        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear" title="Reset state, source, and search filters (sort unchanged)">Clear filters</button>` : ''}
 
         <div class="toolbar-spacer"></div>
 
@@ -3002,6 +3039,59 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: rgba(245, 144, 144, 0.12);
         border-color: rgba(245, 144, 144, 0.5);
         color: #ff7f7f;
+      }
+
+      .search-box {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        flex: 0 1 240px;
+        min-width: 160px;
+      }
+      .search-icon {
+        position: absolute;
+        left: 10px;
+        color: var(--text-muted);
+        font-size: 13px;
+        pointer-events: none;
+      }
+      .search-input {
+        width: 100%;
+        padding: 6px 28px 6px 28px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .search-input::placeholder {
+        color: var(--text-muted);
+      }
+      .search-input:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: rgba(255,255,255,0.06);
+      }
+      .search-input::-webkit-search-cancel-button {
+        display: none;
+      }
+      .search-clear {
+        position: absolute;
+        right: 6px;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      .search-clear:hover {
+        color: var(--text);
+        background: rgba(255,255,255,0.08);
       }
 
       .top-widget {
@@ -4947,6 +5037,36 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const clearBtn = this.shadowRoot.querySelector('.clear-filters-btn');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => this._clearAllFilters());
+    }
+
+    const searchInput = this.shadowRoot.querySelector('.search-input');
+    if (searchInput) {
+      // Restore focus + caret after re-render triggered by typing.
+      if (this._restoreSearchFocus) {
+        this._restoreSearchFocus = false;
+        searchInput.focus();
+        const len = searchInput.value.length;
+        try { searchInput.setSelectionRange(len, len); } catch (_) { /* ignore */ }
+      }
+      let searchDebounce = null;
+      searchInput.addEventListener('input', (ev) => {
+        const value = ev.target.value;
+        if (searchDebounce) clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+          this._setSearchQuery(value);
+        }, 200);
+      });
+      searchInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          ev.target.value = '';
+          this._setSearchQuery('');
+        }
+      });
+    }
+
+    const searchClearBtn = this.shadowRoot.querySelector('.search-clear');
+    if (searchClearBtn) {
+      searchClearBtn.addEventListener('click', () => this._setSearchQuery(''));
     }
 
     // ---- DnD wiring (list reorder + kanban state moves) ----
