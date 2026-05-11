@@ -19,7 +19,7 @@ cards:
                 option: home
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 12px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -79,7 +79,7 @@ cards:
                 option: curated
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 12px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -139,7 +139,7 @@ cards:
                 option: working
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 12px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -199,7 +199,7 @@ cards:
                 option: intake
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 12px
                 - border-radius: 0
                 - border: none
                 - background: transparent
@@ -259,7 +259,7 @@ cards:
                 option: inbox
             styles:
               card:
-                - padding: 10px 8px
+                - padding: 10px 12px
                 - border-radius: 0
                 - border: none
                 - background: transparent
