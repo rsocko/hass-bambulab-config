@@ -17,6 +17,7 @@
 title: Print Queue
 path: print_queue
 icon: mdi:format-list-numbered
+panel: true
 cards:
   - type: custom:unified-queue-board-card
     printer_id: p1

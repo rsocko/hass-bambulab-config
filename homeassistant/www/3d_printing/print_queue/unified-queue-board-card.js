@@ -609,13 +609,22 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       this._closeAddModal();
-      const newEntryState = String(((responseBody && responseBody.entry) ? responseBody.entry : responseBody).state || '').trim();
-      if (newEntryState && !this._filters.states.includes(newEntryState)) {
-        this._filters.states = [...this._filters.states, newEntryState];
-        this._saveFilterState();
-      }
       this._setFlashMessage('Queue entry created successfully.', 'success');
-      this._loadQueueData();
+      await this._loadQueueData();
+      // Reveal any entry states that are now in the queue but not in the active filter,
+      // so the newly-added entry is immediately visible.
+      const knownStates = new Set(this._entries.map(e => String(e.state || '').trim()).filter(Boolean));
+      let filterChanged = false;
+      for (const s of knownStates) {
+        if (!this._filters.states.includes(s)) {
+          this._filters.states = [...this._filters.states, s];
+          filterChanged = true;
+        }
+      }
+      if (filterChanged) {
+        this._saveFilterState();
+        this._render();
+      }
     } catch (err) {
       this._addDetailError = err.message;
       this._render();
