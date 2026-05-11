@@ -16,7 +16,7 @@
 
 title: Print Queue
 path: print_queue
-icon: mdi:printer-3d-nozzle
+icon: mdi:format-list-numbered
 cards:
   - type: custom:unified-queue-board-card
     printer_id: p1
