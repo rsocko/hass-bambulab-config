@@ -285,6 +285,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
   // Briefly highlight a card with a red border + shake when a kanban drop
   // is rejected (invalid state transition). Survives re-renders triggered by
   // the flash banner via state-backed class on the rendered card.
+  // Note: does NOT call _render() itself — the caller is expected to render
+  // (typically via _setFlashMessage) so the toast and card highlight appear
+  // together in a single paint, avoiding a double-render flash.
   _flashInvalidDrop(queueEntryId) {
     this._invalidDropEntryId = queueEntryId;
     if (this._invalidDropTimer) {
@@ -295,7 +298,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
       this._invalidDropTimer = null;
       this._render();
     }, 750);
-    this._render();
   }
 
   async _changeEntryState(queueEntryId, newState) {
@@ -306,11 +308,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
     if (fromState === toState) return;
 
     if (!this._isValidStateTransition(fromState, toState)) {
+      this._flashInvalidDrop(queueEntryId);
       this._setFlashMessage(
         `Cannot move from ${this._getStateLabel(fromState)} to ${this._getStateLabel(toState)}.`,
         'error'
       );
-      this._flashInvalidDrop(queueEntryId);
       return;
     }
 
