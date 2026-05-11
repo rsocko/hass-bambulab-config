@@ -203,10 +203,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _clearAllFilters() {
+    // Preserve current sort order — clear only resets state and source filters.
+    const preservedSort = this._filters.sort;
     this._filters = {
       states: [...QUEUE_DEFAULT_VISIBLE_STATES],
       sources: [],
-      sort: 'rank',
+      sort: preservedSort,
     };
     this._saveFilterState();
     this._render();
@@ -1953,8 +1955,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   _renderFilterControls() {
     const hasActiveFilters =
       !this._hasDefaultStateFilter() ||
-      this._filters.sources.length > 0 ||
-      this._filters.sort !== 'rank';
+      this._filters.sources.length > 0;
 
     return `
       <div class="toolbar">
@@ -1984,17 +1985,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
           </div>
         </details>
 
-        <div class="toolbar-divider"></div>
+        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear" title="Reset state and source filters (sort unchanged)">Clear filters</button>` : ''}
 
-        <select class="sort-dropdown" data-action="sort">
-          <option value="rank" ${this._filters.sort === 'rank' ? 'selected' : ''}>Sort: Rank (manual)</option>
-          <option value="rank-desc" ${this._filters.sort === 'rank-desc' ? 'selected' : ''}>Rank (Z→A)</option>
-          <option value="duration" ${this._filters.sort === 'duration' ? 'selected' : ''}>Duration (Short→Long)</option>
-          <option value="duration-desc" ${this._filters.sort === 'duration-desc' ? 'selected' : ''}>Duration (Long→Short)</option>
+        <div class="toolbar-spacer"></div>
+
+        <select class="sort-dropdown" data-action="sort" title="Sort order">
+          <option value="rank" ${this._filters.sort === 'rank' ? 'selected' : ''}>Rank ↑</option>
+          <option value="rank-desc" ${this._filters.sort === 'rank-desc' ? 'selected' : ''}>Rank ↓</option>
+          <option value="duration" ${this._filters.sort === 'duration' ? 'selected' : ''}>Duration ↑</option>
+          <option value="duration-desc" ${this._filters.sort === 'duration-desc' ? 'selected' : ''}>Duration ↓</option>
           <option value="recently-added" ${this._filters.sort === 'recently-added' ? 'selected' : ''}>Recently added</option>
         </select>
-
-        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear">Clear filters</button>` : ''}
       </div>
     `;
   }
@@ -2962,7 +2963,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-        width: 100%;
+        width: auto;
+        min-width: 0;
+        max-width: 180px;
+        margin-left: auto;
       }
 
       .sort-dropdown:hover {
@@ -4241,6 +4245,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: var(--border);
         margin: 2px 2px;
       }
+      .toolbar-spacer {
+        flex: 1 1 auto;
+        min-width: 8px;
+      }
       .view-switch {
         display: inline-flex;
         background: rgba(255,255,255,0.04);
@@ -4717,10 +4725,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
         .filter-buttons {
           width: 100%;
         }
-
-        .sort-dropdown {
-          width: 100%;
-        }
       }
 
       @media (max-width: 760px) {
@@ -4765,10 +4769,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
         }
 
         .filter-buttons {
-          width: 100%;
-        }
-
-        .sort-dropdown {
           width: 100%;
         }
 
