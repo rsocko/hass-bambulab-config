@@ -1419,3 +1419,88 @@ def test_planner_strategy_v1_score_strategy_only_uses_selected_preset_weights(tm
     finally:
         client.__exit__(None, None, None)
 
+
+def test_plan_queue_v1_generates_delta_without_persisting(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick", "estimated_total_minutes": 90, "rank": 2},
+        )
+        overnight = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Overnight", "estimated_total_minutes": 420, "rank": 1},
+        )
+        assert quick.status_code == 200
+        assert overnight.status_code == 200
+
+        quick_id = quick.json()["entry"]["queue_entry_id"]
+        overnight_id = overnight.json()["entry"]["queue_entry_id"]
+
+        plan = client.post(
+            "/api/v1/queues/p1/plan",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert plan.status_code == 200
+        plan_payload = plan.json()
+
+        assert plan_payload["success"] is True
+        assert plan_payload["strategy"] == "aggressive"
+        assert plan_payload["move_count"] >= 0
+        assert "moves" in plan_payload
+
+        moves = plan_payload["moves"]
+        assert isinstance(moves, list)
+
+        has_quick_to_first = any(m["id"] == quick_id and m["to_rank"] < m["from_rank"] for m in moves)
+        assert has_quick_to_first
+
+        for move in moves:
+            assert "id" in move
+            assert "from_rank" in move
+            assert "to_rank" in move
+            assert "reason" in move
+            assert move["reason"] in ["ams_ready", "overnight_fit", "duration_quick", "duration_medium", "duration_overnight", "planner_score"]
+
+        verify = client.get("/api/v1/queues/p1/reorder")
+        if verify.status_code == 200:
+            current_ranks = {entry["queue_entry_id"]: entry.get("rank") for entry in verify.json().get("entries", [])}
+            assert current_ranks.get(quick_id) == 2
+            assert current_ranks.get(overnight_id) == 1
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_plan_queue_v1_shows_no_moves_when_already_optimal(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick", "estimated_total_minutes": 90, "rank": 0},
+        )
+        overnight = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Overnight", "estimated_total_minutes": 420, "rank": 1},
+        )
+        assert quick.status_code == 200
+        assert overnight.status_code == 200
+
+        aggressive_plan = client.post(
+            "/api/v1/queues/p1/planner/score",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert aggressive_plan.status_code == 200
+
+        plan = client.post(
+            "/api/v1/queues/p1/plan",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert plan.status_code == 200
+        plan_payload = plan.json()
+
+        assert plan_payload["move_count"] == 0
+        assert len(plan_payload["moves"]) == 0
+    finally:
+        client.__exit__(None, None, None)
+
+

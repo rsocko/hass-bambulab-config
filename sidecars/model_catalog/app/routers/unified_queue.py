@@ -1950,6 +1950,103 @@ def remap_queue_suggestion_v1(
     }
 
 
+def _compute_planner_scores_immutable(
+    db_path: str,
+    strategy: str,
+    weights: dict[str, Any],
+    ams_tray_uuids: object | None = None,
+) -> tuple[bool, set[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Compute planner scores for all queue entries WITHOUT persisting to DB.
+
+    Returns: (ams_state_known, available_uuids, scored, ranked)
+    - scored: list of score dicts with current_rank field
+    - ranked: sorted list by planner score (what /plan compares against)
+    """
+    ams_state_known = True
+    if ams_tray_uuids is None:
+        ams_state_known = False
+        available_uuids: set[str] = set()
+    elif isinstance(ams_tray_uuids, list):
+        available_uuids = {
+            str(item).strip().lower()
+            for item in ams_tray_uuids
+            if str(item).strip()
+        }
+    else:
+        raise ValueError("ams_tray_uuids must be an array of strings or null")
+
+    entries = list_unified_queue_entries(db_path=db_path)
+    scored: list[dict[str, Any]] = []
+    for entry in entries:
+        file_units = list_unified_queue_file_units(db_path=db_path, queue_entry_id=entry.queue_entry_id)
+        estimated_minutes = _entry_estimated_minutes(entry, file_units)
+        required_uuids = _extract_required_tray_uuids(file_units)
+
+        if not ams_state_known:
+            ams_fit = False
+            ams_ready_score = 0
+            ams_reason = "ams_state_unknown"
+        elif not required_uuids:
+            ams_fit = True
+            ams_ready_score = 100
+            ams_reason = "no_required_tray_uuids"
+        else:
+            ams_fit = required_uuids.issubset(available_uuids)
+            ams_ready_score = 100 if ams_fit else 0
+            ams_reason = "required_trays_available" if ams_fit else "missing_required_trays"
+
+        overnight_fit = bool(estimated_minutes is not None and estimated_minutes <= 480)
+        overnight_fit_score = 100 if overnight_fit else 0
+        duration_bucket = _duration_bucket_for_minutes(estimated_minutes)
+        duration_score = _duration_bucket_score_for_weights(duration_bucket, weights)
+        planner_score = int(
+            (weights.get("ams_fit", 0) if ams_fit else 0)
+            + (weights.get("overnight_fit", 0) if overnight_fit else 0)
+            + duration_score
+        )
+
+        scored.append(
+            {
+                "queue_entry_id": entry.queue_entry_id,
+                "current_rank": entry.rank,
+                "source_kind": entry.source_kind,
+                "source_ref": entry.source_ref,
+                "estimated_minutes": estimated_minutes,
+                "required_tray_uuids": sorted(list(required_uuids)),
+                "ams": {
+                    "state_known": ams_state_known,
+                    "fit": ams_fit,
+                    "score": ams_ready_score,
+                    "reason": ams_reason,
+                },
+                "overnight": {
+                    "fit": overnight_fit,
+                    "score": overnight_fit_score,
+                    "window_hours": 8,
+                },
+                "duration": {
+                    "bucket": duration_bucket,
+                    "score": duration_score,
+                },
+                "planner_score": planner_score,
+            }
+        )
+
+    ranked = sorted(
+        scored,
+        key=lambda item: (
+            int(item["planner_score"]),
+            int(item["ams"]["score"]),
+            int(item["overnight"]["score"]),
+            -_duration_bucket_weight(str(item["duration"]["bucket"])),
+            str(item["queue_entry_id"]),
+        ),
+        reverse=True,
+    )
+
+    return ams_state_known, available_uuids, scored, ranked
+
+
 @router.post("/api/v1/queues/{printer_id}/planner/score")
 def planner_score_queue_entries_v1(
     printer_id: str,
@@ -2181,5 +2278,93 @@ def set_planner_strategy_v1(
         "weights": saved.weights,
         "presets": PLANNER_STRATEGY_PRESETS,
         "updated_at": saved.updated_at,
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/plan")
+def plan_queue_reorder_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Generate optimal rank deltas using planner strategy without persisting.
+
+    Returns delta (before/after) showing which entries would move and why.
+    Does NOT persist changes until /apply called.
+    """
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    try:
+        requested_strategy = _normalize_planner_strategy(body.get("strategy")) if "strategy" in body else None
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    persisted_pref = read_unified_queue_planner_preference(db_path=state.settings.db_path, printer_id=printer_id)
+    active_strategy = requested_strategy or (persisted_pref.strategy if persisted_pref is not None else "balanced")
+
+    if "custom_weights" in body:
+        weights_source: object | None = body.get("custom_weights")
+    elif requested_strategy is not None:
+        weights_source = None
+    else:
+        weights_source = persisted_pref.weights if persisted_pref else None
+
+    try:
+        active_weights = _normalize_planner_weights(active_strategy, weights_source)
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    try:
+        ams_payload = body.get("ams_tray_uuids")
+        ams_state_known, available_uuids, scored, ranked = _compute_planner_scores_immutable(
+            db_path=state.settings.db_path,
+            strategy=active_strategy,
+            weights=active_weights,
+            ams_tray_uuids=ams_payload,
+        )
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    moves: list[dict[str, Any]] = []
+    optimal_rank_map: dict[str, int] = {entry["queue_entry_id"]: idx for idx, entry in enumerate(ranked)}
+
+    for entry in scored:
+        entry_id = entry["queue_entry_id"]
+        current_rank = entry["current_rank"]
+        optimal_rank = optimal_rank_map.get(entry_id)
+
+        if optimal_rank is not None and current_rank != optimal_rank:
+            reason = ""
+            if entry["ams"]["fit"] and entry["ams"]["score"] > 0:
+                reason = "ams_ready"
+            elif entry["overnight"]["fit"] and entry["overnight"]["score"] > 0:
+                reason = "overnight_fit"
+            elif entry["duration"]["score"] > 0:
+                reason = f"duration_{entry['duration']['bucket']}"
+            else:
+                reason = "planner_score"
+
+            moves.append(
+                {
+                    "id": entry_id,
+                    "from_rank": current_rank,
+                    "to_rank": optimal_rank,
+                    "reason": reason,
+                }
+            )
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "strategy": active_strategy,
+        "moves": moves,
+        "move_count": len(moves),
+        "ams_state_known": ams_state_known,
+        "available_tray_uuids": sorted(list(available_uuids)),
     }
 
