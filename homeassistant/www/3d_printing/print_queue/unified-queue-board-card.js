@@ -45,6 +45,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._addDetailFiles = [];
     this._rowActionBusy = false;
     this._detailEntry = null;
+    this._detailLoading = false;
+    this._detailError = null;
+    this._detailFiles = [];
 
     this._loadFilterState();
   }
@@ -372,6 +375,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
           file_id: fileId,
           file_name: fileName,
           selected: true,
+          thumbnail_url: String(file.thumbnail_url || file.preview_url || '').trim(),
           plates,
         };
       })
@@ -431,6 +435,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         file_id: Number.isFinite(itemId) ? `working-item-${itemId}` : `working-item-${index + 1}`,
         file_name: fileName,
         selected: true,
+        thumbnail_url: String(item.thumbnail_url || item.preview_url || item.image_url || '').trim(),
         plates: [{
           plate_id: 'default',
           plate_name: 'Default Plate',
@@ -745,12 +750,122 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const entry = this._getEntryById(queueEntryId);
     if (!entry) return;
     this._detailEntry = entry;
+    this._detailLoading = true;
+    this._detailError = null;
+    this._detailFiles = [];
     this._render();
+    this._loadEntryDetailFiles(entry);
   }
 
   _closeEntryDetail() {
     this._detailEntry = null;
+    this._detailLoading = false;
+    this._detailError = null;
+    this._detailFiles = [];
     this._render();
+  }
+
+  _buildPrintHistoryHref(archiveId = null) {
+    if (archiveId !== null && archiveId !== undefined && String(archiveId).trim()) {
+      return `/3d-printing/print-history?archive_id=${encodeURIComponent(String(archiveId).trim())}`;
+    }
+    return '/3d-printing/print-history';
+  }
+
+  _toSafePositiveInt(value, fallback = 0) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  }
+
+  _extractSelectionMap(entry) {
+    const selectionMap = new Map();
+    const selectedFiles = Array.isArray(entry.selected_files) ? entry.selected_files : [];
+    selectedFiles.forEach(file => {
+      const fileId = String(file.file_id || file.id || '').trim();
+      if (!fileId) return;
+
+      const selected = file.selected !== false;
+      const plates = Array.isArray(file.plates)
+        ? file.plates.map(plate => ({
+            plate_id: String(plate.plate_id || plate.plate_key || plate.id || '').trim(),
+            selected: plate.selected !== false,
+          }))
+        : [];
+
+      selectionMap.set(fileId, { selected, plates });
+    });
+
+    return selectionMap;
+  }
+
+  _normalizeDetailFiles(rawFiles, entry) {
+    const sourceSelection = this._extractSelectionMap(entry);
+    const copiesRequested = this._toSafePositiveInt(entry.copies_requested, 1);
+    const copiesCompleted = this._toSafePositiveInt(entry.copies_completed, 0);
+
+    return rawFiles.map((file, index) => {
+      const fileId = String(file.file_id || file.id || `detail-file-${index + 1}`).trim();
+      const defaultSelected = entry.selection_mode === 'all_files_all_plates' ? true : false;
+      const selectedConfig = sourceSelection.get(fileId);
+      const selected = selectedConfig ? selectedConfig.selected : defaultSelected;
+      const rawPlates = Array.isArray(file.plates) ? file.plates : [];
+      const plateSelectionMap = new Map(
+        (selectedConfig && Array.isArray(selectedConfig.plates) ? selectedConfig.plates : [])
+          .filter(plate => plate.plate_id)
+          .map(plate => [plate.plate_id, plate.selected])
+      );
+
+      const normalizedPlates = rawPlates.map((plate, plateIndex) => {
+        const plateId = String(plate.plate_id || plate.plate_key || plate.id || `plate-${plateIndex + 1}`).trim();
+        const defaultPlateSelected = entry.selection_mode === 'selected_plates' ? false : selected;
+        const selectedPlate = plateSelectionMap.has(plateId) ? !!plateSelectionMap.get(plateId) : defaultPlateSelected;
+
+        return {
+          plate_id: plateId,
+          plate_name: String(plate.plate_name || plate.name || `Plate ${plateIndex + 1}`).trim(),
+          selected: selectedPlate,
+          completion_count: this._toSafePositiveInt(plate.completion_count, copiesCompleted),
+          completion_target: this._toSafePositiveInt(plate.completion_target, copiesRequested),
+        };
+      });
+
+      return {
+        file_id: fileId,
+        file_name: String(file.file_name || file.filename || file.name || fileId).trim(),
+        selected,
+        thumbnail_url: String(file.thumbnail_url || file.preview_url || file.image_url || file.thumb_url || '').trim(),
+        plates: normalizedPlates,
+      };
+    });
+  }
+
+  async _loadEntryDetailFiles(entry) {
+    if (!entry) return;
+
+    const activeEntryId = String(entry.queue_entry_id || '').trim();
+    if (!activeEntryId) return;
+
+    try {
+      const sourceId = String(entry.source_id || entry.source_ref || '').trim();
+      if (!sourceId || (entry.source_kind !== 'catalog_model' && entry.source_kind !== 'working_group')) {
+        this._detailFiles = [];
+        this._detailError = null;
+      } else {
+        const rawFiles = entry.source_kind === 'catalog_model'
+          ? await this._loadCatalogSourceDetail(sourceId)
+          : await this._loadWorkingGroupSourceDetail(sourceId);
+        this._detailFiles = this._normalizeDetailFiles(rawFiles, entry);
+        this._detailError = null;
+      }
+    } catch (err) {
+      this._detailFiles = [];
+      this._detailError = err && err.message ? err.message : 'Failed to load entry details.';
+    } finally {
+      if (this._detailEntry && String(this._detailEntry.queue_entry_id || '').trim() === activeEntryId) {
+        this._detailLoading = false;
+        this._render();
+      }
+    }
   }
 
   _getFilteredAndSortedEntries() {
@@ -1203,6 +1318,47 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
     const entry = this._detailEntry;
     const sourceMeta = this._getSourceMeta(entry);
+    const archiveId = String(entry.last_archive_id || '').trim();
+    const printHistoryHref = this._buildPrintHistoryHref(archiveId || null);
+
+    const fileGrid = this._detailLoading
+      ? '<div class="inline-note">Loading files and plate states...</div>'
+      : this._detailError
+      ? `<div class="inline-error">${this._escapeHtml(this._detailError)}</div>`
+      : this._detailFiles.length === 0
+      ? '<div class="inline-note">No file-level detail is available for this source yet.</div>'
+      : `
+        <div class="detail-file-grid">
+          ${this._detailFiles.map(file => {
+            const selectedCount = file.plates.filter(plate => plate.selected).length;
+            return `
+              <article class="detail-file-card">
+                <div class="detail-file-thumb ${file.thumbnail_url ? '' : 'empty'}">
+                  ${file.thumbnail_url
+                    ? `<img src="${this._escapeHtml(file.thumbnail_url)}" alt="${this._escapeHtml(file.file_name)} thumbnail" loading="lazy" decoding="async" />`
+                    : '<span>No Preview</span>'}
+                </div>
+                <div class="detail-file-main">
+                  <div class="detail-file-header">
+                    <div class="detail-file-name" title="${this._escapeHtml(file.file_name)}">${this._escapeHtml(file.file_name)}</div>
+                    <div class="detail-file-state ${file.selected ? 'selected' : 'unselected'}">${file.selected ? 'Selected' : 'Not selected'}</div>
+                  </div>
+                  <div class="detail-file-summary">${selectedCount}/${file.plates.length} plates selected</div>
+                  <div class="detail-plate-list">
+                    ${file.plates.map(plate => `
+                      <div class="detail-plate-row ${plate.selected ? 'selected' : 'unselected'}">
+                        <span class="detail-plate-name">${this._escapeHtml(plate.plate_name)}</span>
+                        <span class="detail-plate-count">${this._escapeHtml(String(plate.completion_count))}/${this._escapeHtml(String(plate.completion_target))}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </article>
+            `;
+          }).join('')}
+        </div>
+      `;
+
     const details = [
       ['Queue ID', entry.queue_entry_id],
       ['Title', entry.title],
@@ -1217,13 +1373,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
     ];
 
     return `
-      <div class="modal-backdrop" data-action="close-detail">
-        <div class="add-modal" role="dialog" aria-modal="true" aria-label="Queue Entry Details">
-          <div class="add-modal-header">
-            <h3>Queue Entry Details</h3>
+      <div class="modal-backdrop detail-backdrop" data-action="close-detail">
+        <aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Queue Entry Details">
+          <div class="detail-drawer-header">
+            <div>
+              <h3>Queue Entry Details</h3>
+              <div class="detail-drawer-subtitle">Files, plates, archive linkage, and history path</div>
+            </div>
             <button class="modal-close-btn" data-action="close-detail" title="Close">✕</button>
           </div>
-          <div class="add-modal-body">
+
+          <div class="detail-drawer-body">
             <div class="detail-grid">
               ${details.map(([label, value]) => `
                 <div class="detail-row">
@@ -1232,11 +1392,31 @@ class UnifiedQueueBoardCard extends HTMLElement {
                 </div>
               `).join('')}
             </div>
+
+            <section class="detail-section">
+              <h4>Files And Plates</h4>
+              ${fileGrid}
+            </section>
+
+            <section class="detail-section">
+              <h4>Archive Linkage</h4>
+              ${archiveId
+                ? `<div class="archive-chip">Archive ${this._escapeHtml(archiveId)} linked</div>`
+                : '<div class="inline-note">No linked archive yet (entry not completed/matched).</div>'}
+            </section>
+
+            <section class="detail-section">
+              <h4>Print History</h4>
+              <a class="history-link" href="${this._escapeHtml(printHistoryHref)}" target="_blank" rel="noopener noreferrer">
+                ${archiveId ? 'Open linked archive in Print History' : 'Open Print History'}
+              </a>
+            </section>
           </div>
+
           <div class="add-modal-footer">
             <button class="ghost-btn" data-action="close-detail">Close</button>
           </div>
-        </div>
+        </aside>
       </div>
     `;
   }
@@ -1982,6 +2162,216 @@ class UnifiedQueueBoardCard extends HTMLElement {
         gap: 8px;
       }
 
+      .detail-backdrop {
+        justify-content: flex-end;
+        align-items: stretch;
+        padding: 0;
+      }
+
+      .detail-drawer {
+        width: min(720px, 96vw);
+        height: 100vh;
+        background: rgba(22, 29, 40, 0.99);
+        border-left: 1px solid var(--border-strong);
+        box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35);
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        animation: slideInRight 180ms ease-out;
+      }
+
+      .detail-drawer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .detail-drawer-header h3 {
+        margin: 0;
+        color: var(--text);
+        font-size: 16px;
+      }
+
+      .detail-drawer-subtitle {
+        margin-top: 4px;
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .detail-drawer-body {
+        padding: 14px 16px 16px;
+        overflow-y: auto;
+        display: grid;
+        gap: 14px;
+      }
+
+      .detail-section {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(255,255,255,0.02);
+      }
+
+      .detail-section h4 {
+        margin: 0 0 10px;
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .detail-file-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .detail-file-card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.015);
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        gap: 10px;
+        padding: 8px;
+      }
+
+      .detail-file-thumb {
+        width: 88px;
+        height: 88px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        background: rgba(255,255,255,0.03);
+        display: grid;
+        place-items: center;
+      }
+
+      .detail-file-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .detail-file-thumb.empty {
+        color: var(--text-muted);
+        font-size: 11px;
+      }
+
+      .detail-file-main {
+        min-width: 0;
+      }
+
+      .detail-file-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .detail-file-name {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .detail-file-state {
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .detail-file-state.selected {
+        color: var(--accent);
+        border-color: rgba(110, 231, 200, 0.35);
+        background: rgba(110, 231, 200, 0.12);
+      }
+
+      .detail-file-state.unselected {
+        color: var(--text-muted);
+      }
+
+      .detail-file-summary {
+        margin-top: 4px;
+        color: var(--text-secondary);
+        font-size: 11px;
+      }
+
+      .detail-plate-list {
+        margin-top: 8px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .detail-plate-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        border-radius: 8px;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        font-size: 11px;
+      }
+
+      .detail-plate-row.selected {
+        background: rgba(110, 231, 200, 0.08);
+        border-color: rgba(110, 231, 200, 0.25);
+      }
+
+      .detail-plate-row.unselected {
+        background: rgba(255,255,255,0.01);
+        opacity: 0.75;
+      }
+
+      .detail-plate-name {
+        color: var(--text);
+      }
+
+      .detail-plate-count {
+        color: var(--text-secondary);
+        font-weight: 700;
+      }
+
+      .archive-chip {
+        border-radius: 999px;
+        border: 1px solid rgba(124, 199, 255, 0.3);
+        background: rgba(124, 199, 255, 0.12);
+        color: var(--accent-blue);
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .history-link {
+        color: var(--accent-blue);
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .history-link:hover,
+      .history-link:focus-visible {
+        text-decoration: underline;
+      }
+
+      @keyframes slideInRight {
+        from {
+          transform: translateX(28px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
       .detail-row {
         display: grid;
         grid-template-columns: 120px 1fr;
@@ -2133,6 +2523,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
         .detail-row {
           grid-template-columns: 1fr;
           gap: 4px;
+        }
+
+        .detail-drawer {
+          width: 100vw;
+        }
+
+        .detail-file-card {
+          grid-template-columns: 1fr;
+        }
+
+        .detail-file-thumb {
+          width: 100%;
+          height: 140px;
         }
       }
     `;
