@@ -22,6 +22,17 @@ const QUEUE_STATE_TRANSITIONS = {
 };
 const VALID_QUEUE_SOURCES = ['catalog_model', 'working_group', 'working_file', 'idea'];
 const VALID_QUEUE_SORTS = new Set(['rank', 'rank-desc', 'duration', 'duration-desc', 'recently-added']);
+const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
+// Per-state palette — drives card wash, kanban column accent, list group dot,
+// filter swatches. Single source of truth across both views.
+const QUEUE_STATE_PALETTE = {
+  backlog:     '#b196f5',
+  preparing:   '#f2a85b',
+  ready:       '#6ee7c8',
+  in_progress: '#7cc7ff',
+  blocked:     '#f59090',
+  done:        '#4fcf75',
+};
 
 class UnifiedQueueBoardCard extends HTMLElement {
   constructor() {
@@ -43,6 +54,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       sources: [],  // Empty = all sources
       sort: 'rank',  // Default: sort by rank
     };
+    // View state (list | kanban). Persisted per printer.
+    this._view = 'list';
+    // Transient drag state used for list reorder + kanban state moves.
+    this._dragEntryId = null;
+    this._dragBusy = false;
 
     this._addModalOpen = false;
     this._addTab = 'quick';
@@ -93,6 +109,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._plannerBusy = false;
 
     this._loadFilterState();
+    this._loadViewState();
   }
 
   setConfig(config) {
@@ -193,6 +210,260 @@ class UnifiedQueueBoardCard extends HTMLElement {
     };
     this._saveFilterState();
     this._render();
+  }
+
+  _loadViewState() {
+    try {
+      const stored = localStorage.getItem(`uq-view-${this.printerId}`);
+      if (stored && VALID_QUEUE_VIEWS.has(stored)) {
+        this._view = stored;
+      }
+    } catch (e) {
+      console.warn('Failed to load view state:', e);
+    }
+  }
+
+  _saveViewState() {
+    try {
+      localStorage.setItem(`uq-view-${this.printerId}`, this._view);
+    } catch (e) {
+      console.warn('Failed to save view state:', e);
+    }
+  }
+
+  _setView(view) {
+    if (!VALID_QUEUE_VIEWS.has(view) || view === this._view) return;
+    this._view = view;
+    this._saveViewState();
+    this._render();
+  }
+
+  // KPI hero stats: total remaining minutes (excluding done plates / done
+  // entries), an 'active jobs' count, and a coarse skipped-plate count for
+  // the visible meta line.
+  _getEtaStats() {
+    let remainingMinutes = 0;
+    let activeJobs = 0;
+    let skippedPlates = 0;
+    let doneCopies = 0;
+    let totalCopies = 0;
+
+    for (const entry of this._entries) {
+      const state = String(entry.state || '').trim();
+      const copiesRequested = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
+      const copiesCompleted = Number.isFinite(entry.copies_completed) ? entry.copies_completed : 0;
+      totalCopies += copiesRequested;
+      doneCopies += copiesCompleted;
+      if (copiesCompleted > 0) skippedPlates += copiesCompleted;
+
+      if (state === 'done') continue;
+      const totalMinutes = Number(entry.estimated_total_minutes || 0);
+      // Skip minutes attributable to copies already completed.
+      const remainingShare = copiesRequested > 0
+        ? totalMinutes * Math.max(0, copiesRequested - copiesCompleted) / copiesRequested
+        : totalMinutes;
+      remainingMinutes += Math.max(0, Math.round(remainingShare));
+      if (['preparing', 'ready', 'in_progress', 'blocked'].includes(state)) {
+        activeJobs++;
+      }
+    }
+
+    const pctComplete = totalCopies > 0
+      ? Math.min(100, Math.max(2, Math.round((doneCopies / totalCopies) * 100)))
+      : 0;
+
+    return { remainingMinutes, activeJobs, skippedPlates, pctComplete };
+  }
+
+  _isValidStateTransition(fromState, toState) {
+    if (!fromState || !toState) return false;
+    if (fromState === toState) return true;
+    const allowed = QUEUE_STATE_TRANSITIONS[fromState] || [];
+    return allowed.includes(toState);
+  }
+
+  async _changeEntryState(queueEntryId, newState) {
+    const entry = this._getEntryById(queueEntryId);
+    if (!entry) return;
+    const fromState = String(entry.state || '').trim();
+    const toState = String(newState || '').trim();
+    if (fromState === toState) return;
+
+    if (!this._isValidStateTransition(fromState, toState)) {
+      this._setFlashMessage(
+        `Cannot move from ${this._getStateLabel(fromState)} to ${this._getStateLabel(toState)}.`,
+        'error'
+      );
+      this._render();
+      return;
+    }
+
+    // Optimistic update so the card visually lands in the new column.
+    entry.state = toState;
+    this._dragBusy = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(queueEntryId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: toState }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `State change failed (${response.status})`));
+      }
+      this._setFlashMessage(`Moved to ${this._getStateLabel(toState)}.`, 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      // Roll back optimistic update.
+      entry.state = fromState;
+      this._setFlashMessage(err.message || 'State change failed.', 'error');
+      this._render();
+    } finally {
+      this._dragBusy = false;
+    }
+  }
+
+  // Drag-to-reorder for the list view. Visible IDs is the new client-side
+  // order; we compute moves relative to current ranks so the backend gets a
+  // minimal patch.
+  async _commitListReorder(visibleEntryIds) {
+    if (!Array.isArray(visibleEntryIds) || visibleEntryIds.length === 0) return;
+    // Build the full ranked list, replacing the visible slice in-place so
+    // hidden entries (filtered out) keep their relative order.
+    const visibleSet = new Set(visibleEntryIds);
+    const ranked = this._getAllEntriesRanked();
+    const visibleSlots = [];
+    const newOrder = ranked.map(entry => {
+      if (visibleSet.has(entry.queue_entry_id)) {
+        const slotIndex = visibleSlots.length;
+        visibleSlots.push(slotIndex);
+        return null; // placeholder, filled below
+      }
+      return entry.queue_entry_id;
+    });
+    let cursor = 0;
+    for (let i = 0; i < newOrder.length; i++) {
+      if (newOrder[i] === null) {
+        newOrder[i] = visibleEntryIds[cursor++];
+      }
+    }
+
+    const moves = newOrder.map((id, index) => ({ id, new_rank: index + 1 }));
+    // Drop no-op moves to keep payload small.
+    const currentRanks = new Map(
+      ranked.map((entry, idx) => [entry.queue_entry_id, Number.isFinite(entry.rank) ? entry.rank : idx + 1])
+    );
+    const trimmed = moves.filter(m => currentRanks.get(m.id) !== m.new_rank);
+    if (trimmed.length === 0) return;
+
+    this._dragBusy = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/reorder`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ moves: trimmed }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Reorder failed (${response.status})`));
+      }
+      this._setFlashMessage('Queue order updated.', 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message || 'Reorder failed.', 'error');
+      await this._loadQueueData();
+    } finally {
+      this._dragBusy = false;
+    }
+  }
+
+  // ---- DnD: list reorder ----
+  _attachListReorderDnD() {
+    const body = this.shadowRoot.querySelector('[data-list-body]');
+    const flat = this.shadowRoot.querySelector('.flat-list');
+    if (!body || !flat) return;
+    const dndEnabled = flat.getAttribute('data-flat-dnd') === '1';
+    if (!dndEnabled) return;
+
+    body.querySelectorAll('.qcard').forEach(card => {
+      card.addEventListener('dragstart', (ev) => {
+        this._dragEntryId = card.dataset.entryId;
+        card.classList.add('dragging');
+        ev.dataTransfer.effectAllowed = 'move';
+        try { ev.dataTransfer.setData('text/plain', this._dragEntryId); } catch (_) { /* ignore */ }
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+      });
+    });
+
+    body.addEventListener('dragover', (ev) => {
+      ev.preventDefault();
+      const dragging = body.querySelector('.qcard.dragging');
+      if (!dragging) return;
+      const cards = Array.from(body.querySelectorAll('.qcard:not(.dragging)'));
+      const after = cards.find(card => {
+        const r = card.getBoundingClientRect();
+        return ev.clientY < r.top + r.height / 2;
+      });
+      if (after) body.insertBefore(dragging, after);
+      else body.appendChild(dragging);
+    });
+
+    body.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      const ids = Array.from(body.querySelectorAll('.qcard')).map(c => c.dataset.entryId);
+      this._commitListReorder(ids);
+    });
+  }
+
+  // ---- DnD: kanban state moves ----
+  _attachKanbanDnD() {
+    const cols = this.shadowRoot.querySelectorAll('.kanban-col-body[data-drop]');
+    if (cols.length === 0) return;
+
+    this.shadowRoot.querySelectorAll('.kanban-column .qcard').forEach(card => {
+      card.addEventListener('dragstart', (ev) => {
+        this._dragEntryId = card.dataset.entryId;
+        card.classList.add('dragging');
+        ev.dataTransfer.effectAllowed = 'move';
+        try { ev.dataTransfer.setData('text/plain', this._dragEntryId); } catch (_) { /* ignore */ }
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        this.shadowRoot.querySelectorAll('.kanban-col-body.drop-target')
+          .forEach(z => z.classList.remove('drop-target'));
+      });
+    });
+
+    cols.forEach(zone => {
+      zone.addEventListener('dragover', (ev) => {
+        ev.preventDefault();
+        zone.classList.add('drop-target');
+      });
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('drop-target');
+      });
+      zone.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        zone.classList.remove('drop-target');
+        const id = (() => {
+          try { return ev.dataTransfer.getData('text/plain') || this._dragEntryId; }
+          catch (_) { return this._dragEntryId; }
+        })();
+        const newState = zone.dataset.drop;
+        if (!id || !newState) return;
+        this._changeEntryState(id, newState);
+      });
+    });
   }
 
   set hass(hass) {
@@ -1635,103 +1906,140 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _renderTopWidget() {
     const stats = this._getStats();
+    const eta = this._getEtaStats();
+    const remainStr = this._formatDuration(eta.remainingMinutes);
+    const subtitle = `${eta.activeJobs} active job${eta.activeJobs === 1 ? '' : 's'}`;
+    const skippedStr = eta.skippedPlates > 0 ? `${eta.skippedPlates} done copies skipped` : 'No completed copies yet';
 
     return `
       <div class="top-widget">
+        <div class="eta-hero" aria-label="Estimated time remaining">
+          <span class="eta-kicker">Time remaining · excludes done plates</span>
+          <span class="eta-value">${this._escapeHtml(remainStr)} <small>across ${this._escapeHtml(subtitle)}</small></span>
+          <div class="eta-meta">
+            <span>${this._escapeHtml(skippedStr)}</span>
+          </div>
+          <div class="eta-bar"><span style="width: ${eta.pctComplete}%"></span></div>
+        </div>
         <div class="stat-card">
           <div class="stat-label">Overnight Fit</div>
           <div class="stat-value">${stats.overnightFit}</div>
+          <div class="stat-sub">Jobs that fit before 7am</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">AMS Ready</div>
           <div class="stat-value">${stats.amsReady}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">In Progress</div>
-          <div class="stat-value">${stats.inProgress}</div>
+          <div class="stat-sub">Filaments loaded match</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Total Queue</div>
           <div class="stat-value">${stats.total}</div>
+          <div class="stat-sub">${stats.inProgress} active · ${stats.overnightFit} overnight</div>
         </div>
       </div>
     `;
   }
 
   _renderFilterControls() {
-    const hasActiveFilters = 
-      !this._hasDefaultStateFilter() || 
-      this._filters.sources.length > 0 || 
+    const hasActiveFilters =
+      !this._hasDefaultStateFilter() ||
+      this._filters.sources.length > 0 ||
       this._filters.sort !== 'rank';
 
     return `
-      <div class="filter-bar">
-        <div class="filter-section">
-          <div class="filter-label">State</div>
-          <div class="filter-buttons">
-            ${this._renderStateFilterButtons()}
+      <div class="toolbar">
+        <div class="view-switch" role="tablist" aria-label="Queue view">
+          <button type="button" data-view="list" class="${this._view === 'list' ? 'active' : ''}" aria-pressed="${this._view === 'list'}">▤ List</button>
+          <button type="button" data-view="kanban" class="${this._view === 'kanban' ? 'active' : ''}" aria-pressed="${this._view === 'kanban'}">▦ Kanban</button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <details class="dropdown" data-dropdown="states">
+          <summary><span class="dd-label">States</span> <span class="dd-summary">${this._escapeHtml(this._stateFilterSummary())}</span></summary>
+          <div class="dropdown-menu">
+            <div class="menu-actions">
+              <button type="button" data-action="states-all">Select all</button>
+              <button type="button" data-action="states-none">Clear</button>
+            </div>
+            <div class="dd-divider"></div>
+            ${this._renderStateFilterCheckboxes()}
           </div>
-        </div>
-        
-        <div class="filter-section">
-          <div class="filter-label">Source</div>
-          <div class="filter-buttons">
-            ${this._renderSourceFilterButtons()}
+        </details>
+
+        <details class="dropdown" data-dropdown="sources">
+          <summary><span class="dd-label">Source</span> <span class="dd-summary">${this._escapeHtml(this._sourceFilterSummary())}</span></summary>
+          <div class="dropdown-menu">
+            ${this._renderSourceFilterRadios()}
           </div>
-        </div>
-        
-        <div class="filter-section">
-          <div class="filter-label">Sort By</div>
-          <select class="sort-dropdown" data-action="sort">
-            <option value="rank" ${this._filters.sort === 'rank' ? 'selected' : ''}>Rank (A-Z)</option>
-            <option value="rank-desc" ${this._filters.sort === 'rank-desc' ? 'selected' : ''}>Rank (Z-A)</option>
-            <option value="duration" ${this._filters.sort === 'duration' ? 'selected' : ''}>Duration (Short→Long)</option>
-            <option value="duration-desc" ${this._filters.sort === 'duration-desc' ? 'selected' : ''}>Duration (Long→Short)</option>
-            <option value="recently-added" ${this._filters.sort === 'recently-added' ? 'selected' : ''}>Recently Added</option>
-          </select>
-        </div>
-        
-        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear">Clear All</button>` : ''}
+        </details>
+
+        <div class="toolbar-divider"></div>
+
+        <select class="sort-dropdown" data-action="sort">
+          <option value="rank" ${this._filters.sort === 'rank' ? 'selected' : ''}>Sort: Rank (manual)</option>
+          <option value="rank-desc" ${this._filters.sort === 'rank-desc' ? 'selected' : ''}>Rank (Z→A)</option>
+          <option value="duration" ${this._filters.sort === 'duration' ? 'selected' : ''}>Duration (Short→Long)</option>
+          <option value="duration-desc" ${this._filters.sort === 'duration-desc' ? 'selected' : ''}>Duration (Long→Short)</option>
+          <option value="recently-added" ${this._filters.sort === 'recently-added' ? 'selected' : ''}>Recently added</option>
+        </select>
+
+        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear">Clear filters</button>` : ''}
       </div>
     `;
   }
 
-  _renderStateFilterButtons() {
-    const states = QUEUE_STATE_FILTER_ORDER;
-    return states.map(state => `
-      <button 
-        class="filter-btn ${this._filters.states.includes(state) ? 'active' : ''}"
-        data-action="toggle-state"
-        data-state="${state}"
-        title="Toggle ${state} filter"
-      >
-        ${this._getStateLabel(state)}
-      </button>
+  _stateFilterSummary() {
+    const all = QUEUE_STATE_FILTER_ORDER.length;
+    const selected = this._filters.states.length;
+    if (selected === 0) return 'None';
+    if (selected === all) return 'All';
+    if (selected <= 2) {
+      return this._filters.states.map(s => this._getStateLabel(s)).join(', ');
+    }
+    return `${selected} of ${all}`;
+  }
+
+  _sourceFilterSummary() {
+    if (this._filters.sources.length === 0) return 'All';
+    const isWorking = this._filters.sources.includes('working_group') || this._filters.sources.includes('working_file');
+    const isCatalog = this._filters.sources.includes('catalog_model');
+    const isIdea = this._filters.sources.includes('idea');
+    const labels = [];
+    if (isCatalog) labels.push('Catalog');
+    if (isWorking) labels.push('Working');
+    if (isIdea) labels.push('Ideas');
+    return labels.join(', ') || 'All';
+  }
+
+  _renderStateFilterCheckboxes() {
+    return QUEUE_STATE_FILTER_ORDER.map(state => `
+      <label class="dd-row" data-state="${state}">
+        <input type="checkbox" data-action="toggle-state" data-state="${state}" ${this._filters.states.includes(state) ? 'checked' : ''} />
+        <span class="dd-swatch" style="background: ${QUEUE_STATE_PALETTE[state]}"></span>
+        <span>${this._escapeHtml(this._getStateLabel(state))}</span>
+      </label>
     `).join('');
   }
 
-  _renderSourceFilterButtons() {
-    const uiSources = [
-      { key: 'catalog_model', label: 'Catalog' },
-      { key: 'working_files', label: 'Working Files' },
-      { key: 'idea', label: 'Ideas' },
+  _renderSourceFilterRadios() {
+    const isWorking = this._filters.sources.includes('working_group') || this._filters.sources.includes('working_file');
+    const isCatalog = this._filters.sources.includes('catalog_model');
+    const isIdea = this._filters.sources.includes('idea');
+    const isAll = !isCatalog && !isWorking && !isIdea;
+    const radios = [
+      { value: 'all', label: 'All sources', checked: isAll, swatch: null },
+      { value: 'catalog_model', label: 'Catalog', checked: isCatalog && !isWorking && !isIdea, swatch: '#7cc7ff' },
+      { value: 'working_files', label: 'Working Files', checked: isWorking && !isCatalog && !isIdea, swatch: '#6ee7c8' },
+      { value: 'idea', label: 'Ideas', checked: isIdea && !isCatalog && !isWorking, swatch: '#f2c35b' },
     ];
-    const isWorkingFilesActive = this._filters.sources.includes('working_group') || this._filters.sources.includes('working_file');
-    return uiSources.map(({ key, label }) => {
-      const isActive = key === 'working_files'
-        ? isWorkingFilesActive
-        : this._filters.sources.includes(key);
-      return `
-        <button 
-          class="filter-btn ${isActive ? 'active' : ''}"
-          data-action="toggle-source"
-          data-source="${key}"
-          title="Toggle ${label} filter"
-        >
-          ${label}
-        </button>
-      `;
-    }).join('');
+    return radios.map(r => `
+      <label class="dd-row">
+        <input type="radio" name="uq-source" data-action="set-source" data-source="${r.value}" ${r.checked ? 'checked' : ''} />
+        ${r.swatch ? `<span class="dd-swatch" style="background: ${r.swatch}"></span>` : '<span class="dd-swatch ghost"></span>'}
+        <span>${this._escapeHtml(r.label)}</span>
+      </label>
+    `).join('');
   }
 
   _getStateLabel(state) {
@@ -1751,7 +2059,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
     if (entries.length === 0) {
       const hasFilters = !this._hasDefaultStateFilter() || this._filters.sources.length > 0;
-      const message = hasFilters 
+      const message = hasFilters
         ? 'No entries match your filters'
         : 'Queue is Empty';
       const subtitle = hasFilters
@@ -1767,23 +2075,58 @@ class UnifiedQueueBoardCard extends HTMLElement {
       `;
     }
 
-    const grouped = this._groupEntriesByState(entries);
-    let html = '<div class="queue-list">';
-
-    for (const state of QUEUE_STATE_GROUP_ORDER) {
-      if (!grouped[state] || grouped[state].length === 0) continue;
-
-      html += `<div class="state-group"><div class="state-group-header">${this._formatStateLabel(state)}</div>`;
-
-      for (const entry of grouped[state]) {
-        html += this._renderQueueEntry(entry);
-      }
-
-      html += '</div>';
+    if (this._view === 'kanban') {
+      return this._renderKanbanView(entries);
     }
+    return this._renderListView(entries);
+  }
 
-    html += '</div>';
-    return html;
+  _renderListView(entries) {
+    const dnd = (this._filters.sort === 'rank');
+    const hint = dnd
+      ? 'Sorted by <strong>Rank</strong> · drag cards to reorder.'
+      : (this._filters.sort.startsWith('duration')
+          ? 'Sorted by <strong>Duration</strong> · drag-to-reorder is disabled.'
+          : (this._filters.sort === 'recently-added'
+              ? 'Sorted by <strong>Recently added</strong> · drag-to-reorder is disabled.'
+              : 'Drag-to-reorder is disabled while a non-rank sort is active.'));
+    const cards = entries.map(entry => this._renderQueueEntry(entry, { draggable: dnd, showStatePill: true })).join('');
+    return `
+      <div class="flat-list" data-flat-dnd="${dnd ? '1' : '0'}">
+        <div class="flat-list-hint">${hint}</div>
+        <div class="flat-list-body" data-list-body>
+          ${cards}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderKanbanView(entries) {
+    const visibleStates = QUEUE_STATE_FILTER_ORDER.filter(s => this._filters.states.includes(s));
+    const grouped = this._groupEntriesByState(entries);
+    const columns = visibleStates.map(stateKey => {
+      const items = grouped[stateKey] || [];
+      const colMinutes = items.reduce((sum, e) => sum + Number(e.estimated_total_minutes || 0), 0);
+      const colTime = colMinutes > 0 ? `${this._formatDuration(colMinutes)} of work` : '—';
+      const swatch = QUEUE_STATE_PALETTE[stateKey];
+      const cards = items.length === 0
+        ? `<div class="col-empty">Drop here to mark ${this._escapeHtml(this._getStateLabel(stateKey).toLowerCase())}</div>`
+        : items.map(entry => this._renderQueueEntry(entry, { draggable: true, showStatePill: false })).join('');
+      return `
+        <div class="kanban-column" data-state="${stateKey}" style="--state: ${swatch}">
+          <div class="kanban-column-header">
+            <span class="kanban-ttl"><span class="kanban-dot"></span>${this._escapeHtml(this._getStateLabel(stateKey))}</span>
+            <span class="kanban-count">${items.length}</span>
+          </div>
+          <div class="kanban-column-time">${this._escapeHtml(colTime)}</div>
+          <div class="kanban-col-body" data-drop="${stateKey}">
+            ${cards}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `<div class="kanban-columns">${columns || '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No states selected</div><div class="empty-subtitle">Use the States filter to show columns.</div></div>'}</div>`;
   }
 
   _groupEntriesByState(entries = this._entries) {
@@ -1799,72 +2142,74 @@ class UnifiedQueueBoardCard extends HTMLElement {
     return this._getStateLabel(state);
   }
 
-  _renderQueueEntry(entry) {
-    const sourceStyles = this._getSourceBadgeStyles(entry.source_kind);
-    const stateColor = this._getStateColor(entry.state);
-    const durationMinutes = entry.estimated_total_minutes || 0;
-    const durationStr = this._formatDuration(durationMinutes);
+  _renderQueueEntry(entry, opts) {
+    opts = opts || {};
+    const draggable = opts.draggable !== false;
+    const showStatePill = !!opts.showStatePill;
     const sourceMeta = this._getSourceMeta(entry);
-    const sourceLabel = (['working_group', 'working_file'].includes(entry.source_kind) ? 'working file' : entry.source_kind.replace(/_/g, ' ')).toUpperCase();
+    const sourceClass = entry.source_kind === 'idea'
+      ? 'idea'
+      : entry.source_kind === 'catalog_model'
+        ? 'catalog'
+        : 'working';
+    const sourceLabel = (['working_group', 'working_file'].includes(entry.source_kind) ? 'working file' : (entry.source_kind || '').replace(/_/g, ' ')).toUpperCase();
+    const stateColor = QUEUE_STATE_PALETTE[entry.state] || '#9eacba';
+    const stateLabel = this._getStateLabel(entry.state);
+    const durationMinutes = Number(entry.estimated_total_minutes || 0);
     const copiesRequested = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
+    const copiesCompleted = Number.isFinite(entry.copies_completed) ? entry.copies_completed : 0;
+    const remainingCopies = Math.max(0, copiesRequested - copiesCompleted);
+    const remainingMinutes = copiesRequested > 0
+      ? Math.round(durationMinutes * remainingCopies / copiesRequested)
+      : durationMinutes;
+    const remainStr = this._formatDuration(remainingMinutes);
+    const totalStr = this._formatDuration(durationMinutes);
+    const segs = Array.from({ length: Math.max(1, copiesRequested) }).map((_, i) => {
+      const done = i < copiesCompleted;
+      return `<div class="qcard-seg ${done ? 'done' : ''}"></div>`;
+    }).join('');
+    const blockReason = String(entry.block_reason || '').trim();
+
     const fullInfo = [
       `Title: ${entry.title || 'Untitled'}`,
       `Source: ${sourceMeta.fullLabel}`,
-      `State: ${this._getStateLabel(entry.state)}`,
+      `State: ${stateLabel}`,
       `Rank: ${Number.isFinite(entry.rank) ? entry.rank : 'n/a'}`,
-      `Copies: ${copiesRequested}`,
-      `Duration: ${durationStr}`,
+      `Copies: ${copiesCompleted}/${copiesRequested}`,
+      `Duration: ${totalStr}`,
     ].join(' | ');
 
     return `
-      <div class="queue-entry" data-entry-id="${entry.queue_entry_id}" title="${this._escapeHtml(fullInfo)}">
-        <div class="entry-header">
-          <div class="entry-title">
-            <span class="entry-rank">${entry.rank || '—'}</span>
-            <div class="entry-title-block">
-              <span class="entry-name">${this._escapeHtml(entry.title)}</span>
-              <span class="source-ref" title="${this._escapeHtml(sourceMeta.fullLabel)}">
-                <span class="source-icon-pill">${sourceMeta.icon}</span>
-                <span class="source-ref-text">${this._escapeHtml(sourceMeta.sourceId)}</span>
-              </span>
-            </div>
-          </div>
-          <div class="entry-badges">
-            <span class="source-badge" style="background: ${sourceStyles.bg}; color: ${sourceStyles.color};">
-              ${sourceLabel}
-            </span>
-            <span class="state-chip" style="color: ${stateColor}; border-color: ${stateColor};">
-              ${this._escapeHtml(this._getStateLabel(entry.state))}
-            </span>
-          </div>
+      <article class="qcard"
+               draggable="${draggable}"
+               data-entry-id="${this._escapeHtml(entry.queue_entry_id)}"
+               data-state="${this._escapeHtml(entry.state)}"
+               style="--state: ${stateColor}"
+               title="${this._escapeHtml(fullInfo)}">
+        <div class="qcard-row1">
+          ${draggable ? '<span class="qcard-drag" aria-hidden="true">⋮⋮</span>' : ''}
+          <span class="qcard-rank">${entry.rank || '—'}</span>
+          <span class="qcard-title">${this._escapeHtml(entry.title || 'Untitled')}</span>
+          ${showStatePill ? `<span class="qcard-state-pill">${this._escapeHtml(stateLabel)}</span>` : ''}
         </div>
-        
-        <div class="entry-meta">
-          <span class="meta-item"># ${copiesRequested} copies</span>
-          <span class="meta-item">⏱ ${durationStr}</span>
-          ${entry.ams_ready_score !== undefined ? `<span class="meta-item">🔌 AMS ${entry.ams_ready_score}%</span>` : ''}
-          ${entry.overnight_fit_score !== undefined ? `<span class="meta-item">🌙 Overnight ${entry.overnight_fit_score}%</span>` : ''}
-          ${entry.last_attempt_outcome ? `<span class="meta-item outcome-${entry.last_attempt_outcome}">Latest: ${entry.last_attempt_outcome}</span>` : ''}
+        <div class="qcard-meta">
+          <span class="qcard-source-badge ${sourceClass}">${this._escapeHtml(sourceLabel)} · ${this._escapeHtml(sourceMeta.sourceId)}</span>
+          <span><span class="qcard-meta-key">Copies</span> ${copiesCompleted}/${copiesRequested}</span>
+          ${entry.ams_ready_score !== undefined ? `<span><span class="qcard-meta-key">AMS</span> ${entry.ams_ready_score}%</span>` : ''}
+          ${entry.overnight_fit_score !== undefined ? `<span><span class="qcard-meta-key">Overnight</span> ${entry.overnight_fit_score}%</span>` : ''}
+          ${blockReason ? `<span class="qcard-block-reason">⚠ ${this._escapeHtml(blockReason)}</span>` : ''}
         </div>
-
-        <div class="entry-actions" role="group" aria-label="Queue entry actions">
-          <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${entry.queue_entry_id}" aria-label="Open details for ${this._escapeHtml(entry.title)}" title="Details">
-            Detail
-          </button>
-          <button class="entry-action-btn" data-action="entry-edit" data-entry-id="${entry.queue_entry_id}" aria-label="Edit ${this._escapeHtml(entry.title)}" title="Edit">
-            Edit
-          </button>
-          <button class="entry-action-btn" data-action="entry-up" data-entry-id="${entry.queue_entry_id}" aria-label="Move up ${this._escapeHtml(entry.title)}" title="Move up">
-            Up
-          </button>
-          <button class="entry-action-btn" data-action="entry-down" data-entry-id="${entry.queue_entry_id}" aria-label="Move down ${this._escapeHtml(entry.title)}" title="Move down">
-            Down
-          </button>
-          <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${entry.queue_entry_id}" aria-label="Delete ${this._escapeHtml(entry.title)}" title="Delete">
-            Delete
-          </button>
+        <div class="qcard-plate-bar" title="${copiesCompleted} of ${copiesRequested} copies done">${segs}</div>
+        <div class="qcard-time-line">
+          <span><span class="qcard-remain">${this._escapeHtml(remainStr)} left</span> <span class="qcard-total">of ${this._escapeHtml(totalStr)}</span></span>
+          ${copiesCompleted > 0 ? `<span class="qcard-total">−${this._escapeHtml(this._formatDuration(durationMinutes - remainingMinutes))} skipped</span>` : ''}
         </div>
-      </div>
+        <div class="qcard-actions" role="group" aria-label="Queue entry actions">
+          <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Details">Detail</button>
+          <button class="entry-action-btn" data-action="entry-edit" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Edit">Edit</button>
+          <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
+        </div>
+      </article>
     `;
   }
 
@@ -3845,6 +4190,469 @@ class UnifiedQueueBoardCard extends HTMLElement {
         cursor: not-allowed;
       }
 
+      /* ---------- New Toolbar (view switch + dropdown filters) ---------- */
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+      .toolbar-divider {
+        width: 1px;
+        align-self: stretch;
+        background: var(--border);
+        margin: 2px 2px;
+      }
+      .view-switch {
+        display: inline-flex;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px;
+      }
+      .view-switch button {
+        appearance: none;
+        background: transparent;
+        border: 0;
+        color: var(--text-secondary);
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .view-switch button.active {
+        background: rgba(124, 199, 255, 0.18);
+        color: var(--accent-blue);
+        box-shadow: inset 0 0 0 1px rgba(124, 199, 255, 0.35);
+      }
+      .dropdown {
+        position: relative;
+        font-size: 12px;
+      }
+      .dropdown > summary {
+        list-style: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.02);
+        color: var(--text);
+        user-select: none;
+      }
+      .dropdown > summary::-webkit-details-marker { display: none; }
+      .dropdown > summary::after {
+        content: '▾';
+        margin-left: 4px;
+        color: var(--text-muted);
+      }
+      .dropdown[open] > summary {
+        border-color: var(--border-strong);
+        background: rgba(124, 199, 255, 0.08);
+      }
+      .dropdown .dd-label {
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+      }
+      .dropdown .dd-summary {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .dropdown-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 30;
+        min-width: 220px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .dropdown-menu .menu-actions {
+        display: flex;
+        gap: 6px;
+        padding: 2px 4px 6px;
+      }
+      .dropdown-menu .menu-actions button {
+        flex: 1;
+        appearance: none;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 5px 0;
+        border-radius: 7px;
+        cursor: pointer;
+      }
+      .dropdown-menu .menu-actions button:hover {
+        color: var(--accent-blue);
+        border-color: rgba(124,199,255,0.35);
+      }
+      .dropdown-menu .dd-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0;
+      }
+      .dropdown-menu .dd-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 7px;
+        cursor: pointer;
+        color: var(--text);
+      }
+      .dropdown-menu .dd-row:hover {
+        background: rgba(255,255,255,0.04);
+      }
+      .dropdown-menu .dd-row input {
+        accent-color: var(--accent-blue);
+        margin: 0;
+      }
+      .dropdown-menu .dd-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex: 0 0 auto;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);
+      }
+      .dropdown-menu .dd-swatch.ghost {
+        background: transparent;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      /* ---------- ETA Hero KPI ---------- */
+      .top-widget {
+        display: grid;
+        grid-template-columns: minmax(280px, 1.4fr) repeat(3, minmax(140px, 1fr));
+        gap: 12px;
+      }
+      .eta-hero {
+        background: linear-gradient(135deg, rgba(124,199,255,0.18), rgba(110,231,200,0.10));
+        border: 1px solid rgba(124,199,255,0.35);
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .eta-kicker {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .eta-value {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: var(--text);
+        line-height: 1.1;
+      }
+      .eta-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        letter-spacing: 0;
+      }
+      .eta-meta {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+      .eta-bar {
+        position: relative;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+        margin-top: 4px;
+      }
+      .eta-bar > span {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-blue), var(--accent));
+        border-radius: 999px;
+        transition: width 0.4s ease;
+      }
+      .stat-card .stat-sub {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+
+      /* ---------- Per-state palette + new card ---------- */
+      .qcard {
+        position: relative;
+        background: linear-gradient(180deg,
+          color-mix(in srgb, var(--state, #9eacba) 14%, var(--bg-card-alt)),
+          var(--bg-card-alt));
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--state, #9eacba);
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        cursor: grab;
+        transition: border-color 0.15s, transform 0.12s;
+      }
+      .qcard:hover {
+        border-color: var(--border-strong);
+      }
+      .qcard.dragging {
+        opacity: 0.5;
+        transform: scale(0.98);
+      }
+      .qcard-row1 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .qcard-drag {
+        color: var(--text-muted);
+        cursor: grab;
+        font-size: 14px;
+        line-height: 1;
+        user-select: none;
+        letter-spacing: -2px;
+      }
+      .qcard-rank {
+        background: rgba(255,255,255,0.06);
+        color: var(--text-secondary);
+        font-weight: 800;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 6px;
+        min-width: 22px;
+        text-align: center;
+      }
+      .qcard-title {
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--text);
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .qcard-state-pill {
+        background: color-mix(in srgb, var(--state) 22%, transparent);
+        color: var(--state);
+        border: 1px solid color-mix(in srgb, var(--state) 50%, transparent);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 999px;
+        letter-spacing: 0.05em;
+      }
+      .qcard-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+      .qcard-meta-key {
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 9px;
+        letter-spacing: 0.05em;
+      }
+      .qcard-source-badge {
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        padding: 2px 7px;
+        border-radius: 6px;
+      }
+      .qcard-source-badge.catalog { background: rgba(124,199,255,0.18); color: #7cc7ff; }
+      .qcard-source-badge.working { background: rgba(110,231,200,0.18); color: #6ee7c8; }
+      .qcard-source-badge.idea    { background: rgba(242,195,91,0.18);  color: #f2c35b; }
+      .qcard-block-reason {
+        color: var(--accent-amber);
+      }
+      .qcard-plate-bar {
+        display: flex;
+        gap: 3px;
+        margin-top: 2px;
+      }
+      .qcard-seg {
+        flex: 1;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255,255,255,0.10);
+      }
+      .qcard-seg.done {
+        background: var(--state, #9eacba);
+      }
+      .qcard-time-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+      .qcard-remain {
+        color: var(--text);
+        font-weight: 700;
+      }
+      .qcard-total {
+        color: var(--text-muted);
+      }
+      .qcard-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .qcard-actions .entry-action-btn {
+        flex: 0 0 auto;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.03);
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .qcard-actions .entry-action-btn:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+      .qcard-actions .entry-action-btn.danger:hover {
+        color: var(--accent-red);
+        border-color: rgba(245,144,144,0.45);
+      }
+
+      /* ---------- Flat list view ---------- */
+      .flat-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .flat-list-hint {
+        font-size: 11px;
+        color: var(--text-secondary);
+        padding: 4px 2px;
+      }
+      .flat-list-hint strong {
+        color: var(--text);
+      }
+      .flat-list-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      /* ---------- Kanban view ---------- */
+      .kanban-columns {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 280px;
+        gap: 12px;
+        overflow-x: auto;
+        align-items: start;
+        padding-bottom: 10px;
+        scrollbar-gutter: stable;
+      }
+      .kanban-column {
+        align-self: start;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--state, #9eacba);
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 120px;
+      }
+      .kanban-column-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .kanban-ttl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text);
+      }
+      .kanban-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--state, #9eacba);
+        box-shadow: 0 0 0 2px rgba(0,0,0,0.25);
+      }
+      .kanban-count {
+        background: rgba(255,255,255,0.06);
+        color: var(--text-secondary);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .kanban-column-time {
+        font-size: 10px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .kanban-col-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 50px;
+        padding: 4px;
+        border-radius: 8px;
+        transition: background 0.15s;
+      }
+      .kanban-col-body.drop-target {
+        background: color-mix(in srgb, var(--state, #9eacba) 18%, transparent);
+        outline: 2px dashed color-mix(in srgb, var(--state, #9eacba) 60%, transparent);
+        outline-offset: -3px;
+      }
+      .col-empty {
+        text-align: center;
+        font-size: 11px;
+        color: var(--text-muted);
+        padding: 18px 8px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.02);
+      }
+
       @media (max-width: 960px) {
         .filter-bar {
           grid-template-columns: 1fr;
@@ -4007,19 +4815,66 @@ class UnifiedQueueBoardCard extends HTMLElement {
       refreshBtn.addEventListener('click', () => this._loadQueueData());
     }
 
-    // Attach filter event listeners
-    const filterBtns = this.shadowRoot.querySelectorAll('.filter-btn');
-    filterBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const action = e.target.dataset.action;
-        if (action === 'toggle-state') {
-          this._toggleStateFilter(e.target.dataset.state);
-        } else if (action === 'toggle-source') {
-          this._toggleSourceFilter(e.target.dataset.source);
+    // ---- View switch ----
+    const viewBtns = this.shadowRoot.querySelectorAll('.view-switch button[data-view]');
+    viewBtns.forEach(btn => {
+      btn.addEventListener('click', () => this._setView(btn.dataset.view));
+    });
+
+    // ---- State multi-select dropdown (checkboxes) ----
+    const stateChecks = this.shadowRoot.querySelectorAll('input[data-action="toggle-state"]');
+    stateChecks.forEach(cb => {
+      cb.addEventListener('change', () => this._toggleStateFilter(cb.dataset.state));
+    });
+
+    // Select all / Clear actions inside the states dropdown.
+    const statesAllBtn = this.shadowRoot.querySelector('button[data-action="states-all"]');
+    if (statesAllBtn) {
+      statesAllBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._filters.states = [...QUEUE_STATE_FILTER_ORDER];
+        this._saveFilterState();
+        this._render();
+      });
+    }
+    const statesNoneBtn = this.shadowRoot.querySelector('button[data-action="states-none"]');
+    if (statesNoneBtn) {
+      statesNoneBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._filters.states = [];
+        this._saveFilterState();
+        this._render();
+      });
+    }
+
+    // ---- Source single-select dropdown (radios) ----
+    const sourceRadios = this.shadowRoot.querySelectorAll('input[data-action="set-source"]');
+    sourceRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        const value = r.dataset.source;
+        if (value === 'all') {
+          this._filters.sources = [];
+        } else if (value === 'working_files') {
+          this._filters.sources = ['working_group', 'working_file'];
+        } else {
+          this._filters.sources = [value];
         }
+        this._saveFilterState();
+        this._render();
       });
     });
 
+    // ---- Outside-click closes open dropdowns (within shadow root) ----
+    this.shadowRoot.addEventListener('click', (ev) => {
+      const path = ev.composedPath();
+      this.shadowRoot.querySelectorAll('details.dropdown[open]').forEach(d => {
+        if (!path.includes(d)) d.open = false;
+      });
+    });
+
+    // ---- Sort select ----
     const sortDropdown = this.shadowRoot.querySelector('.sort-dropdown');
     if (sortDropdown) {
       sortDropdown.addEventListener('change', (e) => {
@@ -4031,6 +4886,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
     if (clearBtn) {
       clearBtn.addEventListener('click', () => this._clearAllFilters());
     }
+
+    // ---- DnD wiring (list reorder + kanban state moves) ----
+    this._attachListReorderDnD();
+    this._attachKanbanDnD();
 
     const addBtn = this.shadowRoot.querySelector('.add-btn');
     if (addBtn) {
@@ -4277,10 +5136,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
           await this._editEntry(entryId);
         } else if (action === 'entry-delete') {
           await this._deleteEntry(entryId);
-        } else if (action === 'entry-up') {
-          await this._moveEntry(entryId, 'up');
-        } else if (action === 'entry-down') {
-          await this._moveEntry(entryId, 'down');
         }
       });
     });
