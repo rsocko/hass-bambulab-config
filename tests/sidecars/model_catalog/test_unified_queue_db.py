@@ -48,7 +48,7 @@ def test_unified_queue_crud_round_trip_for_entry_file_and_plate_units(tmp_path: 
         source_kind="working_group",
         source_ref="wg-42",
         title="Cable Clip Batch",
-        state="todo",
+        state="preparing",
         rank=10,
         copies_requested=2,
         selection_mode="selected_plates",
@@ -93,13 +93,13 @@ def test_unified_queue_crud_round_trip_for_entry_file_and_plate_units(tmp_path: 
     updated_entry = update_unified_queue_entry(
         db_path=db_path,
         queue_entry_id=entry.queue_entry_id,
-        state="started",
+        state="in_progress",
         rank=1,
         copies_completed=1,
         last_attempt_outcome="success",
     )
     assert updated_entry is not None
-    assert updated_entry.state == "started"
+    assert updated_entry.state == "in_progress"
     assert updated_entry.rank == 1
     assert updated_entry.copies_completed == 1
     assert updated_entry.last_attempt_outcome == "success"

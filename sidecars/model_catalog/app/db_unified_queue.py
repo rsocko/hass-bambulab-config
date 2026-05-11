@@ -203,7 +203,7 @@ def create_unified_queue_entry(
     source_kind: str,
     source_ref: str | None,
     title: str,
-    state: str = "todo",
+    state: str = "preparing",
     rank: int = 0,
     started_at: str | None = None,
     completed_at: str | None = None,

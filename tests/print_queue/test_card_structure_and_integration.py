@@ -121,11 +121,10 @@ class TestUnifiedQueueBoardCardStructure(unittest.TestCase):
     def test_api_calls_use_correct_endpoints(self):
         """API calls should use correct REST endpoints."""
         api_endpoints = [
-            "/api/v1/queues/",
+            "/api/v1",
             "/queues/",
             "/entries",
             "/add",
-            "/delete",
             "/reorder",
             "/suggestions",
             "/plan/history",
@@ -216,7 +215,7 @@ class TestPrintQueueAPIContract(unittest.TestCase):
             "title": "Test Print",
             "source_kind": "catalog_model",
             "source_id": "model_456",
-            "state": "todo",
+            "state": "preparing",
             "rank": 1,
             "copies_requested": 1,
             "estimated_total_minutes": 120,

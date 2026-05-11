@@ -51,15 +51,15 @@ from ..state import AppState
 router = APIRouter(tags=["unified-queue"])
 
 VALID_SOURCE_KINDS = {"catalog_model", "working_group", "working_file", "idea"}
-VALID_STATES = {"idea", "todo", "ready", "started", "blocked", "done"}
+VALID_STATES = {"backlog", "preparing", "ready", "in_progress", "blocked", "done"}
 VALID_DURATION_BUCKETS = {"quick", "medium", "overnight", "marathon", "unknown"}
 VALID_SELECTION_MODES = {"all_files_all_plates", "selected_files", "selected_plates"}
 STATE_TRANSITIONS: dict[str, set[str]] = {
-    "idea": {"todo"},
-    "todo": {"ready"},
-    "ready": {"started"},
-    "started": {"blocked", "done"},
-    "blocked": {"ready", "done"},
+    "backlog": {"preparing", "ready", "in_progress"},
+    "preparing": {"ready", "in_progress", "blocked"},
+    "ready": {"in_progress", "blocked"},
+    "in_progress": {"blocked", "done"},
+    "blocked": {"preparing", "ready", "in_progress", "done"},
     "done": set(),
 }
 
@@ -894,7 +894,7 @@ def create_entry(request: Request, body: dict[str, Any] = Body(default_factory=d
     title = str(body.get("title") or "").strip()
     try:
         source_kind = _validate_source_kind(body.get("source_kind"))
-        entry_state = _validate_state(body.get("state")) or "todo"
+        entry_state = _validate_state(body.get("state")) or "preparing"
         selection_mode = _validate_selection_mode(body.get("selection_mode")) or "all_files_all_plates"
         duration_bucket = _validate_duration_bucket(body.get("duration_bucket")) or "unknown"
         rank = _coerce_optional_int(body.get("rank"), field="rank", minimum=0) or 0
@@ -1165,7 +1165,7 @@ def add_queue_entry_v1(
             )
 
         requested_state = _validate_state(body.get("state"))
-        entry_state = requested_state or "todo"
+        entry_state = requested_state or "preparing"
 
         copies_requested = _coerce_int(body.get("copies", 1), field="copies", minimum=1)
         duration_bucket = _validate_duration_bucket(body.get("duration_bucket")) or "unknown"

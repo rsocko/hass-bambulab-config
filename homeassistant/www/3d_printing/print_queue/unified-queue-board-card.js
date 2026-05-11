@@ -2,12 +2,18 @@
  * Unified Production Queue Board Card
  * 
  * Displays the unified print queue with:
- * - Compact top widget showing overnight-fit count, AMS-ready count, started count
+ * - Compact top widget showing overnight-fit count, AMS-ready count, in-progress count
  * - Main area with queue entries grouped by state
- * - State chips (todo, ready, started, done, blocked)
+ * - State chips (backlog, preparing, ready, in progress, blocked, done)
  * - Empty, loading, and error states
  * - Responsive layout for desktop and mobile
  */
+
+const QUEUE_STATE_FILTER_ORDER = ['backlog', 'preparing', 'ready', 'in_progress', 'blocked', 'done'];
+const QUEUE_DEFAULT_VISIBLE_STATES = ['preparing', 'ready', 'in_progress', 'blocked'];
+const QUEUE_STATE_GROUP_ORDER = ['in_progress', 'ready', 'preparing', 'backlog', 'blocked', 'done'];
+const VALID_QUEUE_SOURCES = ['catalog_model', 'working_group', 'working_file', 'idea'];
+const VALID_QUEUE_SORTS = new Set(['rank', 'rank-desc', 'duration', 'duration-desc', 'recently-added']);
 
 class UnifiedQueueBoardCard extends HTMLElement {
   constructor() {
@@ -25,7 +31,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     
     // Filter state
     this._filters = {
-      states: ['todo', 'ready', 'started', 'blocked'],  // Default: exclude idea, done
+      states: [...QUEUE_DEFAULT_VISIBLE_STATES],
       sources: [],  // Empty = all sources
       sort: 'rank',  // Default: sort by rank
     };
@@ -90,6 +96,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     } catch (e) {
       console.warn('Failed to load filter state:', e);
     }
+    this._normalizeFilterState();
   }
 
   _saveFilterState() {
@@ -98,6 +105,29 @@ class UnifiedQueueBoardCard extends HTMLElement {
     } catch (e) {
       console.warn('Failed to save filter state:', e);
     }
+  }
+
+  _normalizeFilterState() {
+    const normalizedStates = Array.isArray(this._filters.states)
+      ? [...new Set(this._filters.states
+          .map(state => String(state || '').trim())
+          .filter(state => QUEUE_STATE_FILTER_ORDER.includes(state)))]
+      : [];
+    const normalizedSources = Array.isArray(this._filters.sources)
+      ? [...new Set(this._filters.sources
+          .map(source => String(source || '').trim())
+          .filter(source => VALID_QUEUE_SOURCES.includes(source)))]
+      : [];
+    const normalizedSort = String(this._filters.sort || '').trim();
+
+    this._filters.states = normalizedStates.length > 0 ? normalizedStates : [...QUEUE_DEFAULT_VISIBLE_STATES];
+    this._filters.sources = normalizedSources;
+    this._filters.sort = VALID_QUEUE_SORTS.has(normalizedSort) ? normalizedSort : 'rank';
+  }
+
+  _hasDefaultStateFilter() {
+    return this._filters.states.length === QUEUE_DEFAULT_VISIBLE_STATES.length
+      && QUEUE_DEFAULT_VISIBLE_STATES.every(state => this._filters.states.includes(state));
   }
 
   _toggleStateFilter(state) {
@@ -128,7 +158,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _clearAllFilters() {
     this._filters = {
-      states: ['todo', 'ready', 'started', 'blocked'],
+      states: [...QUEUE_DEFAULT_VISIBLE_STATES],
       sources: [],
       sort: 'rank',
     };
@@ -231,12 +261,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const stats = {
       overnightFit: 0,
       amsReady: 0,
-      started: 0,
+      inProgress: 0,
       total: this._entries.length,
     };
 
     for (const entry of this._entries) {
-      if (entry.state === 'started') stats.started++;
+      if (entry.state === 'in_progress') stats.inProgress++;
       if ((entry.overnight_fit_score || 0) >= 50) stats.overnightFit++;
       if ((entry.ams_ready_score || 0) >= 50) stats.amsReady++;
     }
@@ -1368,10 +1398,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _getStateColor(state) {
     const stateColors = {
-      'idea': '#9eacba',      // text-muted
-      'todo': '#7cc7ff',      // accent-blue
+      'backlog': '#9eacba',   // text-muted
+      'preparing': '#7cc7ff', // accent-blue
       'ready': '#6ee7c8',     // accent (teal)
-      'started': '#f2c35b',   // accent-amber
+      'in_progress': '#f2c35b',
       'done': '#7ddc97',      // accent-green
       'blocked': '#f59090',   // accent-red
     };
@@ -1402,8 +1432,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
           <div class="stat-value">${stats.amsReady}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Started</div>
-          <div class="stat-value">${stats.started}</div>
+          <div class="stat-label">In Progress</div>
+          <div class="stat-value">${stats.inProgress}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Total Queue</div>
@@ -1415,7 +1445,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _renderFilterControls() {
     const hasActiveFilters = 
-      this._filters.states.length !== 4 || 
+      !this._hasDefaultStateFilter() || 
       this._filters.sources.length > 0 || 
       this._filters.sort !== 'rank';
 
@@ -1452,7 +1482,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _renderStateFilterButtons() {
-    const states = ['todo', 'ready', 'started', 'blocked', 'done', 'idea'];
+    const states = QUEUE_STATE_FILTER_ORDER;
     return states.map(state => `
       <button 
         class="filter-btn ${this._filters.states.includes(state) ? 'active' : ''}"
@@ -1487,10 +1517,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _getStateLabel(state) {
     const labels = {
-      'idea': 'Ideas',
-      'todo': 'To Do',
+      'backlog': 'Backlog',
+      'preparing': 'Preparing',
       'ready': 'Ready',
-      'started': 'Started',
+      'in_progress': 'In Progress',
       'done': 'Done',
       'blocked': 'Blocked',
     };
@@ -1501,7 +1531,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const entries = this._getFilteredAndSortedEntries();
 
     if (entries.length === 0) {
-      const hasFilters = this._filters.states.length !== 4 || this._filters.sources.length > 0;
+      const hasFilters = !this._hasDefaultStateFilter() || this._filters.sources.length > 0;
       const message = hasFilters 
         ? 'No entries match your filters'
         : 'Queue is Empty';
@@ -1521,7 +1551,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const grouped = this._groupEntriesByState(entries);
     let html = '<div class="queue-list">';
 
-    for (const state of ['started', 'ready', 'todo', 'idea', 'blocked', 'done']) {
+    for (const state of QUEUE_STATE_GROUP_ORDER) {
       if (!grouped[state] || grouped[state].length === 0) continue;
 
       html += `<div class="state-group"><div class="state-group-header">${this._formatStateLabel(state)}</div>`;
@@ -1547,15 +1577,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _formatStateLabel(state) {
-    const labels = {
-      'idea': 'Ideas',
-      'todo': 'To Do',
-      'ready': 'Ready',
-      'started': 'Currently Printing',
-      'done': 'Done',
-      'blocked': 'Blocked',
-    };
-    return labels[state] || state;
+    return this._getStateLabel(state);
   }
 
   _renderQueueEntry(entry) {
@@ -1569,7 +1591,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const fullInfo = [
       `Title: ${entry.title || 'Untitled'}`,
       `Source: ${sourceMeta.fullLabel}`,
-      `State: ${entry.state || 'unknown'}`,
+      `State: ${this._getStateLabel(entry.state)}`,
       `Rank: ${Number.isFinite(entry.rank) ? entry.rank : 'n/a'}`,
       `Copies: ${copiesRequested}`,
       `Duration: ${durationStr}`,
@@ -1593,7 +1615,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
               ${sourceLabel}
             </span>
             <span class="state-chip" style="color: ${stateColor}; border-color: ${stateColor};">
-              ${entry.state.toUpperCase()}
+              ${this._escapeHtml(this._getStateLabel(entry.state))}
             </span>
           </div>
         </div>

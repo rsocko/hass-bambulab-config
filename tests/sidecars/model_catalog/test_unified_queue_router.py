@@ -61,6 +61,7 @@ def test_unified_queue_entry_crud_happy_path(tmp_path: Path) -> None:
         assert created["success"] is True
         entry_id = created["entry"]["queue_entry_id"]
         assert created["entry"]["source_id"] == "wg-001"
+        assert created["entry"]["state"] == "preparing"
         assert created["entry"]["copies"] == 2
         assert created["entry"]["duration_bucket"] == "medium"
 
@@ -80,17 +81,17 @@ def test_unified_queue_entry_crud_happy_path(tmp_path: Path) -> None:
         update_response = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
             json={
-                "state": "started",
+                "state": "in_progress",
                 "copies_completed": 1,
             },
         )
         assert update_response.status_code == 200
         updated = update_response.json()
-        assert updated["entry"]["state"] == "started"
+        assert updated["entry"]["state"] == "in_progress"
         assert updated["entry"]["copies_completed"] == 1
         assert updated["entry"]["rank"] == 1
 
-        list_response = client.get("/api/unified-queue/entries", params={"state": "started", "limit": 10, "offset": 0})
+        list_response = client.get("/api/unified-queue/entries", params={"state": "in_progress", "limit": 10, "offset": 0})
         assert list_response.status_code == 200
         listed = list_response.json()
         assert listed["success"] is True
@@ -140,28 +141,28 @@ def test_unified_queue_state_transition_matrix_and_audit_log(tmp_path: Path) -> 
     try:
         create_response = client.post(
             "/api/unified-queue/entries",
-            json={"source_kind": "idea", "title": "Transition Test", "state": "idea", "copies": 1},
+            json={"source_kind": "idea", "title": "Transition Test", "state": "backlog", "copies": 1},
         )
         assert create_response.status_code == 200
         entry_id = create_response.json()["entry"]["queue_entry_id"]
 
         invalid_transition = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
-            json={"state": "started"},
+            json={"state": "done"},
         )
         assert invalid_transition.status_code == 400
         invalid_payload = invalid_transition.json()
         assert invalid_payload["error"] == "invalid_transition"
-        assert invalid_payload["from_state"] == "idea"
-        assert invalid_payload["to_state"] == "started"
+        assert invalid_payload["from_state"] == "backlog"
+        assert invalid_payload["to_state"] == "done"
 
-        to_todo = client.patch(
+        to_preparing = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
-            json={"state": "todo"},
+            json={"state": "preparing"},
             headers={"x-actor": "test-suite"},
         )
-        assert to_todo.status_code == 200
-        assert to_todo.json()["entry"]["state"] == "todo"
+        assert to_preparing.status_code == 200
+        assert to_preparing.json()["entry"]["state"] == "preparing"
 
         to_ready = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
@@ -170,12 +171,12 @@ def test_unified_queue_state_transition_matrix_and_audit_log(tmp_path: Path) -> 
         )
         assert to_ready.status_code == 200
 
-        to_started = client.patch(
+        to_in_progress = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
-            json={"state": "started"},
+            json={"state": "in_progress"},
             headers={"x-actor": "test-suite"},
         )
-        assert to_started.status_code == 200
+        assert to_in_progress.status_code == 200
 
         to_blocked = client.patch(
             f"/api/unified-queue/entries/{entry_id}",
@@ -208,7 +209,7 @@ def test_unified_queue_state_transition_matrix_and_audit_log(tmp_path: Path) -> 
             connection.close()
 
         # We performed 5 valid transitions after creation:
-        # idea->todo, todo->ready, ready->started, started->blocked, blocked->ready
+        # backlog->preparing, preparing->ready, ready->in_progress, in_progress->blocked, blocked->ready
         assert len(rows) == 5
         assert str(rows[0]["event_type"]) == "unified_queue_state_transition"
         assert str(rows[0]["entity_type"]) == "unified_queue_entry"
@@ -225,7 +226,7 @@ def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
                 "source_kind": "catalog_model",
                 "source_id": "cat-1",
                 "title": "Catalog One",
-                "state": "todo",
+                "state": "preparing",
                 "rank": 3,
                 "duration_bucket": "quick",
             },
@@ -241,14 +242,14 @@ def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
                 "source_kind": "working_file",
                 "source_id": "wf-1",
                 "title": "WF One",
-                "state": "started",
+                "state": "in_progress",
                 "rank": 2,
                 "duration_bucket": "medium",
             },
             {
                 "source_kind": "idea",
                 "title": "Idea One",
-                "state": "idea",
+                "state": "backlog",
                 "rank": 4,
                 "duration_bucket": "marathon",
             },
@@ -260,7 +261,7 @@ def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
         filtered = client.get(
             "/api/v1/queues/printer-main/entries",
             params={
-                "state": "todo,ready",
+                "state": "preparing,ready",
                 "source_kind": "catalog_model,working_group",
                 "sort": "rank:asc",
                 "limit": 10,
@@ -298,7 +299,7 @@ def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
 def test_queue_entries_v1_validation_errors(tmp_path: Path) -> None:
     client, _db_path = _create_client(tmp_path)
     try:
-        bad_state = client.get("/api/v1/queues/p1/entries", params={"state": "todo,wat"})
+        bad_state = client.get("/api/v1/queues/p1/entries", params={"state": "preparing,wat"})
         assert bad_state.status_code == 400
 
         bad_source = client.get("/api/v1/queues/p1/entries", params={"source_kind": "catalog_model,bad"})
