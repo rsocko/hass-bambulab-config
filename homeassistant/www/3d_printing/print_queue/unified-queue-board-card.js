@@ -2786,26 +2786,26 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .flash-banner {
         position: fixed;
-        top: 24px;
+        top: 50%;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         z-index: 9999;
-        padding: 12px 20px;
-        border-radius: 10px;
-        font-size: 13px;
-        font-weight: 600;
+        padding: 16px 28px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
         border: 1px solid transparent;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35),
-                    0 2px 6px rgba(0, 0, 0, 0.25);
-        backdrop-filter: blur(8px);
-        max-width: min(90vw, 520px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5),
+                    0 4px 10px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(10px);
+        max-width: min(90vw, 560px);
         text-align: center;
         pointer-events: none;
         animation: flash-toast-in 0.22s ease-out;
       }
       @keyframes flash-toast-in {
-        from { opacity: 0; transform: translate(-50%, -12px); }
-        to   { opacity: 1; transform: translate(-50%, 0); }
+        from { opacity: 0; transform: translate(-50%, calc(-50% - 12px)) scale(0.96); }
+        to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
 
       .flash-banner.success {
