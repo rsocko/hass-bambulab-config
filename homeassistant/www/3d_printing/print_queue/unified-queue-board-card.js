@@ -1883,15 +1883,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _getStateColor(state) {
-    const stateColors = {
-      'backlog': '#9eacba',   // text-muted
-      'preparing': '#7cc7ff', // accent-blue
-      'ready': '#6ee7c8',     // accent (teal)
-      'in_progress': '#f2c35b',
-      'done': '#7ddc97',      // accent-green
-      'blocked': '#f59090',   // accent-red
-    };
-    return stateColors[state] || '#9eacba';
+    return QUEUE_STATE_PALETTE[state] || '#9eacba';
   }
 
   _getSourceBadgeStyles(sourceKind) {
@@ -2205,8 +2197,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
           ${copiesCompleted > 0 ? `<span class="qcard-total">−${this._escapeHtml(this._formatDuration(durationMinutes - remainingMinutes))} skipped</span>` : ''}
         </div>
         <div class="qcard-actions" role="group" aria-label="Queue entry actions">
-          <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Details">Detail</button>
-          <button class="entry-action-btn" data-action="entry-edit" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Edit">Edit</button>
+          <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="View &amp; edit details">Details</button>
           <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
         </div>
       </article>
@@ -4416,8 +4407,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        cursor: grab;
+        cursor: default;
         transition: border-color 0.15s, transform 0.12s;
+      }
+      .qcard[draggable="true"] {
+        cursor: grab;
+      }
+      .qcard[draggable="true"]:active {
+        cursor: grabbing;
       }
       .qcard:hover {
         border-color: var(--border-strong);
