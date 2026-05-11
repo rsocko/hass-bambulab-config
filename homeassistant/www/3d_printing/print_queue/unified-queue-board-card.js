@@ -19,6 +19,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._loading = false;
     this._error = null;
     this._refreshTimer = null;
+    
+    // Filter state
+    this._filters = {
+      states: ['todo', 'ready', 'started', 'blocked'],  // Default: exclude idea, done
+      sources: [],  // Empty = all sources
+      sort: 'rank',  // Default: sort by rank
+    };
+    this._loadFilterState();
   }
 
   setConfig(config) {
@@ -27,6 +35,62 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }
     this._config = config;
     this.printerId = config.printer_id || 'p1';
+  }
+
+  _loadFilterState() {
+    try {
+      const stored = localStorage.getItem(`uq-filters-${this.printerId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        this._filters = { ...this._filters, ...parsed };
+      }
+    } catch (e) {
+      console.warn('Failed to load filter state:', e);
+    }
+  }
+
+  _saveFilterState() {
+    try {
+      localStorage.setItem(`uq-filters-${this.printerId}`, JSON.stringify(this._filters));
+    } catch (e) {
+      console.warn('Failed to save filter state:', e);
+    }
+  }
+
+  _toggleStateFilter(state) {
+    if (this._filters.states.includes(state)) {
+      this._filters.states = this._filters.states.filter(s => s !== state);
+    } else {
+      this._filters.states.push(state);
+    }
+    this._saveFilterState();
+    this._render();
+  }
+
+  _toggleSourceFilter(source) {
+    if (this._filters.sources.includes(source)) {
+      this._filters.sources = this._filters.sources.filter(s => s !== source);
+    } else {
+      this._filters.sources.push(source);
+    }
+    this._saveFilterState();
+    this._render();
+  }
+
+  _setSortOrder(sort) {
+    this._filters.sort = sort;
+    this._saveFilterState();
+    this._render();
+  }
+
+  _clearAllFilters() {
+    this._filters = {
+      states: ['todo', 'ready', 'started', 'blocked'],
+      sources: [],
+      sort: 'rank',
+    };
+    this._saveFilterState();
+    this._render();
   }
 
   set hass(hass) {
@@ -105,6 +169,41 @@ class UnifiedQueueBoardCard extends HTMLElement {
     return stats;
   }
 
+  _getFilteredAndSortedEntries() {
+    // Apply filters
+    let filtered = this._entries.filter(entry => {
+      // State filter
+      if (this._filters.states.length > 0 && !this._filters.states.includes(entry.state)) {
+        return false;
+      }
+      // Source filter
+      if (this._filters.sources.length > 0 && !this._filters.sources.includes(entry.source_kind)) {
+        return false;
+      }
+      return true;
+    });
+
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      switch (this._filters.sort) {
+        case 'rank':
+          return (a.rank || 999) - (b.rank || 999);
+        case 'rank-desc':
+          return (b.rank || 999) - (a.rank || 999);
+        case 'duration':
+          return (a.estimated_total_minutes || 0) - (b.estimated_total_minutes || 0);
+        case 'duration-desc':
+          return (b.estimated_total_minutes || 0) - (a.estimated_total_minutes || 0);
+        case 'recently-added':
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }
+
   _getStateColor(state) {
     const stateColors = {
       'idea': '#9eacba',      // text-muted
@@ -152,18 +251,112 @@ class UnifiedQueueBoardCard extends HTMLElement {
     `;
   }
 
+  _renderFilterControls() {
+    const hasActiveFilters = 
+      this._filters.states.length !== 4 || 
+      this._filters.sources.length > 0 || 
+      this._filters.sort !== 'rank';
+
+    return `
+      <div class="filter-bar">
+        <div class="filter-section">
+          <div class="filter-label">State</div>
+          <div class="filter-buttons">
+            ${this._renderStateFilterButtons()}
+          </div>
+        </div>
+        
+        <div class="filter-section">
+          <div class="filter-label">Source</div>
+          <div class="filter-buttons">
+            ${this._renderSourceFilterButtons()}
+          </div>
+        </div>
+        
+        <div class="filter-section">
+          <div class="filter-label">Sort By</div>
+          <select class="sort-dropdown" data-action="sort">
+            <option value="rank" ${this._filters.sort === 'rank' ? 'selected' : ''}>Rank (A-Z)</option>
+            <option value="rank-desc" ${this._filters.sort === 'rank-desc' ? 'selected' : ''}>Rank (Z-A)</option>
+            <option value="duration" ${this._filters.sort === 'duration' ? 'selected' : ''}>Duration (Short→Long)</option>
+            <option value="duration-desc" ${this._filters.sort === 'duration-desc' ? 'selected' : ''}>Duration (Long→Short)</option>
+            <option value="recently-added" ${this._filters.sort === 'recently-added' ? 'selected' : ''}>Recently Added</option>
+          </select>
+        </div>
+        
+        ${hasActiveFilters ? `<button class="clear-filters-btn" data-action="clear">Clear All</button>` : ''}
+      </div>
+    `;
+  }
+
+  _renderStateFilterButtons() {
+    const states = ['todo', 'ready', 'started', 'blocked', 'done', 'idea'];
+    return states.map(state => `
+      <button 
+        class="filter-btn ${this._filters.states.includes(state) ? 'active' : ''}"
+        data-action="toggle-state"
+        data-state="${state}"
+        title="Toggle ${state} filter"
+      >
+        ${this._getStateLabel(state)}
+      </button>
+    `).join('');
+  }
+
+  _renderSourceFilterButtons() {
+    const sources = ['catalog_model', 'working_group', 'working_file', 'idea'];
+    const labels = {
+      'catalog_model': 'Catalog',
+      'working_group': 'Working',
+      'working_file': 'File',
+      'idea': 'Ideas',
+    };
+    return sources.map(source => `
+      <button 
+        class="filter-btn ${this._filters.sources.includes(source) ? 'active' : ''}"
+        data-action="toggle-source"
+        data-source="${source}"
+        title="Toggle ${labels[source]} filter"
+      >
+        ${labels[source]}
+      </button>
+    `).join('');
+  }
+
+  _getStateLabel(state) {
+    const labels = {
+      'idea': 'Ideas',
+      'todo': 'To Do',
+      'ready': 'Ready',
+      'started': 'Started',
+      'done': 'Done',
+      'blocked': 'Blocked',
+    };
+    return labels[state] || state;
+  }
+
   _renderQueueList() {
-    if (this._entries.length === 0) {
+    const entries = this._getFilteredAndSortedEntries();
+
+    if (entries.length === 0) {
+      const hasFilters = this._filters.states.length !== 4 || this._filters.sources.length > 0;
+      const message = hasFilters 
+        ? 'No entries match your filters'
+        : 'Queue is Empty';
+      const subtitle = hasFilters
+        ? 'Try adjusting your filter selection'
+        : 'Add items to start planning your prints';
+
       return `
         <div class="empty-state">
           <div class="empty-icon">📋</div>
-          <div class="empty-title">Queue is Empty</div>
-          <div class="empty-subtitle">Add items to start planning your prints</div>
+          <div class="empty-title">${message}</div>
+          <div class="empty-subtitle">${subtitle}</div>
         </div>
       `;
     }
 
-    const grouped = this._groupEntriesByState();
+    const grouped = this._groupEntriesByState(entries);
     let html = '<div class="queue-list">';
 
     for (const state of ['started', 'ready', 'todo', 'idea', 'blocked', 'done']) {
@@ -182,9 +375,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     return html;
   }
 
-  _groupEntriesByState() {
+  _groupEntriesByState(entries = this._entries) {
     const grouped = {};
-    for (const entry of this._entries) {
+    for (const entry of entries) {
       if (!grouped[entry.state]) grouped[entry.state] = [];
       grouped[entry.state].push(entry);
     }
@@ -331,6 +524,103 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         gap: 18px;
+      }
+
+      .filter-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        padding: 14px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        align-items: center;
+      }
+
+      .filter-section {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .filter-buttons {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+
+      .filter-btn:hover {
+        background: rgba(255,255,255,0.06);
+        color: var(--text);
+      }
+
+      .filter-btn.active {
+        background: rgba(110, 231, 200, 0.12);
+        border-color: rgba(110, 231, 200, 0.30);
+        color: var(--accent);
+      }
+
+      .sort-dropdown {
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+      }
+
+      .sort-dropdown:hover {
+        background: rgba(255,255,255,0.06);
+        border-color: var(--border-strong);
+      }
+
+      .sort-dropdown option {
+        background: var(--bg-card);
+        color: var(--text);
+      }
+
+      .clear-filters-btn {
+        padding: 6px 10px;
+        border: 1px solid rgba(245, 144, 144, 0.3);
+        border-radius: 10px;
+        background: rgba(245, 144, 144, 0.08);
+        color: #f59090;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+
+      .clear-filters-btn:hover {
+        background: rgba(245, 144, 144, 0.12);
+        border-color: rgba(245, 144, 144, 0.5);
+        color: #ff7f7f;
       }
 
       .top-widget {
@@ -556,6 +846,20 @@ class UnifiedQueueBoardCard extends HTMLElement {
         color: var(--text-secondary);
       }
 
+      @media (max-width: 960px) {
+        .filter-bar {
+          grid-template-columns: 1fr;
+        }
+
+        .filter-buttons {
+          width: 100%;
+        }
+
+        .sort-dropdown {
+          width: 100%;
+        }
+      }
+
       @media (max-width: 760px) {
         .card-title {
           padding: 14px 16px;
@@ -564,6 +868,20 @@ class UnifiedQueueBoardCard extends HTMLElement {
         .content {
           padding: 14px;
           gap: 14px;
+        }
+
+        .filter-bar {
+          grid-template-columns: 1fr;
+          gap: 10px;
+          padding: 10px;
+        }
+
+        .filter-buttons {
+          width: 100%;
+        }
+
+        .sort-dropdown {
+          width: 100%;
         }
 
         .top-widget {
@@ -588,7 +906,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       ? '<div class="loading-state"><div class="loading-spinner"></div></div>'
       : this._error
       ? `<div class="error-state"><strong>⚠ Error</strong>${this._escapeHtml(this._error)}</div>`
-      : this._renderTopWidget() + this._renderQueueList();
+      : this._renderTopWidget() + this._renderFilterControls() + this._renderQueueList();
 
     const html = `
       <style>${css}</style>
@@ -610,6 +928,31 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const refreshBtn = this.shadowRoot.querySelector('.refresh-btn');
     if (refreshBtn && !this._loading) {
       refreshBtn.addEventListener('click', () => this._loadQueueData());
+    }
+
+    // Attach filter event listeners
+    const filterBtns = this.shadowRoot.querySelectorAll('.filter-btn');
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = e.target.dataset.action;
+        if (action === 'toggle-state') {
+          this._toggleStateFilter(e.target.dataset.state);
+        } else if (action === 'toggle-source') {
+          this._toggleSourceFilter(e.target.dataset.source);
+        }
+      });
+    });
+
+    const sortDropdown = this.shadowRoot.querySelector('.sort-dropdown');
+    if (sortDropdown) {
+      sortDropdown.addEventListener('change', (e) => {
+        this._setSortOrder(e.target.value);
+      });
+    }
+
+    const clearBtn = this.shadowRoot.querySelector('.clear-filters-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => this._clearAllFilters());
     }
   }
 
