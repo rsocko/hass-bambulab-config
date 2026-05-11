@@ -249,7 +249,7 @@ In planner backend, customize strategy scoring for your use case:
 ### Card Not Rendering
 
 1. Check resource URL in `_resources.yaml`
-   - Should be: `/local/3d_printing/print_queue/unified-queue-board-card.js?v=7`
+  - Should be: `/local/3d_printing/print_queue/unified-queue-board-card.js?v=8`
 
 2. Hard refresh browser (Ctrl+Shift+R)
 

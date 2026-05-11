@@ -44,6 +44,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._addDetailError = null;
     this._addDetailFiles = [];
     this._rowActionBusy = false;
+    this._editModalOpen = false;
+    this._editEntryId = null;
+    this._editTitle = '';
+    this._editCopies = 1;
+    this._editSubmitting = false;
+    this._editError = null;
     this._detailEntry = null;
     this._detailLoading = false;
     this._detailError = null;
@@ -57,6 +63,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._plannerStrategy = 'balanced';
     this._plannerPreview = [];
     this._plannerHistory = [];
+    this._plannerLocalHistory = [];
+    this._plannerFallbackMode = false;
     this._plannerLoading = false;
     this._plannerError = null;
     this._plannerBusy = false;
@@ -715,25 +723,60 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }
   }
 
-  async _editEntry(queueEntryId) {
+  _openEditModal(queueEntryId) {
     const entry = this._getEntryById(queueEntryId);
     if (!entry) return;
 
-    const currentTitle = String(entry.title || '').trim();
-    const currentCopies = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
-    const newTitle = window.prompt('Edit queue entry title:', currentTitle);
-    if (newTitle === null) return;
+    this._editModalOpen = true;
+    this._editEntryId = queueEntryId;
+    this._editTitle = String(entry.title || '').trim();
+    this._editCopies = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
+    this._editSubmitting = false;
+    this._editError = null;
+    this._render();
+  }
 
-    const copiesInput = window.prompt('Edit copies requested:', String(currentCopies));
-    if (copiesInput === null) return;
+  _closeEditModal() {
+    this._editModalOpen = false;
+    this._editEntryId = null;
+    this._editTitle = '';
+    this._editCopies = 1;
+    this._editSubmitting = false;
+    this._editError = null;
+    this._render();
+  }
 
-    const parsedCopies = Number.parseInt(copiesInput, 10);
-    if (!Number.isFinite(parsedCopies) || parsedCopies < 1) {
-      this._setFlashMessage('Copies must be an integer >= 1.', 'error');
+  _setEditTitle(value) {
+    this._editTitle = String(value || '');
+    this._render();
+  }
+
+  _setEditCopies(value) {
+    const parsed = Number.parseInt(value, 10);
+    this._editCopies = Number.isFinite(parsed) ? parsed : value;
+    this._render();
+  }
+
+  async _submitEditModal() {
+    const queueEntryId = String(this._editEntryId || '').trim();
+    const entry = this._getEntryById(queueEntryId);
+    if (!queueEntryId || !entry) {
+      this._editError = 'Entry no longer exists.';
+      this._render();
       return;
     }
 
-    this._rowActionBusy = true;
+    const currentTitle = String(entry.title || '').trim();
+    const newTitle = String(this._editTitle || '').trim() || currentTitle;
+    const parsedCopies = Number.parseInt(this._editCopies, 10);
+    if (!Number.isFinite(parsedCopies) || parsedCopies < 1) {
+      this._editError = 'Copies must be an integer >= 1.';
+      this._render();
+      return;
+    }
+
+    this._editSubmitting = true;
+    this._editError = null;
     this._render();
     try {
       const response = await fetch(
@@ -742,7 +785,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: String(newTitle || '').trim() || currentTitle,
+            title: newTitle,
             copies_requested: parsedCopies,
           }),
         }
@@ -751,14 +794,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
       if (!response.ok) {
         throw new Error(String(payload.message || payload.error || `Update failed (${response.status})`));
       }
+
+      this._closeEditModal();
       this._setFlashMessage('Queue entry updated.', 'success');
       await this._loadQueueData();
     } catch (err) {
-      this._setFlashMessage(err.message, 'error');
-    } finally {
-      this._rowActionBusy = false;
+      this._editError = err.message;
+      this._editSubmitting = false;
       this._render();
     }
+  }
+
+  async _editEntry(queueEntryId) {
+    this._openEditModal(queueEntryId);
   }
 
   _openEntryDetail(queueEntryId) {
@@ -895,8 +943,65 @@ class UnifiedQueueBoardCard extends HTMLElement {
   _closePlannerDrawer() {
     this._plannerOpen = false;
     this._plannerPreview = [];
-    this._plannerHistory = [];
     this._render();
+  }
+
+  _buildLocalPlannerPreview(strategy) {
+    const ordered = this._getAllEntriesRanked();
+    const scored = ordered.map((entry, index) => {
+      const duration = Number(entry.estimated_total_minutes || 0);
+      const ams = Number(entry.ams_score_pct || 0);
+      const overnight = Number(entry.overnight_fit_minutes || 0);
+
+      let score = 0;
+      let reason = 'Balanced queue score';
+      if (strategy === 'aggressive') {
+        score = (overnight * 10) + (ams * 2) - duration;
+        reason = overnight > 0 ? 'Prioritized for overnight fit' : 'Lower overnight priority';
+      } else if (strategy === 'lazy') {
+        score = (ams * 10) + (overnight * 0.5) - (duration * 0.25);
+        reason = ams >= 70 ? 'High AMS readiness' : 'Lower AMS readiness';
+      } else {
+        score = (ams * 6) + (overnight * 3) - (duration * 0.5);
+        reason = 'Balanced AMS readiness and overnight fit';
+      }
+
+      return {
+        queue_entry_id: entry.queue_entry_id,
+        title: entry.title || entry.queue_entry_id,
+        reason,
+        current_rank: Number.isFinite(entry.rank) ? entry.rank : index + 1,
+        _score: score,
+      };
+    });
+
+    scored.sort((a, b) => {
+      if (b._score !== a._score) return b._score - a._score;
+      return a.current_rank - b.current_rank;
+    });
+
+    return scored.map((item, index) => ({
+      queue_entry_id: item.queue_entry_id,
+      title: item.title,
+      reason: item.reason,
+      new_rank: index + 1,
+      current_rank: item.current_rank,
+    }));
+  }
+
+  async _applyPlannerReorderMoves(moves) {
+    const response = await fetch(
+      `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/reorder`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moves }),
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(String(payload.message || payload.error || `Reorder failed (${response.status})`));
+    }
   }
 
   async _loadPlannerHistory() {
@@ -905,11 +1010,23 @@ class UnifiedQueueBoardCard extends HTMLElement {
         `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/history`,
         { method: 'GET' }
       );
+      if (response.status === 404) {
+        this._plannerFallbackMode = true;
+        this._plannerHistory = this._plannerLocalHistory.map(item => ({
+          timestamp: item.timestamp,
+          strategy: item.strategy,
+          entries_reordered: item.entries_reordered,
+        }));
+        this._plannerError = null;
+        return;
+      }
+
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(String(payload.message || payload.error || `Failed to load planner history (${response.status})`));
       }
       this._plannerHistory = Array.isArray(payload.history) ? payload.history.slice(0, 10) : [];
+      this._plannerFallbackMode = false;
       this._plannerError = null;
     } catch (err) {
       this._plannerError = err.message;
@@ -927,11 +1044,20 @@ class UnifiedQueueBoardCard extends HTMLElement {
         `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/preview?strategy=${encodeURIComponent(strategy)}`,
         { method: 'GET' }
       );
+
+      if (response.status === 404) {
+        this._plannerFallbackMode = true;
+        this._plannerPreview = this._buildLocalPlannerPreview(strategy);
+        this._plannerError = null;
+        return;
+      }
+
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(String(payload.message || payload.error || `Failed to load preview (${response.status})`));
       }
       this._plannerPreview = Array.isArray(payload.planned_order) ? payload.planned_order : [];
+      this._plannerFallbackMode = false;
       this._plannerError = null;
     } catch (err) {
       this._plannerError = err.message;
@@ -956,17 +1082,54 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._render();
     try {
       const strategy = String(this._plannerStrategy || 'balanced').trim();
-      const response = await fetch(
-        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/apply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ strategy, planned_order: this._plannerPreview }),
+      if (this._plannerFallbackMode) {
+        const current = this._getAllEntriesRanked().map((entry, index) => ({
+          id: entry.queue_entry_id,
+          rank: Number.isFinite(entry.rank) ? entry.rank : index + 1,
+        }));
+        const rankById = new Map(current.map(item => [item.id, item.rank]));
+
+        const moves = this._plannerPreview
+          .map((item, index) => {
+            const id = String(item.queue_entry_id || '').trim();
+            if (!id) return null;
+            const newRank = Number.isFinite(item.new_rank) ? item.new_rank : index + 1;
+            const oldRank = rankById.get(id);
+            if (!Number.isFinite(oldRank) || oldRank === newRank) return null;
+            return { id, new_rank: newRank };
+          })
+          .filter(Boolean);
+
+        if (moves.length > 0) {
+          await this._applyPlannerReorderMoves(moves);
         }
-      );
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(String(payload.message || payload.error || `Apply failed (${response.status})`));
+
+        const previousRanks = current.map(item => ({ id: item.id, rank: item.rank }));
+        this._plannerLocalHistory.unshift({
+          timestamp: new Date().toISOString(),
+          strategy,
+          entries_reordered: moves.length,
+          previous_ranks: previousRanks,
+        });
+        this._plannerLocalHistory = this._plannerLocalHistory.slice(0, 10);
+        this._plannerHistory = this._plannerLocalHistory.map(item => ({
+          timestamp: item.timestamp,
+          strategy: item.strategy,
+          entries_reordered: item.entries_reordered,
+        }));
+      } else {
+        const response = await fetch(
+          `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/apply`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ strategy, planned_order: this._plannerPreview }),
+          }
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(String(payload.message || payload.error || `Apply failed (${response.status})`));
+        }
       }
 
       this._setFlashMessage(`Planner applied (${strategy} strategy).`, 'success');
@@ -983,13 +1146,31 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._plannerBusy = true;
     this._render();
     try {
-      const response = await fetch(
-        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/undo`,
-        { method: 'POST' }
-      );
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(String(payload.message || payload.error || `Undo failed (${response.status})`));
+      if (this._plannerFallbackMode) {
+        const last = this._plannerLocalHistory.shift();
+        if (!last || !Array.isArray(last.previous_ranks) || last.previous_ranks.length === 0) {
+          throw new Error('No local planner operation to undo.');
+        }
+        const moves = last.previous_ranks
+          .filter(item => item && item.id && Number.isFinite(item.rank))
+          .map(item => ({ id: item.id, new_rank: item.rank }));
+        if (moves.length > 0) {
+          await this._applyPlannerReorderMoves(moves);
+        }
+        this._plannerHistory = this._plannerLocalHistory.map(item => ({
+          timestamp: item.timestamp,
+          strategy: item.strategy,
+          entries_reordered: item.entries_reordered,
+        }));
+      } else {
+        const response = await fetch(
+          `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/undo`,
+          { method: 'POST' }
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(String(payload.message || payload.error || `Undo failed (${response.status})`));
+        }
       }
 
       this._setFlashMessage('Planner operation undone.', 'success');
@@ -1575,6 +1756,61 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
       </div>
     `).join('');
+  }
+  
+  _renderEditModal() {
+    if (!this._editModalOpen) {
+      return '';
+    }
+
+    const title = this._escapeHtml(String(this._editTitle || ''));
+    const copies = this._escapeHtml(String(this._editCopies || 1));
+
+    return `
+      <div class="modal-backdrop edit-backdrop" data-action="close-edit">
+        <section class="add-modal edit-modal" role="dialog" aria-modal="true" aria-label="Edit Queue Entry">
+          <div class="add-modal-header">
+            <div>
+              <h3>Edit Queue Entry</h3>
+              <div class="add-modal-subtitle">Update title and requested copies</div>
+            </div>
+            <button class="modal-close-btn" data-action="close-edit" title="Close">✕</button>
+          </div>
+
+          <div class="add-modal-body">
+            <div class="add-grid">
+              <label class="form-label">Title
+                <input
+                  type="text"
+                  class="edit-title-input"
+                  value="${title}"
+                  placeholder="Queue entry title"
+                />
+              </label>
+
+              <label class="form-label">Copies
+                <input
+                  type="number"
+                  class="edit-copies-input"
+                  min="1"
+                  step="1"
+                  value="${copies}"
+                />
+              </label>
+            </div>
+
+            ${this._editError ? `<div class="inline-error">${this._escapeHtml(this._editError)}</div>` : ''}
+          </div>
+
+          <div class="add-modal-footer">
+            <button class="ghost-btn" data-action="close-edit" ${this._editSubmitting ? 'disabled' : ''}>Cancel</button>
+            <button class="primary-btn" data-action="submit-edit" ${this._editSubmitting ? 'disabled' : ''}>
+              ${this._editSubmitting ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </section>
+      </div>
+    `;
   }
 
   _renderEntryDetailModal() {
@@ -3220,6 +3456,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
       </div>
       ${this._renderAddModal()}
+      ${this._renderEditModal()}
       ${this._renderEntryDetailModal()}
       ${this._renderPlannerDrawer()}
     `;
@@ -3274,6 +3511,39 @@ class UnifiedQueueBoardCard extends HTMLElement {
     modalCloseBtns.forEach(button => {
       button.addEventListener('click', () => this._closeAddModal());
     });
+
+    const editBackdrop = this.shadowRoot.querySelector('[data-action="close-edit"].modal-backdrop');
+    if (editBackdrop) {
+      editBackdrop.addEventListener('click', (event) => {
+        if (event.target === editBackdrop) {
+          this._closeEditModal();
+        }
+      });
+    }
+
+    const editCloseBtns = this.shadowRoot.querySelectorAll('[data-action="close-edit"]:not(.modal-backdrop)');
+    editCloseBtns.forEach(button => {
+      button.addEventListener('click', () => this._closeEditModal());
+    });
+
+    const editTitleInput = this.shadowRoot.querySelector('.edit-title-input');
+    if (editTitleInput) {
+      editTitleInput.addEventListener('input', (event) => {
+        this._setEditTitle(event.target.value);
+      });
+    }
+
+    const editCopiesInput = this.shadowRoot.querySelector('.edit-copies-input');
+    if (editCopiesInput) {
+      editCopiesInput.addEventListener('input', (event) => {
+        this._setEditCopies(event.target.value);
+      });
+    }
+
+    const submitEditBtn = this.shadowRoot.querySelector('[data-action="submit-edit"]');
+    if (submitEditBtn) {
+      submitEditBtn.addEventListener('click', () => this._submitEditModal());
+    }
 
     const addTabBtns = this.shadowRoot.querySelectorAll('[data-action="add-tab"]');
     addTabBtns.forEach(button => {
