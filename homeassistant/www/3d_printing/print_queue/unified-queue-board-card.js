@@ -2247,8 +2247,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }
 
     const toneClass = this._flashMessage.type === 'error' ? 'error' : 'success';
+    const icon = toneClass === 'error' ? '\u26A0' : '\u2713';
     return `
-      <div class="flash-banner ${toneClass}">
+      <div class="flash-banner ${toneClass}" role="status" aria-live="polite">
+        <span class="flash-banner-icon" aria-hidden="true">${icon}</span>
         ${this._escapeHtml(this._flashMessage.message)}
       </div>
     `;
@@ -2783,23 +2785,45 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .flash-banner {
-        padding: 10px 12px;
-        border-radius: 12px;
-        font-size: 12px;
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-size: 13px;
         font-weight: 600;
         border: 1px solid transparent;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35),
+                    0 2px 6px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(8px);
+        max-width: min(90vw, 520px);
+        text-align: center;
+        pointer-events: none;
+        animation: flash-toast-in 0.22s ease-out;
+      }
+      @keyframes flash-toast-in {
+        from { opacity: 0; transform: translate(-50%, -12px); }
+        to   { opacity: 1; transform: translate(-50%, 0); }
       }
 
       .flash-banner.success {
-        background: rgba(125, 220, 151, 0.12);
-        border-color: rgba(125, 220, 151, 0.28);
+        background: rgba(20, 40, 28, 0.92);
+        border-color: rgba(125, 220, 151, 0.55);
         color: var(--accent-green);
       }
 
       .flash-banner.error {
-        background: rgba(245, 144, 144, 0.12);
-        border-color: rgba(245, 144, 144, 0.28);
+        background: rgba(50, 18, 18, 0.94);
+        border-color: rgba(245, 144, 144, 0.7);
         color: var(--accent-red);
+      }
+      .flash-banner-icon {
+        display: inline-block;
+        margin-right: 8px;
+        font-size: 14px;
+        font-weight: 700;
       }
 
       .suggestions-block {
@@ -4441,17 +4465,20 @@ class UnifiedQueueBoardCard extends HTMLElement {
         transform: scale(0.98);
       }
       .qcard.invalid-drop {
-        border-color: #f59090 !important;
-        border-left-color: #f59090 !important;
-        box-shadow: 0 0 0 2px rgba(245, 144, 144, 0.45),
-                    0 0 12px rgba(245, 144, 144, 0.35);
-        animation: qcard-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+        border: 2px solid var(--accent-red, #f59090) !important;
+        border-left: 4px solid var(--accent-red, #f59090) !important;
+        background: linear-gradient(180deg,
+          rgba(245, 144, 144, 0.22),
+          rgba(245, 144, 144, 0.08)) !important;
+        box-shadow: 0 0 0 3px rgba(245, 144, 144, 0.35),
+                    0 0 18px rgba(245, 144, 144, 0.55);
+        animation: qcard-shake 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97);
       }
       @keyframes qcard-shake {
         10%, 90% { transform: translateX(-2px); }
-        20%, 80% { transform: translateX(3px); }
-        30%, 50%, 70% { transform: translateX(-5px); }
-        40%, 60% { transform: translateX(5px); }
+        20%, 80% { transform: translateX(4px); }
+        30%, 50%, 70% { transform: translateX(-6px); }
+        40%, 60% { transform: translateX(6px); }
       }
       .qcard-row1 {
         display: flex;
