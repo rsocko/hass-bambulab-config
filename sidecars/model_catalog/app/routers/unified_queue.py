@@ -38,6 +38,10 @@ from ..db import (
     update_unified_queue_match_suggestion,
     update_unified_queue_entry,
     upsert_unified_queue_planner_preference,
+    create_planner_operation_audit,
+    list_planner_operation_audits,
+    create_planner_operation_snapshots,
+    read_planner_operation_snapshots,
     utc_now_iso,
 )
 from ..geometry_3mf import extract_3mf_plates_metadata
@@ -2366,5 +2370,276 @@ def plan_queue_reorder_v1(
         "move_count": len(moves),
         "ams_state_known": ams_state_known,
         "available_tray_uuids": sorted(list(available_uuids)),
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/plan/apply")
+def apply_planner_delta_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Apply a planner delta, updating all ranks atomically and recording to audit log.
+
+    Accepts optional delta from /plan endpoint to re-apply or accepts moves array directly.
+    Records all changes in audit trail for undo support.
+    """
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    try:
+        requested_strategy = _normalize_planner_strategy(body.get("strategy")) if "strategy" in body else None
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    # Fetch persisted preference or use defaults
+    persisted_pref = read_unified_queue_planner_preference(db_path=state.settings.db_path, printer_id=printer_id)
+    active_strategy = requested_strategy or (persisted_pref.strategy if persisted_pref is not None else "balanced")
+
+    try:
+        # Get current state before applying
+        current_entries = list_unified_queue_entries(db_path=state.settings.db_path)
+        current_rank_map = {entry.queue_entry_id: entry.rank for entry in current_entries}
+
+        # Get delta from body or compute fresh delta
+        if "moves" in body:
+            moves = body.get("moves", [])
+            if not isinstance(moves, list):
+                return _error_response(status_code=400, error="validation_error", message="moves must be an array")
+            delta = moves
+        else:
+            # Compute fresh delta using same strategy logic as /plan
+            if "custom_weights" in body:
+                weights_source: object | None = body.get("custom_weights")
+            elif requested_strategy is not None:
+                weights_source = None
+            else:
+                weights_source = persisted_pref.weights if persisted_pref else None
+
+            active_weights = _normalize_planner_weights(active_strategy, weights_source)
+            ams_payload = body.get("ams_tray_uuids")
+            _, _, _, ranked = _compute_planner_scores_immutable(
+                db_path=state.settings.db_path,
+                strategy=active_strategy,
+                weights=active_weights,
+                ams_tray_uuids=ams_payload,
+            )
+
+            optimal_rank_map = {entry["queue_entry_id"]: idx for idx, entry in enumerate(ranked)}
+            delta = []
+            for entry in current_entries:
+                optimal_rank = optimal_rank_map.get(entry.queue_entry_id)
+                if optimal_rank is not None and entry.rank != optimal_rank:
+                    delta.append({
+                        "id": entry.queue_entry_id,
+                        "from_rank": entry.rank,
+                        "to_rank": optimal_rank,
+                    })
+
+        # Extract moved entry IDs
+        moved_entry_ids = [str(move.get("id", "")) for move in delta if "id" in move]
+
+        # Apply moves atomically
+        rank_moves = []
+        snapshots_data = []
+        for move in delta:
+            entry_id = str(move.get("id", "")).strip()
+            to_rank = move.get("to_rank")
+            if entry_id and to_rank is not None:
+                rank_before = current_rank_map.get(entry_id, -1)
+                rank_moves.append((entry_id, to_rank))
+                snapshots_data.append((entry_id, rank_before, to_rank))
+
+        if not rank_moves:
+            return {
+                "success": True,
+                "contract": "unified-queue.v1",
+                "printer_id": printer_id,
+                "message": "no moves to apply",
+                "audit_id": None,
+            }
+
+        changed_moves, missing_ids = reorder_unified_queue_entries(db_path=state.settings.db_path, moves=rank_moves)
+        if missing_ids:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"entries not found: {missing_ids}",
+            )
+
+        # Record in audit log
+        audit = create_planner_operation_audit(
+            db_path=state.settings.db_path,
+            printer_id=printer_id,
+            operation="apply",
+            strategy=active_strategy,
+            delta=delta,
+            moved_entry_ids=moved_entry_ids,
+            created_by=None,  # Could derive from request context
+        )
+
+        # Record rank snapshots
+        create_planner_operation_snapshots(
+            db_path=state.settings.db_path,
+            audit_id=audit.id,
+            snapshots=snapshots_data,
+        )
+
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "strategy": active_strategy,
+        "applied_moves": len(delta),
+        "audit_id": audit.id,
+        "undo_available": True,
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/plan/undo")
+def undo_planner_operation_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Undo the most recent planner operation by reverting to previous rank state.
+
+    Restores ranks to their state before the most recent /apply call.
+    Records undo as a separate audit entry for full history tracking.
+    """
+    state: AppState = request.app.state.model_catalog
+
+    try:
+        # Get most recent apply operation
+        audits = list_planner_operation_audits(db_path=state.settings.db_path, printer_id=printer_id, limit=1)
+        if not audits:
+            return _error_response(
+                status_code=404,
+                error="not_found",
+                message="no planner operations to undo",
+            )
+
+        last_audit = audits[0]
+        if last_audit.operation != "apply":
+            return _error_response(
+                status_code=400,
+                error="invalid_operation",
+                message="can only undo recent apply operations",
+            )
+
+        # Get snapshots to restore previous ranks
+        snapshots = read_planner_operation_snapshots(db_path=state.settings.db_path, audit_id=last_audit.id)
+        if not snapshots:
+            return _error_response(
+                status_code=400,
+                error="invalid_state",
+                message="audit has no rank snapshots",
+            )
+
+        # Build undo moves (reverse the before/after)
+        undo_moves = [(snap.queue_entry_id, snap.rank_before) for snap in snapshots]
+        undo_delta = [
+            {
+                "id": snap.queue_entry_id,
+                "from_rank": snap.rank_after,
+                "to_rank": snap.rank_before,
+                "reason": "undo",
+            }
+            for snap in snapshots
+        ]
+
+        # Apply undo moves
+        changed_moves, missing_ids = reorder_unified_queue_entries(db_path=state.settings.db_path, moves=undo_moves)
+        if missing_ids:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message=f"entries not found for undo: {missing_ids}",
+            )
+
+        # Record undo in audit log
+        moved_entry_ids = [str(snap.queue_entry_id) for snap in snapshots]
+        undo_audit = create_planner_operation_audit(
+            db_path=state.settings.db_path,
+            printer_id=printer_id,
+            operation="undo",
+            strategy=last_audit.strategy,
+            delta=undo_delta,
+            moved_entry_ids=moved_entry_ids,
+            created_by=None,
+        )
+
+        # Record undo snapshots (for potential redo)
+        undo_snapshots_data = [
+            (snap.queue_entry_id, snap.rank_after, snap.rank_before)
+            for snap in snapshots
+        ]
+        create_planner_operation_snapshots(
+            db_path=state.settings.db_path,
+            audit_id=undo_audit.id,
+            snapshots=undo_snapshots_data,
+        )
+
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "undone_moves": len(undo_delta),
+        "restored_audit_id": last_audit.id,
+        "undo_audit_id": undo_audit.id,
+    }
+
+
+@router.get("/api/v1/queues/{printer_id}/plan/history")
+def list_planner_history_v1(
+    printer_id: str,
+    request: Request,
+    limit: int = 5,
+) -> Any:
+    """List recent planner operations (apply/undo) with full audit trail."""
+    state: AppState = request.app.state.model_catalog
+
+    try:
+        if limit < 1 or limit > 20:
+            return _error_response(
+                status_code=400,
+                error="validation_error",
+                message="limit must be between 1 and 20",
+            )
+
+        audits = list_planner_operation_audits(db_path=state.settings.db_path, printer_id=printer_id, limit=limit)
+        history = []
+        for audit in audits:
+            snapshots = read_planner_operation_snapshots(db_path=state.settings.db_path, audit_id=audit.id)
+            history.append({
+                "id": audit.id,
+                "operation": audit.operation,
+                "strategy": audit.strategy,
+                "moved_entry_count": len(audit.moved_entry_ids),
+                "snapshots_count": len(snapshots),
+                "created_at": audit.created_at,
+                "created_by": audit.created_by,
+            })
+
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "history": history,
+        "history_count": len(history),
     }
 

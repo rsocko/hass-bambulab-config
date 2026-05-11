@@ -69,6 +69,8 @@ from .db_unified_queue import (
     UnifiedQueueMatchSuggestion,
     UnifiedQueuePlannerPreference,
     UnifiedQueuePlateUnit,
+    PlannerOperationAudit,
+    PlannerOperationSnapshot,
     create_unified_queue_match_suggestion,
     create_unified_queue_transition_audit,
     list_unified_queue_match_suggestions,
@@ -92,6 +94,11 @@ from .db_unified_queue import (
     update_unified_queue_match_suggestion,
     update_unified_queue_plate_unit,
     upsert_unified_queue_planner_preference,
+    create_planner_operation_audit,
+    read_planner_operation_audit,
+    list_planner_operation_audits,
+    create_planner_operation_snapshots,
+    read_planner_operation_snapshots,
 )
 
 

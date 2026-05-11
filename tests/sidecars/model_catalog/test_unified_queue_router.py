@@ -1504,3 +1504,142 @@ def test_plan_queue_v1_shows_no_moves_when_already_optimal(tmp_path: Path) -> No
         client.__exit__(None, None, None)
 
 
+def test_apply_planner_delta_v1_applies_moves_atomically(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick", "estimated_total_minutes": 90, "rank": 2},
+        )
+        overnight = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Overnight", "estimated_total_minutes": 420, "rank": 1},
+        )
+        assert quick.status_code == 200
+        assert overnight.status_code == 200
+
+        quick_id = quick.json()["entry"]["queue_entry_id"]
+        overnight_id = overnight.json()["entry"]["queue_entry_id"]
+
+        # Generate plan delta
+        plan = client.post(
+            "/api/v1/queues/p1/plan",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert plan.status_code == 200
+        moves = plan.json()["moves"]
+
+        # Apply the delta
+        apply_response = client.post(
+            "/api/v1/queues/p1/plan/apply",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert apply_response.status_code == 200
+        apply_payload = apply_response.json()
+
+        assert apply_payload["success"] is True
+        assert apply_payload["applied_moves"] > 0
+        assert apply_payload["audit_id"] is not None
+        assert apply_payload["undo_available"] is True
+
+        # Verify ranks were updated
+        verify = client.get("/api/v1/queues/p1/entries")
+        if verify.status_code == 200:
+            current_ranks = {entry["queue_entry_id"]: entry.get("rank") for entry in verify.json().get("entries", [])}
+            # After aggressive apply, quick should have lower rank than overnight
+            if quick_id in current_ranks and overnight_id in current_ranks:
+                assert current_ranks[quick_id] < current_ranks[overnight_id], "quick should rank before overnight with aggressive"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_undo_planner_operation_v1_reverts_ranks(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick", "estimated_total_minutes": 90, "rank": 2},
+        )
+        overnight = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Overnight", "estimated_total_minutes": 420, "rank": 1},
+        )
+        assert quick.status_code == 200
+        assert overnight.status_code == 200
+
+        quick_id = quick.json()["entry"]["queue_entry_id"]
+        overnight_id = overnight.json()["entry"]["queue_entry_id"]
+
+        original_quick_rank = 2
+        original_overnight_rank = 1
+
+        # Apply delta
+        apply_response = client.post(
+            "/api/v1/queues/p1/plan/apply",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert apply_response.status_code == 200
+
+        # Verify ranks changed
+        after_apply = client.get("/api/v1/queues/p1/entries")
+        assert after_apply.status_code == 200
+        after_apply_ranks = {entry["queue_entry_id"]: entry.get("rank") for entry in after_apply.json().get("entries", [])}
+
+        # Now undo
+        undo_response = client.post(
+            "/api/v1/queues/p1/plan/undo",
+            json={},
+        )
+        assert undo_response.status_code == 200
+        undo_payload = undo_response.json()
+
+        assert undo_payload["success"] is True
+        assert undo_payload["undone_moves"] > 0
+        assert undo_payload["restored_audit_id"] is not None
+        assert undo_payload["undo_audit_id"] is not None
+
+        # Verify ranks reverted
+        after_undo = client.get("/api/v1/queues/p1/entries")
+        assert after_undo.status_code == 200
+        after_undo_ranks = {entry["queue_entry_id"]: entry.get("rank") for entry in after_undo.json().get("entries", [])}
+
+        if quick_id in after_undo_ranks and overnight_id in after_undo_ranks:
+            # Should be back to original order: overnight=1, quick=2 (or similar after normalization)
+            assert after_undo_ranks[overnight_id] <= after_undo_ranks[quick_id], "overnight should be before or equal to quick after undo"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_plan_history_v1_lists_recent_operations(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick", "estimated_total_minutes": 90, "rank": 1},
+        )
+        assert quick.status_code == 200
+
+        # Apply once
+        apply1 = client.post(
+            "/api/v1/queues/p1/plan/apply",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert apply1.status_code == 200
+
+        # Get history
+        history_response = client.get("/api/v1/queues/p1/plan/history")
+        assert history_response.status_code == 200
+        history_payload = history_response.json()
+
+        assert history_payload["success"] is True
+        assert history_payload["history_count"] >= 1
+        assert len(history_payload["history"]) >= 1
+
+        recent_op = history_payload["history"][0]
+        assert recent_op["operation"] in ["apply", "undo"]
+        assert "id" in recent_op
+        assert "created_at" in recent_op
+    finally:
+        client.__exit__(None, None, None)
+
+

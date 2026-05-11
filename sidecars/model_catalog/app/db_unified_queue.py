@@ -1087,3 +1087,196 @@ def reorder_unified_queue_entries(
     finally:
         connection.close()
 
+
+@dataclass(frozen=True)
+class PlannerOperationAudit:
+    """Audit log entry for planner operations (apply/undo)."""
+
+    id: int
+    printer_id: str
+    operation: str  # 'apply' or 'undo'
+    strategy: str | None
+    delta_json: str  # JSON-serialized moves array
+    moved_entry_ids: list[str]
+    created_at: str
+    created_by: str | None
+
+
+@dataclass(frozen=True)
+class PlannerOperationSnapshot:
+    """Rank snapshot for a single entry before/after a planner operation."""
+
+    id: int
+    audit_id: int
+    queue_entry_id: str
+    rank_before: int
+    rank_after: int
+    created_at: str
+
+
+def _audit_from_row(row) -> PlannerOperationAudit:
+    raw_ids = json.loads(str(row["moved_entry_ids_json"] or "[]"))
+    moved_ids = [str(item) for item in raw_ids] if isinstance(raw_ids, list) else []
+    return PlannerOperationAudit(
+        id=int(row["id"]),
+        printer_id=str(row["printer_id"]),
+        operation=str(row["operation"]),
+        strategy=str(row["strategy"] or "").strip() or None,
+        delta_json=str(row["delta_json"]),
+        moved_entry_ids=moved_ids,
+        created_at=str(row["created_at"]),
+        created_by=str(row["created_by"] or "").strip() or None,
+    )
+
+
+def _snapshot_from_row(row) -> PlannerOperationSnapshot:
+    return PlannerOperationSnapshot(
+        id=int(row["id"]),
+        audit_id=int(row["audit_id"]),
+        queue_entry_id=str(row["queue_entry_id"]),
+        rank_before=int(row["rank_before"]),
+        rank_after=int(row["rank_after"]),
+        created_at=str(row["created_at"]),
+    )
+
+
+def create_planner_operation_audit(
+    *,
+    db_path: Path,
+    printer_id: str,
+    operation: str,
+    strategy: str | None,
+    delta: list[dict[str, object]],
+    moved_entry_ids: list[str],
+    created_by: str | None = None,
+) -> PlannerOperationAudit:
+    """Create an audit log entry for a planner operation."""
+    now = utc_now_iso()
+    connection = connect(db_path)
+    try:
+        cursor = connection.execute(
+            """
+            INSERT INTO planner_operations_audit (
+                printer_id,
+                operation,
+                strategy,
+                delta_json,
+                moved_entry_ids_json,
+                created_at,
+                created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                printer_id,
+                operation,
+                strategy,
+                json.dumps(delta, separators=(",", ":")),
+                json.dumps(moved_entry_ids, separators=(",", ":")),
+                now,
+                created_by,
+            ),
+        )
+        connection.commit()
+        audit_id = cursor.lastrowid
+    finally:
+        connection.close()
+
+    audit = read_planner_operation_audit(db_path=db_path, audit_id=audit_id)
+    if audit is None:
+        raise RuntimeError("Failed to read created planner operation audit")
+    return audit
+
+
+def read_planner_operation_audit(*, db_path: Path, audit_id: int) -> PlannerOperationAudit | None:
+    """Read a single audit log entry."""
+    connection = connect(db_path)
+    try:
+        row = connection.execute(
+            "SELECT * FROM planner_operations_audit WHERE id = ?",
+            (audit_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return None
+    return _audit_from_row(row)
+
+
+def list_planner_operation_audits(
+    *,
+    db_path: Path,
+    printer_id: str,
+    limit: int = 5,
+) -> list[PlannerOperationAudit]:
+    """List most recent planner operations for a printer."""
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT * FROM planner_operations_audit
+            WHERE printer_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (printer_id, limit),
+        ).fetchall()
+    finally:
+        connection.close()
+    return [_audit_from_row(row) for row in rows]
+
+
+def create_planner_operation_snapshots(
+    *,
+    db_path: Path,
+    audit_id: int,
+    snapshots: list[tuple[str, int, int]],  # (queue_entry_id, rank_before, rank_after)
+) -> list[PlannerOperationSnapshot]:
+    """Create rank snapshots for a planner operation."""
+    if not snapshots:
+        return []
+
+    now = utc_now_iso()
+    connection = connect(db_path)
+    try:
+        for queue_entry_id, rank_before, rank_after in snapshots:
+            connection.execute(
+                """
+                INSERT INTO planner_operation_snapshots (
+                    audit_id,
+                    queue_entry_id,
+                    rank_before,
+                    rank_after,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (audit_id, queue_entry_id, rank_before, rank_after, now),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    # Return all created snapshots
+    created = read_planner_operation_snapshots(db_path=db_path, audit_id=audit_id)
+    return created
+
+
+def read_planner_operation_snapshots(
+    *,
+    db_path: Path,
+    audit_id: int,
+) -> list[PlannerOperationSnapshot]:
+    """Get all rank snapshots for a planner operation."""
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT * FROM planner_operation_snapshots
+            WHERE audit_id = ?
+            ORDER BY queue_entry_id ASC
+            """,
+            (audit_id,),
+        ).fetchall()
+    finally:
+        connection.close()
+    return [_snapshot_from_row(row) for row in rows]
+

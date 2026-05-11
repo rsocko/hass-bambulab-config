@@ -588,6 +588,51 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        20,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS planner_operations_audit (
+        id INTEGER PRIMARY KEY,
+        printer_id TEXT NOT NULL,
+        operation TEXT NOT NULL,
+        strategy TEXT,
+        delta_json TEXT NOT NULL DEFAULT '{}',
+        moved_entry_ids_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL,
+        created_by TEXT,
+        CHECK (operation IN ('apply', 'undo'))
+        )
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS planner_operation_snapshots (
+        id INTEGER PRIMARY KEY,
+        audit_id INTEGER NOT NULL,
+        queue_entry_id TEXT NOT NULL,
+        rank_before INTEGER NOT NULL,
+        rank_after INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (audit_id) REFERENCES planner_operations_audit(id)
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_planner_operations_audit_printer
+        ON planner_operations_audit(printer_id, created_at DESC)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_planner_operations_audit_operation
+        ON planner_operations_audit(operation, created_at DESC)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_planner_operation_snapshots_audit
+        ON planner_operation_snapshots(audit_id)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_planner_operation_snapshots_entry
+        ON planner_operation_snapshots(queue_entry_id, created_at DESC)
+        """,
+        ),
+    ),
 )
 
 
