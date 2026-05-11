@@ -21,9 +21,10 @@
 # 
 # Lovelace Views (auto-registered from dashboard_views/):
 # - Print Queue Board
-# - Queue Manager (advanced view with planner)
 # 
 
 automation: !include_dir_list automations/
 script: !include_dir_named scripts/
 rest_command: !include_dir_merge_named rest_commands/
+
+
