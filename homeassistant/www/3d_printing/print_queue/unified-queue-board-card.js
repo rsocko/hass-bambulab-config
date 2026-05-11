@@ -625,11 +625,28 @@ class UnifiedQueueBoardCard extends HTMLElement {
     if (this._flashTimer) {
       clearTimeout(this._flashTimer);
     }
+    if (this._flashRemoveTimer) {
+      clearTimeout(this._flashRemoveTimer);
+      this._flashRemoveTimer = null;
+    }
+    // After visible duration: fade the toast out in place (no full re-render,
+    // which would destroy/recreate the DOM and cause a brief replay flash).
     this._flashTimer = setTimeout(() => {
-      this._flashMessage = null;
       this._flashTimer = null;
-      this._render();
-    }, 4000);
+      const el = this.shadowRoot?.querySelector('.flash-banner');
+      if (el) {
+        el.classList.add('flash-banner--leaving');
+        this._flashRemoveTimer = setTimeout(() => {
+          this._flashMessage = null;
+          this._flashRemoveTimer = null;
+          // Only re-render if no new flash arrived in the meantime.
+          if (!this._flashTimer) this._render();
+        }, 220);
+      } else {
+        this._flashMessage = null;
+        this._render();
+      }
+    }, 2500);
     this._render();
   }
 
@@ -2852,6 +2869,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
       @keyframes flash-toast-in {
         from { opacity: 0; transform: translate(-50%, calc(-50% - 12px)) scale(0.96); }
         to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      .flash-banner--leaving {
+        animation: flash-toast-out 0.22s ease-in forwards;
+      }
+      @keyframes flash-toast-out {
+        from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        to   { opacity: 0; transform: translate(-50%, calc(-50% - 8px)) scale(0.97); }
       }
 
       .flash-banner.success {
