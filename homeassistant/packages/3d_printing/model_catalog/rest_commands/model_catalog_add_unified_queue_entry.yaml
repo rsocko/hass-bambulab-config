@@ -39,4 +39,7 @@ model_catalog_add_unified_queue_entry:
     {%- if queue_notes is defined and (queue_notes | string | trim) != '' -%}
       {%- set ns.body = dict(ns.body, queue_notes=(queue_notes | string | trim)) -%}
     {%- endif -%}
+    {%- if quick_add is defined and (quick_add | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, quick_add=(quick_add | bool)) -%}
+    {%- endif -%}
     {{- ns.body | to_json -}}

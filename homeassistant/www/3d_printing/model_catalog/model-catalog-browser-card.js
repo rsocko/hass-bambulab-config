@@ -825,6 +825,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       state: body.state || "preparing",
       rank: body.rank != null ? body.rank : 0,
       queue_notes: body.queue_notes || "",
+      // Default to quick_add so the entry is populated with the model's
+      // file_units and plate_units (otherwise the Details popup shows no
+      // files or plates because the v1 add endpoint only seeds units when
+      // quick_add or selected_files are provided).
+      quick_add: body.quick_add != null ? !!body.quick_add : true,
     });
   }
 
