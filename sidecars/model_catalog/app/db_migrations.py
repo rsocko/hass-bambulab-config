@@ -530,6 +530,44 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
         ),
+    (
+        18,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS unified_queue_match_suggestions (
+        id INTEGER PRIMARY KEY,
+        suggestion_id TEXT NOT NULL UNIQUE,
+        printer_id TEXT NOT NULL,
+        archive_id TEXT NOT NULL,
+        queue_entry_id TEXT,
+        remapped_queue_entry_id TEXT,
+        confidence TEXT NOT NULL,
+        confidence_score REAL NOT NULL DEFAULT 0,
+        match_method TEXT,
+        reasons_json TEXT NOT NULL DEFAULT '[]',
+        archive_payload_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'suggested',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        reviewed_at TEXT,
+        CHECK (confidence IN ('high', 'medium', 'low', 'unmatched')),
+        CHECK (status IN ('suggested', 'auto_completed', 'unmatched', 'rejected', 'remapped'))
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_match_suggestions_status
+        ON unified_queue_match_suggestions(status, created_at DESC)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_match_suggestions_archive
+        ON unified_queue_match_suggestions(archive_id, created_at DESC)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_match_suggestions_entry
+        ON unified_queue_match_suggestions(queue_entry_id, created_at DESC)
+        """,
+        ),
+    ),
 )
 
 

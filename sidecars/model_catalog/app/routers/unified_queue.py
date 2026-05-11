@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response
 from ..db import (
     ReorderMove,
     connect,
+    create_unified_queue_match_suggestion,
     create_unified_queue_transition_audit,
     create_unified_queue_entry,
     create_unified_queue_file_unit,
@@ -29,9 +30,13 @@ from ..db import (
     delete_unified_queue_entry,
     list_unified_queue_entries,
     list_unified_queue_file_units,
+    list_unified_queue_match_suggestions,
+    read_unified_queue_match_suggestion,
     read_unified_queue_entry,
     reorder_unified_queue_entries,
+    update_unified_queue_match_suggestion,
     update_unified_queue_entry,
+    utc_now_iso,
 )
 from ..geometry_3mf import extract_3mf_plates_metadata
 from ..services.model_detail_service import build_model_detail_response
@@ -554,6 +559,59 @@ def _score_archive_match_candidate(
         "match_method": "none",
         "reasons": ["no criteria met"],
     }
+
+
+def _rank_archive_match_candidates(
+    *,
+    db_path: Path,
+    archive_model_id: str | None,
+    archive_filename: str | None,
+    archive_filament_tags: set[str],
+    archive_estimated_minutes: int | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    candidates: list[dict[str, Any]] = []
+    entries = list_unified_queue_entries(db_path=db_path)
+    for entry in entries:
+        file_units = list_unified_queue_file_units(db_path=db_path, queue_entry_id=entry.queue_entry_id)
+        score_data = _score_archive_match_candidate(
+            archive_model_id=archive_model_id,
+            archive_filename=archive_filename,
+            archive_filament_tags=archive_filament_tags,
+            archive_estimated_minutes=archive_estimated_minutes,
+            entry=entry,
+            file_units=file_units,
+        )
+        candidates.append(
+            {
+                "queue_entry_id": entry.queue_entry_id,
+                "source_kind": entry.source_kind,
+                "source_ref": entry.source_ref,
+                "confidence": score_data["confidence"],
+                "confidence_score": score_data["score"],
+                "match_method": score_data["match_method"],
+                "reasons": score_data["reasons"],
+            }
+        )
+
+    confidence_rank = {"high": 3, "medium": 2, "low": 1, "unmatched": 0}
+    ordered = sorted(
+        candidates,
+        key=lambda item: (
+            confidence_rank.get(str(item["confidence"]), 0),
+            float(item["confidence_score"]),
+            str(item["queue_entry_id"]),
+        ),
+        reverse=True,
+    )
+    best = ordered[0] if ordered else None
+    return ordered, best
+
+
+def _match_suggestion_to_response(suggestion: Any) -> dict[str, Any]:
+    payload = asdict(suggestion)
+    payload["matched"] = payload.get("status") in {"auto_completed", "suggested", "remapped"}
+    payload["unmatched"] = payload.get("status") == "unmatched"
+    return payload
 
 
 def _parse_selected_files_payload(raw_selected_files: object) -> tuple[list[dict[str, Any]], str | None]:
@@ -1500,45 +1558,17 @@ def match_archive_to_queue_entry_v1(
     except ValueError as exc:
         return _error_response(status_code=400, error="validation_error", message=str(exc))
 
-    candidates: list[dict[str, Any]] = []
     try:
-        entries = list_unified_queue_entries(db_path=state.settings.db_path)
-        for entry in entries:
-            file_units = list_unified_queue_file_units(db_path=state.settings.db_path, queue_entry_id=entry.queue_entry_id)
-            score_data = _score_archive_match_candidate(
-                archive_model_id=archive_model_id,
-                archive_filename=archive_filename,
-                archive_filament_tags=archive_filament_tags,
-                archive_estimated_minutes=archive_estimated_minutes,
-                entry=entry,
-                file_units=file_units,
-            )
-            candidates.append(
-                {
-                    "queue_entry_id": entry.queue_entry_id,
-                    "source_kind": entry.source_kind,
-                    "source_ref": entry.source_ref,
-                    "confidence": score_data["confidence"],
-                    "confidence_score": score_data["score"],
-                    "match_method": score_data["match_method"],
-                    "reasons": score_data["reasons"],
-                }
-            )
+        ordered, best = _rank_archive_match_candidates(
+            db_path=state.settings.db_path,
+            archive_model_id=archive_model_id,
+            archive_filename=archive_filename,
+            archive_filament_tags=archive_filament_tags,
+            archive_estimated_minutes=archive_estimated_minutes,
+        )
     except Exception as exc:
         return _error_response(status_code=500, error="internal_error", message=str(exc))
 
-    confidence_rank = {"high": 3, "medium": 2, "low": 1, "unmatched": 0}
-    ordered = sorted(
-        candidates,
-        key=lambda item: (
-            confidence_rank.get(str(item["confidence"]), 0),
-            float(item["confidence_score"]),
-            str(item["queue_entry_id"]),
-        ),
-        reverse=True,
-    )
-
-    best = ordered[0] if ordered else None
     matched = bool(best and best.get("confidence") != "unmatched")
     return {
         "success": True,
@@ -1549,5 +1579,242 @@ def match_archive_to_queue_entry_v1(
         "unmatched": not matched,
         "best_match": best,
         "candidates": ordered,
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/archive-completion")
+def process_archive_completion_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Apply completion rules from an archive payload and record suggestion audit.
+
+    Rules:
+    - high: auto-complete queue entry
+    - medium: store suggested record for manual review
+    - low/unmatched: store unmatched archive record
+    """
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    archive_id = str(body.get("archive_id") or "").strip()
+    if not archive_id:
+        return _error_response(status_code=400, error="validation_error", message="archive_id is required")
+
+    archive_model_id = str(body.get("model_id") or "").strip().lower() or None
+    archive_filename = str(body.get("filename") or "").strip() or None
+    archive_filament_tags = _normalize_tag_values(body.get("filament_tags"))
+    try:
+        archive_estimated_minutes = _coerce_optional_int(
+            body.get("estimated_minutes"),
+            field="estimated_minutes",
+            minimum=0,
+        )
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    try:
+        ordered, best = _rank_archive_match_candidates(
+            db_path=state.settings.db_path,
+            archive_model_id=archive_model_id,
+            archive_filename=archive_filename,
+            archive_filament_tags=archive_filament_tags,
+            archive_estimated_minutes=archive_estimated_minutes,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    confidence = str((best or {}).get("confidence") or "unmatched")
+    queue_entry_id = str((best or {}).get("queue_entry_id") or "").strip() or None
+    suggestion_id = f"uqs-{uuid.uuid4().hex[:12]}"
+
+    status = "unmatched"
+    if confidence == "high":
+        status = "auto_completed"
+    elif confidence == "medium":
+        status = "suggested"
+
+    archive_payload = {
+        "archive_id": archive_id,
+        "model_id": archive_model_id,
+        "filename": archive_filename,
+        "filament_tags": sorted(list(archive_filament_tags)),
+        "estimated_minutes": archive_estimated_minutes,
+    }
+
+    try:
+        suggestion = create_unified_queue_match_suggestion(
+            db_path=state.settings.db_path,
+            suggestion_id=suggestion_id,
+            printer_id=printer_id,
+            archive_id=archive_id,
+            queue_entry_id=queue_entry_id,
+            confidence=confidence,
+            confidence_score=float((best or {}).get("confidence_score") or 0.0),
+            match_method=str((best or {}).get("match_method") or "").strip() or None,
+            reasons=[str(item) for item in ((best or {}).get("reasons") or [])],
+            archive_payload=archive_payload,
+            status=status,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    auto_completed = False
+    if status == "auto_completed" and queue_entry_id is not None:
+        existing = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+        if existing is not None:
+            try:
+                update_unified_queue_entry(
+                    db_path=state.settings.db_path,
+                    queue_entry_id=queue_entry_id,
+                    state="done",
+                    completed_at=utc_now_iso(),
+                    last_archive_id=archive_id,
+                    last_attempt_outcome="success",
+                )
+                auto_completed = True
+            except Exception as exc:
+                return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "archive_id": archive_id,
+        "action": status,
+        "auto_completed": auto_completed,
+        "best_match": best,
+        "candidates": ordered,
+        "suggestion": _match_suggestion_to_response(suggestion),
+    }
+
+
+@router.get("/api/v1/queues/{printer_id}/suggestions")
+def list_queue_suggestions_v1(
+    printer_id: str,
+    request: Request,
+    status: str | None = None,
+) -> Any:
+    state: AppState = request.app.state.model_catalog
+    status_value = str(status or "").strip().lower() or None
+    if status_value not in {None, "suggested", "auto_completed", "unmatched", "rejected", "remapped"}:
+        return _error_response(
+            status_code=400,
+            error="validation_error",
+            message="status must be one of suggested, auto_completed, unmatched, rejected, remapped",
+        )
+
+    try:
+        suggestions = list_unified_queue_match_suggestions(
+            db_path=state.settings.db_path,
+            printer_id=printer_id,
+            status=status_value,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "status": status_value,
+        "suggestions": [_match_suggestion_to_response(item) for item in suggestions],
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/suggestions/{suggestion_id}/reject")
+def reject_queue_suggestion_v1(
+    printer_id: str,
+    suggestion_id: str,
+    request: Request,
+) -> Any:
+    state: AppState = request.app.state.model_catalog
+    try:
+        existing = read_unified_queue_match_suggestion(db_path=state.settings.db_path, suggestion_id=suggestion_id)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if existing is None or existing.printer_id != printer_id:
+        return _error_response(status_code=404, error="not_found", message="suggestion not found")
+
+    try:
+        updated = update_unified_queue_match_suggestion(
+            db_path=state.settings.db_path,
+            suggestion_id=suggestion_id,
+            status="rejected",
+            reviewed=True,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if updated is None:
+        return _error_response(status_code=404, error="not_found", message="suggestion not found")
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "suggestion": _match_suggestion_to_response(updated),
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/suggestions/{suggestion_id}/remap")
+def remap_queue_suggestion_v1(
+    printer_id: str,
+    suggestion_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    queue_entry_id = str(body.get("queue_entry_id") or "").strip()
+    if not queue_entry_id:
+        return _error_response(status_code=400, error="validation_error", message="queue_entry_id is required")
+
+    try:
+        existing = read_unified_queue_match_suggestion(db_path=state.settings.db_path, suggestion_id=suggestion_id)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if existing is None or existing.printer_id != printer_id:
+        return _error_response(status_code=404, error="not_found", message="suggestion not found")
+
+    target = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    if target is None:
+        return _error_response(status_code=404, error="not_found", message="target queue entry not found")
+
+    try:
+        update_unified_queue_entry(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            state="done",
+            completed_at=utc_now_iso(),
+            last_archive_id=existing.archive_id,
+            last_attempt_outcome="success",
+        )
+        updated = update_unified_queue_match_suggestion(
+            db_path=state.settings.db_path,
+            suggestion_id=suggestion_id,
+            status="remapped",
+            remapped_queue_entry_id=queue_entry_id,
+            reviewed=True,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if updated is None:
+        return _error_response(status_code=404, error="not_found", message="suggestion not found")
+
+    remapped_entry = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "suggestion": _match_suggestion_to_response(updated),
+        "remapped_entry": _entry_to_response(remapped_entry) if remapped_entry is not None else None,
     }
 

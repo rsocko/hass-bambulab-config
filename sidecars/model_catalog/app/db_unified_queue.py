@@ -73,6 +73,24 @@ class UnifiedQueuePlateUnit:
     updated_at: str
 
 
+@dataclass(frozen=True)
+class UnifiedQueueMatchSuggestion:
+    suggestion_id: str
+    printer_id: str
+    archive_id: str
+    queue_entry_id: str | None
+    remapped_queue_entry_id: str | None
+    confidence: str
+    confidence_score: float
+    match_method: str | None
+    reasons: list[str]
+    archive_payload: dict[str, object]
+    status: str
+    created_at: str
+    updated_at: str
+    reviewed_at: str | None
+
+
 def _entry_from_row(row) -> UnifiedQueueEntry:
     return UnifiedQueueEntry(
         queue_entry_id=str(row["queue_entry_id"]),
@@ -131,6 +149,29 @@ def _plate_unit_from_row(row) -> UnifiedQueuePlateUnit:
         estimated_minutes=int(row["estimated_minutes"]) if row["estimated_minutes"] is not None else None,
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+    )
+
+
+def _match_suggestion_from_row(row) -> UnifiedQueueMatchSuggestion:
+    raw_reasons = json.loads(str(row["reasons_json"] or "[]"))
+    reasons = [str(item) for item in raw_reasons] if isinstance(raw_reasons, list) else []
+    raw_payload = json.loads(str(row["archive_payload_json"] or "{}"))
+    archive_payload = raw_payload if isinstance(raw_payload, dict) else {}
+    return UnifiedQueueMatchSuggestion(
+        suggestion_id=str(row["suggestion_id"]),
+        printer_id=str(row["printer_id"]),
+        archive_id=str(row["archive_id"]),
+        queue_entry_id=str(row["queue_entry_id"] or "").strip() or None,
+        remapped_queue_entry_id=str(row["remapped_queue_entry_id"] or "").strip() or None,
+        confidence=str(row["confidence"]),
+        confidence_score=float(row["confidence_score"]),
+        match_method=str(row["match_method"] or "").strip() or None,
+        reasons=reasons,
+        archive_payload=archive_payload,
+        status=str(row["status"]),
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+        reviewed_at=str(row["reviewed_at"] or "").strip() or None,
     )
 
 
@@ -729,6 +770,153 @@ def create_unified_queue_transition_audit(
         return event_id
     finally:
         connection.close()
+
+
+def create_unified_queue_match_suggestion(
+    *,
+    db_path: Path,
+    suggestion_id: str,
+    printer_id: str,
+    archive_id: str,
+    queue_entry_id: str | None,
+    confidence: str,
+    confidence_score: float,
+    match_method: str | None,
+    reasons: list[str] | None = None,
+    archive_payload: dict[str, object] | None = None,
+    status: str = "suggested",
+) -> UnifiedQueueMatchSuggestion:
+    now = utc_now_iso()
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO unified_queue_match_suggestions (
+                suggestion_id,
+                printer_id,
+                archive_id,
+                queue_entry_id,
+                confidence,
+                confidence_score,
+                match_method,
+                reasons_json,
+                archive_payload_json,
+                status,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                suggestion_id,
+                printer_id,
+                archive_id,
+                queue_entry_id,
+                confidence,
+                float(confidence_score),
+                match_method,
+                json.dumps(reasons or [], separators=(",", ":")),
+                json.dumps(archive_payload or {}, separators=(",", ":")),
+                status,
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    created = read_unified_queue_match_suggestion(db_path=db_path, suggestion_id=suggestion_id)
+    if created is None:
+        raise RuntimeError("Failed to read created unified queue match suggestion")
+    return created
+
+
+def read_unified_queue_match_suggestion(*, db_path: Path, suggestion_id: str) -> UnifiedQueueMatchSuggestion | None:
+    connection = connect(db_path)
+    try:
+        row = connection.execute(
+            "SELECT * FROM unified_queue_match_suggestions WHERE suggestion_id = ?",
+            (suggestion_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return None
+    return _match_suggestion_from_row(row)
+
+
+def list_unified_queue_match_suggestions(
+    *,
+    db_path: Path,
+    printer_id: str | None = None,
+    status: str | None = None,
+) -> list[UnifiedQueueMatchSuggestion]:
+    clauses: list[str] = []
+    params: list[object] = []
+    if printer_id is not None:
+        clauses.append("printer_id = ?")
+        params.append(printer_id)
+    if status is not None:
+        clauses.append("status = ?")
+        params.append(status)
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            f"""
+            SELECT *
+            FROM unified_queue_match_suggestions
+            {where_sql}
+            ORDER BY created_at DESC, suggestion_id DESC
+            """,
+            tuple(params),
+        ).fetchall()
+    finally:
+        connection.close()
+    return [_match_suggestion_from_row(row) for row in rows]
+
+
+def update_unified_queue_match_suggestion(
+    *,
+    db_path: Path,
+    suggestion_id: str,
+    status: str | None = None,
+    remapped_queue_entry_id: str | None = None,
+    reviewed: bool = False,
+) -> UnifiedQueueMatchSuggestion | None:
+    updates: list[str] = []
+    params: list[object] = []
+
+    if status is not None:
+        updates.append("status = ?")
+        params.append(status)
+    if remapped_queue_entry_id is not None:
+        updates.append("remapped_queue_entry_id = ?")
+        params.append(remapped_queue_entry_id)
+    if reviewed:
+        updates.append("reviewed_at = ?")
+        params.append(utc_now_iso())
+
+    if not updates:
+        return read_unified_queue_match_suggestion(db_path=db_path, suggestion_id=suggestion_id)
+
+    updates.append("updated_at = ?")
+    params.append(utc_now_iso())
+    params.append(suggestion_id)
+
+    connection = connect(db_path)
+    try:
+        cursor = connection.execute(
+            f"UPDATE unified_queue_match_suggestions SET {', '.join(updates)} WHERE suggestion_id = ?",
+            tuple(params),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    if cursor.rowcount == 0:
+        return None
+    return read_unified_queue_match_suggestion(db_path=db_path, suggestion_id=suggestion_id)
 
 
 @dataclass(frozen=True)

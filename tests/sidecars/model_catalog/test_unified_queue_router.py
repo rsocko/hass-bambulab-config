@@ -1038,3 +1038,148 @@ def test_archive_match_v1_low_confidence_time_window_and_unmatched(tmp_path: Pat
     finally:
         client.__exit__(None, None, None)
 
+
+def test_archive_completion_v1_high_auto_completes_entry_and_records_suggestion(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "model-h1",
+            },
+        )
+        assert create_response.status_code == 201
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-h1",
+            file_name="high-case.3mf",
+            filament_requirements={"filament_tags": ["pla", "white"]},
+        )
+
+        completion_response = client.post(
+            "/api/v1/queues/p1/archive-completion",
+            json={
+                "archive_id": "arch-h1",
+                "model_id": "model-h1",
+                "filament_tags": ["pla", "white"],
+            },
+        )
+        assert completion_response.status_code == 200
+        payload = completion_response.json()
+        assert payload["action"] == "auto_completed"
+        assert payload["auto_completed"] is True
+        assert payload["suggestion"]["status"] == "auto_completed"
+
+        entry_response = client.get(f"/api/unified-queue/entries/{entry_id}")
+        assert entry_response.status_code == 200
+        entry_payload = entry_response.json()["entry"]
+        assert entry_payload["state"] == "done"
+        assert entry_payload["last_archive_id"] == "arch-h1"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_archive_completion_v1_medium_suggested_then_reject_and_remap(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        suggested_create = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "working_group",
+                "source_id": "wg-medium",
+            },
+        )
+        assert suggested_create.status_code == 201
+        suggested_entry_id = suggested_create.json()["entry"]["queue_entry_id"]
+
+        remap_target_create = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "working_group",
+                "source_id": "wg-target",
+            },
+        )
+        assert remap_target_create.status_code == 201
+        remap_target_entry_id = remap_target_create.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=suggested_entry_id,
+            file_unit_id="qfu-m1",
+            file_name="medium-case.3mf",
+        )
+
+        completion_response = client.post(
+            "/api/v1/queues/p1/archive-completion",
+            json={
+                "archive_id": "arch-m1",
+                "filename": "medium-case.gcode",
+            },
+        )
+        assert completion_response.status_code == 200
+        completion_payload = completion_response.json()
+        assert completion_payload["action"] == "suggested"
+        suggestion_id = completion_payload["suggestion"]["suggestion_id"]
+
+        suggestions_response = client.get("/api/v1/queues/p1/suggestions", params={"status": "suggested"})
+        assert suggestions_response.status_code == 200
+        listed_ids = {item["suggestion_id"] for item in suggestions_response.json()["suggestions"]}
+        assert suggestion_id in listed_ids
+
+        reject_response = client.post(f"/api/v1/queues/p1/suggestions/{suggestion_id}/reject")
+        assert reject_response.status_code == 200
+        assert reject_response.json()["suggestion"]["status"] == "rejected"
+
+        remap_response = client.post(
+            f"/api/v1/queues/p1/suggestions/{suggestion_id}/remap",
+            json={"queue_entry_id": remap_target_entry_id},
+        )
+        assert remap_response.status_code == 200
+        remap_payload = remap_response.json()
+        assert remap_payload["suggestion"]["status"] == "remapped"
+        assert remap_payload["suggestion"]["remapped_queue_entry_id"] == remap_target_entry_id
+        assert remap_payload["remapped_entry"]["state"] == "done"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_archive_completion_v1_low_creates_unmatched_record(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Low match candidate",
+                "estimated_total_minutes": 100,
+            },
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-l1",
+            file_name="low-case.3mf",
+        )
+
+        completion_response = client.post(
+            "/api/v1/queues/p1/archive-completion",
+            json={
+                "archive_id": "arch-l1",
+                "estimated_minutes": 111,
+            },
+        )
+        assert completion_response.status_code == 200
+        payload = completion_response.json()
+        assert payload["action"] == "unmatched"
+        assert payload["suggestion"]["status"] == "unmatched"
+        assert payload["suggestion"]["confidence"] == "low"
+    finally:
+        client.__exit__(None, None, None)
+
