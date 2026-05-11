@@ -1369,3 +1369,53 @@ def test_planner_strategy_v1_changes_rank_computation(tmp_path: Path) -> None:
     finally:
         client.__exit__(None, None, None)
 
+
+def test_planner_strategy_v1_score_strategy_only_uses_selected_preset_weights(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick-Preset", "estimated_total_minutes": 90, "rank": 10},
+        )
+        overnight = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Overnight-Preset", "estimated_total_minutes": 420, "rank": 11},
+        )
+        assert quick.status_code == 200
+        assert overnight.status_code == 200
+
+        # Seed a custom aggressive preference first.
+        save_custom = client.put(
+            "/api/v1/queues/p1/planner/strategy",
+            json={
+                "strategy": "aggressive",
+                "custom_weights": {
+                    "ams_fit": 70,
+                    "overnight_fit": 5,
+                    "duration": {
+                        "quick": 25,
+                        "medium": 15,
+                        "overnight": 5,
+                        "marathon": 0,
+                        "unknown": 0,
+                    },
+                },
+            },
+        )
+        assert save_custom.status_code == 200
+
+        # Strategy-only score call must switch to lazy preset defaults, not reuse aggressive custom weights.
+        lazy = client.post(
+            "/api/v1/queues/p1/planner/score",
+            json={"strategy": "lazy", "ams_tray_uuids": []},
+        )
+        assert lazy.status_code == 200
+        lazy_payload = lazy.json()
+        assert lazy_payload["planner"]["strategy"] == "lazy"
+        assert lazy_payload["planner"]["weights"]["ams_fit"] == 20
+        assert lazy_payload["planner"]["weights"]["overnight_fit"] == 60
+        assert lazy_payload["planner"]["weights"]["duration"]["quick"] == 10
+        assert lazy_payload["planner"]["weights"]["duration"]["overnight"] == 25
+    finally:
+        client.__exit__(None, None, None)
+

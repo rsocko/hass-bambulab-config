@@ -1975,11 +1975,19 @@ def planner_score_queue_entries_v1(
     persisted_pref = read_unified_queue_planner_preference(db_path=state.settings.db_path, printer_id=printer_id)
     active_strategy = requested_strategy or (persisted_pref.strategy if persisted_pref is not None else "balanced")
 
+    # Weight resolution rules:
+    # 1) custom_weights in request -> apply to active strategy
+    # 2) explicit strategy in request (without custom_weights) -> strategy preset defaults
+    # 3) no explicit strategy -> use persisted weights (or preset defaults when no persisted preference)
+    if "custom_weights" in body:
+        weights_source: object | None = body.get("custom_weights")
+    elif requested_strategy is not None:
+        weights_source = None
+    else:
+        weights_source = persisted_pref.weights if persisted_pref else None
+
     try:
-        active_weights = _normalize_planner_weights(
-            active_strategy,
-            body.get("custom_weights") if "custom_weights" in body else (persisted_pref.weights if persisted_pref else None),
-        )
+        active_weights = _normalize_planner_weights(active_strategy, weights_source)
     except ValueError as exc:
         return _error_response(status_code=400, error="validation_error", message=str(exc))
 
