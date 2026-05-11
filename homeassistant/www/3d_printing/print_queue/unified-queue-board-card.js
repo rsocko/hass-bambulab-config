@@ -289,7 +289,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
   // the flash banner via state-backed class on the rendered card.
   // Note: does NOT call _render() itself — the caller is expected to render
   // (typically via _setFlashMessage) so the toast and card highlight appear
-  // together in a single paint, avoiding a double-render flash.
+  // together in a single paint, avoiding a double-render flash. The cleanup
+  // also avoids _render() (which would replay the toast entrance animation
+  // while the flash message is still active) and instead just strips the
+  // class from the existing card DOM in place.
   _flashInvalidDrop(queueEntryId) {
     this._invalidDropEntryId = queueEntryId;
     if (this._invalidDropTimer) {
@@ -298,7 +301,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._invalidDropTimer = setTimeout(() => {
       this._invalidDropEntryId = null;
       this._invalidDropTimer = null;
-      this._render();
+      const card = this.shadowRoot?.querySelector(
+        `.qcard.invalid-drop[data-entry-id="${CSS.escape(String(queueEntryId))}"]`
+      );
+      if (card) card.classList.remove('invalid-drop');
     }, 750);
   }
 
