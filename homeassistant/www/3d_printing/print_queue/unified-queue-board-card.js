@@ -282,6 +282,22 @@ class UnifiedQueueBoardCard extends HTMLElement {
     return allowed.includes(toState);
   }
 
+  // Briefly highlight a card with a red border + shake when a kanban drop
+  // is rejected (invalid state transition). Survives re-renders triggered by
+  // the flash banner via state-backed class on the rendered card.
+  _flashInvalidDrop(queueEntryId) {
+    this._invalidDropEntryId = queueEntryId;
+    if (this._invalidDropTimer) {
+      clearTimeout(this._invalidDropTimer);
+    }
+    this._invalidDropTimer = setTimeout(() => {
+      this._invalidDropEntryId = null;
+      this._invalidDropTimer = null;
+      this._render();
+    }, 750);
+    this._render();
+  }
+
   async _changeEntryState(queueEntryId, newState) {
     const entry = this._getEntryById(queueEntryId);
     if (!entry) return;
@@ -294,7 +310,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         `Cannot move from ${this._getStateLabel(fromState)} to ${this._getStateLabel(toState)}.`,
         'error'
       );
-      this._render();
+      this._flashInvalidDrop(queueEntryId);
       return;
     }
 
@@ -2171,8 +2187,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
       `Duration: ${totalStr}`,
     ].join(' | ');
 
+    const invalidDrop = this._invalidDropEntryId === entry.queue_entry_id;
     return `
-      <article class="qcard"
+      <article class="qcard${invalidDrop ? ' invalid-drop' : ''}"
                draggable="${draggable}"
                data-entry-id="${this._escapeHtml(entry.queue_entry_id)}"
                data-state="${this._escapeHtml(entry.state)}"
@@ -4422,6 +4439,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .qcard.dragging {
         opacity: 0.5;
         transform: scale(0.98);
+      }
+      .qcard.invalid-drop {
+        border-color: #f59090 !important;
+        border-left-color: #f59090 !important;
+        box-shadow: 0 0 0 2px rgba(245, 144, 144, 0.45),
+                    0 0 12px rgba(245, 144, 144, 0.35);
+        animation: qcard-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+      }
+      @keyframes qcard-shake {
+        10%, 90% { transform: translateX(-2px); }
+        20%, 80% { transform: translateX(3px); }
+        30%, 50%, 70% { transform: translateX(-5px); }
+        40%, 60% { transform: translateX(5px); }
       }
       .qcard-row1 {
         display: flex;
