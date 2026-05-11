@@ -42,6 +42,9 @@
 - **[Unified Production Queue Design](unified-production-queue-design.md)** ← Approved operator-surface design and object model
 - **[Unified Production Queue Implementation Plan](unified-production-queue-implementation-plan.md)** ← End-to-end backend/frontend implementation sequence
 - **[Unified Production Queue GitHub Issues](unified-production-queue-github-issues.md)** ← Click-to-create issue links with prepopulated title/body
+- **Mockups**:
+  - [Production Queue (list view)](design/mockups/production-queue.html) · [Add-to-queue](design/mockups/production-queue-add.html) · [Entry detail popup](design/mockups/production-queue-entry-detail.html)
+  - [Kanban board view](../print_queue/mockups/kanban-board.html) ← NEW · vertical state columns w/ drag-and-drop, per-state color palette, prominent Time Remaining hero (excludes done plates). Lives under [`print_queue/mockups/`](../print_queue/mockups/index.html).
 
 ### 🧩 Upload Transport + Desktop Automation (New)
 - **[Intake Browser Upload V2 Contract Design](integration/intake-browser-upload-v2-contract-design.md)** ← Multipart/resumable contract, idempotency, migration, and rollout plan

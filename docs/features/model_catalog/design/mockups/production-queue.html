@@ -25,10 +25,12 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
+    /* Neutral HASS-aware dark surface, harmonized with the
+       print_queue/mockups/kanban-board.html mockup. The per-state hue
+       inside cards/columns does the visual lifting. */
     background:
-      radial-gradient(circle at top left, rgba(124,199,255,0.12), transparent 28%),
-      radial-gradient(circle at top right, rgba(110,231,200,0.10), transparent 24%),
-      linear-gradient(180deg, #0b1015, #101821 34%, #0b1015 100%);
+      radial-gradient(circle at top left, rgba(148,163,184,0.06), transparent 32%),
+      linear-gradient(180deg, #0b1015, #101821 36%, #0b1015 100%);
     color: var(--text);
     font-family: 'Segoe UI', system-ui, sans-serif;
   }

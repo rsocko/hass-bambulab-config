@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Print Queue · Design mockups index</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116; --bg-card: rgba(28,33,42,0.92);
+    --border: rgba(148,163,184,0.18); --border-strong: rgba(148,163,184,0.32);
+    --text: #e6edf3; --text-secondary: #9aa4b2; --accent: #5eead4;
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  body { padding: 48px clamp(16px, 4vw, 64px); max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.01em; }
+  .lead { color: var(--text-secondary); font-size: 14px; max-width: 740px; }
+  a { color: var(--accent); }
+  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  @media (max-width: 879px) { .grid { grid-template-columns: 1fr; } }
+  .tile { display: block; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; text-decoration: none; color: inherit; transition: transform 120ms ease, border-color 120ms ease; }
+  .tile:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+  .tile h2 { margin: 0 0 6px; font-size: 18px; font-weight: 700; }
+  .tile p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+  .tile .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.32); margin-bottom: 8px; }
+  .section-title { margin: 40px 0 0; font-size: 13px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.08em; text-transform: uppercase; }
+  .footer { margin-top: 36px; font-size: 12px; color: var(--text-secondary); padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Print Queue · Design mockups</h1>
+<p class="lead">
+  Self-contained HTML mockups exploring evolutions of the unified print queue card
+  (<code>unified-queue-board-card.js</code>). Each page is browser-viewable as-is.
+  See also the original <a href="../../model_catalog/design/mockups/production-queue.html">production-queue mockup</a>
+  and the design rationale in
+  <a href="../../model_catalog/unified-production-queue-design.md">unified-production-queue-design.md</a>
+  and <a href="../advanced-features-design.md">advanced-features-design.md</a>.
+</p>
+
+<p class="section-title">Views</p>
+<div class="grid">
+  <a class="tile" href="kanban-board.html">
+    <span class="badge">NEW · KANBAN VIEW</span>
+    <h2>Kanban board view</h2>
+    <p>
+      Adds a Kanban view mode (columns per state) to the existing list view, with
+      drag-and-drop between columns to change state. Introduces a per-state color
+      palette (<code>--state-backlog</code> … <code>--state-done</code>) applied
+      subtly to cards in <strong>both</strong> views, and a prominent
+      <strong>Time Remaining</strong> hero tile that excludes plates already marked
+      <code>done</code>.
+    </p>
+  </a>
+</div>
+
+<div class="footer">
+  Package docs: <a href="../README.md">print_queue/README.md</a> ·
+  Advanced features: <a href="../advanced-features-design.md">advanced-features-design.md</a>
+</div>
+
+</body>
+</html>

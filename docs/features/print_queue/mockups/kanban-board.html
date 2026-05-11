@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Print Queue · Kanban view mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  /* -----------------------------------------------------------
+     Palette is an evolution of the existing production-queue
+     mockup (docs/features/model_catalog/design/mockups/production-queue.html)
+     and the live unified-queue-board-card.js _getStateColor() map.
+     We add a per-state hue so cards are visually grouped in
+     BOTH the list and kanban views.
+  ----------------------------------------------------------- */
+  :root {
+    --bg-page: #0c1117;
+    --bg-panel: rgba(21, 28, 38, 0.95);
+    --bg-card: rgba(28, 36, 47, 0.96);
+    --bg-card-alt: rgba(18, 24, 33, 0.9);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.34);
+    --text: #e8edf2;
+    --text-secondary: #9eacba;
+    --text-muted: #6f7c8a;
+    --accent: #6ee7c8;
+    --accent-blue: #7cc7ff;
+    --accent-amber: #f2c35b;
+    --accent-red: #f59090;
+    --accent-green: #7ddc97;
+    --shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+
+    /* Per-state palette — complementary, distinct, all sitting in
+       a cool/warm balanced range so they read as one family. */
+    --state-backlog:      #b196f5;   /* lavender / purple */
+    --state-preparing:    #f2a85b;   /* warm orange */
+    --state-ready:        #6ee7c8;   /* teal (existing accent) */
+    --state-in_progress:  #7cc7ff;   /* blue (active / running) */
+    --state-blocked:      #f59090;   /* coral red */
+    --state-done:         #4fcf75;   /* stronger leaf green */
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    /* Neutral HASS-style dark surface — no green/teal wash, so the
+       per-state hues do the visual lifting. */
+    background:
+      radial-gradient(circle at top left, rgba(148,163,184,0.06), transparent 32%),
+      linear-gradient(180deg, #0b1015, #101821 36%, #0b1015 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  body { padding: 24px clamp(16px, 3vw, 36px) 56px; }
+  .shell { max-width: 1600px; margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  .page-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  .page-header h1 { margin: 0; font-size: 26px; letter-spacing: -0.03em; }
+  .page-header p { margin: 6px 0 0; max-width: 920px; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a {
+    color: var(--text-secondary); text-decoration: none; font-size: 12px; padding: 7px 10px;
+    border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.03);
+  }
+  .nav a.active { color: var(--text); border-color: rgba(110,231,200,0.34); background: rgba(110,231,200,0.10); }
+
+  /* ---------- top widget (stats + prominent ETA) ---------- */
+  .top-widget {
+    display: grid;
+    grid-template-columns: 1.4fr repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat-card .stat-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+  .stat-card .stat-value { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; }
+  .stat-card .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  /* The new "prominent" remaining-time card. Excludes plates already
+     marked done. Made deliberately larger and tinted with the
+     in-progress hue so it reads as the most important number. */
+  .eta-hero {
+    grid-column: span 1;
+    background:
+      linear-gradient(135deg, rgba(124,199,255,0.18), rgba(110,231,200,0.10)),
+      var(--bg-panel);
+    border: 1px solid rgba(124,199,255,0.32);
+    border-radius: 18px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .eta-hero .eta-kicker {
+    font-size: 11px; letter-spacing: 0.10em; text-transform: uppercase;
+    color: var(--accent-blue); font-weight: 700;
+  }
+  .eta-hero .eta-value {
+    font-size: 34px; font-weight: 800; letter-spacing: -0.04em;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .eta-hero .eta-value small { font-size: 13px; color: var(--text-secondary); font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .eta-hero .eta-meta {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-secondary); margin-top: 2px;
+  }
+  .eta-hero .eta-meta strong { color: var(--text); font-weight: 700; }
+  .eta-hero .eta-bar {
+    height: 6px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; margin-top: 6px;
+  }
+  .eta-hero .eta-bar > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
+  }
+
+  /* ---------- toolbar / view switch / filters ---------- */
+  .toolbar {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 18px;
+    padding: 12px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    box-shadow: var(--shadow); margin-bottom: 14px;
+  }
+  .view-switch {
+    display: inline-flex; padding: 3px; border-radius: 12px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  }
+  .view-switch button {
+    border: 0; background: transparent; color: var(--text-secondary);
+    padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .view-switch button.active {
+    background: rgba(110,231,200,0.14); color: var(--accent);
+    box-shadow: inset 0 0 0 1px rgba(110,231,200,0.30);
+  }
+  .toolbar .divider { width: 1px; align-self: stretch; background: var(--border); }
+  .filter-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-right: 4px; }
+
+  /* Dropdown filter (replaces chip-style state filter and adds source filter).
+     Uses native <details>/<summary> so the mockup stays no-deps. */
+  .dropdown { position: relative; }
+  .dropdown > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; font-size: 12px;
+    min-width: 130px;
+  }
+  .dropdown > summary::-webkit-details-marker { display: none; }
+  .dropdown > summary::after {
+    content: '\25BE'; margin-left: auto; color: var(--text-muted); font-size: 10px;
+  }
+  .dropdown[open] > summary { border-color: var(--border-strong); background: rgba(255,255,255,0.08); }
+  .dropdown-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+    min-width: 220px;
+    background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 6px;
+    display: grid; gap: 2px;
+  }
+  .dropdown-menu label {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 8px; font-size: 12.5px; color: var(--text);
+    cursor: pointer;
+  }
+  .dropdown-menu label:hover { background: rgba(255,255,255,0.05); }
+  .dropdown-menu label input { accent-color: var(--accent); }
+  .dropdown-menu .swatch {
+    width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .dropdown-menu .divider { height: 1px; background: var(--border); margin: 4px 2px; }
+  .dropdown-menu .menu-actions {
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 4px 6px 2px;
+    font-size: 11px;
+  }
+  .dropdown-menu .menu-actions button {
+    background: transparent; border: 0; color: var(--accent); cursor: pointer; padding: 3px 4px;
+    font-size: 11px;
+  }
+
+  .toolbar input.search {
+    flex: 1; min-width: 200px;
+    background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px;
+  }
+  .toolbar select {
+    background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; font-size: 12px;
+  }
+
+  /* ---------- shared queue card styling ---------- */
+  .qcard {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--state, var(--border));
+    border-radius: 14px;
+    padding: 10px 12px 11px;
+    /* Subtle wash of the state color so it's visible without overpowering */
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--state, transparent) 8%, transparent), transparent 70%), linear-gradient(var(--bg-card), var(--bg-card));
+    box-shadow: 0 4px 14px rgba(0,0,0,0.20);
+    display: grid; gap: 6px;
+    cursor: grab;
+  }
+  .qcard:active { cursor: grabbing; }
+  .qcard.dragging { opacity: 0.45; }
+  .qcard .row1 { display: flex; align-items: center; gap: 8px; }
+  .qcard .drag {
+    color: var(--text-muted); font-size: 14px; line-height: 1; user-select: none;
+    cursor: grab;
+  }
+  .qcard .rank {
+    min-width: 26px; height: 22px; padding: 0 6px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--state, #888) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--state, #888) 30%, transparent);
+    color: var(--text); font-size: 11px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .qcard .title { font-size: 13.5px; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qcard .state-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px;
+    color: var(--state); border: 1px solid color-mix(in srgb, var(--state) 50%, transparent);
+    background: color-mix(in srgb, var(--state) 12%, transparent);
+  }
+  .qcard .meta {
+    display: flex; flex-wrap: wrap; gap: 6px 12px;
+    font-size: 11.5px; color: var(--text-secondary);
+  }
+  .qcard .meta .k { color: var(--text-muted); }
+  .qcard .source-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.04);
+  }
+  .qcard .source-badge.catalog { color: var(--accent-blue); background: rgba(124,199,255,0.10); border-color: rgba(124,199,255,0.28); }
+  .qcard .source-badge.working { color: var(--accent); background: rgba(110,231,200,0.10); border-color: rgba(110,231,200,0.28); }
+  .qcard .source-badge.idea    { color: var(--accent-amber); background: rgba(242,195,91,0.10); border-color: rgba(242,195,91,0.28); }
+
+  /* Plate progress bar — tiny segment bar where finished plates use done
+     color and remaining plates use the card's state color. */
+  .plate-bar { display: flex; gap: 3px; margin-top: 2px; }
+  .plate-bar .seg {
+    flex: 1; height: 5px; border-radius: 3px;
+    background: color-mix(in srgb, var(--state) 35%, transparent);
+  }
+  .plate-bar .seg.done { background: var(--state-done); }
+  .qcard .time-line {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11.5px; color: var(--text-secondary);
+  }
+  .qcard .time-line .remain {
+    font-size: 13px; font-weight: 700; color: var(--text);
+  }
+  .qcard .time-line .total { color: var(--text-muted); font-size: 11px; }
+
+  /* ---------- LIST view ---------- */
+  .view { display: none; }
+  .view.active { display: block; }
+  .list-view .state-group {
+    margin-bottom: 14px;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 18px;
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  .list-view .state-group-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--state) 14%, transparent), transparent);
+  }
+  .list-view .state-group-header .dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--state);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--state) 22%, transparent);
+  }
+  .list-view .state-group-header h3 { margin: 0; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .list-view .state-group-header .count { color: var(--text-muted); font-size: 12px; }
+  .list-view .state-group .body { padding: 10px; display: grid; gap: 8px; }
+
+  /* Flat (non-grouped) list used for all sort modes. State grouping was
+     removed in favor of a single ranked stream — cards keep their state
+     color wash so visual grouping is preserved without forced structure. */
+  .list-view .flat-list {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 18px;
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  .list-view .flat-list-hint {
+    padding: 9px 14px; font-size: 11.5px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+  }
+  .list-view .flat-list-hint strong { color: var(--text-secondary); font-weight: 700; }
+  .list-view .flat-list-body { padding: 10px; display: grid; gap: 8px; }
+  .list-view .flat-list-body .qcard { cursor: default; }
+  .list-view .flat-list[data-flat-dnd="1"] .qcard { cursor: grab; }
+  .list-view .flat-list[data-flat-dnd="1"] .qcard:active { cursor: grabbing; }
+
+  /* ---------- KANBAN view ---------- */
+  /* GitHub Projects–style: fixed-width vertical columns, horizontal scroll
+     when columns exceed viewport width. */
+  .kanban-view .columns {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 300px;
+    gap: 12px;
+    overflow-x: auto;
+    /* allow page (not columns) to absorb vertical overflow */
+    align-items: start;
+    padding-bottom: 10px;
+    scrollbar-gutter: stable;
+  }
+  .kanban-view .column {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 18px;
+    display: flex; flex-direction: column;
+    /* Columns grow to fit their content — never scroll vertically.
+       The page (not the column) absorbs overflow if a single column
+       has many cards. The columns container handles horizontal scroll. */
+    align-self: start;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--state);
+  }
+  .kanban-view .column-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--state) 14%, transparent), transparent);
+  }
+  .kanban-view .column-header .ttl {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .kanban-view .column-header .ttl .dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--state);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--state) 22%, transparent);
+  }
+  .kanban-view .column-header .meta { font-size: 11px; color: var(--text-muted); }
+  .kanban-view .column-header .col-time { font-size: 11px; color: var(--text-secondary); }
+  .kanban-view .col-body {
+    padding: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1;
+    min-height: 120px;
+  }
+  .kanban-view .col-body.drop-target {
+    background: color-mix(in srgb, var(--state) 8%, transparent);
+    outline: 1px dashed color-mix(in srgb, var(--state) 50%, transparent);
+    outline-offset: -6px;
+    border-radius: 14px;
+  }
+  .kanban-view .col-empty {
+    margin: auto; color: var(--text-muted); font-size: 12px; text-align: center; padding: 20px;
+  }
+
+  /* ---------- design notes panel ---------- */
+  .notes {
+    margin-top: 22px; padding: 14px 16px;
+    background: rgba(255,255,255,0.02); border: 1px dashed var(--border-strong);
+    border-radius: 14px; color: var(--text-secondary); font-size: 12.5px; line-height: 1.6;
+  }
+  .notes h3 { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text); }
+  .notes ul { margin: 6px 0 0; padding-left: 20px; }
+  .notes code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="page-header">
+    <div>
+      <h1>Print Queue · Kanban view (mockup)</h1>
+      <p>
+        Adds a Kanban board mode to the existing unified queue card. State filter chips
+        drive which columns are visible; the same chips also control which state groups
+        appear in the list view. Cards carry a subtle state-tinted wash so they remain
+        visually grouped even when scrolled or rearranged. The hero "Time Remaining" tile
+        excludes plates already marked <code>done</code>.
+      </p>
+    </div>
+    <nav class="nav">
+      <a href="index.html">← Mockups index</a>
+      <a href="../README.md">Print Queue docs</a>
+      <a href="../../model_catalog/design/mockups/production-queue.html">Original production-queue mockup</a>
+    </nav>
+  </header>
+
+  <!-- Top widget: prominent ETA + counts -->
+  <section class="top-widget">
+    <div class="eta-hero" aria-label="Estimated time remaining">
+      <span class="eta-kicker">Time remaining · excludes done plates</span>
+      <span class="eta-value" id="eta-value">12h 18m <small>across 4 active jobs</small></span>
+      <div class="eta-meta">
+        <span><strong id="eta-now">Now printing:</strong> <span id="eta-now-name">P1S · Hex Tray (plate 3 / 5)</span></span>
+        <span>Finishes ~<strong id="eta-finish">10:42 PM tomorrow</strong></span>
+        <span>Done plates skipped: <strong id="eta-skipped">7</strong></span>
+      </div>
+      <div class="eta-bar"><span id="eta-bar-fill" style="width: 38%"></span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Overnight Fit</div>
+      <div class="stat-value">2</div>
+      <div class="stat-sub">Jobs that fit before 7am</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">AMS Ready</div>
+      <div class="stat-value">5</div>
+      <div class="stat-sub">Filaments loaded match</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Queue</div>
+      <div class="stat-value">11</div>
+      <div class="stat-sub">3 backlog · 2 prep · 2 ready · 1 active · 1 blocked · 2 done</div>
+    </div>
+  </section>
+
+  <!-- Toolbar: view switch + filter dropdowns drive both views -->
+  <section class="toolbar">
+    <div class="view-switch" role="tablist" aria-label="Queue view">
+      <button id="btn-list" class="active" data-view="list">▤ List</button>
+      <button id="btn-kanban" data-view="kanban">▦ Kanban</button>
+    </div>
+    <div class="divider"></div>
+
+    <!-- State filter dropdown (replaces chip filter) -->
+    <details class="dropdown" id="state-dd">
+      <summary><span class="filter-label" style="margin:0">States</span> <span id="state-dd-summary">All</span></summary>
+      <div class="dropdown-menu" id="state-menu">
+        <div class="menu-actions">
+          <button type="button" data-states-action="all">Select all</button>
+          <button type="button" data-states-action="none">Clear</button>
+        </div>
+        <div class="divider"></div>
+        <!-- filled by JS -->
+      </div>
+    </details>
+
+    <!-- Source filter dropdown (new) -->
+    <details class="dropdown" id="source-dd">
+      <summary><span class="filter-label" style="margin:0">Source</span> <span id="source-dd-summary">All</span></summary>
+      <div class="dropdown-menu">
+        <label><input type="radio" name="source" value="all" checked> All sources</label>
+        <label><input type="radio" name="source" value="catalog"> <span class="swatch" style="background: var(--accent-blue)"></span> Catalog</label>
+        <label><input type="radio" name="source" value="working"> <span class="swatch" style="background: var(--accent)"></span> Working Files</label>
+        <label><input type="radio" name="source" value="idea"> <span class="swatch" style="background: var(--accent-amber)"></span> Ideas</label>
+      </div>
+    </details>
+
+    <div class="divider"></div>
+    <input class="search" placeholder="Search queue…" />
+    <select id="sort-select">
+      <option value="rank">Sort: Rank (manual)</option>
+      <option value="duration">Duration (Short→Long)</option>
+      <option value="recent">Recently added</option>
+    </select>
+  </section>
+
+  <!-- LIST view -->
+  <section id="view-list" class="view list-view active" aria-label="List view">
+    <!-- groups injected by JS -->
+  </section>
+
+  <!-- KANBAN view -->
+  <section id="view-kanban" class="view kanban-view" aria-label="Kanban view">
+    <div class="columns" id="kanban-columns">
+      <!-- columns injected by JS -->
+    </div>
+  </section>
+
+  <div class="notes">
+    <h3>Mockup intent / wiring notes</h3>
+    <ul>
+      <li><strong>State palette</strong> is exposed as CSS custom properties (<code>--state-backlog</code> … <code>--state-done</code>) and applied to each card via a <code>--state</code> override. The same variables drive the list view's group header, the kanban column header, and the small filter swatches — one source of truth. No per-card state pill is needed: the color wash + the column (or list group) it sits in already convey the state.</li>
+      <li><strong>View switch</strong> is a 2-way toggle stored in <code>localStorage</code> (key <code>uq-view-${printer_id}</code>). Default = <em>List</em> for users who upgrade in place; Kanban is opt-in.</li>
+      <li><strong>Filters</strong> are dropdowns (not chips) for consistency across views: a multi-select <em>States</em> dropdown hides entries from the list and hides entire columns from the kanban (default visible = all six states, matching <code>QUEUE_DEFAULT_VISIBLE_STATES</code>), and a single-select <em>Source</em> dropdown (All / Catalog / Working Files / Ideas) narrows entries to one source kind across both views.</li>
+      <li><strong>Kanban scroll</strong>: only the columns container scrolls horizontally (GitHub Projects style, fixed 300px columns). Individual columns never scroll vertically — they grow with their contents, and the page absorbs overflow if a single column gets very tall.</li>
+      <li><strong>List view sort</strong>: when sorted by <em>Rank</em>, entries render as one flat ranked list and dragging a card reorders it (calls <code>POST /api/v1/queue/reorder</code>). When sorted by <em>Duration</em> or <em>Recently added</em>, drag handles disappear because the ordering is computed from a field, not manual rank. State grouping is dropped in the list view; the state color wash on each card preserves visual grouping without forcing structural grouping.</li>
+      <li><strong>Drag &amp; drop in kanban</strong> moves an entry between columns and would call <code>PATCH /api/v1/queue/{id}</code> with the new <code>state</code>. Transitions are validated against <code>QUEUE_STATE_TRANSITIONS</code> already in the card source — invalid drops snap back and toast a reason.</li>
+      <li><strong>Time remaining (hero)</strong>: sum of <code>plate.estimated_minutes</code> for plates whose <code>state !== 'done'</code>, plus the live <code>sensor.bambulab_p1s_remaining_time</code> for the currently-printing plate. Each card shows the same calc per-job (<code>4h 12m left of 7h 30m</code>) so it's obvious which plates are skipped.</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+/* ----- mock data — shape mirrors UnifiedQueueBoardCard entries ----- */
+const STATES = [
+  { key: 'backlog',     label: 'Backlog' },
+  { key: 'preparing',   label: 'Preparing' },
+  { key: 'ready',       label: 'Ready' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'blocked',     label: 'Blocked' },
+  { key: 'done',        label: 'Done' },
+];
+const DEFAULT_VISIBLE = ['backlog','preparing','ready','in_progress','blocked','done'];
+
+const ENTRIES = [
+  { id: 'q-001', rank: 1, title: 'Hex Tray Organizer',     source_kind: 'catalog_model', source_label: 'CAT-2841', state: 'in_progress',
+    plates: [ {m: 92, done: true}, {m: 88, done: true}, {m: 95, done: false, active: true}, {m: 78, done: false}, {m: 102, done: false} ] },
+  { id: 'q-002', rank: 2, title: 'Cable Comb v3',          source_kind: 'working',       source_label: 'WG-Office', state: 'ready',
+    plates: [ {m: 42, done: false}, {m: 38, done: false} ] },
+  { id: 'q-003', rank: 3, title: 'Filament Spool Holder',  source_kind: 'catalog',       source_label: 'CAT-1182', state: 'ready',
+    plates: [ {m: 60, done: false} ] },
+  { id: 'q-004', rank: 4, title: 'Articulated Dragon (XL)',source_kind: 'catalog',       source_label: 'CAT-3309', state: 'preparing',
+    plates: [ {m: 240, done: false}, {m: 215, done: false}, {m: 198, done: false} ] },
+  { id: 'q-005', rank: 5, title: 'Garage Hook Set',        source_kind: 'idea',          source_label: 'IDEA-44',  state: 'preparing',
+    plates: [ {m: 55, done: false}, {m: 60, done: false} ] },
+  { id: 'q-006', rank: 6, title: 'GoPro Mount Replacement',source_kind: 'working',       source_label: 'WF-Garage',state: 'backlog',
+    plates: [ {m: 32, done: false} ] },
+  { id: 'q-007', rank: 7, title: 'Drawer Dividers (set)',  source_kind: 'catalog',       source_label: 'CAT-2010', state: 'backlog',
+    plates: [ {m: 80, done: false}, {m: 80, done: false}, {m: 80, done: false} ] },
+  { id: 'q-008', rank: 8, title: 'Wall Bracket Prototype', source_kind: 'idea',          source_label: 'IDEA-51',  state: 'backlog',
+    plates: [ {m: 110, done: false} ] },
+  { id: 'q-009', rank: 9, title: 'PETG Test Cube',         source_kind: 'catalog',       source_label: 'CAT-0001', state: 'blocked',
+    plates: [ {m: 22, done: false} ], block_reason: 'Needs PETG-CF · loaded PLA' },
+  { id: 'q-010', rank: 10,title: 'Birthday Topper',        source_kind: 'working',       source_label: 'WF-Party', state: 'done',
+    plates: [ {m: 35, done: true}, {m: 35, done: true} ] },
+  { id: 'q-011', rank: 11,title: 'Door Handle Adapter',    source_kind: 'catalog',       source_label: 'CAT-2204', state: 'done',
+    plates: [ {m: 48, done: true} ] },
+];
+
+const SOURCE_CLASS = {
+  catalog: 'catalog', catalog_model: 'catalog',
+  working: 'working', working_group: 'working', working_file: 'working',
+  idea: 'idea',
+};
+const SOURCE_LABEL = {
+  catalog: 'CATALOG', catalog_model: 'CATALOG',
+  working: 'WORKING', working_group: 'WORKING', working_file: 'WORKING',
+  idea: 'IDEA',
+};
+
+/* ----- state ----- */
+const state = {
+  view: localStorage.getItem('mockup-uq-view') || 'list',
+  visible: new Set(DEFAULT_VISIBLE),
+  source: 'all',     // all | catalog | working | idea
+  sort: 'rank',      // rank | duration | recent
+};
+
+function sourceKey(e) {
+  if (e.source_kind === 'idea') return 'idea';
+  if (e.source_kind === 'working' || e.source_kind === 'working_group' || e.source_kind === 'working_file') return 'working';
+  return 'catalog';
+}
+function passesFilters(e) {
+  if (!state.visible.has(e.state)) return false;
+  if (state.source !== 'all' && sourceKey(e) !== state.source) return false;
+  return true;
+}
+function sortedEntries(items) {
+  const copy = [...items];
+  if (state.sort === 'duration') {
+    return copy.sort((a,b) => entryTotals(a).remain - entryTotals(b).remain);
+  }
+  if (state.sort === 'recent') {
+    // mock: reverse rank approximates 'most recently added'
+    return copy.sort((a,b) => b.rank - a.rank);
+  }
+  // rank (default, manual)
+  return copy.sort((a,b) => a.rank - b.rank);
+}
+
+/* ----- helpers ----- */
+function fmtMin(min) {
+  if (!min || min <= 0) return '—';
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+function entryTotals(e) {
+  const total = e.plates.reduce((s,p) => s + p.m, 0);
+  const remain = e.plates.filter(p => !p.done).reduce((s,p) => s + p.m, 0);
+  const doneCt = e.plates.filter(p => p.done).length;
+  return { total, remain, doneCt, plateCt: e.plates.length };
+}
+
+/* ----- render ----- */
+function stateSummary() {
+  if (state.visible.size === STATES.length) return 'All';
+  if (state.visible.size === 0) return 'None';
+  if (state.visible.size <= 2) {
+    return STATES.filter(s => state.visible.has(s.key)).map(s => s.label).join(', ');
+  }
+  return `${state.visible.size} of ${STATES.length}`;
+}
+function sourceSummary() {
+  return ({ all: 'All', catalog: 'Catalog', working: 'Working Files', idea: 'Ideas' })[state.source];
+}
+function renderFilters() {
+  // State multi-select dropdown
+  const menu = document.getElementById('state-menu');
+  // Preserve the action row + divider already in the markup
+  const fixed = menu.querySelectorAll(':scope > .menu-actions, :scope > .divider');
+  menu.querySelectorAll(':scope > label').forEach(n => n.remove());
+  menu.insertAdjacentHTML('beforeend', STATES.map(s => `
+    <label data-state="${s.key}">
+      <input type="checkbox" ${state.visible.has(s.key) ? 'checked' : ''} data-state="${s.key}">
+      <span class="swatch" style="background: var(--state-${s.key})"></span>
+      ${s.label}
+    </label>`).join(''));
+  menu.querySelectorAll('input[type=checkbox][data-state]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const k = inp.dataset.state;
+      if (inp.checked) state.visible.add(k); else state.visible.delete(k);
+      renderAll();
+    });
+  });
+  menu.querySelectorAll('button[data-states-action]').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.preventDefault();
+      if (btn.dataset.statesAction === 'all') state.visible = new Set(STATES.map(s => s.key));
+      else state.visible = new Set();
+      // sync checkbox state with the new selection
+      menu.querySelectorAll('input[type=checkbox][data-state]').forEach(inp => {
+        inp.checked = state.visible.has(inp.dataset.state);
+      });
+      renderAll();
+    });
+  });
+  document.getElementById('state-dd-summary').textContent = stateSummary();
+
+  // Source single-select dropdown
+  document.querySelectorAll('input[name="source"]').forEach(r => {
+    r.checked = (r.value === state.source);
+    r.addEventListener('change', () => {
+      if (r.checked) {
+        state.source = r.value;
+        renderAll();
+        document.getElementById('source-dd').open = false;
+      }
+    });
+  });
+  document.getElementById('source-dd-summary').textContent = sourceSummary();
+}
+
+/* close any open dropdown on outside click */
+document.addEventListener('click', ev => {
+  document.querySelectorAll('details.dropdown[open]').forEach(d => {
+    if (!d.contains(ev.target)) d.open = false;
+  });
+});
+
+function cardHTML(e, opts) {
+  opts = opts || {};
+  const t = entryTotals(e);
+  const segs = e.plates.map(p => `<div class="seg ${p.done ? 'done' : ''}"></div>`).join('');
+  const srcCls = SOURCE_CLASS[e.source_kind] || '';
+  const srcLbl = SOURCE_LABEL[e.source_kind] || e.source_kind.toUpperCase();
+  const draggable = opts.draggable === false ? 'false' : 'true';
+  const dragHandle = opts.draggable === false
+    ? ''
+    : '<span class="drag" title="Drag to reorder / change state">⋮⋮</span>';
+  // The state chip is shown ONLY in the list view (opts.showStatePill).
+  // In the kanban view the column already conveys state.
+  const stateLabel = STATES.find(s => s.key === e.state)?.label || e.state;
+  const statePill = opts.showStatePill
+    ? `<span class="state-pill">${stateLabel}</span>`
+    : '';
+  return `
+    <article class="qcard" draggable="${draggable}" data-id="${e.id}" data-state="${e.state}"
+             style="--state: var(--state-${e.state}); ${opts.draggable === false ? 'cursor: default;' : ''}">
+      <div class="row1">
+        ${dragHandle}
+        <span class="rank">${e.rank}</span>
+        <span class="title" title="${e.title}">${e.title}</span>
+        ${statePill}
+      </div>
+      <div class="meta">
+        <span class="source-badge ${srcCls}">${srcLbl} · ${e.source_label}</span>
+        <span><span class="k">Plates</span> ${t.doneCt}/${t.plateCt} done</span>
+        ${e.block_reason ? `<span style="color: var(--state-blocked)">⚠ ${e.block_reason}</span>` : ''}
+      </div>
+      <div class="plate-bar" title="${t.doneCt} of ${t.plateCt} plates done">${segs}</div>
+      <div class="time-line">
+        <span><span class="remain">${fmtMin(t.remain)} left</span> <span class="total">of ${fmtMin(t.total)}</span></span>
+        ${t.doneCt > 0 ? `<span class="total">−${fmtMin(t.total - t.remain)} skipped</span>` : ''}
+      </div>
+    </article>`;
+}
+
+function renderList() {
+  const host = document.getElementById('view-list');
+  const items = sortedEntries(ENTRIES.filter(passesFilters));
+  if (items.length === 0) {
+    host.innerHTML = `<div class="notes" style="text-align:center">No entries match the current filters.</div>`;
+    return;
+  }
+  const dnd = (state.sort === 'rank');
+  const hint = dnd
+    ? 'Sorted by <strong>Rank</strong> · drag cards to reorder.'
+    : (state.sort === 'duration'
+        ? 'Sorted by <strong>Duration</strong> (shortest first) · drag-to-reorder is disabled.'
+        : 'Sorted by <strong>Recently added</strong> · drag-to-reorder is disabled.');
+  host.innerHTML = `
+    <div class="flat-list" data-flat-dnd="${dnd ? '1' : '0'}">
+      <div class="flat-list-hint">${hint}</div>
+      <div class="flat-list-body">
+        ${items.map(e => cardHTML(e, { draggable: dnd, showStatePill: true })).join('')}
+      </div>
+    </div>`;
+  if (dnd) attachListReorderDnD(host);
+}
+
+function renderKanban() {
+  const host = document.getElementById('kanban-columns');
+  const visible = STATES.filter(s => state.visible.has(s.key));
+  host.innerHTML = visible.map(s => {
+    const items = sortedEntries(ENTRIES.filter(e => e.state === s.key && passesFilters(e)));
+    const colRemain = items.reduce((sum, e) => sum + entryTotals(e).remain, 0);
+    return `
+      <div class="column" data-state="${s.key}" style="--state: var(--state-${s.key});">
+        <div class="column-header">
+          <span class="ttl"><span class="dot"></span>${s.label}</span>
+          <span class="meta">${items.length}</span>
+        </div>
+        <div class="column-header" style="border-bottom: 0; padding-top: 0;">
+          <span class="col-time">${colRemain > 0 ? `${fmtMin(colRemain)} of work` : '—'}</span>
+        </div>
+        <div class="col-body" data-drop="${s.key}">
+          ${items.length === 0
+            ? `<div class="col-empty">Drop here to mark ${s.label.toLowerCase()}</div>`
+            : items.map(e => cardHTML(e)).join('')}
+        </div>
+      </div>`;
+  }).join('');
+  attachDnD(host);
+}
+
+/* List-view rank reordering. Only active when sort === 'rank'. */
+function attachListReorderDnD(scope) {
+  const body = scope.querySelector('.flat-list-body');
+  if (!body) return;
+  body.querySelectorAll('.qcard').forEach(el => {
+    el.addEventListener('dragstart', ev => {
+      dragId = el.dataset.id;
+      el.classList.add('dragging');
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', dragId);
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+  });
+  body.addEventListener('dragover', ev => {
+    ev.preventDefault();
+    const dragging = body.querySelector('.qcard.dragging');
+    if (!dragging) return;
+    const after = [...body.querySelectorAll('.qcard:not(.dragging)')].find(card => {
+      const r = card.getBoundingClientRect();
+      return ev.clientY < r.top + r.height / 2;
+    });
+    if (after) body.insertBefore(dragging, after);
+    else body.appendChild(dragging);
+  });
+  body.addEventListener('drop', ev => {
+    ev.preventDefault();
+    // commit new rank order to ENTRIES (mocked; production: POST /api/v1/queue/reorder)
+    const ids = [...body.querySelectorAll('.qcard')].map(c => c.dataset.id);
+    ids.forEach((id, idx) => {
+      const e = ENTRIES.find(x => x.id === id);
+      if (e) e.rank = idx + 1;
+    });
+    renderAll();
+  });
+}
+
+/* ----- drag & drop ----- */
+let dragId = null;
+function attachDnD(scope) {
+  scope.querySelectorAll('.qcard').forEach(el => {
+    el.addEventListener('dragstart', ev => {
+      dragId = el.dataset.id;
+      el.classList.add('dragging');
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', dragId);
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.col-body.drop-target').forEach(n => n.classList.remove('drop-target'));
+    });
+  });
+  scope.querySelectorAll('.col-body[data-drop]').forEach(zone => {
+    zone.addEventListener('dragover', ev => { ev.preventDefault(); zone.classList.add('drop-target'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drop-target'));
+    zone.addEventListener('drop', ev => {
+      ev.preventDefault();
+      zone.classList.remove('drop-target');
+      const id = ev.dataTransfer.getData('text/plain') || dragId;
+      const newState = zone.dataset.drop;
+      const e = ENTRIES.find(x => x.id === id);
+      if (!e || e.state === newState) return;
+      e.state = newState;
+      // mocked: in production this would call PATCH /api/v1/queue/{id}
+      renderAll();
+    });
+  });
+}
+
+/* ----- view switch ----- */
+function setView(v) {
+  state.view = v;
+  localStorage.setItem('mockup-uq-view', v);
+  document.getElementById('view-list').classList.toggle('active', v === 'list');
+  document.getElementById('view-kanban').classList.toggle('active', v === 'kanban');
+  document.querySelectorAll('.view-switch button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+}
+document.querySelectorAll('.view-switch button').forEach(b =>
+  b.addEventListener('click', () => setView(b.dataset.view))
+);
+
+/* sort dropdown */
+document.getElementById('sort-select').addEventListener('change', ev => {
+  state.sort = ev.target.value;
+  renderAll();
+});
+
+/* ----- init ----- */
+function renderAll() {
+  renderList();
+  renderKanban();
+  document.getElementById('state-dd-summary').textContent = stateSummary();
+  document.getElementById('source-dd-summary').textContent = sourceSummary();
+  // refresh hero ETA from non-done plates
+  const remain = ENTRIES.filter(e => e.state !== 'done')
+    .flatMap(e => e.plates).filter(p => !p.done).reduce((s,p) => s + p.m, 0);
+  const totalAll = ENTRIES.filter(e => e.state !== 'done')
+    .flatMap(e => e.plates).reduce((s,p) => s + p.m, 0);
+  const skipped = ENTRIES.flatMap(e => e.plates).filter(p => p.done).length;
+  document.getElementById('eta-value').innerHTML =
+    `${fmtMin(remain)} <small>across ${ENTRIES.filter(e => ['preparing','ready','in_progress','blocked'].includes(e.state)).length} active jobs</small>`;
+  document.getElementById('eta-skipped').textContent = skipped;
+  const pct = totalAll > 0 ? Math.round(((totalAll - remain) / totalAll) * 100) : 0;
+  document.getElementById('eta-bar-fill').style.width = `${Math.min(100, Math.max(2, pct))}%`;
+}
+renderFilters();
+setView(state.view);
+renderAll();
+</script>
+</body>
+</html>

@@ -26,10 +26,11 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0; min-height: 100%;
+    /* Neutral HASS-aware dark surface, harmonized with production-queue.html
+       and print_queue/mockups/kanban-board.html. */
     background:
-      radial-gradient(circle at top left, rgba(110,231,200,0.10), transparent 26%),
-      radial-gradient(circle at bottom right, rgba(124,199,255,0.10), transparent 22%),
-      linear-gradient(180deg, #0b1015, #0f1620 42%, #0b1015 100%);
+      radial-gradient(circle at top left, rgba(148,163,184,0.06), transparent 32%),
+      linear-gradient(180deg, #0b1015, #101821 36%, #0b1015 100%);
     color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
   }
   body { padding: 30px clamp(16px, 4vw, 42px); }

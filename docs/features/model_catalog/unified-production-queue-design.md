@@ -9,6 +9,13 @@ Implementation companion docs:
 - `unified-production-queue-implementation-plan.md`
 - `unified-production-queue-github-issues.md`
 
+UI mockups:
+
+- [`design/mockups/production-queue.html`](design/mockups/production-queue.html) — list view (operator default)
+- [`design/mockups/production-queue-add.html`](design/mockups/production-queue-add.html) — add-to-queue flow
+- [`design/mockups/production-queue-entry-detail.html`](design/mockups/production-queue-entry-detail.html) — entry detail popup
+- [`../../print_queue/mockups/kanban-board.html`](../../print_queue/mockups/kanban-board.html) — Kanban view variant with per-state color palette and prominent Time Remaining (excludes done plates). State filter chips drive column visibility; drag-and-drop between columns updates `state` via `PATCH /api/v1/queue/{id}` validated against the existing `QUEUE_STATE_TRANSITIONS` map in `unified-queue-board-card.js`.
+
 ## Purpose
 
 Define a single operator-facing queue that can include:

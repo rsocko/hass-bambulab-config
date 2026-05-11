@@ -82,6 +82,20 @@ State value: number of jobs in queue.
 - Webhook handling: Instead of inline `if event == queue_ready` in monolithic webhook handler, this package listens to the `bambuddy_webhook_event` HA event fired by `bambuddy_common`
 - No new entities or functionality — this is a clean extraction
 
+## Mockups
+
+Self-contained HTML mockups for proposed UI evolutions live under
+[`mockups/`](mockups/index.html):
+
+- [`kanban-board.html`](mockups/kanban-board.html) — adds a Kanban view mode
+  (columns per state) with drag-and-drop state changes, a per-state color
+  palette applied subtly to cards in both list and kanban views, and a
+  prominent **Time Remaining** hero tile that excludes plates already marked
+  `done`. The original list-style queue mockup remains under
+  [`docs/features/model_catalog/design/mockups/production-queue.html`](../model_catalog/design/mockups/production-queue.html);
+  rationale for the underlying data model lives in
+  [`unified-production-queue-design.md`](../model_catalog/unified-production-queue-design.md).
+
 ## Dashboard Cards
 
 ### `queue.yaml`
