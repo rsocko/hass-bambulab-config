@@ -91,6 +91,15 @@ class UnifiedQueueMatchSuggestion:
     reviewed_at: str | None
 
 
+@dataclass(frozen=True)
+class UnifiedQueuePlannerPreference:
+    printer_id: str
+    strategy: str
+    weights: dict[str, object]
+    created_at: str
+    updated_at: str
+
+
 def _entry_from_row(row) -> UnifiedQueueEntry:
     return UnifiedQueueEntry(
         queue_entry_id=str(row["queue_entry_id"]),
@@ -172,6 +181,18 @@ def _match_suggestion_from_row(row) -> UnifiedQueueMatchSuggestion:
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
         reviewed_at=str(row["reviewed_at"] or "").strip() or None,
+    )
+
+
+def _planner_preference_from_row(row) -> UnifiedQueuePlannerPreference:
+    raw_weights = json.loads(str(row["weights_json"] or "{}"))
+    weights = raw_weights if isinstance(raw_weights, dict) else {}
+    return UnifiedQueuePlannerPreference(
+        printer_id=str(row["printer_id"]),
+        strategy=str(row["strategy"]),
+        weights=weights,
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
     )
 
 
@@ -917,6 +938,66 @@ def update_unified_queue_match_suggestion(
     if cursor.rowcount == 0:
         return None
     return read_unified_queue_match_suggestion(db_path=db_path, suggestion_id=suggestion_id)
+
+
+def read_unified_queue_planner_preference(
+    *,
+    db_path: Path,
+    printer_id: str,
+) -> UnifiedQueuePlannerPreference | None:
+    connection = connect(db_path)
+    try:
+        row = connection.execute(
+            "SELECT * FROM unified_queue_planner_preferences WHERE printer_id = ?",
+            (printer_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return None
+    return _planner_preference_from_row(row)
+
+
+def upsert_unified_queue_planner_preference(
+    *,
+    db_path: Path,
+    printer_id: str,
+    strategy: str,
+    weights: dict[str, object],
+) -> UnifiedQueuePlannerPreference:
+    now = utc_now_iso()
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO unified_queue_planner_preferences (
+                printer_id,
+                strategy,
+                weights_json,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(printer_id) DO UPDATE SET
+                strategy = excluded.strategy,
+                weights_json = excluded.weights_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                printer_id,
+                strategy,
+                json.dumps(weights, separators=(",", ":")),
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    saved = read_unified_queue_planner_preference(db_path=db_path, printer_id=printer_id)
+    if saved is None:
+        raise RuntimeError("Failed to read saved unified queue planner preference")
+    return saved
 
 
 @dataclass(frozen=True)

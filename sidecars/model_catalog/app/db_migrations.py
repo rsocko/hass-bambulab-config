@@ -568,6 +568,26 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        19,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS unified_queue_planner_preferences (
+        id INTEGER PRIMARY KEY,
+        printer_id TEXT NOT NULL UNIQUE,
+        strategy TEXT NOT NULL DEFAULT 'balanced',
+        weights_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (strategy IN ('aggressive', 'balanced', 'lazy'))
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_planner_preferences_strategy
+        ON unified_queue_planner_preferences(strategy)
+        """,
+        ),
+    ),
 )
 
 

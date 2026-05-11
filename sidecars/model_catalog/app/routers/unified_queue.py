@@ -32,10 +32,12 @@ from ..db import (
     list_unified_queue_file_units,
     list_unified_queue_match_suggestions,
     read_unified_queue_match_suggestion,
+    read_unified_queue_planner_preference,
     read_unified_queue_entry,
     reorder_unified_queue_entries,
     update_unified_queue_match_suggestion,
     update_unified_queue_entry,
+    upsert_unified_queue_planner_preference,
     utc_now_iso,
 )
 from ..geometry_3mf import extract_3mf_plates_metadata
@@ -62,6 +64,42 @@ _DURATION_BUCKET_ALIASES = {
     "2-4h": "medium",
     "4-8h": "overnight",
     "8h+": "marathon",
+}
+
+PLANNER_STRATEGY_PRESETS: dict[str, dict[str, Any]] = {
+    "aggressive": {
+        "ams_fit": 60,
+        "overnight_fit": 10,
+        "duration": {
+            "quick": 30,
+            "medium": 20,
+            "overnight": 10,
+            "marathon": 0,
+            "unknown": 0,
+        },
+    },
+    "balanced": {
+        "ams_fit": 35,
+        "overnight_fit": 35,
+        "duration": {
+            "quick": 30,
+            "medium": 20,
+            "overnight": 10,
+            "marathon": 0,
+            "unknown": 0,
+        },
+    },
+    "lazy": {
+        "ams_fit": 20,
+        "overnight_fit": 60,
+        "duration": {
+            "quick": 10,
+            "medium": 15,
+            "overnight": 25,
+            "marathon": 0,
+            "unknown": 0,
+        },
+    },
 }
 
 
@@ -660,6 +698,51 @@ def _duration_bucket_score(duration_bucket: str) -> int:
         "unknown": 0,
     }
     return int(weights.get(duration_bucket, 0))
+
+
+def _normalize_planner_strategy(value: object | None) -> str:
+    strategy = str(value or "").strip().lower() or "balanced"
+    if strategy not in PLANNER_STRATEGY_PRESETS:
+        raise ValueError("strategy must be one of ['aggressive', 'balanced', 'lazy']")
+    return strategy
+
+
+def _normalize_planner_weights(strategy: str, custom_weights: object | None) -> dict[str, Any]:
+    base = {
+        "ams_fit": int(PLANNER_STRATEGY_PRESETS[strategy]["ams_fit"]),
+        "overnight_fit": int(PLANNER_STRATEGY_PRESETS[strategy]["overnight_fit"]),
+        "duration": dict(PLANNER_STRATEGY_PRESETS[strategy]["duration"]),
+    }
+    if custom_weights is None:
+        return base
+    if not isinstance(custom_weights, dict):
+        raise ValueError("custom_weights must be an object")
+
+    if "ams_fit" in custom_weights:
+        base["ams_fit"] = _coerce_int(custom_weights.get("ams_fit"), field="custom_weights.ams_fit", minimum=0)
+    if "overnight_fit" in custom_weights:
+        base["overnight_fit"] = _coerce_int(
+            custom_weights.get("overnight_fit"),
+            field="custom_weights.overnight_fit",
+            minimum=0,
+        )
+    if "duration" in custom_weights:
+        duration_obj = custom_weights.get("duration")
+        if not isinstance(duration_obj, dict):
+            raise ValueError("custom_weights.duration must be an object")
+        for bucket in ["quick", "medium", "overnight", "marathon", "unknown"]:
+            if bucket in duration_obj:
+                base["duration"][bucket] = _coerce_int(
+                    duration_obj.get(bucket),
+                    field=f"custom_weights.duration.{bucket}",
+                    minimum=0,
+                )
+    return base
+
+
+def _duration_bucket_score_for_weights(duration_bucket: str, weights: dict[str, Any]) -> int:
+    duration_weights = weights.get("duration") if isinstance(weights.get("duration"), dict) else {}
+    return int(duration_weights.get(duration_bucket, duration_weights.get("unknown", 0)))
 
 
 def _parse_selected_files_payload(raw_selected_files: object) -> tuple[list[dict[str, Any]], str | None]:
@@ -1884,6 +1967,33 @@ def planner_score_queue_entries_v1(
     if not isinstance(body, dict):
         return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
 
+    try:
+        requested_strategy = _normalize_planner_strategy(body.get("strategy")) if "strategy" in body else None
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    persisted_pref = read_unified_queue_planner_preference(db_path=state.settings.db_path, printer_id=printer_id)
+    active_strategy = requested_strategy or (persisted_pref.strategy if persisted_pref is not None else "balanced")
+
+    try:
+        active_weights = _normalize_planner_weights(
+            active_strategy,
+            body.get("custom_weights") if "custom_weights" in body else (persisted_pref.weights if persisted_pref else None),
+        )
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    if requested_strategy is not None or "custom_weights" in body:
+        try:
+            upsert_unified_queue_planner_preference(
+                db_path=state.settings.db_path,
+                printer_id=printer_id,
+                strategy=active_strategy,
+                weights=active_weights,
+            )
+        except Exception as exc:
+            return _error_response(status_code=500, error="internal_error", message=str(exc))
+
     ams_payload = body.get("ams_tray_uuids")
     ams_state_known = True
     if ams_payload is None:
@@ -1922,8 +2032,12 @@ def planner_score_queue_entries_v1(
             overnight_fit = bool(estimated_minutes is not None and estimated_minutes <= 480)
             overnight_fit_score = 100 if overnight_fit else 0
             duration_bucket = _duration_bucket_for_minutes(estimated_minutes)
-            duration_score = _duration_bucket_score(duration_bucket)
-            planner_score = int(ams_ready_score + overnight_fit_score + duration_score)
+            duration_score = _duration_bucket_score_for_weights(duration_bucket, active_weights)
+            planner_score = int(
+                (active_weights.get("ams_fit", 0) if ams_fit else 0)
+                + (active_weights.get("overnight_fit", 0) if overnight_fit else 0)
+                + duration_score
+            )
 
             update_unified_queue_entry(
                 db_path=state.settings.db_path,
@@ -1990,7 +2104,74 @@ def planner_score_queue_entries_v1(
             "ams_state_known": ams_state_known,
             "available_tray_uuids": sorted(list(available_uuids)),
             "entry_count": len(ranked),
+            "strategy": active_strategy,
+            "weights": active_weights,
         },
         "entries": ranked,
+    }
+
+
+@router.get("/api/v1/queues/{printer_id}/planner/strategy")
+def get_planner_strategy_v1(
+    printer_id: str,
+    request: Request,
+) -> Any:
+    state: AppState = request.app.state.model_catalog
+    try:
+        saved = read_unified_queue_planner_preference(db_path=state.settings.db_path, printer_id=printer_id)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    strategy = saved.strategy if saved is not None else "balanced"
+    try:
+        weights = _normalize_planner_weights(strategy, saved.weights if saved is not None else None)
+    except ValueError as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "strategy": strategy,
+        "weights": weights,
+        "presets": PLANNER_STRATEGY_PRESETS,
+        "persisted": saved is not None,
+    }
+
+
+@router.put("/api/v1/queues/{printer_id}/planner/strategy")
+def set_planner_strategy_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    try:
+        strategy = _normalize_planner_strategy(body.get("strategy"))
+        weights = _normalize_planner_weights(strategy, body.get("custom_weights"))
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+
+    try:
+        saved = upsert_unified_queue_planner_preference(
+            db_path=state.settings.db_path,
+            printer_id=printer_id,
+            strategy=strategy,
+            weights=weights,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "strategy": saved.strategy,
+        "weights": saved.weights,
+        "presets": PLANNER_STRATEGY_PRESETS,
+        "updated_at": saved.updated_at,
     }
 

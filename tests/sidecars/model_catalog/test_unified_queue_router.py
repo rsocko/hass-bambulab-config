@@ -1290,3 +1290,82 @@ def test_planner_score_v1_handles_unknown_ams_state_gracefully(tmp_path: Path) -
     finally:
         client.__exit__(None, None, None)
 
+
+def test_planner_strategy_v1_defaults_to_balanced_and_persists_custom_weights(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        default_response = client.get("/api/v1/queues/p1/planner/strategy")
+        assert default_response.status_code == 200
+        default_payload = default_response.json()
+        assert default_payload["strategy"] == "balanced"
+        assert default_payload["persisted"] is False
+
+        update_response = client.put(
+            "/api/v1/queues/p1/planner/strategy",
+            json={
+                "strategy": "aggressive",
+                "custom_weights": {
+                    "ams_fit": 70,
+                    "overnight_fit": 5,
+                    "duration": {
+                        "quick": 25,
+                        "medium": 15,
+                        "overnight": 5,
+                        "marathon": 0,
+                        "unknown": 0,
+                    },
+                },
+            },
+        )
+        assert update_response.status_code == 200
+        update_payload = update_response.json()
+        assert update_payload["strategy"] == "aggressive"
+        assert update_payload["weights"]["ams_fit"] == 70
+        assert update_payload["weights"]["duration"]["quick"] == 25
+
+        persisted_response = client.get("/api/v1/queues/p1/planner/strategy")
+        assert persisted_response.status_code == 200
+        persisted_payload = persisted_response.json()
+        assert persisted_payload["persisted"] is True
+        assert persisted_payload["strategy"] == "aggressive"
+        assert persisted_payload["weights"]["ams_fit"] == 70
+        assert persisted_payload["weights"]["duration"]["quick"] == 25
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_planner_strategy_v1_changes_rank_computation(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        quick = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Quick", "estimated_total_minutes": 90, "rank": 10},
+        )
+        overnight = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Overnight", "estimated_total_minutes": 420, "rank": 11},
+        )
+        assert quick.status_code == 200
+        assert overnight.status_code == 200
+        quick_id = quick.json()["entry"]["queue_entry_id"]
+        overnight_id = overnight.json()["entry"]["queue_entry_id"]
+
+        aggressive = client.post(
+            "/api/v1/queues/p1/planner/score",
+            json={"strategy": "aggressive", "ams_tray_uuids": []},
+        )
+        assert aggressive.status_code == 200
+        aggressive_order = [item["queue_entry_id"] for item in aggressive.json()["entries"]]
+
+        lazy = client.post(
+            "/api/v1/queues/p1/planner/score",
+            json={"strategy": "lazy", "ams_tray_uuids": []},
+        )
+        assert lazy.status_code == 200
+        lazy_order = [item["queue_entry_id"] for item in lazy.json()["entries"]]
+
+        assert aggressive_order.index(quick_id) < aggressive_order.index(overnight_id)
+        assert lazy_order.index(overnight_id) < lazy_order.index(quick_id)
+    finally:
+        client.__exit__(None, None, None)
+
