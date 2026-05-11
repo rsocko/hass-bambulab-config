@@ -609,6 +609,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       this._closeAddModal();
+      const newEntryState = String(((responseBody && responseBody.entry) ? responseBody.entry : responseBody).state || '').trim();
+      if (newEntryState && !this._filters.states.includes(newEntryState)) {
+        this._filters.states = [...this._filters.states, newEntryState];
+        this._saveFilterState();
+      }
       this._setFlashMessage('Queue entry created successfully.', 'success');
       this._loadQueueData();
     } catch (err) {
@@ -1133,8 +1138,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       this._setFlashMessage(`Planner applied (${strategy} strategy).`, 'success');
-      this._closePlannerDrawer();
+      this._plannerBusy = false;
+      this._plannerPreview = [];
+      this._render();
       await this._loadQueueData();
+      await this._loadPlannerPreview();
     } catch (err) {
       this._setFlashMessage(err.message, 'error');
       this._plannerBusy = false;
@@ -1174,8 +1182,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       this._setFlashMessage('Planner operation undone.', 'success');
-      this._closePlannerDrawer();
+      this._plannerBusy = false;
+      this._plannerPreview = [];
+      this._render();
       await this._loadQueueData();
+      await this._loadPlannerPreview();
     } catch (err) {
       this._setFlashMessage(err.message, 'error');
       this._plannerBusy = false;
@@ -2038,6 +2049,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
   _render() {
     const css = `
       :host {
+        display: block;
+        width: 100%;
         --bg-page: #0c1117;
         --bg-panel: rgba(21, 28, 38, 0.95);
         --bg-card: rgba(28, 36, 47, 0.96);
@@ -2060,6 +2073,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .shell {
+        width: 100%;
         background: var(--bg-panel);
         border: 1px solid var(--border);
         border-radius: 22px;
