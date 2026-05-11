@@ -52,6 +52,15 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._suggestionsError = null;
     this._suggestionBusy = {};
 
+    // Planner state
+    this._plannerOpen = false;
+    this._plannerStrategy = 'balanced';
+    this._plannerPreview = [];
+    this._plannerHistory = [];
+    this._plannerLoading = false;
+    this._plannerError = null;
+    this._plannerBusy = false;
+
     this._loadFilterState();
   }
 
@@ -871,6 +880,128 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }
   }
 
+  async _openPlannerDrawer() {
+    this._plannerOpen = true;
+    this._plannerStrategy = 'balanced';
+    this._plannerPreview = [];
+    this._plannerLoading = true;
+    this._plannerError = null;
+    this._plannerBusy = false;
+    this._render();
+    await this._loadPlannerHistory();
+    await this._loadPlannerPreview();
+  }
+
+  _closePlannerDrawer() {
+    this._plannerOpen = false;
+    this._plannerPreview = [];
+    this._plannerHistory = [];
+    this._render();
+  }
+
+  async _loadPlannerHistory() {
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/history`,
+        { method: 'GET' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Failed to load planner history (${response.status})`));
+      }
+      this._plannerHistory = Array.isArray(payload.history) ? payload.history.slice(0, 10) : [];
+      this._plannerError = null;
+    } catch (err) {
+      this._plannerError = err.message;
+      this._plannerHistory = [];
+    } finally {
+      this._plannerLoading = false;
+      this._render();
+    }
+  }
+
+  async _loadPlannerPreview() {
+    try {
+      const strategy = String(this._plannerStrategy || 'balanced').trim();
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/preview?strategy=${encodeURIComponent(strategy)}`,
+        { method: 'GET' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Failed to load preview (${response.status})`));
+      }
+      this._plannerPreview = Array.isArray(payload.planned_order) ? payload.planned_order : [];
+      this._plannerError = null;
+    } catch (err) {
+      this._plannerError = err.message;
+      this._plannerPreview = [];
+    } finally {
+      this._render();
+    }
+  }
+
+  async _setPlannerStrategy(strategy) {
+    this._plannerStrategy = String(strategy || 'balanced').trim();
+    await this._loadPlannerPreview();
+  }
+
+  async _applyPlannedOrder() {
+    if (!Array.isArray(this._plannerPreview) || this._plannerPreview.length === 0) {
+      this._setFlashMessage('No planner preview to apply.', 'error');
+      return;
+    }
+
+    this._plannerBusy = true;
+    this._render();
+    try {
+      const strategy = String(this._plannerStrategy || 'balanced').trim();
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/apply`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ strategy, planned_order: this._plannerPreview }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Apply failed (${response.status})`));
+      }
+
+      this._setFlashMessage(`Planner applied (${strategy} strategy).`, 'success');
+      this._closePlannerDrawer();
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+      this._plannerBusy = false;
+      this._render();
+    }
+  }
+
+  async _undoLastPlannerOp() {
+    this._plannerBusy = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/plan/undo`,
+        { method: 'POST' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Undo failed (${response.status})`));
+      }
+
+      this._setFlashMessage('Planner operation undone.', 'success');
+      this._closePlannerDrawer();
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+      this._plannerBusy = false;
+      this._render();
+    }
+  }
+
   _toSafePositiveInt(value, fallback = 0) {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
@@ -1556,6 +1687,118 @@ class UnifiedQueueBoardCard extends HTMLElement {
     `;
   }
 
+  _renderPlannerDrawer() {
+    if (!this._plannerOpen) {
+      return '';
+    }
+
+    const strategyOptions = [
+      { value: 'aggressive', label: 'Aggressive - Prioritize overtime' },
+      { value: 'balanced', label: 'Balanced - Mix AMS & overnight' },
+      { value: 'lazy', label: 'Lazy - Prioritize AMS' },
+    ];
+
+    const previewList = this._plannerLoading
+      ? '<div class="inline-note">Loading planner preview...</div>'
+      : this._plannerError
+      ? `<div class="inline-error">${this._escapeHtml(this._plannerError)}</div>`
+      : Array.isArray(this._plannerPreview) && this._plannerPreview.length > 0
+      ? `
+        <ol class="planner-preview-list">
+          ${this._plannerPreview.map((item, idx) => {
+            const entryId = String(item.queue_entry_id || '').trim();
+            const title = String(item.title || 'Untitled').trim();
+            const reason = String(item.reason || '').trim();
+            return `
+              <li class="planner-preview-item">
+                <span class="planner-rank">${idx + 1}</span>
+                <div class="planner-item-main">
+                  <div class="planner-item-title">${this._escapeHtml(title)}</div>
+                  ${reason ? `<div class="planner-item-reason">${this._escapeHtml(reason)}</div>` : ''}
+                </div>
+              </li>
+            `;
+          }).join('')}
+        </ol>
+      `
+      : '<div class="inline-note">No preview available.</div>';
+
+    const historyList = Array.isArray(this._plannerHistory) && this._plannerHistory.length > 0
+      ? `
+        <ul class="planner-history-list">
+          ${this._plannerHistory.map(op => {
+            const timestamp = String(op.timestamp || '').trim();
+            const strategy = String(op.strategy || 'unknown').trim();
+            const entriesCount = Number(op.entries_reordered) || 0;
+            return `
+              <li class="planner-history-item">
+                <div class="planner-history-time">${this._escapeHtml(timestamp)}</div>
+                <div class="planner-history-details">
+                  <span class="planner-history-strategy">${this._escapeHtml(strategy)}</span>
+                  <span class="planner-history-count">${entriesCount} entries reordered</span>
+                </div>
+              </li>
+            `;
+          }).join('')}
+        </ul>
+      `
+      : '<div class="inline-note">No planner history yet.</div>';
+
+    const canUndo = Array.isArray(this._plannerHistory) && this._plannerHistory.length > 0;
+
+    return `
+      <div class="modal-backdrop planner-backdrop" data-action="close-planner">
+        <aside class="planner-drawer" role="dialog" aria-modal="true" aria-label="Queue Planner">
+          <div class="planner-drawer-header">
+            <div>
+              <h3>Queue Planner</h3>
+              <div class="planner-drawer-subtitle">Optimize queue order with intelligent strategies</div>
+            </div>
+            <button class="modal-close-btn" data-action="close-planner" title="Close">✕</button>
+          </div>
+
+          <div class="planner-drawer-body">
+            <section class="planner-section">
+              <h4>Strategy</h4>
+              <div class="strategy-selector">
+                ${strategyOptions.map(opt => `
+                  <label class="strategy-radio">
+                    <input
+                      type="radio"
+                      name="planner-strategy"
+                      value="${this._escapeHtml(opt.value)}"
+                      ${this._plannerStrategy === opt.value ? 'checked' : ''}
+                      data-action="set-strategy"
+                    />
+                    <span>${this._escapeHtml(opt.label)}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </section>
+
+            <section class="planner-section">
+              <h4>Preview</h4>
+              ${previewList}
+            </section>
+
+            <section class="planner-section">
+              <h4>History</h4>
+              ${historyList}
+            </section>
+          </div>
+
+          <div class="planner-drawer-footer">
+            <button class="ghost-btn" data-action="close-planner" ${this._plannerBusy ? 'disabled' : ''}>Cancel</button>
+            <button class="ghost-btn ${canUndo ? 'warning' : 'disabled'}" data-action="undo-plan" ${!canUndo || this._plannerBusy ? 'disabled' : ''}>↶ Undo</button>
+            <button class="primary-btn" data-action="apply-plan" ${this._plannerBusy ? 'disabled' : ''}>
+              ${this._plannerBusy ? 'Applying...' : 'Apply Plan'}
+            </button>
+          </div>
+        </aside>
+      </div>
+    `;
+  }
+
   _render() {
     const css = `
       :host {
@@ -1646,6 +1889,23 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .add-btn:hover {
         background: rgba(110, 231, 200, 0.2);
         border-color: rgba(110, 231, 200, 0.5);
+      }
+
+      .planner-btn {
+        padding: 6px 12px;
+        border: 1px solid rgba(124, 199, 255, 0.35);
+        border-radius: 8px;
+        background: rgba(124, 199, 255, 0.12);
+        color: var(--accent-blue);
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .planner-btn:hover {
+        background: rgba(124, 199, 255, 0.2);
+        border-color: rgba(124, 199, 255, 0.5);
       }
 
       .flash-banner {
@@ -2569,6 +2829,192 @@ class UnifiedQueueBoardCard extends HTMLElement {
         }
       }
 
+      .planner-drawer {
+        width: min(640px, 96vw);
+        height: 100vh;
+        background: rgba(22, 29, 40, 0.99);
+        border-left: 1px solid var(--border-strong);
+        box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35);
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        animation: slideInRight 180ms ease-out;
+      }
+
+      .planner-drawer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .planner-drawer-header h3 {
+        margin: 0;
+        color: var(--text);
+        font-size: 16px;
+      }
+
+      .planner-drawer-subtitle {
+        margin-top: 4px;
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .planner-drawer-body {
+        padding: 14px 16px 16px;
+        overflow-y: auto;
+        display: grid;
+        gap: 14px;
+      }
+
+      .planner-section {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(255,255,255,0.02);
+      }
+
+      .planner-section h4 {
+        margin: 0 0 10px;
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .strategy-selector {
+        display: grid;
+        gap: 8px;
+      }
+
+      .strategy-radio {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.01);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .strategy-radio:hover {
+        background: rgba(255,255,255,0.05);
+        border-color: var(--border-strong);
+      }
+
+      .strategy-radio input[type="radio"] {
+        cursor: pointer;
+      }
+
+      .strategy-radio input[type="radio"]:checked ~ span {
+        color: var(--accent-blue);
+        font-weight: 700;
+      }
+
+      .strategy-radio span {
+        color: var(--text);
+        font-size: 12px;
+      }
+
+      .planner-preview-list {
+        list-style: decimal inside;
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+      }
+
+      .planner-preview-item {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+        background: rgba(255,255,255,0.01);
+      }
+
+      .planner-rank {
+        color: var(--text-muted);
+        font-weight: 700;
+        font-size: 11px;
+        min-width: 20px;
+        text-align: center;
+      }
+
+      .planner-item-main {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .planner-item-title {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .planner-item-reason {
+        color: var(--text-secondary);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+
+      .planner-history-list {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+      }
+
+      .planner-history-item {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+        background: rgba(255,255,255,0.01);
+      }
+
+      .planner-history-time {
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .planner-history-details {
+        display: flex;
+        gap: 10px;
+        margin-top: 4px;
+        align-items: center;
+      }
+
+      .planner-history-strategy {
+        color: var(--accent-blue);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .planner-history-count {
+        color: var(--text-muted);
+        font-size: 11px;
+      }
+
+      .planner-drawer-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 14px 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      .planner-drawer-footer .primary-btn {
+        flex: 1;
+      }
+
       .detail-row {
         display: grid;
         grid-template-columns: 120px 1fr;
@@ -2762,6 +3208,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         <div class="card-title">
           <h2>Print Queue</h2>
           <div class="title-actions">
+            <button class="planner-btn" data-action="open-planner" title="Open Queue Planner">📊 Planner</button>
             <button class="add-btn" data-action="open-add">+ Add</button>
             <button class="refresh-btn ${this._loading ? 'loading' : ''}" data-action="refresh" ${this._loading ? 'disabled' : ''}>
               ${this._loading ? 'Loading...' : '🔄'}
@@ -2774,6 +3221,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       </div>
       ${this._renderAddModal()}
       ${this._renderEntryDetailModal()}
+      ${this._renderPlannerDrawer()}
     `;
 
     this.shadowRoot.innerHTML = html;
@@ -2885,6 +3333,42 @@ class UnifiedQueueBoardCard extends HTMLElement {
     detailCloseBtns.forEach(button => {
       button.addEventListener('click', () => this._closeEntryDetail());
     });
+
+    const plannerBtn = this.shadowRoot.querySelector('.planner-btn');
+    if (plannerBtn) {
+      plannerBtn.addEventListener('click', () => this._openPlannerDrawer());
+    }
+
+    const plannerBackdrop = this.shadowRoot.querySelector('[data-action="close-planner"].modal-backdrop');
+    if (plannerBackdrop) {
+      plannerBackdrop.addEventListener('click', (event) => {
+        if (event.target === plannerBackdrop) {
+          this._closePlannerDrawer();
+        }
+      });
+    }
+
+    const plannerCloseBtns = this.shadowRoot.querySelectorAll('[data-action="close-planner"]:not(.modal-backdrop)');
+    plannerCloseBtns.forEach(button => {
+      button.addEventListener('click', () => this._closePlannerDrawer());
+    });
+
+    const strategyRadios = this.shadowRoot.querySelectorAll('input[name="planner-strategy"]');
+    strategyRadios.forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        this._setPlannerStrategy(e.target.value);
+      });
+    });
+
+    const applyPlanBtn = this.shadowRoot.querySelector('[data-action="apply-plan"]');
+    if (applyPlanBtn) {
+      applyPlanBtn.addEventListener('click', () => this._applyPlannedOrder());
+    }
+
+    const undoPlanBtn = this.shadowRoot.querySelector('[data-action="undo-plan"]');
+    if (undoPlanBtn) {
+      undoPlanBtn.addEventListener('click', () => this._undoLastPlannerOp());
+    }
 
     const suggestionActionBtns = this.shadowRoot.querySelectorAll('.suggestion-btn');
     suggestionActionBtns.forEach(button => {

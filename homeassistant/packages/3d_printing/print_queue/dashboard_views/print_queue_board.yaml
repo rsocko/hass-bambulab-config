@@ -1,0 +1,22 @@
+# Print Queue Board View
+# 
+# Main Lovelace view for unified queue management.
+# 
+# Features:
+# - Unified queue board card with entry management
+# - Statistics widget showing overnight fit, AMS ready, started, total count
+# - Filtering by state (todo, ready, started, done, blocked, idea)
+# - Filtering by source (catalog, working group, working file, idea)
+# - Sorting by rank, duration, or recently added
+# - Quick add modal for queue entries
+# - Entry detail drawer for file/plate inspection
+# - Medium-confidence suggestion banner
+# - Queue planner with strategy selector
+# 
+
+title: Print Queue
+path: print_queue
+icon: mdi:printer-3d-nozzle
+cards:
+  - type: custom:unified-queue-board-card
+    printer_id: p1

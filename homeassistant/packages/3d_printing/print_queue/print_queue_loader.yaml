@@ -1,0 +1,29 @@
+# Print Queue Package Loader
+# 
+# Unified queue management for Bambu Lab 3D printer with intelligent planner.
+# 
+# Features:
+# - Queue board card UI with entry state filtering, sorting, and statistics
+# - Quick/advanced add-to-queue modal with source selection
+# - Entry detail drawer with file/plate information and print history links
+# - Medium-confidence suggestion UX for archive linkage
+# - Queue planner with aggressive/balanced/lazy strategies
+# 
+# Dependencies:
+# - /api/v1/queues/{printer_id}/entries - Queue REST API
+# - /api/v1/models - Model catalog for add modal
+# - /api/v1/working-files - Working files for add modal
+# 
+# Card YAML Configuration:
+# 
+#   type: custom:unified-queue-board-card
+#   printer_id: p1
+# 
+# Lovelace Views (auto-registered from dashboard_views/):
+# - Print Queue Board
+# - Queue Manager (advanced view with planner)
+# 
+
+automation: !include_dir_list automations/
+script: !include_dir_named scripts/
+rest_command: !include_dir_merge_named rest_commands/
