@@ -48,6 +48,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailLoading = false;
     this._detailError = null;
     this._detailFiles = [];
+    this._suggestions = [];
+    this._suggestionsError = null;
+    this._suggestionBusy = {};
 
     this._loadFilterState();
   }
@@ -149,10 +152,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
       const data = await response.json();
       this._entries = data.entries || [];
       this._error = null;
+      await this._loadMediumConfidenceSuggestions();
     } catch (err) {
       console.error('Failed to load queue:', err);
       this._error = `Failed to load queue: ${err.message}`;
       this._entries = [];
+      this._suggestions = [];
+      this._suggestionsError = null;
     } finally {
       this._loading = false;
       this._render();
@@ -772,6 +778,99 @@ class UnifiedQueueBoardCard extends HTMLElement {
     return '/3d-printing/print-history';
   }
 
+  async _loadMediumConfidenceSuggestions() {
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/suggestions?status=suggested`
+      );
+      if (!response.ok) {
+        this._suggestions = [];
+        this._suggestionsError = null;
+        return;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : [];
+      const mediumOnly = suggestions.filter(item => String(item.confidence || '').toLowerCase() === 'medium');
+
+      const byEntry = new Map();
+      mediumOnly.forEach(item => {
+        const entryId = String(item.queue_entry_id || '').trim();
+        if (!entryId) return;
+
+        const existing = byEntry.get(entryId);
+        const existingTs = Date.parse(existing && existing.created_at ? existing.created_at : '') || 0;
+        const currentTs = Date.parse(item && item.created_at ? item.created_at : '') || 0;
+        if (!existing || currentTs >= existingTs) {
+          byEntry.set(entryId, item);
+        }
+      });
+
+      this._suggestions = Array.from(byEntry.values());
+      this._suggestionsError = null;
+    } catch (_err) {
+      this._suggestions = [];
+      this._suggestionsError = null;
+    }
+  }
+
+  async _acceptSuggestion(suggestionId, queueEntryId) {
+    const sid = String(suggestionId || '').trim();
+    const entryId = String(queueEntryId || '').trim();
+    if (!sid || !entryId) return;
+
+    this._suggestionBusy[sid] = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/suggestions/${encodeURIComponent(sid)}/remap`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue_entry_id: entryId }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Accept failed (${response.status})`));
+      }
+
+      this._setFlashMessage('Suggestion accepted and queue entry marked done.', 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+    } finally {
+      delete this._suggestionBusy[sid];
+      this._render();
+    }
+  }
+
+  async _rejectSuggestion(suggestionId) {
+    const sid = String(suggestionId || '').trim();
+    if (!sid) return;
+
+    this._suggestionBusy[sid] = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/suggestions/${encodeURIComponent(sid)}/reject`,
+        { method: 'POST' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Reject failed (${response.status})`));
+      }
+
+      this._setFlashMessage('Suggestion rejected.', 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+    } finally {
+      delete this._suggestionBusy[sid];
+      this._render();
+    }
+  }
+
   _toSafePositiveInt(value, fallback = 0) {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
@@ -1197,6 +1296,42 @@ class UnifiedQueueBoardCard extends HTMLElement {
     `;
   }
 
+  _renderSuggestionCards() {
+    if (!Array.isArray(this._suggestions) || this._suggestions.length === 0) {
+      return '';
+    }
+
+    const cards = this._suggestions.map(suggestion => {
+      const suggestionId = String(suggestion.suggestion_id || '').trim();
+      const entryId = String(suggestion.queue_entry_id || '').trim();
+      if (!suggestionId || !entryId) return '';
+
+      const entry = this._getEntryById(entryId);
+      if (!entry) return '';
+
+      const busy = !!this._suggestionBusy[suggestionId];
+      const archiveId = String(suggestion.archive_id || '').trim();
+      const title = String(entry.title || 'this queue entry').trim();
+      const reasons = Array.isArray(suggestion.reasons) ? suggestion.reasons : [];
+      const reasonLabel = reasons.length > 0 ? reasons.join(', ') : 'medium confidence match';
+
+      return `
+        <article class="suggestion-card" data-suggestion-id="${this._escapeHtml(suggestionId)}" data-entry-id="${this._escapeHtml(entryId)}">
+          <div class="suggestion-copy">
+            <div class="suggestion-title">Did you mean to mark ${this._escapeHtml(title)} as done?</div>
+            <div class="suggestion-meta">Archive ${this._escapeHtml(archiveId || 'unknown')} · ${this._escapeHtml(reasonLabel)}</div>
+          </div>
+          <div class="suggestion-actions">
+            <button class="suggestion-btn accept" data-action="suggestion-accept" data-suggestion-id="${this._escapeHtml(suggestionId)}" data-entry-id="${this._escapeHtml(entryId)}" ${busy ? 'disabled' : ''}>${busy ? 'Working...' : 'Accept'}</button>
+            <button class="suggestion-btn reject" data-action="suggestion-reject" data-suggestion-id="${this._escapeHtml(suggestionId)}" ${busy ? 'disabled' : ''}>Reject</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    return cards ? `<section class="suggestions-block">${cards}</section>` : '';
+  }
+
   _renderAddModal() {
     if (!this._addModalOpen) {
       return '';
@@ -1531,6 +1666,68 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: rgba(245, 144, 144, 0.12);
         border-color: rgba(245, 144, 144, 0.28);
         color: var(--accent-red);
+      }
+
+      .suggestions-block {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .suggestion-card {
+        border: 1px solid rgba(242, 195, 91, 0.35);
+        border-radius: 12px;
+        background: rgba(242, 195, 91, 0.1);
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .suggestion-title {
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .suggestion-meta {
+        color: var(--text-secondary);
+        font-size: 11px;
+        margin-top: 3px;
+      }
+
+      .suggestion-actions {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .suggestion-btn {
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .suggestion-btn.accept {
+        border-color: rgba(110, 231, 200, 0.35);
+        background: rgba(110, 231, 200, 0.14);
+        color: var(--accent);
+      }
+
+      .suggestion-btn.reject {
+        border-color: rgba(245, 144, 144, 0.3);
+        background: rgba(245, 144, 144, 0.12);
+        color: var(--accent-red);
+      }
+
+      .suggestion-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
       }
 
       .content {
@@ -2499,6 +2696,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
           flex-direction: column;
         }
 
+        .suggestion-card {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .suggestion-actions {
+          width: 100%;
+        }
+
+        .suggestion-btn {
+          flex: 1;
+        }
+
         .entry-badges {
           width: 100%;
         }
@@ -2544,7 +2754,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       ? '<div class="loading-state"><div class="loading-spinner"></div></div>'
       : this._error
       ? `<div class="error-state"><strong>⚠ Error</strong>${this._escapeHtml(this._error)}</div>`
-      : this._renderFlashBanner() + this._renderTopWidget() + this._renderFilterControls() + this._renderQueueList();
+      : this._renderFlashBanner() + this._renderSuggestionCards() + this._renderTopWidget() + this._renderFilterControls() + this._renderQueueList();
 
     const html = `
       <style>${css}</style>
@@ -2674,6 +2884,21 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const detailCloseBtns = this.shadowRoot.querySelectorAll('[data-action="close-detail"]:not(.modal-backdrop)');
     detailCloseBtns.forEach(button => {
       button.addEventListener('click', () => this._closeEntryDetail());
+    });
+
+    const suggestionActionBtns = this.shadowRoot.querySelectorAll('.suggestion-btn');
+    suggestionActionBtns.forEach(button => {
+      button.addEventListener('click', async (event) => {
+        const action = event.currentTarget.dataset.action;
+        const suggestionId = event.currentTarget.dataset.suggestionId;
+        if (!action || !suggestionId) return;
+
+        if (action === 'suggestion-accept') {
+          await this._acceptSuggestion(suggestionId, event.currentTarget.dataset.entryId);
+        } else if (action === 'suggestion-reject') {
+          await this._rejectSuggestion(suggestionId);
+        }
+      });
     });
 
     const entryActionButtons = this.shadowRoot.querySelectorAll('.entry-action-btn');
