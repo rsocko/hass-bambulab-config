@@ -1183,3 +1183,110 @@ def test_archive_completion_v1_low_creates_unmatched_record(tmp_path: Path) -> N
     finally:
         client.__exit__(None, None, None)
 
+
+def test_planner_score_v1_computes_ams_overnight_duration_and_ranks(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        fast = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Fast", "estimated_total_minutes": 90, "rank": 5},
+        )
+        medium = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Medium", "estimated_total_minutes": 180, "rank": 6},
+        )
+        long = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Long", "estimated_total_minutes": 600, "rank": 7},
+        )
+        assert fast.status_code == 200
+        assert medium.status_code == 200
+        assert long.status_code == 200
+
+        fast_id = fast.json()["entry"]["queue_entry_id"]
+        medium_id = medium.json()["entry"]["queue_entry_id"]
+        long_id = long.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=fast_id,
+            file_unit_id="qfu-fast",
+            file_name="fast.3mf",
+            filament_requirements={"tray_uuids": ["tray-a", "tray-b"]},
+        )
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=medium_id,
+            file_unit_id="qfu-medium",
+            file_name="medium.3mf",
+            filament_requirements={"tray_uuid": "tray-z"},
+        )
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=long_id,
+            file_unit_id="qfu-long",
+            file_name="long.3mf",
+        )
+
+        response = client.post(
+            "/api/v1/queues/p1/planner/score",
+            json={"ams_tray_uuids": ["tray-a", "tray-b"]},
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["planner"]["ams_state_known"] is True
+        assert payload["planner"]["entry_count"] >= 3
+
+        by_id = {entry["queue_entry_id"]: entry for entry in payload["entries"]}
+        assert by_id[fast_id]["ams"]["fit"] is True
+        assert by_id[fast_id]["ams"]["score"] == 100
+        assert by_id[fast_id]["overnight"]["fit"] is True
+        assert by_id[fast_id]["duration"]["bucket"] == "quick"
+
+        assert by_id[medium_id]["ams"]["fit"] is False
+        assert by_id[medium_id]["ams"]["score"] == 0
+        assert by_id[medium_id]["overnight"]["fit"] is True
+        assert by_id[medium_id]["duration"]["bucket"] == "medium"
+
+        assert by_id[long_id]["overnight"]["fit"] is False
+        assert by_id[long_id]["overnight"]["score"] == 0
+        assert by_id[long_id]["duration"]["bucket"] == "marathon"
+
+        ranked_ids = [entry["queue_entry_id"] for entry in payload["entries"]]
+        assert ranked_ids.index(fast_id) < ranked_ids.index(long_id)
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_planner_score_v1_handles_unknown_ams_state_gracefully(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Unknown AMS", "estimated_total_minutes": 120},
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-unknown",
+            file_name="unknown.3mf",
+            filament_requirements={"tray_uuids": ["tray-a"]},
+        )
+
+        response = client.post("/api/v1/queues/p1/planner/score", json={})
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["planner"]["ams_state_known"] is False
+
+        matched = next(item for item in payload["entries"] if item["queue_entry_id"] == entry_id)
+        assert matched["ams"]["state_known"] is False
+        assert matched["ams"]["fit"] is False
+        assert matched["ams"]["score"] == 0
+        assert matched["ams"]["reason"] == "ams_state_unknown"
+        assert matched["duration"]["bucket"] == "quick"
+    finally:
+        client.__exit__(None, None, None)
+

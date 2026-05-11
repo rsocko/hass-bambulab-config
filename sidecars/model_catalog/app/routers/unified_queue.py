@@ -614,6 +614,54 @@ def _match_suggestion_to_response(suggestion: Any) -> dict[str, Any]:
     return payload
 
 
+def _extract_required_tray_uuids(file_units: list[Any]) -> set[str]:
+    required: set[str] = set()
+
+    def _walk(value: object) -> None:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized:
+                required.add(normalized)
+            return
+        if isinstance(value, list):
+            for item in value:
+                _walk(item)
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                key_name = str(key).strip().lower()
+                if key_name in {"tray_uuid", "tray_uuids", "ams_tray_uuid", "ams_tray_uuids", "uuid", "uuids"}:
+                    _walk(item)
+            return
+
+    for file_unit in file_units:
+        _walk(file_unit.filament_requirements)
+    return required
+
+
+def _duration_bucket_for_minutes(estimated_minutes: int | None) -> str:
+    if estimated_minutes is None or estimated_minutes <= 0:
+        return "unknown"
+    if estimated_minutes <= 120:
+        return "quick"
+    if estimated_minutes <= 240:
+        return "medium"
+    if estimated_minutes <= 480:
+        return "overnight"
+    return "marathon"
+
+
+def _duration_bucket_score(duration_bucket: str) -> int:
+    weights = {
+        "quick": 40,
+        "medium": 30,
+        "overnight": 20,
+        "marathon": 10,
+        "unknown": 0,
+    }
+    return int(weights.get(duration_bucket, 0))
+
+
 def _parse_selected_files_payload(raw_selected_files: object) -> tuple[list[dict[str, Any]], str | None]:
     if not isinstance(raw_selected_files, list) or not raw_selected_files:
         return [], "selected_files must be a non-empty array"
@@ -1816,5 +1864,133 @@ def remap_queue_suggestion_v1(
         "printer_id": printer_id,
         "suggestion": _match_suggestion_to_response(updated),
         "remapped_entry": _entry_to_response(remapped_entry) if remapped_entry is not None else None,
+    }
+
+
+@router.post("/api/v1/queues/{printer_id}/planner/score")
+def planner_score_queue_entries_v1(
+    printer_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    """Compute and persist planner scores for queue entries.
+
+    Scoring dimensions:
+    - AMS fit (binary): required tray UUIDs available now
+    - Overnight fit (binary): estimated duration <= 8h
+    - Duration bucket: quick/medium/overnight/marathon/unknown
+    """
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    ams_payload = body.get("ams_tray_uuids")
+    ams_state_known = True
+    if ams_payload is None:
+        ams_state_known = False
+        available_uuids: set[str] = set()
+    elif isinstance(ams_payload, list):
+        available_uuids = {
+            str(item).strip().lower()
+            for item in ams_payload
+            if str(item).strip()
+        }
+    else:
+        return _error_response(status_code=400, error="validation_error", message="ams_tray_uuids must be an array of strings")
+
+    try:
+        entries = list_unified_queue_entries(db_path=state.settings.db_path)
+        scored: list[dict[str, Any]] = []
+        for entry in entries:
+            file_units = list_unified_queue_file_units(db_path=state.settings.db_path, queue_entry_id=entry.queue_entry_id)
+            estimated_minutes = _entry_estimated_minutes(entry, file_units)
+            required_uuids = _extract_required_tray_uuids(file_units)
+
+            if not ams_state_known:
+                ams_fit = False
+                ams_ready_score = 0
+                ams_reason = "ams_state_unknown"
+            elif not required_uuids:
+                ams_fit = True
+                ams_ready_score = 100
+                ams_reason = "no_required_tray_uuids"
+            else:
+                ams_fit = required_uuids.issubset(available_uuids)
+                ams_ready_score = 100 if ams_fit else 0
+                ams_reason = "required_trays_available" if ams_fit else "missing_required_trays"
+
+            overnight_fit = bool(estimated_minutes is not None and estimated_minutes <= 480)
+            overnight_fit_score = 100 if overnight_fit else 0
+            duration_bucket = _duration_bucket_for_minutes(estimated_minutes)
+            duration_score = _duration_bucket_score(duration_bucket)
+            planner_score = int(ams_ready_score + overnight_fit_score + duration_score)
+
+            update_unified_queue_entry(
+                db_path=state.settings.db_path,
+                queue_entry_id=entry.queue_entry_id,
+                ams_ready_score=ams_ready_score,
+                overnight_fit_score=overnight_fit_score,
+                duration_bucket=duration_bucket,
+            )
+
+            scored.append(
+                {
+                    "queue_entry_id": entry.queue_entry_id,
+                    "source_kind": entry.source_kind,
+                    "source_ref": entry.source_ref,
+                    "estimated_minutes": estimated_minutes,
+                    "required_tray_uuids": sorted(list(required_uuids)),
+                    "ams": {
+                        "state_known": ams_state_known,
+                        "fit": ams_fit,
+                        "score": ams_ready_score,
+                        "reason": ams_reason,
+                    },
+                    "overnight": {
+                        "fit": overnight_fit,
+                        "score": overnight_fit_score,
+                        "window_hours": 8,
+                    },
+                    "duration": {
+                        "bucket": duration_bucket,
+                        "score": duration_score,
+                    },
+                    "planner_score": planner_score,
+                }
+            )
+
+        ranked = sorted(
+            scored,
+            key=lambda item: (
+                int(item["planner_score"]),
+                int(item["ams"]["score"]),
+                int(item["overnight"]["score"]),
+                -_duration_bucket_weight(str(item["duration"]["bucket"])),
+                str(item["queue_entry_id"]),
+            ),
+            reverse=True,
+        )
+
+        for rank, row in enumerate(ranked):
+            update_unified_queue_entry(
+                db_path=state.settings.db_path,
+                queue_entry_id=str(row["queue_entry_id"]),
+                rank=rank,
+            )
+            row["recommended_rank"] = rank
+
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {
+        "success": True,
+        "contract": "unified-queue.v1",
+        "printer_id": printer_id,
+        "planner": {
+            "ams_state_known": ams_state_known,
+            "available_tray_uuids": sorted(list(available_uuids)),
+            "entry_count": len(ranked),
+        },
+        "entries": ranked,
     }
 
