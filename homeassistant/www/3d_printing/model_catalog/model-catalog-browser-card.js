@@ -759,12 +759,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _isUnifiedQueueActiveState(state) {
     var normalized = String(state || "").trim().toLowerCase();
-    return ["todo", "ready", "started", "blocked", "idea"].indexOf(normalized) >= 0;
+    return ["backlog", "preparing", "ready", "in_progress", "blocked"].indexOf(normalized) >= 0;
   }
 
   _queueStateToRibbonState(state) {
     var normalized = String(state || "").trim().toLowerCase();
-    if (normalized === "started") {
+    if (normalized === "in_progress") {
       return "printing";
     }
     if (normalized === "done") {
@@ -822,7 +822,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       source_kind: "catalog_model",
       source_id: modelRef,
       copies: body.copies != null ? body.copies : 1,
-      state: body.state || "todo",
+      state: body.state || "preparing",
       rank: body.rank != null ? body.rank : 0,
       queue_notes: body.queue_notes || "",
     });
@@ -847,10 +847,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     var paths = {
-      idea: ["todo", "ready", "started", "done"],
-      todo: ["ready", "started", "done"],
-      ready: ["started", "done"],
-      started: ["done"],
+      backlog: ["preparing", "ready", "in_progress", "done"],
+      preparing: ["ready", "in_progress", "done"],
+      ready: ["in_progress", "done"],
+      in_progress: ["done"],
       blocked: ["done"],
       done: [],
     };
@@ -876,12 +876,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "queue-mark-queued") {
       if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "todo" });
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "preparing" });
         return;
       }
       var preferredState = String(preferred.state || "").toLowerCase();
-      if (preferredState === "idea") {
-        await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "todo" });
+      if (preferredState === "backlog") {
+        await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "preparing" });
       }
       return;
     }
@@ -897,7 +897,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "queue-priority-up" || action === "queue-priority-down") {
       if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "todo", rank: 0 });
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "preparing", rank: 0 });
         return;
       }
       var delta = action === "queue-priority-up" ? -1 : 1;
