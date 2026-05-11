@@ -137,8 +137,15 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const isFirstHass = !this._hass;
     this._hass = hass;
-    this._update();
+
+    // This card fetches its own queue data and does not depend on the HA state bus
+    // for its main view model. Re-rendering on every hass update causes visible
+    // flashing because the full shadow DOM is replaced each time.
+    if (isFirstHass && this._config && !this.shadowRoot.innerHTML) {
+      this._render();
+    }
   }
 
   _update() {
@@ -148,9 +155,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   async _loadQueueData() {
     if (!this._hass) return;
+    const isInitialLoad = this._entries.length === 0 && !this._error;
     
     this._loading = true;
     this._error = null;
+    if (isInitialLoad) {
+      this._render();
+    }
     
     try {
       const response = await fetch(
@@ -173,9 +184,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
     } catch (err) {
       console.error('Failed to load queue:', err);
       this._error = `Failed to load queue: ${err.message}`;
-      this._entries = [];
-      this._suggestions = [];
-      this._suggestionsError = null;
+
+      // Preserve the last successful snapshot during background refresh failures.
+      // Clearing the entire board causes a visible flash and throws away useful state.
+      if (isInitialLoad) {
+        this._entries = [];
+        this._suggestions = [];
+        this._suggestionsError = null;
+      }
     } finally {
       this._loading = false;
       this._render();
@@ -3455,9 +3471,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
     `;
 
-    const content = this._loading
+    const shouldShowBlockingLoading = this._loading && this._entries.length === 0;
+    const shouldShowBlockingError = !!this._error && this._entries.length === 0;
+    const content = shouldShowBlockingLoading
       ? '<div class="loading-state"><div class="loading-spinner"></div></div>'
-      : this._error
+      : shouldShowBlockingError
       ? `<div class="error-state"><strong>⚠ Error</strong>${this._escapeHtml(this._error)}</div>`
       : this._renderFlashBanner() + this._renderSuggestionCards() + this._renderTopWidget() + this._renderFilterControls() + this._renderQueueList();
 

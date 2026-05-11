@@ -33,7 +33,7 @@
     font-family: 'Segoe UI', system-ui, sans-serif;
   }
   body { padding: 28px clamp(16px, 4vw, 44px) 48px; }
-  .page-header, .launch-pad, .queue-shell { max-width: 1450px; margin: 0 auto; }
+  .page-header, .launch-pad, .queue-shell, .surface-section { max-width: 1450px; margin: 0 auto; }
   .page-header {
     display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px;
   }
@@ -45,6 +45,46 @@
     border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.03);
   }
   .nav a.active { color: var(--text); border-color: rgba(110,231,200,0.34); background: rgba(110,231,200,0.10); }
+
+  .surface-section {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+  }
+  .surface-section:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .surface-header {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .surface-kicker {
+    margin: 0 0 6px; color: var(--accent-blue); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .surface-header h2 {
+    margin: 0; font-size: 22px; letter-spacing: -0.03em;
+  }
+  .surface-header p {
+    margin: 8px 0 0; max-width: 920px; color: var(--text-secondary); font-size: 13px; line-height: 1.6;
+  }
+  .surface-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px;
+    border: 1px solid rgba(124,199,255,0.24); background: rgba(124,199,255,0.08); color: var(--accent-blue);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .surface-stack {
+    display: grid; gap: 16px;
+  }
+  .standalone-panel {
+    max-width: 880px;
+  }
+  .surface-note {
+    margin-top: 12px; padding: 12px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text-secondary);
+    font-size: 12px; line-height: 1.55;
+  }
 
   .launch-pad {
     display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; margin-bottom: 16px;
@@ -114,7 +154,7 @@
   .toolbar input, .toolbar select {
     width: 100%; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 13px;
   }
-  .queue-layout { display: grid; grid-template-columns: 1.7fr 0.9fr; gap: 0; }
+  .queue-layout { display: grid; grid-template-columns: 1fr; gap: 0; }
   .queue-list { padding: 14px; border-right: 1px solid var(--border); background: rgba(255,255,255,0.01); }
   .queue-card {
     margin-bottom: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
@@ -203,7 +243,7 @@
 <div class="page-header">
   <div>
     <h1>Unified Production Queue</h1>
-    <p>Operator-facing queue that joins Catalog, Working Files, and Ideas while keeping Bambuddy queue and Print History separate underneath. The Launch Pad gets a compact queue widget; the main queue view handles reorder, remove, plate progress, archive suggestions, and overnight planning.</p>
+    <p>Operator-facing queue that joins Catalog, Working Files, and Ideas while keeping Bambuddy queue and Print History separate underneath. This mockup now shows each intended surface in its own vertical section so it does not read like one combined Lovelace page.</p>
   </div>
   <div class="nav">
     <a href="index.html">Index</a>
@@ -213,8 +253,17 @@
   </div>
 </div>
 
-<section class="launch-pad">
-  <div class="panel">
+<section class="surface-section">
+  <div class="surface-header">
+    <div>
+      <div class="surface-kicker">Surface 1</div>
+      <h2>Launch Pad Home Widget</h2>
+      <p>This is the compact queue summary intended for the home or intake surface. It is a jump-off widget, not the full queue editor.</p>
+    </div>
+    <div class="surface-badge">Separate Surface</div>
+  </div>
+  <div class="launch-pad" style="grid-template-columns: 1fr; margin-bottom: 0;">
+    <div class="panel">
     <div class="panel-header">
       <div>
         <h2>Launch Pad queue widget</h2>
@@ -262,7 +311,20 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="surface-note">Use this on the Launch Pad or intake home view. It should summarize what is next and link into the full queue, but it should not be mistaken for the dedicated queue board.</div>
+</section>
+
+<section class="surface-section">
+  <div class="surface-header">
+    <div>
+      <div class="surface-kicker">Surface 2</div>
+      <h2>Planner Highlights Summary</h2>
+      <p>This is a lightweight planner summary surface. It can live on a home page or summary area and should be read as separate from the main queue editor.</p>
+    </div>
+    <div class="surface-badge">Separate Surface</div>
+  </div>
+  <div class="surface-stack standalone-panel">
+    <div class="panel">
     <div class="panel-header">
       <div>
         <h2>Planner highlights</h2>
@@ -290,6 +352,16 @@
     </div>
   </div>
 </section>
+
+<section class="surface-section">
+  <div class="surface-header">
+    <div>
+      <div class="surface-kicker">Surface 3</div>
+      <h2>Dedicated Production Queue Board</h2>
+      <p>This is the canonical queue editor. Reorder, state changes, file and plate context, and queue-entry actions belong here.</p>
+    </div>
+    <div class="surface-badge">Primary Queue View</div>
+  </div>
 
 <section class="queue-shell">
   <div class="toolbar">
@@ -439,8 +511,20 @@
         </div>
       </article>
     </div>
+  </div>
+</section>
 
-    <aside class="sidebar">
+<section class="surface-section">
+  <div class="surface-header">
+    <div>
+      <div class="surface-kicker">Surface 4</div>
+      <h2>Queue Planner Side Panel / Drawer</h2>
+      <p>This planner UI is shown separately here on purpose. It supports the main queue board, but it is not intended to imply that the queue board and planner must share one always-visible composite layout.</p>
+    </div>
+    <div class="surface-badge">Auxiliary Surface</div>
+  </div>
+  <div class="surface-stack">
+    <aside class="sidebar" style="padding: 0; grid-template-columns: minmax(320px, 520px);">
       <div class="planner">
         <h3>Quick Find</h3>
         <p>Planner modes support overnight and daytime operation: quick-turn while nearby, long-run while busy, plus filament-overlap and low-slot strategies.</p>
@@ -498,7 +582,7 @@
           <li>Auto-complete is only applied on high-confidence archive linkage.</li>
           <li>The same source can appear again later as a new queue entry.</li>
         </ul>
-        <div class="note">Catalog and Working surfaces should show queue summary and jump into this view, but this is the only place where reorder, plate completion, and overnight planning are fully editable.</div>
+        <div class="note">Catalog and Working surfaces should show queue summary and jump into the full queue view, but planner rewrite and plate-level workflow remain dedicated queue tools.</div>
       </div>
     </aside>
   </div>
