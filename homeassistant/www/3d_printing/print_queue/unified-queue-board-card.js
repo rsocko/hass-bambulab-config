@@ -258,14 +258,23 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _openAddModal() {
+    const hasCachedSources = Array.isArray(this._addSourceOptions.catalog_model) && this._addSourceOptions.catalog_model.length > 0
+      && Array.isArray(this._addSourceOptions.working_group) && this._addSourceOptions.working_group.length > 0;
+
     this._addModalOpen = true;
     this._addTab = 'quick';
     this._addSourceKind = 'catalog_model';
     this._addSourceId = '';
+    this._addLoadingSources = !hasCachedSources;
+    this._addLoadingDetail = false;
+    this._addSubmitting = false;
     this._addDetailError = null;
     this._addDetailFiles = [];
     this._render();
-    this._loadAddSourceOptions();
+
+    if (!hasCachedSources) {
+      this._loadAddSourceOptions({ renderLoadingState: false });
+    }
   }
 
   _closeAddModal() {
@@ -276,9 +285,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._render();
   }
 
-  async _loadAddSourceOptions() {
-    this._addLoadingSources = true;
-    this._render();
+  async _loadAddSourceOptions({ renderLoadingState = true } = {}) {
+    if (!this._addLoadingSources) {
+      this._addLoadingSources = true;
+      if (renderLoadingState) {
+        this._render();
+      }
+    }
 
     try {
       const [modelsRes, groupsRes] = await Promise.all([
@@ -497,10 +510,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _setAddSourceId(sourceId) {
+    const shouldRender = !!this._addDetailError || this._addDetailFiles.length > 0;
     this._addSourceId = String(sourceId || '').trim();
     this._addDetailError = null;
     this._addDetailFiles = [];
-    this._render();
+    if (shouldRender) {
+      this._render();
+    }
   }
 
   _setAddTab(tab) {
@@ -1691,7 +1707,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const advancedPreview = `${metrics.selectedFileCount} files x ${metrics.selectedPlateCount} selected plates = ${metrics.selectedPlateCount} queue copies`;
 
     return `
-      <div class="modal-backdrop" data-action="close-add">
+      <div class="modal-backdrop add-backdrop" data-action="close-add">
         <div class="add-modal" role="dialog" aria-modal="true" aria-label="Add To Queue">
           <div class="add-modal-header">
             <h3>Add To Queue</h3>
@@ -3539,12 +3555,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
       addBtn.addEventListener('click', () => this._openAddModal());
     }
 
-    const modalBackdrop = this.shadowRoot.querySelector('.modal-backdrop');
+    const modalBackdrop = this.shadowRoot.querySelector('.add-backdrop');
     if (modalBackdrop) {
       modalBackdrop.addEventListener('click', (event) => {
         if (event.target === modalBackdrop) {
           this._closeAddModal();
         }
+      });
+    }
+
+    const addModal = this.shadowRoot.querySelector('.add-modal');
+    if (addModal) {
+      addModal.addEventListener('click', (event) => {
+        event.stopPropagation();
       });
     }
 
