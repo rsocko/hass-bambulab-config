@@ -43,6 +43,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._addSubmitting = false;
     this._addDetailError = null;
     this._addDetailFiles = [];
+    this._rowActionBusy = false;
+    this._detailEntry = null;
 
     this._loadFilterState();
   }
@@ -590,6 +592,167 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }
   }
 
+  _getEntryById(queueEntryId) {
+    return this._entries.find(entry => entry.queue_entry_id === queueEntryId) || null;
+  }
+
+  _getAllEntriesRanked() {
+    return [...this._entries].sort((a, b) => {
+      const aRank = Number.isFinite(a.rank) ? a.rank : 999999;
+      const bRank = Number.isFinite(b.rank) ? b.rank : 999999;
+      if (aRank !== bRank) return aRank - bRank;
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    });
+  }
+
+  _getSourceMeta(entry) {
+    const sourceKind = String(entry.source_kind || '').trim();
+    const sourceId = String(entry.source_id || entry.source_ref || '').trim() || 'n/a';
+    const sourceMap = {
+      catalog_model: { icon: 'CAT', label: 'Catalog' },
+      working_group: { icon: 'WRK', label: 'Working Group' },
+      working_file: { icon: 'FIL', label: 'Working File' },
+      idea: { icon: 'IDE', label: 'Idea' },
+    };
+    const mapped = sourceMap[sourceKind] || { icon: 'SRC', label: 'Source' };
+    return {
+      ...mapped,
+      sourceKind,
+      sourceId,
+      fullLabel: `${mapped.label}: ${sourceId}`,
+    };
+  }
+
+  async _moveEntry(queueEntryId, direction) {
+    const delta = direction === 'up' ? -1 : 1;
+    const ordered = this._getAllEntriesRanked();
+    const index = ordered.findIndex(entry => entry.queue_entry_id === queueEntryId);
+    if (index < 0) return;
+
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= ordered.length) return;
+
+    const current = ordered[index];
+    const target = ordered[targetIndex];
+    const currentRank = Number.isFinite(current.rank) ? current.rank : index;
+    const targetRank = Number.isFinite(target.rank) ? target.rank : targetIndex;
+
+    this._rowActionBusy = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/reorder`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            moves: [
+              { id: current.queue_entry_id, new_rank: targetRank },
+              { id: target.queue_entry_id, new_rank: currentRank },
+            ],
+          }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Reorder failed (${response.status})`));
+      }
+      this._setFlashMessage('Queue order updated.', 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+    } finally {
+      this._rowActionBusy = false;
+      this._render();
+    }
+  }
+
+  async _deleteEntry(queueEntryId) {
+    const entry = this._getEntryById(queueEntryId);
+    const label = entry ? (entry.title || queueEntryId) : queueEntryId;
+    if (!window.confirm(`Delete queue entry '${label}'?`)) {
+      return;
+    }
+
+    this._rowActionBusy = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/entries/${encodeURIComponent(queueEntryId)}`,
+        { method: 'DELETE' }
+      );
+      if (!response.ok && response.status !== 204) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(String(payload.message || payload.error || `Delete failed (${response.status})`));
+      }
+      this._setFlashMessage('Queue entry deleted.', 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+    } finally {
+      this._rowActionBusy = false;
+      this._render();
+    }
+  }
+
+  async _editEntry(queueEntryId) {
+    const entry = this._getEntryById(queueEntryId);
+    if (!entry) return;
+
+    const currentTitle = String(entry.title || '').trim();
+    const currentCopies = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
+    const newTitle = window.prompt('Edit queue entry title:', currentTitle);
+    if (newTitle === null) return;
+
+    const copiesInput = window.prompt('Edit copies requested:', String(currentCopies));
+    if (copiesInput === null) return;
+
+    const parsedCopies = Number.parseInt(copiesInput, 10);
+    if (!Number.isFinite(parsedCopies) || parsedCopies < 1) {
+      this._setFlashMessage('Copies must be an integer >= 1.', 'error');
+      return;
+    }
+
+    this._rowActionBusy = true;
+    this._render();
+    try {
+      const response = await fetch(
+        `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(queueEntryId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: String(newTitle || '').trim() || currentTitle,
+            copies_requested: parsedCopies,
+          }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Update failed (${response.status})`));
+      }
+      this._setFlashMessage('Queue entry updated.', 'success');
+      await this._loadQueueData();
+    } catch (err) {
+      this._setFlashMessage(err.message, 'error');
+    } finally {
+      this._rowActionBusy = false;
+      this._render();
+    }
+  }
+
+  _openEntryDetail(queueEntryId) {
+    const entry = this._getEntryById(queueEntryId);
+    if (!entry) return;
+    this._detailEntry = entry;
+    this._render();
+  }
+
+  _closeEntryDetail() {
+    this._detailEntry = null;
+    this._render();
+  }
+
   _getFilteredAndSortedEntries() {
     // Apply filters
     let filtered = this._entries.filter(entry => {
@@ -822,15 +985,30 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const stateColor = this._getStateColor(entry.state);
     const durationMinutes = entry.estimated_total_minutes || 0;
     const durationStr = this._formatDuration(durationMinutes);
-
+    const sourceMeta = this._getSourceMeta(entry);
     const sourceLabel = entry.source_kind.replace(/_/g, ' ').toUpperCase();
+    const copiesRequested = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
+    const fullInfo = [
+      `Title: ${entry.title || 'Untitled'}`,
+      `Source: ${sourceMeta.fullLabel}`,
+      `State: ${entry.state || 'unknown'}`,
+      `Rank: ${Number.isFinite(entry.rank) ? entry.rank : 'n/a'}`,
+      `Copies: ${copiesRequested}`,
+      `Duration: ${durationStr}`,
+    ].join(' | ');
 
     return `
-      <div class="queue-entry" data-entry-id="${entry.queue_entry_id}">
+      <div class="queue-entry" data-entry-id="${entry.queue_entry_id}" title="${this._escapeHtml(fullInfo)}">
         <div class="entry-header">
           <div class="entry-title">
             <span class="entry-rank">${entry.rank || '—'}</span>
-            <span class="entry-name">${this._escapeHtml(entry.title)}</span>
+            <div class="entry-title-block">
+              <span class="entry-name">${this._escapeHtml(entry.title)}</span>
+              <span class="source-ref" title="${this._escapeHtml(sourceMeta.fullLabel)}">
+                <span class="source-icon-pill">${sourceMeta.icon}</span>
+                <span class="source-ref-text">${this._escapeHtml(sourceMeta.sourceId)}</span>
+              </span>
+            </div>
           </div>
           <div class="entry-badges">
             <span class="source-badge" style="background: ${sourceStyles.bg}; color: ${sourceStyles.color};">
@@ -843,10 +1021,29 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
         
         <div class="entry-meta">
+          <span class="meta-item"># ${copiesRequested} copies</span>
           <span class="meta-item">⏱ ${durationStr}</span>
           ${entry.ams_ready_score !== undefined ? `<span class="meta-item">🔌 AMS ${entry.ams_ready_score}%</span>` : ''}
           ${entry.overnight_fit_score !== undefined ? `<span class="meta-item">🌙 Overnight ${entry.overnight_fit_score}%</span>` : ''}
           ${entry.last_attempt_outcome ? `<span class="meta-item outcome-${entry.last_attempt_outcome}">Latest: ${entry.last_attempt_outcome}</span>` : ''}
+        </div>
+
+        <div class="entry-actions" role="group" aria-label="Queue entry actions">
+          <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${entry.queue_entry_id}" aria-label="Open details for ${this._escapeHtml(entry.title)}" title="Details">
+            Detail
+          </button>
+          <button class="entry-action-btn" data-action="entry-edit" data-entry-id="${entry.queue_entry_id}" aria-label="Edit ${this._escapeHtml(entry.title)}" title="Edit">
+            Edit
+          </button>
+          <button class="entry-action-btn" data-action="entry-up" data-entry-id="${entry.queue_entry_id}" aria-label="Move up ${this._escapeHtml(entry.title)}" title="Move up">
+            Up
+          </button>
+          <button class="entry-action-btn" data-action="entry-down" data-entry-id="${entry.queue_entry_id}" aria-label="Move down ${this._escapeHtml(entry.title)}" title="Move down">
+            Down
+          </button>
+          <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${entry.queue_entry_id}" aria-label="Delete ${this._escapeHtml(entry.title)}" title="Delete">
+            Delete
+          </button>
         </div>
       </div>
     `;
@@ -861,6 +1058,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _escapeHtml(text) {
+    const value = String(text ?? '');
     const map = {
       '&': '&amp;',
       '<': '&lt;',
@@ -868,7 +1066,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       '"': '&quot;',
       "'": '&#039;',
     };
-    return text.replace(/[&<>"']/g, (m) => map[m]);
+    return value.replace(/[&<>"']/g, (m) => map[m]);
   }
 
   _renderFlashBanner() {
@@ -996,6 +1194,51 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
       </div>
     `).join('');
+  }
+
+  _renderEntryDetailModal() {
+    if (!this._detailEntry) {
+      return '';
+    }
+
+    const entry = this._detailEntry;
+    const sourceMeta = this._getSourceMeta(entry);
+    const details = [
+      ['Queue ID', entry.queue_entry_id],
+      ['Title', entry.title],
+      ['Source Kind', entry.source_kind],
+      ['Source ID', sourceMeta.sourceId],
+      ['State', entry.state],
+      ['Rank', String(entry.rank)],
+      ['Copies', String(entry.copies_requested || 1)],
+      ['Duration', this._formatDuration(entry.estimated_total_minutes || 0)],
+      ['Selection Mode', entry.selection_mode || 'all_files_all_plates'],
+      ['Queue Notes', entry.queue_notes || ''],
+    ];
+
+    return `
+      <div class="modal-backdrop" data-action="close-detail">
+        <div class="add-modal" role="dialog" aria-modal="true" aria-label="Queue Entry Details">
+          <div class="add-modal-header">
+            <h3>Queue Entry Details</h3>
+            <button class="modal-close-btn" data-action="close-detail" title="Close">✕</button>
+          </div>
+          <div class="add-modal-body">
+            <div class="detail-grid">
+              ${details.map(([label, value]) => `
+                <div class="detail-row">
+                  <div class="detail-key">${this._escapeHtml(label)}</div>
+                  <div class="detail-value" title="${this._escapeHtml(String(value || ''))}">${this._escapeHtml(String(value || ''))}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="add-modal-footer">
+            <button class="ghost-btn" data-action="close-detail">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   _render() {
@@ -1295,6 +1538,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
         min-width: 0;
       }
 
+      .entry-title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        flex: 1;
+      }
+
       .entry-rank {
         display: inline-flex;
         align-items: center;
@@ -1314,7 +1565,41 @@ class UnifiedQueueBoardCard extends HTMLElement {
         font-size: 14px;
         font-weight: 600;
         color: var(--text);
-        word-break: break-word;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .source-ref {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+      }
+
+      .source-icon-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        height: 18px;
+        padding: 0 6px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        color: var(--text-secondary);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+      }
+
+      .source-ref-text {
+        color: var(--text-secondary);
+        font-size: 11px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 240px;
       }
 
       .entry-badges {
@@ -1354,6 +1639,44 @@ class UnifiedQueueBoardCard extends HTMLElement {
         flex-wrap: wrap;
         font-size: 12px;
         color: var(--text-secondary);
+      }
+
+      .entry-actions {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .entry-action-btn {
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .entry-action-btn:hover,
+      .entry-action-btn:focus-visible {
+        background: rgba(255,255,255,0.07);
+        color: var(--text);
+        outline: none;
+      }
+
+      .entry-action-btn.danger {
+        border-color: rgba(245, 144, 144, 0.35);
+        color: var(--accent-red);
+      }
+
+      .entry-action-btn.danger:hover,
+      .entry-action-btn.danger:focus-visible {
+        background: rgba(245, 144, 144, 0.12);
       }
 
       .meta-item {
@@ -1654,6 +1977,32 @@ class UnifiedQueueBoardCard extends HTMLElement {
         padding: 8px 10px;
       }
 
+      .detail-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .detail-row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .detail-key {
+        color: var(--text-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+      }
+
+      .detail-value {
+        color: var(--text);
+        font-size: 12px;
+        word-break: break-word;
+      }
+
       .add-modal-footer {
         display: flex;
         justify-content: flex-end;
@@ -1767,6 +2116,24 @@ class UnifiedQueueBoardCard extends HTMLElement {
         .entry-meta {
           font-size: 11px;
         }
+
+        .entry-actions {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .entry-action-btn {
+          flex: 1;
+        }
+
+        .source-ref-text {
+          max-width: 150px;
+        }
+
+        .detail-row {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
       }
     `;
 
@@ -1793,6 +2160,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
       </div>
       ${this._renderAddModal()}
+      ${this._renderEntryDetailModal()}
     `;
 
     this.shadowRoot.innerHTML = html;
@@ -1888,6 +2256,43 @@ class UnifiedQueueBoardCard extends HTMLElement {
     plateCheckboxes.forEach(checkbox => {
       checkbox.addEventListener('change', (event) => {
         this._toggleAddPlateSelection(event.target.dataset.fileId, event.target.dataset.plateId);
+      });
+    });
+
+    const detailBackdrop = this.shadowRoot.querySelector('[data-action="close-detail"].modal-backdrop');
+    if (detailBackdrop) {
+      detailBackdrop.addEventListener('click', (event) => {
+        if (event.target === detailBackdrop) {
+          this._closeEntryDetail();
+        }
+      });
+    }
+
+    const detailCloseBtns = this.shadowRoot.querySelectorAll('[data-action="close-detail"]:not(.modal-backdrop)');
+    detailCloseBtns.forEach(button => {
+      button.addEventListener('click', () => this._closeEntryDetail());
+    });
+
+    const entryActionButtons = this.shadowRoot.querySelectorAll('.entry-action-btn');
+    entryActionButtons.forEach(button => {
+      button.disabled = this._rowActionBusy;
+      button.addEventListener('click', async (event) => {
+        const action = event.currentTarget.dataset.action;
+        const entryId = event.currentTarget.dataset.entryId;
+        if (!entryId || !action) return;
+        if (this._rowActionBusy) return;
+
+        if (action === 'entry-detail') {
+          this._openEntryDetail(entryId);
+        } else if (action === 'entry-edit') {
+          await this._editEntry(entryId);
+        } else if (action === 'entry-delete') {
+          await this._deleteEntry(entryId);
+        } else if (action === 'entry-up') {
+          await this._moveEntry(entryId, 'up');
+        } else if (action === 'entry-down') {
+          await this._moveEntry(entryId, 'down');
+        }
       });
     });
   }
