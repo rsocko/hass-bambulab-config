@@ -30,13 +30,17 @@ from ..db import (
     delete_unified_queue_entry,
     list_unified_queue_entries,
     list_unified_queue_file_units,
+    list_unified_queue_plate_units,
     list_unified_queue_match_suggestions,
     read_unified_queue_match_suggestion,
     read_unified_queue_planner_preference,
     read_unified_queue_entry,
+    read_unified_queue_file_unit,
     reorder_unified_queue_entries,
     update_unified_queue_match_suggestion,
     update_unified_queue_entry,
+    update_unified_queue_file_unit,
+    update_unified_queue_plate_unit,
     upsert_unified_queue_planner_preference,
     create_planner_operation_audit,
     list_planner_operation_audits,
@@ -151,6 +155,87 @@ def _entry_to_response(entry: Any) -> dict[str, Any]:
     payload["source_id"] = payload.get("source_ref")
     payload["copies"] = payload.get("copies_requested")
     return payload
+
+
+def _selection_mode_from_units(file_units: list[Any], plate_units_by_file_unit_id: dict[str, list[Any]]) -> str:
+    if not file_units:
+        return "all_files_all_plates"
+
+    all_files_selected = all(bool(file_unit.selected) for file_unit in file_units)
+    all_plates_selected = True
+    for file_unit in file_units:
+        plate_units = plate_units_by_file_unit_id.get(file_unit.file_unit_id, [])
+        if any(not bool(plate_unit.selected) for plate_unit in plate_units):
+            all_plates_selected = False
+            break
+
+    if all_files_selected and all_plates_selected:
+        return "all_files_all_plates"
+    if all_plates_selected:
+        return "selected_files"
+    return "selected_plates"
+
+
+def _queue_detail_to_response(*, entry: Any, db_path: Path) -> dict[str, Any]:
+    file_units = list_unified_queue_file_units(db_path=db_path, queue_entry_id=entry.queue_entry_id)
+    plate_units_by_file_unit_id: dict[str, list[Any]] = {}
+    for file_unit in file_units:
+        plate_units_by_file_unit_id[file_unit.file_unit_id] = list_unified_queue_plate_units(
+            db_path=db_path,
+            queue_entry_id=entry.queue_entry_id,
+            file_unit_id=file_unit.file_unit_id,
+        )
+
+    files = []
+    for file_unit in file_units:
+        plate_units = plate_units_by_file_unit_id.get(file_unit.file_unit_id, [])
+        files.append(
+            {
+                "file_unit_id": file_unit.file_unit_id,
+                "file_id": file_unit.file_id,
+                "file_name": file_unit.file_name,
+                "selected": file_unit.selected,
+                "estimated_minutes": file_unit.estimated_minutes,
+                "plates": [
+                    {
+                        "plate_unit_id": plate_unit.plate_unit_id,
+                        "plate_id": plate_unit.plate_key,
+                        "plate_key": plate_unit.plate_key,
+                        "plate_name": plate_unit.plate_name,
+                        "preview_image_path": plate_unit.preview_image_path,
+                        "selected": plate_unit.selected,
+                        "state": plate_unit.state,
+                        "completed_by_archive_id": plate_unit.completed_by_archive_id,
+                        "completion_confidence": plate_unit.completion_confidence,
+                        "last_attempt_outcome": plate_unit.last_attempt_outcome,
+                        "estimated_minutes": plate_unit.estimated_minutes,
+                    }
+                    for plate_unit in plate_units
+                ],
+            }
+        )
+
+    return {
+        "entry": _entry_to_response(entry),
+        "files": files,
+        "summary": {
+            "file_count": len(file_units),
+            "selected_file_count": sum(1 for file_unit in file_units if bool(file_unit.selected)),
+            "plate_count": sum(len(plate_units_by_file_unit_id.get(file_unit.file_unit_id, [])) for file_unit in file_units),
+            "selected_plate_count": sum(
+                1
+                for file_unit in file_units
+                for plate_unit in plate_units_by_file_unit_id.get(file_unit.file_unit_id, [])
+                if bool(plate_unit.selected)
+            ),
+            "completed_plate_count": sum(
+                1
+                for file_unit in file_units
+                for plate_unit in plate_units_by_file_unit_id.get(file_unit.file_unit_id, [])
+                if str(plate_unit.state) == "done"
+            ),
+        },
+    }
 
 
 def _coerce_bool(value: object | None, *, field: str) -> bool | None:
@@ -973,6 +1058,30 @@ def get_entry(queue_entry_id: str, request: Request) -> Any:
     return {"success": True, "entry": _entry_to_response(entry)}
 
 
+@router.get("/api/unified-queue/entries/{queue_entry_id}/detail")
+def get_entry_detail(queue_entry_id: str, request: Request) -> Any:
+    state: AppState = request.app.state.model_catalog
+    try:
+        entry = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if entry is None:
+        return _error_response(
+            status_code=404,
+            error="not_found",
+            message="Queue entry not found",
+            extra={"queue_entry_id": queue_entry_id},
+        )
+
+    try:
+        detail = _queue_detail_to_response(entry=entry, db_path=state.settings.db_path)
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    return {"success": True, **detail}
+
+
 @router.get("/api/unified-queue/entries")
 def list_entries(
     request: Request,
@@ -1474,6 +1583,195 @@ def update_entry(
             extra={"queue_entry_id": queue_entry_id},
         )
     return {"success": True, "entry": _entry_to_response(updated)}
+
+
+@router.patch("/api/unified-queue/entries/{queue_entry_id}/selection")
+def update_entry_selection(
+    queue_entry_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> Any:
+    state: AppState = request.app.state.model_catalog
+    if not isinstance(body, dict):
+        return _error_response(status_code=400, error="invalid_payload", message="Request body must be a JSON object")
+
+    raw_files = body.get("files")
+    if not isinstance(raw_files, list) or not raw_files:
+        return _error_response(status_code=400, error="validation_error", message="files must be a non-empty array")
+
+    existing = read_unified_queue_entry(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    if existing is None:
+        return _error_response(
+            status_code=404,
+            error="not_found",
+            message="Queue entry not found",
+            extra={"queue_entry_id": queue_entry_id},
+        )
+
+    file_units = list_unified_queue_file_units(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    file_units_by_id = {file_unit.file_unit_id: file_unit for file_unit in file_units}
+    if not file_units_by_id:
+        return _error_response(status_code=400, error="validation_error", message="Queue entry has no editable file units")
+
+    touched_file_ids: set[str] = set()
+    try:
+        for file_index, raw_file in enumerate(raw_files):
+            if not isinstance(raw_file, dict):
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message=f"files[{file_index}] must be an object",
+                )
+
+            file_unit_id = str(raw_file.get("file_unit_id") or "").strip()
+            if not file_unit_id:
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message=f"files[{file_index}].file_unit_id is required",
+                )
+            if file_unit_id in touched_file_ids:
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message=f"files contains duplicate file_unit_id '{file_unit_id}'",
+                )
+            touched_file_ids.add(file_unit_id)
+
+            file_unit = file_units_by_id.get(file_unit_id)
+            if file_unit is None:
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message=f"file_unit_id '{file_unit_id}' is not valid for queue entry",
+                )
+
+            selected = _coerce_bool(raw_file.get("selected"), field=f"files[{file_index}].selected")
+            if selected is None:
+                selected = file_unit.selected
+
+            updated_file = update_unified_queue_file_unit(
+                db_path=state.settings.db_path,
+                queue_entry_id=queue_entry_id,
+                file_unit_id=file_unit_id,
+                selected=selected,
+            )
+            if updated_file is None:
+                return _error_response(status_code=404, error="not_found", message="file unit not found")
+
+            plate_units = list_unified_queue_plate_units(
+                db_path=state.settings.db_path,
+                queue_entry_id=queue_entry_id,
+                file_unit_id=file_unit_id,
+            )
+            plate_units_by_id = {plate_unit.plate_unit_id: plate_unit for plate_unit in plate_units}
+            raw_plates = raw_file.get("plates")
+            if raw_plates is None:
+                continue
+            if not isinstance(raw_plates, list):
+                return _error_response(
+                    status_code=400,
+                    error="validation_error",
+                    message=f"files[{file_index}].plates must be an array",
+                )
+
+            seen_plate_ids: set[str] = set()
+            for plate_index, raw_plate in enumerate(raw_plates):
+                if not isinstance(raw_plate, dict):
+                    return _error_response(
+                        status_code=400,
+                        error="validation_error",
+                        message=f"files[{file_index}].plates[{plate_index}] must be an object",
+                    )
+
+                plate_unit_id = str(raw_plate.get("plate_unit_id") or "").strip()
+                if not plate_unit_id:
+                    return _error_response(
+                        status_code=400,
+                        error="validation_error",
+                        message=f"files[{file_index}].plates[{plate_index}].plate_unit_id is required",
+                    )
+                if plate_unit_id in seen_plate_ids:
+                    return _error_response(
+                        status_code=400,
+                        error="validation_error",
+                        message=f"files[{file_index}] contains duplicate plate_unit_id '{plate_unit_id}'",
+                    )
+                seen_plate_ids.add(plate_unit_id)
+
+                plate_unit = plate_units_by_id.get(plate_unit_id)
+                if plate_unit is None:
+                    return _error_response(
+                        status_code=400,
+                        error="validation_error",
+                        message=f"plate_unit_id '{plate_unit_id}' is not valid for file_unit_id '{file_unit_id}'",
+                    )
+
+                plate_selected = _coerce_bool(
+                    raw_plate.get("selected"),
+                    field=f"files[{file_index}].plates[{plate_index}].selected",
+                )
+                next_state = raw_plate.get("state")
+                if next_state is not None:
+                    next_state = str(next_state).strip().lower()
+                    if next_state not in {"pending", "done", "blocked", "started"}:
+                        return _error_response(
+                            status_code=400,
+                            error="validation_error",
+                            message=(
+                                f"files[{file_index}].plates[{plate_index}].state must be one of "
+                                "['blocked', 'done', 'pending', 'started']"
+                            ),
+                        )
+
+                update_kwargs: dict[str, Any] = {}
+                if plate_selected is not None:
+                    update_kwargs["selected"] = plate_selected
+                if next_state is not None:
+                    update_kwargs["state"] = next_state
+                    if next_state == "done":
+                        update_kwargs["completion_confidence"] = "manual"
+                        update_kwargs["last_attempt_outcome"] = "success"
+
+                if update_kwargs:
+                    updated_plate = update_unified_queue_plate_unit(
+                        db_path=state.settings.db_path,
+                        queue_entry_id=queue_entry_id,
+                        file_unit_id=file_unit_id,
+                        plate_unit_id=plate_unit_id,
+                        **update_kwargs,
+                    )
+                    if updated_plate is None:
+                        return _error_response(status_code=404, error="not_found", message="plate unit not found")
+    except ValueError as exc:
+        return _error_response(status_code=400, error="validation_error", message=str(exc))
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    refreshed_file_units = list_unified_queue_file_units(db_path=state.settings.db_path, queue_entry_id=queue_entry_id)
+    plate_units_by_file_unit_id = {
+        file_unit.file_unit_id: list_unified_queue_plate_units(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            file_unit_id=file_unit.file_unit_id,
+        )
+        for file_unit in refreshed_file_units
+    }
+    derived_selection_mode = _selection_mode_from_units(refreshed_file_units, plate_units_by_file_unit_id)
+
+    try:
+        updated_entry = update_unified_queue_entry(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            selection_mode=derived_selection_mode,
+        )
+    except Exception as exc:
+        return _error_response(status_code=500, error="internal_error", message=str(exc))
+
+    if updated_entry is None:
+        return _error_response(status_code=404, error="not_found", message="Queue entry not found")
+
+    return {"success": True, **_queue_detail_to_response(entry=updated_entry, db_path=state.settings.db_path)}
 
 
 @router.delete("/api/unified-queue/entries/{queue_entry_id}")

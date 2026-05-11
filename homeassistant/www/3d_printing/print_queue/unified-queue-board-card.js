@@ -12,6 +12,14 @@
 const QUEUE_STATE_FILTER_ORDER = ['backlog', 'preparing', 'ready', 'in_progress', 'blocked', 'done'];
 const QUEUE_DEFAULT_VISIBLE_STATES = ['preparing', 'ready', 'in_progress', 'blocked'];
 const QUEUE_STATE_GROUP_ORDER = ['in_progress', 'ready', 'preparing', 'backlog', 'blocked', 'done'];
+const QUEUE_STATE_TRANSITIONS = {
+  backlog: ['preparing', 'ready', 'in_progress'],
+  preparing: ['ready', 'in_progress', 'blocked'],
+  ready: ['in_progress', 'blocked'],
+  in_progress: ['blocked', 'done'],
+  blocked: ['preparing', 'ready', 'in_progress', 'done'],
+  done: [],
+};
 const VALID_QUEUE_SOURCES = ['catalog_model', 'working_group', 'working_file', 'idea'];
 const VALID_QUEUE_SORTS = new Set(['rank', 'rank-desc', 'duration', 'duration-desc', 'recently-added']);
 
@@ -60,6 +68,15 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailLoading = false;
     this._detailError = null;
     this._detailFiles = [];
+    this._detailTab = 'plates';
+    this._detailSubmitting = false;
+    this._detailDirty = false;
+    this._detailForm = {
+      title: '',
+      copies: 1,
+      state: 'preparing',
+      queueNotes: '',
+    };
     this._suggestions = [];
     this._suggestionsError = null;
     this._suggestionBusy = {};
@@ -236,8 +253,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
     } finally {
       this._loading = false;
-      this._render();
+      if (isInitialLoad || !this._hasOpenOverlay()) {
+        this._render();
+      }
     }
+  }
+
+  _hasOpenOverlay() {
+    return this._addModalOpen || !!this._detailEntry || this._plannerOpen;
   }
 
   connectedCallback() {
@@ -812,16 +835,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _openEditModal(queueEntryId) {
-    const entry = this._getEntryById(queueEntryId);
-    if (!entry) return;
-
-    this._editModalOpen = true;
-    this._editEntryId = queueEntryId;
-    this._editTitle = String(entry.title || '').trim();
-    this._editCopies = Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1;
-    this._editSubmitting = false;
-    this._editError = null;
-    this._render();
+    this._openEntryDetail(queueEntryId, 'info');
   }
 
   _closeEditModal() {
@@ -894,16 +908,25 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   async _editEntry(queueEntryId) {
-    this._openEditModal(queueEntryId);
+    this._openEntryDetail(queueEntryId, 'info');
   }
 
-  _openEntryDetail(queueEntryId) {
+  _openEntryDetail(queueEntryId, tab = 'plates') {
     const entry = this._getEntryById(queueEntryId);
     if (!entry) return;
     this._detailEntry = entry;
     this._detailLoading = true;
     this._detailError = null;
     this._detailFiles = [];
+    this._detailTab = tab === 'info' ? 'info' : 'plates';
+    this._detailSubmitting = false;
+    this._detailDirty = false;
+    this._detailForm = {
+      title: String(entry.title || '').trim(),
+      copies: Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1,
+      state: String(entry.state || 'preparing').trim() || 'preparing',
+      queueNotes: String(entry.queue_notes || '').trim(),
+    };
     this._render();
     this._loadEntryDetailFiles(entry);
   }
@@ -913,7 +936,185 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailLoading = false;
     this._detailError = null;
     this._detailFiles = [];
+    this._detailTab = 'plates';
+    this._detailSubmitting = false;
+    this._detailDirty = false;
+    this._detailForm = {
+      title: '',
+      copies: 1,
+      state: 'preparing',
+      queueNotes: '',
+    };
     this._render();
+  }
+
+  _setDetailTab(tab) {
+    this._detailTab = tab === 'info' ? 'info' : 'plates';
+    this._render();
+  }
+
+  _setDetailTitle(value) {
+    this._detailForm.title = String(value || '');
+    this._detailDirty = true;
+  }
+
+  _setDetailCopies(value) {
+    this._detailForm.copies = String(value || '');
+    this._detailDirty = true;
+  }
+
+  _setDetailState(value) {
+    this._detailForm.state = String(value || '').trim() || 'preparing';
+    this._detailDirty = true;
+    this._render();
+  }
+
+  _setDetailNotes(value) {
+    this._detailForm.queueNotes = String(value || '');
+    this._detailDirty = true;
+  }
+
+  _toggleDetailFileSelection(fileUnitId) {
+    this._detailFiles = this._detailFiles.map(file => {
+      if (file.file_unit_id !== fileUnitId) return file;
+      const nextSelected = !file.selected;
+      return {
+        ...file,
+        selected: nextSelected,
+        plates: Array.isArray(file.plates)
+          ? file.plates.map(plate => ({ ...plate, selected: nextSelected ? true : false }))
+          : [],
+      };
+    });
+    this._detailDirty = true;
+    this._render();
+  }
+
+  _toggleDetailPlateSelection(fileUnitId, plateUnitId) {
+    this._detailFiles = this._detailFiles.map(file => {
+      if (file.file_unit_id !== fileUnitId) return file;
+      const nextPlates = Array.isArray(file.plates)
+        ? file.plates.map(plate => {
+            if (plate.plate_unit_id !== plateUnitId) return plate;
+            return { ...plate, selected: !plate.selected };
+          })
+        : [];
+      return {
+        ...file,
+        selected: nextPlates.some(plate => plate.selected),
+        plates: nextPlates,
+      };
+    });
+    this._detailDirty = true;
+    this._render();
+  }
+
+  _markDetailPlateDone(fileUnitId, plateUnitId) {
+    this._detailFiles = this._detailFiles.map(file => {
+      if (file.file_unit_id !== fileUnitId) return file;
+      return {
+        ...file,
+        plates: Array.isArray(file.plates)
+          ? file.plates.map(plate => {
+              if (plate.plate_unit_id !== plateUnitId || plate.state === 'done') return plate;
+              return { ...plate, selected: true, state: 'done', last_attempt_outcome: 'success', completion_confidence: 'manual' };
+            })
+          : [],
+      };
+    });
+    this._detailDirty = true;
+    this._render();
+  }
+
+  _buildDetailSelectionPayload() {
+    return this._detailFiles.map(file => ({
+      file_unit_id: file.file_unit_id,
+      selected: file.selected !== false,
+      plates: Array.isArray(file.plates)
+        ? file.plates.map(plate => ({
+            plate_unit_id: plate.plate_unit_id,
+            selected: plate.selected !== false,
+            state: plate.state || 'pending',
+          }))
+        : [],
+    }));
+  }
+
+  _getDetailStateOptions() {
+    const currentState = String(this._detailForm.state || this._detailEntry?.state || 'preparing').trim() || 'preparing';
+    const allowed = QUEUE_STATE_TRANSITIONS[currentState] || [];
+    const ordered = [currentState, ...QUEUE_STATE_FILTER_ORDER.filter(state => state !== currentState && allowed.includes(state))];
+    return ordered.length > 0 ? ordered : [currentState];
+  }
+
+  async _submitDetailModal() {
+    const queueEntryId = String(this._detailEntry?.queue_entry_id || '').trim();
+    if (!queueEntryId || !this._detailEntry) {
+      this._detailError = 'Entry no longer exists.';
+      this._render();
+      return;
+    }
+
+    const title = String(this._detailForm.title || '').trim();
+    if (!title) {
+      this._detailError = 'Title cannot be empty.';
+      this._render();
+      return;
+    }
+
+    const copies = Number.parseInt(this._detailForm.copies, 10);
+    if (!Number.isFinite(copies) || copies < 1) {
+      this._detailError = 'Copies must be an integer >= 1.';
+      this._render();
+      return;
+    }
+
+    this._detailSubmitting = true;
+    this._detailError = null;
+    this._render();
+
+    try {
+      const entryResponse = await fetch(
+        `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(queueEntryId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            copies_requested: copies,
+            state: this._detailForm.state,
+            queue_notes: String(this._detailForm.queueNotes || '').trim() || null,
+          }),
+        }
+      );
+      const entryPayload = await entryResponse.json().catch(() => ({}));
+      if (!entryResponse.ok) {
+        throw new Error(String(entryPayload.message || entryPayload.error || `Update failed (${entryResponse.status})`));
+      }
+
+      if (Array.isArray(this._detailFiles) && this._detailFiles.length > 0) {
+        const selectionResponse = await fetch(
+          `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(queueEntryId)}/selection`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: this._buildDetailSelectionPayload() }),
+          }
+        );
+        const selectionPayload = await selectionResponse.json().catch(() => ({}));
+        if (!selectionResponse.ok) {
+          throw new Error(String(selectionPayload.message || selectionPayload.error || `Selection update failed (${selectionResponse.status})`));
+        }
+      }
+
+      await this._loadQueueData();
+      this._closeEntryDetail();
+      this._setFlashMessage('Queue entry updated.', 'success');
+    } catch (err) {
+      this._detailError = err.message;
+      this._detailSubmitting = false;
+      this._render();
+    }
   }
 
   _buildPrintHistoryHref(archiveId = null) {
@@ -1351,17 +1552,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
     if (!activeEntryId) return;
 
     try {
-      const sourceId = String(entry.source_id || entry.source_ref || '').trim();
-      if (!sourceId || (entry.source_kind !== 'catalog_model' && entry.source_kind !== 'working_group')) {
-        this._detailFiles = [];
-        this._detailError = null;
-      } else {
-        const rawFiles = entry.source_kind === 'catalog_model'
-          ? await this._loadCatalogSourceDetail(sourceId)
-          : await this._loadWorkingGroupSourceDetail(sourceId);
-        this._detailFiles = this._normalizeDetailFiles(rawFiles, entry);
-        this._detailError = null;
+      const response = await fetch(
+        `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(activeEntryId)}/detail`
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || `Failed to load entry detail (${response.status})`));
       }
+
+      this._detailFiles = Array.isArray(payload.files) ? payload.files.map(file => ({
+        ...file,
+        plates: Array.isArray(file.plates) ? file.plates.map(plate => ({ ...plate })) : [],
+      })) : [];
+      this._detailError = null;
     } catch (err) {
       this._detailFiles = [];
       this._detailError = err && err.message ? err.message : 'Failed to load entry details.';
@@ -1849,58 +2052,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
   
   _renderEditModal() {
-    if (!this._editModalOpen) {
-      return '';
-    }
-
-    const title = this._escapeHtml(String(this._editTitle || ''));
-    const copies = this._escapeHtml(String(this._editCopies || 1));
-
-    return `
-      <div class="modal-backdrop edit-backdrop" data-action="close-edit">
-        <section class="add-modal edit-modal" role="dialog" aria-modal="true" aria-label="Edit Queue Entry">
-          <div class="add-modal-header">
-            <div>
-              <h3>Edit Queue Entry</h3>
-              <div class="add-modal-subtitle">Update title and requested copies</div>
-            </div>
-            <button class="modal-close-btn" data-action="close-edit" title="Close">✕</button>
-          </div>
-
-          <div class="add-modal-body">
-            <div class="add-grid">
-              <label class="form-label">Title
-                <input
-                  type="text"
-                  class="edit-title-input"
-                  value="${title}"
-                  placeholder="Queue entry title"
-                />
-              </label>
-
-              <label class="form-label">Copies
-                <input
-                  type="number"
-                  class="edit-copies-input"
-                  min="1"
-                  step="1"
-                  value="${copies}"
-                />
-              </label>
-            </div>
-
-            ${this._editError ? `<div class="inline-error">${this._escapeHtml(this._editError)}</div>` : ''}
-          </div>
-
-          <div class="add-modal-footer">
-            <button class="ghost-btn" data-action="close-edit" ${this._editSubmitting ? 'disabled' : ''}>Cancel</button>
-            <button class="primary-btn" data-action="submit-edit" ${this._editSubmitting ? 'disabled' : ''}>
-              ${this._editSubmitting ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        </section>
-      </div>
-    `;
+    return '';
   }
 
   _renderEntryDetailModal() {
@@ -1913,37 +2065,44 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const archiveId = String(entry.last_archive_id || '').trim();
     const printHistoryHref = this._buildPrintHistoryHref(archiveId || null);
 
+    const title = this._escapeHtml(String(this._detailForm.title || entry.title || ''));
+    const copies = this._escapeHtml(String(this._detailForm.copies || entry.copies_requested || 1));
+    const notes = this._escapeHtml(String(this._detailForm.queueNotes || ''));
+    const stateOptions = this._getDetailStateOptions().map(state => `
+      <option value="${state}" ${this._detailForm.state === state ? 'selected' : ''}>${this._getStateLabel(state)}</option>
+    `).join('');
+
     const fileGrid = this._detailLoading
       ? '<div class="inline-note">Loading files and plate states...</div>'
       : this._detailError
       ? `<div class="inline-error">${this._escapeHtml(this._detailError)}</div>`
       : this._detailFiles.length === 0
-      ? '<div class="inline-note">No file-level detail is available for this source yet.</div>'
+      ? '<div class="inline-note">No file-level detail is available for this entry yet.</div>'
       : `
-        <div class="detail-file-grid">
+        <div class="entry-detail-file-grid">
           ${this._detailFiles.map(file => {
-            const selectedCount = file.plates.filter(plate => plate.selected).length;
+            const selectedCount = Array.isArray(file.plates) ? file.plates.filter(plate => plate.selected).length : 0;
+            const completedCount = Array.isArray(file.plates) ? file.plates.filter(plate => plate.state === 'done').length : 0;
             return `
-              <article class="detail-file-card">
-                <div class="detail-file-thumb ${file.thumbnail_url ? '' : 'empty'}">
-                  ${file.thumbnail_url
-                    ? `<img src="${this._escapeHtml(file.thumbnail_url)}" alt="${this._escapeHtml(file.file_name)} thumbnail" loading="lazy" decoding="async" />`
-                    : '<span>No Preview</span>'}
+              <article class="entry-detail-file-card ${file.selected ? 'selected' : 'unselected'}">
+                <div class="entry-detail-file-header">
+                  <div>
+                    <div class="entry-detail-file-name" title="${this._escapeHtml(file.file_name || '')}">${this._escapeHtml(file.file_name || 'Untitled File')}</div>
+                    <div class="entry-detail-file-summary">${selectedCount}/${Array.isArray(file.plates) ? file.plates.length : 0} plates selected · ${completedCount} complete</div>
+                  </div>
+                  <div class="entry-detail-file-actions">
+                    <button class="entry-detail-toggle-btn ${file.selected ? 'selected' : ''}" data-action="toggle-detail-file" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}">${file.selected ? 'Selected' : 'Include'}</button>
+                  </div>
                 </div>
-                <div class="detail-file-main">
-                  <div class="detail-file-header">
-                    <div class="detail-file-name" title="${this._escapeHtml(file.file_name)}">${this._escapeHtml(file.file_name)}</div>
-                    <div class="detail-file-state ${file.selected ? 'selected' : 'unselected'}">${file.selected ? 'Selected' : 'Not selected'}</div>
-                  </div>
-                  <div class="detail-file-summary">${selectedCount}/${file.plates.length} plates selected</div>
-                  <div class="detail-plate-list">
-                    ${file.plates.map(plate => `
-                      <div class="detail-plate-row ${plate.selected ? 'selected' : 'unselected'}">
-                        <span class="detail-plate-name">${this._escapeHtml(plate.plate_name)}</span>
-                        <span class="detail-plate-count">${this._escapeHtml(String(plate.completion_count))}/${this._escapeHtml(String(plate.completion_target))}</span>
-                      </div>
-                    `).join('')}
-                  </div>
+                <div class="entry-detail-plate-list">
+                  ${(Array.isArray(file.plates) ? file.plates : []).map(plate => `
+                    <label class="entry-detail-plate-row ${plate.selected ? 'selected' : 'unselected'}">
+                      <input type="checkbox" class="entry-detail-plate-checkbox" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" data-plate-unit-id="${this._escapeHtml(plate.plate_unit_id || '')}" ${plate.selected ? 'checked' : ''} />
+                      <span class="entry-detail-plate-name">${this._escapeHtml(plate.plate_name || plate.plate_key || 'Plate')}</span>
+                      <span class="entry-detail-plate-state ${plate.state === 'done' ? 'done' : 'pending'}">${plate.state === 'done' ? 'Done' : 'Pending'}</span>
+                      <button class="entry-detail-mark-btn ${plate.state === 'done' ? 'disabled' : ''}" type="button" data-action="mark-detail-plate-done" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" data-plate-unit-id="${this._escapeHtml(plate.plate_unit_id || '')}" ${plate.state === 'done' ? 'disabled' : ''}>Mark done</button>
+                    </label>
+                  `).join('')}
                 </div>
               </article>
             `;
@@ -1956,59 +2115,92 @@ class UnifiedQueueBoardCard extends HTMLElement {
       ['Title', entry.title],
       ['Source Kind', entry.source_kind],
       ['Source ID', sourceMeta.sourceId],
-      ['State', entry.state],
+      ['State', this._detailForm.state],
       ['Rank', String(entry.rank)],
-      ['Copies', String(entry.copies_requested || 1)],
+      ['Copies', String(this._detailForm.copies || entry.copies_requested || 1)],
       ['Duration', this._formatDuration(entry.estimated_total_minutes || 0)],
       ['Selection Mode', entry.selection_mode || 'all_files_all_plates'],
-      ['Queue Notes', entry.queue_notes || ''],
+      ['Added', entry.created_at || ''],
     ];
 
     return `
       <div class="modal-backdrop detail-backdrop" data-action="close-detail">
-        <aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Queue Entry Details">
-          <div class="detail-drawer-header">
-            <div>
-              <h3>Queue Entry Details</h3>
-              <div class="detail-drawer-subtitle">Files, plates, archive linkage, and history path</div>
+        <section class="add-modal entry-detail-modal" role="dialog" aria-modal="true" aria-label="Queue Entry Details">
+          <div class="add-modal-header">
+            <div class="entry-detail-header-meta">
+              <span class="entry-detail-source ${sourceMeta.sourceKind === 'idea' ? 'idea' : sourceMeta.sourceKind === 'catalog_model' ? 'catalog' : 'working'}">${this._escapeHtml(sourceMeta.label)}</span>
+              <span class="field-label">Queue Entry</span>
             </div>
+            <select class="entry-detail-state-select ${this._detailForm.state === 'done' ? 'done' : this._detailForm.state === 'blocked' ? 'blocked' : this._detailForm.state === 'in_progress' ? 'in-progress' : ''}" data-action="detail-state">
+              ${stateOptions}
+            </select>
             <button class="modal-close-btn" data-action="close-detail" title="Close">✕</button>
           </div>
 
-          <div class="detail-drawer-body">
-            <div class="detail-grid">
+          <div class="add-modal-body">
+            <div class="entry-detail-title-row">
+              <label class="field entry-detail-main-field">
+                <span class="field-label">Title</span>
+                <input type="text" class="entry-detail-title-input" value="${title}" placeholder="Queue entry title" />
+              </label>
+              <label class="field entry-detail-copies-field">
+                <span class="field-label">Copies</span>
+                <input type="number" class="entry-detail-copies-input" min="1" step="1" value="${copies}" />
+              </label>
+            </div>
+
+            <div class="entry-detail-tab-row">
+              <button class="tab-btn ${this._detailTab === 'plates' ? 'active' : ''}" data-action="detail-tab" data-tab="plates">Files & Plates</button>
+              <button class="tab-btn ${this._detailTab === 'info' ? 'active' : ''}" data-action="detail-tab" data-tab="info">Info & Notes</button>
+            </div>
+
+            <div class="tab-panels entry-detail-tab-panels">
+              <section class="tab-panel ${this._detailTab === 'plates' ? 'active' : ''}">
+                ${fileGrid}
+              </section>
+
+              <section class="tab-panel ${this._detailTab === 'info' ? 'active' : ''}">
+                <div class="detail-grid entry-detail-info-grid">
               ${details.map(([label, value]) => `
                 <div class="detail-row">
                   <div class="detail-key">${this._escapeHtml(label)}</div>
                   <div class="detail-value" title="${this._escapeHtml(String(value || ''))}">${this._escapeHtml(String(value || ''))}</div>
                 </div>
               `).join('')}
+                </div>
+
+                <section class="detail-section">
+                  <h4>Archive Linkage</h4>
+                  ${archiveId
+                    ? `<div class="archive-chip">Archive ${this._escapeHtml(archiveId)} linked</div>`
+                    : '<div class="inline-note">No linked archive yet (entry not completed or matched).</div>'}
+                </section>
+
+                <section class="detail-section">
+                  <h4>Print History</h4>
+                  <a class="history-link" href="${this._escapeHtml(printHistoryHref)}" target="_blank" rel="noopener noreferrer">
+                    ${archiveId ? 'Open linked archive in Print History' : 'Open Print History'}
+                  </a>
+                </section>
+
+                <section class="detail-section">
+                  <h4>Queue Notes</h4>
+                  <textarea class="entry-detail-notes" data-action="detail-notes" placeholder="Queue-only notes visible in this board">${notes}</textarea>
+                </section>
+              </section>
             </div>
 
-            <section class="detail-section">
-              <h4>Files And Plates</h4>
-              ${fileGrid}
-            </section>
-
-            <section class="detail-section">
-              <h4>Archive Linkage</h4>
-              ${archiveId
-                ? `<div class="archive-chip">Archive ${this._escapeHtml(archiveId)} linked</div>`
-                : '<div class="inline-note">No linked archive yet (entry not completed/matched).</div>'}
-            </section>
-
-            <section class="detail-section">
-              <h4>Print History</h4>
-              <a class="history-link" href="${this._escapeHtml(printHistoryHref)}" target="_blank" rel="noopener noreferrer">
-                ${archiveId ? 'Open linked archive in Print History' : 'Open Print History'}
-              </a>
-            </section>
+            ${this._detailError ? `<div class="inline-error">${this._escapeHtml(this._detailError)}</div>` : ''}
           </div>
 
           <div class="add-modal-footer">
-            <button class="ghost-btn" data-action="close-detail">Close</button>
+            <div class="entry-detail-footer-left">
+              <button class="ghost-btn" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id || '')}" ${this._detailSubmitting ? 'disabled' : ''}>Remove</button>
+            </div>
+            <button class="ghost-btn" data-action="close-detail" ${this._detailSubmitting ? 'disabled' : ''}>Cancel</button>
+            <button class="primary-btn" data-action="submit-detail" ${this._detailSubmitting ? 'disabled' : ''}>${this._detailSubmitting ? 'Saving...' : 'Save changes'}</button>
           </div>
-        </aside>
+        </section>
       </div>
     `;
   }
@@ -3011,6 +3203,259 @@ class UnifiedQueueBoardCard extends HTMLElement {
         gap: 10px;
       }
 
+      .entry-detail-modal {
+        width: min(960px, 100%);
+      }
+
+      .entry-detail-header-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .entry-detail-source {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        padding: 4px 9px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .entry-detail-source.catalog {
+        color: var(--accent-blue);
+        border-color: rgba(124, 199, 255, 0.3);
+        background: rgba(124, 199, 255, 0.12);
+      }
+
+      .entry-detail-source.working {
+        color: var(--accent);
+        border-color: rgba(110, 231, 200, 0.3);
+        background: rgba(110, 231, 200, 0.12);
+      }
+
+      .entry-detail-source.idea {
+        color: var(--accent-amber);
+        border-color: rgba(242, 195, 91, 0.3);
+        background: rgba(242, 195, 91, 0.12);
+      }
+
+      .entry-detail-state-select,
+      .entry-detail-title-input,
+      .entry-detail-copies-input,
+      .entry-detail-notes {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+      }
+
+      .entry-detail-state-select {
+        height: 34px;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .entry-detail-state-select.in-progress {
+        color: var(--accent-amber);
+        border-color: rgba(242, 195, 91, 0.35);
+        background: rgba(242, 195, 91, 0.12);
+      }
+
+      .entry-detail-state-select.blocked {
+        color: var(--accent-red);
+        border-color: rgba(245, 144, 144, 0.35);
+        background: rgba(245, 144, 144, 0.1);
+      }
+
+      .entry-detail-state-select.done {
+        color: var(--accent);
+        border-color: rgba(110, 231, 200, 0.35);
+        background: rgba(110, 231, 200, 0.12);
+      }
+
+      .entry-detail-title-row {
+        display: grid;
+        grid-template-columns: 1fr 120px;
+        gap: 10px;
+      }
+
+      .entry-detail-main-field {
+        min-width: 0;
+      }
+
+      .entry-detail-title-input,
+      .entry-detail-copies-input {
+        height: 36px;
+        padding: 0 10px;
+        font-size: 13px;
+      }
+
+      .entry-detail-copies-input {
+        text-align: center;
+      }
+
+      .entry-detail-tab-row {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        width: fit-content;
+      }
+
+      .entry-detail-tab-panels {
+        width: 100%;
+      }
+
+      .entry-detail-file-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .entry-detail-file-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.02);
+        overflow: hidden;
+      }
+
+      .entry-detail-file-card.unselected {
+        opacity: 0.78;
+      }
+
+      .entry-detail-file-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      }
+
+      .entry-detail-file-name {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .entry-detail-file-summary {
+        margin-top: 4px;
+        color: var(--text-secondary);
+        font-size: 11px;
+      }
+
+      .entry-detail-file-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .entry-detail-toggle-btn,
+      .entry-detail-mark-btn {
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.04);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .entry-detail-toggle-btn.selected {
+        color: var(--accent);
+        border-color: rgba(110, 231, 200, 0.35);
+        background: rgba(110, 231, 200, 0.12);
+      }
+
+      .entry-detail-mark-btn {
+        color: var(--accent-green);
+        border-color: rgba(125, 220, 151, 0.35);
+        background: rgba(125, 220, 151, 0.12);
+      }
+
+      .entry-detail-mark-btn.disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .entry-detail-plate-list {
+        display: grid;
+      }
+
+      .entry-detail-plate-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 12px;
+        border-top: 1px solid rgba(148, 163, 184, 0.08);
+      }
+
+      .entry-detail-plate-row.selected {
+        background: rgba(110, 231, 200, 0.05);
+      }
+
+      .entry-detail-plate-checkbox {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--accent);
+      }
+
+      .entry-detail-plate-name {
+        color: var(--text);
+        font-size: 12px;
+      }
+
+      .entry-detail-plate-state {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .entry-detail-plate-state.done {
+        color: var(--accent-green);
+        border-color: rgba(125, 220, 151, 0.35);
+        background: rgba(125, 220, 151, 0.12);
+      }
+
+      .entry-detail-plate-state.pending {
+        color: var(--accent-blue);
+        border-color: rgba(124, 199, 255, 0.35);
+        background: rgba(124, 199, 255, 0.1);
+      }
+
+      .entry-detail-info-grid {
+        margin-bottom: 2px;
+      }
+
+      .entry-detail-notes {
+        width: 100%;
+        min-height: 96px;
+        padding: 10px 12px;
+        resize: vertical;
+        font: inherit;
+      }
+
+      .entry-detail-footer-left {
+        margin-right: auto;
+      }
+
       .detail-file-card {
         border: 1px solid var(--border);
         border-radius: 10px;
@@ -3551,7 +3996,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
       </div>
       ${this._renderAddModal()}
-      ${this._renderEditModal()}
       ${this._renderEntryDetailModal()}
       ${this._renderPlannerDrawer()}
     `;
@@ -3705,6 +4149,67 @@ class UnifiedQueueBoardCard extends HTMLElement {
     detailCloseBtns.forEach(button => {
       button.addEventListener('click', () => this._closeEntryDetail());
     });
+
+    const detailTabBtns = this.shadowRoot.querySelectorAll('[data-action="detail-tab"]');
+    detailTabBtns.forEach(button => {
+      button.addEventListener('click', () => {
+        this._setDetailTab(button.dataset.tab);
+      });
+    });
+
+    const detailTitleInput = this.shadowRoot.querySelector('.entry-detail-title-input');
+    if (detailTitleInput) {
+      detailTitleInput.addEventListener('input', (event) => {
+        this._setDetailTitle(event.target.value);
+      });
+    }
+
+    const detailCopiesInput = this.shadowRoot.querySelector('.entry-detail-copies-input');
+    if (detailCopiesInput) {
+      detailCopiesInput.addEventListener('input', (event) => {
+        this._setDetailCopies(event.target.value);
+      });
+    }
+
+    const detailStateSelect = this.shadowRoot.querySelector('[data-action="detail-state"]');
+    if (detailStateSelect) {
+      detailStateSelect.addEventListener('change', (event) => {
+        this._setDetailState(event.target.value);
+      });
+    }
+
+    const detailNotes = this.shadowRoot.querySelector('[data-action="detail-notes"]');
+    if (detailNotes) {
+      detailNotes.addEventListener('input', (event) => {
+        this._setDetailNotes(event.target.value);
+      });
+    }
+
+    const detailFileToggles = this.shadowRoot.querySelectorAll('[data-action="toggle-detail-file"]');
+    detailFileToggles.forEach(button => {
+      button.addEventListener('click', () => {
+        this._toggleDetailFileSelection(button.dataset.fileUnitId);
+      });
+    });
+
+    const detailPlateCheckboxes = this.shadowRoot.querySelectorAll('.entry-detail-plate-checkbox');
+    detailPlateCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', (event) => {
+        this._toggleDetailPlateSelection(event.target.dataset.fileUnitId, event.target.dataset.plateUnitId);
+      });
+    });
+
+    const detailMarkBtns = this.shadowRoot.querySelectorAll('[data-action="mark-detail-plate-done"]');
+    detailMarkBtns.forEach(button => {
+      button.addEventListener('click', () => {
+        this._markDetailPlateDone(button.dataset.fileUnitId, button.dataset.plateUnitId);
+      });
+    });
+
+    const submitDetailBtn = this.shadowRoot.querySelector('[data-action="submit-detail"]');
+    if (submitDetailBtn) {
+      submitDetailBtn.addEventListener('click', () => this._submitDetailModal());
+    }
 
     const plannerBtn = this.shadowRoot.querySelector('.planner-btn');
     if (plannerBtn) {

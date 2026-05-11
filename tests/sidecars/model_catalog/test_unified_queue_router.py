@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.db import connect, create_unified_queue_file_unit
+from app.db import connect, create_unified_queue_file_unit, create_unified_queue_plate_unit
 from app.main import create_app
 from app.settings import Settings
 
@@ -886,6 +886,195 @@ def test_queue_add_v1_advanced_add_rejects_invalid_file_reference(
         payload = response.json()
         assert payload["error"] == "validation_error"
         assert "not valid" in payload["message"]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_get_entry_detail_returns_nested_file_and_plate_units(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "working_file",
+                "source_id": "wf-queue-detail",
+                "title": "Queue detail test",
+            },
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        file_unit = create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-001",
+            file_id="wf-asset-1",
+            file_name="adapter.3mf",
+            selected=True,
+            estimated_minutes=95,
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id=file_unit.file_unit_id,
+            plate_unit_id="qpu-001-001",
+            plate_key="plate-1",
+            plate_name="Plate 1",
+            selected=True,
+            state="pending",
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id=file_unit.file_unit_id,
+            plate_unit_id="qpu-001-002",
+            plate_key="plate-2",
+            plate_name="Plate 2",
+            selected=False,
+            state="done",
+        )
+
+        response = client.get(f"/api/unified-queue/entries/{entry_id}/detail")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["success"] is True
+        assert payload["entry"]["queue_entry_id"] == entry_id
+        assert payload["summary"]["file_count"] == 1
+        assert payload["summary"]["selected_file_count"] == 1
+        assert payload["summary"]["plate_count"] == 2
+        assert payload["summary"]["selected_plate_count"] == 1
+        assert payload["summary"]["completed_plate_count"] == 1
+        assert len(payload["files"]) == 1
+        assert payload["files"][0]["file_unit_id"] == "qfu-001"
+        assert payload["files"][0]["plates"][0]["plate_unit_id"] == "qpu-001-001"
+        assert payload["files"][0]["plates"][1]["state"] == "done"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_update_entry_selection_updates_units_and_selection_mode(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "working_group",
+                "source_id": "wg-selection-save",
+                "title": "Selection save test",
+            },
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        first_file = create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-001",
+            file_id="file-1",
+            file_name="main.3mf",
+            selected=True,
+        )
+        second_file = create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="qfu-002",
+            file_id="file-2",
+            file_name="extras.3mf",
+            selected=True,
+        )
+
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id=first_file.file_unit_id,
+            plate_unit_id="qpu-001-001",
+            plate_key="plate-1",
+            plate_name="Plate 1",
+            selected=True,
+            state="pending",
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id=first_file.file_unit_id,
+            plate_unit_id="qpu-001-002",
+            plate_key="plate-2",
+            plate_name="Plate 2",
+            selected=True,
+            state="pending",
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id=second_file.file_unit_id,
+            plate_unit_id="qpu-002-001",
+            plate_key="plate-1",
+            plate_name="Plate 1",
+            selected=True,
+            state="pending",
+        )
+
+        response = client.patch(
+            f"/api/unified-queue/entries/{entry_id}/selection",
+            json={
+                "files": [
+                    {
+                        "file_unit_id": "qfu-001",
+                        "selected": True,
+                        "plates": [
+                            {"plate_unit_id": "qpu-001-001", "selected": True, "state": "done"},
+                            {"plate_unit_id": "qpu-001-002", "selected": False, "state": "pending"},
+                        ],
+                    },
+                    {
+                        "file_unit_id": "qfu-002",
+                        "selected": False,
+                        "plates": [
+                            {"plate_unit_id": "qpu-002-001", "selected": False, "state": "pending"},
+                        ],
+                    },
+                ]
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["success"] is True
+        assert payload["entry"]["selection_mode"] == "selected_plates"
+        assert payload["summary"]["selected_file_count"] == 1
+        assert payload["summary"]["selected_plate_count"] == 1
+        assert payload["summary"]["completed_plate_count"] == 1
+
+        connection = connect(db_path)
+        try:
+            file_rows = connection.execute(
+                "SELECT file_unit_id, selected FROM unified_queue_file_units WHERE queue_entry_id = ? ORDER BY file_unit_id ASC",
+                (entry_id,),
+            ).fetchall()
+            plate_rows = connection.execute(
+                """
+                SELECT file_unit_id, plate_unit_id, selected, state, completion_confidence, last_attempt_outcome
+                FROM unified_queue_plate_units
+                WHERE queue_entry_id = ?
+                ORDER BY file_unit_id ASC, plate_unit_id ASC
+                """,
+                (entry_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        assert [(str(row["file_unit_id"]), int(row["selected"])) for row in file_rows] == [
+            ("qfu-001", 1),
+            ("qfu-002", 0),
+        ]
+        assert [(str(row["plate_unit_id"]), int(row["selected"]), str(row["state"])) for row in plate_rows] == [
+            ("qpu-001-001", 1, "done"),
+            ("qpu-001-002", 0, "pending"),
+            ("qpu-002-001", 0, "pending"),
+        ]
+        assert str(plate_rows[0]["completion_confidence"]) == "manual"
+        assert str(plate_rows[0]["last_attempt_outcome"]) == "success"
     finally:
         client.__exit__(None, None, None)
 

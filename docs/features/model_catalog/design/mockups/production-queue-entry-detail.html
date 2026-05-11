@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Queue entry detail popup mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0d1219;
+    --bg-overlay: rgba(7, 10, 15, 0.80);
+    --bg-popup: rgba(22, 29, 39, 0.99);
+    --bg-strip: rgba(255,255,255,0.03);
+    --bg-inset: rgba(12,17,24,0.60);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e9eef5;
+    --text-secondary: #a3b0bf;
+    --text-muted: #6b7a8a;
+    --accent: #6ee7c8;
+    --accent-blue: #7cc7ff;
+    --accent-amber: #f2c35b;
+    --accent-red: #f59090;
+    --accent-green: #7ddc97;
+    --shadow: 0 32px 90px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background:
+      radial-gradient(circle at top left, rgba(110,231,200,0.10), transparent 26%),
+      radial-gradient(circle at bottom right, rgba(124,199,255,0.10), transparent 22%),
+      linear-gradient(180deg, #0b1015, #0f1620 42%, #0b1015 100%);
+    color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  body { padding: 30px clamp(16px, 4vw, 42px); }
+
+  .page-header {
+    max-width: 1280px; margin: 0 auto 16px;
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap;
+  }
+  .page-header h1 { margin: 0; font-size: 27px; letter-spacing: -0.03em; }
+  .page-header p { margin: 8px 0 0; max-width: 860px; color: var(--text-secondary); font-size: 14px; line-height: 1.58; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a {
+    text-decoration: none; color: var(--text-secondary); font-size: 12px;
+    padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  }
+  .nav a.active { color: var(--text); border-color: rgba(110,231,200,0.32); background: rgba(110,231,200,0.10); }
+
+  /* Stage / overlay simulation */
+  .stage {
+    max-width: 1280px; margin: 0 auto; padding: 40px 24px;
+    background: var(--bg-overlay); border: 1px dashed var(--border); border-radius: 22px;
+    position: relative;
+  }
+  .stage::before {
+    content: 'Modal backdrop overlay (simulated)';
+    position: absolute; top: 10px; left: 16px;
+    font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* Popup shell */
+  .popup {
+    max-width: 940px; margin: 0 auto;
+    background: var(--bg-popup); border: 1px solid var(--border-strong); border-radius: 22px;
+    box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column;
+  }
+
+  /* Titlebar */
+  .titlebar {
+    padding: 14px 18px;
+    display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  }
+  .titlebar-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .source-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    border: 1px solid rgba(124,199,255,0.28); color: var(--accent-blue); background: rgba(124,199,255,0.09);
+  }
+  .source-badge.working { border-color: rgba(110,231,200,0.28); color: var(--accent); background: rgba(110,231,200,0.09); }
+  .source-badge.idea { border-color: rgba(242,195,91,0.28); color: var(--accent-amber); background: rgba(242,195,91,0.09); }
+  .titlebar-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+  .state-select {
+    appearance: none; background: rgba(255,255,255,0.05); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px 28px 6px 10px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239eacba'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+  }
+  .state-select.in-progress { color: var(--accent-amber); border-color: rgba(242,195,91,0.34); background-color: rgba(242,195,91,0.09); }
+  .close-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text-secondary);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer;
+  }
+
+  /* Title row */
+  .title-row {
+    padding: 14px 18px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .title-input {
+    flex: 1; min-width: 280px;
+    background: var(--bg-inset); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-size: 18px; font-weight: 800; letter-spacing: -0.02em;
+    padding: 9px 13px;
+  }
+  .title-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,231,200,0.16); }
+  .copies-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .copies-group label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .copies-input {
+    width: 64px;
+    background: var(--bg-inset); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-size: 15px; font-weight: 700; padding: 8px 10px; text-align: center;
+  }
+
+  /* Tab row */
+  .tab-row {
+    display: flex; gap: 0; padding: 12px 18px 0; border-bottom: 1px solid var(--border);
+    margin-top: 12px;
+  }
+  .tab-btn {
+    padding: 9px 16px; font-size: 13px; font-weight: 700; color: var(--text-secondary);
+    background: transparent; border: 0; border-bottom: 2px solid transparent;
+    cursor: pointer; letter-spacing: 0;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Tab panels */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Files & Plates tab ── */
+  .plates-tab { padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; max-height: 460px; overflow-y: auto; }
+  .file-block {
+    border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+  }
+  .file-block-header {
+    display: grid; grid-template-columns: 44px 1fr auto auto; gap: 10px; align-items: center;
+    padding: 10px 12px; background: rgba(255,255,255,0.025); border-bottom: 1px solid var(--border);
+  }
+  .file-thumb {
+    width: 44px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(124,199,255,0.16), rgba(110,231,200,0.10));
+    display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 10px;
+    overflow: hidden;
+  }
+  .file-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; }
+  .file-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .file-toggle {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px;
+    font-size: 11px; font-weight: 700; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer;
+  }
+  .file-toggle.selected { color: var(--accent); border-color: rgba(110,231,200,0.32); background: rgba(110,231,200,0.08); }
+  .file-status { font-size: 11px; color: var(--text-muted); text-align: right; white-space: nowrap; }
+  .plate-list { display: flex; flex-direction: column; }
+  .plate-row {
+    display: grid; grid-template-columns: 20px 1fr auto auto auto; gap: 10px; align-items: center;
+    padding: 8px 12px; border-top: 1px solid rgba(148,163,184,0.07); font-size: 12px;
+  }
+  .plate-row:hover { background: rgba(255,255,255,0.02); }
+  .plate-row input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .plate-name { color: var(--text-secondary); }
+  .plate-progress { font-size: 11px; color: var(--text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .plate-state-chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border: 1px solid var(--border);
+  }
+  .plate-state-chip.done { color: var(--accent-green); border-color: rgba(125,220,151,0.32); background: rgba(125,220,151,0.09); }
+  .plate-state-chip.pending { color: var(--accent-blue); border-color: rgba(124,199,255,0.28); background: rgba(124,199,255,0.07); }
+  .plate-state-chip.skipped { color: var(--text-muted); border-color: rgba(148,163,184,0.20); background: rgba(255,255,255,0.03); }
+  .mark-done-btn {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 7px;
+    font-size: 11px; font-weight: 700; border: 1px solid rgba(125,220,151,0.32);
+    color: var(--accent-green); background: rgba(125,220,151,0.07); cursor: pointer; white-space: nowrap;
+  }
+  .mark-done-btn:hover { background: rgba(125,220,151,0.14); }
+  .mark-done-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Info tab ── */
+  .info-tab { padding: 14px 18px; display: flex; flex-direction: column; gap: 14px; max-height: 460px; overflow-y: auto; }
+  .detail-grid {
+    display: grid; grid-template-columns: 140px 1fr; gap: 1px;
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--border);
+  }
+  .detail-row { display: contents; }
+  .detail-key {
+    padding: 9px 12px; background: rgba(255,255,255,0.025);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted);
+  }
+  .detail-val {
+    padding: 9px 12px; background: var(--bg-popup);
+    font-size: 13px; color: var(--text-secondary); word-break: break-all;
+  }
+  .detail-val code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text); }
+  .info-section { display: flex; flex-direction: column; gap: 8px; }
+  .info-section h4 {
+    margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-secondary);
+  }
+  .archive-chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 12px;
+    background: rgba(110,231,200,0.08); border: 1px solid rgba(110,231,200,0.24); color: var(--accent);
+    font-size: 12px; font-weight: 700;
+  }
+  .history-link {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 12px;
+    background: rgba(124,199,255,0.07); border: 1px solid rgba(124,199,255,0.22); color: var(--accent-blue);
+    font-size: 12px; font-weight: 700; text-decoration: none;
+  }
+  .history-link:hover { background: rgba(124,199,255,0.14); }
+  .notes-area {
+    width: 100%; min-height: 72px; resize: vertical;
+    background: var(--bg-inset); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-family: inherit; font-size: 13px; line-height: 1.55; padding: 10px 12px;
+  }
+  .notes-area:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,231,200,0.14); }
+
+  /* Footer */
+  .popup-footer {
+    padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    border-top: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.03));
+  }
+  .footer-left, .footer-right { display: flex; align-items: center; gap: 8px; }
+  .btn {
+    padding: 9px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05); color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, rgba(110,231,200,0.85), rgba(124,199,255,0.75));
+    color: #0b1117; border-color: transparent;
+  }
+  .btn.danger { color: var(--accent-red); border-color: rgba(245,144,144,0.32); background: rgba(245,144,144,0.07); }
+  .dirty-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; color: var(--accent-amber);
+    border: 1px solid rgba(242,195,91,0.32); background: rgba(242,195,91,0.09);
+  }
+  .dirty-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-amber); }
+
+  /* Design annotations */
+  .annotation-block { max-width: 940px; margin: 24px auto 0; }
+  .annotation-block h2 { margin: 0 0 16px; font-size: 18px; letter-spacing: -0.02em; }
+  .annotation-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 700px) { .annotation-grid { grid-template-columns: 1fr; } }
+  .annotation {
+    padding: 14px 16px; border-radius: 16px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    font-size: 12px; color: var(--text-secondary); line-height: 1.6;
+  }
+  .annotation strong { display: block; margin-bottom: 5px; color: var(--text); font-size: 13px; }
+  .annotation.accent-green { border-color: rgba(125,220,151,0.26); background: rgba(125,220,151,0.05); }
+  .annotation.accent-blue { border-color: rgba(124,199,255,0.24); background: rgba(124,199,255,0.05); }
+  .annotation.accent-amber { border-color: rgba(242,195,91,0.26); background: rgba(242,195,91,0.05); }
+
+  /* Variant 2 label */
+  .variant-label {
+    margin: 36px auto 12px; max-width: 940px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted); padding: 0 0 8px; border-bottom: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Queue Entry Detail Popup</h1>
+    <p>
+      Combined <strong>view + edit</strong> popup that replaces the separate edit modal and read-only detail drawer.
+      A single dialog exposes inline title editing, state changes, plate selection, mark-complete actions,
+      and queue notes — eliminating the flash caused by re-rendering while a modal is open.
+    </p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Index</a>
+    <a href="production-queue.html">Queue view</a>
+    <a href="production-queue-add.html">Add flow</a>
+    <a class="active" href="production-queue-entry-detail.html">Entry detail</a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     VARIANT A — Files & Plates tab (default open)
+══════════════════════════════════════════════════════════ -->
+<div class="variant-label">Variant A — Files &amp; Plates tab (default view)</div>
+<div class="stage">
+  <div class="popup">
+
+    <!-- Titlebar: source badge + state dropdown + close -->
+    <div class="titlebar">
+      <div class="titlebar-meta">
+        <span class="titlebar-label">Queue Entry</span>
+        <span class="source-badge">Catalog</span>
+      </div>
+      <!-- State selector: allows direct state transition from the popup header -->
+      <select class="state-select in-progress" title="Change state">
+        <option>Backlog</option>
+        <option>Preparing</option>
+        <option>Ready</option>
+        <option selected>In Progress</option>
+        <option>Blocked</option>
+        <option>Done</option>
+      </select>
+      <button class="close-btn" title="Close">✕</button>
+    </div>
+
+    <!-- Editable title + copies -->
+    <div class="title-row">
+      <input class="title-input" type="text" value="Gridfinity Bit Holder — Full Set" placeholder="Entry title" />
+      <div class="copies-group">
+        <label>Copies</label>
+        <input class="copies-input" type="number" min="1" value="1" />
+      </div>
+    </div>
+
+    <!-- Tab navigation -->
+    <div class="tab-row">
+      <button class="tab-btn active">Files &amp; Plates</button>
+      <button class="tab-btn">Info &amp; Notes</button>
+    </div>
+
+    <!-- ── Tab 1: Files & Plates ── -->
+    <div class="tab-panel active">
+      <div class="plates-tab">
+
+        <!-- File 1: selected, mixed plate completion -->
+        <div class="file-block">
+          <div class="file-block-header">
+            <div class="file-thumb"><img src="" alt="" /></div>
+            <div>
+              <div class="file-name">bit_holder_3x5.3mf</div>
+              <div class="file-sub">5 plates · 2 done · 3 pending</div>
+            </div>
+            <button class="file-toggle selected">✓ Selected</button>
+            <div class="file-status">2 / 5 done</div>
+          </div>
+          <div class="plate-list">
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 1 — Hex tray A</span>
+              <span class="plate-state-chip done">Done</span>
+              <span class="plate-progress">1 / 1</span>
+              <button class="mark-done-btn disabled">Mark done</button>
+            </div>
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 2 — Hex tray B</span>
+              <span class="plate-state-chip done">Done</span>
+              <span class="plate-progress">1 / 1</span>
+              <button class="mark-done-btn disabled">Mark done</button>
+            </div>
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 3 — Hex tray C</span>
+              <span class="plate-state-chip pending">Pending</span>
+              <span class="plate-progress">0 / 1</span>
+              <button class="mark-done-btn">Mark done</button>
+            </div>
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 4 — Lid tray A</span>
+              <span class="plate-state-chip pending">Pending</span>
+              <span class="plate-progress">0 / 1</span>
+              <button class="mark-done-btn">Mark done</button>
+            </div>
+            <div class="plate-row">
+              <input type="checkbox" />
+              <span class="plate-name">Plate 5 — Lid tray B</span>
+              <span class="plate-state-chip skipped">Not selected</span>
+              <span class="plate-progress">—</span>
+              <button class="mark-done-btn disabled">Mark done</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- File 2: selected, all plates pending -->
+        <div class="file-block">
+          <div class="file-block-header">
+            <div class="file-thumb"></div>
+            <div>
+              <div class="file-name">bit_holder_inserts.3mf</div>
+              <div class="file-sub">3 plates · all pending</div>
+            </div>
+            <button class="file-toggle selected">✓ Selected</button>
+            <div class="file-status">0 / 3 done</div>
+          </div>
+          <div class="plate-list">
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 1 — Small inserts</span>
+              <span class="plate-state-chip pending">Pending</span>
+              <span class="plate-progress">0 / 1</span>
+              <button class="mark-done-btn">Mark done</button>
+            </div>
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 2 — Medium inserts</span>
+              <span class="plate-state-chip pending">Pending</span>
+              <span class="plate-progress">0 / 1</span>
+              <button class="mark-done-btn">Mark done</button>
+            </div>
+            <div class="plate-row">
+              <input type="checkbox" checked />
+              <span class="plate-name">Plate 3 — Large inserts</span>
+              <span class="plate-state-chip pending">Pending</span>
+              <span class="plate-progress">0 / 1</span>
+              <button class="mark-done-btn">Mark done</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- File 3: not selected (de-selected after add) -->
+        <div class="file-block" style="opacity:0.55;">
+          <div class="file-block-header">
+            <div class="file-thumb"></div>
+            <div>
+              <div class="file-name">bit_holder_drawer_inserts.3mf</div>
+              <div class="file-sub">2 plates · not included in this run</div>
+            </div>
+            <button class="file-toggle">+ Include</button>
+            <div class="file-status">—</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <div class="footer-left">
+        <button class="btn danger">Remove from queue</button>
+      </div>
+      <div class="footer-right">
+        <span class="dirty-pill"><span class="dirty-dot"></span>Unsaved changes</span>
+        <button class="btn">Cancel</button>
+        <button class="btn primary">Save changes</button>
+      </div>
+    </div>
+
+  </div><!-- /.popup -->
+</div><!-- /.stage -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VARIANT B — Info & Notes tab
+══════════════════════════════════════════════════════════ -->
+<div class="variant-label">Variant B — Info &amp; Notes tab</div>
+<div class="stage">
+  <div class="popup">
+
+    <div class="titlebar">
+      <div class="titlebar-meta">
+        <span class="titlebar-label">Queue Entry</span>
+        <span class="source-badge working">Working File</span>
+      </div>
+      <select class="state-select" title="Change state">
+        <option>Backlog</option>
+        <option selected>Preparing</option>
+        <option>Ready</option>
+        <option>In Progress</option>
+        <option>Blocked</option>
+        <option>Done</option>
+      </select>
+      <button class="close-btn" title="Close">✕</button>
+    </div>
+
+    <div class="title-row">
+      <input class="title-input" type="text" value="Vacuum Hose Adapter v4" placeholder="Entry title" />
+      <div class="copies-group">
+        <label>Copies</label>
+        <input class="copies-input" type="number" min="1" value="2" />
+      </div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab-btn">Files &amp; Plates</button>
+      <button class="tab-btn active">Info &amp; Notes</button>
+    </div>
+
+    <div class="tab-panel active">
+      <div class="info-tab">
+
+        <!-- Metadata grid -->
+        <div class="detail-grid">
+          <div class="detail-key">Queue ID</div>
+          <div class="detail-val"><code>q-7fa4c1b2</code></div>
+          <div class="detail-key">Source kind</div>
+          <div class="detail-val">Working File</div>
+          <div class="detail-key">Source ID</div>
+          <div class="detail-val"><code>wf-vac-adapter-v4</code></div>
+          <div class="detail-key">Rank</div>
+          <div class="detail-val">3</div>
+          <div class="detail-key">Duration</div>
+          <div class="detail-val">4h 22m (estimated)</div>
+          <div class="detail-key">Selection</div>
+          <div class="detail-val">1 file · all plates</div>
+          <div class="detail-key">Added</div>
+          <div class="detail-val">2026-05-10 08:41</div>
+        </div>
+
+        <!-- Archive linkage -->
+        <div class="info-section">
+          <h4>Archive Linkage</h4>
+          <span class="archive-chip">✓ Archive a3fc9d11 linked</span>
+        </div>
+
+        <!-- Print history link -->
+        <div class="info-section">
+          <h4>Print History</h4>
+          <a class="history-link" href="#" target="_blank" rel="noopener noreferrer">↗ Open linked archive in Print History</a>
+        </div>
+
+        <!-- Notes -->
+        <div class="info-section">
+          <h4>Queue Notes</h4>
+          <textarea class="notes-area" placeholder="Notes visible only in the queue (not synced to source)…">Check that the M5 brass insert fits before printing the full batch. Previous v3 run had 0.2mm tolerance issue on the flange.</textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="popup-footer">
+      <div class="footer-left">
+        <button class="btn danger">Remove from queue</button>
+      </div>
+      <div class="footer-right">
+        <span class="dirty-pill"><span class="dirty-dot"></span>Unsaved changes</span>
+        <button class="btn">Cancel</button>
+        <button class="btn primary">Save changes</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VARIANT C — Idea entry (no files/plates, simplified)
+══════════════════════════════════════════════════════════ -->
+<div class="variant-label">Variant C — Idea entry (no files or plates)</div>
+<div class="stage">
+  <div class="popup" style="max-width:680px;">
+
+    <div class="titlebar">
+      <div class="titlebar-meta">
+        <span class="titlebar-label">Queue Entry</span>
+        <span class="source-badge idea">Idea</span>
+      </div>
+      <select class="state-select" title="Change state">
+        <option selected>Backlog</option>
+        <option>Preparing</option>
+        <option>Ready</option>
+        <option>In Progress</option>
+        <option>Blocked</option>
+        <option>Done</option>
+      </select>
+      <button class="close-btn" title="Close">✕</button>
+    </div>
+
+    <div class="title-row">
+      <input class="title-input" type="text" value="Modular pegboard rail system" placeholder="Idea title" />
+    </div>
+
+    <!-- Ideas have no file/plate tab — just notes + promote action -->
+    <div class="tab-row">
+      <button class="tab-btn active">Notes &amp; Details</button>
+    </div>
+
+    <div class="tab-panel active">
+      <div class="info-tab">
+
+        <div class="detail-grid">
+          <div class="detail-key">Queue ID</div>
+          <div class="detail-val"><code>q-2bc88d04</code></div>
+          <div class="detail-key">Source kind</div>
+          <div class="detail-val">Idea (no files yet)</div>
+          <div class="detail-key">Rank</div>
+          <div class="detail-val">12</div>
+          <div class="detail-key">Added</div>
+          <div class="detail-val">2026-05-11 14:02</div>
+        </div>
+
+        <div class="info-section">
+          <h4>Notes</h4>
+          <textarea class="notes-area" placeholder="Describe the idea, reference links, inspiration…">Inspired by the Gridfinity ecosystem. Want a rail system that uses 4mm T-nuts. Check Printables for reference before starting design. May want to use working group once I find 2-3 reference files.</textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="popup-footer">
+      <div class="footer-left">
+        <button class="btn danger">Remove</button>
+      </div>
+      <div class="footer-right">
+        <button class="btn">Promote to Working Group ↗</button>
+        <button class="btn">Cancel</button>
+        <button class="btn primary">Save</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     Design annotations
+══════════════════════════════════════════════════════════ -->
+<div class="annotation-block">
+  <h2>Design rationale</h2>
+  <div class="annotation-grid">
+
+    <div class="annotation accent-green">
+      <strong>Why one popup instead of separate edit modal + detail drawer</strong>
+      The old split required two different user gestures ("Edit" vs "View Details") to see
+      related information, and both surfaces needed to stay in sync. A single popup eliminates
+      that confusion, and the tabbed layout keeps the UI compact without hiding anything.
+    </div>
+
+    <div class="annotation accent-blue">
+      <strong>Fixing the re-render flash</strong>
+      The flash happens because <code>_loadQueueData()</code> calls <code>_render()</code>, which
+      replaces <code>shadowRoot.innerHTML</code> entirely — including the open modal. The fix is to
+      skip the full re-render while any modal is open and re-render once after the data refresh
+      completes. Modal state (title edits, tab position) is preserved in component properties,
+      so nothing is lost.
+    </div>
+
+    <div class="annotation accent-amber">
+      <strong>Plate "Mark done" vs automatic archive linkage</strong>
+      Automatic completion fires on high-confidence archive linkage. The manual "Mark done" button
+      is the operator override for cases where confidence is low or the archive was never linked.
+      Unchecking a plate de-selects it from future prints of this entry but does not retroactively
+      affect completion count.
+    </div>
+
+    <div class="annotation">
+      <strong>State dropdown in the titlebar</strong>
+      Moving state change into the titlebar means the operator can change state without navigating
+      away or hunting for a separate button. The dropdown is constrained to valid transitions from
+      the backend — invalid transitions are either hidden or shown disabled (TBD based on how many
+      valid states exist from any given current state).
+    </div>
+
+    <div class="annotation">
+      <strong>Idea variant is narrower and simpler</strong>
+      Ideas have no files or plates, so the "Files &amp; Plates" tab is omitted entirely. Instead,
+      the footer offers a "Promote to Working Group" affordance — the first step toward an idea
+      becoming a printable entry. This keeps the idea entry lightweight without pretending it has
+      structure it does not.
+    </div>
+
+    <div class="annotation accent-green">
+      <strong>Popup vs drawer decision</strong>
+      The old drawer competed visually with the full-width queue board behind it. A centered
+      popup with a dimmed backdrop (matching the Add flow) is more consistent with patterns used
+      elsewhere in the dashboard family, reduces cognitive load, and does not require managing
+      drawer width relative to the card's panel layout.
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
