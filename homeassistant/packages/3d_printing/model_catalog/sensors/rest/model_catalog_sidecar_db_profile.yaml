@@ -1,4 +1,4 @@
-- resource: >-
+- resource_template: >-
     {{
       states('input_text.model_catalog_sidecar_base_url')
       if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
@@ -11,7 +11,7 @@
       unique_id: model_catalog_sidecar_db_profile
       value_template: "{{ value_json.db_profile | default('unknown', true) | lower }}"
       icon: mdi:database-switch
-      attributes:
-        db_path: "{{ value_json.db_path | default('', true) }}"
-        db_path_prod: "{{ value_json.db_path_prod | default('', true) }}"
-        db_path_test: "{{ value_json.db_path_test | default('', true) }}"
+      json_attributes:
+        - db_path
+        - db_path_prod
+        - db_path_test
