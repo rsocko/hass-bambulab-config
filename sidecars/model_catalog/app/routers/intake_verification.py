@@ -32,6 +32,7 @@ from .._helpers import (
     _coerce_bool,
     _collect_intake_source_files_in_folder,
     _configured_working_files_roots,
+    _enforce_source_entries_within_intake_roots,
     _is_excluded_source_file,
     _normalize_path_compare_key,
 )
@@ -143,6 +144,24 @@ def plan_intake_groups(request: Request, payload: dict[str, Any] | None = None) 
             },
         )
 
+    # Strict allowlist enforcement: every server-mode source entry must resolve
+    # within the intake roots configured for the active DB profile (prod/test).
+    # This is the deterministic guard that prevents cross-profile path leakage
+    # even if a stale browser cache or buggy client sends the wrong root.
+    rejection_message = _enforce_source_entries_within_intake_roots(
+        request.app.state.model_catalog.settings,
+        source_entries,
+    )
+    if rejection_message is not None:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "success": False,
+                "error": "path_not_allowed",
+                "message": rejection_message,
+            },
+        )
+
     normalized_entries = _canonical_source_entries(source_entries)
     expanded_files, warnings = _expand_intake_source_entries(source_entries=normalized_entries)
     
@@ -226,6 +245,14 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             recurse = _coerce_bool(entry.get("recurse", True))
             candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse)
 
+        # Track how many files this specific entry contributes so we can emit a
+        # diagnostic warning when an explicit folder/file selection yields zero
+        # eligible files. Without this, the wizard's "Choose Destination" step
+        # silently dead-ends with "No planned groups available yet" and the
+        # operator has no clue why their selection produced no models.
+        entry_expanded_before = len(expanded)
+        entry_warnings_before = len(warnings)
+
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
@@ -296,6 +323,31 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                 }
             )
             seen_paths.add(normalized_path)
+
+        # Diagnostic: if this entry contributed zero files AND produced no
+        # per-file warning of its own (unsupported_type / missing_source /
+        # source_unreadable), surface a "no_eligible_files" warning so the
+        # wizard's destination step can explain the empty plan instead of
+        # silently dead-ending.
+        if (
+            len(expanded) == entry_expanded_before
+            and len(warnings) == entry_warnings_before
+        ):
+            if entry_type == "folder":
+                message = (
+                    f"Folder contains no eligible model files: {source_path_raw}"
+                )
+            else:
+                message = (
+                    f"Source contains no eligible model files: {source_path_raw}"
+                )
+            warnings.append(
+                {
+                    "code": "no_eligible_files",
+                    "message": message,
+                    "path": str(source_path),
+                }
+            )
 
     return expanded, warnings
 

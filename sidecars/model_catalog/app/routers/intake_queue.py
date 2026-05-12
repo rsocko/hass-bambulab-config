@@ -49,6 +49,7 @@ from .._helpers import (
     _coerce_bool,
     _collect_intake_source_files_in_folder,
     _configured_intake_source_roots,
+    _enforce_source_entries_within_intake_roots,
     _is_excluded_source_file,
     _is_path_within_roots,
 )
@@ -976,6 +977,23 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     source_entries = payload.get("source_entries") or []
     cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
     idempotency_key = str(payload.get("idempotency_key") or "").strip() or None
+
+    # Strict allowlist enforcement: server-mode source entries must resolve
+    # within the intake roots configured for the active DB profile (prod/test).
+    # Browser-staged entries are exempt (they live in sidecar staging).
+    rejection_message = _enforce_source_entries_within_intake_roots(
+        state.settings,
+        source_entries,
+    )
+    if rejection_message is not None:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "success": False,
+                "error": "path_not_allowed",
+                "message": rejection_message,
+            },
+        )
 
     try:
         validated_entries = _validate_intake_source_entries(source_entries)

@@ -156,6 +156,72 @@ def _is_path_within_roots(resolved: Path, roots: list[Path]) -> bool:
     )
 
 
+def _enforce_source_entries_within_intake_roots(
+    settings: Settings,
+    source_entries: Any,
+) -> str | None:
+    """Return a rejection message when any server-mode source entry escapes the
+    configured intake roots for the active DB profile.
+
+    This is the strict gate enforcing prod/test separation: when the active
+    profile is ``test`` the only allowed roots are those resolved from
+    ``MODEL_CATALOG_INTAKE_ROOTS_TEST``; under ``prod`` only those from
+    ``MODEL_CATALOG_INTAKE_ROOTS``. Any entry whose resolved filesystem path
+    falls outside that allowlist is rejected, even if the path exists.
+
+    Browser-staged entries (``source_type == "browser_upload"``) are exempt
+    because they live in the sidecar's internal staging directory rather than
+    the user-visible intake roots.
+
+    Returns ``None`` when every server-mode entry is within the allowlist;
+    otherwise returns a single human-readable error string suitable for use as
+    the ``message`` field of a 403 JSON response.
+    """
+    roots = _configured_intake_source_roots(settings)
+    if not isinstance(source_entries, list):
+        return None
+
+    rejected: list[str] = []
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        source_type = str(entry.get("source_type") or "").strip().lower()
+        if source_type == "browser_upload":
+            continue
+        raw_path = str(entry.get("path") or "").strip()
+        if not raw_path:
+            continue
+        try:
+            resolved = Path(raw_path).expanduser().resolve()
+        except (OSError, ValueError):
+            rejected.append(raw_path)
+            continue
+        # Strict: when no intake roots are configured for the active profile,
+        # reject every server-mode path. This is the failsafe that keeps a
+        # misconfigured deploy (e.g., MODEL_CATALOG_INTAKE_ROOTS_TEST unset
+        # while MODEL_CATALOG_DB_PROFILE=test) from silently accepting any
+        # arbitrary path on the host filesystem.
+        if not roots or not _is_path_within_roots(resolved, roots):
+            rejected.append(str(resolved))
+
+    if not rejected:
+        return None
+    if roots:
+        allowed_str = ", ".join(str(root) for root in roots)
+        allowed_hint = f"Allowed intake roots: {allowed_str}."
+    else:
+        allowed_hint = (
+            "No intake roots are configured for the active database profile. "
+            "Set MODEL_CATALOG_INTAKE_ROOTS (prod) or MODEL_CATALOG_INTAKE_ROOTS_TEST "
+            "(test) and restart the sidecar."
+        )
+    return (
+        "One or more selected paths are not within the configured intake roots "
+        f"for the active database profile. Rejected: {', '.join(rejected)}. "
+        f"{allowed_hint}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Timestamp / filesystem metadata helpers
 # ---------------------------------------------------------------------------

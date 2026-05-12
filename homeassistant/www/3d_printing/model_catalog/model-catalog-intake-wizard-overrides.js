@@ -1411,13 +1411,43 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._render();
   };
 
+  proto._renderEmptyDestinationState = function () {
+    // Surface backend plan warnings (e.g. "no_eligible_files") so the operator
+    // understands why their selection produced zero planned groups instead of
+    // seeing a generic "Return to Organize" message that misdirects them.
+    var warnings = this._previewData && Array.isArray(this._previewData.warnings)
+      ? this._previewData.warnings
+      : [];
+    if (this._previewLoading) {
+      return '<div class="state-row">Generating intake plan...</div>';
+    }
+    if (!this._previewData) {
+      return '<div class="state-row">No selection yet. Return to Choose Files to pick folders or files for intake.</div>';
+    }
+    if (warnings.length) {
+      var items = warnings.map(function (warning) {
+        var w = warning || {};
+        var msg = String(w.message || w.code || 'Unknown issue');
+        var path = String(w.path || '');
+        return '<li>' + escapeHtml(msg) + (path ? ' <span class="muted">(' + escapeHtml(path) + ')</span>' : '') + '</li>';
+      }).join('');
+      return ''
+        + '<div class="state-row">'
+        + '  <div><strong>No eligible model files found in the current selection.</strong></div>'
+        + '  <ul style="margin:6px 0 0 18px; padding:0;">' + items + '</ul>'
+        + '  <div class="muted" style="margin-top:6px;">Return to Choose Files and pick a different folder, or add eligible model files (e.g. .3mf, .stl) to the selected folder.</div>'
+        + '</div>';
+    }
+    return '<div class="state-row">No eligible model files were found in the current selection. Return to Choose Files to pick a different folder.</div>';
+  };
+
   proto._renderDestinationAssignments = function () {
     var plannedModels = this._previewData && Array.isArray(this._previewData.planned_models)
       ? this._previewData.planned_models
       : [];
     var plans = this._syncGroupDestinationsFromPreview();
     if (!plannedModels.length) {
-      return '<div class="state-row">No planned groups available yet. Return to Organize to resolve the model plan first.</div>';
+      return this._renderEmptyDestinationState();
     }
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
@@ -1470,7 +1500,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       : [];
     var plans = this._syncGroupDestinationsFromPreview();
     if (!plannedModels.length) {
-      return '<div class="state-row">No destination assignments yet.</div>';
+      return this._renderEmptyDestinationState();
     }
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
