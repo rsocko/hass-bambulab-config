@@ -541,19 +541,15 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._render();
   }
 
-  async _loadQueueData() {
-    if (!this._hass) return;
-    const isInitialLoad = this._entries.length === 0 && !this._error;
-    
-    this._loading = true;
-    this._error = null;
-    if (isInitialLoad) {
-      this._render();
-    }
-    
-    try {
+  async _fetchAllQueueEntries() {
+    const pageSize = 200;
+    const maxPages = 25;
+    let offset = 0;
+    const allEntries = [];
+
+    for (let page = 0; page < maxPages; page++) {
       const response = await fetch(
-        `${this._getQueueApiBase()}/queues/${this.printerId}/entries`,
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/entries?limit=${pageSize}&offset=${offset}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -566,7 +562,34 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       const data = await response.json();
-      this._entries = data.entries || [];
+      const pageEntries = Array.isArray(data?.entries)
+        ? data.entries
+        : (Array.isArray(data) ? data : []);
+      allEntries.push(...pageEntries);
+
+      const hasMore = Boolean(data?.pagination?.has_more);
+      if (!hasMore || pageEntries.length === 0) {
+        break;
+      }
+
+      offset += pageEntries.length;
+    }
+
+    return allEntries;
+  }
+
+  async _loadQueueData() {
+    if (!this._hass) return;
+    const isInitialLoad = this._entries.length === 0 && !this._error;
+    
+    this._loading = true;
+    this._error = null;
+    if (isInitialLoad) {
+      this._render();
+    }
+    
+    try {
+      this._entries = await this._fetchAllQueueEntries();
       this._error = null;
       await this._loadMediumConfidenceSuggestions();
     } catch (err) {
