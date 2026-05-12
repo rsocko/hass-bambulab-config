@@ -69,6 +69,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._addTab = 'quick';
     this._addSourceKind = 'catalog_model';
     this._addSourceId = '';
+    this._addIdeaTitle = '';
+    this._addIdeaNotes = '';
     this._addSourceOptions = {
       catalog_model: [],
       working_group: [],
@@ -92,6 +94,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailTab = 'plates';
     this._detailSubmitting = false;
     this._detailDirty = false;
+    this._ideaGraduateBusy = false;
     this._detailForm = {
       title: '',
       copies: 1,
@@ -713,6 +716,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._addTab = 'quick';
     this._addSourceKind = 'catalog_model';
     this._addSourceId = '';
+    this._addIdeaTitle = '';
+    this._addIdeaNotes = '';
     this._addLoadingSources = !hasCachedSources;
     this._addLoadingDetail = false;
     this._addSubmitting = false;
@@ -792,6 +797,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _getActiveAddOptions() {
+    if (this._addSourceKind === 'idea') {
+      return [];
+    }
     return this._addSourceOptions[this._addSourceKind] || [];
   }
 
@@ -802,6 +810,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   async _loadAddSourceDetail() {
+    if (this._addSourceKind === 'idea') {
+      this._addDetailError = 'Ideas do not include files or plates until they are graduated.';
+      this._addDetailFiles = [];
+      this._render();
+      return;
+    }
+
     const sourceId = String(this._addSourceId || '').trim();
     if (!sourceId) {
       this._addDetailError = 'Choose a source first.';
@@ -946,7 +961,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _setAddSourceKind(sourceKind) {
-    if (sourceKind !== 'catalog_model' && sourceKind !== 'working_group') {
+    if (sourceKind !== 'catalog_model' && sourceKind !== 'working_group' && sourceKind !== 'idea') {
       return;
     }
 
@@ -955,6 +970,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._addDetailError = null;
     this._addDetailFiles = [];
     this._render();
+  }
+
+  _setAddIdeaTitle(value) {
+    this._addIdeaTitle = String(value || '').slice(0, 120);
+  }
+
+  _setAddIdeaNotes(value) {
+    this._addIdeaNotes = String(value || '').slice(0, 1200);
   }
 
   _setAddSourceId(sourceId) {
@@ -1042,6 +1065,55 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   async _submitAddToQueue() {
+    if (this._addSourceKind === 'idea') {
+      const ideaTitle = this._stripTitlePrefix(this._addIdeaTitle || '').trim();
+      if (!ideaTitle) {
+        this._addDetailError = 'Idea title is required.';
+        this._render();
+        return;
+      }
+
+      this._addSubmitting = true;
+      this._addDetailError = null;
+      this._render();
+
+      try {
+        const payload = {
+          source_kind: 'idea',
+          title: `Idea: ${ideaTitle}`,
+          state: 'backlog',
+          queue_notes: String(this._addIdeaNotes || '').trim() || null,
+        };
+
+        const response = await fetch(
+          `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const responseBody = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(String(responseBody.message || responseBody.error || `Idea add failed (${response.status})`));
+        }
+
+        this._closeAddModal();
+        this._setFlashMessage('Idea added to queue backlog.', 'success');
+        await this._loadQueueData();
+      } catch (err) {
+        this._addDetailError = err.message;
+        this._render();
+      } finally {
+        this._addSubmitting = false;
+        this._render();
+      }
+      return;
+    }
+
     const sourceId = String(this._addSourceId || '').trim();
     if (!sourceId) {
       this._addDetailError = 'Choose a source first.';
@@ -1116,6 +1188,24 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _getEntryById(queueEntryId) {
     return this._entries.find(entry => entry.queue_entry_id === queueEntryId) || null;
+  }
+
+  _buildLocalModelIdSeed(title) {
+    const normalized = String(title || '').toLowerCase();
+    const slug = normalized
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'idea-model';
+    const random = Math.random().toString(16).slice(2, 10).padEnd(8, '0');
+    return `${slug}--${random}`;
+  }
+
+  _appendQueueNoteLine(existingNotes, nextLine) {
+    const existing = String(existingNotes || '').trim();
+    const line = String(nextLine || '').trim();
+    if (!line) return existing || null;
+    if (!existing) return line;
+    return `${existing}\n${line}`;
   }
 
   _getAllEntriesRanked() {
@@ -1320,6 +1410,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailTab = tab === 'info' ? 'info' : 'plates';
     this._detailSubmitting = false;
     this._detailDirty = false;
+    this._ideaGraduateBusy = false;
     this._detailForm = {
       title: String(entry.title || '').trim(),
       copies: Number.isFinite(entry.copies_requested) ? entry.copies_requested : 1,
@@ -1338,6 +1429,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailTab = 'plates';
     this._detailSubmitting = false;
     this._detailDirty = false;
+    this._ideaGraduateBusy = false;
     this._detailForm = {
       title: '',
       copies: 1,
@@ -1563,6 +1655,179 @@ class UnifiedQueueBoardCard extends HTMLElement {
       this._detailError = err.message;
       this._detailSubmitting = false;
       this._render();
+    }
+  }
+
+  async _graduateIdeaToWorkingGroup() {
+    const entry = this._detailEntry;
+    const queueEntryId = String(entry?.queue_entry_id || '').trim();
+    if (!entry || !queueEntryId || String(entry.source_kind || '').trim() !== 'idea') return;
+
+    const ideaTitle = this._stripTitlePrefix(this._detailForm.title || entry.title || '').trim();
+    if (!ideaTitle) {
+      this._detailError = 'Idea title is required before graduating.';
+      this._render();
+      return;
+    }
+
+    this._detailSubmitting = true;
+    this._ideaGraduateBusy = true;
+    this._detailError = null;
+    this._render();
+
+    try {
+      const groupResponse = await fetch(`${this._getCatalogApiBase()}/working-groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: ideaTitle,
+          notes: String(this._detailForm.queueNotes || '').trim() || null,
+          stage: 'draft',
+        }),
+      });
+      const groupPayload = await groupResponse.json().catch(() => ({}));
+      if (!groupResponse.ok || !groupPayload.group) {
+        throw new Error(String(groupPayload.message || groupPayload.error || `Working group create failed (${groupResponse.status})`));
+      }
+
+      const group = groupPayload.group;
+      const groupRef = String(group.slug || group.id || '').trim();
+      if (!groupRef) {
+        throw new Error('Working group created without a usable reference.');
+      }
+
+      const addResponse = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_kind: 'working_group',
+            source_id: groupRef,
+            title: `Working Group: ${ideaTitle}`,
+            state: 'preparing',
+            queue_notes: 'Created from queue idea graduation',
+          }),
+        }
+      );
+      const addPayload = await addResponse.json().catch(() => ({}));
+      if (!addResponse.ok) {
+        throw new Error(String(addPayload.message || addPayload.error || `Queue graduation add failed (${addResponse.status})`));
+      }
+
+      const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const note = this._appendQueueNoteLine(
+        this._detailForm.queueNotes,
+        `[${now}] Graduated to Working Group ${groupRef}`
+      );
+
+      const completeResponse = await fetch(
+        `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(queueEntryId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 'done', queue_notes: note }),
+        }
+      );
+      const completePayload = await completeResponse.json().catch(() => ({}));
+      if (!completeResponse.ok) {
+        throw new Error(String(completePayload.message || completePayload.error || `Idea completion failed (${completeResponse.status})`));
+      }
+
+      await this._loadQueueData();
+      this._closeEntryDetail();
+      this._setFlashMessage(`Idea graduated to Working Group ${groupRef}.`, 'success');
+    } catch (err) {
+      this._detailError = err.message;
+      this._detailSubmitting = false;
+      this._render();
+    } finally {
+      this._ideaGraduateBusy = false;
+    }
+  }
+
+  async _graduateIdeaToCatalog() {
+    const entry = this._detailEntry;
+    const queueEntryId = String(entry?.queue_entry_id || '').trim();
+    if (!entry || !queueEntryId || String(entry.source_kind || '').trim() !== 'idea') return;
+
+    const ideaTitle = this._stripTitlePrefix(this._detailForm.title || entry.title || '').trim();
+    if (!ideaTitle) {
+      this._detailError = 'Idea title is required before graduating.';
+      this._render();
+      return;
+    }
+
+    this._detailSubmitting = true;
+    this._ideaGraduateBusy = true;
+    this._detailError = null;
+    this._render();
+
+    try {
+      const localModelId = this._buildLocalModelIdSeed(ideaTitle);
+      const createResponse = await fetch(`${this._getCatalogApiBase()}/local/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          local_model_id: localModelId,
+          model_name: ideaTitle,
+          model_description: String(this._detailForm.queueNotes || '').trim() || null,
+          source_origin: 'queue_idea',
+        }),
+      });
+      const createPayload = await createResponse.json().catch(() => ({}));
+      if (!createResponse.ok) {
+        throw new Error(String(createPayload.message || createPayload.error || `Catalog entry create failed (${createResponse.status})`));
+      }
+
+      const modelRef = String(createPayload.local_model_id || localModelId).trim();
+      const addResponse = await fetch(
+        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_kind: 'catalog_model',
+            source_id: modelRef,
+            title: `Catalog Model: ${ideaTitle}`,
+            state: 'preparing',
+            queue_notes: 'Created from queue idea graduation',
+          }),
+        }
+      );
+      const addPayload = await addResponse.json().catch(() => ({}));
+      if (!addResponse.ok) {
+        throw new Error(String(addPayload.message || addPayload.error || `Queue graduation add failed (${addResponse.status})`));
+      }
+
+      const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const note = this._appendQueueNoteLine(
+        this._detailForm.queueNotes,
+        `[${now}] Graduated to Catalog ${modelRef}`
+      );
+
+      const completeResponse = await fetch(
+        `${this._getCatalogApiBase()}/unified-queue/entries/${encodeURIComponent(queueEntryId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 'done', queue_notes: note }),
+        }
+      );
+      const completePayload = await completeResponse.json().catch(() => ({}));
+      if (!completeResponse.ok) {
+        throw new Error(String(completePayload.message || completePayload.error || `Idea completion failed (${completeResponse.status})`));
+      }
+
+      await this._loadQueueData();
+      this._closeEntryDetail();
+      this._setFlashMessage(`Idea graduated to Catalog ${modelRef}.`, 'success');
+    } catch (err) {
+      this._detailError = err.message;
+      this._detailSubmitting = false;
+      this._render();
+    } finally {
+      this._ideaGraduateBusy = false;
     }
   }
 
@@ -2514,8 +2779,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
       return '';
     }
 
+    const isIdeaSource = this._addSourceKind === 'idea';
     const activeOptions = this._getActiveAddOptions();
     const metrics = this._getAddSelectionMetrics();
+    const ideaTitle = this._stripTitlePrefix(this._addIdeaTitle || '');
     const quickPreview = `${metrics.fileCount} files x ${metrics.plateCount} plates = ${metrics.plateCount} queue copies`;
     const advancedPreview = `${metrics.selectedFileCount} files x ${metrics.selectedPlateCount} selected plates = ${metrics.selectedPlateCount} queue copies`;
 
@@ -2534,9 +2801,19 @@ class UnifiedQueueBoardCard extends HTMLElement {
                 <select class="add-source-kind">
                   <option value="catalog_model" ${this._addSourceKind === 'catalog_model' ? 'selected' : ''}>Catalog Model</option>
                   <option value="working_group" ${this._addSourceKind === 'working_group' ? 'selected' : ''}>Working Group</option>
+                  <option value="idea" ${this._addSourceKind === 'idea' ? 'selected' : ''}>Idea</option>
                 </select>
               </label>
 
+              ${isIdeaSource ? `
+              <label class="field">
+                <span class="field-label">Idea Title</span>
+                <input class="add-idea-title" type="text" maxlength="120" value="${this._escapeHtml(ideaTitle)}" placeholder="What should we print?" />
+              </label>
+              <div class="idea-add-panel">
+                <div class="inline-note">Ideas are captured as backlog entries and can later graduate to Working Group or Catalog from details.</div>
+              </div>
+              ` : `
               <label class="field">
                 <span class="field-label">Source</span>
                 <select class="add-source-select">
@@ -2552,20 +2829,28 @@ class UnifiedQueueBoardCard extends HTMLElement {
               <button class="load-detail-btn" data-action="load-add-detail" ${this._addLoadingSources || this._addLoadingDetail ? 'disabled' : ''}>
                 ${this._addLoadingDetail ? 'Loading...' : 'Load Files'}
               </button>
+              `}
             </div>
 
-            <div class="tab-row">
+            ${isIdeaSource ? `
+            <label class="field">
+              <span class="field-label">Idea Notes (Optional)</span>
+              <textarea class="add-idea-notes" maxlength="1200" placeholder="Context, requirements, color/material hints...">${this._escapeHtml(this._addIdeaNotes || '')}</textarea>
+            </label>
+            ` : ''}
+
+            <div class="tab-row" ${isIdeaSource ? 'style="display:none"' : ''}>
               <button class="tab-btn ${this._addTab === 'quick' ? 'active' : ''}" data-action="add-tab" data-tab="quick">Quick Add</button>
               <button class="tab-btn ${this._addTab === 'advanced' ? 'active' : ''}" data-action="add-tab" data-tab="advanced">Advanced Add</button>
             </div>
 
             <div class="tab-panels">
               <section class="tab-panel ${this._addTab === 'quick' ? 'active' : ''}">
-                <p class="tab-copy">Adds all files and all plates from the selected source.</p>
-                <div class="copy-preview">${this._escapeHtml(quickPreview)}</div>
+                <p class="tab-copy">${isIdeaSource ? 'Creates an idea entry in backlog.' : 'Adds all files and all plates from the selected source.'}</p>
+                <div class="copy-preview">${this._escapeHtml(isIdeaSource ? 'Idea entry will be created with source kind = idea and state = backlog.' : quickPreview)}</div>
               </section>
 
-              <section class="tab-panel ${this._addTab === 'advanced' ? 'active' : ''}">
+              <section class="tab-panel ${this._addTab === 'advanced' && !isIdeaSource ? 'active' : ''}">
                 <p class="tab-copy">Choose exactly which files and plates should be queued.</p>
                 <div class="copy-preview">${this._escapeHtml(advancedPreview)}</div>
                 <div class="selection-grid">
@@ -2574,7 +2859,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
               </section>
             </div>
 
-            ${this._addLoadingSources ? '<div class="inline-note">Loading source options...</div>' : ''}
+            ${this._addLoadingSources && !isIdeaSource ? '<div class="inline-note">Loading source options...</div>' : ''}
             ${this._addDetailError ? `<div class="inline-error">${this._escapeHtml(this._addDetailError)}</div>` : ''}
           </div>
 
@@ -2794,6 +3079,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
                   <h4>Queue Notes</h4>
                   <textarea class="entry-detail-notes" data-action="detail-notes" placeholder="Queue-only notes visible in this board">${notes}</textarea>
                 </section>
+
+                ${sourceMeta.sourceKind === 'idea' ? `
+                <section class="detail-section">
+                  <h4>Graduate Idea</h4>
+                  <div class="idea-graduate-row">
+                    <button class="ghost-btn" data-action="graduate-idea-working" ${this._detailSubmitting ? 'disabled' : ''}>Graduate To Working Group</button>
+                    <button class="primary-btn" data-action="graduate-idea-catalog" ${this._detailSubmitting ? 'disabled' : ''}>Graduate To Catalog</button>
+                  </div>
+                  <div class="inline-note">Graduation creates a new queue entry for the target source and marks this idea as done.</div>
+                </section>
+                ` : ''}
               </section>
             </div>
 
@@ -3805,6 +4101,31 @@ class UnifiedQueueBoardCard extends HTMLElement {
         color-scheme: dark light;
       }
 
+      .field input {
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        padding: 0 10px;
+        font-size: 12px;
+      }
+
+      .field textarea {
+        min-height: 72px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        padding: 8px 10px;
+        font-size: 12px;
+        resize: vertical;
+      }
+
+      .idea-add-panel {
+        align-self: end;
+      }
+
       .field select option {
         background: var(--bg-card);
         color: var(--text);
@@ -3922,6 +4243,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .inline-note {
         font-size: 12px;
         color: var(--text-secondary);
+      }
+
+      .idea-graduate-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
       }
 
       .inline-error {
@@ -5661,6 +5989,20 @@ class UnifiedQueueBoardCard extends HTMLElement {
       });
     }
 
+    const addIdeaTitle = this.shadowRoot.querySelector('.add-idea-title');
+    if (addIdeaTitle) {
+      addIdeaTitle.addEventListener('input', (event) => {
+        this._setAddIdeaTitle(event.target.value);
+      });
+    }
+
+    const addIdeaNotes = this.shadowRoot.querySelector('.add-idea-notes');
+    if (addIdeaNotes) {
+      addIdeaNotes.addEventListener('input', (event) => {
+        this._setAddIdeaNotes(event.target.value);
+      });
+    }
+
     const loadDetailBtn = this.shadowRoot.querySelector('[data-action="load-add-detail"]');
     if (loadDetailBtn) {
       loadDetailBtn.addEventListener('click', () => this._loadAddSourceDetail());
@@ -5765,6 +6107,16 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const submitDetailBtn = this.shadowRoot.querySelector('[data-action="submit-detail"]');
     if (submitDetailBtn) {
       submitDetailBtn.addEventListener('click', () => this._submitDetailModal());
+    }
+
+    const graduateWorkingBtn = this.shadowRoot.querySelector('[data-action="graduate-idea-working"]');
+    if (graduateWorkingBtn) {
+      graduateWorkingBtn.addEventListener('click', () => this._graduateIdeaToWorkingGroup());
+    }
+
+    const graduateCatalogBtn = this.shadowRoot.querySelector('[data-action="graduate-idea-catalog"]');
+    if (graduateCatalogBtn) {
+      graduateCatalogBtn.addEventListener('click', () => this._graduateIdeaToCatalog());
     }
 
     const plannerBtn = this.shadowRoot.querySelector('.planner-btn');
