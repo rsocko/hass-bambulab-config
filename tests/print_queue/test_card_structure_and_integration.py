@@ -161,6 +161,15 @@ class TestUnifiedQueueBoardCardStructure(unittest.TestCase):
         for css_class in css_classes:
             self.assertIn(css_class, self.card_content, f"Missing CSS class: {css_class}")
 
+    def test_rank_zero_handled_in_sort_and_display(self):
+        """Rank 0 should be treated as valid (not falsy) in list sort and UI."""
+        self.assertIn("const aRank = Number.isFinite(a.rank) ? a.rank : 999", self.card_content)
+        self.assertIn("const bRank = Number.isFinite(b.rank) ? b.rank : 999", self.card_content)
+        self.assertIn("<span class=\"qcard-rank\">${Number.isFinite(entry.rank) ? entry.rank : '—'}</span>", self.card_content)
+        self.assertNotIn("(a.rank || 999)", self.card_content)
+        self.assertNotIn("(b.rank || 999)", self.card_content)
+        self.assertNotIn("${entry.rank || '—'}", self.card_content)
+
 
 class TestPrintQueuePackageStructure(unittest.TestCase):
     """Validate print_queue package YAML structure."""

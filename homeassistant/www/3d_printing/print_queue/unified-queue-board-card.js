@@ -1104,16 +1104,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         this._closeAddModal();
         await this._loadQueueData();
 
-        let filterChanged = false;
-        if (!this._filters.states.includes('backlog')) {
-          this._filters.states = [...this._filters.states, 'backlog'];
-          filterChanged = true;
-        }
-        if (filterChanged) {
-          this._saveFilterState();
-        }
-
-        this._setFlashMessage('Idea added. Open Details, then Info tab to graduate it.', 'success');
+        this._setFlashMessage('Idea added successfully.', 'success');
       } catch (err) {
         this._addDetailError = err.message;
         this._render();
@@ -2327,11 +2318,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
     // Apply sorting
     const sorted = [...filtered].sort((a, b) => {
+      const aRank = Number.isFinite(a.rank) ? a.rank : 999;
+      const bRank = Number.isFinite(b.rank) ? b.rank : 999;
       switch (this._filters.sort) {
         case 'rank':
-          return (a.rank || 999) - (b.rank || 999);
+          return aRank - bRank;
         case 'rank-desc':
-          return (b.rank || 999) - (a.rank || 999);
+          return bRank - aRank;
         case 'duration':
           return (a.estimated_total_minutes || 0) - (b.estimated_total_minutes || 0);
         case 'duration-desc':
@@ -2662,7 +2655,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
                title="${this._escapeHtml(fullInfo)}">
         <div class="qcard-row1">
           ${draggable ? '<span class="qcard-drag" aria-hidden="true">⋮⋮</span>' : ''}
-          <span class="qcard-rank">${entry.rank || '—'}</span>
+          <span class="qcard-rank">${Number.isFinite(entry.rank) ? entry.rank : '—'}</span>
           <span class="qcard-title">${this._escapeHtml(displayTitle)}</span>
           ${showStatePill ? `<span class="qcard-state-pill">${this._escapeHtml(stateLabel)}</span>` : ''}
         </div>
@@ -2681,9 +2674,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>` : ''}
         <div class="qcard-actions" role="group" aria-label="Queue entry actions">
           <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="View &amp; edit details">Details</button>
-          ${entry.source_kind === 'idea'
-            ? `<button class="entry-action-btn" data-action="entry-graduate" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Open graduation actions">Graduate</button>`
-            : ''}
           <span class="qcard-actions-spacer" aria-hidden="true"></span>
           <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
         </div>
@@ -6193,9 +6183,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
         if (this._rowActionBusy) return;
 
         if (action === 'entry-detail') {
-          this._openEntryDetail(entryId);
-        } else if (action === 'entry-graduate') {
-          this._openEntryDetail(entryId, 'info');
+          const entry = this._getEntryById(entryId);
+          const tab = entry && entry.source_kind === 'idea' ? 'info' : 'plates';
+          this._openEntryDetail(entryId, tab);
         } else if (action === 'entry-edit') {
           await this._editEntry(entryId);
         } else if (action === 'entry-delete') {
