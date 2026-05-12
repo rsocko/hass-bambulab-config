@@ -444,8 +444,9 @@ function renderPlanSummary(card, options) {
     if (preview && Array.isArray(preview.warnings) && preview.warnings.length) {
       var warningItems = preview.warnings.map(function (warning) {
         var w = warning || {};
-        var msg = String(w.message || w.code || 'Unknown issue');
-        return '<li>' + escapeHtml(msg) + '</li>';
+        var msg = String(w.message || w.code || 'Unknown issue').replace(/\/assets\//gi, '');
+        var key = String(w.path || '').replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase();
+        return '<li data-warning-key="' + escapeHtml(key) + '">' + escapeHtml(msg) + '</li>';
       }).join('');
       return ''
         + '<div class="state-row" style="border-left:3px solid #f59e0b; text-align:left;">'
@@ -468,8 +469,9 @@ function renderPlanSummary(card, options) {
   if (preview && Array.isArray(preview.warnings) && preview.warnings.length) {
     var bannerItems = preview.warnings.map(function (warning) {
       var w = warning || {};
-      var msg = String(w.message || w.code || 'Unknown issue');
-      return '<li>' + escapeHtml(msg) + '</li>';
+      var msg = String(w.message || w.code || 'Unknown issue').replace(/\/assets\//gi, '');
+      var key = String(w.path || '').replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase();
+      return '<li data-warning-key="' + escapeHtml(key) + '">' + escapeHtml(msg) + '</li>';
     }).join('');
     warningsBanner = ''
       + '<div class="state-row" style="border-left:3px solid #f59e0b; margin-bottom:8px; text-align:left;">'
@@ -1462,7 +1464,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (warnings.length) {
       var items = warnings.map(function (warning) {
         var w = warning || {};
-        var msg = String(w.message || w.code || 'Unknown issue');
+        var msg = String(w.message || w.code || 'Unknown issue').replace(/\/assets\//gi, '');
         return '<li>' + escapeHtml(msg) + '</li>';
       }).join('');
       return ''
@@ -2511,6 +2513,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .entry-row.selected{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.4));}'
       + '.wizard-dialog .entry-row.highlighted{background:rgba(var(--rgb-primary-color,96 165 250),0.25);border-color:rgba(var(--rgb-primary-color,96 165 250),0.4);}'
       + '.wizard-dialog .entry-row.related{opacity:0.65;}'
+      // Empty-selection association: when a left row that produced no planned
+      // models is clicked on the Organize step, light up the matching warning
+      // banner item(s) on the right so the operator sees the relationship.
+      + '.wizard-dialog li[data-warning-key].highlighted-warning{background:rgba(245,158,11,0.30);border-radius:6px;padding:2px 6px;font-weight:600;}'
       // Issue #1343: a row that lives inside a selected folder must NOT be
       // dimmed — give it a bold dashed primary outline so the "included in
       // selection" relationship is obvious instead of looking inactive.
@@ -2729,9 +2735,35 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var rightPanel = panels[1];
     var leftEntries = leftPanel.querySelectorAll('.entry-row');
     var rightEntries = rightPanel.querySelectorAll('.entry-row');
+    // Issue #1xxxx: warning banner items can be highlighted from the left side
+    // when a selected source produced no planned models (and therefore has no
+    // right-pane row to associate with).
+    var warningItems = rightPanel.querySelectorAll('li[data-warning-key]');
     
     // Build deterministic relationships once per render.
     var modelMapping = this._buildModelSourceMapping(leftEntries, rightEntries);
+
+    // Map each left row to the warning banner items whose path matches the
+    // left source's key (server:<path>, browser-root:<path>, browser-file:<path>).
+    var leftToWarning = {};
+    leftEntries.forEach(function (_leftRow, leftIndex) {
+      leftToWarning[leftIndex] = [];
+      var sk = String(modelMapping.leftSourceKeys[leftIndex] || '');
+      var colon = sk.indexOf(':');
+      if (colon < 0) {
+        return;
+      }
+      var pathPart = sk.slice(colon + 1).replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase();
+      if (!pathPart) {
+        return;
+      }
+      warningItems.forEach(function (li, wi) {
+        var key = String(li.getAttribute('data-warning-key') || '').trim();
+        if (key && key === pathPart) {
+          leftToWarning[leftIndex].push(wi);
+        }
+      });
+    });
 
     function clearHighlights() {
       leftEntries.forEach(function (row) {
@@ -2739,6 +2771,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       });
       rightEntries.forEach(function (row) {
         row.classList.remove('highlighted', 'related');
+      });
+      warningItems.forEach(function (li) {
+        li.classList.remove('highlighted-warning');
       });
     }
 
@@ -2772,6 +2807,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var siblingLeftMatches = leftIndicesForRightMatches(rightMatches, leftIndex);
       siblingLeftMatches.forEach(function (siblingLeftIndex) {
         leftEntries[siblingLeftIndex].classList.add('related');
+      });
+      // Always light up any matching warning banner items so a left source
+      // that produced no models still has a visible association on the right.
+      var warningMatches = leftToWarning[leftIndex] || [];
+      warningMatches.forEach(function (wi) {
+        warningItems[wi].classList.add('highlighted-warning');
       });
       if (!rightMatches.length) {
         return;
