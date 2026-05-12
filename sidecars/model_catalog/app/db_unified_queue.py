@@ -34,6 +34,7 @@ class UnifiedQueueEntry:
     ams_ready_score: int
     overnight_fit_score: int
     queue_notes: str | None
+    completion_source: str | None
     last_archive_id: str | None
     last_attempt_outcome: str | None
     created_at: str
@@ -66,6 +67,7 @@ class UnifiedQueuePlateUnit:
     state: str
     completed_by_archive_id: str | None
     completion_confidence: str | None
+    completion_source: str | None
     attempt_count: int
     last_attempt_outcome: str | None
     estimated_minutes: int | None
@@ -119,6 +121,7 @@ def _entry_from_row(row) -> UnifiedQueueEntry:
         ams_ready_score=int(row["ams_ready_score"]),
         overnight_fit_score=int(row["overnight_fit_score"]),
         queue_notes=str(row["queue_notes"] or "").strip() or None,
+        completion_source=str(row["completion_source"] or "").strip() or None,
         last_archive_id=str(row["last_archive_id"] or "").strip() or None,
         last_attempt_outcome=str(row["last_attempt_outcome"] or "").strip() or None,
         created_at=str(row["created_at"]),
@@ -153,6 +156,7 @@ def _plate_unit_from_row(row) -> UnifiedQueuePlateUnit:
         state=str(row["state"]),
         completed_by_archive_id=str(row["completed_by_archive_id"] or "").strip() or None,
         completion_confidence=str(row["completion_confidence"] or "").strip() or None,
+        completion_source=str(row["completion_source"] or "").strip() or None,
         attempt_count=int(row["attempt_count"]),
         last_attempt_outcome=str(row["last_attempt_outcome"] or "").strip() or None,
         estimated_minutes=int(row["estimated_minutes"]) if row["estimated_minutes"] is not None else None,
@@ -216,6 +220,7 @@ def create_unified_queue_entry(
     ams_ready_score: int = 0,
     overnight_fit_score: int = 0,
     queue_notes: str | None = None,
+    completion_source: str | None = None,
     last_archive_id: str | None = None,
     last_attempt_outcome: str | None = None,
 ) -> UnifiedQueueEntry:
@@ -242,11 +247,12 @@ def create_unified_queue_entry(
                 ams_ready_score,
                 overnight_fit_score,
                 queue_notes,
+                completion_source,
                 last_archive_id,
                 last_attempt_outcome,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 queue_entry_id,
@@ -266,6 +272,7 @@ def create_unified_queue_entry(
                 ams_ready_score,
                 overnight_fit_score,
                 queue_notes,
+                completion_source,
                 last_archive_id,
                 last_attempt_outcome,
                 now,
@@ -325,6 +332,7 @@ def update_unified_queue_entry(
     ams_ready_score: int | None = None,
     overnight_fit_score: int | None = None,
     queue_notes: str | None = None,
+    completion_source: str | None = None,
     last_archive_id: str | None = None,
     last_attempt_outcome: str | None = None,
 ) -> UnifiedQueueEntry | None:
@@ -352,6 +360,7 @@ def update_unified_queue_entry(
     _set("ams_ready_score", ams_ready_score)
     _set("overnight_fit_score", overnight_fit_score)
     _set("queue_notes", queue_notes)
+    _set("completion_source", completion_source)
     _set("last_archive_id", last_archive_id)
     _set("last_attempt_outcome", last_attempt_outcome)
 
@@ -558,6 +567,7 @@ def create_unified_queue_plate_unit(
     state: str = "pending",
     completed_by_archive_id: str | None = None,
     completion_confidence: str | None = None,
+    completion_source: str | None = None,
     attempt_count: int = 0,
     last_attempt_outcome: str | None = None,
     estimated_minutes: int | None = None,
@@ -578,12 +588,13 @@ def create_unified_queue_plate_unit(
                 state,
                 completed_by_archive_id,
                 completion_confidence,
+                completion_source,
                 attempt_count,
                 last_attempt_outcome,
                 estimated_minutes,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 queue_entry_id,
@@ -596,6 +607,7 @@ def create_unified_queue_plate_unit(
                 state,
                 completed_by_archive_id,
                 completion_confidence,
+                completion_source,
                 attempt_count,
                 last_attempt_outcome,
                 estimated_minutes,
@@ -671,6 +683,7 @@ def update_unified_queue_plate_unit(
     state: str | None = None,
     completed_by_archive_id: str | None = None,
     completion_confidence: str | None = None,
+    completion_source: str | None = None,
     attempt_count: int | None = None,
     last_attempt_outcome: str | None = None,
     estimated_minutes: int | None = None,
@@ -692,6 +705,7 @@ def update_unified_queue_plate_unit(
     _set("state", state)
     _set("completed_by_archive_id", completed_by_archive_id)
     _set("completion_confidence", completion_confidence)
+    _set("completion_source", completion_source)
     _set("attempt_count", attempt_count)
     _set("last_attempt_outcome", last_attempt_outcome)
     _set("estimated_minutes", estimated_minutes)

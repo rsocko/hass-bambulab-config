@@ -207,6 +207,7 @@ def _queue_detail_to_response(*, entry: Any, db_path: Path) -> dict[str, Any]:
                         "state": plate_unit.state,
                         "completed_by_archive_id": plate_unit.completed_by_archive_id,
                         "completion_confidence": plate_unit.completion_confidence,
+                        "completion_source": plate_unit.completion_source,
                         "last_attempt_outcome": plate_unit.last_attempt_outcome,
                         "estimated_minutes": plate_unit.estimated_minutes,
                     }
@@ -306,6 +307,17 @@ def _validate_attempt_outcome(value: object | None) -> str | None:
     if outcome not in {"success", "failed", "aborted", "unknown"}:
         raise ValueError("last_attempt_outcome must be one of ['aborted', 'failed', 'success', 'unknown']")
     return outcome
+
+
+def _validate_completion_source(value: object | None) -> str | None:
+    if value is None:
+        return None
+    source = str(value).strip().lower()
+    if not source:
+        return None
+    if source not in {"manual", "auto_match", "suggestion"}:
+        raise ValueError("completion_source must be one of ['auto_match', 'manual', 'suggestion']")
+    return source
 
 
 def _parse_csv_values(value: str | None) -> list[str]:
@@ -1519,6 +1531,8 @@ def update_entry(
             updates["blocked_reason"] = str(body.get("blocked_reason") or "").strip() or None
         if "queue_notes" in body:
             updates["queue_notes"] = str(body.get("queue_notes") or "").strip() or None
+        if "completion_source" in body:
+            updates["completion_source"] = _validate_completion_source(body.get("completion_source"))
         if "last_archive_id" in body:
             updates["last_archive_id"] = str(body.get("last_archive_id") or "").strip() or None
         if "last_attempt_outcome" in body:
@@ -1540,6 +1554,8 @@ def update_entry(
 
     next_state = updates.get("state")
     transitioning = bool(isinstance(next_state, str) and next_state != existing.state)
+    if next_state == "done" and "completion_source" not in updates:
+        updates["completion_source"] = "manual"
     if transitioning:
         allowed, allowed_targets = _validate_state_transition(from_state=existing.state, to_state=next_state)
         if not allowed:
@@ -1731,6 +1747,7 @@ def update_entry_selection(
                     update_kwargs["state"] = next_state
                     if next_state == "done":
                         update_kwargs["completion_confidence"] = "high"
+                        update_kwargs["completion_source"] = "manual"
                         update_kwargs["last_attempt_outcome"] = "success"
 
                 if update_kwargs:
@@ -2104,6 +2121,7 @@ def process_archive_completion_v1(
                     queue_entry_id=queue_entry_id,
                     state="done",
                     completed_at=utc_now_iso(),
+                    completion_source="auto_match",
                     last_archive_id=archive_id,
                     last_attempt_outcome="success",
                 )
@@ -2226,6 +2244,7 @@ def remap_queue_suggestion_v1(
             queue_entry_id=queue_entry_id,
             state="done",
             completed_at=utc_now_iso(),
+            completion_source="suggestion",
             last_archive_id=existing.archive_id,
             last_attempt_outcome="success",
         )

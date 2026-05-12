@@ -748,6 +748,39 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        22,
+        (
+            """
+        ALTER TABLE unified_queue_entries ADD COLUMN completion_source TEXT
+        """,
+            """
+        ALTER TABLE unified_queue_plate_units ADD COLUMN completion_source TEXT
+        """,
+            """
+        UPDATE unified_queue_entries
+        SET completion_source = 'auto_match'
+        WHERE completion_source IS NULL
+          AND state = 'done'
+          AND COALESCE(last_archive_id, '') != ''
+        """,
+            """
+        UPDATE unified_queue_plate_units
+        SET completion_source = 'auto_match'
+        WHERE completion_source IS NULL
+          AND state = 'done'
+          AND COALESCE(completed_by_archive_id, '') != ''
+        """,
+            """
+        UPDATE unified_queue_plate_units
+        SET completion_source = 'manual'
+        WHERE completion_source IS NULL
+          AND state = 'done'
+          AND COALESCE(completed_by_archive_id, '') = ''
+          AND COALESCE(last_attempt_outcome, '') = 'success'
+        """,
+        ),
+    ),
 )
 
 

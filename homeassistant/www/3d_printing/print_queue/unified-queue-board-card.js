@@ -329,7 +329,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }, 750);
   }
 
-  async _changeEntryState(queueEntryId, newState) {
+  async _changeEntryState(queueEntryId, newState, opts = null) {
+    const source = String(opts?.source || '').trim();
+    // Defense-in-depth: state transitions via drag/drop are only valid in kanban mode.
+    if (source === 'kanban-dnd' && this._view !== 'kanban') return;
     const entry = this._getEntryById(queueEntryId);
     if (!entry) return;
     const fromState = String(entry.state || '').trim();
@@ -434,6 +437,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   // ---- DnD: list reorder ----
   _attachListReorderDnD() {
+    if (this._view !== 'list') return;
     const body = this.shadowRoot.querySelector('[data-list-body]');
     const flat = this.shadowRoot.querySelector('.flat-list');
     if (!body || !flat) return;
@@ -467,13 +471,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
     body.addEventListener('drop', (ev) => {
       ev.preventDefault();
+      const dragging = body.querySelector('.qcard.dragging');
+      if (!dragging) return;
       const ids = Array.from(body.querySelectorAll('.qcard')).map(c => c.dataset.entryId);
+      if (ids.length === 0 || ids.some(id => !id)) return;
       this._commitListReorder(ids);
     });
   }
 
   // ---- DnD: kanban state moves ----
   _attachKanbanDnD() {
+    if (this._view !== 'kanban') return;
     const cols = this.shadowRoot.querySelectorAll('.kanban-col-body[data-drop]');
     if (cols.length === 0) return;
 
@@ -508,7 +516,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         })();
         const newState = zone.dataset.drop;
         if (!id || !newState) return;
-        this._changeEntryState(id, newState);
+        this._changeEntryState(id, newState, { source: 'kanban-dnd' });
       });
     });
   }

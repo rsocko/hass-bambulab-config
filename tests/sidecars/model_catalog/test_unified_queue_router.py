@@ -1054,7 +1054,7 @@ def test_update_entry_selection_updates_units_and_selection_mode(tmp_path: Path)
             ).fetchall()
             plate_rows = connection.execute(
                 """
-                SELECT file_unit_id, plate_unit_id, selected, state, completion_confidence, last_attempt_outcome
+                SELECT file_unit_id, plate_unit_id, selected, state, completion_confidence, completion_source, last_attempt_outcome
                 FROM unified_queue_plate_units
                 WHERE queue_entry_id = ?
                 ORDER BY file_unit_id ASC, plate_unit_id ASC
@@ -1074,6 +1074,7 @@ def test_update_entry_selection_updates_units_and_selection_mode(tmp_path: Path)
             ("qpu-002-001", 0, "pending"),
         ]
         assert str(plate_rows[0]["completion_confidence"]) == "high"
+        assert str(plate_rows[0]["completion_source"]) == "manual"
         assert str(plate_rows[0]["last_attempt_outcome"]) == "success"
     finally:
         client.__exit__(None, None, None)
@@ -1268,6 +1269,7 @@ def test_archive_completion_v1_high_auto_completes_entry_and_records_suggestion(
         assert entry_response.status_code == 200
         entry_payload = entry_response.json()["entry"]
         assert entry_payload["state"] == "done"
+        assert entry_payload["completion_source"] == "auto_match"
         assert entry_payload["last_archive_id"] == "arch-h1"
     finally:
         client.__exit__(None, None, None)
@@ -1333,6 +1335,7 @@ def test_archive_completion_v1_medium_suggested_then_reject_and_remap(tmp_path: 
         assert remap_payload["suggestion"]["status"] == "remapped"
         assert remap_payload["suggestion"]["remapped_queue_entry_id"] == remap_target_entry_id
         assert remap_payload["remapped_entry"]["state"] == "done"
+        assert remap_payload["remapped_entry"]["completion_source"] == "suggestion"
     finally:
         client.__exit__(None, None, None)
 
