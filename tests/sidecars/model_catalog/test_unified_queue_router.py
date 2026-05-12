@@ -338,6 +338,7 @@ def test_queue_add_v1_creates_entry_and_returns_location(tmp_path: Path) -> None
         assert payload["entry"]["queue_entry_id"].startswith("uqe-")
         assert payload["entry"]["source_kind"] == "catalog_model"
         assert payload["entry"]["source_id"] == "model-id-123"
+        assert payload["entry"]["state"] == "backlog"
         assert payload["entry"]["copies"] == 1
         assert payload["entry"]["duration_bucket"] == "medium"
         assert payload["entry"]["ams_ready_score"] == 100
@@ -618,6 +619,7 @@ def test_queue_add_v1_quick_add_catalog_model_creates_all_file_plate_units(
         payload = response.json()
         entry_id = payload["entry"]["queue_entry_id"]
 
+        assert payload["entry"]["state"] == "backlog"
         assert payload["entry"]["rank"] == 5
         assert payload["quick_add"]["enabled"] is True
         assert payload["quick_add"]["file_units_created"] == 2
@@ -699,6 +701,7 @@ def test_queue_add_v1_quick_add_working_group_dedupes_duplicate_files_and_plates
         payload = response.json()
         entry_id = payload["entry"]["queue_entry_id"]
 
+        assert payload["entry"]["state"] == "backlog"
         assert payload["quick_add"]["enabled"] is True
         assert payload["quick_add"]["file_units_created"] == 1
         assert payload["quick_add"]["plate_units_created"] == 2
@@ -785,6 +788,7 @@ def test_queue_add_v1_advanced_add_selected_plates_creates_subset_only(
         payload = response.json()
         entry_id = payload["entry"]["queue_entry_id"]
 
+        assert payload["entry"]["state"] == "backlog"
         assert payload["entry"]["selection_mode"] == "selected_plates"
         assert payload["advanced_add"]["enabled"] is True
         assert payload["advanced_add"]["file_units_created"] == 1

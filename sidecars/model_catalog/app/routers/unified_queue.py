@@ -1286,7 +1286,7 @@ def add_queue_entry_v1(
             )
 
         requested_state = _validate_state(body.get("state"))
-        entry_state = requested_state or "preparing"
+        entry_state = requested_state or "backlog"
 
         copies_requested = _coerce_int(body.get("copies", 1), field="copies", minimum=1)
         duration_bucket = _validate_duration_bucket(body.get("duration_bucket")) or "unknown"
