@@ -28,10 +28,10 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 const QUEUE_STATE_PALETTE = {
   backlog:     '#a07cff',
   preparing:   '#ff9a3c',
-  ready:       '#8fd8ff',
+  ready:       '#58e0b8',
   in_progress: '#3aa9ff',
   blocked:     '#ff6b6b',
-  done:        '#22b35f',
+  done:        '#4fcf75',
 };
 
 class UnifiedQueueBoardCard extends HTMLElement {
@@ -4699,9 +4699,16 @@ class UnifiedQueueBoardCard extends HTMLElement {
       /* ---------- Per-state palette + new card ---------- */
       .qcard {
         position: relative;
-        background: linear-gradient(180deg,
-          color-mix(in srgb, var(--state, #9eacba) 16%, var(--bg-card-alt)),
-          color-mix(in srgb, var(--state, #9eacba) 6%, var(--bg-card-alt)));
+        background: var(--bg-card-alt);
+        background-image:
+          linear-gradient(180deg,
+            color-mix(in srgb, var(--state, #9eacba) 11%, transparent),
+            transparent 62%),
+          linear-gradient(160deg,
+            rgba(255,255,255,0.035),
+            rgba(255,255,255,0.012) 44%,
+            rgba(0,0,0,0.08)),
+          linear-gradient(var(--bg-card-alt), var(--bg-card-alt));
         border: 1px solid var(--border);
         border-left: 3px solid var(--state, #9eacba);
         border-radius: 12px;
@@ -4710,6 +4717,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         flex-direction: column;
         gap: 6px;
         cursor: default;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.20);
         transition: border-color 0.15s, transform 0.12s;
       }
       .qcard[draggable="true"] {
@@ -4755,8 +4763,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
         letter-spacing: -2px;
       }
       .qcard-rank {
-        background: rgba(255,255,255,0.06);
-        color: var(--text-secondary);
+        background: color-mix(in srgb, var(--state, #9eacba) 14%, transparent);
+        color: var(--text);
+        border: 1px solid color-mix(in srgb, var(--state, #9eacba) 30%, transparent);
         font-weight: 800;
         font-size: 11px;
         padding: 2px 7px;
@@ -4775,7 +4784,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         white-space: nowrap;
       }
       .qcard-state-pill {
-        background: color-mix(in srgb, var(--state) 22%, transparent);
+        background: color-mix(in srgb, var(--state) 14%, transparent);
         color: var(--state);
         border: 1px solid color-mix(in srgb, var(--state) 50%, transparent);
         font-size: 10px;
@@ -4904,6 +4913,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .kanban-column {
         align-self: start;
         background: var(--bg-card-alt);
+        background-image:
+          linear-gradient(180deg,
+            color-mix(in srgb, var(--state, #9eacba) 10%, transparent),
+            transparent 42%),
+          linear-gradient(var(--bg-card-alt), var(--bg-card-alt));
         border: 1px solid var(--border);
         border-top: 4px solid var(--state, #9eacba);
         border-radius: 12px;
