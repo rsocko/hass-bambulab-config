@@ -1169,9 +1169,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           this._syncGroupDestinationsFromPreview();
         }
       }
-    } catch (_error) {
+    } catch (error) {
+      // Surface the failure rather than silently emptying the preview, which
+      // previously rendered as a blank "Choose Destination" step with no clue
+      // why. Operators need to see backend errors (e.g., 403 path_not_allowed
+      // from intake plan when a selected path is no longer within the allowed
+      // intake roots) so they can recover.
       this._previewData = null;
       this._groupDestinations = [];
+      var msg = error && error.message ? String(error.message) : 'Could not generate intake plan.';
+      this._error = 'Plan failed: ' + msg;
+      try { console.warn('[model-catalog intake] plan_intake failed:', error); } catch (_logErr) { /* no-op */ }
     } finally {
       if (this._previewRefreshToken === requestToken) {
         this._previewLoading = false;
