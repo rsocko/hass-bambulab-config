@@ -28,7 +28,7 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 const QUEUE_STATE_PALETTE = {
   backlog:     '#a07cff',
   preparing:   '#ff9a3c',
-  ready:       '#58e0b8',
+  ready:       '#b9dd4d',
   in_progress: '#3aa9ff',
   blocked:     '#ff6b6b',
   done:        '#4fcf75',
@@ -1326,12 +1326,20 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._detailFiles = this._detailFiles.map(file => {
       if (file.file_unit_id !== fileUnitId) return file;
       const nextSelected = !file.selected;
+      const nextPlates = Array.isArray(file.plates)
+        ? file.plates.map(plate => {
+            const isDone = String(plate.state || '').trim() === 'done';
+            if (nextSelected) {
+              return { ...plate, selected: true };
+            }
+            // Keep completed plates selected; users must change completion state first.
+            return { ...plate, selected: isDone ? true : false };
+          })
+        : [];
       return {
         ...file,
-        selected: nextSelected,
-        plates: Array.isArray(file.plates)
-          ? file.plates.map(plate => ({ ...plate, selected: nextSelected ? true : false }))
-          : [],
+        selected: nextPlates.some(plate => plate.selected),
+        plates: nextPlates,
       };
     });
     this._detailDirty = true;
@@ -1344,7 +1352,43 @@ class UnifiedQueueBoardCard extends HTMLElement {
       const nextPlates = Array.isArray(file.plates)
         ? file.plates.map(plate => {
             if (plate.plate_unit_id !== plateUnitId) return plate;
+          if (String(plate.state || '').trim() === 'done') return plate;
             return { ...plate, selected: !plate.selected };
+          })
+        : [];
+      return {
+        ...file,
+        selected: nextPlates.some(plate => plate.selected),
+        plates: nextPlates,
+      };
+    });
+    this._detailDirty = true;
+    this._render();
+  }
+
+  _selectAllDetailFilePlates(fileUnitId) {
+    this._detailFiles = this._detailFiles.map(file => {
+      if (file.file_unit_id !== fileUnitId) return file;
+      const nextPlates = Array.isArray(file.plates)
+        ? file.plates.map(plate => ({ ...plate, selected: true }))
+        : [];
+      return {
+        ...file,
+        selected: nextPlates.some(plate => plate.selected),
+        plates: nextPlates,
+      };
+    });
+    this._detailDirty = true;
+    this._render();
+  }
+
+  _clearDetailFilePendingSelections(fileUnitId) {
+    this._detailFiles = this._detailFiles.map(file => {
+      if (file.file_unit_id !== fileUnitId) return file;
+      const nextPlates = Array.isArray(file.plates)
+        ? file.plates.map(plate => {
+            const isDone = String(plate.state || '').trim() === 'done';
+            return { ...plate, selected: isDone ? true : false };
           })
         : [];
       return {
@@ -1393,6 +1437,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const allowed = QUEUE_STATE_TRANSITIONS[currentState] || [];
     const ordered = [currentState, ...QUEUE_STATE_FILTER_ORDER.filter(state => state !== currentState && allowed.includes(state))];
     return ordered.length > 0 ? ordered : [currentState];
+  }
+
+  _getDetailStateToneClass(state) {
+    const normalized = String(state || '').trim();
+    if (!normalized) return 'preparing';
+    return normalized.replace(/_/g, '-');
   }
 
   async _submitDetailModal() {
@@ -2539,8 +2589,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const title = this._escapeHtml(String(this._detailForm.title || entry.title || ''));
     const copies = this._escapeHtml(String(this._detailForm.copies || entry.copies_requested || 1));
     const notes = this._escapeHtml(String(this._detailForm.queueNotes || ''));
+    const detailStateClass = this._getDetailStateToneClass(this._detailForm.state);
     const stateOptions = this._getDetailStateOptions().map(state => `
-      <option value="${state}" ${this._detailForm.state === state ? 'selected' : ''}>${this._getStateLabel(state)}</option>
+      <option value="${state}" ${this._detailForm.state === state ? 'selected' : ''}>● ${this._getStateLabel(state)}</option>
     `).join('');
 
     const fileGrid = this._detailLoading
@@ -2552,28 +2603,52 @@ class UnifiedQueueBoardCard extends HTMLElement {
       : `
         <div class="entry-detail-file-grid">
           ${this._detailFiles.map(file => {
-            const selectedCount = Array.isArray(file.plates) ? file.plates.filter(plate => plate.selected).length : 0;
-            const completedCount = Array.isArray(file.plates) ? file.plates.filter(plate => plate.state === 'done').length : 0;
+            const plates = Array.isArray(file.plates) ? file.plates : [];
+            const selectedCount = plates.filter(plate => plate.selected !== false).length;
+            const completedCount = plates.filter(plate => String(plate.state || '').trim() === 'done').length;
+            const totalCount = plates.length;
+            const allSelected = totalCount > 0 && selectedCount === totalCount;
+            const pendingSelected = Math.max(0, selectedCount - completedCount);
+            const thumbnailUrl = String(file.thumbnail_url || file.preview_url || file.image_url || file.thumb_url || '').trim();
             return `
               <article class="entry-detail-file-card ${file.selected ? 'selected' : 'unselected'}">
                 <div class="entry-detail-file-header">
-                  <div>
-                    <div class="entry-detail-file-name" title="${this._escapeHtml(file.file_name || '')}">${this._escapeHtml(file.file_name || 'Untitled File')}</div>
-                    <div class="entry-detail-file-summary">${selectedCount}/${Array.isArray(file.plates) ? file.plates.length : 0} plates selected · ${completedCount} complete</div>
+                  <div class="entry-detail-file-main">
+                    <div class="entry-detail-file-thumb">
+                      ${thumbnailUrl
+                        ? `<img src="${this._escapeHtml(thumbnailUrl)}" alt="${this._escapeHtml(file.file_name || 'Model preview')}" loading="lazy" />`
+                        : '<span>3MF</span>'}
+                    </div>
+                    <div>
+                      <div class="entry-detail-file-name" title="${this._escapeHtml(file.file_name || '')}">${this._escapeHtml(file.file_name || 'Untitled File')}</div>
+                      <div class="entry-detail-file-summary">${selectedCount}/${totalCount} plates selected · ${completedCount} done</div>
+                    </div>
                   </div>
                   <div class="entry-detail-file-actions">
-                    <button class="entry-detail-toggle-btn ${file.selected ? 'selected' : ''}" data-action="toggle-detail-file" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}">${file.selected ? 'Selected' : 'Include'}</button>
+                    <button class="entry-detail-toggle-btn" type="button" data-action="detail-file-select-all" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" ${allSelected ? 'disabled' : ''}>Select all</button>
+                    <button class="entry-detail-toggle-btn danger" type="button" data-action="detail-file-clear-pending" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" ${pendingSelected === 0 ? 'disabled' : ''}>Remove model</button>
                   </div>
                 </div>
                 <div class="entry-detail-plate-list">
-                  ${(Array.isArray(file.plates) ? file.plates : []).map(plate => `
-                    <label class="entry-detail-plate-row ${plate.selected ? 'selected' : 'unselected'}">
-                      <input type="checkbox" class="entry-detail-plate-checkbox" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" data-plate-unit-id="${this._escapeHtml(plate.plate_unit_id || '')}" ${plate.selected ? 'checked' : ''} />
+                  ${plates.map(plate => {
+                    const isDone = String(plate.state || '').trim() === 'done';
+                    const isSelected = plate.selected !== false;
+                    const checkboxDisabled = isDone && isSelected;
+                    return `
+                    <label class="entry-detail-plate-row ${isSelected ? 'selected' : 'unselected'}">
+                      <input type="checkbox" class="entry-detail-plate-checkbox" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" data-plate-unit-id="${this._escapeHtml(plate.plate_unit_id || '')}" ${isSelected ? 'checked' : ''} ${checkboxDisabled ? 'disabled' : ''} />
                       <span class="entry-detail-plate-name">${this._escapeHtml(plate.plate_name || plate.plate_key || 'Plate')}</span>
-                      <span class="entry-detail-plate-state ${plate.state === 'done' ? 'done' : 'pending'}">${plate.state === 'done' ? 'Done' : 'Pending'}</span>
-                      <button class="entry-detail-mark-btn ${plate.state === 'done' ? 'disabled' : ''}" type="button" data-action="mark-detail-plate-done" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" data-plate-unit-id="${this._escapeHtml(plate.plate_unit_id || '')}" ${plate.state === 'done' ? 'disabled' : ''}>Mark done</button>
+                      ${isDone
+                        ? '<span class="entry-detail-plate-state done">Done</span>'
+                        : (isSelected
+                            ? '<span class="entry-detail-plate-state pending">Pending</span>'
+                            : '<span class="entry-detail-plate-state skipped">Not selected</span>')}
+                      ${(!isSelected || isDone)
+                        ? '<span class="entry-detail-mark-placeholder"></span>'
+                        : `<button class="entry-detail-mark-btn" type="button" data-action="mark-detail-plate-done" data-file-unit-id="${this._escapeHtml(file.file_unit_id || '')}" data-plate-unit-id="${this._escapeHtml(plate.plate_unit_id || '')}">Mark done</button>`}
                     </label>
-                  `).join('')}
+                  `;
+                  }).join('')}
                 </div>
               </article>
             `;
@@ -2598,17 +2673,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       <div class="modal-backdrop detail-backdrop" data-action="close-detail">
         <section class="add-modal entry-detail-modal" role="dialog" aria-modal="true" aria-label="Queue Entry Details">
           <div class="add-modal-header">
-            <div class="entry-detail-header-meta">
-              <span class="entry-detail-source ${sourceMeta.sourceKind === 'idea' ? 'idea' : sourceMeta.sourceKind === 'catalog_model' ? 'catalog' : 'working'}">${this._escapeHtml(sourceMeta.label)}</span>
-              <span class="field-label">Queue Entry</span>
-            </div>
-            <select class="entry-detail-state-select ${this._detailForm.state === 'done' ? 'done' : this._detailForm.state === 'blocked' ? 'blocked' : this._detailForm.state === 'in_progress' ? 'in-progress' : ''}" data-action="detail-state">
-              ${stateOptions}
-            </select>
+            <h3>Queue Entry</h3>
             <button class="modal-close-btn" data-action="close-detail" title="Close">✕</button>
           </div>
 
-          <div class="add-modal-body">
+          <div class="add-modal-body entry-detail-body">
             <div class="entry-detail-title-row">
               <label class="field entry-detail-main-field">
                 <span class="field-label">Title</span>
@@ -2617,6 +2686,22 @@ class UnifiedQueueBoardCard extends HTMLElement {
               <label class="field entry-detail-copies-field">
                 <span class="field-label">Copies</span>
                 <input type="number" class="entry-detail-copies-input" min="1" step="1" value="${copies}" />
+              </label>
+            </div>
+
+            <div class="entry-detail-meta-row">
+              <div class="field entry-detail-source-field">
+                <span class="field-label">Source</span>
+                <div class="entry-detail-source-line">
+                  <span class="entry-detail-source ${sourceMeta.sourceKind === 'idea' ? 'idea' : sourceMeta.sourceKind === 'catalog_model' ? 'catalog' : 'working'}">${this._escapeHtml(sourceMeta.label)}</span>
+                  <span class="entry-detail-source-id" title="${this._escapeHtml(sourceMeta.sourceId)}">${this._escapeHtml(sourceMeta.sourceId)}</span>
+                </div>
+              </div>
+              <label class="field entry-detail-state-field">
+                <span class="field-label">State</span>
+                <select class="entry-detail-state-select ${this._escapeHtml(detailStateClass)}" data-action="detail-state">
+                  ${stateOptions}
+                </select>
               </label>
             </div>
 
@@ -3557,7 +3642,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         inset: 0;
         z-index: 50;
         background: rgba(3, 8, 14, 0.7);
-        backdrop-filter: blur(2px);
+        backdrop-filter: blur(3px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3567,12 +3652,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .add-modal {
         width: min(900px, 100%);
         max-height: calc(100vh - 40px);
-        overflow: auto;
+        overflow: hidden;
         background: linear-gradient(180deg, rgba(28, 36, 47, 0.98), rgba(18, 24, 33, 0.98));
         border: 1px solid var(--border-strong);
         border-radius: 18px;
         box-shadow: var(--shadow);
         animation: fadeInUp 0.18s ease-out;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
       }
 
       @keyframes fadeInUp {
@@ -3614,6 +3701,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         gap: 14px;
+        min-height: 0;
+        overflow: auto;
       }
 
       .add-controls {
@@ -3775,9 +3864,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .detail-backdrop {
-        justify-content: flex-end;
-        align-items: stretch;
-        padding: 0;
+        justify-content: center;
+        align-items: center;
+        padding: 18px;
       }
 
       .detail-drawer {
@@ -3838,7 +3927,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-modal {
-        width: min(960px, 100%);
+        width: min(1024px, 100%);
       }
 
       .entry-detail-header-meta {
@@ -3881,6 +3970,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: rgba(242, 195, 91, 0.12);
       }
 
+      .entry-detail-body {
+        min-height: 0;
+        overflow: hidden;
+      }
+
       .entry-detail-state-select,
       .entry-detail-title-input,
       .entry-detail-copies-input,
@@ -3892,16 +3986,35 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-state-select {
-        height: 34px;
+        height: 36px;
         padding: 0 10px;
         font-size: 12px;
         font-weight: 700;
+        min-width: 180px;
+      }
+
+      .entry-detail-state-select.backlog {
+        color: #d7c7ff;
+        border-color: rgba(160, 124, 255, 0.4);
+        background: rgba(160, 124, 255, 0.14);
+      }
+
+      .entry-detail-state-select.preparing {
+        color: #ffcb98;
+        border-color: rgba(255, 154, 60, 0.4);
+        background: rgba(255, 154, 60, 0.14);
+      }
+
+      .entry-detail-state-select.ready {
+        color: #9ff2d5;
+        border-color: rgba(88, 224, 184, 0.4);
+        background: rgba(88, 224, 184, 0.14);
       }
 
       .entry-detail-state-select.in-progress {
-        color: var(--accent-amber);
-        border-color: rgba(242, 195, 91, 0.35);
-        background: rgba(242, 195, 91, 0.12);
+        color: #9bd3ff;
+        border-color: rgba(58, 169, 255, 0.4);
+        background: rgba(58, 169, 255, 0.14);
       }
 
       .entry-detail-state-select.blocked {
@@ -3911,9 +4024,39 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-state-select.done {
-        color: var(--accent);
-        border-color: rgba(110, 231, 200, 0.35);
-        background: rgba(110, 231, 200, 0.12);
+        color: #8ef0aa;
+        border-color: rgba(79, 207, 117, 0.45);
+        background: rgba(79, 207, 117, 0.16);
+      }
+
+      .entry-detail-state-select option[value="backlog"] { color: #a07cff; }
+      .entry-detail-state-select option[value="preparing"] { color: #ff9a3c; }
+      .entry-detail-state-select option[value="ready"] { color: #58e0b8; }
+      .entry-detail-state-select option[value="in_progress"] { color: #3aa9ff; }
+      .entry-detail-state-select option[value="blocked"] { color: #ff6b6b; }
+      .entry-detail-state-select option[value="done"] { color: #4fcf75; }
+
+      .entry-detail-meta-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: end;
+      }
+
+      .entry-detail-source-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .entry-detail-source-id {
+        color: var(--text-secondary);
+        font-size: 12px;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .entry-detail-title-row {
@@ -3928,9 +4071,16 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .entry-detail-title-input,
       .entry-detail-copies-input {
-        height: 36px;
+        height: 40px;
         padding: 0 10px;
-        font-size: 13px;
+        font-size: 14px;
+      }
+
+      .entry-detail-title-input {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        padding: 0 14px;
       }
 
       .entry-detail-copies-input {
@@ -3947,6 +4097,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .entry-detail-tab-panels {
         width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .entry-detail-tab-panels > .tab-panel {
+        min-height: 100%;
       }
 
       .entry-detail-file-grid {
@@ -3968,16 +4125,49 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .entry-detail-file-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         gap: 10px;
         padding: 10px 12px;
         border-bottom: 1px solid rgba(148, 163, 184, 0.08);
       }
 
+      .entry-detail-file-main {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .entry-detail-file-thumb {
+        width: 44px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(124,199,255,0.14), rgba(110,231,200,0.1));
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .entry-detail-file-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
       .entry-detail-file-name {
         color: var(--text);
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .entry-detail-file-summary {
@@ -4009,6 +4199,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
         color: var(--accent);
         border-color: rgba(110, 231, 200, 0.35);
         background: rgba(110, 231, 200, 0.12);
+      }
+
+      .entry-detail-toggle-btn.danger {
+        color: #ffb0b0;
+        border-color: rgba(245, 144, 144, 0.35);
+        background: rgba(245, 144, 144, 0.12);
+      }
+
+      .entry-detail-toggle-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
       }
 
       .entry-detail-mark-btn {
@@ -4072,6 +4273,18 @@ class UnifiedQueueBoardCard extends HTMLElement {
         color: var(--accent-blue);
         border-color: rgba(124, 199, 255, 0.35);
         background: rgba(124, 199, 255, 0.1);
+      }
+
+      .entry-detail-plate-state.skipped {
+        color: var(--text-muted);
+        border-color: rgba(148, 163, 184, 0.2);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .entry-detail-mark-placeholder {
+        display: block;
+        width: 74px;
+        height: 1px;
       }
 
       .entry-detail-info-grid {
@@ -4799,10 +5012,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
         flex-wrap: wrap;
         gap: 6px 10px;
         font-size: 11px;
-        color: var(--text-secondary);
+        color: color-mix(in srgb, var(--text) 72%, var(--text-secondary));
       }
       .qcard-meta-key {
-        color: var(--text-muted);
+        color: color-mix(in srgb, var(--text) 52%, var(--text-muted));
         font-weight: 700;
         text-transform: uppercase;
         font-size: 9px;
@@ -4841,14 +5054,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
         justify-content: space-between;
         gap: 8px;
         font-size: 11px;
-        color: var(--text-secondary);
+        color: color-mix(in srgb, var(--text) 72%, var(--text-secondary));
       }
       .qcard-remain {
         color: var(--text);
         font-weight: 700;
       }
       .qcard-total {
-        color: var(--text-muted);
+        color: color-mix(in srgb, var(--text) 46%, var(--text-muted));
       }
       .qcard-actions {
         display: flex;
@@ -4915,8 +5128,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: var(--bg-card-alt);
         background-image:
           linear-gradient(180deg,
-            color-mix(in srgb, var(--state, #9eacba) 10%, transparent),
-            transparent 42%),
+            color-mix(in srgb, var(--state, #9eacba) 15%, transparent),
+            transparent 24%),
           linear-gradient(var(--bg-card-alt), var(--bg-card-alt));
         border: 1px solid var(--border);
         border-top: 4px solid var(--state, #9eacba);
@@ -4936,30 +5149,32 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--text);
       }
       .kanban-dot {
-        width: 10px;
-        height: 10px;
+        width: 11px;
+        height: 11px;
         border-radius: 50%;
         background: var(--state, #9eacba);
-        box-shadow: 0 0 0 2px rgba(0,0,0,0.25);
+        box-shadow:
+          0 0 0 2px color-mix(in srgb, var(--state, #9eacba) 26%, rgba(0,0,0,0.14)),
+          0 0 12px color-mix(in srgb, var(--state, #9eacba) 44%, transparent);
       }
       .kanban-count {
         background: rgba(255,255,255,0.06);
-        color: var(--text-secondary);
+        color: color-mix(in srgb, var(--text) 64%, var(--text-secondary));
         padding: 2px 8px;
         border-radius: 999px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
       }
       .kanban-column-time {
-        font-size: 10px;
-        color: var(--text-muted);
+        font-size: 11px;
+        color: color-mix(in srgb, var(--text) 52%, var(--text-muted));
         text-transform: uppercase;
         letter-spacing: 0.05em;
       }
@@ -5030,6 +5245,41 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
         .add-modal {
           max-height: calc(100vh - 16px);
+        }
+
+        .entry-detail-title-row,
+        .entry-detail-meta-row {
+          grid-template-columns: 1fr;
+        }
+
+        .entry-detail-state-select {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .entry-detail-title-input {
+          font-size: 20px;
+        }
+
+        .entry-detail-file-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .entry-detail-file-actions {
+          justify-content: flex-end;
+        }
+
+        .entry-detail-plate-row {
+          grid-template-columns: auto 1fr;
+          gap: 8px;
+        }
+
+        .entry-detail-plate-state,
+        .entry-detail-mark-btn,
+        .entry-detail-mark-placeholder {
+          justify-self: start;
+          margin-left: 22px;
         }
 
         .filter-bar {
@@ -5401,10 +5651,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
       });
     }
 
-    const detailFileToggles = this.shadowRoot.querySelectorAll('[data-action="toggle-detail-file"]');
-    detailFileToggles.forEach(button => {
+    const detailFileSelectAllButtons = this.shadowRoot.querySelectorAll('[data-action="detail-file-select-all"]');
+    detailFileSelectAllButtons.forEach(button => {
       button.addEventListener('click', () => {
-        this._toggleDetailFileSelection(button.dataset.fileUnitId);
+        this._selectAllDetailFilePlates(button.dataset.fileUnitId);
+      });
+    });
+
+    const detailFileClearPendingButtons = this.shadowRoot.querySelectorAll('[data-action="detail-file-clear-pending"]');
+    detailFileClearPendingButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        this._clearDetailFilePendingSelections(button.dataset.fileUnitId);
       });
     });
 
