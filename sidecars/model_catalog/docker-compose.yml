@@ -30,6 +30,16 @@ services:
       
       # Service Configuration
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
+      # Test DB path (auto-derived as /data/model_catalog_test.db if not set).
+      # Switch the active profile at runtime via POST /api/admin/db-profile/switch
+      # or by setting MODEL_CATALOG_DB_PROFILE=test and restarting.
+      MODEL_CATALOG_DB_PATH_TEST: ${MODEL_CATALOG_DB_PATH_TEST:-/data/model_catalog_test.db}
+      MODEL_CATALOG_DB_PROFILE: ${MODEL_CATALOG_DB_PROFILE:-prod}
+      # Bootstrap schema on both prod and test DBs at startup.
+      MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES: ${MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES:-true}
+      # Seed test DB from prod on startup (off by default — use only for intentional test resets).
+      MODEL_CATALOG_DB_SEED_TEST_FROM_PROD_ON_START: ${MODEL_CATALOG_DB_SEED_TEST_FROM_PROD_ON_START:-false}
+      MODEL_CATALOG_DB_SEED_TEST_OVERWRITE: ${MODEL_CATALOG_DB_SEED_TEST_OVERWRITE:-false}
       MODEL_CATALOG_REFRESH_TTL_SECONDS: ${MODEL_CATALOG_REFRESH_TTL_SECONDS:-900}
       MODEL_CATALOG_AUTHORITY_MODE: ${MODEL_CATALOG_AUTHORITY_MODE:-local}
       MODEL_CATALOG_HOST: 0.0.0.0
@@ -92,6 +102,10 @@ services:
     networks:
       - traefik
 
+    # NOTE: Datasette always targets the PROD database (/data/model_catalog.db).
+    # It does not follow MODEL_CATALOG_DB_PROFILE. If you need to inspect the test
+    # database, connect to the container directly:
+    #   docker exec -it model-catalog-datasette datasette /data/model_catalog_test.db
     command:
       - datasette
       - --host
@@ -162,6 +176,9 @@ services:
     networks:
       - traefik
 
+    # NOTE: sqlite-web always targets the PROD database (model_catalog.db).
+    # It does not follow MODEL_CATALOG_DB_PROFILE. To inspect the test database,
+    # override this service's command to target model_catalog_test.db instead.
     command:
       - model_catalog.db
       - --read-only

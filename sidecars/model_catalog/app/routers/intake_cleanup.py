@@ -18,6 +18,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from ..settings import Settings
 from ..state import AppState
 from .._helpers import _bulk_utc_now_iso, _configured_intake_source_roots, _is_path_within_roots
 
@@ -347,6 +348,80 @@ def _run_source_cleanup(
         "status": final_status,
         "cleanup": summary,
     }
+
+
+def _remove_browser_upload_staging(settings: Settings, source_entries: list[dict[str, Any]]) -> None:
+    """Remove browser and server-archive upload staging GUID directories.
+
+    Safe to call at any point — shutil.rmtree with ignore_errors means missing
+    directories are silently skipped.  Call this on every early-return path so
+    browser artifacts are never left behind.
+    """
+    for stage_dir in _browser_upload_stage_directories(settings, source_entries):
+        shutil.rmtree(stage_dir, ignore_errors=True)
+
+
+def _run_publish_finalize(
+    *,
+    request: Request,
+    upload_id: str,
+    source_entries: list[dict[str, Any]],
+    imported_rows: list[dict[str, Any]],
+    cleanup_policy: str,
+) -> tuple[bool, dict[str, Any], str]:
+    """Run post-publish source cleanup and remove browser/server-archive staging dirs.
+
+    Preserves the Browser vs Server cleanup split:
+    - **Browser uploads**: the entire staged GUID directory is removed via
+      ``shutil.rmtree``, even when items were excluded or the policy is ``keep``.
+    - **Server uploads**: ``_prune_empty_parent_dirs`` only removes dirs that
+      become fully empty after file deletion; an excluded file that remains keeps
+      its parent directory intact.
+
+    Both behaviours are already implemented inside ``_run_source_cleanup``; this
+    function is the single call-site so all publish routes stay consistent.
+
+    Returns:
+        ``(ok, result_dict, effective_status)``
+
+        * ``ok=False`` — result_dict has ``"error"``/``"message"`` keys from the
+          failed cleanup payload; the caller should return a 409 using those.
+        * ``ok=True``  — result_dict is the ``"cleanup"`` summary dict;
+          ``effective_status`` is the final upload status string.
+    """
+    state: AppState = request.app.state.model_catalog
+
+    keep_result: dict[str, Any] = {
+        "policy": cleanup_policy,
+        "status": "skipped",
+        "skipped": True,
+        "reason": "policy_keep",
+        "processed_count": 0,
+        "failed_count": 0,
+        "results": [],
+    }
+
+    if not imported_rows or cleanup_policy == "keep":
+        # No source-side cleanup needed; but browser staging must still be removed.
+        _remove_browser_upload_staging(state.settings, source_entries)
+        return True, keep_result, "verified"
+
+    cleanup_ok, cleanup_payload = _run_source_cleanup(
+        request=request,
+        upload_id=upload_id,
+        uploaded_rows=imported_rows,
+    )
+    # _run_source_cleanup removes staging dirs in its own happy path.
+    # Call again to guard early-exit paths (e.g. upload_not_found, status guard)
+    # where it returns False before reaching that cleanup line.
+    _remove_browser_upload_staging(state.settings, source_entries)
+
+    if not cleanup_ok:
+        return False, cleanup_payload, "verified"
+
+    cleanup_result = cleanup_payload["cleanup"]
+    effective_status = str(cleanup_payload.get("status") or "verified")
+    return True, cleanup_result, effective_status
 
 
 # ==================== ENDPOINTS ====================

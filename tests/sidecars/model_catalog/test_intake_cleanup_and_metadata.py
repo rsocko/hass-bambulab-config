@@ -105,19 +105,10 @@ def test_cleanup_delete_respects_exclusions_and_prunes_empty_subfolders(tmp_path
         )
         assert publish_response.status_code == 200
 
-        cleanup_response = client.post(
-            f"/api/intake/uploads/{upload_id}/cleanup",
-            json={
-                "uploaded_rows": [
-                    {"source_path": str(included_root_file)},
-                    {"source_path": str(included_prune_file)},
-                ]
-            },
-        )
-        assert cleanup_response.status_code == 200
-        cleanup_payload = cleanup_response.json()
+        cleanup_payload = publish_response.json()
         assert cleanup_payload["success"] is True
         assert cleanup_payload["cleanup"]["policy"] == "delete_on_verified"
+        assert str(cleanup_payload.get("status") or "") in {"cleanup_done", "verified"}
 
         assert excluded_file.exists(), "Excluded files must remain untouched"
         assert keep_folder.exists(), "Excluded folders must remain untouched"
@@ -157,12 +148,7 @@ def test_cleanup_delete_recursively_removes_empty_selected_folder(tmp_path: Path
         )
         assert publish_response.status_code == 200
 
-        cleanup_response = client.post(
-            f"/api/intake/uploads/{upload_id}/cleanup",
-            json={"uploaded_rows": [{"source_path": str(imported_file)}]},
-        )
-        assert cleanup_response.status_code == 200
-        cleanup_payload = cleanup_response.json()
+        cleanup_payload = publish_response.json()
 
         assert cleanup_payload["success"] is True
         assert not batch.exists(), "Selected folder should be removed when all descendants were imported/deleted"
@@ -301,6 +287,16 @@ def test_browser_upload_preserves_original_last_modified_metadata(tmp_path: Path
 
         with sqlite3.connect(db_path) as connection:
             connection.row_factory = sqlite3.Row
+            upload_row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+            assert upload_row is not None
+            source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
+            assert isinstance(source_entries, list) and source_entries
+            staged_source_path = Path(str(source_entries[0].get("path") or ""))
+            staged_upload_dir = staged_source_path.parent.parent
+
             item_row = connection.execute(
                 "SELECT source_metadata_json FROM working_items WHERE working_group_id = ?",
                 (working_group_id,),
@@ -317,5 +313,6 @@ def test_browser_upload_preserves_original_last_modified_metadata(tmp_path: Path
         )
         assert str(source_metadata.get("source_mtime") or "") == expected_source_mtime
         assert str(source_metadata.get("source_ctime") or "")
+        assert not staged_upload_dir.exists(), "Browser intake staging directory should be removed after publish"
     finally:
         client.__exit__(None, None, None)

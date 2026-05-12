@@ -71,6 +71,12 @@ def _expected_token() -> str:
 
 
 def _db_path() -> Path:
+    # NOTE: This sidecar has no test/prod profile concept.  There is a single
+    # BAMBUDDY_DB_PATH env var pointing at one database (default: /data/bambuddy.db).
+    # Unlike the model-catalog sidecar, there is no MODEL_CATALOG_DB_PROFILE equivalent,
+    # no BAMBUDDY_DB_PATH_TEST var, and no admin endpoint to switch profiles at runtime.
+    # If test/prod separation is ever needed here, the settings + admin switch pattern
+    # from sidecars/model_catalog/app/settings.py should be replicated.
     return Path(os.environ.get("BAMBUDDY_DB_PATH", "/data/bambuddy.db"))
 
 

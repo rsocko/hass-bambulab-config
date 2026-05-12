@@ -7,7 +7,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=147
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=70
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=72
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=2
   type: module
@@ -55,6 +55,6 @@
   type: module
 - url: /local/3d_printing/model_catalog/intake-browser-card.js?v=1
   type: module
-- url: /local/3d_printing/print_queue/unified-queue-board-card.js?v=51
+- url: /local/3d_printing/print_queue/unified-queue-board-card.js?v=53
   type: module
 

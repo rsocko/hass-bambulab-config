@@ -82,7 +82,7 @@ from .intake_queue import (
     _transition_queue_status,
     VALID_STATUS_TRANSITIONS,
 )
-from .intake_cleanup import _build_cleanup_stub, _run_source_cleanup
+from .intake_cleanup import _build_cleanup_stub, _run_source_cleanup, _run_publish_finalize, _remove_browser_upload_staging
 from .intake_verification import _default_group_title, _plan_intake_groups
 
 # Create combined router
@@ -1087,18 +1087,34 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
             event_type="destination_publish_verified",
             metadata={"curated_model_ids": curated_model_ids, "working_group_ids": working_group_ids},
         )
+
     if not transitioned:
+        _remove_browser_upload_staging(state.settings, source_entries)
         return JSONResponse(status_code=409, content={"success": False, "error": "status_transition_failed", "message": transition_error or "Could not finalize destination publish state.", "upload_id": upload_id})
 
-    browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
-    for stage_dir in browser_stage_dirs:
-        shutil.rmtree(stage_dir, ignore_errors=True)
+    cleanup_ok, cleanup_result, effective_status = _run_publish_finalize(
+        request=request,
+        upload_id=upload_id,
+        source_entries=source_entries,
+        imported_rows=imported_rows,
+        cleanup_policy=str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+    )
+    if not cleanup_ok:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": cleanup_result.get("error") or "cleanup_failed",
+                "message": cleanup_result.get("message") or "Cleanup could not be started.",
+                "upload_id": upload_id,
+            },
+        )
 
     return {
         "success": True,
         "contract": "intake-publish-by-destination.v1alpha1",
         "upload_id": upload_id,
-        "status": "verified",
+        "status": effective_status,
         "verification_status": "pass",
         "state": "published_by_destination",
         "is_terminal": True,
@@ -1109,6 +1125,7 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
         "curated_model_ids": curated_model_ids,
         "working_group_ids": working_group_ids,
         "failed_files": failed_files,
+        "cleanup": cleanup_result,
     }
 
 @router.post("/api/intake/uploads/{upload_id}/publish-to-local")
@@ -1501,6 +1518,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             )
 
         if not transitioned:
+            _remove_browser_upload_staging(state.settings, source_entries)
             return JSONResponse(
                 status_code=409,
                 content={
@@ -1511,30 +1529,23 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 },
             )
 
-        cleanup_result = {
-            "policy": str(upload_row["cleanup_policy"] or "keep").strip().lower(),
-            "status": "skipped",
-            "skipped": True,
-            "reason": "policy_keep",
-            "processed_count": 0,
-            "failed_count": 0,
-            "results": [],
-        }
-        effective_status = "verified"
-        if imported_assets and cleanup_result["policy"] != "keep":
-            cleanup_ok, cleanup_payload = _run_source_cleanup(request=request, upload_id=upload_id, uploaded_rows=imported_assets)
-            if not cleanup_ok:
-                return JSONResponse(
-                    status_code=409,
-                    content={
-                        "success": False,
-                        "error": cleanup_payload.get("error") or "cleanup_failed",
-                        "message": cleanup_payload.get("message") or "Cleanup could not be started.",
-                        "upload_id": upload_id,
-                    },
-                )
-            cleanup_result = cleanup_payload["cleanup"]
-            effective_status = str(cleanup_payload["status"])
+        cleanup_ok, cleanup_result, effective_status = _run_publish_finalize(
+            request=request,
+            upload_id=upload_id,
+            source_entries=source_entries,
+            imported_rows=imported_assets,
+            cleanup_policy=str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+        )
+        if not cleanup_ok:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": cleanup_result.get("error") or "cleanup_failed",
+                    "message": cleanup_result.get("message") or "Cleanup could not be started.",
+                    "upload_id": upload_id,
+                },
+            )
 
         return {
             "success": True,
@@ -1812,6 +1823,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         )
 
     if not transitioned:
+        _remove_browser_upload_staging(state.settings, source_entries)
         return JSONResponse(
             status_code=409,
             content={
@@ -1823,31 +1835,24 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             },
         )
 
-    cleanup_result = {
-        "policy": str(upload_row["cleanup_policy"] or "keep").strip().lower(),
-        "status": "skipped",
-        "skipped": True,
-        "reason": "policy_keep",
-        "processed_count": 0,
-        "failed_count": 0,
-        "results": [],
-    }
-    effective_status = "verified"
-    if imported_assets and cleanup_result["policy"] != "keep":
-        cleanup_ok, cleanup_payload = _run_source_cleanup(request=request, upload_id=upload_id, uploaded_rows=imported_assets)
-        if not cleanup_ok:
-            return JSONResponse(
-                status_code=409,
-                content={
-                    "success": False,
-                    "error": cleanup_payload.get("error") or "cleanup_failed",
-                    "message": cleanup_payload.get("message") or "Cleanup could not be started.",
-                    "upload_id": upload_id,
-                    "local_model_id": local_model_id,
-                },
-            )
-        cleanup_result = cleanup_payload["cleanup"]
-        effective_status = str(cleanup_payload["status"])
+    cleanup_ok, cleanup_result, effective_status = _run_publish_finalize(
+        request=request,
+        upload_id=upload_id,
+        source_entries=source_entries,
+        imported_rows=imported_assets,
+        cleanup_policy=str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+    )
+    if not cleanup_ok:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": cleanup_result.get("error") or "cleanup_failed",
+                "message": cleanup_result.get("message") or "Cleanup could not be started.",
+                "upload_id": upload_id,
+                "local_model_id": local_model_id,
+            },
+        )
 
     detail_payload = build_model_detail_response(
         state,
@@ -2243,6 +2248,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
         },
     )
     if not transitioned:
+        _remove_browser_upload_staging(state.settings, source_entries)
         return JSONResponse(
             status_code=409,
             content={
@@ -2266,6 +2272,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
         },
     )
     if not transitioned:
+        _remove_browser_upload_staging(state.settings, source_entries)
         return JSONResponse(
             status_code=409,
             content={
@@ -2279,9 +2286,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
 
     # Browser uploads stage files under a GUID folder; once files are moved
     # into working storage this staging folder can be removed.
-    browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
-    for stage_dir in browser_stage_dirs:
-        shutil.rmtree(stage_dir, ignore_errors=True)
+    _remove_browser_upload_staging(state.settings, source_entries)
 
     # Fetch created working groups for response
     detail_connection = connect(state.settings.db_path)

@@ -347,7 +347,8 @@ cards:
                 - text-transform: uppercase
                 - color: var(--primary-text-color)
               icon:
-                - width: 15px
+                - width: 16px
+                - height: 16px
                 - color: var(--primary-color)
             state:
               - value: prod

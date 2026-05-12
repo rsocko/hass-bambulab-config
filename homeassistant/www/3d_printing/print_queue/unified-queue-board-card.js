@@ -9,6 +9,8 @@
  * - Responsive layout for desktop and mobile
  */
 
+import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
+
 const QUEUE_STATE_FILTER_ORDER = ['backlog', 'preparing', 'ready', 'in_progress', 'blocked', 'done'];
 const QUEUE_DEFAULT_VISIBLE_STATES = ['preparing', 'ready', 'in_progress', 'blocked'];
 const QUEUE_STATE_GROUP_ORDER = ['in_progress', 'ready', 'preparing', 'backlog', 'blocked', 'done'];
@@ -535,6 +537,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     // flashing because the full shadow DOM is replaced each time.
     if (isFirstHass && this._config && !this.shadowRoot.innerHTML) {
       this._render();
+    } else {
+      // Update DB pill on every hass update (entity state changes)
+      this._updateDbPill();
     }
   }
 
@@ -684,6 +689,25 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _getCatalogApiBase() {
     return 'http://model-catalog.socko.us/api';
+  }
+
+  _updateDbPill() {
+    if (!this._hass) return;
+    
+    const dbStateEl = this.shadowRoot?.querySelector('#db-profile-state');
+    if (!dbStateEl) return;
+    
+    try {
+      const dbProfileEntity = 'input_select.model_catalog_db_profile_target';
+      const state = this._hass.states[dbProfileEntity];
+      if (state && state.state) {
+        dbStateEl.textContent = String(state.state).toUpperCase();
+      } else {
+        dbStateEl.textContent = '-';
+      }
+    } catch (_err) {
+      dbStateEl.textContent = '-';
+    }
   }
 
   _getStats() {
@@ -1119,21 +1143,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
           queue_notes: String(this._addIdeaNotes || '').trim() || null,
         };
 
-        const response = await fetch(
-          `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        const responseBody = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(String(responseBody.message || responseBody.error || `Idea add failed (${response.status})`));
-        }
+        await addUnifiedQueueEntry({
+          queueApiBase: this._getQueueApiBase(),
+          printerId: this.printerId,
+          payload,
+        });
 
         this._closeAddModal();
         await this._loadQueueData();
@@ -1187,21 +1201,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
         payload.selected_files = this._buildAdvancedSelectedFilesPayload();
       }
 
-      const response = await fetch(
-        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const responseBody = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(String(responseBody.message || responseBody.error || `Queue add failed (${response.status})`));
-      }
+      await addUnifiedQueueEntry({
+        queueApiBase: this._getQueueApiBase(),
+        printerId: this.printerId,
+        payload,
+      });
 
       this._closeAddModal();
       this._setFlashMessage('Queue entry created successfully.', 'success');
@@ -1725,24 +1729,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
         throw new Error('Working group created without a usable reference.');
       }
 
-      const addResponse = await fetch(
-        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            source_kind: 'working_group',
-            source_id: groupRef,
-            title: `Working Group: ${ideaTitle}`,
-            state: 'preparing',
-            queue_notes: 'Created from queue idea graduation',
-          }),
-        }
-      );
-      const addPayload = await addResponse.json().catch(() => ({}));
-      if (!addResponse.ok) {
-        throw new Error(String(addPayload.message || addPayload.error || `Queue graduation add failed (${addResponse.status})`));
-      }
+      await addUnifiedQueueEntry({
+        queueApiBase: this._getQueueApiBase(),
+        printerId: this.printerId,
+        payload: {
+          source_kind: 'working_group',
+          source_id: groupRef,
+          title: `Working Group: ${ideaTitle}`,
+          state: 'preparing',
+          queue_notes: 'Created from queue idea graduation',
+        },
+      });
 
       const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
       const note = this._appendQueueNoteLine(
@@ -1810,24 +1807,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       const modelRef = String(createPayload.local_model_id || localModelId).trim();
-      const addResponse = await fetch(
-        `${this._getQueueApiBase()}/queues/${encodeURIComponent(this.printerId)}/add`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            source_kind: 'catalog_model',
-            source_id: modelRef,
-            title: `Catalog Model: ${ideaTitle}`,
-            state: 'preparing',
-            queue_notes: 'Created from queue idea graduation',
-          }),
-        }
-      );
-      const addPayload = await addResponse.json().catch(() => ({}));
-      if (!addResponse.ok) {
-        throw new Error(String(addPayload.message || addPayload.error || `Queue graduation add failed (${addResponse.status})`));
-      }
+      await addUnifiedQueueEntry({
+        queueApiBase: this._getQueueApiBase(),
+        printerId: this.printerId,
+        payload: {
+          source_kind: 'catalog_model',
+          source_id: modelRef,
+          title: `Catalog Model: ${ideaTitle}`,
+          state: 'preparing',
+          queue_notes: 'Created from queue idea graduation',
+        },
+      });
 
       const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
       const note = this._appendQueueNoteLine(
@@ -3376,6 +3366,47 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .planner-btn:hover {
         background: rgba(124, 199, 255, 0.2);
         border-color: rgba(124, 199, 255, 0.5);
+      }
+
+      .db-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(125, 125, 125, 0.35);
+        background: rgba(96, 165, 250, 0.12);
+        box-shadow: none;
+        height: 36px;
+      }
+
+      .db-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        color: var(--primary-color, #60a5fa);
+        opacity: 0.8;
+      }
+
+      .db-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--secondary-text-color, #9ca3af);
+        white-space: nowrap;
+      }
+
+      .db-state {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--primary-text-color, #f3f4f6);
+        white-space: nowrap;
+      }
+
+      .db-pill:hover {
+        background: rgba(96, 165, 250, 0.18);
+        border-color: rgba(96, 165, 250, 0.5);
+        cursor: pointer;
       }
 
       .flash-banner {
@@ -5816,6 +5847,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
         <div class="card-title">
           <h2>Print Queue</h2>
           <div class="title-actions">
+            <div class="db-pill">
+              <svg class="db-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13H5V9h14m0 10H5v-4h14m2-8H3c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H3V7h18v16z"/></svg>
+              <span class="db-label">DB</span>
+              <span class="db-state" id="db-profile-state">-</span>
+            </div>
             <button class="planner-btn" data-action="open-planner" title="Open Queue Planner">📊 Planner</button>
             <button class="add-btn" data-action="open-add">+ Add</button>
             <button class="refresh-btn ${this._loading ? 'loading' : ''}" data-action="refresh" ${this._loading ? 'disabled' : ''}>
@@ -5945,6 +5981,25 @@ class UnifiedQueueBoardCard extends HTMLElement {
     // ---- DnD wiring (list reorder + kanban state moves) ----
     this._attachListReorderDnD();
     this._attachKanbanDnD();
+
+    // ---- DB pill update ----
+    this._updateDbPill();
+
+    const dbPill = this.shadowRoot.querySelector('.db-pill');
+    if (dbPill) {
+      dbPill.addEventListener('click', () => {
+        if (this._hass) {
+          this._hass.callService('input_select', 'open_help', {
+            entity_id: 'input_select.model_catalog_db_profile_target'
+          }).catch(() => {
+            // Fallback: just open more-info
+            this._hass.callService('frontend', 'set_state', {
+              state: 'more-info/input_select.model_catalog_db_profile_target'
+            });
+          });
+        }
+      });
+    }
 
     const addBtn = this.shadowRoot.querySelector('.add-btn');
     if (addBtn) {

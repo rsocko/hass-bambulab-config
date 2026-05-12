@@ -1,4 +1,5 @@
 import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
+import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 
 class ModelCatalogBrowserCard extends HTMLElement {
   constructor() {
@@ -829,19 +830,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   async _addUnifiedQueueEntryForModel(modelRef, options) {
     var body = options && typeof options === "object" ? options : {};
-    return this._callServiceWithResponse("rest_command", "model_catalog_add_unified_queue_entry", {
-      printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
-      source_kind: "catalog_model",
-      source_id: modelRef,
-      copies: body.copies != null ? body.copies : 1,
-      state: body.state || "preparing",
-      rank: body.rank != null ? body.rank : 0,
-      queue_notes: body.queue_notes || "",
-      // Default to quick_add so the entry is populated with the model's
-      // file_units and plate_units (otherwise the Details popup shows no
-      // files or plates because the v1 add endpoint only seeds units when
-      // quick_add or selected_files are provided).
-      quick_add: body.quick_add != null ? !!body.quick_add : true,
+    return addUnifiedQueueEntry({
+      queueApiBase: this._resolveModelSidecarUrl() + '/api/v1',
+      printerId: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
+      payload: {
+        source_kind: "catalog_model",
+        source_id: modelRef,
+        copies: body.copies != null ? body.copies : 1,
+        state: body.state || "preparing",
+        rank: body.rank != null ? body.rank : 0,
+        queue_notes: body.queue_notes || "",
+        // Default to quick_add so the entry is populated with the model's
+        // file_units and plate_units (otherwise the Details popup shows no
+        // files or plates because the v1 add endpoint only seeds units when
+        // quick_add or selected_files are provided).
+        quick_add: body.quick_add != null ? !!body.quick_add : true,
+      },
     });
   }
 
@@ -887,6 +891,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
         if (entryId) {
           await this._deleteUnifiedQueueEntry(entryId);
         }
+      }
+      return;
+    }
+
+    if (action === "queue-add") {
+      if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "backlog" });
       }
       return;
     }
@@ -1883,9 +1894,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<button class="icon-action favorite-action' + (modelFavorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(modelFavorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(modelFavorite ? 'Remove favorite' : 'Add favorite') + '">'
       + '  <ha-icon icon="' + this._escapeHtml(modelFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
       + '</button>';
-    var queueButtonQueued = queueStatus === "queued";
+    var queueButtonQueued = !!(queueStateInfo && this._isUnifiedQueueActiveState(queueStateInfo.state));
     var queueButton = ''
-      + '<button class="icon-action queue-action' + (queueButtonQueued ? ' is-queued' : '') + '" type="button" data-action="' + this._escapeHtml(queueButtonQueued ? 'queue-clear' : 'queue-mark-queued') + '" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="' + this._escapeHtml(queueButtonQueued ? 'Dequeue' : 'Queue') + '">'
+      + '<button class="icon-action queue-action' + (queueButtonQueued ? ' is-queued' : '') + '" type="button" data-action="' + this._escapeHtml(queueButtonQueued ? 'queue-clear' : 'queue-add') + '" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="' + this._escapeHtml(queueButtonQueued ? 'Dequeue' : 'Add to backlog') + '">'
       + '  <ha-icon icon="' + this._escapeHtml(queueButtonQueued ? 'mdi:playlist-remove' : 'mdi:playlist-plus') + '"></ha-icon>'
       + '</button>';
 

@@ -124,7 +124,6 @@ class TestUnifiedQueueBoardCardStructure(unittest.TestCase):
             "/api/v1",
             "/queues/",
             "/entries",
-            "/add",
             "/reorder",
             "/suggestions",
             "/plan/history",
@@ -134,6 +133,10 @@ class TestUnifiedQueueBoardCardStructure(unittest.TestCase):
         ]
         for endpoint in api_endpoints:
             self.assertIn(endpoint, self.card_content, f"Missing API endpoint: {endpoint}")
+
+        # Queue add now flows through shared helper to avoid drift with catalog quick-add.
+        self.assertIn("import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';", self.card_content)
+        self.assertIn("addUnifiedQueueEntry({", self.card_content)
 
     def test_event_handlers_attached(self):
         """Event handlers should be attached in render method."""

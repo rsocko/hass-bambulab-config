@@ -70,6 +70,20 @@ def _env_roots(name: str) -> list[Path]:
 
 
 def _default_db_path() -> Path:
+    # Respect the active DB profile so this tool targets the same database the
+    # running service is using.  If MODEL_CATALOG_DB_PROFILE=test, prefer
+    # MODEL_CATALOG_DB_PATH_TEST (falling back to the auto-derived *_test.db
+    # suffix).  Always falls back to MODEL_CATALOG_DB_PATH / the hard-coded
+    # prod default when no profile-specific override is found.
+    profile = str(os.getenv("MODEL_CATALOG_DB_PROFILE", "prod")).strip().lower()
+    if profile == "test":
+        test_env = _env_path("MODEL_CATALOG_DB_PATH_TEST")
+        if test_env is not None:
+            return test_env
+        # Auto-derive test path from prod path (mirrors app/settings.py logic).
+        prod = _env_path("MODEL_CATALOG_DB_PATH") or Path("/data/model_catalog.db")
+        if str(prod) != ":memory:":
+            return prod.with_name(f"{prod.stem}_test{prod.suffix}")
     env = _env_path("MODEL_CATALOG_DB_PATH")
     if env is not None:
         return env
@@ -263,7 +277,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--db-path",
         default=str(_default_db_path()),
-        help="Path to SQLite DB (default: MODEL_CATALOG_DB_PATH or /data/model_catalog.db)",
+        help="Path to SQLite DB (default: resolved from MODEL_CATALOG_DB_PROFILE + MODEL_CATALOG_DB_PATH[_TEST], or /data/model_catalog.db)",
     )
     parser.add_argument(
         "--tables",
