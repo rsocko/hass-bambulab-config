@@ -66,6 +66,26 @@ Archive status, timestamps, and runtime metrics should never be shadow-owned by 
 
 Prefer compact summary caches over full upstream payload persistence unless the full payload is explicitly needed.
 
+### Principle 5: cross-system links point one way only — Catalog/Queue → Archive
+
+All persisted relationships between the model catalog (including the unified print queue, which lives in the model-catalog DB) and Bambuddy print history are stored **only** on the catalog/queue side, keyed by Bambuddy-global identifiers (`bambuddy_archive_id`, `library_file_id`).
+
+Bambuddy and the print-history sidecar/DB **must never** store back-pointers to catalog or queue surrogate keys (`queue_entry_id`, `model_catalog_links.id`, `manyfold_model_url`, catalog working-file IDs, etc.). No archive payload, enrichment write-back, or print-history materialization may embed a catalog/queue ID.
+
+Rationale and asymmetry:
+
+- The model-catalog sidecar supports a prod/test DB profile split (`MODEL_CATALOG_DB_PROFILE`). Catalog data, the unified print queue, and the archive linkage table all live in that DB and switch together.
+- Bambuddy and the bambuddy-runtime-repair sidecar are intentionally **single-DB, single-namespace** with no prod/test split, and that is a permanent design choice — there will not be a `BAMBUDDY_DB_PROFILE`.
+- `bambuddy_archive_id` is therefore globally unique. A catalog-side row referencing `archive_id=42` means the same physical archive regardless of which catalog profile is active.
+- Catalog/queue surrogate keys (`queue_entry_id`, link row IDs, etc.) are **profile-local** and meaningless outside the DB that minted them. Writing them into Bambuddy would couple the global archive store to whichever profile happened to be active at write time and silently break under a profile switch.
+- One-way linkage keeps Bambuddy free of profile concerns and keeps the test profile a true throwaway sandbox. Test mode is allowed to diverge freely from prod; there is no promote/merge path and no UI guard against divergence — that divergence is the point of having a test profile. PROD is the canonical operator surface.
+
+Consequences for consumers:
+
+- Anything that needs to associate Bambuddy data with a catalog/queue concept must do so by looking up `bambuddy_archive_id` (or another Bambuddy-global key) **from the catalog/queue side**.
+- HA automations, scripts, and webhooks that need a stable cross-profile reference must use `bambuddy_archive_id` (or a content hash), not `queue_entry_id` or link row IDs.
+- It is expected and acceptable that the same archive can show different linked-model state depending on which catalog profile is active.
+
 ## Recommended Data Shapes
 
 ### Cached Manyfold model summary
