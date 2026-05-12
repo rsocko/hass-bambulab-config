@@ -337,7 +337,7 @@ cards:
                 - flex: 0 0 auto
               grid:
                 - grid-template-areas: '"i n s"'
-                - grid-template-columns: min-content min-content min-content
+                - grid-template-columns: 18px min-content min-content
                 - column-gap: 6px
                 - align-items: center
               name:
@@ -352,10 +352,14 @@ cards:
                 - color: var(--primary-text-color)
                 - justify-self: start
               img_cell:
+                - width: 18px
+                - height: 18px
+                - position: relative
                 - align-self: center
                 - justify-self: center
               icon:
                 - width: 18px
+                - height: 18px
                 - color: var(--primary-color)
             state:
               - value: prod
