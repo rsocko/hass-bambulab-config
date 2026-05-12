@@ -1102,8 +1102,18 @@ class UnifiedQueueBoardCard extends HTMLElement {
         }
 
         this._closeAddModal();
-        this._setFlashMessage('Idea added to queue backlog.', 'success');
         await this._loadQueueData();
+
+        let filterChanged = false;
+        if (!this._filters.states.includes('backlog')) {
+          this._filters.states = [...this._filters.states, 'backlog'];
+          filterChanged = true;
+        }
+        if (filterChanged) {
+          this._saveFilterState();
+        }
+
+        this._setFlashMessage('Idea added. Open Details, then Info tab to graduate it.', 'success');
       } catch (err) {
         this._addDetailError = err.message;
         this._render();
@@ -2671,6 +2681,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>` : ''}
         <div class="qcard-actions" role="group" aria-label="Queue entry actions">
           <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="View &amp; edit details">Details</button>
+          ${entry.source_kind === 'idea'
+            ? `<button class="entry-action-btn" data-action="entry-graduate" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Open graduation actions">Graduate</button>`
+            : ''}
           <span class="qcard-actions-spacer" aria-hidden="true"></span>
           <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
         </div>
@@ -6181,6 +6194,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
         if (action === 'entry-detail') {
           this._openEntryDetail(entryId);
+        } else if (action === 'entry-graduate') {
+          this._openEntryDetail(entryId, 'info');
         } else if (action === 'entry-edit') {
           await this._editEntry(entryId);
         } else if (action === 'entry-delete') {
