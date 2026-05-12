@@ -2911,7 +2911,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .shell {
         width: 100%;
-        background: var(--bg-panel);
+        background:
+          radial-gradient(circle at top left, rgba(148,163,184,0.06), transparent 32%),
+          linear-gradient(180deg,
+            color-mix(in srgb, var(--bg-panel) 94%, #0b1015 6%),
+            color-mix(in srgb, var(--bg-panel) 92%, #1a2340 8%) 36%,
+            color-mix(in srgb, var(--bg-panel) 94%, #0b1015 6%)),
+          var(--bg-panel);
         border: 1px solid var(--border);
         border-radius: 22px;
         box-shadow: var(--shadow);
