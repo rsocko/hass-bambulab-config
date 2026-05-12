@@ -2,12 +2,9 @@ title: Model Catalog
 path: model-catalog
 icon: mdi:cube-outline
 badges:
-  - entity: sensor.model_catalog_sidecar_db_profile
-    name: Active DB
-    color: blue
   - entity: input_select.model_catalog_db_profile_target
-    name: Target DB
-    color: amber
+    name: Current DB
+    color: blue
 panel: true
 cards:
   - type: vertical-stack
@@ -314,6 +311,53 @@ cards:
                     - color: var(--primary-text-color)
                   icon:
                     - color: var(--primary-color)
+          - type: custom:button-card
+            entity: input_select.model_catalog_db_profile_target
+            name: DB
+            show_state: true
+            show_icon: true
+            icon: mdi:database-switch
+            tap_action:
+              action: more-info
+            hold_action:
+              action: none
+            styles:
+              card:
+                - padding: 8px 10px
+                - border-radius: 999px
+                - border: 1px solid rgba(125, 125, 125, 0.35)
+                - background: rgba(96, 165, 250, 0.12)
+                - box-shadow: none
+                - min-height: 36px
+                - margin: 6px 8px 6px auto
+                - width: max-content
+                - flex: 0 0 auto
+              grid:
+                - grid-template-areas: '"i n s"'
+                - grid-template-columns: min-content min-content min-content
+                - column-gap: 6px
+                - align-items: center
+              name:
+                - font-size: 11px
+                - font-weight: 700
+                - color: var(--secondary-text-color)
+              state:
+                - font-size: 12px
+                - font-weight: 700
+                - text-transform: uppercase
+                - color: var(--primary-text-color)
+              icon:
+                - width: 15px
+                - color: var(--primary-color)
+            state:
+              - value: prod
+                styles:
+                  card:
+                    - background: rgba(59, 130, 246, 0.15)
+              - value: test
+                styles:
+                  card:
+                    - background: rgba(245, 158, 11, 0.18)
       - type: conditional
         conditions:
           - entity: input_select.model_catalog_workspace_view
