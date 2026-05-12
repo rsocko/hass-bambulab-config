@@ -28,10 +28,10 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 const QUEUE_STATE_PALETTE = {
   backlog:     '#a07cff',
   preparing:   '#ff9a3c',
-  ready:       '#2ee0b8',
+  ready:       '#8fd8ff',
   in_progress: '#3aa9ff',
   blocked:     '#ff6b6b',
-  done:        '#22c55e',
+  done:        '#22b35f',
 };
 
 class UnifiedQueueBoardCard extends HTMLElement {
@@ -4700,8 +4700,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .qcard {
         position: relative;
         background: linear-gradient(180deg,
-          color-mix(in srgb, var(--state, #9eacba) 28%, var(--bg-card-alt)),
-          color-mix(in srgb, var(--state, #9eacba) 10%, var(--bg-card-alt)));
+          color-mix(in srgb, var(--state, #9eacba) 16%, var(--bg-card-alt)),
+          color-mix(in srgb, var(--state, #9eacba) 6%, var(--bg-card-alt)));
         border: 1px solid var(--border);
         border-left: 3px solid var(--state, #9eacba);
         border-radius: 12px;
