@@ -1717,14 +1717,46 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._browserSourcePath = '';
       this._clearBrowserFiles();
       await this._setSourceMode('server');
+      // Issue #1323: open the Server intake directly inside the configured intake
+      // root for the active DB profile (prod vs test) instead of hardcoding
+      // "/assets/Model Inbox". The backend resolves intake roots via
+      // MODEL_CATALOG_INTAKE_ROOTS / MODEL_CATALOG_INTAKE_ROOTS_TEST, and the
+      // currently-allowlisted set is exposed via _roots (loaded by _refresh).
+      // Falling back to "/" surfaces the virtual root listing of all configured
+      // roots when no preferred root can be determined.
+      var preferredRoot = '';
       try {
-        await this._loadBrowse('/assets/Model Inbox');
-      } catch (_err) {
+        var roots = Array.isArray(this._roots) ? this._roots : [];
+        // Prefer the first accessible root; otherwise fall back to the first
+        // configured root regardless of accessibility.
+        var firstAccessible = roots.find(function (r) { return r && r.accessible && r.path; });
+        var firstAny = roots.find(function (r) { return r && r.path; });
+        preferredRoot = (firstAccessible && firstAccessible.path)
+          || (firstAny && firstAny.path)
+          || '';
+      } catch (_rootErr) {
+        preferredRoot = '';
+      }
+      if (preferredRoot) {
+        try {
+          await this._loadBrowse(preferredRoot);
+        } catch (_err) {
+          this._error = '';
+          await this._loadBrowse('/');
+        }
+      } else {
         await this._loadBrowse('/');
       }
-      // If Model Inbox returned no entries (e.g., not allowlisted), fall back to root.
+      // If the preferred root returned no entries (e.g., transient API hiccup),
+      // fall back to the virtual root and clear any stale error from the
+      // previous attempt so the wizard does not show a misleading red banner.
       if (!this._browse || !this._browse.path || !this._browse.entries) {
+        this._error = '';
         await this._loadBrowse('/');
+      }
+      // If the fallback succeeded, clear any stale error from the prior attempt.
+      if (this._browse && this._browse.entries) {
+        this._error = '';
       }
       return;
     }
