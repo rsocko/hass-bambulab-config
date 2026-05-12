@@ -1064,6 +1064,15 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }));
   }
 
+  _getSelectedAddSourceLabel() {
+    const sourceKind = String(this._addSourceKind || '').trim();
+    const sourceId = String(this._addSourceId || '').trim();
+    if (!sourceKind || !sourceId) return '';
+    const options = Array.isArray(this._addSourceOptions[sourceKind]) ? this._addSourceOptions[sourceKind] : [];
+    const selected = options.find(option => String(option?.value || '').trim() === sourceId);
+    return String(selected?.label || '').trim();
+  }
+
   async _submitAddToQueue() {
     if (this._addSourceKind === 'idea') {
       const ideaTitle = this._stripTitlePrefix(this._addIdeaTitle || '').trim();
@@ -1137,6 +1146,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
         source_kind: this._addSourceKind,
         source_id: sourceId,
       };
+      const sourceLabel = this._getSelectedAddSourceLabel();
+      if (sourceLabel) {
+        if (this._addSourceKind === 'catalog_model') {
+          payload.title = `Catalog Model: ${sourceLabel}`;
+        } else if (this._addSourceKind === 'working_group') {
+          payload.title = `Working Group: ${sourceLabel}`;
+        }
+      }
 
       if (this._addTab === 'quick') {
         payload.quick_add = true;
@@ -1164,20 +1181,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
       this._closeAddModal();
       this._setFlashMessage('Queue entry created successfully.', 'success');
       await this._loadQueueData();
-      // Reveal any entry states that are now in the queue but not in the active filter,
-      // so the newly-added entry is immediately visible.
-      const knownStates = new Set(this._entries.map(e => String(e.state || '').trim()).filter(Boolean));
-      let filterChanged = false;
-      for (const s of knownStates) {
-        if (!this._filters.states.includes(s)) {
-          this._filters.states = [...this._filters.states, s];
-          filterChanged = true;
-        }
-      }
-      if (filterChanged) {
-        this._saveFilterState();
-        this._render();
-      }
     } catch (err) {
       this._addDetailError = err.message;
       this._render();
@@ -3263,17 +3266,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .shell {
         width: 100%;
-        background:
-          radial-gradient(circle at top left, rgba(148,163,184,0.06), transparent 32%),
-          linear-gradient(180deg,
-            color-mix(in srgb, var(--bg-panel) 94%, #0b1015 6%),
-            color-mix(in srgb, var(--bg-panel) 92%, #1a2340 8%) 36%,
-            color-mix(in srgb, var(--bg-panel) 94%, #0b1015 6%)),
-          var(--bg-panel);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        box-shadow: var(--shadow);
-        overflow: hidden;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
       }
 
       .card-title {
@@ -4211,6 +4208,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .selection-grid {
         display: grid;
         gap: 10px;
+        max-height: min(46vh, 420px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+        scrollbar-gutter: stable;
       }
 
       .file-block {
@@ -5659,6 +5661,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
         .add-modal {
           max-height: calc(100vh - 16px);
+        }
+
+        .selection-grid {
+          max-height: min(40vh, 320px);
         }
 
         .entry-detail-title-row,
