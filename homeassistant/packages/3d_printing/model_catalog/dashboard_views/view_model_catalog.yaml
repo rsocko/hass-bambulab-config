@@ -316,7 +316,8 @@ cards:
             name: DB
             show_state: true
             show_icon: true
-            icon: mdi:database-switch
+            icon: mdi:database
+            size: 16px
             tap_action:
               action: more-info
             hold_action:
@@ -328,10 +329,12 @@ cards:
                 - border: 1px solid rgba(125, 125, 125, 0.35)
                 - background: rgba(96, 165, 250, 0.12)
                 - box-shadow: none
+                - height: 36px
                 - min-height: 36px
                 - margin: 6px 8px 6px auto
                 - width: max-content
                 - flex: 0 0 auto
+                - "--mdc-icon-size": 16px
               grid:
                 - grid-template-areas: '"i n s"'
                 - grid-template-columns: min-content min-content min-content
@@ -346,6 +349,11 @@ cards:
                 - font-weight: 700
                 - text-transform: uppercase
                 - color: var(--primary-text-color)
+              img_cell:
+                - width: 16px
+                - height: 16px
+                - align-self: center
+                - justify-self: center
               icon:
                 - width: 16px
                 - height: 16px
