@@ -55,6 +55,6 @@
   type: module
 - url: /local/3d_printing/model_catalog/intake-browser-card.js?v=1
   type: module
-- url: /local/3d_printing/print_queue/unified-queue-board-card.js?v=33
+- url: /local/3d_printing/print_queue/unified-queue-board-card.js?v=36
   type: module
 

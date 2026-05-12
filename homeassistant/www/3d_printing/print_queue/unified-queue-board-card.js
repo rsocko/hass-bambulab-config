@@ -28,7 +28,7 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 const QUEUE_STATE_PALETTE = {
   backlog:     '#a07cff',
   preparing:   '#ff9a3c',
-  ready:       '#b9dd4d',
+  ready:       '#e6d84a',
   in_progress: '#3aa9ff',
   blocked:     '#ff6b6b',
   done:        '#4fcf75',
@@ -2891,11 +2891,17 @@ class UnifiedQueueBoardCard extends HTMLElement {
         --text: var(--primary-text-color);
         --text-secondary: var(--secondary-text-color);
         --text-muted: color-mix(in srgb, var(--secondary-text-color) 70%, transparent);
-        --accent: #2ee0b8;
-        --accent-blue: #3aa9ff;
-        --accent-amber: #ffb547;
-        --accent-red: #ff6b6b;
-        --accent-green: #22c55e;
+        --state-backlog: #a07cff;
+        --state-preparing: #ff9a3c;
+        --state-ready: #58e0b8;
+        --state-in-progress: #3aa9ff;
+        --state-blocked: #ff6b6b;
+        --state-done: #4fcf75;
+        --accent: var(--state-ready);
+        --accent-blue: var(--state-in-progress);
+        --accent-amber: var(--state-preparing);
+        --accent-red: var(--state-blocked);
+        --accent-green: var(--state-done);
         --shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
       }
 
@@ -3653,7 +3659,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
         width: min(900px, 100%);
         max-height: calc(100vh - 40px);
         overflow: hidden;
-        background: linear-gradient(180deg, rgba(28, 36, 47, 0.98), rgba(18, 24, 33, 0.98));
+        background:
+          linear-gradient(180deg,
+            color-mix(in srgb, var(--bg-card-alt) 88%, var(--state-in-progress) 12%),
+            color-mix(in srgb, var(--bg-card) 92%, transparent));
         border: 1px solid var(--border-strong);
         border-radius: 18px;
         box-shadow: var(--shadow);
@@ -3679,6 +3688,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         justify-content: space-between;
         padding: 14px 16px;
         border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--bg-card-alt) 94%, var(--state-in-progress) 6%);
       }
 
       .add-modal-header h3 {
@@ -3802,11 +3812,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .copy-preview {
         margin-bottom: 12px;
         border-radius: 10px;
-        border: 1px solid rgba(124, 199, 255, 0.2);
-        background: rgba(124, 199, 255, 0.1);
+        border: 1px solid color-mix(in srgb, var(--state-in-progress) 32%, transparent);
+        background: color-mix(in srgb, var(--state-in-progress) 12%, transparent);
         padding: 8px 10px;
         font-size: 12px;
-        color: var(--accent-blue);
+        color: var(--state-in-progress);
       }
 
       .selection-grid {
@@ -3953,21 +3963,21 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-source.catalog {
-        color: var(--accent-blue);
-        border-color: rgba(124, 199, 255, 0.3);
-        background: rgba(124, 199, 255, 0.12);
+        color: var(--state-in-progress);
+        border-color: color-mix(in srgb, var(--state-in-progress) 36%, transparent);
+        background: color-mix(in srgb, var(--state-in-progress) 14%, transparent);
       }
 
       .entry-detail-source.working {
-        color: var(--accent);
-        border-color: rgba(110, 231, 200, 0.3);
-        background: rgba(110, 231, 200, 0.12);
+        color: var(--state-ready);
+        border-color: color-mix(in srgb, var(--state-ready) 36%, transparent);
+        background: color-mix(in srgb, var(--state-ready) 14%, transparent);
       }
 
       .entry-detail-source.idea {
-        color: var(--accent-amber);
-        border-color: rgba(242, 195, 91, 0.3);
-        background: rgba(242, 195, 91, 0.12);
+        color: var(--state-preparing);
+        border-color: color-mix(in srgb, var(--state-preparing) 36%, transparent);
+        background: color-mix(in srgb, var(--state-preparing) 14%, transparent);
       }
 
       .entry-detail-body {
@@ -3994,47 +4004,47 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-state-select.backlog {
-        color: #d7c7ff;
-        border-color: rgba(160, 124, 255, 0.4);
-        background: rgba(160, 124, 255, 0.14);
+        color: var(--state-backlog);
+        border-color: color-mix(in srgb, var(--state-backlog) 44%, transparent);
+        background: color-mix(in srgb, var(--state-backlog) 16%, transparent);
       }
 
       .entry-detail-state-select.preparing {
-        color: #ffcb98;
-        border-color: rgba(255, 154, 60, 0.4);
-        background: rgba(255, 154, 60, 0.14);
+        color: var(--state-preparing);
+        border-color: color-mix(in srgb, var(--state-preparing) 44%, transparent);
+        background: color-mix(in srgb, var(--state-preparing) 16%, transparent);
       }
 
       .entry-detail-state-select.ready {
-        color: #9ff2d5;
-        border-color: rgba(88, 224, 184, 0.4);
-        background: rgba(88, 224, 184, 0.14);
+        color: var(--state-ready);
+        border-color: color-mix(in srgb, var(--state-ready) 44%, transparent);
+        background: color-mix(in srgb, var(--state-ready) 16%, transparent);
       }
 
       .entry-detail-state-select.in-progress {
-        color: #9bd3ff;
-        border-color: rgba(58, 169, 255, 0.4);
-        background: rgba(58, 169, 255, 0.14);
+        color: var(--state-in-progress);
+        border-color: color-mix(in srgb, var(--state-in-progress) 44%, transparent);
+        background: color-mix(in srgb, var(--state-in-progress) 16%, transparent);
       }
 
       .entry-detail-state-select.blocked {
-        color: var(--accent-red);
-        border-color: rgba(245, 144, 144, 0.35);
-        background: rgba(245, 144, 144, 0.1);
+        color: var(--state-blocked);
+        border-color: color-mix(in srgb, var(--state-blocked) 44%, transparent);
+        background: color-mix(in srgb, var(--state-blocked) 16%, transparent);
       }
 
       .entry-detail-state-select.done {
-        color: #8ef0aa;
-        border-color: rgba(79, 207, 117, 0.45);
-        background: rgba(79, 207, 117, 0.16);
+        color: var(--state-done);
+        border-color: color-mix(in srgb, var(--state-done) 48%, transparent);
+        background: color-mix(in srgb, var(--state-done) 18%, transparent);
       }
 
-      .entry-detail-state-select option[value="backlog"] { color: #a07cff; }
-      .entry-detail-state-select option[value="preparing"] { color: #ff9a3c; }
-      .entry-detail-state-select option[value="ready"] { color: #58e0b8; }
-      .entry-detail-state-select option[value="in_progress"] { color: #3aa9ff; }
-      .entry-detail-state-select option[value="blocked"] { color: #ff6b6b; }
-      .entry-detail-state-select option[value="done"] { color: #4fcf75; }
+      .entry-detail-state-select option[value="backlog"] { color: var(--state-backlog); }
+      .entry-detail-state-select option[value="preparing"] { color: var(--state-preparing); }
+      .entry-detail-state-select option[value="ready"] { color: var(--state-ready); }
+      .entry-detail-state-select option[value="in_progress"] { color: var(--state-in-progress); }
+      .entry-detail-state-select option[value="blocked"] { color: var(--state-blocked); }
+      .entry-detail-state-select option[value="done"] { color: var(--state-done); }
 
       .entry-detail-meta-row {
         display: grid;
@@ -4148,7 +4158,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, rgba(124,199,255,0.14), rgba(110,231,200,0.1));
+        background: linear-gradient(135deg,
+          color-mix(in srgb, var(--state-in-progress) 20%, transparent),
+          color-mix(in srgb, var(--state-ready) 16%, transparent));
         color: var(--text-muted);
         font-size: 10px;
         font-weight: 700;
@@ -4213,9 +4225,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-mark-btn {
-        color: var(--accent-green);
-        border-color: rgba(125, 220, 151, 0.35);
-        background: rgba(125, 220, 151, 0.12);
+        color: var(--state-done);
+        border-color: color-mix(in srgb, var(--state-done) 38%, transparent);
+        background: color-mix(in srgb, var(--state-done) 16%, transparent);
       }
 
       .entry-detail-mark-btn.disabled {
@@ -4264,15 +4276,15 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-plate-state.done {
-        color: var(--accent-green);
-        border-color: rgba(125, 220, 151, 0.35);
-        background: rgba(125, 220, 151, 0.12);
+        color: var(--state-done);
+        border-color: color-mix(in srgb, var(--state-done) 38%, transparent);
+        background: color-mix(in srgb, var(--state-done) 16%, transparent);
       }
 
       .entry-detail-plate-state.pending {
-        color: var(--accent-blue);
-        border-color: rgba(124, 199, 255, 0.35);
-        background: rgba(124, 199, 255, 0.1);
+        color: var(--state-in-progress);
+        border-color: color-mix(in srgb, var(--state-in-progress) 38%, transparent);
+        background: color-mix(in srgb, var(--state-in-progress) 14%, transparent);
       }
 
       .entry-detail-plate-state.skipped {
@@ -5129,7 +5141,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background-image:
           linear-gradient(180deg,
             color-mix(in srgb, var(--state, #9eacba) 15%, transparent),
-            transparent 24%),
+            transparent 72px),
           linear-gradient(var(--bg-card-alt), var(--bg-card-alt));
         border: 1px solid var(--border);
         border-top: 4px solid var(--state, #9eacba);
