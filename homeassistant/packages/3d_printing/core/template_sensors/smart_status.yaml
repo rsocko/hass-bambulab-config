@@ -24,20 +24,21 @@
       {% elif stage == 'paused_cutter_error' %}Paused - Cutter Error
       {% elif stage.startswith('paused_') %}Paused - {{ stage | replace('paused_', '') | replace('_', ' ') | title }}
       {% else %}Paused{% endif %}
-    {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber', 'waiting_for_heatbed_temperature', 'waiting_for_chamber_temperature', 'thermal_preconditioning'] %}
+    {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber', 'cooling_nozzle', 'waiting_for_heatbed_temperature', 'waiting_for_chamber_temperature', 'thermal_preconditioning'] %}
       {% if stage == 'heatbed_preheating' %}Heating Bed
       {% elif stage == 'heating_hotend' %}Heating Nozzle
       {% elif stage == 'heating_chamber' %}Heating Chamber
       {% elif stage == 'cooling_chamber' %}Cooling Chamber
+      {% elif stage == 'cooling_nozzle' %}Cooling Nozzle
       {% elif stage == 'waiting_for_heatbed_temperature' %}Waiting for Bed Temp
       {% elif stage == 'waiting_for_chamber_temperature' %}Waiting for Chamber Temp
       {% elif stage == 'thermal_preconditioning' %}Thermal Preconditioning
       {% else %}Cooling Bed{% endif %}
-    {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface', 'measuring_surface'] %}Bed Leveling
-    {% elif stage in ['homing_toolhead', 'homing_blade_holder', 'check_door_and_cover', 'check_quick_release', 'check_plaform', 'check_birdeye_camera_position', 'check_material', 'check_material_position'] %}Homing / Checks
-    {% elif stage in ['cleaning_nozzle_tip', 'checking_extruder_temperature', 'preparing_hotend'] %}Nozzle Prep
+    {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface', 'measuring_surface', 'build_plate_alignment_detection'] %}Bed Leveling
+    {% elif stage in ['homing_toolhead', 'homing_blade_holder', 'check_door_and_cover', 'check_quick_release', 'check_plaform', 'check_birdeye_camera_position', 'check_material', 'check_material_position', 'moving_toolhead_to_center_of_heatbed', 'hotend_type_detection', 'heatbed_surface_foreign_object_detection', 'heatbed_underside_foreign_object_detection'] %}Homing / Checks
+    {% elif stage in ['cleaning_nozzle_tip', 'checking_extruder_temperature', 'preparing_hotend', 'moving_toolhead_above_purge_chute', 'pre_extrusion_before_printing'] %}Nozzle Prep
     {% elif stage in ['changing_filament', 'filament_loading', 'filament_unloading', 'preparing_ams'] %}Filament Change
-    {% elif stage in ['calibrating_extrusion', 'calibrating_extrusion_flow', 'calibrating_micro_lidar', 'calibrating_motor_noise', 'absolute_accuracy_calibration', 'check_absolute_accuracy_before_calibration', 'check_absolute_accuracy_after_calibration', 'calibrate_nozzle_offset', 'laser_calibration', 'calibrate_birdeye_camera', 'sweeping_xy_mech_mode', 'motor_noise_showoff', 'calibrating_live_view_camera', 'calibrating_cutter_model_offset', 'calibrating_camera_offset', 'calibrating_blade_holder_position', 'hotend_pick_and_place_test', 'calibrating_nozzle_clumping_detection'] %}Calibration
+    {% elif stage in ['calibrating_extrusion', 'calibrating_extrusion_flow', 'calibrating_micro_lidar', 'calibrating_motor_noise', 'absolute_accuracy_calibration', 'check_absolute_accuracy_before_calibration', 'check_absolute_accuracy_after_calibration', 'calibrate_nozzle_offset', 'laser_calibration', 'calibrate_birdeye_camera', 'sweeping_xy_mech_mode', 'motor_noise_showoff', 'calibrating_live_view_camera', 'calibrating_cutter_model_offset', 'calibrating_camera_offset', 'calibrating_blade_holder_position', 'hotend_pick_and_place_test', 'calibrating_nozzle_clumping_detection', 'measuring_rotary_attachment', 'active_arc_fitting'] %}Calibration
     {% elif stage == 'identifying_build_plate_type' %}Identifying Build Plate
     {% elif stage == 'print_calibration_lines' %}Printing Calibration Lines
     {% elif stage == 'inspecting_first_layer' %}Inspecting First Layer
@@ -71,7 +72,11 @@
         'check_material', 'calibrating_live_view_camera', 'waiting_for_heatbed_temperature', 'waiting_for_chamber_temperature',
         'check_material_position', 'calibrating_cutter_model_offset', 'measuring_surface', 'thermal_preconditioning',
         'homing_blade_holder', 'calibrating_camera_offset', 'calibrating_blade_holder_position', 'hotend_pick_and_place_test',
-        'preparing_hotend', 'calibrating_nozzle_clumping_detection', 'purifying_chamber_air', 'preparing', 'preparing_ams'
+        'preparing_hotend', 'calibrating_nozzle_clumping_detection', 'purifying_chamber_air', 'preparing', 'preparing_ams',
+        'measuring_rotary_attachment', 'moving_toolhead_above_purge_chute', 'cooling_nozzle',
+        'moving_toolhead_to_center_of_heatbed', 'active_arc_fitting', 'hotend_type_detection',
+        'build_plate_alignment_detection', 'heatbed_surface_foreign_object_detection',
+        'heatbed_underside_foreign_object_detection', 'pre_extrusion_before_printing'
       ] %}
       {% if status not in known_statuses or stage not in known_stages %}
         Unmapped: status="{{ status_raw }}", stage="{{ stage_raw }}"
@@ -108,8 +113,8 @@
       {% elif status == 'failed' %}failed
       {% elif status == 'finish' %}finished
       {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}paused
-      {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber', 'waiting_for_heatbed_temperature', 'waiting_for_chamber_temperature', 'thermal_preconditioning'] %}heating
-      {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface', 'measuring_surface'] %}leveling
+      {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber', 'cooling_nozzle', 'waiting_for_heatbed_temperature', 'waiting_for_chamber_temperature', 'thermal_preconditioning'] %}heating
+      {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface', 'measuring_surface', 'build_plate_alignment_detection'] %}leveling
       {% elif status in ['running', 'printing'] or stage == 'printing' %}printing
       {% elif status in ['prepare', 'slicing', 'init'] %}preparing
       {% elif status == 'idle' and stage == 'idle' %}idle

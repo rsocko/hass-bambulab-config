@@ -54,7 +54,9 @@ This matches how [Bambuddy](https://github.com/maziggy/bambuddy) works: its `get
 
 All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the sensor's displayed state and the equivalent label Bambuddy uses.
 
-> **Last verified:** 2026-03-19 against ha-bambulab `const.py` (stages 0–58, -1, 255) and Bambuddy `bambu_mqtt.py` `STAGE_NAMES` (stages 0–66, 74, 77).
+> **Last verified:** 2026-05-12 against ha-bambulab `const.py` v2.2.22 (stages 0–58, 59–66, 67–76, 77, -1, 255) and Bambuddy `bambu_mqtt.py` `STAGE_NAMES`.
+>
+> ha-bambulab v2.2.22 ([PR #1975](https://github.com/greghesp/ha-bambulab/pull/1975)) added stage IDs 67–76 — see the bucketed entries marked **(v2.2.22)** below.
 
 > **Note on `check_plaform`**: This is the exact string emitted by the ha-bambulab integration (the upstream typo is preserved intentionally so the match works).
 
@@ -67,6 +69,7 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 | `heating_chamber` | Heating Chamber | Heating chamber | `heating` |
 | `heated_bedcooling` | Cooling Bed | Cooling heatbed | `heating` |
 | `cooling_chamber` | Cooling Chamber | Cooling chamber | `heating` |
+| `cooling_nozzle` | **Cooling Nozzle** *(v2.2.22)* | Cooling nozzle | `heating` |
 | `waiting_for_heatbed_temperature` | **Waiting for Bed Temp** | Waiting for heatbed temperature | `heating` |
 | `thermal_preconditioning` | **Thermal Preconditioning** | Thermal Preconditioning | `heating` |
 
@@ -80,6 +83,7 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 | `bed_level_high_temperature` | Bed Leveling | High temperature auto bed leveling | `leveling` |
 | `scanning_bed_surface` | Bed Leveling | Scanning bed surface | `leveling` |
 | `measuring_surface` | **Bed Leveling** | Measuring Surface | `leveling` |
+| `build_plate_alignment_detection` | **Bed Leveling** *(v2.2.22)* | Build plate alignment detection | `leveling` |
 
 ### Homing / Checks
 
@@ -92,6 +96,10 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 | `check_birdeye_camera_position` | Homing / Checks | Confirming BirdsEye Camera location | `printing` |
 | `check_material` | **Homing / Checks** | Auto Check: Material | `printing` |
 | `check_material_position` | **Homing / Checks** | Auto Check: Material Position | `printing` |
+| `moving_toolhead_to_center_of_heatbed` | **Homing / Checks** *(v2.2.22)* | Moving toolhead to center of heatbed | `printing` |
+| `hotend_type_detection` | **Homing / Checks** *(v2.2.22)* | Hotend type detection | `printing` |
+| `heatbed_surface_foreign_object_detection` | **Homing / Checks** *(v2.2.22)* | Heatbed surface foreign object detection | `printing` |
+| `heatbed_underside_foreign_object_detection` | **Homing / Checks** *(v2.2.22)* | Heatbed underside foreign object detection | `printing` |
 
 ### Nozzle Prep
 
@@ -99,6 +107,8 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 |---|---|---|---|
 | `cleaning_nozzle_tip` | Nozzle Prep | Cleaning nozzle tip | `printing` |
 | `checking_extruder_temperature` | Nozzle Prep | Checking extruder temperature | `printing` |
+| `moving_toolhead_above_purge_chute` | **Nozzle Prep** *(v2.2.22)* | Moving toolhead above purge chute | `printing` |
+| `pre_extrusion_before_printing` | **Nozzle Prep** *(v2.2.22)* | Pre-extrusion before printing | `printing` |
 
 ### Filament Change
 
@@ -126,6 +136,8 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 | `motor_noise_showoff` | Calibration | Motor noise showoff | `printing` |
 | `calibrating_live_view_camera` | **Calibration** | Live View Camera Calibration | `printing` |
 | `calibrating_cutter_model_offset` | **Calibration** | Cutting Module Offset Calibration | `printing` |
+| `measuring_rotary_attachment` | **Calibration** *(v2.2.22)* | Measuring rotary attachment | `printing` |
+| `active_arc_fitting` | **Calibration** *(v2.2.22)* | Active arc fitting | `printing` |
 
 ### Printing / Inspection
 
@@ -184,6 +196,18 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 ---
 
 ## Review findings (2026-03-19)
+
+### ha-bambulab v2.2.22 update (2026-05-12)
+
+Release [v2.2.22](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) added 10 new stage IDs (67–76) via [PR #1975](https://github.com/greghesp/ha-bambulab/pull/1975). All 10 are now mapped in [smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and in the stage tables above (look for the **(v2.2.22)** badge). New display labels added:
+
+- `Cooling Nozzle` (`status_class: heating`)
+- `Bed Leveling` for `build_plate_alignment_detection` (`status_class: leveling`)
+- `Homing / Checks` for `moving_toolhead_to_center_of_heatbed`, `hotend_type_detection`, `heatbed_surface_foreign_object_detection`, `heatbed_underside_foreign_object_detection`
+- `Nozzle Prep` for `moving_toolhead_above_purge_chute`, `pre_extrusion_before_printing`
+- `Calibration` for `measuring_rotary_attachment`, `active_arc_fitting`
+
+> **Unrelated breaking change in v2.2.22**: `sensor.<printer>_start_time` and `sensor.<printer>_end_time` switched from naive-local strings to `device_class: timestamp` (UTC ISO-8601). All numeric/`as_timestamp()` consumers in this repo are unaffected; the one consumer that called `.date()` / `.strftime()` directly ([print_end_time_friendly.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_end_time_friendly.yaml)) was patched to apply `| as_local` before formatting. See [release notes](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) and [PR #1959](https://github.com/greghesp/ha-bambulab/pull/1959).
 
 ### Finding 1: Missing stages (52–58) — ha-bambulab added, sensor not updated
 

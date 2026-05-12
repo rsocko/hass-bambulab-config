@@ -23,6 +23,10 @@
       {% if end_dt is none %}
         --
       {% else %}
+        {# ha-bambulab v2.2.22+ emits tz-aware UTC datetimes; convert to local
+           so date()/strftime() reflect the user's wall-clock day and time.
+           No-op for legacy naive-local strings (pre-v2.2.22). #}
+        {% set end_dt = end_dt | as_local %}
         {% set today = now().date() %}
         {% set end_date = end_dt.date() %}
         {% if end_date == today %}
