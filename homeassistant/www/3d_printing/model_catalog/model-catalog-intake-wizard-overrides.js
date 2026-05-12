@@ -438,6 +438,23 @@ function renderPlanSummary(card, options) {
     if (isLoading) {
       return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...' + (uploadProgressText ? '<div class="muted" style="margin-top:6px;">' + escapeHtml(uploadProgressText) + '</div>' : '') + '</div>';
     }
+    // When the plan call has succeeded but produced zero models, surface the
+    // backend warnings here on the Organize step so the user knows BEFORE they
+    // try to advance to Choose Destination. The Next button is also blocked.
+    if (preview && Array.isArray(preview.warnings) && preview.warnings.length) {
+      var warningItems = preview.warnings.map(function (warning) {
+        var w = warning || {};
+        var msg = String(w.message || w.code || 'Unknown issue');
+        var path = String(w.path || '');
+        return '<li>' + escapeHtml(msg) + (path ? ' <span class="muted">(' + escapeHtml(path) + ')</span>' : '') + '</li>';
+      }).join('');
+      return ''
+        + '<div class="state-row">'
+        + '  <div><strong>No models or files will be created from the current selection.</strong></div>'
+        + '  <ul style="margin:6px 0 0 18px; padding:0;">' + warningItems + '</ul>'
+        + '  <div class="muted" style="margin-top:6px;">Return to Select to pick a different folder, or add eligible model files (e.g. .3mf, .stl) to the selected folder before continuing.</div>'
+        + '</div>';
+    }
     return '<div class="state-row">No planned output yet. Advance to Organize after selecting sources to resolve the model plan.</div>';
   }
   var destinationPlans = settings.includeDestinations && typeof card._syncGroupDestinationsFromPreview === 'function'
@@ -1665,6 +1682,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   };
 
   proto._canAdvanceWizard = function () {
+    if (this._wizardStep === 2) {
+      // Block advancing from Organize to Choose Destination when the resolved
+      // plan has zero models. This catches the common case of selecting an
+      // empty folder (or a folder of only unsupported files) and prevents the
+      // user from sleepwalking into a dead-end Choose Destination step.
+      if (this._previewLoading) {
+        return false;
+      }
+      var plannedModels = this._previewData && Array.isArray(this._previewData.planned_models)
+        ? this._previewData.planned_models
+        : [];
+      return plannedModels.length > 0;
+    }
     if (this._wizardStep === 3) {
       return this._destinationPlansReady();
     }
@@ -1681,7 +1711,15 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var maxStep = this._wizardStepCount();
     var nextStep = Math.max(1, Math.min(maxStep, Number(stepNumber || 1)));
     if (nextStep > this._wizardStep && !this._canAdvanceWizard()) {
-      if (this._wizardStep === 3) {
+      if (this._wizardStep === 2) {
+        // Empty-plan guard: tell the user exactly why and where to fix it,
+        // instead of silently letting them step into Choose Destination.
+        if (this._previewLoading) {
+          this._error = 'Still resolving the intake plan. Please wait a moment and try again.';
+        } else {
+          this._error = 'No models or files will be created from the current selection. Return to Select and pick a folder that contains eligible model files (e.g. .3mf, .stl).';
+        }
+      } else if (this._wizardStep === 3) {
         this._error = 'Choose a destination for every planned group. Existing matches require a selected target.';
       } else if (this._wizardStep === 4) {
         this._error = this._validationData && this._validationData.upload_id
