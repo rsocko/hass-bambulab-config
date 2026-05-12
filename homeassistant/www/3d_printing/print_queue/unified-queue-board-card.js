@@ -61,6 +61,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._dragEntryId = null;
     this._dragBusy = false;
 
+    // Pending entry-delete confirmation (entry id whose Delete button was
+    // clicked but not yet confirmed). null = no confirm modal showing.
+    this._pendingDeleteEntryId = null;
+
     this._addModalOpen = false;
     this._addTab = 'quick';
     this._addSourceKind = 'catalog_model';
@@ -1077,8 +1081,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const sourceId = String(entry.source_id || entry.source_ref || '').trim() || 'n/a';
     const sourceMap = {
       catalog_model: { icon: 'CAT', label: 'Catalog' },
-      working_group: { icon: 'WRK', label: 'Working File' },
-      working_file: { icon: 'WRK', label: 'Working File' },
+      working_group: { icon: 'WRK', label: 'Working Files' },
+      working_file: { icon: 'WRK', label: 'Working Files' },
       idea: { icon: 'IDE', label: 'Idea' },
     };
     const mapped = sourceMap[sourceKind] || { icon: 'SRC', label: 'Source' };
@@ -1134,13 +1138,29 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }
   }
 
-  async _deleteEntry(queueEntryId) {
-    const entry = this._getEntryById(queueEntryId);
-    const label = entry ? (entry.title || queueEntryId) : queueEntryId;
-    if (!window.confirm(`Delete queue entry '${label}'?`)) {
-      return;
-    }
+  // Open the in-card delete-confirm modal for the given entry. The actual
+  // delete request is dispatched only when the user confirms via
+  // `_confirmPendingDelete`.
+  _requestEntryDelete(queueEntryId) {
+    if (!queueEntryId) return;
+    this._pendingDeleteEntryId = queueEntryId;
+    this._render();
+  }
 
+  _dismissPendingDelete() {
+    if (!this._pendingDeleteEntryId) return;
+    this._pendingDeleteEntryId = null;
+    this._render();
+  }
+
+  async _confirmPendingDelete() {
+    const entryId = this._pendingDeleteEntryId;
+    if (!entryId) return;
+    this._pendingDeleteEntryId = null;
+    await this._deleteEntry(entryId);
+  }
+
+  async _deleteEntry(queueEntryId) {
     this._rowActionBusy = true;
     this._render();
     try {
@@ -2223,7 +2243,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
       : entry.source_kind === 'catalog_model'
         ? 'catalog'
         : 'working';
-    const sourceLabel = (['working_group', 'working_file'].includes(entry.source_kind) ? 'working file' : (entry.source_kind || '').replace(/_/g, ' ')).toUpperCase();
+    // Card source chip shows just the source kind label (Catalog / Working
+    // File / Idea) without the source id, per UX feedback.
+    const sourceLabel = sourceMeta.label;
+    // Strip any leading "Catalog Model: " / "Working File: " / "Idea: " /
+    // "Working Group: " prefix the backend may have stamped onto the title.
+    const displayTitle = this._stripTitlePrefix(entry.title || 'Untitled');
     const stateColor = QUEUE_STATE_PALETTE[entry.state] || '#9eacba';
     const stateLabel = this._getStateLabel(entry.state);
     const durationMinutes = Number(entry.estimated_total_minutes || 0);
@@ -2241,13 +2266,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
     }).join('');
     const blockReason = String(entry.block_reason || '').trim();
 
+    const hasDuration = durationMinutes > 0;
     const fullInfo = [
-      `Title: ${entry.title || 'Untitled'}`,
+      `Title: ${displayTitle}`,
       `Source: ${sourceMeta.fullLabel}`,
       `State: ${stateLabel}`,
       `Rank: ${Number.isFinite(entry.rank) ? entry.rank : 'n/a'}`,
       `Copies: ${copiesCompleted}/${copiesRequested}`,
-      `Duration: ${totalStr}`,
+      `Duration: ${hasDuration ? totalStr : 'no estimate'}`,
     ].join(' | ');
 
     const invalidDrop = this._invalidDropEntryId === entry.queue_entry_id;
@@ -2261,27 +2287,33 @@ class UnifiedQueueBoardCard extends HTMLElement {
         <div class="qcard-row1">
           ${draggable ? '<span class="qcard-drag" aria-hidden="true">⋮⋮</span>' : ''}
           <span class="qcard-rank">${entry.rank || '—'}</span>
-          <span class="qcard-title">${this._escapeHtml(entry.title || 'Untitled')}</span>
+          <span class="qcard-title">${this._escapeHtml(displayTitle)}</span>
           ${showStatePill ? `<span class="qcard-state-pill">${this._escapeHtml(stateLabel)}</span>` : ''}
         </div>
         <div class="qcard-meta">
-          <span class="qcard-source-badge ${sourceClass}">${this._escapeHtml(sourceLabel)} · ${this._escapeHtml(sourceMeta.sourceId)}</span>
+          <span class="qcard-source-badge ${sourceClass}">${this._escapeHtml(sourceLabel)}</span>
           <span><span class="qcard-meta-key">Copies</span> ${copiesCompleted}/${copiesRequested}</span>
           ${entry.ams_ready_score !== undefined ? `<span><span class="qcard-meta-key">AMS</span> ${entry.ams_ready_score}%</span>` : ''}
           ${entry.overnight_fit_score !== undefined ? `<span><span class="qcard-meta-key">Overnight</span> ${entry.overnight_fit_score}%</span>` : ''}
           ${blockReason ? `<span class="qcard-block-reason">⚠ ${this._escapeHtml(blockReason)}</span>` : ''}
         </div>
         <div class="qcard-plate-bar" title="${copiesCompleted} of ${copiesRequested} copies done">${segs}</div>
+        ${hasDuration ? `
         <div class="qcard-time-line">
           <span><span class="qcard-remain">${this._escapeHtml(remainStr)} left</span> <span class="qcard-total">of ${this._escapeHtml(totalStr)}</span></span>
-          ${copiesCompleted > 0 ? `<span class="qcard-total">−${this._escapeHtml(this._formatDuration(durationMinutes - remainingMinutes))} skipped</span>` : ''}
-        </div>
+          ${copiesCompleted > 0 ? `<span class="qcard-total">\u2212${this._escapeHtml(this._formatDuration(durationMinutes - remainingMinutes))} skipped</span>` : ''}
+        </div>` : ''}
         <div class="qcard-actions" role="group" aria-label="Queue entry actions">
           <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="View &amp; edit details">Details</button>
+          <span class="qcard-actions-spacer" aria-hidden="true"></span>
           <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
         </div>
       </article>
     `;
+  }
+
+  _stripTitlePrefix(title) {
+    return String(title || '').replace(/^(?:Catalog Model|Working File|Working Group|Idea)\s*:\s*/i, '').trim() || 'Untitled';
   }
 
   _formatDuration(minutes) {
@@ -2315,6 +2347,27 @@ class UnifiedQueueBoardCard extends HTMLElement {
       <div class="flash-banner ${toneClass}" role="status" aria-live="polite">
         <span class="flash-banner-icon" aria-hidden="true">${icon}</span>
         ${this._escapeHtml(this._flashMessage.message)}
+      </div>
+    `;
+  }
+
+  _renderDeleteConfirm() {
+    if (!this._pendingDeleteEntryId) return '';
+    const entry = this._getEntryById(this._pendingDeleteEntryId);
+    const label = entry ? this._stripTitlePrefix(entry.title || this._pendingDeleteEntryId) : this._pendingDeleteEntryId;
+    return `
+      <div class="delete-confirm" role="dialog" aria-modal="true" aria-label="Delete queue entry">
+        <div class="delete-confirm-backdrop"></div>
+        <div class="delete-confirm-dialog">
+          <div class="delete-confirm-title">Delete queue entry?</div>
+          <div class="delete-confirm-message">
+            This removes <strong>${this._escapeHtml(label)}</strong> from the queue. This cannot be undone.
+          </div>
+          <div class="delete-confirm-actions">
+            <button class="delete-confirm-btn" data-action="delete-confirm-cancel">Keep Entry</button>
+            <button class="delete-confirm-btn danger" data-action="delete-confirm-accept">Delete Entry</button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -2740,21 +2793,25 @@ class UnifiedQueueBoardCard extends HTMLElement {
       :host {
         display: block;
         width: 100%;
-        --bg-page: #0c1117;
-        --bg-panel: rgba(21, 28, 38, 0.95);
-        --bg-card: rgba(28, 36, 47, 0.96);
-        --bg-card-alt: rgba(18, 24, 33, 0.9);
-        --border: rgba(148, 163, 184, 0.18);
-        --border-strong: rgba(148, 163, 184, 0.34);
-        --text: #e8edf2;
-        --text-secondary: #9eacba;
-        --text-muted: #6f7c8a;
+        /* Theme-aware palette: align with other 3D Printing views (Print History, etc.)
+           by deriving surfaces, text, and borders from the active HA theme rather than
+           hardcoded slate-blue values. Accent colors remain shared with the queue
+           state palette for visual continuity. */
+        --bg-page: var(--primary-background-color);
+        --bg-panel: var(--ha-card-background, var(--card-background-color));
+        --bg-card: var(--ha-card-background, var(--card-background-color));
+        --bg-card-alt: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 92%, var(--primary-text-color) 8%);
+        --border: var(--divider-color);
+        --border-strong: color-mix(in srgb, var(--divider-color) 60%, var(--primary-text-color) 40%);
+        --text: var(--primary-text-color);
+        --text-secondary: var(--secondary-text-color);
+        --text-muted: color-mix(in srgb, var(--secondary-text-color) 70%, transparent);
         --accent: #6ee7c8;
         --accent-blue: #7cc7ff;
         --accent-amber: #f2c35b;
         --accent-red: #f59090;
         --accent-green: #7ddc97;
-        --shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+        --shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
       }
 
       * {
@@ -2894,6 +2951,80 @@ class UnifiedQueueBoardCard extends HTMLElement {
         margin-right: 8px;
         font-size: 14px;
         font-weight: 700;
+      }
+
+      /* ---------- Delete confirm modal ---------- */
+      .delete-confirm {
+        position: fixed;
+        inset: 0;
+        z-index: 9998;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .delete-confirm-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(4px);
+      }
+      .delete-confirm-dialog {
+        position: relative;
+        display: grid;
+        gap: 12px;
+        width: min(440px, 100%);
+        padding: 20px 22px;
+        border-radius: 14px;
+        border: 1px solid rgba(245, 144, 144, 0.45);
+        background: var(--bg-card, rgba(15, 23, 42, 0.98));
+        box-shadow: 0 18px 42px rgba(2, 6, 23, 0.55),
+                    0 0 0 1px rgba(245, 144, 144, 0.18);
+        animation: flash-toast-in 0.18s ease-out;
+      }
+      .delete-confirm-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .delete-confirm-message {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+      }
+      .delete-confirm-message strong {
+        color: var(--text);
+      }
+      .delete-confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .delete-confirm-btn {
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .delete-confirm-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--border-strong);
+      }
+      .delete-confirm-btn.danger {
+        background: rgba(245, 144, 144, 0.16);
+        border-color: rgba(245, 144, 144, 0.55);
+        color: #ff9b9b;
+      }
+      .delete-confirm-btn.danger:hover {
+        background: rgba(245, 144, 144, 0.28);
+        border-color: rgba(245, 144, 144, 0.85);
+        color: #ffb0b0;
       }
 
       .suggestions-block {
@@ -4713,6 +4844,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         gap: 6px;
         margin-top: 4px;
+        align-items: center;
+      }
+      .qcard-actions-spacer {
+        flex: 1 1 auto;
       }
       .qcard-actions .entry-action-btn {
         flex: 0 0 auto;
@@ -4982,6 +5117,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       ${this._renderAddModal()}
       ${this._renderEntryDetailModal()}
       ${this._renderPlannerDrawer()}
+      ${this._renderDeleteConfirm()}
     `;
 
     this.shadowRoot.innerHTML = html;
@@ -5341,10 +5477,24 @@ class UnifiedQueueBoardCard extends HTMLElement {
         } else if (action === 'entry-edit') {
           await this._editEntry(entryId);
         } else if (action === 'entry-delete') {
-          await this._deleteEntry(entryId);
+          this._requestEntryDelete(entryId);
         }
       });
     });
+
+    // Delete-confirm modal wiring.
+    const delConfirmBackdrop = this.shadowRoot.querySelector('.delete-confirm-backdrop');
+    if (delConfirmBackdrop) {
+      delConfirmBackdrop.addEventListener('click', () => this._dismissPendingDelete());
+    }
+    const delCancelBtn = this.shadowRoot.querySelector('[data-action="delete-confirm-cancel"]');
+    if (delCancelBtn) {
+      delCancelBtn.addEventListener('click', () => this._dismissPendingDelete());
+    }
+    const delAcceptBtn = this.shadowRoot.querySelector('[data-action="delete-confirm-accept"]');
+    if (delAcceptBtn) {
+      delAcceptBtn.addEventListener('click', () => this._confirmPendingDelete());
+    }
   }
 
   getCardSize() {
