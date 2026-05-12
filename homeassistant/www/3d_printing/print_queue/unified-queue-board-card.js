@@ -26,12 +26,12 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 // Per-state palette — drives card wash, kanban column accent, list group dot,
 // filter swatches. Single source of truth across both views.
 const QUEUE_STATE_PALETTE = {
-  backlog:     '#b196f5',
-  preparing:   '#f2a85b',
-  ready:       '#6ee7c8',
-  in_progress: '#7cc7ff',
-  blocked:     '#f59090',
-  done:        '#4fcf75',
+  backlog:     '#a07cff',
+  preparing:   '#ff9a3c',
+  ready:       '#2ee0b8',
+  in_progress: '#3aa9ff',
+  blocked:     '#ff6b6b',
+  done:        '#22c55e',
 };
 
 class UnifiedQueueBoardCard extends HTMLElement {
@@ -1976,10 +1976,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _getSourceBadgeStyles(sourceKind) {
     const styles = {
-      'catalog_model': { bg: 'rgba(124,199,255,0.10)', color: '#7cc7ff' },
-      'working_group': { bg: 'rgba(110,231,200,0.10)', color: '#6ee7c8' },
-      'working_file': { bg: 'rgba(110,231,200,0.10)', color: '#6ee7c8' },
-      'idea': { bg: 'rgba(242,195,91,0.10)', color: '#f2c35b' },
+      'catalog_model': { bg: 'rgba(58,169,255,0.14)', color: '#3aa9ff' },
+      'working_group': { bg: 'rgba(46,224,184,0.14)', color: '#2ee0b8' },
+      'working_file': { bg: 'rgba(46,224,184,0.14)', color: '#2ee0b8' },
+      'idea': { bg: 'rgba(255,181,71,0.14)', color: '#ffb547' },
     };
     return styles[sourceKind] || { bg: 'rgba(255,255,255,0.05)', color: '#9eacba' };
   }
@@ -2120,9 +2120,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const isAll = !isCatalog && !isWorking && !isIdea;
     const radios = [
       { value: 'all', label: 'All sources', checked: isAll, swatch: null },
-      { value: 'catalog_model', label: 'Catalog', checked: isCatalog && !isWorking && !isIdea, swatch: '#7cc7ff' },
-      { value: 'working_files', label: 'Working Files', checked: isWorking && !isCatalog && !isIdea, swatch: '#6ee7c8' },
-      { value: 'idea', label: 'Ideas', checked: isIdea && !isCatalog && !isWorking, swatch: '#f2c35b' },
+      { value: 'catalog_model', label: 'Catalog', checked: isCatalog && !isWorking && !isIdea, swatch: '#3aa9ff' },
+      { value: 'working_files', label: 'Working Files', checked: isWorking && !isCatalog && !isIdea, swatch: '#2ee0b8' },
+      { value: 'idea', label: 'Ideas', checked: isIdea && !isCatalog && !isWorking, swatch: '#ffb547' },
     ];
     return radios.map(r => `
       <label class="dd-row">
@@ -2806,11 +2806,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
         --text: var(--primary-text-color);
         --text-secondary: var(--secondary-text-color);
         --text-muted: color-mix(in srgb, var(--secondary-text-color) 70%, transparent);
-        --accent: #6ee7c8;
-        --accent-blue: #7cc7ff;
-        --accent-amber: #f2c35b;
-        --accent-red: #f59090;
-        --accent-green: #7ddc97;
+        --accent: #2ee0b8;
+        --accent-blue: #3aa9ff;
+        --accent-amber: #ffb547;
+        --accent-red: #ff6b6b;
+        --accent-green: #22c55e;
         --shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
       }
 
@@ -4700,8 +4700,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .qcard {
         position: relative;
         background: linear-gradient(180deg,
-          color-mix(in srgb, var(--state, #9eacba) 14%, var(--bg-card-alt)),
-          var(--bg-card-alt));
+          color-mix(in srgb, var(--state, #9eacba) 28%, var(--bg-card-alt)),
+          color-mix(in srgb, var(--state, #9eacba) 10%, var(--bg-card-alt)));
         border: 1px solid var(--border);
         border-left: 3px solid var(--state, #9eacba);
         border-radius: 12px;
@@ -4805,6 +4805,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         letter-spacing: 0.06em;
         padding: 2px 7px;
         border-radius: 6px;
+        text-transform: uppercase;
       }
       .qcard-source-badge.catalog { background: rgba(124,199,255,0.18); color: #7cc7ff; }
       .qcard-source-badge.working { background: rgba(110,231,200,0.18); color: #6ee7c8; }
@@ -4904,7 +4905,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         align-self: start;
         background: var(--bg-card-alt);
         border: 1px solid var(--border);
-        border-top: 3px solid var(--state, #9eacba);
+        border-top: 4px solid var(--state, #9eacba);
         border-radius: 12px;
         padding: 10px;
         display: flex;
