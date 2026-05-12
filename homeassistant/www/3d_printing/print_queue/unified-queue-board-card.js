@@ -153,6 +153,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _normalizeFilterState() {
+    const hasStateArray = Array.isArray(this._filters.states);
     const normalizedStates = Array.isArray(this._filters.states)
       ? [...new Set(this._filters.states
           .map(state => String(state || '').trim())
@@ -166,7 +167,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const normalizedSort = String(this._filters.sort || '').trim();
     const normalizedSearch = String(this._filters.search || '').slice(0, 200);
 
-    this._filters.states = normalizedStates.length > 0 ? normalizedStates : [...QUEUE_DEFAULT_VISIBLE_STATES];
+    // Preserve an intentionally empty selection ("show none") from the States filter.
+    this._filters.states = hasStateArray ? normalizedStates : [...QUEUE_DEFAULT_VISIBLE_STATES];
     this._filters.sources = normalizedSources;
     this._filters.sort = VALID_QUEUE_SORTS.has(normalizedSort) ? normalizedSort : 'rank';
     this._filters.search = normalizedSearch;
@@ -2322,7 +2324,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
     // Apply filters
     let filtered = this._entries.filter(entry => {
       // State filter
-      if (this._filters.states.length > 0 && !this._filters.states.includes(entry.state)) {
+      if (this._filters.states.length === 0) {
+        return false;
+      }
+      if (!this._filters.states.includes(entry.state)) {
         return false;
       }
       // Source filter
