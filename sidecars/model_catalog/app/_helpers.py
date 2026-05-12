@@ -246,3 +246,81 @@ def _collect_intake_source_files_in_folder(
     except (OSError, PermissionError):
         pass
     return results
+
+
+def _compile_source_entry_exclusions(source_entries: list[dict[str, Any]]) -> tuple[set[str], list[str]]:
+    """Compile exclusion matchers from source entries.
+
+    Returns exact path match keys plus folder-prefix keys (with trailing '/').
+    """
+    exact_keys: set[str] = set()
+    folder_prefix_keys: list[str] = []
+
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_root_raw = str(entry.get("path") or "").strip()
+        entry_root = Path(entry_root_raw).expanduser() if entry_root_raw else None
+        excluded_items = entry.get("excluded_items")
+        if not isinstance(excluded_items, list):
+            continue
+
+        for item in excluded_items:
+            raw = str(item or "").strip()
+            if not raw:
+                continue
+
+            candidate = Path(raw).expanduser()
+            if not candidate.is_absolute() and entry_root is not None:
+                candidate = entry_root / candidate
+
+            try:
+                resolved = candidate.resolve(strict=False)
+            except (OSError, RuntimeError, ValueError):
+                resolved = candidate
+
+            key = _normalize_path_compare_key(resolved)
+            if not key:
+                continue
+
+            is_directory_hint = raw.endswith(("/", "\\"))
+            try:
+                if not is_directory_hint and resolved.exists() and resolved.is_dir():
+                    is_directory_hint = True
+            except OSError:
+                pass
+
+            if is_directory_hint:
+                prefix = key.rstrip("/") + "/"
+                folder_prefix_keys.append(prefix)
+            else:
+                exact_keys.add(key)
+
+    # Preserve stable order for deterministic behavior.
+    unique_prefixes: list[str] = []
+    seen_prefixes: set[str] = set()
+    for prefix in folder_prefix_keys:
+        if prefix in seen_prefixes:
+            continue
+        seen_prefixes.add(prefix)
+        unique_prefixes.append(prefix)
+
+    return exact_keys, unique_prefixes
+
+
+def _is_excluded_source_file(
+    *,
+    file_path: Path,
+    exclusion_exact_keys: set[str],
+    exclusion_folder_prefixes: list[str],
+) -> bool:
+    """Return True when the file path is excluded by exact or folder-prefix rule."""
+    path_key = _normalize_path_compare_key(file_path)
+    if not path_key:
+        return False
+    if path_key in exclusion_exact_keys:
+        return True
+    for prefix in exclusion_folder_prefixes:
+        if path_key.startswith(prefix):
+            return True
+    return False

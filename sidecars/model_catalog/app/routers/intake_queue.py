@@ -45,9 +45,11 @@ from .._helpers import (
     LOCAL_IMPORT_DOCUMENT_EXTENSIONS,
     _bulk_timestamp_iso,
     _bulk_utc_now_iso,
+    _compile_source_entry_exclusions,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
     _configured_intake_source_roots,
+    _is_excluded_source_file,
     _is_path_within_roots,
 )
 
@@ -850,6 +852,10 @@ def _transition_queue_status(
         if timestamp_field:
             update_clause += f", {timestamp_field} = ?"
             params.append(now_iso)
+
+        if new_status == "verified":
+            update_clause += ", verification_status = ?"
+            params.append("pass")
         
         if error_message and new_status == "failed":
             error_payload = {"error": error_message}
@@ -899,17 +905,33 @@ def _transition_queue_status(
 
 def _expand_source_entries_to_files(source_entries: list[dict[str, Any]]) -> list[Path]:
     files: list[Path] = []
+    exclusion_exact_keys, exclusion_folder_prefixes = _compile_source_entry_exclusions(source_entries)
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
         resolved = Path(str(entry.get("path") or "").strip()).expanduser().resolve()
         if entry_type == "file":
-            if resolved.exists() and resolved.is_file():
+            if (
+                resolved.exists()
+                and resolved.is_file()
+                and not _is_excluded_source_file(
+                    file_path=resolved,
+                    exclusion_exact_keys=exclusion_exact_keys,
+                    exclusion_folder_prefixes=exclusion_folder_prefixes,
+                )
+            ):
                 files.append(resolved)
             continue
         if entry_type != "folder" or not resolved.exists() or not resolved.is_dir():
             continue
         recurse = _coerce_bool(entry.get("recurse", True))
-        files.extend(_collect_intake_source_files_in_folder(resolved, recurse=recurse))
+        for folder_file in _collect_intake_source_files_in_folder(resolved, recurse=recurse):
+            if _is_excluded_source_file(
+                file_path=folder_file,
+                exclusion_exact_keys=exclusion_exact_keys,
+                exclusion_folder_prefixes=exclusion_folder_prefixes,
+            ):
+                continue
+            files.append(folder_file)
     return files
 
 

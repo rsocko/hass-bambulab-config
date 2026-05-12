@@ -1,0 +1,16 @@
+# Switch active model-catalog sidecar DB profile at runtime.
+model_catalog_switch_db_profile:
+  url: >-
+    {{
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    }}/api/admin/db-profile/switch
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {
+      "profile": "{{ (profile | default('prod', true) | string | lower) }}"
+    }
+  content_type: application/json

@@ -32,8 +32,11 @@ from .._helpers import (
     LOCAL_IMPORT_IMAGE_EXTENSIONS,
     SUPPORTED_INTAKE_FILE_EXTENSIONS,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
+    _bulk_path_source_metadata,
     _bulk_utc_now_iso,
+    _compile_source_entry_exclusions,
     _coerce_bool,
+    _is_excluded_source_file,
     _model_photo_storage_root,
     _windows_launch_enabled,
 )
@@ -290,11 +293,11 @@ def _move_file_to_working_directory(
 def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Expand source entries into individual files."""
     from ..services.shared_helpers import _sha256_file
-    from .._helpers import _bulk_path_source_metadata
     
     expanded: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
+    exclusion_exact_keys, exclusion_folder_prefixes = _compile_source_entry_exclusions(source_entries)
 
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
@@ -313,6 +316,12 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
+                continue
+            if _is_excluded_source_file(
+                file_path=file_path,
+                exclusion_exact_keys=exclusion_exact_keys,
+                exclusion_folder_prefixes=exclusion_folder_prefixes,
+            ):
                 continue
             if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 warnings.append(
@@ -355,6 +364,13 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             else:
                 relative_path_value = str(entry.get("relative_path") or "").strip().replace("\\", "/") or file_path.name
 
+            source_metadata = _bulk_path_source_metadata(file_path, stat_result)
+            if entry_type == "file":
+                for key in ("source_mtime", "source_ctime", "source_birthtime"):
+                    override_value = str(entry.get(key) or "").strip()
+                    if override_value:
+                        source_metadata[key] = override_value
+
             expanded.append(
                 {
                     "path": normalized_path,
@@ -362,7 +378,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                     "relative_path": relative_path_value,
                     "entry_type": entry_type,
                     "source_entry": entry,
-                    "source_metadata": _bulk_path_source_metadata(file_path, stat_result),
+                    "source_metadata": source_metadata,
                     "file_hash": file_hash,
                     "size_bytes": int(stat_result.st_size),
                 }
@@ -370,6 +386,40 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             seen_paths.add(normalized_path)
 
     return expanded, warnings
+
+
+def _source_timestamp_summary(files: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build min/max summary of source timestamps captured for a publish batch."""
+    mtimes = [
+        str((item.get("source_metadata") or {}).get("source_mtime") or "").strip()
+        for item in files
+        if isinstance(item, dict)
+    ]
+    ctimes = [
+        str((item.get("source_metadata") or {}).get("source_ctime") or "").strip()
+        for item in files
+        if isinstance(item, dict)
+    ]
+    birthtimes = [
+        str((item.get("source_metadata") or {}).get("source_birthtime") or "").strip()
+        for item in files
+        if isinstance(item, dict)
+    ]
+    mtimes = sorted([value for value in mtimes if value])
+    ctimes = sorted([value for value in ctimes if value])
+    birthtimes = sorted([value for value in birthtimes if value])
+
+    summary: dict[str, Any] = {
+        "file_count": len(files),
+        "earliest_source_mtime": mtimes[0] if mtimes else None,
+        "latest_source_mtime": mtimes[-1] if mtimes else None,
+        "earliest_source_ctime": ctimes[0] if ctimes else None,
+        "latest_source_ctime": ctimes[-1] if ctimes else None,
+    }
+    if birthtimes:
+        summary["earliest_source_birthtime"] = birthtimes[0]
+        summary["latest_source_birthtime"] = birthtimes[-1]
+    return summary
 
 
 def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict[str, Any]) -> list[dict[str, Any]]:
@@ -454,6 +504,7 @@ def _publish_group_to_local_destination(
     group_title = str(group.get("title") or requested_model_name or "Working Group").strip() or "Working Group"
     preserve_folder_structure = _coerce_bool(group.get("preserve_folder_structure", True))
     grouping_strategy = str(group.get("strategy") or "none").strip() or "none"
+    source_timestamp_summary = _source_timestamp_summary(group_files)
 
     local_model_id = requested_model_ref
     target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id) if local_model_id else None
@@ -583,6 +634,7 @@ def _publish_group_to_local_destination(
         entry={
             "upload_id": upload_id,
             "published_at": _bulk_utc_now_iso(),
+            "source_timestamp_summary": source_timestamp_summary,
             "created_model": created_model,
             "grouping_strategy": grouping_strategy,
             "preserve_folder_structure": preserve_folder_structure,
@@ -594,6 +646,8 @@ def _publish_group_to_local_destination(
     )
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_queue_upload_id", field_value=upload_id)
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_entries", field_value=source_entries)
+    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_timestamp_summary", field_value=source_timestamp_summary)
+    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_imported_at", field_value=_bulk_utc_now_iso())
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="internal_notes", field_value=f"Imported from intake upload {upload_id}")
 
     return {
@@ -639,6 +693,7 @@ def _publish_group_to_working_destination(
     group_strategy = str(group.get("strategy") or "none").strip() or "none"
     preserve_folder_structure = _coerce_bool(group.get("preserve_folder_structure", True))
     group_source_entries = _planned_group_source_entries(group) or source_entries
+    source_timestamp_summary = _source_timestamp_summary(group_files)
 
     added_items = 0
     duplicate_items = 0
@@ -681,6 +736,8 @@ def _publish_group_to_working_destination(
                     json.dumps({
                         "source": "intake",
                         "upload_id": upload_id,
+                        "imported_at": now_iso,
+                        "source_timestamp_summary": source_timestamp_summary,
                         "grouping_strategy": group_strategy,
                         "preserve_folder_structure": preserve_folder_structure,
                         "group_title": group_title,
@@ -2043,6 +2100,8 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                         {
                             "source": "intake",
                             "upload_id": upload_id,
+                            "imported_at": now_iso,
+                            "source_timestamp_summary": _source_timestamp_summary(group_files),
                             "grouping_strategy": group_strategy,
                             "preserve_folder_structure": group_preserve_folder_structure,
                             "group_title": group_title,

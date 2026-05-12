@@ -25,11 +25,14 @@ from fastapi.responses import JSONResponse
 from ..state import AppState
 from .._helpers import (
     LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    _bulk_path_source_metadata,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_utc_now_iso,
+    _compile_source_entry_exclusions,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
     _configured_working_files_roots,
+    _is_excluded_source_file,
     _normalize_path_compare_key,
 )
 from ..services import get_all_indexed_file_hashes
@@ -208,6 +211,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
     expanded: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
+    exclusion_exact_keys, exclusion_folder_prefixes = _compile_source_entry_exclusions(source_entries)
 
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
@@ -225,6 +229,12 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
+                continue
+            if _is_excluded_source_file(
+                file_path=file_path,
+                exclusion_exact_keys=exclusion_exact_keys,
+                exclusion_folder_prefixes=exclusion_folder_prefixes,
+            ):
                 continue
             if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 warnings.append(
@@ -266,6 +276,13 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                 except ValueError:
                     relative_path = file_path.name
             
+            source_metadata = _bulk_path_source_metadata(file_path, stat_result)
+            if entry_type == "file":
+                for key in ("source_mtime", "source_ctime", "source_birthtime"):
+                    override_value = str(entry.get(key) or "").strip()
+                    if override_value:
+                        source_metadata[key] = override_value
+
             expanded.append(
                 {
                     "path": normalized_path,
@@ -273,6 +290,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                     "filename": file_path.name,
                     "entry_type": entry_type,
                     "source_entry": entry,
+                    "source_metadata": source_metadata,
                     "file_hash": file_hash,
                     "size_bytes": int(stat_result.st_size),
                 }
@@ -280,6 +298,39 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             seen_paths.add(normalized_path)
 
     return expanded, warnings
+
+
+def _source_timestamp_summary(files: list[dict[str, Any]]) -> dict[str, Any]:
+    mtimes = [
+        str((item.get("source_metadata") or {}).get("source_mtime") or "").strip()
+        for item in files
+        if isinstance(item, dict)
+    ]
+    ctimes = [
+        str((item.get("source_metadata") or {}).get("source_ctime") or "").strip()
+        for item in files
+        if isinstance(item, dict)
+    ]
+    birthtimes = [
+        str((item.get("source_metadata") or {}).get("source_birthtime") or "").strip()
+        for item in files
+        if isinstance(item, dict)
+    ]
+    mtimes = sorted([value for value in mtimes if value])
+    ctimes = sorted([value for value in ctimes if value])
+    birthtimes = sorted([value for value in birthtimes if value])
+
+    summary: dict[str, Any] = {
+        "file_count": len(files),
+        "earliest_source_mtime": mtimes[0] if mtimes else None,
+        "latest_source_mtime": mtimes[-1] if mtimes else None,
+        "earliest_source_ctime": ctimes[0] if ctimes else None,
+        "latest_source_ctime": ctimes[-1] if ctimes else None,
+    }
+    if birthtimes:
+        summary["earliest_source_birthtime"] = birthtimes[0]
+        summary["latest_source_birthtime"] = birthtimes[-1]
+    return summary
 
 
 def _read_existing_working_hashes(db_path: Path) -> set[str]:
@@ -2014,6 +2065,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 folder_hint = str(payload.get("folder_hint") or Path(str(group_files[0]["path"])).parent).strip() or None
                 notes = str(payload.get("notes") or "Imported from intake workflow").strip() or None
                 slug = _unique_slug(connection, title)
+                group_timestamp_summary = _source_timestamp_summary(group_files)
                 connection.execute(
                     """
                     INSERT INTO working_groups (
@@ -2038,6 +2090,8 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                         json.dumps({
                             "source": "intake",
                             "upload_id": item_id,
+                            "imported_at": now_iso,
+                            "source_timestamp_summary": group_timestamp_summary,
                             "grouping_strategy": group_strategy,
                             "preserve_folder_structure": group_preserve_folder_structure,
                         }),
@@ -2126,7 +2180,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                         now_iso,
                         file_hash,
                         int(file_item.get("size_bytes") or 0) or None,
-                        json.dumps({}),
+                        json.dumps(file_item.get("source_metadata") or {}),
                     ),
                 )
                 added_items += 1

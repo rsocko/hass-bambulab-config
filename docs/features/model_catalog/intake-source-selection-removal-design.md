@@ -257,6 +257,14 @@ Exclusions stored in source entry:
 | **Validate** | Check pre-filtered plan | Validates non-excluded files only | Validation result + exclusion summary |
 | **Commit** | Execute import | Uses pre-filtered file list | Files imported; exclusions never touch sidecar |
 
+Cleanup policy interaction (MVP decision 2026-05-12):
+
+- `delete_on_verified` applies only to imported files, not to excluded files/folders
+- `replace_with_stub` applies only to imported files, not to excluded files/folders
+- when `delete_on_verified` makes parent folders empty, cleanup should recursively remove those empty parents
+- any folder that still contains excluded or otherwise untouched content must not be removed
+- stub behavior remains per-file in MVP; no aggregate folder manifest is created yet
+
 ### Pre-Filtering Contract
 
 After Source step, all downstream steps receive **pre-filtered data**:

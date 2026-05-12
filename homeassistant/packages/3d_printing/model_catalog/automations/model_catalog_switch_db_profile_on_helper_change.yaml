@@ -1,0 +1,12 @@
+- id: model_catalog_switch_db_profile_on_helper_change
+  alias: "Model Catalog: Switch DB Profile On Helper Change"
+  description: >-
+    Calls sidecar runtime profile switch endpoint whenever the target profile helper changes.
+  trigger:
+    - trigger: state
+      entity_id: input_select.model_catalog_db_profile_target
+  action:
+    - action: script.model_catalog_switch_db_profile
+      data:
+        profile: "{{ trigger.to_state.state | lower }}"
+  mode: restart

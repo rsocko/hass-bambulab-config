@@ -1,0 +1,42 @@
+# UI-triggered runtime switch for sidecar DB profile (prod/test).
+model_catalog_switch_db_profile:
+  alias: Model Catalog - Switch DB Profile
+  description: >-
+    Switches sidecar DB profile at runtime and refreshes the profile sensor.
+    Note: restart will still revert to container-level ENV profile unless ENV is updated.
+  mode: single
+  fields:
+    profile:
+      name: Target Profile
+      description: prod or test
+      required: true
+      selector:
+        select:
+          options:
+            - prod
+            - test
+  sequence:
+    - variables:
+        requested_profile: "{{ (profile | default(states('input_select.model_catalog_db_profile_target'), true) | string | lower | trim) }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ requested_profile not in ['prod', 'test'] }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: Model Catalog DB Profile Switch
+                message: "Invalid profile '{{ requested_profile }}'. Choose prod or test."
+                notification_id: model_catalog_db_profile_switch_invalid
+            - stop: Invalid profile
+    - action: rest_command.model_catalog_switch_db_profile
+      data:
+        profile: "{{ requested_profile }}"
+    - delay: "00:00:01"
+    - action: homeassistant.update_entity
+      data:
+        entity_id: sensor.model_catalog_sidecar_db_profile
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.model_catalog_db_profile_target
+        option: "{{ requested_profile }}"

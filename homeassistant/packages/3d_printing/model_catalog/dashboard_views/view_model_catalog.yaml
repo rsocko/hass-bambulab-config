@@ -1,6 +1,13 @@
 title: Model Catalog
 path: model-catalog
 icon: mdi:cube-outline
+badges:
+  - entity: sensor.model_catalog_sidecar_db_profile
+    name: Active DB
+    color: blue
+  - entity: input_select.model_catalog_db_profile_target
+    name: Target DB
+    color: amber
 panel: true
 cards:
   - type: vertical-stack

@@ -244,6 +244,14 @@ Cleanup policy nuance by source mode:
 - Server browse mode exposes the cleanup-policy choice directly.
 - Browser upload mode shows cleanup behavior as automatic `Delete Originals After Success` because the staged files only exist in the browser/session upload path.
 
+MVP cleanup semantics (2026-05-12 decision):
+
+- cleanup applies only to files that were actually imported from the resolved plan
+- excluded files and excluded folders are never deleted and never replaced with stubs
+- `Delete Originals After Success` should recursively remove now-empty parent folders, stopping at managed intake roots
+- if any file/folder remains in a parent path (including excluded content), that parent path must remain
+- `Replace Originals With Stub Marker` currently writes per-file sibling stubs only; no root-level manifest is created in MVP
+
 Step 3 also uses the split-pane contract:
 
 - **Left pane**:
@@ -356,6 +364,13 @@ Both intake modes preserve original file modification timestamps for later use (
 - Both timestamps (`source_mtime` for original file date, `source_ctime` for staging time) are stored together
 
 This enables downstream consumers (e.g., Print History) to distinguish between when a file was originally created vs. when it was imported into the sidecar, supporting accurate timeline reconstruction.
+
+MVP record persistence requirements (2026-05-12 decision):
+
+- Working Group records must keep import timestamp plus source timestamp summary in group discovery metadata
+- Working Item records must persist per-file source timestamp metadata (`source_mtime`, `source_ctime`, optional `source_birthtime`)
+- Local Model records must keep import timestamp plus source timestamp summary in model fields
+- file system `mtime` on destination files should remain mutable after import so user edits naturally update current modified time; source-original timestamps remain in metadata fields for provenance/backfill use
 
 ### Source Entry Contract
 

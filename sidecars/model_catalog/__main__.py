@@ -16,6 +16,7 @@ from __future__ import annotations
 import click
 
 from .cli.cleanup import cli as cleanup_cli
+from .cli.db_profiles import cli as db_profiles_cli
 
 
 @click.group()
@@ -25,6 +26,7 @@ def main() -> None:
 
 
 main.add_command(cleanup_cli, name="cleanup")
+main.add_command(db_profiles_cli, name="db-profiles")
 
 
 if __name__ == "__main__":

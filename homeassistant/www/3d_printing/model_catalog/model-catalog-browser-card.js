@@ -658,6 +658,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "delete-model") {
+      event.preventDefault();
+      event.stopPropagation();
+      var deleteModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var deleteModelName = String(target.getAttribute("data-model-name") || "this model").trim();
+      if (!deleteModelRef) {
+        return;
+      }
+      await this._deleteModel(deleteModelRef, deleteModelName);
+      return;
+    }
+
     if (action === "open-model-viewer") {
       var viewerModelRef = String(target.getAttribute("data-model-ref") || "").trim();
       var viewerModelName = String(target.getAttribute("data-model-name") || "Model").trim();
@@ -958,6 +970,168 @@ class ModelCatalogBrowserCard extends HTMLElement {
       model.structured_metadata.catalog_signals.model_favorite = !!isFavorite;
       break;
     }
+  }
+
+  async _deleteModel(modelRef, modelName) {
+    if (!this._hass || !modelRef) {
+      return;
+    }
+
+    // Find the model in results to get local_model_id and linked archive count
+    var model = null;
+    for (var i = 0; i < this._results.length; i++) {
+      if (this._modelRef(this._results[i]) === modelRef) {
+        model = this._results[i];
+        break;
+      }
+    }
+
+    if (!model || !model.local_model_id) {
+      this._error = "Could not identify local model for deletion.";
+      this._render();
+      return;
+    }
+
+    var localModelId = String(model.local_model_id).trim();
+    var linkedCount = Number(model.linked_archive_count || 0);
+
+    // Build warning message about what will be deleted
+    var warningLines = [
+      "Delete " + modelName + " from the Model Catalog?",
+      "",
+      "This will delete:",
+      "• Model metadata and database entries",
+      "• All stored model files and assets",
+    ];
+
+    if (linkedCount > 0) {
+      warningLines.push(
+        "",
+        "This model has " + String(linkedCount) + " linked print archive" + (linkedCount === 1 ? "" : "s") + ". The archives will NOT be deleted, but the model reference will be removed."
+      );
+    }
+
+    warningLines.push("", "This action cannot be undone.");
+
+    var confirmMsg = warningLines.join("\n");
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    // Proceed with deletion
+    await this._executeModelDeletion(localModelId, modelRef);
+
+  async _executeModelDeletion(localModelId, modelRef) {
+    if (!this._hass || !localModelId) {
+      return;
+    }
+
+    try {
+      this._loading = true;
+      this._error = "";
+      this._render();
+
+      var sidecarUrl = this._resolveModelSidecarUrl();
+      if (!sidecarUrl) {
+        throw new Error("Model Catalog sidecar URL not configured");
+      }
+
+      var auth = this._hass && this._hass.auth ? this._hass.auth : null;
+      if (!auth) {
+        throw new Error("Not authenticated with Home Assistant");
+      }
+
+      var deleteUrl = sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "?hard_delete=false";
+      var response = await fetch(deleteUrl, {
+        method: "DELETE",
+        headers: {
+          "Authorization": "Bearer " + auth.accessToken,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        var errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (_) {
+          errorData = { error: "Unknown error", status: response.status };
+        }
+        var errorMsg = errorData && errorData.error ? String(errorData.error) : "HTTP " + String(response.status);
+        throw new Error("Delete failed: " + errorMsg);
+      }
+
+      var result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || "Delete operation failed");
+      }
+
+      // Remove the model from the results list immediately for snappy UI
+      var indexToRemove = -1;
+      for (var i = 0; i < this._results.length; i++) {
+        if (this._modelRef(this._results[i]) === modelRef) {
+          indexToRemove = i;
+          break;
+        }
+      }
+      if (indexToRemove >= 0) {
+        this._results.splice(indexToRemove, 1);
+      }
+
+      // Update pagination total
+      this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - 1);
+      this._pagination.total_pages = Math.max(1, Math.ceil(this._pagination.total / (this._pagination.per_page || 12)));
+
+      this._loading = false;
+      this._activeActionMenu = "";
+      this._error = "";
+      this._render();
+
+      // Show success notification
+      try {
+        await this._hass.callService("persistent_notification", "create", {
+          title: "Model Deleted",
+          message: "Model successfully deleted from the catalog.",
+          notification_id: "model_catalog_delete_success",
+        });
+      } catch (_notifError) {
+        console.warn("Could not show success notification", _notifError);
+      }
+    } catch (error) {
+      this._loading = false;
+      this._error = error && error.message ? String(error.message) : "Failed to delete model";
+      this._render();
+      console.error("Model deletion error:", error);
+
+      // Show error notification
+      try {
+        await this._hass.callService("persistent_notification", "create", {
+          title: "Model Deletion Failed",
+          message: this._error,
+          notification_id: "model_catalog_delete_error",
+        });
+      } catch (_notifError) {
+        console.warn("Could not show error notification", _notifError);
+      }
+    }
+  }
+
+  _resolveModelSidecarUrl() {
+    if (this._config && this._config.model_entity && this._hass && this._hass.states) {
+      var configuredEntity = this._hass.states[this._config.model_entity];
+      if (configuredEntity && configuredEntity.state) {
+        return String(configuredEntity.state).trim();
+      }
+    }
+
+    if (this._hass && this._hass.states) {
+      var baseUrlEntity = this._hass.states["input_text.model_catalog_sidecar_base_url"];
+      if (baseUrlEntity && baseUrlEntity.state) {
+        return String(baseUrlEntity.state).trim();
+      }
+    }
+
+    return String(this._config && this._config.model_sidecar_url || "").trim();
   }
 
   _handleWheel(event) {
@@ -1657,6 +1831,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       )
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
 
+    var isLocalModel = String(model.authority || "").trim() === "local";
+    var deleteButton = isLocalModel
+      ? '  <button class="advanced-action danger" type="button" data-action="delete-model" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>Delete model</span></button>'
+      : '';
     var advancedActions = ''
       + '<div class="advanced-menu-shell">'
       + '  <button class="icon-action advanced" type="button" data-action="toggle-actions" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Open advanced actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
@@ -1672,6 +1850,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
           + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
           + '  </div>'
+          + deleteButton
           + '</div>'
       + '</div>';
 
@@ -2434,6 +2613,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.advanced-menu.is-open{display:grid;}'
       + '.advanced-action{justify-content:flex-start;width:100%;padding:0 12px;border-radius:12px;background:rgba(148,163,184,0.10);}'
       + '.advanced-action.primary{background:rgba(96,165,250,0.14);border-color:rgba(96,165,250,0.26);}'
+      + '.advanced-action.danger{background:rgba(185,28,28,0.14);border-color:rgba(185,28,28,0.26);color:#f87171;}'
+      + '.advanced-action.danger:hover,.advanced-action.danger:focus-visible{background:rgba(185,28,28,0.24);border-color:rgba(185,28,28,0.44);color:#fca5a5;}'
       + '.advanced-action ha-icon{--mdc-icon-size:16px;}'
       + '.advanced-group-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding:2px 2px 0;}'
       + '.advanced-inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'

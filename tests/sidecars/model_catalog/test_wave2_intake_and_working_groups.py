@@ -183,7 +183,7 @@ def test_intake_submit_validate_and_group(tmp_path: Path) -> None:
 
         group_response = client.post(
             f"/api/intake/items/{item_id}/group",
-            json={"action": "create_working_group", "title": "Router Mount Group"},
+            json={"action": "create_working_group", "title": "Router Mount Group", "override": True},
         )
         assert group_response.status_code == 200
         group_payload = group_response.json()

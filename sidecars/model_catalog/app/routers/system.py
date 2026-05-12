@@ -6,14 +6,16 @@ refresh, and debug/manyfold endpoints.
 from __future__ import annotations
 
 import json
+import os
 from sqlite3 import connect
 from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from ..manyfold import ManyfoldClient, refresh_manyfold_cache_with_status
 from ..state import AppState
+from ..settings import load_settings
 from .._helpers import (
     _configured_intake_source_roots,
     _configured_working_files_roots,
@@ -76,9 +78,18 @@ def healthz(request: Request) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     return {
         "ok": True,
+        "db_profile": state.settings.db_profile,
         "db_path": state.db_info.path,
         "table_count": len(state.db_info.tables),
         "schema_version": state.db_info.schema_version,
+        "db_profiles": {
+            profile: {
+                "db_path": info.path,
+                "schema_version": info.schema_version,
+                "table_count": len(info.tables),
+            }
+            for profile, info in state.db_info_by_profile.items()
+        },
     }
 
 
@@ -103,7 +114,14 @@ def config(request: Request) -> dict[str, Any]:
         "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
         "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
         "manyfold_session_auth_enabled": bool(state.settings.manyfold_session_email and state.settings.manyfold_session_password),
+        "db_profile": state.settings.db_profile,
         "db_path": str(state.settings.db_path),
+        "db_path_prod": str(state.settings.db_path_prod),
+        "db_path_test": str(state.settings.db_path_test),
+        "db_bootstrap_all_profiles": state.settings.bootstrap_all_db_profiles,
+        "db_seed_test_from_prod_on_start": state.settings.seed_test_db_from_prod_on_start,
+        "db_seed_test_overwrite": state.settings.seed_test_db_overwrite,
+        "db_seed_result": state.db_seed_result,
         "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
         "host": state.settings.host,
         "port": state.settings.port,
@@ -216,8 +234,22 @@ def diagnostics(request: Request) -> dict[str, Any]:
         "model_catalog_curated_assets_root": str(_model_photo_storage_root(state.settings)),
         "assets_root_host": str(getattr(state.settings, "assets_root_host", "") or "").strip() or None,
         "windows_launch_enabled": _windows_launch_enabled(state.settings),
+        "db_profile": state.settings.db_profile,
+        "db_path": str(state.settings.db_path),
+        "db_path_prod": str(state.settings.db_path_prod),
+        "db_path_test": str(state.settings.db_path_test),
+        "db_bootstrap_all_profiles": state.settings.bootstrap_all_db_profiles,
         "db_tables": list(state.db_info.tables),
         "schema_version": state.db_info.schema_version,
+        "db_profiles": {
+            profile: {
+                "db_path": info.path,
+                "schema_version": info.schema_version,
+                "table_count": len(info.tables),
+            }
+            for profile, info in state.db_info_by_profile.items()
+        },
+        "db_seed_result": state.db_seed_result,
         "manyfold_base_url": state.settings.manyfold_base_url,
         "manyfold_models_path": state.settings.manyfold_models_path,
         "manyfold_collections_path": state.settings.manyfold_collections_path,
@@ -235,6 +267,60 @@ def diagnostics(request: Request) -> dict[str, Any]:
         },
         **_image_metadata(state.settings),
     }
+
+
+@router.post("/api/admin/db-profile/switch")
+def switch_db_profile(request: Request, payload: dict[str, Any] | None = None) -> JSONResponse:
+    """Switch active DB profile at runtime without process restart.
+
+    Note: This updates process-local environment and app state. Container-level
+    env remains the source of truth after service restart.
+    """
+    body = payload or {}
+    requested_profile = str(body.get("profile") or "").strip().lower()
+    if requested_profile not in {"prod", "test"}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_profile",
+                "message": "profile must be one of ['prod', 'test']",
+            },
+        )
+
+    state: AppState = request.app.state.model_catalog
+    current_profile = str(state.settings.db_profile).strip().lower()
+    if requested_profile == current_profile:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "changed": False,
+                "profile": current_profile,
+                "db_path": str(state.settings.db_path),
+                "message": "already_on_requested_profile",
+            },
+        )
+
+    os.environ["MODEL_CATALOG_DB_PROFILE"] = requested_profile
+    refreshed_settings = load_settings()
+    refreshed_state = AppState(refreshed_settings)
+    request.app.state.model_catalog = refreshed_state
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "changed": True,
+            "profile": refreshed_settings.db_profile,
+            "db_path": str(refreshed_settings.db_path),
+            "note": "runtime_switch_applied_process_local_only",
+            "message": (
+                "Runtime profile switch applied. Restarting the service will restore "
+                "container ENV profile unless it is updated there as well."
+            ),
+        },
+    )
 
 
 @router.get("/api/admin/schema/chartdb", response_class=PlainTextResponse)

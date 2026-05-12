@@ -71,6 +71,36 @@ def _build_cleanup_stub(*, upload_id: str, file_path: Path, uploaded_row: dict[s
     return "\n".join(lines) + "\n"
 
 
+def _prune_empty_parent_dirs(*, file_paths: list[Path], roots: list[Path]) -> list[str]:
+    """Recursively delete empty parent directories within managed roots."""
+    removed_dirs: list[str] = []
+    roots_resolved = [root.expanduser().resolve() for root in roots]
+
+    for file_path in file_paths:
+        current = file_path.expanduser().resolve().parent
+        while True:
+            in_managed_root = False
+            reached_root = False
+            for root in roots_resolved:
+                if current == root or current.is_relative_to(root):
+                    in_managed_root = True
+                    if current == root:
+                        reached_root = True
+                    break
+            if not in_managed_root or reached_root:
+                break
+
+            try:
+                current.rmdir()
+                removed_dirs.append(str(current))
+            except OSError:
+                # Stop ascending if directory is non-empty or not removable.
+                break
+            current = current.parent
+
+    return removed_dirs
+
+
 def _run_source_cleanup(
     *,
     request: Request,
@@ -134,7 +164,16 @@ def _run_source_cleanup(
     if not isinstance(source_entries, list):
         source_entries = []
     browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
-    files_to_cleanup = _expand_source_entries_to_files([entry for entry in source_entries if isinstance(entry, dict)])
+    files_to_cleanup: list[Path] = []
+    if uploaded_rows:
+        files_to_cleanup = [
+            Path(str(row.get("source_path") or "")).expanduser().resolve()
+            for row in uploaded_rows
+            if isinstance(row, dict) and str(row.get("source_path") or "").strip()
+        ]
+
+    if not files_to_cleanup:
+        files_to_cleanup = _expand_source_entries_to_files([entry for entry in source_entries if isinstance(entry, dict)])
     if not files_to_cleanup:
         # Files may already be moved during publish (e.g., curated import).
         # Fall back to declared file source entries so cleanup can still complete.
@@ -179,6 +218,7 @@ def _run_source_cleanup(
     processed_count = 0
     failure_messages: list[str] = []
     results: list[dict[str, Any]] = []
+    deleted_source_paths: list[Path] = []
     for file_path in files_to_cleanup:
         resolved = file_path.expanduser().resolve()
         is_browser_staged_file = any(resolved.is_relative_to(stage_dir) for stage_dir in browser_stage_dirs)
@@ -218,6 +258,8 @@ def _run_source_cleanup(
                 # Missing files after successful publish therefore represent success.
                 result.update({"success": True, "action": "already_moved"})
                 processed_count += 1
+                if cleanup_policy == "delete_on_verified":
+                    deleted_source_paths.append(resolved)
             else:
                 result.update({"success": False, "reason": "missing_source"})
                 failure_messages.append(f"{resolved}: source file missing")
@@ -228,6 +270,7 @@ def _run_source_cleanup(
             if cleanup_policy == "delete_on_verified":
                 resolved.unlink()
                 result.update({"success": True, "action": "deleted"})
+                deleted_source_paths.append(resolved)
             else:
                 stub_path = _cleanup_stub_path(resolved)
                 stub_text = _build_cleanup_stub(
@@ -253,6 +296,10 @@ def _run_source_cleanup(
     final_status = "cleanup_done" if not failure_messages else "cleanup_failed"
     for stage_dir in browser_stage_dirs:
         shutil.rmtree(stage_dir, ignore_errors=True)
+
+    removed_dirs: list[str] = []
+    if cleanup_policy == "delete_on_verified" and deleted_source_paths:
+        removed_dirs = _prune_empty_parent_dirs(file_paths=deleted_source_paths, roots=managed_roots)
     
     _transition_queue_status(
         state.settings.db_path,
@@ -263,9 +310,11 @@ def _run_source_cleanup(
             "policy": cleanup_policy,
             "processed_count": processed_count,
             "failed_count": len(failure_messages),
+            "deleted_source_dir_count": len(removed_dirs),
             "results": results,
         },
     )
+
     _record_queue_event(
         request=request,
         upload_id=upload_id,
@@ -276,6 +325,7 @@ def _run_source_cleanup(
             "status": final_status,
             "processed_count": processed_count,
             "failed_count": len(failure_messages),
+            "deleted_source_dirs": removed_dirs,
             "results": results,
         },
     )
@@ -286,6 +336,7 @@ def _run_source_cleanup(
         "skipped": False,
         "processed_count": processed_count,
         "failed_count": len(failure_messages),
+        "deleted_source_dirs": removed_dirs,
         "results": results,
     }
     if failure_messages:

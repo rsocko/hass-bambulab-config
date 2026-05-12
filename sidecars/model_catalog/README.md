@@ -183,6 +183,18 @@ docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --e
 
 # Advanced granular cleanup (specific tables/zones)
 docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup --scope db --tables model_catalog_entries
+
+# Show prod/test DB profile status and schema versions
+docker exec model-catalog python -m sidecars.model_catalog db-profiles status
+
+# Seed test DB from current prod DB (fails if test DB exists)
+docker exec model-catalog python -m sidecars.model_catalog db-profiles seed-test-from-prod
+
+# Force reseed test DB from prod
+docker exec model-catalog python -m sidecars.model_catalog db-profiles seed-test-from-prod --force
+
+# Apply latest schema migrations to both prod and test DBs
+docker exec model-catalog python -m sidecars.model_catalog db-profiles sync-schema
 ```
 
 Until that rebuild happens, do not use the `python -m sidecars.model_catalog ...` examples against the running `model-catalog` container.
@@ -260,6 +272,13 @@ ASSETS_ROOT_HOST=/mnt/c/OneDrive/Documents/3D Models
 MODEL_CATALOG_IMAGE_TAG=0.1.0
 MODEL_CATALOG_HOSTNAME=model-catalog.socko.us
 MODEL_CATALOG_AUTHORITY_MODE=local
+MODEL_CATALOG_DB_PROFILE=prod
+MODEL_CATALOG_DB_PATH=/data/model_catalog.db
+MODEL_CATALOG_DB_PATH_PROD=/data/model_catalog.db
+MODEL_CATALOG_DB_PATH_TEST=/data/model_catalog_test.db
+MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES=true
+MODEL_CATALOG_DB_SEED_TEST_FROM_PROD_ON_START=false
+MODEL_CATALOG_DB_SEED_TEST_OVERWRITE=false
 MODEL_CATALOG_CURATED_ASSETS_ROOT=/assets/Model Catalog
 MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
 MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
@@ -284,8 +303,8 @@ The sidecar now runs as a standalone Docker stack with independent file storage:
 
 Remote-client browser uploads do not write directly into `/assets`.
 
-- Browser-uploaded files are staged under the parent folder of `MODEL_CATALOG_DB_PATH`.
-- With the default standalone compose (`MODEL_CATALOG_DB_PATH=/data/model_catalog.db`), the queue lives at `/data/intake_browser_uploads`.
+- Browser-uploaded files are staged under the parent folder of the active DB path (`MODEL_CATALOG_DB_PATH`, or profile-resolved prod/test path).
+- With the default standalone compose (`MODEL_CATALOG_DB_PATH_PROD=/data/model_catalog.db`), the queue lives at `/data/intake_browser_uploads`.
 - That means the existing `model_catalog_data` volume is the durable runtime store for:
 	- `model_catalog.db`
 	- `intake_browser_uploads/` browser-upload staging files
@@ -305,7 +324,9 @@ Example runtime expectation:
 services:
 	model-catalog:
 		environment:
-			MODEL_CATALOG_DB_PATH: /data/model_catalog.db
+			MODEL_CATALOG_DB_PROFILE: prod
+			MODEL_CATALOG_DB_PATH_PROD: /data/model_catalog.db
+			MODEL_CATALOG_DB_PATH_TEST: /data/model_catalog_test.db
 		volumes:
 			- model_catalog_data:/data
 			- /srv/3d-models:/assets
@@ -454,13 +475,22 @@ If your live environment still has a model catalog service embedded in the Manyf
 - `MANYFOLD_OAUTH_SCOPES` — optional scope string sent during token acquisition when the OAuth server requires explicit requested permissions
 - `MANYFOLD_SESSION_EMAIL` — optional Manyfold login email used to bootstrap a real web session when upload endpoints reject pure OAuth client-credentials
 - `MANYFOLD_SESSION_PASSWORD` — optional Manyfold login password paired with `MANYFOLD_SESSION_EMAIL`; only needed for the upload/session bridge workaround
-- `MODEL_CATALOG_DB_PATH` — SQLite path for sidecar local state
+- `MODEL_CATALOG_DB_PROFILE` — active database profile (`prod` or `test`)
+- `MODEL_CATALOG_DB_PATH` — backward-compatible active SQLite path (defaults to prod path)
+- `MODEL_CATALOG_DB_PATH_PROD` — SQLite path used for production profile
+- `MODEL_CATALOG_DB_PATH_TEST` — SQLite path used for test/dev profile
+- `MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES` — when `true`, startup migrations run for both prod and test DBs
+- `MODEL_CATALOG_DB_SEED_TEST_FROM_PROD_ON_START` — when `true`, startup copies prod DB into test DB before bootstrapping
+- `MODEL_CATALOG_DB_SEED_TEST_OVERWRITE` — when `true`, startup seed may overwrite an existing test DB
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
 - `MODEL_CATALOG_PORT` — local bind port for manual `uvicorn` runs
 - `MODEL_CATALOG_CURATED_ASSETS_ROOT` — sidecar-controlled published asset root for curated local storage
+- `MODEL_CATALOG_CURATED_ASSETS_ROOT_PROD` / `MODEL_CATALOG_CURATED_ASSETS_ROOT_TEST` — optional profile-specific curated roots (override shared root when active profile matches)
 - `MODEL_CATALOG_INTAKE_ROOTS` — comma-separated container paths allowed for intake browse/select and intake cleanup
+- `MODEL_CATALOG_INTAKE_ROOTS_PROD` / `MODEL_CATALOG_INTAKE_ROOTS_TEST` — optional profile-specific intake roots for strict prod/test separation
 - `MODEL_CATALOG_WORKING_FILES_ROOT` — container path used by Working Files explorer, reindex, and reorganize destination
+- `MODEL_CATALOG_WORKING_FILES_ROOT_PROD` / `MODEL_CATALOG_WORKING_FILES_ROOT_TEST` — optional profile-specific working roots for strict prod/test separation
 - `MODEL_CATALOG_IMAGE_TAG` — image tag emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_VERSION` — semantic image version emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)

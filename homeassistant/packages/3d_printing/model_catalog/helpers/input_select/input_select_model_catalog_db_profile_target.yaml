@@ -1,0 +1,7 @@
+model_catalog_db_profile_target:
+  name: "Model Catalog DB Profile Target"
+  options:
+    - prod
+    - test
+  initial: prod
+  icon: mdi:database-switch
