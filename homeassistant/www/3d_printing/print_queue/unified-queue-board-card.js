@@ -3385,7 +3385,10 @@ class UnifiedQueueBoardCard extends HTMLElement {
         height: 16px;
         flex-shrink: 0;
         color: var(--primary-color, #60a5fa);
-        opacity: 0.8;
+        opacity: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .db-label {
@@ -5848,7 +5851,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
           <h2>Print Queue</h2>
           <div class="title-actions">
             <div class="db-pill">
-              <svg class="db-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13H5V9h14m0 10H5v-4h14m2-8H3c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H3V7h18v16z"/></svg>
+              <svg class="db-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M19 13H5V9h14m0 10H5v-4h14m2-8H3c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H3V7h18v16z"/></svg>
               <span class="db-label">DB</span>
               <span class="db-state" id="db-profile-state">-</span>
             </div>
