@@ -693,17 +693,41 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
   _updateDbPill() {
     if (!this._hass) return;
-    
+
     const dbStateEl = this.shadowRoot?.querySelector('#db-profile-state');
+    const dbPillEl = this.shadowRoot?.querySelector('.db-pill');
     if (!dbStateEl) return;
-    
+
     try {
-      const dbProfileEntity = 'input_select.model_catalog_db_profile_target';
-      const state = this._hass.states[dbProfileEntity];
-      if (state && state.state) {
-        dbStateEl.textContent = String(state.state).toUpperCase();
+      // Source of truth = actual sidecar profile (sensor polls /config).
+      // input_select holds the user's *target* and may drift from the sidecar
+      // across HA restarts or out-of-band switches.
+      const actualState = this._hass.states['sensor.model_catalog_sidecar_db_profile'];
+      const targetState = this._hass.states['input_select.model_catalog_db_profile_target'];
+
+      const actualRaw = actualState && actualState.state ? String(actualState.state) : '';
+      const targetRaw = targetState && targetState.state ? String(targetState.state) : '';
+      const actual = actualRaw.toLowerCase();
+      const target = targetRaw.toLowerCase();
+      const unavailable = !actualRaw || ['unknown', 'unavailable', 'none', '-'].includes(actual);
+
+      if (unavailable) {
+        dbStateEl.textContent = target ? `${target.toUpperCase()}?` : '-';
+      } else if (target && target !== actual) {
+        dbStateEl.textContent = `${actual.toUpperCase()} ≠ ${target.toUpperCase()}`;
       } else {
-        dbStateEl.textContent = '-';
+        dbStateEl.textContent = actual.toUpperCase();
+      }
+
+      if (dbPillEl) {
+        dbPillEl.classList.toggle('db-pill-mismatch', !unavailable && !!target && target !== actual);
+        dbPillEl.classList.toggle('db-pill-unavailable', unavailable);
+        const tip = unavailable
+          ? 'Sidecar DB profile sensor unavailable; showing target helper value'
+          : (target && target !== actual)
+            ? `Sidecar is on ${actual.toUpperCase()}, but target helper is ${target.toUpperCase()} (restart or out-of-band switch)`
+            : 'Model catalog DB profile (sidecar)';
+        dbPillEl.setAttribute('title', tip);
       }
     } catch (_err) {
       dbStateEl.textContent = '-';
@@ -3410,6 +3434,28 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: rgba(96, 165, 250, 0.18);
         border-color: rgba(96, 165, 250, 0.5);
         cursor: pointer;
+      }
+
+      .db-pill.db-pill-mismatch {
+        background: rgba(251, 191, 36, 0.18);
+        border-color: rgba(251, 191, 36, 0.6);
+      }
+
+      .db-pill.db-pill-mismatch .db-state {
+        color: #fde68a;
+      }
+
+      .db-pill.db-pill-mismatch .db-icon {
+        color: #fbbf24;
+      }
+
+      .db-pill.db-pill-unavailable {
+        background: rgba(125, 125, 125, 0.18);
+        border-color: rgba(125, 125, 125, 0.5);
+      }
+
+      .db-pill.db-pill-unavailable .db-state {
+        color: var(--secondary-text-color, #9ca3af);
       }
 
       .flash-banner {
