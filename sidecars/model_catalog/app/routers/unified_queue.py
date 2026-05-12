@@ -1730,7 +1730,7 @@ def update_entry_selection(
                 if next_state is not None:
                     update_kwargs["state"] = next_state
                     if next_state == "done":
-                        update_kwargs["completion_confidence"] = "manual"
+                        update_kwargs["completion_confidence"] = "high"
                         update_kwargs["last_attempt_outcome"] = "success"
 
                 if update_kwargs:

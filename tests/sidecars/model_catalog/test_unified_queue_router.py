@@ -1073,7 +1073,7 @@ def test_update_entry_selection_updates_units_and_selection_mode(tmp_path: Path)
             ("qpu-001-002", 0, "pending"),
             ("qpu-002-001", 0, "pending"),
         ]
-        assert str(plate_rows[0]["completion_confidence"]) == "manual"
+        assert str(plate_rows[0]["completion_confidence"]) == "high"
         assert str(plate_rows[0]["last_attempt_outcome"]) == "success"
     finally:
         client.__exit__(None, None, None)

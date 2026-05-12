@@ -113,6 +113,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._plannerError = null;
     this._plannerBusy = false;
 
+    // Tracks whether this card currently holds a global body scroll lock.
+    this._bodyScrollLocked = false;
+
     this._loadFilterState();
     this._loadViewState();
   }
@@ -597,6 +600,46 @@ class UnifiedQueueBoardCard extends HTMLElement {
       clearTimeout(this._flashTimer);
       this._flashTimer = null;
     }
+
+    this._syncBodyScrollLock(false);
+  }
+
+  _shouldLockBodyScroll() {
+    return this._addModalOpen || !!this._detailEntry || this._plannerOpen || !!this._pendingDeleteEntryId;
+  }
+
+  _syncBodyScrollLock(forceLocked = null) {
+    const body = document && document.body;
+    if (!body) return;
+
+    const shouldLock = forceLocked === null ? this._shouldLockBodyScroll() : !!forceLocked;
+    if (shouldLock === this._bodyScrollLocked) return;
+
+    const rawCount = Number.parseInt(body.dataset.uqScrollLockCount || '0', 10);
+    const currentCount = Number.isFinite(rawCount) ? Math.max(0, rawCount) : 0;
+
+    if (shouldLock) {
+      if (currentCount === 0) {
+        body.dataset.uqScrollLockPrevOverflow = body.style.overflow || '';
+        body.dataset.uqScrollLockPrevOverscroll = body.style.overscrollBehavior || '';
+        body.style.overflow = 'hidden';
+        body.style.overscrollBehavior = 'none';
+      }
+      body.dataset.uqScrollLockCount = String(currentCount + 1);
+      this._bodyScrollLocked = true;
+      return;
+    }
+
+    const nextCount = Math.max(0, currentCount - 1);
+    body.dataset.uqScrollLockCount = String(nextCount);
+    if (nextCount === 0) {
+      body.style.overflow = body.dataset.uqScrollLockPrevOverflow || '';
+      body.style.overscrollBehavior = body.dataset.uqScrollLockPrevOverscroll || '';
+      delete body.dataset.uqScrollLockPrevOverflow;
+      delete body.dataset.uqScrollLockPrevOverscroll;
+      delete body.dataset.uqScrollLockCount;
+    }
+    this._bodyScrollLocked = false;
   }
 
   _getQueueApiBase() {
@@ -1409,7 +1452,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         plates: Array.isArray(file.plates)
           ? file.plates.map(plate => {
               if (plate.plate_unit_id !== plateUnitId || plate.state === 'done') return plate;
-              return { ...plate, selected: true, state: 'done', last_attempt_outcome: 'success', completion_confidence: 'manual' };
+              return { ...plate, selected: true, state: 'done', last_attempt_outcome: 'success', completion_confidence: 'high' };
             })
           : [],
       };
@@ -2874,6 +2917,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
   }
 
   _render() {
+    this._syncBodyScrollLock();
+
     const css = `
       :host {
         display: block;
@@ -3749,6 +3794,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
         color: var(--text);
         padding: 0 10px;
         font-size: 12px;
+        color-scheme: dark light;
+      }
+
+      .field select option {
+        background: var(--bg-card);
+        color: var(--text);
       }
 
       .load-detail-btn {
@@ -4007,6 +4058,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
         font-size: 12px;
         font-weight: 700;
         min-width: 180px;
+        color-scheme: dark light;
+      }
+
+      .entry-detail-state-select option {
+        background: var(--bg-card);
+        color: var(--text);
       }
 
       .entry-detail-state-select.backlog {
@@ -4045,12 +4102,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: color-mix(in srgb, var(--state-done) 18%, transparent);
       }
 
-      .entry-detail-state-select option[value="backlog"] { color: var(--state-backlog); }
-      .entry-detail-state-select option[value="preparing"] { color: var(--state-preparing); }
-      .entry-detail-state-select option[value="ready"] { color: var(--state-ready); }
-      .entry-detail-state-select option[value="in_progress"] { color: var(--state-in-progress); }
-      .entry-detail-state-select option[value="blocked"] { color: var(--state-blocked); }
-      .entry-detail-state-select option[value="done"] { color: var(--state-done); }
+      .entry-detail-state-select option[value="backlog"] { color: var(--state-backlog); background: var(--bg-card); }
+      .entry-detail-state-select option[value="preparing"] { color: var(--state-preparing); background: var(--bg-card); }
+      .entry-detail-state-select option[value="ready"] { color: var(--state-ready); background: var(--bg-card); }
+      .entry-detail-state-select option[value="in_progress"] { color: var(--state-in-progress); background: var(--bg-card); }
+      .entry-detail-state-select option[value="blocked"] { color: var(--state-blocked); background: var(--bg-card); }
+      .entry-detail-state-select option[value="done"] { color: var(--state-done); background: var(--bg-card); }
 
       .entry-detail-meta-row {
         display: grid;
