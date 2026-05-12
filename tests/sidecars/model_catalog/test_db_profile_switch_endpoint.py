@@ -20,10 +20,10 @@ def test_runtime_db_profile_switch_endpoint(monkeypatch, tmp_path: Path) -> None
     test_db = tmp_path / "model_catalog_test.db"
 
     monkeypatch.setenv("MODEL_CATALOG_DB_PROFILE", "prod")
-    monkeypatch.setenv("MODEL_CATALOG_DB_PATH_PROD", str(prod_db))
+    monkeypatch.setenv("MODEL_CATALOG_DB_PATH", str(prod_db))
     monkeypatch.setenv("MODEL_CATALOG_DB_PATH_TEST", str(test_db))
     monkeypatch.setenv("MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES", "true")
-    monkeypatch.setenv("MODEL_CATALOG_CURATED_ASSETS_ROOT_PROD", str(tmp_path / "assets" / "prod"))
+    monkeypatch.setenv("MODEL_CATALOG_CURATED_ASSETS_ROOT", str(tmp_path / "assets" / "prod"))
     monkeypatch.setenv("MODEL_CATALOG_CURATED_ASSETS_ROOT_TEST", str(tmp_path / "assets" / "test"))
 
     app = create_app(settings=load_settings(), manyfold_client=FakeManyfoldClient())

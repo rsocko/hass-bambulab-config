@@ -31,15 +31,12 @@ def _derive_test_db_path(prod_db_path: Path) -> Path:
     return prod_db_path.with_name(f"{prod_db_path.stem}_test{prod_db_path.suffix}")
 
 
-def _profile_env(base_name: str, profile: str) -> str:
-    return f"{base_name}_{profile.upper()}"
-
-
 def _env_for_profile(base_name: str, profile: str) -> str | None:
-    profile_key = _profile_env(base_name, profile)
-    profile_value = os.getenv(profile_key)
-    if profile_value is not None and str(profile_value).strip() != "":
-        return str(profile_value).strip()
+    if _normalize_db_profile(profile) == "test":
+        test_key = f"{base_name}_TEST"
+        test_value = os.getenv(test_key)
+        if test_value is not None and str(test_value).strip() != "":
+            return str(test_value).strip()
 
     fallback = os.getenv(base_name)
     if fallback is not None and str(fallback).strip() != "":
@@ -109,7 +106,7 @@ def load_settings() -> Settings:
     session_email = str(os.getenv("MANYFOLD_SESSION_EMAIL", "")).strip() or None
     session_password = str(os.getenv("MANYFOLD_SESSION_PASSWORD", "")).strip() or None
     db_profile = _normalize_db_profile(os.getenv("MODEL_CATALOG_DB_PROFILE", "prod"))
-    db_path_prod = Path(os.getenv("MODEL_CATALOG_DB_PATH_PROD", os.getenv("MODEL_CATALOG_DB_PATH", ":memory:")))
+    db_path_prod = Path(os.getenv("MODEL_CATALOG_DB_PATH", ":memory:"))
     db_path_test_raw = str(os.getenv("MODEL_CATALOG_DB_PATH_TEST", "")).strip()
     db_path_test = Path(db_path_test_raw) if db_path_test_raw else _derive_test_db_path(db_path_prod)
     db_path = db_path_test if db_profile == "test" else db_path_prod

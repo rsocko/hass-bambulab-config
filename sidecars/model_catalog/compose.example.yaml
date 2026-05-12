@@ -15,7 +15,6 @@ services:
 
       MODEL_CATALOG_DB_PROFILE: prod
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
-      MODEL_CATALOG_DB_PATH_PROD: /data/model_catalog.db
       MODEL_CATALOG_DB_PATH_TEST: /data/model_catalog_test.db
       MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES: "true"
       MODEL_CATALOG_DB_SEED_TEST_FROM_PROD_ON_START: "false"
@@ -26,14 +25,11 @@ services:
 
       # Important: container paths, not host paths.
       MODEL_CATALOG_CURATED_ASSETS_ROOT: /assets/Model Catalog
-      # Optional profile-specific overrides for strict data separation.
-      # MODEL_CATALOG_CURATED_ASSETS_ROOT_PROD: /assets/Model Catalog
+      # Optional TEST-profile overrides for strict data separation.
       # MODEL_CATALOG_CURATED_ASSETS_ROOT_TEST: /assets/Model Catalog Test
       MODEL_CATALOG_INTAKE_ROOTS: /assets/Model Inbox,/assets/Validation
-      # MODEL_CATALOG_INTAKE_ROOTS_PROD: /assets/Model Inbox,/assets/Validation
       # MODEL_CATALOG_INTAKE_ROOTS_TEST: /assets/Model Inbox Test,/assets/Validation Test
       MODEL_CATALOG_WORKING_FILES_ROOT: /assets/Model Working Files
-      # MODEL_CATALOG_WORKING_FILES_ROOT_PROD: /assets/Model Working Files
       # MODEL_CATALOG_WORKING_FILES_ROOT_TEST: /assets/Model Working Files Test
 
     volumes:

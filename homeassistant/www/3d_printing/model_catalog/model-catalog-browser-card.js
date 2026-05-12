@@ -1020,6 +1020,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     // Proceed with deletion
     await this._executeModelDeletion(localModelId, modelRef);
+  }
 
   async _executeModelDeletion(localModelId, modelRef) {
     if (!this._hass || !localModelId) {

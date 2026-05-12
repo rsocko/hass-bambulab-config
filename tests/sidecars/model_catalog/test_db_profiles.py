@@ -36,7 +36,7 @@ def _base_settings(*, db_path: Path, db_path_prod: Path, db_path_test: Path, db_
 
 def test_load_settings_resolves_test_profile_paths(monkeypatch) -> None:
     monkeypatch.setenv("MODEL_CATALOG_DB_PROFILE", "test")
-    monkeypatch.setenv("MODEL_CATALOG_DB_PATH_PROD", "/data/prod.db")
+    monkeypatch.setenv("MODEL_CATALOG_DB_PATH", "/data/prod.db")
     monkeypatch.setenv("MODEL_CATALOG_DB_PATH_TEST", "/data/test.db")
     monkeypatch.setenv("MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES", "true")
 
