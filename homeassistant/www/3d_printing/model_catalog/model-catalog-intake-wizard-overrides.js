@@ -460,6 +460,26 @@ function renderPlanSummary(card, options) {
   var destinationPlans = settings.includeDestinations && typeof card._syncGroupDestinationsFromPreview === 'function'
     ? card._syncGroupDestinationsFromPreview()
     : [];
+  // Partial-failure banner: when SOME planned models exist but the backend
+  // also returned warnings (e.g. one of several selected folders was empty
+  // or contained only unsupported files), surface those warnings inline so
+  // the user knows their selection is being silently trimmed. Non-blocking:
+  // the user can still advance with the partial plan.
+  var warningsBanner = '';
+  if (preview && Array.isArray(preview.warnings) && preview.warnings.length) {
+    var bannerItems = preview.warnings.map(function (warning) {
+      var w = warning || {};
+      var msg = String(w.message || w.code || 'Unknown issue');
+      var path = String(w.path || '');
+      return '<li>' + escapeHtml(msg) + (path ? ' <span class="muted">(' + escapeHtml(path) + ')</span>' : '') + '</li>';
+    }).join('');
+    warningsBanner = ''
+      + '<div class="state-row" style="border-left:3px solid #f59e0b; margin-bottom:8px;">'
+      + '  <div><strong>Some selections will not contribute any files.</strong></div>'
+      + '  <ul style="margin:6px 0 0 18px; padding:0;">' + bannerItems + '</ul>'
+      + '  <div class="muted" style="margin-top:6px;">You can continue with the planned models below, or return to Select to remove these entries.</div>'
+      + '</div>';
+  }
   var summaryHtml = '';
   if (!skipSummary) {
     summaryHtml = ''
@@ -499,7 +519,7 @@ function renderPlanSummary(card, options) {
       + files
       + '</article>';
   }).join('') + '</div>';
-  return summaryHtml + entriesHtml;
+  return warningsBanner + summaryHtml + entriesHtml;
 }
 
 function renderValidationSummary(card) {
