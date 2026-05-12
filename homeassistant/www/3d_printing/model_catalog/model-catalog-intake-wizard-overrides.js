@@ -445,11 +445,10 @@ function renderPlanSummary(card, options) {
       var warningItems = preview.warnings.map(function (warning) {
         var w = warning || {};
         var msg = String(w.message || w.code || 'Unknown issue');
-        var path = String(w.path || '');
-        return '<li>' + escapeHtml(msg) + (path ? ' <span class="muted">(' + escapeHtml(path) + ')</span>' : '') + '</li>';
+        return '<li>' + escapeHtml(msg) + '</li>';
       }).join('');
       return ''
-        + '<div class="state-row">'
+        + '<div class="state-row" style="border-left:3px solid #f59e0b; text-align:left;">'
         + '  <div><strong>No models or files will be created from the current selection.</strong></div>'
         + '  <ul style="margin:6px 0 0 18px; padding:0;">' + warningItems + '</ul>'
         + '  <div class="muted" style="margin-top:6px;">Return to Select to pick a different folder, or add eligible model files (e.g. .3mf, .stl) to the selected folder before continuing.</div>'
@@ -470,11 +469,10 @@ function renderPlanSummary(card, options) {
     var bannerItems = preview.warnings.map(function (warning) {
       var w = warning || {};
       var msg = String(w.message || w.code || 'Unknown issue');
-      var path = String(w.path || '');
-      return '<li>' + escapeHtml(msg) + (path ? ' <span class="muted">(' + escapeHtml(path) + ')</span>' : '') + '</li>';
+      return '<li>' + escapeHtml(msg) + '</li>';
     }).join('');
     warningsBanner = ''
-      + '<div class="state-row" style="border-left:3px solid #f59e0b; margin-bottom:8px;">'
+      + '<div class="state-row" style="border-left:3px solid #f59e0b; margin-bottom:8px; text-align:left;">'
       + '  <div><strong>Some selections will not contribute any files.</strong></div>'
       + '  <ul style="margin:6px 0 0 18px; padding:0;">' + bannerItems + '</ul>'
       + '  <div class="muted" style="margin-top:6px;">You can continue with the planned models below, or return to Select to remove these entries.</div>'
@@ -1465,11 +1463,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var items = warnings.map(function (warning) {
         var w = warning || {};
         var msg = String(w.message || w.code || 'Unknown issue');
-        var path = String(w.path || '');
-        return '<li>' + escapeHtml(msg) + (path ? ' <span class="muted">(' + escapeHtml(path) + ')</span>' : '') + '</li>';
+        return '<li>' + escapeHtml(msg) + '</li>';
       }).join('');
       return ''
-        + '<div class="state-row">'
+        + '<div class="state-row" style="border-left:3px solid #f59e0b; text-align:left;">'
         + '  <div><strong>No eligible model files found in the current selection.</strong></div>'
         + '  <ul style="margin:6px 0 0 18px; padding:0;">' + items + '</ul>'
         + '  <div class="muted" style="margin-top:6px;">Return to Choose Files and pick a different folder, or add eligible model files (e.g. .3mf, .stl) to the selected folder.</div>'
