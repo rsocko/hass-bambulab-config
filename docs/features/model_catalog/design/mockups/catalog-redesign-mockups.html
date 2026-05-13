@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Catalog Redesign 2026-05 — UX Mockups</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f232c;
+    --border: #2a2f3a;
+    --text: #e6e8ee;
+    --muted: #97a0b3;
+    --accent: #4f8bff;
+    --accent-2: #7c5cff;
+    --warn: #ffb648;
+    --good: #45c08a;
+    --danger: #f06262;
+    --chip: #232838;
+    --chip-on: #2c3550;
+    --shadow: 0 6px 24px rgba(0,0,0,.35);
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header.page {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap;
+  }
+  header.page h1 { font-size: 18px; margin: 0; }
+  header.page .meta { color: var(--muted); font-size: 12px; }
+  nav.toc {
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px;
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  section.mock {
+    padding: 24px; border-bottom: 1px solid var(--border);
+  }
+  section.mock h2 {
+    margin: 0 0 6px; font-size: 16px;
+  }
+  section.mock .desc { color: var(--muted); margin: 0 0 14px; max-width: 80ch; }
+
+  /* App frame */
+  .app {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .app-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel-2);
+  }
+  .app-header .title { font-weight: 600; }
+  .app-header .spacer { flex: 1; }
+  .search {
+    flex: 0 1 360px; display: flex; align-items: center; gap: 8px;
+    background: #11141b; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+    color: var(--muted);
+  }
+  .btn {
+    background: var(--chip); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.warn { background: var(--warn); border-color: var(--warn); color: #1a1300; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+
+  /* Catalog layout */
+  .catalog { display: grid; grid-template-columns: 240px 1fr; min-height: 560px; }
+  .rail {
+    border-right: 1px solid var(--border); padding: 12px; background: var(--panel-2);
+    font-size: 13px; overflow: hidden;
+  }
+  .rail h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 14px 0 6px;
+  }
+  .rail .item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  }
+  .rail .item:hover { background: #232838; }
+  .rail .item.active { background: #2c3550; }
+  .rail .item .count { color: var(--muted); font-size: 11px; }
+  .rail .sub { padding-left: 12px; }
+
+  .main { padding: 14px 18px; overflow: auto; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    background: var(--chip); border: 1px solid var(--border); padding: 4px 10px;
+    border-radius: 999px; font-size: 12px; color: var(--text);
+  }
+  .chip.on { background: var(--chip-on); border-color: var(--accent); }
+  .chip.warn { color: var(--warn); border-color: var(--warn); background: transparent; }
+  .chip.good { color: var(--good); border-color: var(--good); background: transparent; }
+  .chip.muted { color: var(--muted); }
+
+  /* Frequents rail */
+  .freq-rail {
+    margin: 6px 0 18px; padding: 12px; background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .freq-rail-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px;
+  }
+  .freq-rail-head h3 { font-size: 13px; margin: 0; }
+  .freq-rail-head .hint { color: var(--muted); font-size: 11px; }
+  .freq-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .freq-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .thumb {
+    aspect-ratio: 1.4 / 1;
+    background: linear-gradient(135deg, #2a2f3a 0%, #181b22 100%);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 11px; position: relative;
+  }
+  .thumb .badge {
+    position: absolute; top: 6px; left: 6px; padding: 2px 6px; border-radius: 999px;
+    background: rgba(0,0,0,.6); color: white; font-size: 10px;
+  }
+  .thumb .fav {
+    position: absolute; top: 6px; right: 6px; color: var(--warn); font-size: 14px;
+  }
+  .freq-card .title { font-weight: 600; font-size: 12px; }
+  .freq-card .meta { color: var(--muted); font-size: 11px; }
+  .freq-card .actions { display: flex; gap: 6px; margin-top: 4px; }
+
+  /* Catalog grid */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .card .title { font-weight: 600; font-size: 13px; }
+  .card .pills { display: flex; gap: 4px; flex-wrap: wrap; }
+  .pill {
+    font-size: 10px; padding: 2px 6px; border-radius: 999px;
+    background: #232838; color: var(--text); border: 1px solid var(--border);
+  }
+  .pill.good { color: var(--good); border-color: var(--good); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.danger { color: var(--danger); border-color: var(--danger); }
+  .pill.accent { color: var(--accent); border-color: var(--accent); }
+
+  /* Popup */
+  .popup {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 0;
+  }
+  .popup-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  }
+  .popup-head h2 { margin: 0 0 4px; font-size: 18px; }
+  .popup-head .sub { color: var(--muted); font-size: 12px; }
+  .popup-head .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .popup-actions { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  .popup-body { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; padding: 14px; }
+  .panel {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+  }
+  .panel h3 {
+    margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted);
+  }
+  .gallery .hero {
+    aspect-ratio: 16/10;
+    background: linear-gradient(135deg, #2a2f3a, #131620);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .gallery .strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .gallery .strip .t {
+    aspect-ratio: 1; background: #232838; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--muted);
+  }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .row:last-child { border-bottom: none; }
+  .row .k { color: var(--muted); }
+
+  .checklist .ck { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .checklist .ck .box {
+    width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; background: #11141b;
+  }
+  .checklist .ck.done .box { background: var(--good); border-color: var(--good); }
+  .checklist .ck.todo .box { background: transparent; border-color: var(--warn); }
+  .checklist .ck .text { flex: 1; }
+  .checklist .ck .act { font-size: 11px; }
+
+  /* Project view */
+  .project-head {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 12px; border-radius: 8px; margin-bottom: 12px;
+  }
+  .project-head .title { font-size: 16px; font-weight: 700; }
+  .project-head .meta { color: var(--muted); font-size: 12px; }
+  .project-progress { display: flex; gap: 4px; align-items: center; }
+  .progressbar { width: 180px; height: 6px; background: #232838; border-radius: 3px; overflow: hidden; }
+  .progressbar > i { display: block; height: 100%; background: var(--accent); }
+
+  /* Wizard */
+  .wizard { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+  .wizard-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+  .wizard-steps { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--border); }
+  .step {
+    padding: 6px 10px; border-radius: 6px; font-size: 12px;
+    background: var(--chip); color: var(--muted); border: 1px solid var(--border);
+  }
+  .step.on { background: var(--chip-on); color: var(--text); border-color: var(--accent); }
+  .step.done { color: var(--good); border-color: var(--good); }
+  .wizard-body { padding: 14px 18px; }
+  .candidate {
+    display: grid; grid-template-columns: 60px 1fr 100px 120px;
+    gap: 10px; padding: 8px; align-items: center; border-bottom: 1px dashed var(--border);
+  }
+  .candidate .conf { font-weight: 700; }
+  .candidate .conf.high { color: var(--good); }
+  .candidate .conf.med { color: var(--warn); }
+  .candidate .conf.low { color: var(--danger); }
+
+  /* Queue states */
+  .queue-flow { display: grid; grid-template-columns: repeat(7, auto); gap: 6px; align-items: center; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
+  .qstate { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); font-size: 12px; text-align: center; min-width: 72px; }
+  .qstate.new { border-color: var(--accent); color: var(--accent); }
+  .arrow { color: var(--muted); font-size: 18px; }
+
+  /* Quick add dialog */
+  .dlg { width: 460px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+  .dlg-head { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; }
+  .dlg-tabs { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 4px 10px; border-radius: 6px; font-size: 12px; background: var(--chip); }
+  .tab.on { background: var(--chip-on); color: var(--text); }
+  .dlg-body { padding: 14px; display: grid; gap: 10px; }
+  .field { display: grid; gap: 4px; font-size: 12px; }
+  .field label { color: var(--muted); }
+  .field select, .field input, .field textarea {
+    background: #11141b; color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; font: inherit;
+  }
+  .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
+
+  .legend {
+    background: #11141b; border: 1px dashed var(--border); border-radius: 6px;
+    padding: 8px 10px; color: var(--muted); font-size: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .catalog { grid-template-columns: 1fr; }
+    .rail { display: none; }
+    .freq-cards, .grid { grid-template-columns: repeat(2, 1fr); }
+    .popup-body { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <h1>3D Model Catalog Redesign — UX Mockups</h1>
+  <span class="meta">Companion to <code>docs/features/model_catalog/catalog-redesign-2026-05.md</code></span>
+  <span class="spacer" style="flex:1"></span>
+  <a href="index.html" class="btn ghost" style="text-decoration:none;color:var(--accent);border-color:var(--border)">&larr; Back to Mockup index</a>
+</header>
+
+<nav class="toc">
+  <a href="#m1">1. Catalog — Default landing</a>
+  <a href="#m2">2. Catalog — Frequents rail detail</a>
+  <a href="#m3">3. Catalog — Project view</a>
+  <a href="#m4">4. Popup — Hero + chips + actions</a>
+  <a href="#m5">5. Popup — Publication & Sharing</a>
+  <a href="#m6">6. Popup — Recover Print History wizard</a>
+  <a href="#m7">7. Queue — Extended state machine + Someday</a>
+  <a href="#m8">8. Add-to-Queue dialog (Quick / Plan)</a>
+  <a href="#m9">9. Storage & Maintenance</a>
+  <a href="#m10">10. Project — Evaluation board (US-7)</a>
+  <a href="#m11">11. Close evaluation wrap-up dialog (US-7)</a>
+  <a href="#m12">12. Catalog visibility / Archived (US-8)</a>
+  <a href="#m13">13. Catalog with Ideas + Working Groups visible (US-9, US-10)</a>
+  <a href="#m14">14. Idea popup — promote to Model or Working Group (US-9)</a>
+  <a href="#m15">15. Project popup — Tasks panel (US-11)</a>
+  <a href="#m16">16. Model BOM panel + Project BOM roll-up (US-12)</a>
+</nav>
+
+<!-- 1. Catalog default landing -->
+<section class="mock" id="m1">
+  <h2>1. Catalog — Default landing</h2>
+  <p class="desc">Frequents rail anchors the page above the grid. Left rail offers Projects/Collections/Categories/Tags drill-in. Filters are visible chips. Card primary action is contextual ("Print" when there's a printable plate, otherwise "Open in Slicer").</p>
+  <div class="app">
+    <div class="app-header">
+      <span class="title">Model Catalog</span>
+      <div class="search">🔎 Search models, tags, projects… <span style="margin-left:auto">⌘K</span></div>
+      <span class="spacer"></span>
+      <button class="btn">Sort: Most frequent (90d) ▾</button>
+      <button class="btn">View: Grid ▾</button>
+      <button class="btn primary">+ Add model</button>
+      <button class="btn ghost">⚙ Storage</button>
+    </div>
+    <div class="catalog">
+      <aside class="rail">
+        <div class="item active"><span>★ Favorites</span><span class="count">12</span></div>
+        <div class="item"><span>⚡ Frequents (auto)</span><span class="count">28</span></div>
+        <div class="item"><span>🆕 Recently added</span><span class="count">36</span></div>
+        <div class="item"><span>🔄 Recently printed</span><span class="count">42</span></div>
+
+        <h4>Projects</h4>
+        <div class="item"><span>▾ Active</span><span class="count">3</span></div>
+        <div class="item sub"><span>Garage Reorg</span><span class="count">7</span></div>
+        <div class="item sub"><span>Mom's Birthday Box</span><span class="count">4</span></div>
+        <div class="item sub"><span>Filament Tooling v3</span><span class="count">11</span></div>
+        <div class="item"><span>▸ Someday</span><span class="count">9</span></div>
+
+        <h4>Collections</h4>
+        <div class="item"><span>Filament Tools</span><span class="count">18</span></div>
+        <div class="item"><span>Office Decor</span><span class="count">9</span></div>
+        <div class="item"><span>Holiday Gifts 2026</span><span class="count">6</span></div>
+
+        <h4>Categories</h4>
+        <div class="item"><span>▾ Functional</span><span class="count">94</span></div>
+        <div class="item sub"><span>Storage</span><span class="count">28</span></div>
+        <div class="item sub"><span>Tooling</span><span class="count">19</span></div>
+        <div class="item"><span>▸ Decorative</span><span class="count">41</span></div>
+
+        <h4>Tags</h4>
+        <div class="item"><span>pla-only</span><span class="count">62</span></div>
+        <div class="item"><span>multicolor</span><span class="count">18</span></div>
+        <div class="item"><span>prototype</span><span class="count">7</span></div>
+
+        <button class="btn" style="margin-top:14px;width:100%">+ New Project</button>
+        <button class="btn ghost" style="margin-top:6px;width:100%">Manage Collections</button>
+      </aside>
+      <main class="main">
+        <div class="freq-rail">
+          <div class="freq-rail-head">
+            <h3>⚡ Frequents &nbsp; <span class="hint">computed from prints in last 90d · ★ pinned first</span></h3>
+            <span class="spacer"></span>
+            <button class="btn ghost">Tune…</button>
+          </div>
+          <div class="freq-cards">
+            <div class="freq-card">
+              <div class="thumb"><span class="fav">★</span><span class="badge">Frequent · 14×</span>preview</div>
+              <div class="title">Filament Swatch v4</div>
+              <div class="meta">last printed 2d · 3 plates</div>
+              <div class="actions">
+                <button class="btn primary">Print</button>
+                <button class="btn">Slicer</button>
+                <button class="btn ghost">↪ History</button>
+              </div>
+            </div>
+            <div class="freq-card">
+              <div class="thumb"><span class="fav">★</span><span class="badge">Frequent · 9×</span>preview</div>
+              <div class="title">Spool Container — 1kg</div>
+              <div class="meta">last printed 5d</div>
+              <div class="actions">
+                <button class="btn primary">Print</button>
+                <button class="btn">Slicer</button>
+                <button class="btn ghost">↪ History</button>
+              </div>
+            </div>
+            <div class="freq-card">
+              <div class="thumb"><span class="badge">Frequent · 6×</span>preview</div>
+              <div class="title">Bambu AMS Spool Adapter</div>
+              <div class="meta">last printed 11d</div>
+              <div class="actions">
+                <button class="btn primary">Print</button>
+                <button class="btn">Slicer</button>
+                <button class="btn ghost">↪ History</button>
+              </div>
+            </div>
+            <div class="freq-card">
+              <div class="thumb"><span class="badge">Frequent · 5×</span>preview</div>
+              <div class="title">Cable Clip — Wide</div>
+              <div class="meta">last printed 13d</div>
+              <div class="actions">
+                <button class="btn primary">Print</button>
+                <button class="btn">Slicer</button>
+                <button class="btn ghost">↪ History</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="filters">
+          <span class="chip on">★ Favorites only</span>
+          <span class="chip">Frequents only</span>
+          <span class="chip">In Project</span>
+          <span class="chip">In Queue</span>
+          <span class="chip warn">Lifecycle: Needs photos shared (4)</span>
+          <span class="chip warn">Lifecycle: Unrated (11)</span>
+          <span class="chip muted">+ Add filter</span>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="thumb"><span class="fav">★</span>preview</div>
+            <div class="title">Echo Show 5 Minimal Case</div>
+            <div class="pills">
+              <span class="pill good">Frequent · 12</span>
+              <span class="pill accent">In 2 Projects</span>
+              <span class="pill warn">Needs sharing</span>
+            </div>
+            <div class="actions" style="display:flex;gap:6px"><button class="btn primary">Print</button><button class="btn">Slicer</button><button class="btn ghost">⋯</button></div>
+          </div>
+          <div class="card">
+            <div class="thumb">preview</div>
+            <div class="title">Garage Pegboard Hook A</div>
+            <div class="pills">
+              <span class="pill accent">In Queue · ready</span>
+              <span class="pill">Project: Garage Reorg</span>
+            </div>
+            <div class="actions" style="display:flex;gap:6px"><button class="btn primary">Print</button><button class="btn">Slicer</button><button class="btn ghost">⋯</button></div>
+          </div>
+          <div class="card">
+            <div class="thumb">preview</div>
+            <div class="title">Birthday Box Lid v2</div>
+            <div class="pills">
+              <span class="pill warn">Unrated</span>
+              <span class="pill">Project: Mom's Birthday Box</span>
+            </div>
+            <div class="actions" style="display:flex;gap:6px"><button class="btn primary">Print</button><button class="btn">Slicer</button><button class="btn ghost">⋯</button></div>
+          </div>
+          <div class="card">
+            <div class="thumb">preview</div>
+            <div class="title">Vase Mode Lampshade</div>
+            <div class="pills">
+              <span class="pill">Someday</span>
+              <span class="pill">Collection: Office Decor</span>
+            </div>
+            <div class="actions" style="display:flex;gap:6px"><button class="btn">Slicer</button><button class="btn ghost">+ Queue</button><button class="btn ghost">⋯</button></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <p class="legend">Legend — <b>Pills</b>: Frequent (auto), Favorite (★), In Queue, In Project, Lifecycle (Unrated/Needs sharing). <b>Default action</b>: Print if printable plate exists, else Open in Slicer. Slicer launch requires Bambuddy custom-protocol handler.</p>
+</section>
+
+<!-- 2. Frequents detail -->
+<section class="mock" id="m2">
+  <h2>2. Catalog — Frequents rail detail</h2>
+  <p class="desc">Tuning popover for window and threshold. Operator can override per their workflow (e.g. show items printed ≥ 3 times in 60 days).</p>
+  <div style="max-width: 520px;">
+    <div class="panel">
+      <h3>Tune Frequents</h3>
+      <div class="field">
+        <label>Window</label>
+        <select><option>Last 30 days</option><option selected>Last 90 days</option><option>Last 1 year</option><option>All time</option></select>
+      </div>
+      <div class="field">
+        <label>Minimum prints</label>
+        <input type="number" value="3" />
+      </div>
+      <div class="field">
+        <label>Include backfilled prints</label>
+        <select><option>Yes (down-weight)</option><option>Yes (full weight)</option><option>No</option></select>
+      </div>
+      <div class="dlg-actions" style="border:none;padding:10px 0 0">
+        <button class="btn ghost">Reset</button>
+        <button class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Project view -->
+<section class="mock" id="m3">
+  <h2>3. Catalog — Project view</h2>
+  <p class="desc">Pivoting Catalog to a Project. Header surfaces lifecycle, target date, notes and progress (printed / total). The Queue and Print History rolled up under the Project are visible without leaving Catalog.</p>
+  <div class="app">
+    <div class="app-header">
+      <span class="title">Catalog · Project · Garage Reorg</span>
+      <span class="spacer"></span>
+      <button class="btn">Edit project</button>
+      <button class="btn">Queue all unprinted</button>
+      <button class="btn ghost">⋯</button>
+    </div>
+    <div style="padding: 14px 18px;">
+      <div class="project-head">
+        <div>
+          <div class="title">Garage Reorg <span class="pill accent" style="margin-left:6px">active</span></div>
+          <div class="meta">Target: 2026-06-30 · 7 models · 2 collections · started 2026-04-12</div>
+        </div>
+        <span class="spacer"></span>
+        <div class="project-progress"><div class="progressbar"><i style="width:42%"></i></div><span class="meta">3 of 7 printed · 1 in progress</span></div>
+      </div>
+      <div class="filters">
+        <span class="chip on">All</span>
+        <span class="chip">Unprinted</span>
+        <span class="chip">In Queue</span>
+        <span class="chip">Done</span>
+      </div>
+      <div class="grid">
+        <div class="card"><div class="thumb">preview</div><div class="title">Pegboard Hook A</div><div class="pills"><span class="pill good">Done · 4×</span></div><div style="display:flex;gap:6px"><button class="btn">Slicer</button><button class="btn ghost">↪ History</button></div></div>
+        <div class="card"><div class="thumb">preview</div><div class="title">Pegboard Hook B</div><div class="pills"><span class="pill accent">In Queue · started</span></div><div style="display:flex;gap:6px"><button class="btn">Open Queue</button></div></div>
+        <div class="card"><div class="thumb">preview</div><div class="title">Drill Bit Holder</div><div class="pills"><span class="pill">Ready</span></div><div style="display:flex;gap:6px"><button class="btn primary">Print</button></div></div>
+        <div class="card"><div class="thumb">preview</div><div class="title">Outlet Cable Wrap</div><div class="pills"><span class="pill warn">Not printed</span></div><div style="display:flex;gap:6px"><button class="btn ghost">+ Queue</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Popup hero -->
+<section class="mock" id="m4">
+  <h2>4. Popup — Hero, status pills, action row, membership chips</h2>
+  <p class="desc">Builds on the 2026-05 popup redesign. Adds <b>status pills</b>, <b>membership chips</b>, and a single <b>hero action row</b> that's the same everywhere the popup is opened from.</p>
+  <div class="popup">
+    <div class="popup-head">
+      <div>
+        <h2>Echo Show 5 Minimal Case</h2>
+        <div class="sub">Creator: _nesmi · License: CC-BY · Updated 2026-05-04</div>
+        <div class="pills">
+          <span class="pill warn">★ Favorite</span>
+          <span class="pill good">Frequent · 12 prints / 90d</span>
+          <span class="pill accent">In Queue · ready</span>
+          <span class="pill">In 2 Projects</span>
+          <span class="pill warn">Needs photos shared</span>
+        </div>
+        <div class="pills" style="margin-top:6px">
+          <span class="chip">Project: Office Decor Refresh</span>
+          <span class="chip">Project: Holiday Gifts 2026</span>
+          <span class="chip">Collection: Office Decor</span>
+          <span class="chip">Collection: Echo / Alexa Mods</span>
+          <span class="chip">Category: Decorative › Display</span>
+          <span class="chip muted">Tags: echo · alexa · enclosure · bedside</span>
+        </div>
+      </div>
+      <div class="popup-actions">
+        <button class="btn primary">▶ Print</button>
+        <button class="btn">+ Queue</button>
+        <button class="btn">Open in Slicer</button>
+        <button class="btn">Download</button>
+        <button class="btn ghost">★</button>
+        <button class="btn ghost">⋯</button>
+      </div>
+    </div>
+    <div class="popup-body">
+      <div class="panel gallery">
+        <h3>Media</h3>
+        <div class="hero">[ active image · large preview ]</div>
+        <div class="strip">
+          <div class="t">img</div><div class="t">img</div><div class="t">img</div>
+          <div class="t">3MF</div><div class="t">render</div><div class="t">+5</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Files</h3>
+        <div class="row"><div><b>EchoShow5.3mf</b> &nbsp;<span class="pill accent">primary</span><br><span class="meta" style="color:var(--muted)">23 MB · 2 plates · 4 AMS colors</span></div><div><button class="btn">3D</button> <button class="btn">+ Queue</button></div></div>
+        <div class="row"><div>EchoShow5.step<br><span class="meta" style="color:var(--muted)">reference CAD</span></div><div><button class="btn">Open</button></div></div>
+        <h3 style="margin-top:14px">Print History</h3>
+        <div class="row"><div>2026-05-01 · Success · P1S · PLA Matte · 4h12m</div><div><button class="btn">Open</button></div></div>
+        <div class="row"><div>2026-04-16 · Success · X1C · PETG · 5h03m</div><div><button class="btn">Open</button></div></div>
+        <div class="row"><div><span class="pill warn">2 candidates</span> need confirmation</div><div><button class="btn">Review</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Publication panel -->
+<section class="mock" id="m5">
+  <h2>5. Popup — Publication & Sharing panel (NEW)</h2>
+  <p class="desc">Covers the Makerworld lifecycle (US-2). Rolls up issues #989 and #1326. Auto-derives "downloaded", "printed", and "photos captured" from existing data; the operator only confirms the intent steps (rated, boosted, photos shared).</p>
+  <div class="popup" style="max-width:560px">
+    <div class="popup-head" style="border:none">
+      <h2 style="font-size:14px;margin:0">Publication & Sharing</h2>
+    </div>
+    <div style="padding:14px">
+      <div class="row"><span class="k">Source</span><span>Makerworld <a href="#" style="color:var(--accent)">↗ open</a></span></div>
+      <div class="row"><span class="k">Creator</span><span>_nesmi</span></div>
+      <div class="row"><span class="k">License</span><span>CC-BY</span></div>
+      <div class="row"><span class="k">My status</span><span><span class="pill warn">Needs photos shared</span> <span class="pill warn">Unrated</span></span></div>
+
+      <h3 style="margin-top:14px;font-size:12px;text-transform:uppercase;color:var(--muted)">Lifecycle (mine)</h3>
+      <div class="checklist">
+        <div class="ck done"><span class="box"></span><span class="text">Downloaded</span><span class="meta">auto · 2026-04-09</span></div>
+        <div class="ck done"><span class="box"></span><span class="text">Printed</span><span class="meta">auto · 12 archives</span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Rated on Makerworld</span><span class="act"><button class="btn">Mark rated</button> <button class="btn ghost">Open ↗</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Boosted</span><span class="act"><button class="btn">Mark boosted</button></span></div>
+        <div class="ck done"><span class="box"></span><span class="text">Photos captured</span><span class="meta">derived · 3 photos</span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Photos shared on Makerworld</span><span class="act"><button class="btn">Mark shared</button> <button class="btn ghost">Open ↗</button></span></div>
+      </div>
+      <p class="legend" style="margin-top:10px">"Photos captured" is derived from existing print-history media, never stored. All other lifecycle marks are stored as nullable timestamps and surface in Catalog filters.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Recover history -->
+<section class="mock" id="m6">
+  <h2>6. Popup — Recover Print History wizard (NEW)</h2>
+  <p class="desc">Operator-facing entry into the existing forensics flow described in <code>historical-print-backfill-via-model-catalog.md</code>. Reachable from popup overflow.</p>
+  <div class="wizard">
+    <div class="wizard-head">
+      <span>Recover Print History — <b>Echo Show 5 Minimal Case</b></span>
+      <span class="spacer"></span>
+      <button class="btn ghost">Cancel</button>
+    </div>
+    <div class="wizard-steps">
+      <span class="step done">1 · Scan</span>
+      <span class="step on">2 · Review candidates</span>
+      <span class="step">3 · Timestamps</span>
+      <span class="step">4 · Commit</span>
+    </div>
+    <div class="wizard-body">
+      <div class="legend" style="margin-bottom:10px">Found 4 candidate archives across forensics indexes. Confidence is hash + filename + dimension match.</div>
+      <div class="candidate"><div class="conf high">96%</div><div><b>plate_2_2025-11-18_19-22.gcode.3mf</b><br><span class="meta" style="color:var(--muted)">SD card backup · matches hash + plate count</span></div><div class="meta">est. 3h 04m</div><div><button class="btn primary">Accept</button> <button class="btn ghost">Skip</button></div></div>
+      <div class="candidate"><div class="conf high">91%</div><div><b>echoshow5_v3.3mf</b><br><span class="meta" style="color:var(--muted)">Downloads forensics · matches filename stem</span></div><div class="meta">est. 4h 11m</div><div><button class="btn primary">Accept</button> <button class="btn ghost">Skip</button></div></div>
+      <div class="candidate"><div class="conf med">74%</div><div><b>case_thin.3mf</b><br><span class="meta" style="color:var(--muted)">name fuzz match · dimensions in range</span></div><div class="meta">est. 3h 50m</div><div><button class="btn">Accept</button> <button class="btn ghost">Skip</button></div></div>
+      <div class="candidate"><div class="conf low">52%</div><div><b>untitled_print.3mf</b><br><span class="meta" style="color:var(--muted)">low confidence · review carefully</span></div><div class="meta">est. 4h 02m</div><div><button class="btn ghost">Accept</button> <button class="btn ghost">Skip</button></div></div>
+    </div>
+    <div class="dlg-actions">
+      <button class="btn ghost">Back</button>
+      <button class="btn primary">Continue → Timestamps</button>
+    </div>
+  </div>
+</section>
+
+<!-- 7. Queue states -->
+<section class="mock" id="m7">
+  <h2>7. Queue — Extended state machine + <code>someday</code></h2>
+  <p class="desc">Adds <span class="qstate new" style="display:inline-block">someday</span> as a low-priority parking lot for "future prints". Adds optional post-print states (<i>assemble</i>, <i>shipped</i>) for projects with assembly work. Re-add allowed; dequeue warns if any entry is past <i>started</i>.</p>
+  <div class="queue-flow">
+    <span class="qstate new">someday</span>
+    <span class="arrow">→ promote →</span>
+    <span class="qstate">backlog</span>
+    <span class="arrow">→</span>
+    <span class="qstate">ready</span>
+    <span class="arrow">→</span>
+    <span class="qstate">started</span>
+    <span class="arrow">→</span>
+    <span class="qstate">done</span>
+  </div>
+  <div class="queue-flow" style="margin-top:10px">
+    <span class="qstate">started</span>
+    <span class="arrow">→ optional →</span>
+    <span class="qstate new">assemble</span>
+    <span class="arrow">→</span>
+    <span class="qstate new">shipped</span>
+    <span style="color:var(--muted);font-size:12px">&nbsp; (project work continues after print)</span>
+  </div>
+  <div class="queue-flow" style="margin-top:10px">
+    <span class="qstate">ready/started</span>
+    <span class="arrow">↔</span>
+    <span class="qstate">blocked</span>
+    <span style="color:var(--muted);font-size:12px">&nbsp; (revert path retained from #1407)</span>
+  </div>
+  <p class="legend">Default Catalog filter <b>hides</b> <code>someday</code> entries from primary printer queues. Send-to-Someday from Catalog popup creates entries with no printer affinity.</p>
+</section>
+
+<!-- 8. Add to queue dialog -->
+<section class="mock" id="m8">
+  <h2>8. Add-to-Queue dialog (Quick / Plan) — unified</h2>
+  <p class="desc">One component. Quick uses defaults (primary plate, default printer, <code>ready</code> state). Plan exposes plates, printer, target state (incl. <code>someday</code>), project, notes. Used from card, popup, intake, and queue editor — closes the inconsistent UX called out in #1458.</p>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+    <div class="dlg">
+      <div class="dlg-head"><b>Add to Queue</b> — Echo Show 5 Minimal Case</div>
+      <div class="dlg-tabs"><span class="tab on">Quick</span><span class="tab">Plan</span></div>
+      <div class="dlg-body">
+        <div class="legend">Will queue <b>EchoShow5.3mf · primary plate</b> on <b>P1S (default)</b> in state <b>ready</b>.</div>
+      </div>
+      <div class="dlg-actions"><button class="btn ghost">Cancel</button><button class="btn primary">Add to Queue</button></div>
+    </div>
+    <div class="dlg">
+      <div class="dlg-head"><b>Add to Queue</b> — Echo Show 5 Minimal Case</div>
+      <div class="dlg-tabs"><span class="tab">Quick</span><span class="tab on">Plan</span></div>
+      <div class="dlg-body">
+        <div class="field"><label>File / plates</label><select><option>EchoShow5.3mf — Plate 1 (body+bezel)</option><option>EchoShow5.3mf — Plate 2 (rear shell)</option><option>(both)</option></select></div>
+        <div class="field"><label>Printer</label><select><option>P1S (default)</option><option>X1C</option><option>Any printer</option></select></div>
+        <div class="field"><label>Target state</label><select><option>ready</option><option>backlog</option><option selected>someday</option></select></div>
+        <div class="field"><label>Project (optional)</label><select><option>—</option><option>Office Decor Refresh</option><option>Holiday Gifts 2026</option></select></div>
+        <div class="field"><label>Notes</label><textarea rows="2" placeholder="e.g. print after AMS clean"></textarea></div>
+      </div>
+      <div class="dlg-actions"><button class="btn ghost">Cancel</button><button class="btn primary">Add to Queue</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. Storage -->
+<section class="mock" id="m9">
+  <h2>9. Catalog — Storage & Maintenance</h2>
+  <p class="desc">Surfaces existing sidecar storage stats. Reachable from Catalog header overflow. Drill-in actions point to Intake-side maintenance jobs (out of scope here) but the visibility is in Catalog.</p>
+  <div class="app">
+    <div class="app-header"><span class="title">Catalog · Storage & Maintenance</span><span class="spacer"></span><button class="btn ghost">Refresh</button></div>
+    <div style="padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="panel"><h3>Library size</h3><div style="font-size:22px;font-weight:700">42.8 GB</div><div class="meta">236 models · 9.1 GB working files</div></div>
+      <div class="panel"><h3>Top consumers</h3><div class="row"><span>Multi-color benchies</span><span>3.2 GB</span></div><div class="row"><span>Garage Reorg</span><span>2.1 GB</span></div><div class="row"><span>Filament Tools</span><span>1.4 GB</span></div></div>
+      <div class="panel"><h3>Suggested cleanup</h3><div class="row"><span>Duplicate clusters</span><span>7 (~1.2 GB)</span></div><div class="row"><span>Unreferenced assets</span><span>23 (~640 MB)</span></div><div class="row"><span>Old derived renders</span><span>118 (~310 MB)</span></div><div class="dlg-actions" style="border:none;padding:10px 0 0"><button class="btn warn">Open Maintenance</button></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- US-7 / US-8 ADDITIONS (catalog-redesign-2026-05.md §6)         -->
+<!-- ============================================================ -->
+
+<section class="mock" id="m10">
+  <h2>10. Project — Evaluation board (US-7 curate-then-pick)</h2>
+  <p class="desc">A Project in <code>evaluating</code> status renders as a 3-column board so the operator can collect candidates from search results, stack-rank them, and pick 1+ to print. Per-card actions resolve to <code>chosen</code> or <code>rejected</code>; closing the evaluation opens the wrap-up dialog (#m11).</p>
+  <div class="app">
+    <div class="app-header">
+      <span class="title">Project · Bedside Phone Stand <span class="pill warn" style="margin-left:8px">evaluating</span></span>
+      <span class="sub" style="margin-left:10px;color:var(--muted)">8 candidates · 1 chosen · 2 rejected · created 2026-05-09</span>
+      <span class="spacer"></span>
+      <button class="btn">+ Add candidates…</button>
+      <button class="btn">Promote to Active</button>
+      <button class="btn primary">Close evaluation…</button>
+    </div>
+    <div style="padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="panel">
+        <h3>Candidate <span class="pill" style="margin-left:6px">5</span></h3>
+        <div class="row"><div><b>Minimal Phone Dock v3</b><br><span class="meta" style="color:var(--muted)">_nesmi · CC-BY</span></div><div><button class="btn good">Choose</button> <button class="btn warn">Reject</button></div></div>
+        <div class="row"><div><b>Bedside Charging Cradle</b><br><span class="meta" style="color:var(--muted)">printables · 4.8★</span></div><div><button class="btn good">Choose</button> <button class="btn warn">Reject</button></div></div>
+        <div class="row"><div><b>Adjustable Phone Stand</b><br><span class="meta" style="color:var(--muted)">makerworld</span></div><div><button class="btn good">Choose</button> <button class="btn warn">Reject</button></div></div>
+        <div class="row"><div><b>Nightstand Phone Tray</b><br><span class="meta" style="color:var(--muted)">local · 2 plates</span></div><div><button class="btn good">Choose</button> <button class="btn warn">Reject</button></div></div>
+        <div class="row"><div><b>Curved Bedside Stand</b><br><span class="meta" style="color:var(--muted)">printables</span></div><div><button class="btn good">Choose</button> <button class="btn warn">Reject</button></div></div>
+      </div>
+      <div class="panel">
+        <h3>Chosen <span class="pill good" style="margin-left:6px">1</span></h3>
+        <div class="row"><div><b>Echo Show 5 Companion Stand</b> &nbsp;<span class="pill accent">in Queue</span><br><span class="meta" style="color:var(--muted)">queued 2026-05-10 · ready</span></div><div><button class="btn">Open in Slicer</button> <button class="btn ghost">⋯</button></div></div>
+      </div>
+      <div class="panel">
+        <h3>Rejected <span class="pill warn" style="margin-left:6px">2</span></h3>
+        <div class="row"><div><b>Bulky Stand v1</b><br><span class="meta" style="color:var(--muted)">supports too aggressive</span></div><div><button class="btn">Restore</button></div></div>
+        <div class="row"><div><b>Wood-look Phone Holder</b><br><span class="meta" style="color:var(--muted)">no AMS plate</span></div><div><button class="btn">Restore</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mock" id="m11">
+  <h2>11. Close-evaluation wrap-up dialog (US-7)</h2>
+  <p class="desc">Triggered by <b>Close evaluation…</b> in #m10. Per-row default disposition with override; one-shot "move all rejected to a Collection" shortcut; per-row "Archive after wrap-up" checkbox bridges to US-8 visibility.</p>
+  <div class="popup" style="max-width:880px">
+    <div class="popup-head"><div><h2>Close evaluation — Bedside Phone Stand</h2><div class="sub">8 members · 1 chosen · 2 rejected · 5 still candidate</div></div></div>
+    <div class="popup-body" style="display:block;padding:14px">
+      <div class="panel" style="margin-bottom:12px">
+        <div class="row" style="align-items:center">
+          <div><b>Move all rejected to Collection:</b> <input type="text" value="Bedside Stand · Rejected Candidates" style="min-width:280px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"></div>
+          <button class="btn">Apply shortcut</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Per-row disposition</h3>
+        <div class="row"><div><b>Echo Show 5 Companion Stand</b> &nbsp;<span class="pill good">chosen</span></div><div><select style="background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"><option>Keep in Catalog (default)</option><option>Move to Collection…</option><option>Remove from Catalog</option></select> &nbsp;<label class="meta" style="color:var(--muted)"><input type="checkbox"> Archive after wrap-up</label></div></div>
+        <div class="row"><div><b>Minimal Phone Dock v3</b> &nbsp;<span class="pill">candidate</span></div><div><select style="background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"><option>Keep in Catalog (default)</option><option>Move to Collection…</option><option>Remove from Catalog</option></select> &nbsp;<label class="meta" style="color:var(--muted)"><input type="checkbox" checked> Archive after wrap-up</label></div></div>
+        <div class="row"><div><b>Bulky Stand v1</b> &nbsp;<span class="pill warn">rejected</span></div><div><select style="background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"><option>Move to Collection (default)</option><option>Keep in Catalog</option><option>Remove from Catalog</option></select> &nbsp;<label class="meta" style="color:var(--muted)"><input type="checkbox"> Archive after wrap-up</label></div></div>
+        <div class="row"><div><b>Wood-look Phone Holder</b> &nbsp;<span class="pill warn">rejected</span></div><div><select style="background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"><option>Move to Collection (default)</option><option>Keep in Catalog</option><option>Remove from Catalog</option></select> &nbsp;<label class="meta" style="color:var(--muted)"><input type="checkbox"> Archive after wrap-up</label></div></div>
+      </div>
+      <div class="dlg-actions" style="margin-top:10px"><button class="btn ghost">Cancel</button><span class="spacer"></span><button class="btn">Save & keep evaluating</button><button class="btn primary">Close evaluation & apply</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="mock" id="m12">
+  <h2>12. Catalog visibility / Archived (US-8 hide-when-done)</h2>
+  <p class="desc">Three sub-mocks: (a) toolbar with <code>Show archived</code> chip + count, (b) popup hero with <code>Archive in Catalog</code> action + suggestion banner, (c) left rail showing the new <code>Archived</code> node. <b>No automatic visibility overrides</b> — archived means hidden, period (Favorites / Frequents do not override).</p>
+
+  <div class="app" style="margin-bottom:14px">
+    <div class="app-header"><span class="title">12a · Toolbar with Show archived chip</span></div>
+    <div style="padding:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" placeholder="Search catalog…" style="flex:1;min-width:200px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 10px">
+      <span class="pill">Sort: Recently used</span>
+      <span class="pill">Filter: All categories</span>
+      <span class="pill warn" title="Toggle to also show archived models">👁 Show archived · 12</span>
+      <button class="btn">Advanced actions</button>
+    </div>
+  </div>
+
+  <div class="popup" style="margin-bottom:14px;max-width:880px">
+    <div class="popup-head">
+      <div>
+        <h2>12b · Popup — Archive in Catalog action + suggestion banner</h2>
+        <div class="sub">Holiday Ornament 2024 · last printed 2025-12-19 · no active project</div>
+        <div class="pills">
+          <span class="pill good">Frequent · 6 prints / lifetime</span>
+          <span class="pill">In Catalog · active</span>
+        </div>
+      </div>
+      <div class="popup-actions">
+        <button class="btn primary">▶ Print</button>
+        <button class="btn warn" title="Hide from default catalog views; keep all data">📦 Archive in Catalog</button>
+        <button class="btn ghost">⋯</button>
+      </div>
+    </div>
+    <div class="popup-body" style="display:block;padding:14px">
+      <div class="panel" style="border-color:var(--accent)">
+        <div class="row" style="align-items:center">
+          <div>💡 <b>Looks done?</b> &nbsp;Archive this model — it stays searchable from <i>Show archived</i> and keeps all history. <span class="meta" style="color:var(--muted)">Suggested because: 1+ successful prints, no active project, not Favorite.</span></div>
+          <div><button class="btn warn">Archive now</button> <button class="btn ghost">Not now</button> <button class="btn ghost">Don't suggest for this model</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="app-header"><span class="title">12c · Left rail — Archived node</span></div>
+    <div style="padding:12px;display:grid;grid-template-columns:240px 1fr;gap:12px">
+      <div class="panel">
+        <h3>Library</h3>
+        <div class="row"><div>★ Favorites</div><div class="meta">14</div></div>
+        <div class="row"><div>⚡ Frequents</div><div class="meta">38</div></div>
+        <div class="row"><div>📁 Collections</div><div class="meta">9</div></div>
+        <div class="row"><div>🗂 Categories</div><div class="meta">22</div></div>
+        <div class="row"><div>📋 Projects · active</div><div class="meta">3</div></div>
+        <div class="row" style="background:#1c1f24;border-radius:6px"><div>📦 <b>Archived</b></div><div class="meta">12</div></div>
+      </div>
+      <div class="panel">
+        <h3>Archived (12)</h3>
+        <div class="meta" style="color:var(--muted);margin-bottom:8px">Hidden from default Catalog grid, Frequents rail, and search. Un-archive is one click.</div>
+        <div class="row"><div><b>Holiday Ornament 2024</b> · last print 2025-12-19</div><div><button class="btn">Un-archive</button> <button class="btn ghost">Open</button></div></div>
+        <div class="row"><div><b>Test Calibration Cube v3</b> · last print 2026-02-04</div><div><button class="btn">Un-archive</button> <button class="btn ghost">Open</button></div></div>
+        <div class="row"><div><b>Old Phone Case (S22)</b> · last print 2025-09-11</div><div><button class="btn">Un-archive</button> <button class="btn ghost">Open</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- US-9 / US-10 / US-11 / US-12 ADDITIONS                       -->
+<!-- ============================================================ -->
+
+<section class="mock" id="m13">
+  <h2>13. Catalog grid with Ideas + Working Groups visible (US-9, US-10)</h2>
+  <p class="desc">Default Catalog grid shows only <code>entity_type = model</code>. Toolbar offers <code>Show ideas</code> and <code>Show working groups</code> toggle chips. Cards have distinct pills (💡 Idea / 🧰 Working Group) so the type is unambiguous when surfaced. <code>+ Add Idea</code> sits next to <code>+ Add Model</code> in the header.</p>
+  <div class="app">
+    <div class="app-header">
+      <span class="title">Catalog</span>
+      <span class="spacer"></span>
+      <button class="btn">+ Add Model</button>
+      <button class="btn">+ Add Idea</button>
+      <button class="btn ghost">⚙ Storage</button>
+    </div>
+    <div style="padding:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)">
+      <input type="text" placeholder="Search catalog…" style="flex:1;min-width:200px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 10px">
+      <span class="pill">Sort: Recently used</span>
+      <span class="pill warn">👁 Show archived · 12</span>
+      <span class="pill accent">💡 Show ideas · 7 ✓</span>
+      <span class="pill accent">🧰 Show working groups · 4 ✓</span>
+    </div>
+    <div style="padding:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div class="panel"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px"></div><b>Echo Show 5 Case</b><div class="meta">_nesmi · 2 plates</div><div class="pills" style="margin-top:6px"><span class="pill">model</span><span class="pill good">Frequent</span></div></div>
+      <div class="panel" style="border-color:var(--accent)"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)">💡</div><b>Bedside organizer concept</b><div class="meta">2 external links · notes</div><div class="pills" style="margin-top:6px"><span class="pill accent">💡 Idea</span><span class="pill">Project: Office Decor Refresh</span></div></div>
+      <div class="panel"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px"></div><b>Spool Tray v4</b><div class="meta">local · 1 plate</div><div class="pills" style="margin-top:6px"><span class="pill">model</span><span class="pill good">Frequent · 22</span></div></div>
+      <div class="panel" style="border-color:var(--accent)"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)">🧰 × 5</div><b>Garage Reorg · prep set</b><div class="meta">5 working files · 218 MB</div><div class="pills" style="margin-top:6px"><span class="pill accent">🧰 Working Group</span><span class="pill">Project: Garage Reorg</span></div></div>
+      <div class="panel"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px"></div><b>Filament Swatch Card</b><div class="meta">utility · 1 plate</div><div class="pills" style="margin-top:6px"><span class="pill">model</span><span class="pill good">Frequent · 44</span></div></div>
+      <div class="panel" style="border-color:var(--accent)"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)">💡</div><b>Replace garage drawer pulls</b><div class="meta">notes only</div><div class="pills" style="margin-top:6px"><span class="pill accent">💡 Idea</span><span class="pill">Project: Garage Reorg</span></div></div>
+      <div class="panel"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px"></div><b>Wall Mount Bracket</b><div class="meta">CC-BY · 4 plates</div><div class="pills" style="margin-top:6px"><span class="pill">model</span><span class="pill">Project: Garage Reorg</span></div></div>
+      <div class="panel" style="border-color:var(--accent)"><div style="height:90px;background:#1c1f24;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)">🧰 × 3</div><b>Echo Show case · AMS variants</b><div class="meta">3 working files · 84 MB</div><div class="pills" style="margin-top:6px"><span class="pill accent">🧰 Working Group</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="mock" id="m14">
+  <h2>14. Idea popup — Promote to Model or Working Group (US-9, Q2)</h2>
+  <p class="desc">Ideas use the same popup chrome as Models, but the action row swaps print-related actions for promotion choices. Memberships carry over on promotion.</p>
+  <div class="popup" style="max-width:880px">
+    <div class="popup-head">
+      <div>
+        <h2>💡 Bedside organizer concept</h2>
+        <div class="sub">Captured 2026-05-09 · no files yet</div>
+        <div class="pills">
+          <span class="pill accent">Idea</span>
+          <span class="pill">In 1 Project</span>
+        </div>
+        <div class="pills" style="margin-top:6px">
+          <span class="chip">Project: Office Decor Refresh</span>
+          <span class="chip">Collection: Bedside Mods</span>
+          <span class="chip muted">Tags: organizer · bedside</span>
+        </div>
+      </div>
+      <div class="popup-actions">
+        <button class="btn primary">⬆ Promote to Model</button>
+        <button class="btn">⬆ Promote to Working Group</button>
+        <button class="btn">★ Favorite</button>
+        <button class="btn warn">📦 Archive</button>
+        <button class="btn ghost">⋯</button>
+      </div>
+    </div>
+    <div class="popup-body">
+      <div class="panel">
+        <h3>Notes</h3>
+        <div class="meta" style="color:var(--fg);line-height:1.5">Phone + book + small drawer. Could combine with Echo Show 5 stand. Look at the Printables ones first — some have built-in cable routing which would help.</div>
+        <h3 style="margin-top:14px">External links</h3>
+        <div class="row"><div>printables.com/model/12345 — minimal phone dock v3</div><div><button class="btn">Open ↗</button></div></div>
+        <div class="row"><div>makerworld.com/models/67890 — bedside cradle</div><div><button class="btn">Open ↗</button></div></div>
+      </div>
+      <div class="panel">
+        <h3>What promotion does</h3>
+        <div class="row"><div><b>Promote to Model</b></div><div class="meta" style="color:var(--muted)">Opens Add Model intake pre-filled with this Idea's title/notes/links. On commit, entity_type flips to <code>model</code> and project/collection/tag memberships carry over.</div></div>
+        <div class="row"><div><b>Promote to Working Group</b></div><div class="meta" style="color:var(--muted)">Opens Working Group create flow pre-filled the same way. Use this when the idea materializes as a set of files you're staging rather than a single Model.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mock" id="m15">
+  <h2>15. Project popup — Tasks panel (US-11)</h2>
+  <p class="desc">Per-Project <code>task_backend</code> chosen at creation: <code>none | internal | github | mstodo</code>. Same widget abstracts all four. Backend badge in panel header; <code>Open externally →</code> link goes to the native UI. Status writes are bidirectional where the backend supports it.</p>
+  <div class="popup" style="max-width:880px">
+    <div class="popup-head">
+      <div>
+        <h2>Project · Garage Reorg</h2>
+        <div class="sub">active · 7 models · 1 working group · target 2026-06-01</div>
+      </div>
+      <div class="popup-actions">
+        <button class="btn">+ Add Task</button>
+        <button class="btn">Promote to Active</button>
+        <button class="btn ghost">⋯</button>
+      </div>
+    </div>
+    <div class="popup-body" style="display:block;padding:14px">
+      <div class="panel">
+        <h3>Tasks <span class="pill accent" style="margin-left:6px">GitHub Issues</span> <span class="meta" style="color:var(--muted);margin-left:6px">milestone: garage-reorg</span> <span class="spacer"></span> <a href="#" style="color:var(--accent)">Open externally →</a> &nbsp; <button class="btn ghost">Configure backend…</button></h3>
+        <div class="row"><div><label><input type="checkbox"> Buy 200 M3×8 socket cap screws</label> &nbsp;<span class="pill warn">from BOM</span></div><div class="meta">#421 · due 5/16</div></div>
+        <div class="row"><div><label><input type="checkbox"> Buy 40 6mm neodymium magnets</label> &nbsp;<span class="pill warn">from BOM</span></div><div class="meta">#422</div></div>
+        <div class="row"><div><label><input type="checkbox" checked> <s>Sort existing screw drawer</s></label></div><div class="meta">#418 · closed 5/11</div></div>
+        <div class="row"><div><label><input type="checkbox"> Install heat inserts in wall mounts (4)</label></div><div class="meta">#423</div></div>
+        <div class="row"><div><label><input type="checkbox"> Glue brackets after print</label></div><div class="meta">#424</div></div>
+        <div class="row"><div><label><input type="checkbox"> Post project photos to Makerworld</label></div><div class="meta">#425</div></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h3>Backend choice (configure dialog — preview)</h3>
+        <div class="row"><div><label><input type="radio" name="bk"> None — don't track tasks for this project</label></div></div>
+        <div class="row"><div><label><input type="radio" name="bk"> Internal — sidecar SQLite, offline-capable, BOM-aware</label></div></div>
+        <div class="row"><div><label><input type="radio" name="bk" checked> GitHub Issues — milestone: <code>garage-reorg</code></label></div></div>
+        <div class="row"><div><label><input type="radio" name="bk"> Microsoft To-Do — list: <code>Garage Reorg</code></label></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mock" id="m16">
+  <h2>16. Bill of Materials — Model template + Project roll-up (US-12)</h2>
+  <p class="desc">Two sub-mocks: (16a) the Model popup BOM template panel; (16b) the Project popup BOM roll-up with per-line override + acquisition checkboxes + manual <code>Generate shopping tasks</code> button bridging to US-11.</p>
+
+  <div class="popup" style="margin-bottom:14px;max-width:880px">
+    <div class="popup-head">
+      <div>
+        <h2>16a · Model popup — BOM template panel</h2>
+        <div class="sub">Echo Show 5 Case · _nesmi · CC-BY</div>
+      </div>
+    </div>
+    <div class="popup-body" style="display:block;padding:14px">
+      <div class="panel">
+        <h3>Bill of Materials (per print) <span class="spacer"></span> <button class="btn">+ Item</button></h3>
+        <div class="row"><div><b>4 × pcs</b> &nbsp; M3×8 socket cap screw</div><div><button class="btn ghost">Edit</button> <button class="btn ghost">✕</button></div></div>
+        <div class="row"><div><b>2 × pcs</b> &nbsp; 6mm neodymium magnet</div><div><button class="btn ghost">Edit</button> <button class="btn ghost">✕</button></div></div>
+        <div class="row"><div><b>1 × drop</b> &nbsp; CA glue (optional) <span class="meta" style="color:var(--muted)">notes: only if magnets are loose</span></div><div><button class="btn ghost">Edit</button> <button class="btn ghost">✕</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup" style="max-width:880px">
+    <div class="popup-head">
+      <div>
+        <h2>16b · Project popup — BOM roll-up</h2>
+        <div class="sub">Garage Reorg · active · 12 needed · 8 acquired · 3 installed</div>
+      </div>
+      <div class="popup-actions">
+        <button class="btn primary">Generate shopping tasks</button>
+        <button class="btn">+ Custom item</button>
+        <button class="btn ghost">⋯</button>
+      </div>
+    </div>
+    <div class="popup-body" style="display:block;padding:14px">
+      <div class="panel">
+        <h3>Roll-up (across 7 models × planned print counts)</h3>
+        <div class="row"><div><b>200 × pcs</b> &nbsp; M3×8 socket cap screw &nbsp;<span class="meta" style="color:var(--muted)">from Wall Mount × 50, Bracket × 4 each</span></div><div><label><input type="checkbox"> needed</label> &nbsp;<label><input type="checkbox"> acquired</label> &nbsp;<label><input type="checkbox"> installed</label></div></div>
+        <div class="row"><div><b>40 × pcs</b> &nbsp; 6mm neodymium magnet</div><div><label><input type="checkbox"> needed</label> &nbsp;<label><input type="checkbox" checked> acquired</label> &nbsp;<label><input type="checkbox"> installed</label></div></div>
+        <div class="row"><div><b>16 × pcs</b> &nbsp; M5 heat-set insert &nbsp;<span class="pill warn">override: was 12</span></div><div><label><input type="checkbox"> needed</label> &nbsp;<label><input type="checkbox" checked> acquired</label> &nbsp;<label><input type="checkbox" checked> installed</label></div></div>
+        <div class="row"><div><b>2 × cans</b> &nbsp; matte clear spray paint &nbsp;<span class="pill accent">project-only</span></div><div><label><input type="checkbox"> needed</label> &nbsp;<label><input type="checkbox"> acquired</label> &nbsp;<label><input type="checkbox"> installed</label></div></div>
+        <div class="row"><div><b>1 × drop</b> &nbsp; CA glue <span class="meta" style="color:var(--muted)">marked optional</span></div><div><label><input type="checkbox"> needed</label> &nbsp;<label><input type="checkbox" checked> acquired</label> &nbsp;<label><input type="checkbox"> installed</label></div></div>
+      </div>
+      <div class="panel" style="margin-top:10px;border-color:var(--accent)">
+        <div class="row"><div>💡 <b>Generate shopping tasks</b> will create one task per <code>needed</code> line in this Project's task backend (<b>GitHub Issues · milestone garage-reorg</b>). Acquisition checkboxes do not auto-write tasks.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer style="padding:16px 24px;color:var(--muted);font-size:12px">
+  These mockups are static demonstrations only — no JS. Visual styling intentionally approximates HA's dark theme to communicate hierarchy and information density, not final brand alignment.
+</footer>
+
+</body>
+</html>
