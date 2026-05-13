@@ -1109,19 +1109,9 @@ def _compute_group_title(
 
     if explicit_title:
         if strategy == "flat":
-            suffix = _strategy_suffix()
-            if not suffix:
-                return explicit_title
-
-            def _normalize_title_compare(value: str) -> str:
-                return re.sub(r"[^a-z0-9]+", " ", value.strip().lower()).strip()
-
-            # Keep intentional "<prefix> - <file>" patterns, but avoid
-            # accidental duplicates when the explicit title is already the
-            # file name (for example: "gear-holder - gear-holder").
-            if _normalize_title_compare(explicit_title) == _normalize_title_compare(suffix):
-                return explicit_title
-            return f"{explicit_title} - {suffix}"
+            # Each file is its own group in flat mode; the explicit title IS the
+            # full model name — no suffix needed.
+            return explicit_title
         if strategy == "none":
             return explicit_title
         suffix = _strategy_suffix()
