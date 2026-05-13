@@ -458,7 +458,7 @@ def _display_title_from_path(path_value: str | None) -> str:
             break
         candidate = Path(candidate).stem
 
-    candidate = re.sub(r"[_\-.]+", " ", candidate)
+    candidate = re.sub(r"[_\-.+]+", " ", candidate)
     candidate = re.sub(r"\s*\(\d+\)$", "", candidate)
     candidate = re.sub(r"\s*(?:-|_)?copy(?:\s*\(\d+\))?$", "", candidate, flags=re.IGNORECASE)
     candidate = re.sub(r"\s+", " ", candidate).strip(" -_.")
@@ -467,7 +467,7 @@ def _display_title_from_path(path_value: str | None) -> str:
 
     # Strip trailing slicer/tool noise tokens (e.g. "my_model_sliced_v2_plate1" → "my model")
     _NOISE_SUFFIX = re.compile(
-        r"\s+(?:sliced|final|remix|fixed|updated|wip|draft|test|plate\s*\d+|v\d+(?:\.\d+)*)$",
+        r"\s+(?:sliced|final|complete|remix|fixed|updated|wip|draft|test|plate\s*\d+|v\d+(?:\.\d+)*)$",
         re.IGNORECASE,
     )
     while True:

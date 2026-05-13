@@ -73,7 +73,7 @@
       candidate = dotIndex > 0 ? candidate.slice(0, dotIndex) : candidate;
     }
     candidate = String(candidate || "")
-      .replace(/[_\-.]+/g, " ")
+      .replace(/[_\-.+]+/g, " ")
       .replace(/\s*\(\d+\)$/g, "")
       .replace(/\s*(?:-|_)?copy(?:\s*\(\d+\))?$/i, "")
       .replace(/\s+/g, " ")
@@ -82,7 +82,7 @@
       candidate = basename(pathValue || "").replace(/\.[^.]+$/, "");
     }
     // Strip trailing slicer/tool noise tokens (e.g. "my_model_sliced_v2_plate1" → "my model")
-    var noiseSuffixRe = /\s+(?:sliced|final|remix|fixed|updated|wip|draft|test|plate\s*\d+|v\d+(?:\.\d+)*)$/i;
+    var noiseSuffixRe = /\s+(?:sliced|final|complete|remix|fixed|updated|wip|draft|test|plate\s*\d+|v\d+(?:\.\d+)*)$/i;
     while (true) {
       var stripped = candidate.replace(noiseSuffixRe, "").replace(/^[\s\-_.]+|[\s\-_.]+$/g, "");
       if (!stripped || stripped === candidate) {
