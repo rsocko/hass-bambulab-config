@@ -25,10 +25,24 @@ from pathlib import Path
 
 
 TABLE_DELETE_ORDER = [
+    # Child tables first to satisfy foreign key constraints.
+    "planner_operation_snapshots",
+    "planner_operations_audit",
+    "unified_queue_plate_units",
+    "unified_queue_file_units",
     "model_catalog_assets",
+    "working_group_model_links",
+    "model_catalog_print_history_jobs",
+    # Parent/independent tables next.
+    "unified_queue_match_suggestions",
+    "unified_queue_planner_preferences",
+    "unified_queue_entries",
     "model_catalog_custom_fields",
+    "intake_upload_idempotency",
     "intake_queue_uploads",
+    "working_file_inventory",
     "working_items",
+    "model_catalog_projects",
     "working_groups",
     "model_catalog_events",
     "model_catalog_links",
