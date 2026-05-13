@@ -773,6 +773,7 @@ def _plan_flat_file_groups(
     groups_by_key: dict[str, dict[str, Any]] = {}
     printable_files_by_key: dict[str, dict[str, Any]] = {}
     for file_item in printable_files:
+        file_source_entry = file_item.get("source_entry") if isinstance(file_item.get("source_entry"), dict) else source_entry
         file_path = Path(str(file_item["path"])).resolve()
         relative_path = str(file_item.get("relative_path") or file_item.get("filename") or "").replace("\\", "/")
         group_key = relative_path or str(file_path)
@@ -783,14 +784,14 @@ def _plan_flat_file_groups(
                 root_path=root_path,
                 file_path=file_path,
                 strategy="flat",
-                source_entry=source_entry,
+                source_entry=file_source_entry,
             ),
             "files": [file_item],
             "strategy": "flat",
-            "source_entry": source_entry,
+            "source_entry": file_source_entry,
             "root_path": str(root_path),
-            "preserve_folder_structure": _coerce_bool(source_entry.get("preserve_folder_structure", True)),
-            "group_title": str(source_entry.get("group_title") or "").strip(),
+            "preserve_folder_structure": _coerce_bool(file_source_entry.get("preserve_folder_structure", True)),
+            "group_title": str(file_source_entry.get("group_title") or "").strip(),
         }
 
     printable_group_keys = list(groups_by_key.keys())

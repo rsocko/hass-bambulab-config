@@ -7427,6 +7427,56 @@ def test_queue_publish_to_local_custom_group_title_is_suffixed_per_folder(tmp_pa
         assert "My Custom - TopB" in model_names
 
 
+def test_queue_publish_to_local_split_by_file_uses_each_file_name(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    file_one = source_root / "gear-holder.3mf"
+    file_two = source_root / "filament-clip.3mf"
+    file_one.write_bytes(b"gear-holder")
+    file_two.write_bytes(b"filament-clip")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(file_one),
+                        "grouping_strategy": "flat",
+                        "group_title_source": "first-file",
+                    },
+                    {
+                        "type": "file",
+                        "path": str(file_two),
+                        "grouping_strategy": "flat",
+                        "group_title_source": "first-file",
+                    },
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("created_model_count") == 2
+        created_models = payload.get("created_models") or []
+        model_names = sorted(str(item.get("model_name") or "") for item in created_models)
+
+    assert model_names == ["filament-clip", "gear-holder"]
+
+
 def test_validate_flags_soft_duplicate_name_variant_against_indexed_inventory(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()
