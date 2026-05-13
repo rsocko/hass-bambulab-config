@@ -7736,6 +7736,55 @@ def test_queue_publish_to_local_split_by_file_does_not_duplicate_explicit_file_t
     assert normalized_names == ["filament-clip", "gear-holder"]
 
 
+def test_queue_publish_to_local_split_by_file_first_file_ignores_non_custom_group_title(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / "Hueforge"
+    case_root.mkdir(parents=True)
+    (case_root / "Delorean.3mf").write_bytes(b"delorean")
+    (case_root / "Dragon.3mf").write_bytes(b"dragon")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(case_root),
+                        "recurse": True,
+                        "grouping_strategy": "flat",
+                        "group_title_source": "first-file",
+                        # Simulates a stale UI-derived folder title being sent
+                        # even though title basis is not custom.
+                        "group_title": "Hueforge",
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("created_model_count") == 2
+        created_models = payload.get("created_models") or []
+        model_names = sorted(str(item.get("model_name") or "") for item in created_models)
+
+    normalized_names = sorted(str(name).strip().lower().replace(" ", "-") for name in model_names)
+    assert normalized_names == ["delorean", "dragon"]
+
+
 def test_validate_flags_soft_duplicate_name_variant_against_indexed_inventory(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()

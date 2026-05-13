@@ -1090,9 +1090,12 @@ def _compute_group_title(
     """
     Compute group title based on grouping strategy and group key.
     """
-    # Explicit override from UI: keep exact title for single-group strategy,
-    # and suffix grouped strategies so each model/group remains distinct.
-    explicit_title = str(source_entry.get("group_title") or "").strip()
+    # Explicit override from UI: only custom title-basis should be treated as
+    # authoritative. For derived modes (folder/first-file), compute from
+    # strategy so stale client hints do not leak into model names.
+    title_source = str(source_entry.get("group_title_source") or "").strip().lower().replace("_", "-")
+    raw_group_title = str(source_entry.get("group_title") or "").strip()
+    explicit_title = raw_group_title if (raw_group_title and title_source in {"", "custom"}) else ""
 
     def _strategy_suffix() -> str:
         if strategy == "by-root":
@@ -1128,28 +1131,10 @@ def _compute_group_title(
         parent = Path(group_key)
         return _display_title_from_path(parent.name or group_key) or parent.name or group_key
     # "none"
-    title_source = str(source_entry.get("group_title_source") or "").strip().lower().replace("_", "-")
     entry_type = str(source_entry.get("type") or "").strip().lower()
     if title_source == "folder" and entry_type == "folder":
         return _display_title_from_path(root_path.name or str(root_path)) or "Working Group"
     return _display_title_from_path(file_path.name) or file_path.stem or file_path.name or "Working Group"
-    
-    if strategy == "by-root":
-        return root_path.name or str(root_path)
-    if strategy == "flat":
-        return file_path.stem or file_path.name
-    if strategy == "by-folder":
-        if group_key == "__root_folder__":
-            return f"{root_path.name} Root"
-        parent = Path(group_key)
-        return parent.name or group_key
-    # "none"
-    return "Working Group"
-
-    title_source = str(source_entry.get("group_title_source") or "").strip().lower().replace("_", "-")
-    entry_type = str(source_entry.get("type") or "").strip().lower()
-    if title_source == "folder" and entry_type == "folder":
-        return f"{root_path.name} Root"
 def _group_files_by_strategy(
     *,
     expanded_files: list[dict[str, Any]],

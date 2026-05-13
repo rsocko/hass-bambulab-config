@@ -855,6 +855,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           return displayTitleFromPath(firstFile.filename) || String(firstFile.filename);
         }
       }
+      if (entry && entry.type === 'folder') {
+        return 'Working Group';
+      }
       return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
     }
     return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
@@ -874,6 +877,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return this._selectedList().map(function (entry) {
       var next = { type: entry.type, path: entry.path };
+      var titleSource = this._selectionTitleSource(entry);
       if (entry.grouping_strategy) {
         next.grouping_strategy = String(entry.grouping_strategy || 'none').trim();
       }
@@ -881,9 +885,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         next.preserve_folder_structure = entry.preserve_folder_structure !== false;
       }
       if (entry.group_title_source) {
-        next.group_title_source = this._selectionTitleSource(entry);
+        next.group_title_source = titleSource;
       }
-      if (entry.group_title || entry.group_title_source) {
+      if (titleSource === 'custom') {
         next.group_title = this._resolvedGroupTitle(entry);
       }
       if (entry.type === "folder") {
@@ -1312,11 +1316,20 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             proposals.forEach(function (proposal) {
               (proposal.files || []).forEach(function (fileEntry) {
                 if (fileEntry.path) {
-                  expandedSelections.push({
+                  var expandedTitleSource = this._selectionTitleSource(selState);
+                  var expandedSelection = {
                     type: "file",
                     path: String(fileEntry.path),
-                    group_title_source: this._selectionTitleSource(selState),
-                    group_title: this._resolvedGroupTitle(selState, proposals),
+                    group_title_source: expandedTitleSource,
+                  };
+                  if (expandedTitleSource === 'custom') {
+                    expandedSelection.group_title = this._resolvedGroupTitle(selState, proposals);
+                  }
+                  expandedSelections.push({
+                    type: expandedSelection.type,
+                    path: expandedSelection.path,
+                    group_title_source: expandedSelection.group_title_source,
+                    group_title: expandedSelection.group_title,
                   });
                 }
               }, this);
