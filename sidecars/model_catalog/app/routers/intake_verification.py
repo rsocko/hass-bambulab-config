@@ -419,6 +419,76 @@ def _normalized_duplicate_name(filename: str) -> str:
     return re.sub(r"\s+", " ", candidate).strip()
 
 
+_DISPLAY_TITLE_STRIPPABLE_SUFFIXES = {
+    ".3mf",
+    ".stl",
+    ".step",
+    ".stp",
+    ".obj",
+    ".amf",
+    ".ply",
+    ".gcode",
+    ".bgcode",
+    ".zip",
+    ".rar",
+    ".7z",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+}
+
+
+def _display_title_from_path(path_value: str | None) -> str:
+    """Derive a user-facing title from a filename or folder name."""
+    normalized = str(path_value or "").replace("\\", "/").strip()
+    if not normalized:
+        return ""
+
+    name = Path(normalized).name.strip()
+    if not name:
+        return ""
+
+    candidate = name
+    previous = None
+    while candidate and candidate != previous:
+        previous = candidate
+        suffix = Path(candidate).suffix.lower()
+        if suffix not in _DISPLAY_TITLE_STRIPPABLE_SUFFIXES:
+            break
+        candidate = Path(candidate).stem
+
+    candidate = re.sub(r"[_\-.]+", " ", candidate)
+    candidate = re.sub(r"\s*\(\d+\)$", "", candidate)
+    candidate = re.sub(r"\s*(?:-|_)?copy(?:\s*\(\d+\))?$", "", candidate, flags=re.IGNORECASE)
+    candidate = re.sub(r"\s+", " ", candidate).strip(" -_.")
+    if not candidate:
+        candidate = Path(name).stem or name
+
+    # Strip trailing slicer/tool noise tokens (e.g. "my_model_sliced_v2_plate1" → "my model")
+    _NOISE_SUFFIX = re.compile(
+        r"\s+(?:sliced|final|remix|fixed|updated|wip|draft|test|plate\s*\d+|v\d+(?:\.\d+)*)$",
+        re.IGNORECASE,
+    )
+    while True:
+        stripped = _NOISE_SUFFIX.sub("", candidate).strip(" -_.")
+        if not stripped or stripped == candidate:
+            break
+        candidate = stripped
+
+    letters_only = re.sub(r"[^A-Za-z]+", "", candidate)
+    if letters_only and (letters_only == letters_only.lower() or letters_only == letters_only.upper()):
+        words: list[str] = []
+        for part in candidate.split(" "):
+            if re.fullmatch(r"\d+d", part, flags=re.IGNORECASE):
+                words.append(f"{part[:-1]}D")
+            else:
+                words.append(part.capitalize())
+        candidate = " ".join(words)
+
+    return candidate.strip()
+
+
 def _read_indexed_filename_maps(
     db_path: Path,
     *,
@@ -658,15 +728,15 @@ def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: l
     title_source = str(first_entry.get("group_title_source") or "").strip().lower().replace("_", "-") if isinstance(first_entry, dict) else ""
 
     if title_source == "folder" and str(first_entry.get("type") or "") == "folder":
-        return first_entry_path.name or str(first_entry_path) or "Working Group"
+        return _display_title_from_path(first_entry_path.name or str(first_entry_path)) or "Working Group"
 
     if title_source == "first-file":
-        return Path(expanded_files[0]["filename"]).stem or "Working Group"
+        return _display_title_from_path(str(expanded_files[0].get("filename") or expanded_files[0].get("path") or "")) or "Working Group"
 
     if str(first_entry.get("type") or "") == "folder":
-        return first_entry_path.name or str(first_entry_path) or "Working Group"
+        return _display_title_from_path(first_entry_path.name or str(first_entry_path)) or "Working Group"
 
-    return Path(expanded_files[0]["filename"]).stem or "Working Group"
+    return _display_title_from_path(str(expanded_files[0].get("filename") or expanded_files[0].get("path") or "")) or "Working Group"
 
 
 def _normalize_grouping_strategy(value: object | None) -> str:
@@ -1027,37 +1097,52 @@ def _compute_group_title(
     def _strategy_suffix() -> str:
         if strategy == "by-root":
             if group_key.startswith("__root__::"):
-                return Path(group_key.split("::", 1)[1]).name or root_path.name or "Root"
-            return root_path.name or str(root_path)
+                return _display_title_from_path(Path(group_key.split("::", 1)[1]).name or root_path.name or "Root") or "Root"
+            return _display_title_from_path(root_path.name or str(root_path)) or "Root"
         if strategy == "flat":
-            return file_path.stem or file_path.name
+            return _display_title_from_path(file_path.name) or file_path.stem or file_path.name
         if strategy == "by-folder":
             if group_key == "__root_folder__":
-                return root_path.name or "Root"
-            return str(group_key).replace("\\", "/")
+                return _display_title_from_path(root_path.name or "Root") or "Root"
+            return _display_title_from_path(Path(str(group_key).replace("\\", "/")).name or str(group_key)) or str(group_key).replace("\\", "/")
         return ""
 
     if explicit_title:
+        if strategy == "flat":
+            suffix = _strategy_suffix()
+            if not suffix:
+                return explicit_title
+
+            def _normalize_title_compare(value: str) -> str:
+                return re.sub(r"[^a-z0-9]+", " ", value.strip().lower()).strip()
+
+            # Keep intentional "<prefix> - <file>" patterns, but avoid
+            # accidental duplicates when the explicit title is already the
+            # file name (for example: "gear-holder - gear-holder").
+            if _normalize_title_compare(explicit_title) == _normalize_title_compare(suffix):
+                return explicit_title
+            return f"{explicit_title} - {suffix}"
         if strategy == "none":
             return explicit_title
         suffix = _strategy_suffix()
         return f"{explicit_title} - {suffix}" if suffix else explicit_title
 
     if strategy == "by-root":
-        return root_path.name or str(root_path)
+        return _display_title_from_path(root_path.name or str(root_path)) or "Working Group"
     if strategy == "flat":
-        return file_path.stem or file_path.name
+        return _display_title_from_path(file_path.name) or file_path.stem or file_path.name
     if strategy == "by-folder":
         if group_key == "__root_folder__":
-            return f"{root_path.name} Root"
+            root_title = _display_title_from_path(root_path.name or "Root") or "Root"
+            return f"{root_title} Root"
         parent = Path(group_key)
-        return parent.name or group_key
+        return _display_title_from_path(parent.name or group_key) or parent.name or group_key
     # "none"
     title_source = str(source_entry.get("group_title_source") or "").strip().lower().replace("_", "-")
     entry_type = str(source_entry.get("type") or "").strip().lower()
     if title_source == "folder" and entry_type == "folder":
-        return root_path.name or str(root_path) or "Working Group"
-    return file_path.stem or file_path.name or "Working Group"
+        return _display_title_from_path(root_path.name or str(root_path)) or "Working Group"
+    return _display_title_from_path(file_path.name) or file_path.stem or file_path.name or "Working Group"
     
     if strategy == "by-root":
         return root_path.name or str(root_path)

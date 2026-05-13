@@ -11,6 +11,9 @@ var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
 var sharedNormalizePath = intakeShared.normalizePath;
 var sharedFileTypeIconName = intakeShared.fileTypeIconName;
 var sharedFileKind = intakeShared.fileKind;
+var displayTitleFromPath = intakeShared.displayTitleFromPath || function (pathValue) {
+  return basename(pathValue || '').replace(/\.[^.]+$/, '');
+};
 
 var PRINTABLE_EXTENSIONS = {
   '.3mf': true,
@@ -965,12 +968,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return fileKind(entry.relative_path || entry.name || entry.path || '') === 'model';
     }).map(function (entry) {
       var entryPath = String(entry.relative_path || entry.name || entry.path || '');
-      var defaultTitle = basename(entryPath).replace(/\.[^.]+$/, '') || 'Model';
-      var currentTitle = String(entry.group_title || '').trim() || defaultTitle;
+      var defaultTitle = displayTitleFromPath(entryPath) || 'Model';
+      var currentTitle = String(entry.group_title || '').trim();
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(defaultTitle) + '</div><div class="entry-path">' + escapeHtml(entryPath) + '</div></div><span class="chip">model</span></div>'
-        + '  <div class="field"><label>Model Name</label><input class="input" type="text" value="' + escapeHtml(currentTitle) + '" data-action="' + escapeHtml(inputAction) + '" ' + pathAttribute + '="' + escapeHtml(entryPath) + '" placeholder="Model"></div>'
+        + '  <div class="field"><label>Custom Model Name</label><input class="input" type="text" value="' + escapeHtml(currentTitle) + '" data-action="' + escapeHtml(inputAction) + '" ' + pathAttribute + '="' + escapeHtml(entryPath) + '" placeholder="' + escapeHtml(defaultTitle) + '"></div>'
         + '</article>';
     }).join('') + '</div>';
   };
@@ -999,7 +1002,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         : '')
       + '</div>'
       + (groupingValue === 'flat' && titleSource === 'custom'
-        ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models by File.</div></div></div>'
+        ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Optional overrides. Leave blank to use the cleaned filename-derived model name.</div></div></div>'
             + this._renderSharedPerFileNameRows(entries, {
               inputAction: perFileTitleAction,
               pathAttribute: settings.perFilePathAttribute || 'data-path',
@@ -1017,12 +1020,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return '<div class="entries">' + modelFiles.map(function (entry) {
       var relativePath = String(entry.relative_path || entry.name || '');
-      var defaultTitle = basename(relativePath).replace(/\.[^.]+$/, '') || 'Model';
-      var currentTitle = String(entry.group_title || '').trim() || defaultTitle;
+      var defaultTitle = displayTitleFromPath(relativePath) || 'Model';
+      var currentTitle = String(entry.group_title || '').trim();
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(defaultTitle) + '</div><div class="entry-path">' + escapeHtml(relativePath) + '</div></div><span class="chip">model</span></div>'
-        + '  <div class="field"><label>Model Name</label><input class="input" type="text" value="' + escapeHtml(currentTitle) + '" data-action="browser-flat-model-title" data-relative-path="' + escapeHtml(relativePath) + '" placeholder="Model"></div>'
+        + '  <div class="field"><label>Custom Model Name</label><input class="input" type="text" value="' + escapeHtml(currentTitle) + '" data-action="browser-flat-model-title" data-relative-path="' + escapeHtml(relativePath) + '" placeholder="' + escapeHtml(defaultTitle) + '"></div>'
         + '</article>';
     }).join('') + '</div>';
   };
@@ -1128,7 +1131,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             : '')
           + '  </div>'
           + ((groupingStrategy === 'flat' && titleSource === 'custom')
-            ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models by File.</div></div></div>' + this._browserFlatCustomTitleRows()
+            ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Optional overrides. Leave blank to use the cleaned filename-derived model name.</div></div></div>' + this._browserFlatCustomTitleRows()
             : '')
           + '<div class="muted">Organize controls how the selected browser files resolve into models. Validation and Commit reuse the resolved plan shown on the right.</div>'
         : '');

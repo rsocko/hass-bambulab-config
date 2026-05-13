@@ -781,6 +781,10 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        23,
+        (),
+    ),
 )
 
 
@@ -857,10 +861,98 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
             ensure_column(connection, "intake_queue_uploads", "terminal_result_id", "TEXT")
         if version == 13:
             ensure_column(connection, "intake_queue_uploads", "terminal_actor", "TEXT")
+        if version == 23:
+            _repair_unified_queue_file_units_foreign_key(connection)
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
         )
+
+
+def _repair_unified_queue_file_units_foreign_key(connection: sqlite3.Connection) -> None:
+    """Repair v21 FK drift from unified_queue_entries to legacy temp table.
+
+    Migration v21 temporarily renamed unified_queue_entries while foreign keys
+    were disabled. In some databases, SQLite rewrote unified_queue_file_units
+    to reference unified_queue_entries_legacy_v20, then the legacy table was
+    dropped, leaving dangling FK metadata that breaks schema introspection.
+    """
+    row = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='unified_queue_file_units'"
+    ).fetchone()
+    if row is None:
+        return
+
+    fk_rows = connection.execute("PRAGMA foreign_key_list(unified_queue_file_units)").fetchall()
+    fk_targets = {str(r["table"]) for r in fk_rows}
+
+    # Already healthy in normal/current schemas.
+    if "unified_queue_entries_legacy_v20" not in fk_targets:
+        return
+
+    connection.execute("PRAGMA foreign_keys = OFF")
+    try:
+        connection.execute(
+            """
+            CREATE TABLE unified_queue_file_units_v23_repair (
+                id INTEGER PRIMARY KEY,
+                queue_entry_id TEXT NOT NULL,
+                file_unit_id TEXT NOT NULL,
+                file_id TEXT,
+                file_name TEXT NOT NULL,
+                selected INTEGER NOT NULL DEFAULT 1,
+                estimated_minutes INTEGER,
+                filament_requirements_json TEXT NOT NULL DEFAULT '{}',
+                archive_link_summary_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (queue_entry_id) REFERENCES unified_queue_entries(queue_entry_id) ON DELETE CASCADE,
+                UNIQUE(queue_entry_id, file_unit_id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO unified_queue_file_units_v23_repair (
+                id,
+                queue_entry_id,
+                file_unit_id,
+                file_id,
+                file_name,
+                selected,
+                estimated_minutes,
+                filament_requirements_json,
+                archive_link_summary_json,
+                created_at,
+                updated_at
+            )
+            SELECT
+                id,
+                queue_entry_id,
+                file_unit_id,
+                file_id,
+                file_name,
+                selected,
+                estimated_minutes,
+                filament_requirements_json,
+                archive_link_summary_json,
+                created_at,
+                updated_at
+            FROM unified_queue_file_units
+            """
+        )
+        connection.execute("DROP TABLE unified_queue_file_units")
+        connection.execute(
+            "ALTER TABLE unified_queue_file_units_v23_repair RENAME TO unified_queue_file_units"
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_unified_queue_file_units_entry
+            ON unified_queue_file_units(queue_entry_id)
+            """
+        )
+    finally:
+        connection.execute("PRAGMA foreign_keys = ON")
 
 
 def _migrate_manyfold_model_cache_keys(connection: sqlite3.Connection) -> None:

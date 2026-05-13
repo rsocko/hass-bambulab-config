@@ -2005,6 +2005,115 @@ def test_cache_migration_assigns_model_key_and_deduplicates_by_stable_identity(t
         manyfold_model_public_id="starscream",
         manyfold_model_id="101",
     )
+    
+def test_unified_queue_file_units_fk_legacy_reference_is_repaired(tmp_path: Path) -> None:
+    db_path = tmp_path / "model_catalog.db"
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO unified_queue_entries (
+                queue_entry_id,
+                source_kind,
+                title,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            ("qe-1", "catalog_model", "Sample", "2026-05-13T00:00:00Z", "2026-05-13T00:00:00Z"),
+        )
+        connection.execute(
+            """
+            INSERT INTO unified_queue_file_units (
+                queue_entry_id,
+                file_unit_id,
+                file_id,
+                file_name,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            ("qe-1", "fu-1", "file-1", "sample.3mf", "2026-05-13T00:00:00Z", "2026-05-13T00:00:00Z"),
+        )
+
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute("ALTER TABLE unified_queue_file_units RENAME TO unified_queue_file_units_old")
+        connection.execute(
+            """
+            CREATE TABLE unified_queue_file_units (
+                id INTEGER PRIMARY KEY,
+                queue_entry_id TEXT NOT NULL,
+                file_unit_id TEXT NOT NULL,
+                file_id TEXT,
+                file_name TEXT NOT NULL,
+                selected INTEGER NOT NULL DEFAULT 1,
+                estimated_minutes INTEGER,
+                filament_requirements_json TEXT NOT NULL DEFAULT '{}',
+                archive_link_summary_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (queue_entry_id) REFERENCES unified_queue_entries_legacy_v20(queue_entry_id) ON DELETE CASCADE,
+                UNIQUE(queue_entry_id, file_unit_id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO unified_queue_file_units (
+                id,
+                queue_entry_id,
+                file_unit_id,
+                file_id,
+                file_name,
+                selected,
+                estimated_minutes,
+                filament_requirements_json,
+                archive_link_summary_json,
+                created_at,
+                updated_at
+            )
+            SELECT
+                id,
+                queue_entry_id,
+                file_unit_id,
+                file_id,
+                file_name,
+                selected,
+                estimated_minutes,
+                filament_requirements_json,
+                archive_link_summary_json,
+                created_at,
+                updated_at
+            FROM unified_queue_file_units_old
+            """
+        )
+        connection.execute("DROP TABLE unified_queue_file_units_old")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_unified_queue_file_units_entry ON unified_queue_file_units(queue_entry_id)"
+        )
+        connection.execute("DELETE FROM model_catalog_schema_migrations WHERE version = 23")
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.commit()
+    finally:
+        connection.close()
+
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        fk_targets = {
+            row[2]
+            for row in connection.execute("PRAGMA foreign_key_list(unified_queue_file_units)").fetchall()
+        }
+        row_count = connection.execute("SELECT COUNT(*) FROM unified_queue_file_units").fetchone()[0]
+    finally:
+        connection.close()
+
+    assert "unified_queue_entries_legacy_v20" not in fk_targets
+    assert "unified_queue_entries" in fk_targets
+    assert row_count == 1
 
 
 def test_refresh_manyfold_cache_prunes_stale_rows(tmp_path: Path) -> None:
@@ -6826,6 +6935,102 @@ def test_browser_upload_v2_multipart_preserves_grouping_and_structure_publish_to
     assert any("TopB/bench.3mf" in path for path in storage_paths)
 
 
+def test_publish_to_local_uses_cleaned_filename_as_default_model_name(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "browser_files": [
+                    {
+                        "filename": "wolverine_bookmark.gcode.3mf",
+                        "relative_path": "Wolverine/wolverine_bookmark.gcode.3mf",
+                        "content_base64": base64.b64encode(b"model-bytes").decode("ascii"),
+                    }
+                ]
+            },
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            "SELECT model_name FROM model_catalog_entries ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row is not None
+    assert str(row["model_name"]) == "Wolverine Bookmark"
+
+
+def test_publish_to_local_cleans_folder_based_default_titles(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    grouped_root = source_root / "gridfinity_baseplates"
+    grouped_root.mkdir(parents=True)
+    (grouped_root / "base_plate_v2.3mf").write_bytes(b"base")
+
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(grouped_root),
+                        "recurse": True,
+                        "grouping_strategy": "none",
+                        "group_title_source": "folder",
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            "SELECT model_name FROM model_catalog_entries ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row is not None
+    assert str(row["model_name"]) == "Gridfinity Baseplates"
+
+
 def test_queue_publish_to_working_honors_grouping_and_preserve_structure(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()
@@ -7474,7 +7679,61 @@ def test_queue_publish_to_local_split_by_file_uses_each_file_name(tmp_path: Path
         created_models = payload.get("created_models") or []
         model_names = sorted(str(item.get("model_name") or "") for item in created_models)
 
-    assert model_names == ["filament-clip", "gear-holder"]
+    normalized_names = sorted(str(name).strip().lower().replace(" ", "-") for name in model_names)
+    assert normalized_names == ["filament-clip", "gear-holder"]
+
+
+def test_queue_publish_to_local_split_by_file_does_not_duplicate_explicit_file_title(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    file_one = source_root / "gear-holder.3mf"
+    file_two = source_root / "filament-clip.3mf"
+    file_one.write_bytes(b"gear-holder")
+    file_two.write_bytes(b"filament-clip")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(file_one),
+                        "grouping_strategy": "flat",
+                        "group_title_source": "first-file",
+                        "group_title": "gear-holder",
+                    },
+                    {
+                        "type": "file",
+                        "path": str(file_two),
+                        "grouping_strategy": "flat",
+                        "group_title_source": "first-file",
+                        "group_title": "filament-clip",
+                    },
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("created_model_count") == 2
+        created_models = payload.get("created_models") or []
+        model_names = sorted(str(item.get("model_name") or "") for item in created_models)
+
+    normalized_names = sorted(str(name).strip().lower().replace(" ", "-") for name in model_names)
+    assert normalized_names == ["filament-clip", "gear-holder"]
 
 
 def test_validate_flags_soft_duplicate_name_variant_against_indexed_inventory(tmp_path: Path) -> None:

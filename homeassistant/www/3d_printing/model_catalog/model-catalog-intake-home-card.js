@@ -17,6 +17,9 @@ var sharedStyles = intakeShared.sharedStyles;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
 var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
 var isArchivePath = intakeShared.isArchivePath;
+var displayTitleFromPath = intakeShared.displayTitleFromPath || function (pathValue) {
+  return basename(pathValue || '').replace(/\.[^.]+$/, '');
+};
 
 var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".png": true,
@@ -40,12 +43,7 @@ var BROWSER_ARCHIVE_EXTENSIONS = {
 var BROWSER_3MF_THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
 
 function pathStem(path) {
-  var name = basename(path || '');
-  if (!name) {
-    return '';
-  }
-  var dotIndex = name.lastIndexOf('.');
-  return dotIndex > 0 ? name.slice(0, dotIndex) : name;
+  return displayTitleFromPath(path || '');
 }
 
 class ModelCatalogIntakeHomeCard extends HTMLElement {
@@ -795,7 +793,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (this._browserGroupingStrategy() === 'flat') {
       var flatFirstEntry = this._browserFiles[0];
-      return pathStem(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || basename(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || 'Working Group';
+      return displayTitleFromPath(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || basename(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || 'Working Group';
     }
     var titleSource = this._browserBatchTitleSource();
     var topFolders = this._browserTopLevelFolders();
@@ -806,7 +804,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return topFolders[0];
     }
     var firstEntry = this._browserFiles[0];
-    return pathStem(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || basename(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || 'Working Group';
+    return displayTitleFromPath(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || basename(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || 'Working Group';
   }
 
   _browserBatchResolvedTitle() {
@@ -844,7 +842,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _defaultGroupTitle(entry, proposals) {
     var titleSource = this._selectionTitleSource(entry);
     if (titleSource === 'custom') {
-      return String(entry && entry.group_title || '').trim() || basename(entry && entry.path || '') || 'Working Group';
+      return String(entry && entry.group_title || '').trim() || displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
     }
     if (titleSource === 'first-file') {
       if (Array.isArray(proposals) && proposals.length) {
@@ -854,12 +852,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         }
         var firstFile = Array.isArray(firstProposal.files) && firstProposal.files.length ? firstProposal.files[0] : null;
         if (firstFile && firstFile.filename) {
-          return pathStem(firstFile.filename) || String(firstFile.filename);
+          return displayTitleFromPath(firstFile.filename) || String(firstFile.filename);
         }
       }
-      return pathStem(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
+      return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
     }
-    return basename(entry && entry.path || '') || 'Working Group';
+    return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
   }
 
   _resolvedGroupTitle(entry, proposals) {

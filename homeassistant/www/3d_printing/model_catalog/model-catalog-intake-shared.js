@@ -21,6 +21,78 @@
     return parts[parts.length - 1] || normalized;
   }
 
+  var DISPLAY_TITLE_STRIPPABLE_SUFFIXES = {
+    ".3mf": true,
+    ".stl": true,
+    ".step": true,
+    ".stp": true,
+    ".obj": true,
+    ".amf": true,
+    ".ply": true,
+    ".gcode": true,
+    ".bgcode": true,
+    ".zip": true,
+    ".rar": true,
+    ".7z": true,
+    ".tar": true,
+    ".gz": true,
+    ".bz2": true,
+    ".xz": true,
+  };
+
+  function toDisplayTitleCase(candidate) {
+    var lettersOnly = String(candidate || "").replace(/[^A-Za-z]+/g, "");
+    if (!lettersOnly) {
+      return String(candidate || "").trim();
+    }
+    if (lettersOnly !== lettersOnly.toLowerCase() && lettersOnly !== lettersOnly.toUpperCase()) {
+      return String(candidate || "").trim();
+    }
+    return String(candidate || "").split(/\s+/).filter(Boolean).map(function (part) {
+      if (/^\d+d$/i.test(part)) {
+        return part.slice(0, -1) + "D";
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    }).join(" ");
+  }
+
+  function displayTitleFromPath(pathValue) {
+    var name = basename(pathValue || "");
+    if (!name) {
+      return "";
+    }
+    var candidate = name;
+    var previous = null;
+    while (candidate && candidate !== previous) {
+      previous = candidate;
+      var extension = pathExtension(candidate).toLowerCase();
+      if (!DISPLAY_TITLE_STRIPPABLE_SUFFIXES[extension]) {
+        break;
+      }
+      var dotIndex = candidate.lastIndexOf(".");
+      candidate = dotIndex > 0 ? candidate.slice(0, dotIndex) : candidate;
+    }
+    candidate = String(candidate || "")
+      .replace(/[_\-.]+/g, " ")
+      .replace(/\s*\(\d+\)$/g, "")
+      .replace(/\s*(?:-|_)?copy(?:\s*\(\d+\))?$/i, "")
+      .replace(/\s+/g, " ")
+      .replace(/^[\s\-_.]+|[\s\-_.]+$/g, "");
+    if (!candidate) {
+      candidate = basename(pathValue || "").replace(/\.[^.]+$/, "");
+    }
+    // Strip trailing slicer/tool noise tokens (e.g. "my_model_sliced_v2_plate1" → "my model")
+    var noiseSuffixRe = /\s+(?:sliced|final|remix|fixed|updated|wip|draft|test|plate\s*\d+|v\d+(?:\.\d+)*)$/i;
+    while (true) {
+      var stripped = candidate.replace(noiseSuffixRe, "").replace(/^[\s\-_.]+|[\s\-_.]+$/g, "");
+      if (!stripped || stripped === candidate) {
+        break;
+      }
+      candidate = stripped;
+    }
+    return toDisplayTitleCase(candidate);
+  }
+
   function formatBytes(bytes) {
     var value = Number(bytes || 0);
     if (!Number.isFinite(value) || value <= 0) {
@@ -738,6 +810,7 @@
     basename: basename,
     batchActionLabel: batchActionLabel,
     callServiceWithResponse: callServiceWithResponse,
+    displayTitleFromPath: displayTitleFromPath,
     duplicateWarnings: duplicateWarnings,
     escapeHtml: escapeHtml,
     fileKind: fileKind,
