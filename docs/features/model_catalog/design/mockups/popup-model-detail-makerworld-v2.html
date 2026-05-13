@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog Popup Mockup - Makerworld Layout V2</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1119;
+    --shell: rgba(15, 22, 34, 0.96);
+    --pane: rgba(255, 255, 255, 0.03);
+    --pane-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(148, 166, 189, 0.24);
+    --line-strong: rgba(148, 166, 189, 0.42);
+    --text: #edf4ff;
+    --sub: #9fb3ce;
+    --accent: #6edacb;
+    --warn: #f0be62;
+    --danger: #f18b8b;
+    --ok: #7cd9aa;
+    --radius: 16px;
+    --pad: 12px;
+    --mockup-width: 1480px;
+    --thumb-size: 74px;
+    --shadow: 0 26px 60px rgba(0, 0, 0, 0.56);
+  }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 12% 14%, rgba(110, 218, 203, 0.18), transparent 38%),
+      radial-gradient(circle at 86% 10%, rgba(139, 174, 255, 0.16), transparent 36%),
+      var(--bg);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+  }
+
+  .head {
+    max-width: var(--mockup-width);
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .head h1 {
+    margin: 0;
+    font-size: clamp(21px, 2.2vw, 30px);
+  }
+
+  .head p {
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: var(--sub);
+    max-width: 900px;
+    line-height: 1.5;
+  }
+
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .links a {
+    text-decoration: none;
+    color: var(--sub);
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 10px;
+    background: var(--pane);
+  }
+  .links a.active {
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: var(--pane-strong);
+  }
+
+  .tweaks {
+    max-width: var(--mockup-width);
+    margin: 0 auto 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--pane);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .control {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+  }
+
+  .control label {
+    font-size: 11px;
+    color: var(--sub);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .control input[type="range"],
+  .control input[type="color"],
+  .control select {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 8px;
+    min-height: 30px;
+  }
+
+  .control input[type="checkbox"] { accent-color: var(--accent); }
+  .control .inline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
+
+  .popup {
+    max-width: var(--mockup-width);
+    margin: 0 auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
+    background: var(--shell);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .topbar {
+    padding: 12px var(--pad);
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .title {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .title strong {
+    font-size: clamp(14px, 1.4vw, 18px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .title span {
+    font-size: 12px;
+    color: var(--sub);
+  }
+
+  .top-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+  .top-actions button {
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    border-radius: 999px;
+    font-size: 11px;
+    padding: 7px 11px;
+    cursor: pointer;
+  }
+  .top-actions button.primary {
+    border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: #d9fff8;
+  }
+  .top-actions button.warn {
+    border-color: color-mix(in srgb, var(--warn) 58%, transparent);
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+    color: #ffe9c2;
+  }
+
+  .kpi-strip {
+    padding: 8px var(--pad);
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .kpi {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 6px 9px;
+    min-width: 130px;
+  }
+
+  .kpi .v {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .kpi .l {
+    margin-top: 2px;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--sub);
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.06fr) minmax(370px, 0.94fr);
+    min-height: 560px;
+  }
+
+  .left {
+    border-right: 1px solid var(--line);
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+  }
+
+  .media-filters {
+    padding: 10px var(--pad);
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .chip.active {
+    color: #dcfffa;
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .main {
+    margin: var(--pad);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(140deg, #172339, #111826);
+  }
+
+  .main img {
+    width: 100%;
+    min-height: 390px;
+    max-height: 620px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .main .badge {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+    color: #cdfff8;
+    background: rgba(8, 18, 30, 0.86);
+    font-size: 10px;
+    padding: 4px 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .media-actions {
+    padding: 0 var(--pad) 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .media-actions button {
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--sub);
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+
+  .media-actions .warn {
+    color: #ffe6bc;
+    border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+    background: color-mix(in srgb, var(--warn) 17%, transparent);
+  }
+
+  .thumbs {
+    padding: 0 var(--pad) var(--pad);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size), 1fr));
+    gap: 7px;
+  }
+
+  .thumb {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #121b2c;
+    position: relative;
+    cursor: pointer;
+    aspect-ratio: 1;
+  }
+
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .thumb.active {
+    border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+
+  .thumb .src {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    border-radius: 999px;
+    font-size: 9px;
+    padding: 2px 6px;
+    border: 1px solid rgba(148, 166, 189, 0.6);
+    background: rgba(9, 16, 26, 0.82);
+    color: #d7e4f8;
+  }
+
+  .right {
+    padding: var(--pad);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 10px;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+    overflow: hidden;
+  }
+
+  .card .h {
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 9px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--sub);
+  }
+
+  .summary {
+    padding: 10px;
+    display: grid;
+    gap: 7px;
+  }
+
+  .summary .name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .summary .meta {
+    font-size: 12px;
+    color: var(--sub);
+    line-height: 1.5;
+  }
+
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .status span {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--sub);
+  }
+
+  .status .ok {
+    color: #d8ffe9;
+    border-color: color-mix(in srgb, var(--ok) 46%, transparent);
+    background: color-mix(in srgb, var(--ok) 16%, transparent);
+  }
+
+  .status .warn {
+    color: #ffe6be;
+    border-color: color-mix(in srgb, var(--warn) 52%, transparent);
+    background: color-mix(in srgb, var(--warn) 18%, transparent);
+  }
+
+  .meta-editor {
+    padding: 10px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .meta-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .meta-top .label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .meta-top .hint {
+    font-size: 11px;
+    color: var(--sub);
+  }
+
+  .collection-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .collection-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    background: color-mix(in srgb, var(--accent) 11%, transparent);
+    color: #d8fff8;
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .collection-chip .x {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 11px;
+    line-height: 16px;
+    text-align: center;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .collection-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tag-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .tag-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 9px;
+  }
+
+  .tag-chip .x {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 10px;
+    line-height: 14px;
+    text-align: center;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .tag-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .meta-input,
+  .meta-select {
+    min-height: 34px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    padding: 7px 10px;
+    box-sizing: border-box;
+    font-size: 12px;
+  }
+
+  .meta-btn {
+    min-height: 34px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .meta-btn.primary {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: #dcfff8;
+  }
+
+  .suggestions {
+    font-size: 11px;
+    color: var(--sub);
+    line-height: 1.4;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .field {
+    display: grid;
+    gap: 4px;
+  }
+
+  .field.full {
+    grid-column: 1 / -1;
+  }
+
+  .field label {
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--sub);
+  }
+
+  .meta-note {
+    border: 1px dashed rgba(148, 166, 189, 0.45);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--sub);
+    padding: 8px 9px;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .files { padding: 6px 8px 8px; display: grid; gap: 7px; align-content: start; }
+
+  .file {
+    border: 1px solid rgba(148, 166, 189, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.018);
+    overflow: hidden;
+  }
+
+  .file summary {
+    list-style: none;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+    padding: 8px 9px;
+  }
+
+  .file summary::-webkit-details-marker { display: none; }
+
+  .file .n { font-size: 12px; font-weight: 700; }
+  .file .s { font-size: 10px; color: var(--sub); margin-top: 2px; }
+  .file .role {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .plates {
+    border-top: 1px solid rgba(148, 166, 189, 0.2);
+    padding: 8px;
+    display: grid;
+    gap: 7px;
+  }
+
+  .plate {
+    border: 1px dashed rgba(148, 166, 189, 0.35);
+    border-radius: 8px;
+    padding: 7px;
+    font-size: 11px;
+    color: var(--sub);
+    line-height: 1.45;
+  }
+
+  .plate strong { color: var(--text); font-size: 11px; }
+
+  .plate-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .queue-pill {
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 10px;
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+  }
+
+  .queue-pill.queued {
+    color: #d7ffe8;
+    border-color: color-mix(in srgb, var(--ok) 46%, transparent);
+    background: color-mix(in srgb, var(--ok) 15%, transparent);
+  }
+
+  .queue-pill.draft {
+    color: #ffe6be;
+    border-color: color-mix(in srgb, var(--warn) 52%, transparent);
+    background: color-mix(in srgb, var(--warn) 17%, transparent);
+  }
+
+  .queue-note {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--sub);
+  }
+
+  .swatches {
+    margin-top: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
+
+  .swatch-label {
+    font-size: 10px;
+    color: var(--sub);
+    margin-left: 2px;
+  }
+
+  .plate-actions {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .plate-actions button,
+  .archive-actions button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--sub);
+    font-size: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+
+  .plate-actions button.primary,
+  .archive-actions button.primary {
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: #d9fff7;
+  }
+
+  .lower {
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.015);
+    padding: var(--pad);
+    display: block;
+  }
+
+  .tab-shell .tabs {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tab-shell .tabs button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--sub);
+    padding: 5px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tab-shell .tabs button.active {
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: #d6fff7;
+  }
+
+  .tab-shell .tabs .count {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 6px;
+    font-size: 10px;
+    color: var(--text);
+  }
+
+  .tab-shell .tabs .count.warn {
+    border-color: color-mix(in srgb, var(--warn) 52%, transparent);
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+    color: #ffe4b6;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .candidate-banner {
+    margin: 8px 10px 0;
+    border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+    background: color-mix(in srgb, var(--warn) 13%, transparent);
+    color: #ffe5ba;
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 11px;
+    display: none;
+  }
+
+  .candidate-banner.visible { display: block; }
+
+  .archive-list { padding: 9px; display: grid; gap: 7px; }
+
+  .archive-list.view-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-list.view-cards {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+  }
+
+  .archive-list.view-cards .archive {
+    grid-template-columns: 1fr;
+    align-content: start;
+    min-height: 132px;
+  }
+
+  .archive-list.view-cards .archive-actions {
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+
+  .archive-list.view-timeline {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding-left: 16px;
+    border-left: 1px dashed rgba(148, 166, 189, 0.34);
+  }
+
+  .archive-list.view-timeline .archive {
+    position: relative;
+  }
+
+  .archive-list.view-timeline .archive::before {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    left: -22px;
+    top: 13px;
+    background: color-mix(in srgb, var(--accent) 70%, #ffffff 30%);
+    border: 1px solid rgba(11, 17, 25, 0.8);
+  }
+
+  .archive-view-controls {
+    margin: 8px 10px 0;
+    border: 1px solid rgba(148, 166, 189, 0.3);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .archive-view-controls .field {
+    display: grid;
+    gap: 3px;
+  }
+
+  .archive-view-controls label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sub);
+  }
+
+  .archive-view-controls select {
+    min-height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .related-queue {
+    margin: 8px 10px 0;
+    border: 1px solid rgba(148, 166, 189, 0.3);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    display: grid;
+    gap: 7px;
+  }
+
+  .rq-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .rq-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--sub);
+  }
+
+  .rq-pill {
+    border: 1px solid rgba(148, 166, 189, 0.4);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .archive {
+    border: 1px solid rgba(148, 166, 189, 0.24);
+    border-radius: 9px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .archive .l1 { font-size: 12px; font-weight: 700; }
+  .archive .l2 { margin-top: 3px; font-size: 10px; color: var(--sub); }
+  .archive .state {
+    font-size: 10px;
+    border-radius: 999px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .archive .state.success {
+    color: #d7ffe8;
+    border-color: color-mix(in srgb, var(--ok) 46%, transparent);
+    background: color-mix(in srgb, var(--ok) 15%, transparent);
+  }
+  .archive .state.candidate {
+    color: #ffe6be;
+    border-color: color-mix(in srgb, var(--warn) 52%, transparent);
+    background: color-mix(in srgb, var(--warn) 17%, transparent);
+  }
+
+  .archive-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .archive-preview-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    overflow: hidden;
+    background: #121b2c;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .archive-preview-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .archive-list.view-cards .archive-preview-thumb {
+    width: 72px;
+    height: 72px;
+  }
+
+  .related-list, .support-list {
+    padding: 9px;
+    display: grid;
+    gap: 7px;
+  }
+
+  .related, .support {
+    border: 1px solid rgba(148, 166, 189, 0.24);
+    border-radius: 9px;
+    padding: 7px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .related strong, .support strong { font-size: 12px; }
+  .muted { color: var(--sub); }
+
+  .is-mobile .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .is-mobile .left {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  @media (max-width: 1080px) {
+    .hero { grid-template-columns: 1fr; }
+    .left { border-right: 0; border-bottom: 1px solid var(--line); }
+    .collection-controls { grid-template-columns: 1fr; }
+    .tag-controls { grid-template-columns: 1fr; }
+    .meta-grid { grid-template-columns: 1fr; }
+    .archive-view-controls { grid-template-columns: 1fr; }
+  }
+
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <h1>Model Detail Popup Mockup - Makerworld Layout V2</h1>
+    <p>Interactive layout test page for the revised popup: left media carousel with source filters, right files and plate inspector, then linked archives, related models, and supporting files.</p>
+  </div>
+  <div class="links">
+    <a href="index.html">Mockup index</a>
+    <a href="popup-model-detail.html">Current recommended</a>
+    <a href="popup-model-detail-candidate-review.html">Candidate review</a>
+    <a href="popup-model-detail-makerworld-v2.html" class="active">Makerworld v2</a>
+  </div>
+</div>
+
+<div class="tweaks">
+  <div class="control">
+    <label for="width">Popup Width</label>
+    <input id="width" type="range" min="1100" max="1720" step="10" value="1480" />
+  </div>
+  <div class="control">
+    <label for="radius">Corner Radius</label>
+    <input id="radius" type="range" min="10" max="26" step="1" value="16" />
+  </div>
+  <div class="control">
+    <label for="pad">Density (Padding)</label>
+    <input id="pad" type="range" min="8" max="18" step="1" value="12" />
+  </div>
+  <div class="control">
+    <label for="thumb">Thumb Size</label>
+    <input id="thumb" type="range" min="58" max="98" step="1" value="74" />
+  </div>
+  <div class="control">
+    <label for="accent">Accent Color</label>
+    <input id="accent" type="color" value="#6edacb" />
+  </div>
+  <div class="control">
+    <label class="inline"><input id="toggle-mobile" type="checkbox" /> Force mobile stack</label>
+    <label class="inline"><input id="toggle-candidates" type="checkbox" checked /> Show candidate indicator</label>
+  </div>
+</div>
+
+<section class="popup" id="popupRoot">
+  <div class="topbar">
+    <div class="title">
+      <strong>Echo Show 5 Minimal Case</strong>
+      <span>Creator _nesmi | Collection Household / Office | 3 printable files</span>
+    </div>
+    <div class="top-actions">
+      <button class="primary">Edit metadata</button>
+      <button class="primary">Add to queue</button>
+      <button>Open archive list</button>
+      <button class="warn">Review candidates</button>
+      <button>Open 3D viewer</button>
+      <button>Download</button>
+      <button>Close</button>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="v">91%</div><div class="l">Print success rate</div></div>
+    <div class="kpi"><div class="v">147h</div><div class="l">Total print time</div></div>
+    <div class="kpi"><div class="v">4.8 kg</div><div class="l">Filament consumed</div></div>
+    <div class="kpi"><div class="v">23</div><div class="l">Total archives</div></div>
+    <div class="kpi"><div class="v">2</div><div class="l">Candidate matches</div></div>
+  </div>
+
+  <div class="hero">
+    <div class="left">
+      <div class="media-filters" id="mediaFilters">
+        <span class="chip active" data-filter="all">All</span>
+        <span class="chip" data-filter="preview">Preview</span>
+        <span class="chip" data-filter="model-derived">Model-Derived</span>
+        <span class="chip" data-filter="assets">Assets</span>
+        <span class="chip" data-filter="uploaded">Uploaded</span>
+      </div>
+
+      <div class="main">
+        <img id="mainImage" src="https://picsum.photos/id/1015/1200/760" alt="Main preview" />
+        <span class="badge" id="mainBadge">Uploaded</span>
+      </div>
+
+      <div class="media-actions">
+        <button>Set preview</button>
+        <button class="warn">Hide image</button>
+        <button class="warn">Delete image</button>
+        <button>Fullscreen</button>
+      </div>
+
+      <div class="thumbs" id="thumbs">
+        <button class="thumb active" data-type="uploaded" data-badge="Uploaded" data-src="https://picsum.photos/id/1015/1200/760"><img src="https://picsum.photos/id/1015/190/190" alt="Thumb 1" /><span class="src">Uploaded</span></button>
+        <button class="thumb" data-type="model-derived" data-badge="Embedded 3MF" data-src="https://picsum.photos/id/1025/1200/760"><img src="https://picsum.photos/id/1025/190/190" alt="Thumb 2" /><span class="src">Embedded</span></button>
+        <button class="thumb" data-type="assets" data-badge="Asset image" data-src="https://picsum.photos/id/1040/1200/760"><img src="https://picsum.photos/id/1040/190/190" alt="Thumb 3" /><span class="src">Asset</span></button>
+        <button class="thumb" data-type="model-derived" data-badge="Derived preview" data-src="https://picsum.photos/id/1062/1200/760"><img src="https://picsum.photos/id/1062/190/190" alt="Thumb 4" /><span class="src">Derived</span></button>
+        <button class="thumb" data-type="uploaded" data-badge="Uploaded" data-src="https://picsum.photos/id/1074/1200/760"><img src="https://picsum.photos/id/1074/190/190" alt="Thumb 5" /><span class="src">Uploaded</span></button>
+        <button class="thumb" data-type="assets" data-badge="Asset image" data-src="https://picsum.photos/id/1084/1200/760"><img src="https://picsum.photos/id/1084/190/190" alt="Thumb 6" /><span class="src">Asset</span></button>
+      </div>
+    </div>
+
+    <div class="right">
+      <section class="card">
+        <div class="h">Summary</div>
+        <div class="summary">
+          <div class="name">Echo Show 5 Minimal Case</div>
+          <div class="meta">Tags: echo, alexa, desk, enclosure | Collections: Household, Office | Difficulty: Easy | Support hint: minimal tree</div>
+          <div class="status">
+            <span class="ok">Linked archives: 6</span>
+            <span class="warn">Potential matches: 2</span>
+            <span>Related models: 4</span>
+            <span>Supporting files: 5</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="h">Edit Metadata</div>
+        <div class="meta-editor">
+          <div class="meta-top">
+            <div class="label">Collection Membership</div>
+            <div class="hint">Editable multi-select</div>
+          </div>
+
+          <div class="collection-chips">
+            <span class="collection-chip">Storage / Gridfinity <button class="x" title="Remove">x</button></span>
+            <span class="collection-chip">Functional / Hardware Bins <button class="x" title="Remove">x</button></span>
+            <span class="collection-chip">Print Farm Favorites <button class="x" title="Remove">x</button></span>
+          </div>
+
+          <div class="collection-controls">
+            <input class="meta-input" value="gridfin" aria-label="Add collection" />
+            <button class="meta-btn">Pick ▾</button>
+            <button class="meta-btn primary">Create</button>
+          </div>
+
+          <div class="tag-top">
+            <div class="label">Tags</div>
+            <div class="hint">Editable chips + typeahead</div>
+          </div>
+
+          <div class="tag-chips">
+            <span class="tag-chip">echo <button class="x" title="Remove tag">x</button></span>
+            <span class="tag-chip">alexa <button class="x" title="Remove tag">x</button></span>
+            <span class="tag-chip">desk <button class="x" title="Remove tag">x</button></span>
+            <span class="tag-chip">enclosure <button class="x" title="Remove tag">x</button></span>
+          </div>
+
+          <div class="tag-controls">
+            <input class="meta-input" value="gridfinity" aria-label="Add tag" />
+            <button class="meta-btn">Add Tag</button>
+          </div>
+
+          <div class="suggestions">Suggestions: Storage / Gridfinity Drawers · Functional / Organizers · Workshop / Screws</div>
+
+          <div class="meta-grid">
+            <div class="field">
+              <label>Source System</label>
+              <select class="meta-select">
+                <option>Manyfold</option>
+                <option>Local</option>
+                <option>Makerworld</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Source Model Id</label>
+              <input class="meta-input" value="mf-echo-show5-min-case" />
+            </div>
+            <div class="field full">
+              <label>Source Url</label>
+              <input class="meta-input" value="https://manyfold.local/models/echo-show-5-minimal-case" />
+            </div>
+            <div class="field full">
+              <label>Published Url</label>
+              <input class="meta-input" value="https://makerworld.com/en/models/echo-show-5-minimal-case" />
+            </div>
+            <div class="field">
+              <label>Published Location</label>
+              <input class="meta-input" value="Makerworld / Office Collection" />
+            </div>
+            <div class="field">
+              <label>Published Status</label>
+              <select class="meta-select">
+                <option>Published</option>
+                <option>Draft</option>
+                <option>Private</option>
+                <option>Archived</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="meta-note"><strong>Empty-state:</strong> if memberships are empty, show status text <em>No Collection</em> while keeping add-collection controls enabled.</div>
+        </div>
+      </section>
+
+      <section class="card tab-shell">
+        <div class="h">Model Data Panels</div>
+        <div class="tabs">
+          <button class="active" data-tab="panel-files">Model Files <span class="count">3</span></button>
+          <button data-tab="panel-archives">Related Archives <span class="count">6</span><span class="count warn">2</span></button>
+          <button data-tab="panel-queue">Queue / Prints <span class="count">2</span></button>
+          <button data-tab="panel-related">Related Models <span class="count">4</span></button>
+          <button data-tab="panel-support">Supporting Files <span class="count">5</span></button>
+        </div>
+
+        <div class="tab-panel active" id="panel-files">
+          <div class="files">
+            <details class="file" open>
+              <summary>
+                <div>
+                  <div class="n">EchoShow5.3mf</div>
+                  <div class="s">23.4 MB | 1 print profile | 2 plates</div>
+                </div>
+                <span class="role">Primary</span>
+              </summary>
+              <div class="plates">
+                <div class="plate"><div class="plate-top"><strong>Plate 1</strong><span class="queue-pill queued">Queued #842</span></div>body shell, front bezel<br />4h 12m estimate
+                  <div class="queue-note">Queued for tonight on P1S, matte white profile.</div>
+                  <div class="swatches">
+                    <span class="swatch" style="background:#f5f5f5"></span>
+                    <span class="swatch" style="background:#2d2d2d"></span>
+                    <span class="swatch" style="background:#7fb3ff"></span>
+                    <span class="swatch-label">3 colors</span>
+                  </div>
+                  <div class="plate-actions">
+                    <button class="primary">Preview plate</button>
+                    <button>Queue plate</button>
+                  </div>
+                </div>
+                <div class="plate"><div class="plate-top"><strong>Plate 2</strong><span class="queue-pill">Not queued</span></div>rear shell, cable clip<br />1h 18m estimate
+                  <div class="queue-note">Available to queue. No active queue item.</div>
+                  <div class="swatches">
+                    <span class="swatch" style="background:#c7c7c7"></span>
+                    <span class="swatch" style="background:#3c3f44"></span>
+                    <span class="swatch-label">2 colors</span>
+                  </div>
+                  <div class="plate-actions">
+                    <button class="primary">Preview plate</button>
+                    <button>Queue plate</button>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <div>
+                  <div class="n">EchoStandVariant.3mf</div>
+                  <div class="s">18.8 MB | 1 print profile | 1 plate</div>
+                </div>
+                <span class="role">Variant</span>
+              </summary>
+              <div class="plates">
+                <div class="plate"><div class="plate-top"><strong>Plate 1</strong><span class="queue-pill draft">Draft intent</span></div>angled stand body<br />3h 26m estimate
+                  <div class="queue-note">Draft print intent exists; tray assignment pending.</div>
+                  <div class="swatches">
+                    <span class="swatch" style="background:#f0f0f0"></span>
+                    <span class="swatch" style="background:#7a7a7a"></span>
+                    <span class="swatch" style="background:#98d57a"></span>
+                    <span class="swatch-label">3 colors</span>
+                  </div>
+                  <div class="plate-actions">
+                    <button class="primary">Preview plate</button>
+                    <button>Queue plate</button>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <div>
+                  <div class="n">EchoShow5.step</div>
+                  <div class="s">6.3 MB | Reference CAD</div>
+                </div>
+                <span class="role">Reference</span>
+              </summary>
+              <div class="plates">
+                <div class="plate"><strong>Reference only</strong><br />No plate data. Open in CAD viewer.</div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-archives">
+          <div class="candidate-banner visible" id="candidateBanner">2 potential history matches need review before auto-link confidence is finalized.</div>
+          <div class="archive-view-controls">
+            <div class="field">
+              <label>Grouped By</label>
+              <select>
+                <option>Plate</option>
+                <option>Date</option>
+                <option>Outcome</option>
+                <option>Printer</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Ordered By</label>
+              <select>
+                <option>Newest First</option>
+                <option>Oldest First</option>
+                <option>Duration</option>
+                <option>Confidence</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>View</label>
+              <select id="archiveViewMode">
+                <option value="compact" selected>Compact Rows</option>
+                <option value="cards">Mini Cards</option>
+                <option value="timeline">Plate Timeline</option>
+              </select>
+            </div>
+          </div>
+          <div class="archive-list view-compact" id="archiveList">
+            <article class="archive">
+              <div>
+                <div class="l1">2026-05-01 | Echo Show 5 Minimal Case</div>
+                <div class="l2">P1S | PLA Matte White | 4h 12m | archive_6014</div>
+                <div class="swatches">
+                  <span class="swatch" style="background:#f8f8f8"></span>
+                  <span class="swatch" style="background:#2f2f33"></span>
+                  <span class="swatch" style="background:#68a0ff"></span>
+                  <span class="swatch-label">Plate 1</span>
+                </div>
+              </div>
+              <div class="archive-actions">
+                <span class="state success">Linked</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview" title="Open archive preview">
+                  <img src="https://picsum.photos/id/1025/120/120" alt="Archive preview" />
+                </button>
+              </div>
+            </article>
+            <article class="archive">
+              <div>
+                <div class="l1">2026-04-16 | Echo Show 5 Minimal Case</div>
+                <div class="l2">X1C | PETG Black | 5h 03m | archive_5892</div>
+                <div class="swatches">
+                  <span class="swatch" style="background:#2b2b2e"></span>
+                  <span class="swatch" style="background:#6f757f"></span>
+                  <span class="swatch-label">Plate 2</span>
+                </div>
+              </div>
+              <div class="archive-actions">
+                <span class="state success">Linked</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview" title="Open archive preview">
+                  <img src="https://picsum.photos/id/1062/120/120" alt="Archive preview" />
+                </button>
+              </div>
+            </article>
+            <article class="archive">
+              <div>
+                <div class="l1">2026-04-13 | EchoShow5-Desk_v3</div>
+                <div class="l2">P1S | PLA Matte Gray | 3h 58m | archive_5871</div>
+                <div class="swatches">
+                  <span class="swatch" style="background:#c8c8c8"></span>
+                  <span class="swatch" style="background:#5d6167"></span>
+                  <span class="swatch" style="background:#9ad578"></span>
+                  <span class="swatch-label">Candidate</span>
+                </div>
+              </div>
+              <div class="archive-actions">
+                <span class="state candidate">Candidate</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview" title="Open archive preview">
+                  <img src="https://picsum.photos/id/1040/120/120" alt="Archive preview" />
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-queue">
+          <div class="related-queue">
+            <div class="rq-title">Related Queue / Related Prints</div>
+            <div class="rq-row">
+              <span>Queue item: EchoShow5.3mf - Plate 1 queued for tonight</span>
+              <span class="rq-pill">Queue #842</span>
+            </div>
+            <div class="rq-row">
+              <span>Related print intent: EchoStandVariant.3mf draft pending tray assignment</span>
+              <span class="rq-pill">Draft</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-related">
+          <div class="related-list">
+            <article class="related"><strong>Echo Show 8 Stand</strong><br /><span class="muted">same collection | similarity 0.89</span></article>
+            <article class="related"><strong>Nest Hub Shelf Mount</strong><br /><span class="muted">similar tags | similarity 0.74</span></article>
+            <article class="related"><strong>Echo Show Cable Clip Set</strong><br /><span class="muted">lineage relation | similarity 0.71</span></article>
+            <article class="related"><strong>Echo Show Wall Dock</strong><br /><span class="muted">shared filename lineage | similarity 0.69</span></article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-support">
+          <div class="support-list">
+            <article class="support"><strong>README.md</strong><br /><span class="muted">assembly instructions</span></article>
+            <article class="support"><strong>bom.csv</strong><br /><span class="muted">bill of materials</span></article>
+            <article class="support"><strong>dimensions.pdf</strong><br /><span class="muted">measurement reference</span></article>
+            <article class="support"><strong>materials-notes.txt</strong><br /><span class="muted">material substitutions and notes</span></article>
+            <article class="support"><strong>mounting-template.svg</strong><br /><span class="muted">wall drill template</span></article>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var popupRoot = document.getElementById("popupRoot");
+    var width = document.getElementById("width");
+    var radius = document.getElementById("radius");
+    var pad = document.getElementById("pad");
+    var thumb = document.getElementById("thumb");
+    var accent = document.getElementById("accent");
+    var toggleMobile = document.getElementById("toggle-mobile");
+    var toggleCandidates = document.getElementById("toggle-candidates");
+    var candidateBanner = document.getElementById("candidateBanner");
+
+    function applyVars() {
+      document.documentElement.style.setProperty("--mockup-width", width.value + "px");
+      document.documentElement.style.setProperty("--radius", radius.value + "px");
+      document.documentElement.style.setProperty("--pad", pad.value + "px");
+      document.documentElement.style.setProperty("--thumb-size", thumb.value + "px");
+      document.documentElement.style.setProperty("--accent", accent.value);
+
+      if (toggleMobile.checked) {
+        popupRoot.classList.add("is-mobile");
+      } else {
+        popupRoot.classList.remove("is-mobile");
+      }
+
+      candidateBanner.classList.toggle("visible", toggleCandidates.checked);
+    }
+
+    [width, radius, pad, thumb, accent, toggleMobile, toggleCandidates].forEach(function (node) {
+      node.addEventListener("input", applyVars);
+      node.addEventListener("change", applyVars);
+    });
+
+    var mainImage = document.getElementById("mainImage");
+    var mainBadge = document.getElementById("mainBadge");
+    var thumbsWrap = document.getElementById("thumbs");
+    var filterWrap = document.getElementById("mediaFilters");
+    var tabButtons = popupRoot.querySelectorAll(".tab-shell .tabs button[data-tab]");
+    var tabPanels = popupRoot.querySelectorAll(".tab-panel");
+    var archiveViewMode = document.getElementById("archiveViewMode");
+    var archiveList = document.getElementById("archiveList");
+
+    function setActiveThumb(target) {
+      var items = thumbsWrap.querySelectorAll(".thumb");
+      items.forEach(function (thumbItem) {
+        thumbItem.classList.toggle("active", thumbItem === target);
+      });
+      mainImage.src = target.getAttribute("data-src") || "";
+      mainBadge.textContent = target.getAttribute("data-badge") || "Image";
+    }
+
+    thumbsWrap.addEventListener("click", function (event) {
+      var thumbItem = event.target.closest(".thumb");
+      if (!thumbItem) {
+        return;
+      }
+      setActiveThumb(thumbItem);
+    });
+
+    function applyFilter(filterName) {
+      var items = thumbsWrap.querySelectorAll(".thumb");
+      var firstVisible = null;
+      items.forEach(function (thumbItem) {
+        var type = thumbItem.getAttribute("data-type");
+        var isPreview = thumbItem.classList.contains("active");
+        var visible = false;
+        if (filterName === "all") {
+          visible = true;
+        } else if (filterName === "preview") {
+          visible = isPreview;
+        } else {
+          visible = type === filterName;
+        }
+        thumbItem.style.display = visible ? "block" : "none";
+        if (!firstVisible && visible) {
+          firstVisible = thumbItem;
+        }
+      });
+      if (firstVisible) {
+        setActiveThumb(firstVisible);
+      }
+    }
+
+    filterWrap.addEventListener("click", function (event) {
+      var chip = event.target.closest(".chip");
+      if (!chip) {
+        return;
+      }
+      var name = chip.getAttribute("data-filter");
+      filterWrap.querySelectorAll(".chip").forEach(function (item) {
+        item.classList.toggle("active", item === chip);
+      });
+      applyFilter(name);
+    });
+
+    tabButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var targetId = button.getAttribute("data-tab");
+        tabButtons.forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        tabPanels.forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === targetId);
+        });
+      });
+    });
+
+    function applyArchiveView() {
+      if (!archiveList || !archiveViewMode) {
+        return;
+      }
+
+      archiveList.classList.remove("view-compact", "view-cards", "view-timeline");
+
+      var selectedMode = archiveViewMode.value;
+      if (selectedMode === "cards") {
+        archiveList.classList.add("view-cards");
+      } else if (selectedMode === "timeline") {
+        archiveList.classList.add("view-timeline");
+      } else {
+        archiveList.classList.add("view-compact");
+      }
+    }
+
+    if (archiveViewMode) {
+      archiveViewMode.addEventListener("change", applyArchiveView);
+    }
+
+    popupRoot.addEventListener("click", function (event) {
+      var previewButton = event.target.closest(".archive-preview-thumb");
+      if (!previewButton) {
+        return;
+      }
+      window.alert("Mockup action: would open the Print History archive popup preview.");
+    });
+
+    applyVars();
+    applyArchiveView();
+  })();
+</script>
+
+</body>
+</html>

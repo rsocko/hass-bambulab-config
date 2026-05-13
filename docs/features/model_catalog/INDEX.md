@@ -71,6 +71,7 @@
 - **[Phase 3.3 Issue Template](./.github/ISSUE_TEMPLATE/phase-3-3-implementation.md)**
 
 ### 🎨 Design & Reference
+- **[Model Detail Popup Redesign (2026-05)](model-detail-popup-redesign-2026-05.md)** ← Makerworld-inspired popup redesign with carousel, file/plate inspector, candidate-match review, related models, and supporting files
 - **[Phase 3 Design Document](phase-3-detail-view-design.md)** ← UI/UX specifications
 - **[3MF Embedded Thumbnail Display Design](3mf-embedded-thumbnail-display-design.md)** ← Automatic `.3mf` thumbnail behavior for cards and popup media
 - **[Cache Roadmap And Invalidation Design](planning/cache-roadmap-and-invalidation-design.md)** ← Incremental cache plan (no-Redis first, Redis decision gates)
