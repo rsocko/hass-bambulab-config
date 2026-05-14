@@ -276,7 +276,7 @@
   <a href="#m2">2. Catalog — Frequents rail detail</a>
   <a href="#m3">3. Catalog — Project view</a>
   <a href="#m4">4. Popup — Hero + chips + actions</a>
-  <a href="#m5">5. Popup — Publication & Sharing</a>
+  <a href="#m5">5. Popup — Contribution lifecycle (US-2a, downloaded models)</a>
   <a href="#m6">6. Popup — Recover Print History wizard</a>
   <a href="#m7">7. Queue — Extended state machine + Someday</a>
   <a href="#m8">8. Add-to-Queue dialog (Quick / Plan)</a>
@@ -288,6 +288,7 @@
   <a href="#m14">14. Idea popup — promote to Model or Working Group (US-9)</a>
   <a href="#m15">15. Project popup — Tasks panel (US-11)</a>
   <a href="#m16">16. Model BOM panel + Project BOM roll-up (US-12)</a>
+  <a href="#m17">17. Popup — Publication pipeline (US-2b, originals & remixes)</a>
 </nav>
 
 <!-- 1. Catalog default landing -->
@@ -563,13 +564,13 @@
   </div>
 </section>
 
-<!-- 5. Publication panel -->
+<!-- 5. Contribution lifecycle panel (US-2a) -->
 <section class="mock" id="m5">
-  <h2>5. Popup — Publication & Sharing panel (NEW)</h2>
-  <p class="desc">Covers the Makerworld lifecycle (US-2). Rolls up issues #989 and #1326. Auto-derives "downloaded", "printed", and "photos captured" from existing data; the operator only confirms the intent steps (rated, boosted, photos shared).</p>
+  <h2>5. Popup — Contribution lifecycle panel (US-2a, downloaded models)</h2>
+  <p class="desc">Shown only when <code>publication.source ≠ original</code>. Covers the give-back-to-the-community side (US-2a). Rolls up <a href="https://github.com/rsocko/hass-bambulab-config/issues/989">#989</a>. Auto-derives "downloaded", "printed", and "photos captured" from existing data; the operator only confirms the intent steps (rated, boosted, photos shared).</p>
   <div class="popup" style="max-width:560px">
     <div class="popup-head" style="border:none">
-      <h2 style="font-size:14px;margin:0">Publication & Sharing</h2>
+      <h2 style="font-size:14px;margin:0">Contribution lifecycle (this listing)</h2>
     </div>
     <div style="padding:14px">
       <div class="row"><span class="k">Source</span><span>Makerworld <a href="#" style="color:var(--accent)">↗ open</a></span></div>
@@ -577,7 +578,7 @@
       <div class="row"><span class="k">License</span><span>CC-BY</span></div>
       <div class="row"><span class="k">My status</span><span><span class="pill warn">Needs photos shared</span> <span class="pill warn">Unrated</span></span></div>
 
-      <h3 style="margin-top:14px;font-size:12px;text-transform:uppercase;color:var(--muted)">Lifecycle (mine)</h3>
+      <h3 style="margin-top:14px;font-size:12px;text-transform:uppercase;color:var(--muted)">Give back</h3>
       <div class="checklist">
         <div class="ck done"><span class="box"></span><span class="text">Downloaded</span><span class="meta">auto · 2026-04-09</span></div>
         <div class="ck done"><span class="box"></span><span class="text">Printed</span><span class="meta">auto · 12 archives</span></div>
@@ -586,7 +587,7 @@
         <div class="ck done"><span class="box"></span><span class="text">Photos captured</span><span class="meta">derived · 3 photos</span></div>
         <div class="ck todo"><span class="box"></span><span class="text">Photos shared on Makerworld</span><span class="act"><button class="btn">Mark shared</button> <button class="btn ghost">Open ↗</button></span></div>
       </div>
-      <p class="legend" style="margin-top:10px">"Photos captured" is derived from existing print-history media, never stored. All other lifecycle marks are stored as nullable timestamps and surface in Catalog filters.</p>
+      <p class="legend" style="margin-top:10px">"Photos captured" is derived from existing print-history media, never stored. Other lifecycle marks are stored as nullable timestamps under <code>publication.contribution.*</code> and surface in Catalog filters (<code>Needs rating</code> / <code>Needs photos shared</code> / <code>Needs boost</code>).</p>
     </div>
   </div>
 </section>
@@ -979,6 +980,49 @@
       </div>
       <div class="panel" style="margin-top:10px;border-color:var(--accent)">
         <div class="row"><div>💡 <b>Generate shopping tasks</b> will create one task per <code>needed</code> line in this Project's task backend (<b>GitHub Issues · milestone garage-reorg</b>). Acquisition checkboxes do not auto-write tasks.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 17. Publication pipeline (US-2b) -->
+<section class="mock" id="m17">
+  <h2>17. Popup — Publication pipeline panel (US-2b, originals & remixes)</h2>
+  <p class="desc">Shown when <code>publication.source = original</code> or <code>publication.draft.state ≠ none</code>. Distinct from US-2a's contribution checklist — this is the prep pipeline for things you intend to <em>publish outward</em>. Rolls up <a href="https://github.com/rsocko/hass-bambulab-config/issues/1326">#1326</a>. Bridges to US-11 task backend via the <code>Generate publish-prep tasks</code> button (parallel to US-12's <code>Generate shopping tasks</code>). Hero pill <code>Draft for MW · in prep</code> is the only Catalog-grid signal — no new entity_type or card pill.</p>
+  <div class="popup" style="max-width:620px">
+    <div class="popup-head" style="border:none">
+      <h2 style="font-size:14px;margin:0">Publication pipeline (my draft)</h2>
+      <span class="pill warn" style="margin-left:auto">In prep</span>
+    </div>
+    <div style="padding:14px">
+      <div class="row"><span class="k">Target</span><span>Makerworld ▾</span></div>
+      <div class="row"><span class="k">Intended license</span><span>CC-BY ▾</span></div>
+      <div class="row"><span class="k">State</span><span><span class="pill">In prep</span> → <span class="pill ghost">Submitted</span> → <span class="pill ghost">Published</span></span></div>
+      <div class="row"><span class="k">Listing URL</span><span style="color:var(--muted)">(set on “Mark published”)</span></div>
+
+      <h3 style="margin-top:14px;font-size:12px;text-transform:uppercase;color:var(--muted)">Pre-flight checklist</h3>
+      <div class="checklist">
+        <div class="ck done"><span class="box"></span><span class="text">Cover photo selected</span><span class="meta">2026-05-10</span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Gallery (≥ 3 photos)</span><span class="act"><button class="btn">Pick from prints</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Description.md written</span><span class="act"><button class="btn">Open editor</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">License chosen</span><span class="act"><button class="btn">Pick license</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Category + tags set</span><span class="act"><button class="btn">Edit</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Final 3MF cleaned (no test plates, no scaffolding)</span><span class="act"><button class="btn">Open in Slicer</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Derivative source linked <span class="meta">(remix only)</span></span><span class="act"><button class="btn">Paste parent URL</button></span></div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn primary">⬆ Generate publish-prep tasks</button>
+        <button class="btn">Mark submitted</button>
+        <button class="btn">Mark published …</button>
+        <button class="btn ghost">Withdraw draft</button>
+      </div>
+      <p class="legend" style="margin-top:10px"><strong>Generate publish-prep tasks</strong> writes one task per unchecked item to the Project's <code>task_backend</code> (US-11). Disabled with tooltip “Pick a task backend first” when no backend is configured.</p>
+
+      <div style="margin-top:14px;padding:10px;border:1px dashed var(--border);border-radius:6px;background:rgba(255,255,255,0.02)">
+        <strong style="font-size:12px">Derived from</strong> <span style="color:var(--muted);font-size:12px">(this entry is a remix)</span><br>
+        <a href="#" style="color:var(--accent);font-size:13px">Spool Holder v3 by _nesmi (Makerworld) ↗</a>
+        <div style="margin-top:6px;font-size:12px;color:var(--muted)">Parent is also in your catalog → <a href="#m5" style="color:var(--accent)">jump to its Contribution lifecycle panel</a> to rate / boost / share photos in one click.</div>
       </div>
     </div>
   </div>

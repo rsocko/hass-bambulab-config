@@ -18,7 +18,8 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | # | Story (verbatim from request) | Primary surface |
 |---|---|---|
 | US-1 | Quickly find models I frequently print (swatches, spool containers, general repeats), then **open / open in Slicer / print / link archive back** | Catalog page (Frequents rail, search/sort) + popup (file actions) |
-| US-2 | Track Makerworld download lifecycle — rated, boosted, photos captured, photos shared | Popup (new "Publication" panel) + Catalog filter |
+| US-2a | **Contribute back** on community-sourced models I downloaded from Makerworld / Printables / etc. — track whether I've rated, boosted, captured photos from my prints, shared those photos | Popup (new "Contribution lifecycle" panel on downloaded models) + Catalog filter |
+| US-2b | **Publish my own** originals / remixes outward to Makerworld / Printables / etc. — track the prep pipeline (clean model, capture cover photo + gallery, write description, choose license, submit, mark published) as a draft with state | Popup (new "Publication pipeline" panel on originals/remixes) + Catalog filter + optional bridge to US-11 task backend |
 | US-3 | Catalog **future prints** as Projects / Collections (multi-membership), and decide what flows to the Queue vs. stays in Catalog | Catalog (Projects panel) + Queue (new `someday` state) |
 | US-4 | Backfill historical print records for things printed before Bambuddy | Popup (new "Recover History" action) + existing forensics tools |
 | US-5 | Add prints to the Queue and track work (print → assemble → done) | Catalog quick-add + popup; Queue states extended |
@@ -39,7 +40,8 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | Story | What ships today | What is designed-only | What is missing |
 |---|---|---|---|
 | **US-1 Frequents** | Catalog grid, popup with archive link count and `last_printed`, Phase 3 popup shipped | Phase 6 ranking signals (popularity, recency, success-rate); typed query language; saved searches | No "Frequents" / "Favorites" rail, no top-of-page surfacing of repeat prints, no one-click "Open in Slicer" from card |
-| **US-2 Makerworld lifecycle** | Source URL captured on intake | Phase 6 enrichment of Makerworld metadata (creator, license, rating) | No operator-visible publication state, no "rated?", "boosted?", "photos captured?", "photos shared?" tracking |
+| **US-2a Contribution lifecycle** (downloaded models) | Source URL captured on intake | Phase 6 enrichment of remote metadata (creator, license, rating) | No operator-visible "rated?", "boosted?", "photos captured?", "photos shared?" tracking on downloaded models |
+| **US-2b Publication pipeline** (originals/remixes) | Nothing — no concept of "a model I intend to publish" | None | No draft state machine, no prep checklist (cover photo / gallery / description / license / category / tags), no "submitted"/"published" lifecycle, no link from a remix back to its parent listing |
 | **US-3 Projects / Collections** | Collections data exists; Projects entity in sidecar metadata | `projects-design.md`, multi-collection membership, working-group↔project linkage; #1373 ontology question | No "Create / browse / manage Project" UI; Catalog cannot pivot by Project; ontology (Projects vs Collections vs Categories vs Tags) not finalized |
 | **US-4 Historical backfill** | Forensics CLI tools (`gcode_forensics_viewer.py`, `folder_3mf_catalog_viewer.py`) | `historical-print-backfill-via-model-catalog.md` end-to-end flow | No popup entry point; no "Recover Print History" action; no candidate review UI surfaced from Catalog |
 | **US-5 Add to Queue** | Quick Add from card; unified queue state machine (`idea→backlog→ready→started→done/blocked`) shipped | Plate-level queue tracking; auto-complete on archive match | No `someday` semantics; re-add-to-queue behavior unclear ([#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)); add-to-queue UX inconsistent across card/popup/queue editor ([#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)) |
@@ -167,23 +169,25 @@ Left rail (collapsible)        Main content
 
 **Linking print history back to model** (covered today by archive linkage flow but not visible enough): show on the Frequents card the count + a tiny `↪ History` glyph that opens the popup at the History tab.
 
-### US-2: Makerworld lifecycle panel (NEW)
+### US-2a: Contribution lifecycle panel — for downloaded models (NEW)
 
-Add a **Publication panel** in the popup (right column, below file inspector):
+For models whose `publication.source ∈ {makerworld, printables, thingiverse, other}` (i.e., somebody else's listing that I downloaded), add a **Contribution lifecycle** panel in the popup (right column, below file inspector):
 
 ```
-┌─ Publication & Sharing ───────────────────────────────────┐
+┌─ Contribution lifecycle (this listing) ──────────────────┐
 │ Source:   Makerworld     [Open ↗]                         │
 │ Creator:  _nesmi                                           │
 │ License:  CC-BY                                            │
 │                                                            │
-│ Lifecycle (mine):                                          │
-│   ☐ Downloaded ✓  (auto)                                   │
-│   ☐ Printed     ✓  (auto, from 6 archives)                 │
-│   ☐ Rated on Makerworld          [Mark rated] [Open MW]    │
+│ My status:  [Needs photos shared] [Unrated]                │
+│                                                            │
+│ Give back:                                                 │
+│   ☑ Downloaded         (auto · 2026-04-09)                 │
+│   ☑ Printed            (auto · 12 archives)                │
+│   ☐ Rated on Makerworld          [Mark rated] [Open ↗]    │
 │   ☐ Boosted                       [Mark boosted]            │
-│   ☐ Photos captured  (3 print photos detected)              │
-│   ☐ Photos shared on Makerworld  [Mark shared] [Open MW]   │
+│   ☑ Photos captured    (derived · 3 photos)                │
+│   ☐ Photos shared on Makerworld  [Mark shared] [Open ↗]   │
 │                                                            │
 │ Shortcut: open MW page · open my profile · open boosts     │
 └────────────────────────────────────────────────────────────┘
@@ -191,16 +195,59 @@ Add a **Publication panel** in the popup (right column, below file inspector):
 
 **Data model additions** (sidecar):
 - `publication.source` enum (`makerworld` | `printables` | `thingiverse` | `original` | `other`)
-- `publication.lifecycle.rated_at` (nullable timestamp)
-- `publication.lifecycle.boosted_at` (nullable timestamp)
-- `publication.lifecycle.photos_shared_at` (nullable timestamp)
-- `publication.lifecycle.last_reminded_at` (for nudge logic)
+- `publication.contribution.rated_at` (nullable timestamp)
+- `publication.contribution.boosted_at` (nullable timestamp)
+- `publication.contribution.photos_shared_at` (nullable timestamp)
+- `publication.contribution.last_reminded_at` (for nudge logic)
 
 `photos_captured` is **derived** from existing print-history media presence, not a stored toggle.
 
-**Catalog filter**: `Lifecycle: Needs rating`, `Needs photos`, `Needs sharing`, `Original / mine` — drives the dashboard "what should I take care of" rail.
+**Catalog filter**: `Contribution: Needs rating`, `Needs photos shared`, `Needs boost` — drives the dashboard "what should I give back on" rail.
 
-This **rolls up [#989](https://github.com/rsocko/hass-bambulab-config/issues/989) and [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326)** into one coherent panel.
+This **rolls up [#989](https://github.com/rsocko/hass-bambulab-config/issues/989)** into a single coherent panel for the downloaded-model side of the workflow.
+
+### US-2b: Publication pipeline panel — for originals & remixes I'll publish (NEW)
+
+For models where the operator intends to publish outward (`publication.source = original` or any model with `publication.draft.state ≠ none`), add a **Publication pipeline** panel — a prep workflow distinct from the contribution checklist above.
+
+```
+┌─ Publication pipeline (my draft) ────────────────────────┐
+│ Target:  Makerworld   ▾   License: CC-BY ▾                │
+│ State:   ● In prep    →  Submitted  →  Published          │
+│ Listing URL:  (set on "Mark published")                   │
+│                                                            │
+│ Pre-flight checklist:                                      │
+│   ☑ Cover photo selected                                   │
+│   ☐ Gallery (≥ 3 photos)        [Pick from prints]        │
+│   ☐ Description.md written       [Open editor]             │
+│   ☐ License chosen                                         │
+│   ☐ Category + tags set                                    │
+│   ☐ Final 3MF cleaned (no test-print plates, no scaffolding)│
+│   ☐ Derivative source linked     (only for remixes)        │
+│                                                            │
+│ [⬆ Generate publish-prep tasks]   [Mark submitted]         │
+│ [Mark published & paste URL…]                              │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Data model additions** (sidecar, separate namespace from `contribution.*` to avoid collision):
+- `publication.draft.state` enum (`none | in_prep | submitted | published | withdrawn`, default `none`)
+- `publication.draft.target` enum (`makerworld | printables | thingiverse | other`)
+- `publication.draft.intended_license` enum
+- `publication.draft.checklist` JSON of nullable timestamps per item (`cover_photo_at`, `gallery_at`, `description_at`, `license_at`, `category_tags_at`, `cleaned_at`, `derivative_source_at`)
+- `publication.draft.submitted_at` / `published_at` / `withdrawn_at` (nullable timestamps)
+- `publication.draft.published_url` (set when state → `published`; this then becomes the listing the contribution panel can target if/when others fork it)
+- `publication.draft.derived_from_url` (for remixes; the parent listing — links to a contribution-lifecycle panel on the parent if it's also in this catalog)
+
+**Bridge to US-11 (per Q1 → option c — both):** the panel always shows the inline checklist for at-a-glance state. A **`Generate publish-prep tasks`** button (parallel to US-12's `Generate shopping tasks`) writes one task per unchecked checklist item into the Project's `task_backend` (or, if the model isn't in any Project with a backend, falls back to the Model's own `publication.draft.task_backend` setting; defaults to disabled with tooltip "Pick a task backend first").
+
+**Catalog filter**: `Publishing: In prep`, `Submitted`, `Published`, `Originals only` — surfaces the publish queue separately from the contribution queue.
+
+**Remix handling (per Q3 → both panels visible on the remix):** a remix is its own Catalog entry. Its popup shows **both** the Publication pipeline panel (for the operator's own publish work) **and** a compact "Derived from" banner that deep-links to the parent's Contribution lifecycle panel (if the parent is also in the catalog) so the operator can rate/boost/share-photos on the parent in one click.
+
+**Visibility (per Q2 → no new card pill):** no new entity_type / card pill is added. The publish workflow is conveyed by the workflow-state hero pill (`Draft for MW · in prep`) and by the Catalog filter chips, not by a separate entity classification. Keeps the grid visually quiet for operators who never publish.
+
+This **rolls up [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326)** and complements US-2a — the two panels are mutually exclusive in spirit (one is consumer→community, the other is creator→community) but can coexist on a single remix entry.
 
 ### US-3: Projects & Collections as first-class
 
@@ -451,11 +498,12 @@ The 2026-05 popup redesign already establishes the hero/carousel/files split. Th
 
 1. **Hero status pills row** (under title): `★ Favorite` · `Frequent (12 prints / 90d)` · `In 2 Projects` · `In Queue` · `Needs photos shared`
 2. **Membership chips** under hero: Projects, Collections, Categories, Tags as chip groups (all clickable to pivot the Catalog page).
-3. **Publication & Sharing panel** (US-2; right column under file inspector).
+3. **Contribution lifecycle panel** (US-2a; right column under file inspector — visible when `publication.source ≠ original`).
+3a. **Publication pipeline panel** (US-2b; right column under file inspector — visible when `publication.source = original` or `publication.draft.state ≠ none`; can coexist with US-2a panel on remix entries via the `Derived from` deep-link).
 4. **Recover Print History** in overflow menu (US-4).
 5. **Add-to-Queue dialog** (US-5) replaces the existing inline queue button with the unified Quick/Plan dialog.
 
-Visual mockup: see [design/mockups/catalog-redesign-mockups.html](design/mockups/catalog-redesign-mockups.html) (sections "Popup — Hero", "Popup — Publication", "Popup — Recover History").
+Visual mockup: see [design/mockups/catalog-redesign-mockups.html](design/mockups/catalog-redesign-mockups.html) (sections "Popup — Hero", "Popup — Contribution lifecycle" (#m5), "Popup — Publication pipeline" (#m17), "Popup — Recover History").
 
 ---
 
@@ -490,13 +538,14 @@ Key visible elements:
 2. **Add-to-Queue dialog unification + `someday` state** (US-5) — backend state addition is small.
 3. **Catalog visibility / Archived** (US-8) — 1 model field + 1 default filter + 1 toolbar chip; tiny scope, high quality-of-life.
 4. **Entity types: Ideas + Working Groups** (US-9, US-10) — 1 enum field + 2 toolbar chips + 2 promote actions; lands the membership plumbing once for the Project & BOM work that follows.
-5. **Publication panel + Lifecycle filters** (US-2) — adds a few model fields and a filter.
+5. **Contribution lifecycle panel** (US-2a) — adds a few `publication.contribution.*` fields and one filter; tiny scope.
 6. **Projects UI** (US-3) — biggest scope; needs CRUD, left rail, project view.
 7. **Project tasks (US-11)** — per-Project `task_backend`; ship `none` + `internal` first, add `github` and `mstodo` adapters incrementally.
 8. **Bill of Materials (US-12)** — model template + project roll-up + manual `Generate shopping tasks` (depends on US-11).
-9. **Project evaluation mode** (US-7) — builds on Projects UI; adds `evaluating` status, candidate-state board, close-evaluation wrap-up dialog (which folds in US-8 archive prompts and US-10 WG-dissolution).
-10. **Recover History wizard** (US-4) — wires existing forensics tools to the popup.
-11. **Storage/Maintenance dashboard** (US-6 polish).
+9. **Publication pipeline panel** (US-2b) — adds the `publication.draft.*` state machine, prep checklist, `Generate publish-prep tasks` bridge to US-11; sequence after US-11 so the bridge can ship in the same window.
+10. **Project evaluation mode** (US-7) — builds on Projects UI; adds `evaluating` status, candidate-state board, close-evaluation wrap-up dialog (which folds in US-8 archive prompts and US-10 WG-dissolution).
+11. **Recover History wizard** (US-4) — wires existing forensics tools to the popup.
+12. **Storage/Maintenance dashboard** (US-6 polish).
 
 ---
 
@@ -522,10 +571,10 @@ Key visible elements:
 | # | Title | Maps to |
 |---|---|---|
 | [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) | Document use case priorities | All — this doc is the response |
-| [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI | US-1, US-2, US-4, US-5 (popup pieces) |
+| [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI | US-1, US-2a, US-2b, US-4, US-5 (popup pieces) |
 | [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373) | Model Metadata Design: Projects, Collections, Categories, Tags | US-3 (closed by §5.1) |
-| [#989](https://github.com/rsocko/hass-bambulab-config/issues/989) | Tracking of Makerworld review status | US-2 |
-| [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326) | Flag as original + uploaded to Makerworld | US-2 |
+| [#989](https://github.com/rsocko/hass-bambulab-config/issues/989) | Tracking of Makerworld review status | US-2a |
+| [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326) | Flag as original + uploaded to Makerworld | US-2b |
 | [#1134](https://github.com/rsocko/hass-bambulab-config/issues/1134) | Phase 14: Project CRUD and cross-system | US-3 |
 | [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390) | D&D org of Catalog | US-3, US-6 |
 | [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259) | Naming conv. for Models | US-6 |
@@ -551,7 +600,7 @@ The full set of pre-filled `issues/new` URLs is published in this design doc's c
 
 1. Catalog Frequents rail + Favorites pinning (US-1)
 2. Catalog left-rail navigation tree: Projects / Collections / Categories / Tags (US-3, US-6)
-3. Publication & Sharing panel + lifecycle fields (US-2; complements #989, #1326)
+3. Contribution lifecycle panel + `publication.contribution.*` fields (US-2a; complements #989) — for downloaded models
 4. Queue `someday` state + UI (US-5; extends #1407)
 5. Unified Add-to-Queue dialog (Quick / Plan) (US-5; closes #1458 scope)
 6. Recover Print History wizard from model popup (US-4)
@@ -565,6 +614,7 @@ The full set of pre-filled `issues/new` URLs is published in this design doc's c
 14. **Working Group project-close lifecycle** — dissolve-by-default with promote-to-Model affordance in US-7 wrap-up dialog (US-10)
 15. **Project tasks** — per-Project `task_backend` (`none` \| `internal` \| `github` \| `mstodo`) + Tasks panel in Project popup + adapters for each backend (US-11)
 16. **Bill of Materials** — `model.bom[]` template + Project BOM roll-up panel + acquisition state (`needed`/`acquired`/`installed`) + manual `Generate shopping tasks` bridge to US-11 task backend (US-12)
+17. **Publication pipeline panel + draft state machine** — `publication.draft.{state, target, license, checklist, *_at, published_url, derived_from_url}` + Catalog filter (`Publishing: In prep / Submitted / Published / Originals only`) + manual `Generate publish-prep tasks` bridge to US-11 (US-2b; complements #1326) — for originals & remixes
 
 ---
 
