@@ -4,23 +4,24 @@
  * Displays the unified print queue with:
  * - Compact top widget showing overnight-fit count, AMS-ready count, in-progress count
  * - Main area with queue entries grouped by state
- * - State chips (backlog, preparing, ready, in progress, blocked, done)
+ * - State chips (up_next, preparing, ready, in progress, blocked, done)
  * - Empty, loading, and error states
  * - Responsive layout for desktop and mobile
  */
 
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 
-const QUEUE_STATE_FILTER_ORDER = ['backlog', 'preparing', 'ready', 'in_progress', 'blocked', 'done'];
+const QUEUE_STATE_FILTER_ORDER = ['backlog', 'up_next', 'preparing', 'ready', 'in_progress', 'blocked', 'done'];
 const QUEUE_DEFAULT_VISIBLE_STATES = ['preparing', 'ready', 'in_progress', 'blocked'];
-const QUEUE_STATE_GROUP_ORDER = ['in_progress', 'ready', 'preparing', 'backlog', 'blocked', 'done'];
+const QUEUE_STATE_GROUP_ORDER = ['in_progress', 'ready', 'preparing', 'up_next', 'backlog', 'blocked', 'done'];
 const QUEUE_STATE_TRANSITIONS = {
-  backlog: ['preparing', 'ready', 'in_progress'],
-  preparing: ['ready', 'in_progress', 'blocked'],
-  ready: ['in_progress', 'blocked'],
+  backlog: ['up_next', 'preparing', 'ready', 'in_progress'],
+  up_next: ['backlog', 'preparing', 'ready', 'in_progress', 'blocked'],
+  preparing: ['up_next', 'ready', 'in_progress', 'blocked'],
+  ready: ['up_next', 'backlog', 'in_progress', 'blocked'],
   in_progress: ['blocked', 'done'],
   blocked: ['preparing', 'ready', 'in_progress', 'done'],
-  done: [],
+  done: ['in_progress'],
 };
 const VALID_QUEUE_SOURCES = ['catalog_model', 'working_group', 'working_file', 'idea'];
 const VALID_QUEUE_SORTS = new Set(['rank', 'rank-desc', 'duration', 'duration-desc', 'recently-added']);
@@ -28,7 +29,8 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 // Per-state palette — drives card wash, kanban column accent, list group dot,
 // filter swatches. Single source of truth across both views.
 const QUEUE_STATE_PALETTE = {
-  backlog:     '#a07cff',
+  backlog:     '#6b5b95',  // muted purple (parked items)
+  up_next:     '#a07cff',  // bright purple (next to print)
   preparing:   '#ff9a3c',
   ready:       '#e6d84a',
   in_progress: '#3aa9ff',
@@ -1163,7 +1165,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         const payload = {
           source_kind: 'idea',
           title: `Idea: ${ideaTitle}`,
-          state: 'backlog',
+          state: 'up_next',
           queue_notes: String(this._addIdeaNotes || '').trim() || null,
         };
 
@@ -2550,6 +2552,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
   _getStateLabel(state) {
     const labels = {
       'backlog': 'Backlog',
+      'up_next': 'Up Next',
       'preparing': 'Preparing',
       'ready': 'Ready',
       'in_progress': 'In Progress',
@@ -2859,7 +2862,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
                 <input class="add-idea-title" type="text" maxlength="120" value="${this._escapeHtml(ideaTitle)}" placeholder="What should we print?" />
               </label>
               <div class="idea-add-panel">
-                <div class="inline-note">Ideas are captured as backlog entries and can later graduate to Working Group or Catalog from details.</div>
+                <div class="inline-note">Ideas are captured as up_next entries and can later graduate to Working Group or Catalog from details.</div>
               </div>
               ` : `
               <label class="field">
@@ -2894,8 +2897,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
             <div class="tab-panels">
               <section class="tab-panel ${this._addTab === 'quick' ? 'active' : ''}">
-                <p class="tab-copy">${isIdeaSource ? 'Creates an idea entry in backlog.' : 'Adds all files and all plates from the selected source.'}</p>
-                <div class="copy-preview">${this._escapeHtml(isIdeaSource ? 'Idea entry will be created with source kind = idea and state = backlog.' : quickPreview)}</div>
+                <p class="tab-copy">${isIdeaSource ? 'Creates an idea entry in up_next.' : 'Adds all files and all plates from the selected source.'}</p>
+                <div class="copy-preview">${this._escapeHtml(isIdeaSource ? 'Idea entry will be created with source kind = idea and state = up_next.' : quickPreview)}</div>
               </section>
 
               <section class="tab-panel ${this._addTab === 'advanced' && !isIdeaSource ? 'active' : ''}">
@@ -3288,7 +3291,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
         --text: var(--primary-text-color);
         --text-secondary: var(--secondary-text-color);
         --text-muted: color-mix(in srgb, var(--secondary-text-color) 70%, transparent);
-        --state-backlog: #a07cff;
+        --state-backlog: #6b5b95;
+        --state-up-next: #a07cff;
         --state-preparing: #ff9a3c;
         --state-ready: #58e0b8;
         --state-in-progress: #3aa9ff;
@@ -4520,6 +4524,11 @@ class UnifiedQueueBoardCard extends HTMLElement {
         border-color: color-mix(in srgb, var(--state-backlog) 44%, transparent);
         background: color-mix(in srgb, var(--state-backlog) 16%, transparent);
       }
+      .entry-detail-state-select.up_next {
+        color: var(--state-up-next);
+        border-color: color-mix(in srgb, var(--state-up-next) 44%, transparent);
+        background: color-mix(in srgb, var(--state-up-next) 16%, transparent);
+      }
 
       .entry-detail-state-select.preparing {
         color: var(--state-preparing);
@@ -4552,6 +4561,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .entry-detail-state-select option[value="backlog"] { color: var(--state-backlog); background: var(--bg-card); }
+      .entry-detail-state-select option[value="up_next"] { color: var(--state-up-next); background: var(--bg-card); }
       .entry-detail-state-select option[value="preparing"] { color: var(--state-preparing); background: var(--bg-card); }
       .entry-detail-state-select option[value="ready"] { color: var(--state-ready); background: var(--bg-card); }
       .entry-detail-state-select option[value="in_progress"] { color: var(--state-in-progress); background: var(--bg-card); }
