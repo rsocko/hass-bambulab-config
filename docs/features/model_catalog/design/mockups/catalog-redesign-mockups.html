@@ -652,7 +652,7 @@
 <!-- 7. Queue states -->
 <section class="mock" id="m7">
   <h2>7. Queue — Extended state machine + <code>backlog</code></h2>
-  <p class="desc">Adds <span class="qstate backlog" style="display:inline-block">backlog</span> as a low-priority parking lot for "future prints". Adds optional post-print states (<i>assemble</i>, <i>shipped</i>) for projects with assembly work. Re-add allowed; dequeue warns if any entry is already <i>in progress</i>.</p>
+  <p class="desc">Adds <span class="qstate backlog" style="display:inline-block">backlog</span> as a low-priority parking lot for "future prints". Post-print work (assembling, finishing, shipping, etc.) lives <em>inside</em> <i>in progress</i> — granular tracking via Project tasks (US-11) and BOM acquisition (US-12), not separate queue states. Re-add allowed; dequeue warns if any entry is already <i>in progress</i>.</p>
   <div class="queue-filter-bar">
     <span class="chip on">Project: Garage Reorg</span>
     <label>Project
@@ -687,13 +687,8 @@
     <span class="arrow">→</span>
     <span class="qstate">done</span>
   </div>
-  <div class="queue-flow" style="margin-top:10px">
-    <span class="qstate">in progress</span>
-    <span class="arrow">→ optional →</span>
-    <span class="qstate new">assemble</span>
-    <span class="arrow">→</span>
-    <span class="qstate new">shipped</span>
-    <span style="color:var(--muted);font-size:12px">&nbsp; (project work continues after print)</span>
+  <div class="queue-flow" style="margin-top:10px;color:var(--muted);font-size:12px">
+    Post-print work (assemble, finish, ship) → tracked inside <i>in progress</i> via Project tasks &amp; BOM, not as separate queue states.
   </div>
   <div class="queue-flow" style="margin-top:10px">
     <span class="qstate">ready/in progress</span>

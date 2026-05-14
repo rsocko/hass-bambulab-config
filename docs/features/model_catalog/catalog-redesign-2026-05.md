@@ -22,7 +22,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | US-2b | **Publish my own** originals / remixes outward to Makerworld / Printables / etc. — track the prep pipeline (clean model, capture cover photo + gallery, write description, choose license, submit, mark published) as a draft with state | Popup (new "Publication pipeline" panel on originals/remixes) + Catalog filter + optional bridge to US-11 task backend |
 | US-3 | Catalog **future prints** as Projects / Collections (multi-membership), and decide what flows to the Queue vs. stays in Catalog | Catalog (Projects panel) + Queue (new `backlog` state) |
 | US-4 | Backfill historical print records for things printed before Bambuddy | Popup (new "Recover History" action) + existing forensics tools |
-| US-5 | Add prints to the Queue and track work (print → assemble → done) | Catalog quick-add + popup; Queue states extended |
+| US-5 | Add prints to the Queue and track work end-to-end (post-print work — assembling, shipping, etc. — reflected in `started`/`done`, not as separate states) | Catalog quick-add + popup; Queue states extended (adds `backlog` only) |
 | US-6 | General organization — on disk, storage, navigation | Catalog left rail (Projects/Collections tree), storage dashboard |
 | US-7 | **Curate-then-pick**: gather many candidate models around a goal, evaluate, pick 1+ to print, then prune the set | Project in new `evaluating` mode (per-member candidate / chosen / rejected) |
 | US-8 | **Hide-when-done**: keep completed models in the catalog but stop seeing them in default browse views; default view = "things I might still want to print" | Model `catalog_visibility` flag (`active` / `archived`) + default filter + suggestion banner |
@@ -30,6 +30,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | US-10 | **Working Groups in Catalog & Projects**: a Working Group (a curated set of working files staged for slicing/prep) should be addable to a Project / Collection / Tag just like a Model, since prep work is a natural project stage | Catalog `entity_type = working_group`; hidden by default; opt-in `Show working groups` chip; project-close → dissolve (with promote-to-Model affordance first) |
 | US-11 | **Project tasks beyond printing**: track non-print work ("Buy filament", "Install heat inserts", "Glue", "Organize parts") as part of a Project | Per-Project `task_backend` setting: `none` \| `internal` \| `github` \| `mstodo`; sidecar shows the task list inline in the Project popup |
 | US-12 | **Bill of Materials**: track non-printed parts a model needs (screws, magnets, heat inserts, glue) on the Model, with a Project-level rolled-up checklist (acquired / installed) | Model `bom[]` template field; Project popup `BOM roll-up` panel with per-item override + manual `Generate shopping tasks` button (writes to chosen task backend) |
+| US-13 | **Offline-mirror externally-sourced queued models**: when an item I plan to print was flagged by URL only (no local files yet) and the source is a remote service that may delist it, download the source files into the Catalog so I'm not blocked later | Suggestion banner + one-shot download action on the model popup; auto-suggest when a URL-only externally-sourced model enters any Queue state |
 
 ---
 
@@ -46,6 +47,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | **US-4 Historical backfill** | Forensics CLI tools (`gcode_forensics_viewer.py`, `folder_3mf_catalog_viewer.py`) | `historical-print-backfill-via-model-catalog.md` end-to-end flow | No popup entry point; no "Recover Print History" action; no candidate review UI surfaced from Catalog |
 | **US-5 Add to Queue** | Quick Add from card; unified queue state machine (`idea→up_next→ready→started→done/blocked`) shipped | Plate-level queue tracking; auto-complete on archive match | No `backlog` semantics; re-add-to-queue behavior unclear ([#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)); add-to-queue UX inconsistent across card/popup/queue editor ([#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)) |
 | **US-6 Organization** | Storage tiers, working groups, intake folder hint | Duplicate / inefficiency dashboard; storage-quota dashboard; on-disk reorg automation | No storage/dupes dashboard surfaced; no Project-aware on-disk layout; left-rail navigation tree not deployed ([#1393](https://github.com/rsocko/hass-bambulab-config/issues/1393), [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390), [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259)) |
+| **US-13 Offline mirror** | Source URL captured at intake; intake supports file-bearing as well as URL-only entries | None | No detection of "queued + URL-only + remote source"; no in-popup download affordance; no suggestion banner driven by Queue state transitions |
 
 ---
 
@@ -283,6 +285,19 @@ This **rolls up [#1326](https://github.com/rsocko/hass-bambulab-config/issues/13
 
 **Multi-collection** is honored: a model can be in N Collections and N Projects.
 
+**Drag-and-drop organization** (formalizes [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390)): the Catalog grid and left rail support D&D for membership management. v1 nesting policy:
+
+| Drag source | Valid drop target | Effect |
+|---|---|---|
+| Model / Idea / Working Group card | Project node (left rail) | Add as Project member |
+| Model / Idea / Working Group card | Collection node (left rail) | Add as Collection member |
+| Model / Idea / Working Group card | Tag chip | Apply tag |
+| Collection node | another Collection node | Nest under target (Collections are a tree) |
+| Project node | another Project node | **Not allowed at v1** — Projects stay flat (revisit in v2 per ontology table) |
+| Multi-selected cards (US-1 multi-select) | any of the above leaf targets | Bulk apply |
+
+Keyboard equivalents and right-click menu (`Add to Project…`, `Add to Collection…`, `Apply tag…`) are required so D&D is an accelerant, not the only path.
+
 This **rolls up [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373) (closes ontology questions), [#1134](https://github.com/rsocko/hass-bambulab-config/issues/1134) (Project CRUD), [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390) (D&D), [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259) (folder convention)** into a coherent Projects/Collections phase.
 
 ### US-4: Historical print backfill from the popup
@@ -311,12 +326,9 @@ Proposed:
    │ Main workflow (printer-affinity):                                │
    │                                                                   │
    │  idea  ───►  up_next  ───►  ready  ───►  started  ───►  done     │
-   │   ▲            │             ▲            ▲           │          │
-   │   │            │             │            │           ▼          │
-   │   └────────────┴─ blocked ◄──┴────────────┘      assemble*       │
-   │                                                      │            │
-   │                                                      ▼            │
-   │                                                   shipped*        │
+   │   ▲            │             ▲            ▲                      │
+   │   │            │             │            │                      │
+   │   └────────────┴─ blocked ◄──┴────────────┘                      │
    └─────────────────────────────────────────────────────────────────┘
 
    ╔═════════════════════════════════════╗
@@ -325,13 +337,20 @@ Proposed:
    ╚═════════════════════════════════════╝
 ```
 
-- **Main workflow:** `idea` (catalog concept) → `up_next` (next to print) → `ready` (assigned to printer) → `started` (printing) → `done` (complete) or `blocked` (issue).
+- **Main workflow:** `idea` (catalog concept) → `up_next` (next to print) → `ready` (assigned to printer) → `started` (printing **and** any post-print work — assembling, finishing, shipping, etc.) → `done` (everything that needed to happen has happened) or `blocked` (issue).
 - **`backlog`** is a separate, low-priority parking state with no printer-affinity required. Used for "I want this eventually". Default Catalog-side filter hides it; an explicit toggle shows it. Can be promoted back to `up_next` when priorities change.
-- **`assemble`** and **`shipped`** are optional post-print states that satisfy the "track work to be done, printing, assembling" intent in US-5. They are not required; `done` remains valid as a terminal for prints that don't need post-work.
+- **No separate `assemble` or `shipped` states.** Post-print work (assembling, finishing, packaging, shipping, etc.) lives inside `started` — track granular progress via Project tasks (US-11) and/or BOM acquisition state (US-12) instead of slicing the queue. `done` means "fully complete for the operator's purpose" (printed + assembled + shipped, as applicable). Revisit if real-world use shows a need to slice `started` further.
 
 **Re-add-to-queue** (per [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)): allow re-add by default; replace the legacy `count` attribute with multiple discrete entries; warn on dequeue if any entry is `done` or beyond.
 
 **Add-to-Queue affordance unification** (per [#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)): one shared dialog component used by Catalog card, popup, intake, and queue editor. Modes: `Quick` (uses primary plate, default printer, target = `ready`) / `Plan` (pick plates, printer, target state, project, notes).
+
+**Project / Working Group as queue payload** (extends US-3): the Add-to-Queue dialog accepts three payload types — `Model` (today), `Working Group` (queue every member file), and `Project` (queue every member Model and Working Group not already in a non-terminal queue state). When the payload is a Project or Working Group:
+- All resulting entries default to **`up_next`** regardless of mode (operator can rearrange/promote per-entry afterward in the Queue UI; this avoids forcing a per-member state decision in the dialog).
+- A single batch `source.add_request_id` is recorded so the entries can be reviewed/undone as a group.
+- Members already present in a non-terminal queue state are skipped (and listed in a "skipped" footer in the dialog) rather than duplicated.
+
+**Project filter on the Queue UI**: the Queue page filter bar gains a `Project` selector (driven by sidecar Project membership). Selecting a Project scopes the Queue view to entries whose `source.model_id` is a member, across **all** queue states — so the operator can see everything for a Project (backlog → up_next → ready → started → done/blocked) on one screen. Companion to the Catalog-side Project pivot in US-3.
 
 ### US-6: Organization, storage, navigation
 
@@ -508,6 +527,40 @@ Rationale: WGs are inherently transient prep artifacts. Keeping them around afte
 - Vendor/price/link auto-fill. Operator pastes a URL into `link?` if useful; no scraping.
 - Per-instance BOM differences (e.g., "this print used PETG instead of PLA"); Materials/filament are tracked by print archive already, not BOM.
 
+### US-13: Offline-mirror externally-sourced queued models (NEW)
+
+**Operator scenario:** "I saw a wall-mount on Makerworld I want to print eventually. I added it to the Catalog as a URL-only entry and dropped it into the Queue at `up_next`. Six months later I open it to slice and the listing has been delisted by the creator — my files are gone. I want the system to nudge me to download the source files at the moment I commit to printing, before the listing disappears."
+
+**Trigger conditions** (all must hold):
+1. Catalog entry has `publication.source ∈ { makerworld, printables, thingiverse, other }` (i.e., externally sourced).
+2. Catalog entry has **no local model files** (no 3MF / STL / etc. attached — it's a URL-only stub).
+3. The entry is in **any** Queue state (`backlog`, `up_next`, `ready`, `started`).
+
+Preventive auto-mirroring across all remote-sourced entries is **out of scope** — trigger only when the operator has indicated intent to print (queue membership) and there's nothing to print yet (no files).
+
+**UX**
+- **Suggestion banner** in the model popup hero area when triggered:
+  > ⚠️ This model is queued but you don't have the source files locally. The listing on `Makerworld` could be removed at any time. **[Download source files now↗]** [Dismiss]
+- **Queue-side badge**: queue rows whose source model meets the trigger get a small `⬇ source missing` pill linking to the same action.
+- **Action**: `Download source files now` runs a one-shot fetch from the source URL. Behavior:
+  - Stores the downloaded files **as normal Catalog model files** under the existing model entry's `assets/` location — no special mirror zone (per operator decision).
+  - On success: clears the banner; the Catalog entry now behaves like any other file-bearing model (slice, print, etc. all become available).
+  - On failure: banner persists with a `Retry` button and an error tooltip (e.g., "Listing returned 404 — it may already have been delisted; try the manual `Upload files…` action instead").
+- **Dismiss** suppresses the banner for that operator on that model only; the queue badge remains.
+
+**Out of scope at v1** (per operator decisions):
+- Periodic re-checks / scheduled re-mirror of already-downloaded entries — one-shot at trigger time only.
+- A separate `assets/_mirror/` zone with retention policy — mirrored files live alongside any other model file.
+- Mirroring for non-queued remote-sourced entries — those stay URL-only until the operator queues them.
+- Source-side scraping of variants/versions — download what the source URL serves at the moment of action.
+
+**Sidecar contract additions:**
+- `publication.source_files.last_mirrored_at` (nullable timestamp) — set when the one-shot download succeeds.
+- `publication.source_files.last_mirror_error` (nullable string) — last failure reason for the badge tooltip.
+- New endpoint: `POST /api/model_catalog/models/{id}/mirror_source` — idempotent; refuses if files already present (returns `409` with explanation).
+
+**Layer note:** The `source missing` derivation lives in **Layer 2** (Catalog projection joins `entity has files?` ∧ `is in queue?` ∧ `source ∈ remote set`). Layer 1 is not extended for this.
+
 ---
 
 ## 7. Popup — consolidated layout (additions over the 2026-05 popup redesign)
@@ -633,6 +686,10 @@ The full set of pre-filled `issues/new` URLs is published in this design doc's c
 15. **Project tasks** — per-Project `task_backend` (`none` \| `internal` \| `github` \| `mstodo`) + Tasks panel in Project popup + adapters for each backend (US-11)
 16. **Bill of Materials** — `model.bom[]` template + Project BOM roll-up panel + acquisition state (`needed`/`acquired`/`installed`) + manual `Generate shopping tasks` bridge to US-11 task backend (US-12)
 17. **Publication pipeline panel + draft state machine** — `publication.draft.{state, target, license, checklist, *_at, published_url, derived_from_url}` + Catalog filter (`Publishing: In prep / Submitted / Published / Originals only`) + manual `Generate publish-prep tasks` bridge to US-11 (US-2b; complements #1326) — for originals & remixes
+18. **Offline-mirror externally-sourced queued models** — suggestion banner + `POST /api/model_catalog/models/{id}/mirror_source` endpoint + `publication.source_files.{last_mirrored_at,last_mirror_error}` + Layer 2 `source missing` derivation; trigger = remote-sourced + URL-only + in any queue state (US-13)
+19. **Drag-and-drop catalog organization** — Cards → Project / Collection / Tag drops; Collection nesting via D&D; Projects stay flat at v1; multi-select bulk apply; keyboard + right-click parity (formalizes #1390 under US-3 / US-6)
+20. **Print Queue: Project filter + Project / Working Group as add-to-queue payload** — Queue UI gains `Project` filter (scopes across all states); Add-to-Queue dialog accepts `Project` and `Working Group` payloads, defaults all members to `up_next`, batched via `source.add_request_id`, skips members already in non-terminal states (US-3 / US-5)
+21. **Browser Extension + Stream Deck: destination chooser beyond Catalog** — design issue; both surfaces today only target "add to Catalog"; need to extend to add an imported/triggered item to a Project, Working Group, and/or Queue at intake time (US-3 / US-5 / US-10) — see prefilled link in chat reply
 
 ---
 
