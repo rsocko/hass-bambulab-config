@@ -5456,6 +5456,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         cursor: default;
         box-shadow: 0 4px 14px rgba(0,0,0,0.20);
         transition: border-color 0.15s, transform 0.12s;
+        contain: layout paint style;
       }
       .qcard[draggable="true"] {
         cursor: grab;

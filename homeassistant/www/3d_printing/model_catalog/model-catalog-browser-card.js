@@ -35,6 +35,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._hasAttemptedLoad = false;
     this._lastAppliedScopeStamp = 0;
     this._catalogScope = "curated";
+    this._thumbnailObserver = null;
   }
 
   _defaultFilters() {
@@ -102,7 +103,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!this.shadowRoot) {
       return;
     }
-    setupThumbnailLazyObserver({
+    // Disconnect any prior observer so we don't stack one per render.
+    // Stacked observers fire N parallel thumbnail fetches + img.src writes per
+    // scroll event, which can produce visible repaint thrash on dense pages.
+    if (this._thumbnailObserver && typeof this._thumbnailObserver.disconnect === "function") {
+      try { this._thumbnailObserver.disconnect(); } catch (_e) { /* ignore */ }
+      this._thumbnailObserver = null;
+    }
+    this._thumbnailObserver = setupThumbnailLazyObserver({
       rootElement: this.shadowRoot,
       root: null,
       timeout: 5000,
@@ -110,7 +118,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       useIntersectionObserver: true,
       rootMargin: "50px",
       threshold: 0.1,
-    });
+    }) || null;
   }
 
   disconnectedCallback() {
@@ -123,6 +131,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     this._cancelScheduledApply();
+    if (this._thumbnailObserver && typeof this._thumbnailObserver.disconnect === "function") {
+      try { this._thumbnailObserver.disconnect(); } catch (_e) { /* ignore */ }
+      this._thumbnailObserver = null;
+    }
   }
 
   getCardSize() {
@@ -2494,9 +2506,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.collection-name{font-size:15px;font-weight:800;}'
       + '.collection-meta{font-size:12px;color:var(--secondary-text-color);}'
       + '.collection-models{font-size:12px;line-height:1.4;opacity:.9;}'
-      + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease;}'
+      + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease;contain:layout paint style;content-visibility:auto;contain-intrinsic-size:260px 240px;}'
       + '.model-card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 transparent;opacity:0;transition:opacity .16s ease,box-shadow .16s ease;pointer-events:none;}'
-      + '.model-card:hover{border-color:var(--accent-strong);box-shadow:0 14px 32px rgba(15,23,42,0.18);}'
+      + '.model-card:hover{border-color:var(--accent-strong);box-shadow:0 6px 16px rgba(15,23,42,0.18);}'
       + '.model-card:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(96,165,250,0.34);border-color:var(--accent-strong);}'
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
