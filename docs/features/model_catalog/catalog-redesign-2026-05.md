@@ -59,7 +59,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 4. **No `backlog` Queue state** — the Queue has `idea`/`up_next` but the operator concept of a "super-large backlog" / "I want this eventually" is not validated, and the Catalog cannot send things to that state distinctly.
 5. **Add-to-queue UX is inconsistent** — different patterns across card / popup / queue editor / intake; no single "what happens when I press Print" affordance.
 6. **History backfill is not catalog-discoverable** — operators can't initiate backfill from the model they're looking at. The CLI tools exist; the UI bridge does not.
-7. **Slicer launch from Catalog files is blocked** by browser policy ([working-files-local-launch-and-slicer-integration-design.md](working-files-local-launch-and-slicer-integration-design.md)) — must be solved with a tokenized custom protocol handler before US-1's "open in Slicer" is honest.
+7. **Slicer launch from Catalog files is blocked** by browser policy ([working-files-local-launch-and-slicer-integration-design.md](working-files-local-launch-and-slicer-integration-design.md)) — must be solved with a tokenized custom protocol handler before US-1's "open in Slicer" is honest. **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486))**; until then the corresponding affordance ships as `Download` (browser-served source file).
 8. **Navigation is single-axis** — the catalog grid has no left rail for Projects / Collections / Tags drill-in; the catalog feels flat.
 
 ---
@@ -163,15 +163,15 @@ Left rail (collapsible)        Main content
 ### US-1: Frequents, search, and one-click action
 
 **Catalog page additions**
-- **Frequents rail** at top of Catalog page, default visible. Cards show preview + "printed N times in last 90d" + primary action (`Print` / `Open in Slicer`). Source = sidecar projection over archive link count + last-N-days recency. Configurable window.
+- **Frequents rail** at top of Catalog page, default visible. Cards show preview + "printed N times in last 90d" + primary action (`Print` / `Open in Slicer`; falls back to `Download` until [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) ships in Phase 6). Source = sidecar projection over archive link count + last-N-days recency. Configurable window.
 - **Favorites** (manual pin) shown on the rail before computed Frequents. Star toggle on every card.
 - **Sort options:** Recently printed, Most frequent (90d / 1y / all-time), Recently added, Last modified, Name.
 - **Filter chips:** `★ Favorites only`, `Frequents only`, `In Project`, `In Queue`, plus existing tag/collection filters.
-- **Card primary action** = the operator's most likely next intent for this model. Heuristic: if model has a printable plate, default to `Print`; else `Open in Slicer`; always show overflow with both.
+- **Card primary action** = the operator's most likely next intent for this model. Heuristic: if model has a printable plate, default to `Print`; else `Open in Slicer` (or `Download` until [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) ships in Phase 6); always show overflow with both.
 
 **Popup additions**
-- **Hero action row** (already in popup redesign): `Print` · `Add to Queue` · `Open in Slicer` · `Download` · `★ Favorite` — all visible; no overflow on desktop.
-- **"Open in Slicer"** must work via tokenized custom-protocol handler (per [working-files-local-launch-and-slicer-integration-design.md](working-files-local-launch-and-slicer-integration-design.md)). Until that ships, label and disable with tooltip "Slicer launch requires the Bambuddy companion handler — see setup guide".
+- **Hero action row** (already in popup redesign): `Print` · `Add to Queue` · `Open in Slicer` · `Download` · `★ Favorite` — all visible; no overflow on desktop. Until [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) ships in Phase 6, the `Open in Slicer` slot is collapsed and `Download` carries both intents.
+- **"Open in Slicer"** must work via tokenized custom-protocol handler (per [working-files-local-launch-and-slicer-integration-design.md](working-files-local-launch-and-slicer-integration-design.md)). **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486)).** Phase 1 ships `Download` in its place; when #1486 lands the hero/card upgrades in-place to `Open in Slicer` with `Download` retained in overflow.
 
 **Linking print history back to model** (covered today by archive linkage flow but not visible enough): show on the Frequents card the count + a tiny `↪ History` glyph that opens the popup at the History tab.
 
@@ -376,7 +376,7 @@ Proposed:
 
 **Catalog UX**
 - Project view in `evaluating` mode renders as a **board** (3 columns: `Candidate` · `Chosen` · `Rejected`) instead of the standard grid. Cards in `Chosen` show queue/print status overlays.
-- Per-card actions: `Choose` (move to Chosen) · `Reject` (move to Rejected) · `Open in Slicer` · `Add to Queue` (also marks `chosen`).
+- Per-card actions: `Choose` (move to Chosen) · `Reject` (move to Rejected) · `Open in Slicer` (or `Download` if [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) hasn't shipped yet) · `Add to Queue` (also marks `chosen`).
 - Header CTA: `Promote project to Active` (locks evaluating state and starts the build) and `Close evaluation…` (opens wrap-up dialog, see below).
 - Bulk add to Project from the Catalog grid (multi-select → "Add to evaluating project…") so collecting candidates from search results is one motion.
 
@@ -597,7 +597,7 @@ Key visible elements:
 **Risks**
 - Adding `backlog` to the Queue state machine without breaking [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) validation work — needs an audit-log and migration-safe rollout.
 - Layer 1 contamination — the temptation to bake "Frequent" / "Needs photos" labels into the projection sensor is real. Per the repo guardrail, derive these in Layer 2.
-- `Open in Slicer` honesty depends on the custom-protocol handler — must ship before US-1's "open in Slicer" promise is real.
+- `Open in Slicer` honesty depends on the custom-protocol handler. **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486)).** Phase 1 ships `Download` in its place so the hero affordance stays honest; the swap to `Open in Slicer` is a one-line conditional in [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) when #1486 lands.
 
 **Open questions**
 - Should `Frequent` thresholds be per-operator? (Recommend: yes — settings input_number for `frequent_window_days` and `frequent_min_prints`.)
@@ -616,7 +616,6 @@ These unblock the Phase-1 user-visible promises and have no downstream surface d
 
 | Issue | Title | Why first |
 |---|---|---|
-| [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Open-in-Slicer custom protocol handler (Bambuddy companion) | US-1's "Open in Slicer" hero action is dishonest until this ships. Needed before [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) is operator-complete. |
 | [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487) | Frequents/Favorites Layer 2 derivation rules | Defines the projection contract that backs the Frequents rail. Must land before [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) renders. Layer-1 guardrail enforced here. |
 | [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI (in flight) | Hosts the hero/panel/overflow extension points used by [#1494](https://github.com/rsocko/hass-bambulab-config/issues/1494), [#1495](https://github.com/rsocko/hass-bambulab-config/issues/1495), [#1483](https://github.com/rsocko/hass-bambulab-config/issues/1483), [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499). Must be merged or have stable extension points before Phase 2 popup-panel issues land. |
 | [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) | Multi-select updates from catalog view | Multi-select primitive consumed by [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) (Favorites bulk pin) in Phase 1 and §11 #19 (D&D bulk-apply) in Phase 3. Land it once here. |
@@ -627,7 +626,7 @@ Pure UI/UX over existing data plus one tiny queue-state extension.
 
 | Issue | Title | Hard deps | Notes |
 |---|---|---|---|
-| [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) | Frequents rail + Favorites pinning (US-1) | [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487), [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401); soft on [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Ships the default Catalog landing experience. Tolerates [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) being incomplete (button labelled "Open in Slicer (setup required)"). Multi-pin Favorites uses the [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) primitive. |
+| [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) | Frequents rail + Favorites pinning (US-1) | [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487), [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) | Ships the default Catalog landing experience. **Hero action ships as `Download` (returns the source 3MF/STL/etc. to the browser)** until [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) lands in Phase 6 and upgrades it in-place to `Open in Slicer`. Multi-pin Favorites uses the [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) primitive. |
 | [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Unified Add-to-Queue dialog (Quick / Plan) (US-5) | none | Pure UX consolidation; replaces three inconsistent affordances with one component. **Supersedes [#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)** and absorbs the re-add semantics from [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465). Land before [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) so the new state has a home. |
 | [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) | Queue `backlog`/`someday` state (US-5) | [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Small queue state-machine extension hosted under [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407). Audit-log + migration-safe rollout coordinated with #1407. Closes the backlog-warning portion of [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465). |
 
@@ -678,13 +677,15 @@ These are the wrap-up workflows that fold in Phase-2 archive prompts and Phase-3
 | Issue | Title | Hard deps | Notes |
 |---|---|---|---|
 | [#1497](https://github.com/rsocko/hass-bambulab-config/issues/1497) | Browser Extension + Stream Deck — destination chooser beyond Catalog | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484), [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490), [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Both surfaces need Projects + WGs to exist as destinations and the unified Add-to-Queue dialog as the shared payload model. |
+| [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Open-in-Slicer custom protocol handler (Bambuddy companion) | none (independent track) | **Deferred from Phase 0.** Until this ships, the [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) hero action is `Download` (browser-served source file). When this lands it upgrades the hero in-place to `Open in Slicer` (and adds the same affordance to the popup overflow). Independent of Track A; can land any time after Phase 1 — the hero swap is a one-line conditional in [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478). |
 
 #### Dependency summary (text graph)
 
 ```
-Phase 0:  #1486 (slicer-handler)         #1487 (Layer-2 derivation)
-                                                    │
-Phase 1:  #1478 (Frequents/Favorites) ◄─────────────┘
+Phase 0:  #1487 (Layer-2 derivation)   #1376 (popup framework)   #1401 (multi-select)
+                    │                              │                       │
+Phase 1:  #1478 (Frequents/Favorites) ◄────────────┴───────────────────────┘
+              (hero = `Download` until #1486 lands in Phase 6)
           #1499 (Add-to-Queue dialog)
               └──► #1481 (backlog/someday state)
 
@@ -703,13 +704,14 @@ Phase 5:  #1488 (Evaluation) ── needs #1484 + #1489
           #1491 (WG project-close) ── needs #1484 + #1490 + #1488
 
 Phase 6:  #1497 (Browser-ext + Stream Deck destination) ── needs #1484 + #1490 + #1499
+          #1486 (Open-in-Slicer protocol handler) ── independent; upgrades #1478 hero from `Download` → `Open in Slicer`
 ```
 
 #### Parallelization guidance
 
 - **Two-track plan (most efficient):**
   - Track A (UX/frontend-heavy): Phase 0 #1487 → Phase 1 (#1478 → #1499 → #1481) → Phase 2 (#1489, #1490, #1494) → Phase 3 (#1484, #1479) → Phase 4 → Phase 5.
-  - Track B (independent): Phase 0 #1486 → Phase 2 (#1483, #1485, #1496) → Phase 6 #1497 once Track A reaches Phase 3.
+  - Track B (independent): Phase 2 (#1483, #1485, #1496) → Phase 6 (#1497, #1486) once Track A reaches Phase 3. #1486 can land any time after Phase 1 ships #1478 — its only integration point is the in-place hero-action swap.
 - **Single-track plan:** Walk Phases 0 → 6 in numeric order; within each phase, take issues in the order listed in the table.
 - **Don't start before its row's hard deps are merged.** Soft deps may proceed at the cost of a known post-merge tweak (always small — the soft deps are about rendering, not contracts).
 
@@ -734,7 +736,7 @@ The full set of GitHub issues opened on 2026-05-13/14 to track this redesign. Ea
 | [#1483](https://github.com/rsocko/hass-bambulab-config/issues/1483) | Catalog popup: Recover Print History wizard | US-4 | Phase 2 |
 | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) | Catalog: Projects UI (CRUD + project view) | US-3 | Phase 3 |
 | [#1485](https://github.com/rsocko/hass-bambulab-config/issues/1485) | Catalog: Storage & Maintenance dashboard | US-6 | Phase 2 |
-| [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Cross-cutting: Open-in-Slicer custom protocol handler (Bambuddy companion) | US-1 (cross-cutting) | Phase 0 |
+| [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Cross-cutting: Open-in-Slicer custom protocol handler (Bambuddy companion) | US-1 (cross-cutting) | Phase 6 (deferred — [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) hero ships as `Download` first) |
 | [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487) | Catalog: Frequents/Favorites Layer 2 derivation rules | US-1 (contract) | Phase 0 |
 | [#1488](https://github.com/rsocko/hass-bambulab-config/issues/1488) | Catalog: Project evaluation mode — `evaluating` status + candidate board + close wrap-up | US-7 | Phase 5 |
 | [#1489](https://github.com/rsocko/hass-bambulab-config/issues/1489) | Catalog: Visibility / Archived — `catalog_visibility` field + default filter + Show-archived chip | US-8 | Phase 2 |
