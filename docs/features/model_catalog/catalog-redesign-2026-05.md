@@ -604,19 +604,151 @@ Key visible elements:
 - Should `Project` and `Collection` ever merge in v2? (Recommend: keep separate — Project has lifecycle/notes, Collection is just a label set.)
 - Should backfill records be excluded from Frequent calculations? (Recommend: include but down-weight.)
 
-**Suggested sequencing** (smallest-coherent-shippable first)
-1. **Frequents + Favorites** rail and filters (US-1) — pure UI over existing data.
-2. **Add-to-Queue dialog unification + `backlog` state** (US-5) — backend state addition is small.
-3. **Catalog visibility / Archived** (US-8) — 1 model field + 1 default filter + 1 toolbar chip; tiny scope, high quality-of-life.
-4. **Entity types: Ideas + Working Groups** (US-9, US-10) — 1 enum field + 2 toolbar chips + 2 promote actions; lands the membership plumbing once for the Project & BOM work that follows.
-5. **Contribution lifecycle panel** (US-2a) — adds a few `publication.contribution.*` fields and one filter; tiny scope.
-6. **Projects UI** (US-3) — biggest scope; needs CRUD, left rail, project view.
-7. **Project tasks (US-11)** — per-Project `task_backend`; ship `none` + `internal` first, add `github` and `mstodo` adapters incrementally.
-8. **Bill of Materials (US-12)** — model template + project roll-up + manual `Generate shopping tasks` (depends on US-11).
-9. **Publication pipeline panel** (US-2b) — adds the `publication.draft.*` state machine, prep checklist, `Generate publish-prep tasks` bridge to US-11; sequence after US-11 so the bridge can ship in the same window.
-10. **Project evaluation mode** (US-7) — builds on Projects UI; adds `evaluating` status, candidate-state board, close-evaluation wrap-up dialog (which folds in US-8 archive prompts and US-10 WG-dissolution).
-11. **Recover History wizard** (US-4) — wires existing forensics tools to the popup.
-12. **Storage/Maintenance dashboard** (US-6 polish).
+### 9.1 Recommended execution sequence
+
+The work is grouped into six phases. Each phase is internally parallelizable; phases are gated by **hard dependencies** (downstream cannot ship without upstream's data model or UI surface) and may have **soft dependencies** (downstream is functionally usable without upstream but degrades gracefully). All issue numbers below are the ones filed against this redesign on 2026-05-13/14.
+
+> **Naming note:** Issue [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) is filed as the `someday` queue state, while this doc uses `backlog`. They refer to the same parking state — pick one canonical name when implementing and update both surfaces. Recommendation: keep `backlog` (already used in the Project status enum and in the queue state-machine diagram in US-5).
+
+#### Phase 0 — Foundations (no UI dependencies; can run in parallel)
+
+These unblock the Phase-1 user-visible promises and have no downstream surface dependencies of their own.
+
+| Issue | Title | Why first |
+|---|---|---|
+| [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Open-in-Slicer custom protocol handler (Bambuddy companion) | US-1's "Open in Slicer" hero action is dishonest until this ships. Needed before [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) is operator-complete. |
+| [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487) | Frequents/Favorites Layer 2 derivation rules | Defines the projection contract that backs the Frequents rail. Must land before [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) renders. Layer-1 guardrail enforced here. |
+| [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI (in flight) | Hosts the hero/panel/overflow extension points used by [#1494](https://github.com/rsocko/hass-bambulab-config/issues/1494), [#1495](https://github.com/rsocko/hass-bambulab-config/issues/1495), [#1483](https://github.com/rsocko/hass-bambulab-config/issues/1483), [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499). Must be merged or have stable extension points before Phase 2 popup-panel issues land. |
+| [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) | Multi-select updates from catalog view | Multi-select primitive consumed by [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) (Favorites bulk pin) in Phase 1 and §11 #19 (D&D bulk-apply) in Phase 3. Land it once here. |
+
+#### Phase 1 — Daily-use surface (high quality-of-life, low risk)
+
+Pure UI/UX over existing data plus one tiny queue-state extension.
+
+| Issue | Title | Hard deps | Notes |
+|---|---|---|---|
+| [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) | Frequents rail + Favorites pinning (US-1) | [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487), [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401); soft on [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Ships the default Catalog landing experience. Tolerates [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) being incomplete (button labelled "Open in Slicer (setup required)"). Multi-pin Favorites uses the [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) primitive. |
+| [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Unified Add-to-Queue dialog (Quick / Plan) (US-5) | none | Pure UX consolidation; replaces three inconsistent affordances with one component. **Supersedes [#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)** and absorbs the re-add semantics from [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465). Land before [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) so the new state has a home. |
+| [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) | Queue `backlog`/`someday` state (US-5) | [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Small queue state-machine extension hosted under [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407). Audit-log + migration-safe rollout coordinated with #1407. Closes the backlog-warning portion of [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465). |
+
+#### Phase 2 — Lightweight model-level fields (parallel; lands plumbing for Phase 3+)
+
+Each is a single enum/field plus a toolbar chip and a filter. Ship in parallel; merge order doesn't matter.
+
+| Issue | Title | Hard deps | Notes |
+|---|---|---|---|
+| [#1489](https://github.com/rsocko/hass-bambulab-config/issues/1489) | Catalog visibility / Archived (US-8) | none | One enum + default filter + chip. |
+| [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490) | Entity types — Ideas + Working Groups (US-9, US-10) | none | One enum + 2 chips + minimal create + 2 promote actions. **Lands the membership plumbing once** so Phase 3+ can render Ideas/WGs natively in Project / Collection / Tag views with no further refactor. |
+| [#1494](https://github.com/rsocko/hass-bambulab-config/issues/1494) | Contribution lifecycle panel (US-2a) | none | Independent popup panel + a few `publication.contribution.*` fields + one filter. No coupling to Projects. |
+| [#1483](https://github.com/rsocko/hass-bambulab-config/issues/1483) | Recover Print History wizard (US-4) | none | Wires existing forensics CLI tools to popup overflow. Independent of Projects. |
+| [#1485](https://github.com/rsocko/hass-bambulab-config/issues/1485) | Storage & Maintenance dashboard (US-6) | none | Independent surface fed by existing sidecar storage stats. |
+| [#1496](https://github.com/rsocko/hass-bambulab-config/issues/1496) | Import from Various Sources | none | Independent intake-side work; can run on its own track. |
+| [#1473](https://github.com/rsocko/hass-bambulab-config/issues/1473) | Sync Tags Archive >> Catalog (existing) | none | Improves Frequents/search fidelity for [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) and chip filters. Independent track. |
+| [#1094](https://github.com/rsocko/hass-bambulab-config/issues/1094) | Phase 6 search facets and query model (existing) | none | Soft enhancement of [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478); unlocks the typed-query hint in §8 header. Pull in when search work resumes; not blocking. |
+| [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259) | Naming convention for Models (existing) | none | Informs default folder layout exposed by [#1485](https://github.com/rsocko/hass-bambulab-config/issues/1485). On-disk reorg automation remains out of scope. |
+
+#### Phase 3 — Projects backbone (gates everything in Phase 4–5)
+
+These two are the largest single surfaces in the redesign. Land them before any Project-attached feature.
+
+| Issue | Title | Hard deps | Notes |
+|---|---|---|---|
+| [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) | Projects UI — CRUD + Project view (US-3) | none (entity-side); soft on [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490) | The keystone. Must land before #1492, #1493, #1495, #1488, #1491. Soft-depends on [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490) so Project view can render Ideas/WGs from day one rather than being refactored later. |
+| [#1479](https://github.com/rsocko/hass-bambulab-config/issues/1479) | Left-rail navigation tree (US-3, US-6) | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) | Visual frame around Projects/Collections/Tags. Can ship Collections + Tags branches earlier with stub Projects branch if [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) is delayed. |
+
+#### Phase 4 — Project-attached features (parallel; all depend on Phase 3)
+
+| Issue | Title | Hard deps | Notes |
+|---|---|---|---|
+| [#1492](https://github.com/rsocko/hass-bambulab-config/issues/1492) | Project tasks — `task_backend` (US-11) | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) | Ship `none` + `internal` adapters first; add `github` and `mstodo` adapters incrementally — they don't block #1493 or #1495. |
+| [#1493](https://github.com/rsocko/hass-bambulab-config/issues/1493) | Bill of Materials (US-12) | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484); soft on [#1492](https://github.com/rsocko/hass-bambulab-config/issues/1492) | Model `bom[]` template + Project roll-up can ship without a task backend; the `Generate shopping tasks` button lights up only after [#1492](https://github.com/rsocko/hass-bambulab-config/issues/1492). |
+| [#1495](https://github.com/rsocko/hass-bambulab-config/issues/1495) | Publication pipeline panel (US-2b) | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484); soft on [#1492](https://github.com/rsocko/hass-bambulab-config/issues/1492) | Panel + state machine ship independent of Projects (model-only). The `Generate publish-prep tasks` bridge requires [#1492](https://github.com/rsocko/hass-bambulab-config/issues/1492). |
+
+#### Phase 5 — Project lifecycle & advanced workflows
+
+These are the wrap-up workflows that fold in Phase-2 archive prompts and Phase-3 entity types.
+
+| Issue | Title | Hard deps | Notes |
+|---|---|---|---|
+| [#1488](https://github.com/rsocko/hass-bambulab-config/issues/1488) | Project evaluation mode (US-7) | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484), [#1489](https://github.com/rsocko/hass-bambulab-config/issues/1489) | Adds `evaluating` status, candidate-state board, and close-evaluation wrap-up dialog. Wrap-up dialog folds in US-8 archive checkboxes — needs [#1489](https://github.com/rsocko/hass-bambulab-config/issues/1489) live. |
+| [#1491](https://github.com/rsocko/hass-bambulab-config/issues/1491) | Working Group project-close lifecycle (US-10) | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484), [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490), [#1488](https://github.com/rsocko/hass-bambulab-config/issues/1488) | Adds the WG-dissolve / promote-to-Model rows to the [#1488](https://github.com/rsocko/hass-bambulab-config/issues/1488) wrap-up dialog. |
+
+#### Phase 6 — Cross-cutting integrations (sequence after Phase 3 + #1499)
+
+| Issue | Title | Hard deps | Notes |
+|---|---|---|---|
+| [#1497](https://github.com/rsocko/hass-bambulab-config/issues/1497) | Browser Extension + Stream Deck — destination chooser beyond Catalog | [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484), [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490), [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Both surfaces need Projects + WGs to exist as destinations and the unified Add-to-Queue dialog as the shared payload model. |
+
+#### Dependency summary (text graph)
+
+```
+Phase 0:  #1486 (slicer-handler)         #1487 (Layer-2 derivation)
+                                                    │
+Phase 1:  #1478 (Frequents/Favorites) ◄─────────────┘
+          #1499 (Add-to-Queue dialog)
+              └──► #1481 (backlog/someday state)
+
+Phase 2:  #1489 (Archived)   #1490 (Ideas/WGs)   #1494 (Contribution panel)
+          #1483 (Recover History)   #1485 (Storage)   #1496 (Import sources)
+          —— all parallel, no inter-deps ——
+
+Phase 3:  #1484 (Projects UI) ◄── soft #1490
+              └──► #1479 (Left-rail tree)
+
+Phase 4:  #1492 (Tasks) ──┐
+          #1493 (BOM) ────┼─── all hard-depend on #1484
+          #1495 (Publish)─┘    BOM/Publish soft-depend on #1492
+
+Phase 5:  #1488 (Evaluation) ── needs #1484 + #1489
+          #1491 (WG project-close) ── needs #1484 + #1490 + #1488
+
+Phase 6:  #1497 (Browser-ext + Stream Deck destination) ── needs #1484 + #1490 + #1499
+```
+
+#### Parallelization guidance
+
+- **Two-track plan (most efficient):**
+  - Track A (UX/frontend-heavy): Phase 0 #1487 → Phase 1 (#1478 → #1499 → #1481) → Phase 2 (#1489, #1490, #1494) → Phase 3 (#1484, #1479) → Phase 4 → Phase 5.
+  - Track B (independent): Phase 0 #1486 → Phase 2 (#1483, #1485, #1496) → Phase 6 #1497 once Track A reaches Phase 3.
+- **Single-track plan:** Walk Phases 0 → 6 in numeric order; within each phase, take issues in the order listed in the table.
+- **Don't start before its row's hard deps are merged.** Soft deps may proceed at the cost of a known post-merge tweak (always small — the soft deps are about rendering, not contracts).
+
+#### Issues still to be filed
+
+Only one redesign item from §11 has no GitHub issue yet:
+- **§11 #19 — Drag-and-drop catalog organization** (formalizes [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390)). Target Phase 3; hard-deps on [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) + [#1479](https://github.com/rsocko/hass-bambulab-config/issues/1479) + [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) (multi-select bulk-apply). File when [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) reaches mergeable state.
+
+The other two §11 placeholders are absorbed by issues already filed:
+- **§11 #18 (US-13 offline-mirror externally-sourced queued models)** is tracked under [#1496](https://github.com/rsocko/hass-bambulab-config/issues/1496) "Import from Various Sources". When implementing #1496, ensure the scope includes the **queue-state-driven suggestion banner** (`remote-sourced + URL-only + in any queue state` → prompt to mirror source files locally) and the `POST /api/model_catalog/models/{id}/mirror_source` endpoint with `publication.source_files.{last_mirrored_at,last_mirror_error}` fields.
+- **§11 #20 (Print Queue Project filter + Project/WG as add-to-queue payload)** is tracked under [#1497](https://github.com/rsocko/hass-bambulab-config/issues/1497) "Browser Extension + Stream Deck: destination chooser beyond Catalog (Project / WG / Queue)". When implementing #1497, ensure the scope **also covers** the in-app Queue UI: (a) `Project` filter on the Queue page that scopes across all queue states, and (b) the unified Add-to-Queue dialog accepting `Project` and `Working Group` payloads (defaults all members to `up_next`, batched via `source.add_request_id`). If that scope is too broad for #1497, split out a sibling Phase-4 issue at that time.
+
+### 9.2 New GitHub work items filed for this redesign
+
+The full set of GitHub issues opened on 2026-05-13/14 to track this redesign. Each row is the canonical implementation tracker for its slice; existing issues that overlap are folded into these rows via §10 below.
+
+| # | Title | US | Phase |
+|---|---|---|---|
+| [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) | Catalog: Frequents rail + Favorites pinning | US-1 | Phase 1 |
+| [#1479](https://github.com/rsocko/hass-bambulab-config/issues/1479) | Catalog: Left-rail navigation tree (Projects/Collections/Categories/Tags) | US-3, US-6 | Phase 3 |
+| [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) | Queue: add `someday` state + UI (canonical name in this doc: `backlog`) | US-5 | Phase 1 |
+| [#1483](https://github.com/rsocko/hass-bambulab-config/issues/1483) | Catalog popup: Recover Print History wizard | US-4 | Phase 2 |
+| [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) | Catalog: Projects UI (CRUD + project view) | US-3 | Phase 3 |
+| [#1485](https://github.com/rsocko/hass-bambulab-config/issues/1485) | Catalog: Storage & Maintenance dashboard | US-6 | Phase 2 |
+| [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) | Cross-cutting: Open-in-Slicer custom protocol handler (Bambuddy companion) | US-1 (cross-cutting) | Phase 0 |
+| [#1487](https://github.com/rsocko/hass-bambulab-config/issues/1487) | Catalog: Frequents/Favorites Layer 2 derivation rules | US-1 (contract) | Phase 0 |
+| [#1488](https://github.com/rsocko/hass-bambulab-config/issues/1488) | Catalog: Project evaluation mode — `evaluating` status + candidate board + close wrap-up | US-7 | Phase 5 |
+| [#1489](https://github.com/rsocko/hass-bambulab-config/issues/1489) | Catalog: Visibility / Archived — `catalog_visibility` field + default filter + Show-archived chip | US-8 | Phase 2 |
+| [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490) | Catalog: Entity types — Ideas + Working Groups as first-class citizens | US-9, US-10 | Phase 2 |
+| [#1491](https://github.com/rsocko/hass-bambulab-config/issues/1491) | Catalog: Working Group project-close lifecycle — dissolve / promote / keep in US-7 wrap-up | US-10 | Phase 5 |
+| [#1492](https://github.com/rsocko/hass-bambulab-config/issues/1492) | Catalog: Project tasks — per-Project `task_backend` (none / internal / github / mstodo) | US-11 | Phase 4 |
+| [#1493](https://github.com/rsocko/hass-bambulab-config/issues/1493) | Catalog: Bill of Materials — Model template + Project roll-up + Generate shopping tasks | US-12 | Phase 4 |
+| [#1494](https://github.com/rsocko/hass-bambulab-config/issues/1494) | Catalog: Contribution lifecycle panel — rate / boost / share photos on downloaded models | US-2a | Phase 2 |
+| [#1495](https://github.com/rsocko/hass-bambulab-config/issues/1495) | Catalog: Publication pipeline panel — draft state machine for originals & remixes | US-2b | Phase 4 |
+| [#1496](https://github.com/rsocko/hass-bambulab-config/issues/1496) | Import from Various Sources (absorbs §11 #18 offline-mirror, US-13) | (intake/cross-cutting) | Phase 2 |
+| [#1497](https://github.com/rsocko/hass-bambulab-config/issues/1497) | Browser Extension + Stream Deck: destination chooser beyond Catalog (Project / WG / Queue) (absorbs §11 #20 Queue Project filter + Project/WG payload) | US-3, US-5, US-10 | Phase 6 |
+| [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) | Catalog: unified Add-to-Queue dialog (Quick / Plan) | US-5 | Phase 1 |
+
+*Still to be filed:* §11 #19 — Drag-and-drop catalog organization (formalizes [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390)). File when [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) reaches mergeable state.
 
 ---
 
@@ -639,57 +771,25 @@ Key visible elements:
 
 ### Existing GitHub issues this redesign aligns with (not superseded; track work under)
 
-| # | Title | Maps to |
-|---|---|---|
-| [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) | Document use case priorities | All — this doc is the response |
-| [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI | US-1, US-2a, US-2b, US-4, US-5 (popup pieces) |
-| [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373) | Model Metadata Design: Projects, Collections, Tags | US-3 (closed by §5.1) |
-| [#989](https://github.com/rsocko/hass-bambulab-config/issues/989) | Tracking of Makerworld review status | US-2a |
-| [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326) | Flag as original + uploaded to Makerworld | US-2b |
-| [#1134](https://github.com/rsocko/hass-bambulab-config/issues/1134) | Phase 14: Project CRUD and cross-system | US-3 |
-| [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390) | D&D org of Catalog | US-3, US-6 |
-| [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259) | Naming conv. for Models | US-6 |
-| [#1393](https://github.com/rsocko/hass-bambulab-config/issues/1393) | UI Variants for Catalog | US-6 navigation |
-| [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) | Multi-select updates from catalog view | US-1, US-3 |
-| [#1094](https://github.com/rsocko/hass-bambulab-config/issues/1094) | Phase 6 search facets and query model | US-1 |
-| [#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458) | Quick Add consolidation | US-5 |
-| [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465) | Re-adding to Queue / Backlog warning | US-5 |
-| [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) | Unified Queue state transitions | US-5 (`backlog` extension lands here) |
-| [#1473](https://github.com/rsocko/hass-bambulab-config/issues/1473) | Sync Tags Archive >> Catalog | US-1 (search/filter quality) |
+The table below adds a **Phase / integration** column so existing issues are explicitly folded into the §9.1 sequencing plan. "Tracked under #N" means the existing issue's scope is implemented by the new work item N filed for this redesign — close the existing issue when N ships (or convert it into a sub-task of N).
 
-### Proposed new issues
-
-See [§11](#11-proposed-new-github-issues-prefilled-creation-links) for pre-filled GitHub issue creation links.
-
----
-
-## 11. Proposed new GitHub issues (prefilled creation links)
-
-The full set of pre-filled `issues/new` URLs is published in this design doc's companion section of the response message that introduced this file. Each new issue is scoped to a single shippable change, references this doc, and references the existing issue(s) it complements.
-
-(Quick index — see prefilled links in the chat reply.)
-
-1. Catalog Frequents rail + Favorites pinning (US-1)
-2. Catalog left-rail navigation tree: Projects / Collections / Tags (US-3, US-6)
-3. Contribution lifecycle panel + `publication.contribution.*` fields (US-2a; complements #989) — for downloaded models
-4. Queue `backlog` state + UI (US-5; extends #1407)
-5. Unified Add-to-Queue dialog (Quick / Plan) (US-5; closes #1458 scope)
-6. Recover Print History wizard from model popup (US-4)
-7. Catalog Projects UI (CRUD + project view) (US-3; under #1134)
-8. Catalog Storage & Maintenance dashboard (US-6)
-9. Open-in-Slicer custom protocol handler unblock (cross-cutting US-1)
-10. Frequents/Favorites projection — Layer 2 derivation rules (US-1; layering contract)
-11. **Project evaluation mode** — `evaluating` status + per-member candidate board + close-evaluation wrap-up dialog (US-7)
-12. **Catalog visibility / Archived** — `catalog_visibility` model field + default filter + Show-archived chip + suggestion banners (US-8)
-13. **Entity types in Catalog** — `entity_type` field (`model` \| `idea` \| `working_group`) + default filter + `Show ideas` / `Show working groups` chips + Idea/WG quick-add + promote actions (US-9, US-10)
-14. **Working Group project-close lifecycle** — dissolve-by-default with promote-to-Model affordance in US-7 wrap-up dialog (US-10)
-15. **Project tasks** — per-Project `task_backend` (`none` \| `internal` \| `github` \| `mstodo`) + Tasks panel in Project popup + adapters for each backend (US-11)
-16. **Bill of Materials** — `model.bom[]` template + Project BOM roll-up panel + acquisition state (`needed`/`acquired`/`installed`) + manual `Generate shopping tasks` bridge to US-11 task backend (US-12)
-17. **Publication pipeline panel + draft state machine** — `publication.draft.{state, target, license, checklist, *_at, published_url, derived_from_url}` + Catalog filter (`Publishing: In prep / Submitted / Published / Originals only`) + manual `Generate publish-prep tasks` bridge to US-11 (US-2b; complements #1326) — for originals & remixes
-18. **Offline-mirror externally-sourced queued models** — suggestion banner + `POST /api/model_catalog/models/{id}/mirror_source` endpoint + `publication.source_files.{last_mirrored_at,last_mirror_error}` + Layer 2 `source missing` derivation; trigger = remote-sourced + URL-only + in any queue state (US-13)
-19. **Drag-and-drop catalog organization** — Cards → Project / Collection / Tag drops; Collection nesting via D&D; Projects stay flat at v1; multi-select bulk apply; keyboard + right-click parity (formalizes #1390 under US-3 / US-6)
-20. **Print Queue: Project filter + Project / Working Group as add-to-queue payload** — Queue UI gains `Project` filter (scopes across all states); Add-to-Queue dialog accepts `Project` and `Working Group` payloads, defaults all members to `up_next`, batched via `source.add_request_id`, skips members already in non-terminal states (US-3 / US-5)
-21. **Browser Extension + Stream Deck: destination chooser beyond Catalog** — design issue; both surfaces today only target "add to Catalog"; need to extend to add an imported/triggered item to a Project, Working Group, and/or Queue at intake time (US-3 / US-5 / US-10) — see prefilled link in chat reply
+| # | Title | Maps to | Phase / integration |
+|---|---|---|---|
+| [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) | Document use case priorities | All — this doc is the response | Meta — close once this doc is merged. |
+| [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI | US-1, US-2a, US-2b, US-4, US-5 (popup pieces) | **Phase 0 / already in flight.** Popup hero/carousel/files framework is the host for [#1494](https://github.com/rsocko/hass-bambulab-config/issues/1494), [#1495](https://github.com/rsocko/hass-bambulab-config/issues/1495), [#1483](https://github.com/rsocko/hass-bambulab-config/issues/1483), [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499). Must be merged (or have its hero/panel extension points stable) before Phase 2 popup-panel issues land. |
+| [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373) | Model Metadata Design: Projects, Collections, Tags | US-3 (closed by §5.1) | **Decision-only — close as resolved by §5.1 ontology.** No code follows from this issue directly; downstream work is under [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) / [#1479](https://github.com/rsocko/hass-bambulab-config/issues/1479) / [#1490](https://github.com/rsocko/hass-bambulab-config/issues/1490). |
+| [#989](https://github.com/rsocko/hass-bambulab-config/issues/989) | Tracking of Makerworld review status | US-2a | **Phase 2 — tracked under [#1494](https://github.com/rsocko/hass-bambulab-config/issues/1494).** Close on #1494 ship. |
+| [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326) | Flag as original + uploaded to Makerworld | US-2b | **Phase 4 — tracked under [#1495](https://github.com/rsocko/hass-bambulab-config/issues/1495).** Close on #1495 ship. |
+| [#1134](https://github.com/rsocko/hass-bambulab-config/issues/1134) | Phase 14: Project CRUD and cross-system | US-3 | **Phase 3 — tracked under [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484)** (the keystone). #1134 is the parent epic; convert it into a tracking issue or close on #1484 ship. |
+| [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390) | D&D org of Catalog | US-3, US-6 | **Phase 3 — formalized as §11 #19 (D&D org).** File the new issue when [#1484](https://github.com/rsocko/hass-bambulab-config/issues/1484) + [#1479](https://github.com/rsocko/hass-bambulab-config/issues/1479) reach mergeable state; close #1390 on its ship. |
+| [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259) | Naming conv. for Models | US-6 | **Phase 2 (Storage dashboard companion) — informs [#1485](https://github.com/rsocko/hass-bambulab-config/issues/1485) defaults.** On-disk reorg automation remains out of scope per §6 US-6; may revisit after Storage dashboard ships. |
+| [#1393](https://github.com/rsocko/hass-bambulab-config/issues/1393) | UI Variants for Catalog | US-6 navigation | **Phase 3 — covered by [#1479](https://github.com/rsocko/hass-bambulab-config/issues/1479)** (left-rail navigation tree). Close on #1479 ship. |
+| [#1401](https://github.com/rsocko/hass-bambulab-config/issues/1401) | Multi-select updates from catalog view | US-1, US-3 | **Phase 1 prerequisite for [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478)** (multi-pin Favorites) and **Phase 3 prerequisite for §11 #19 D&D bulk-apply.** Land the multi-select primitive during Phase 1 so both downstream surfaces inherit it. |
+| [#1094](https://github.com/rsocko/hass-bambulab-config/issues/1094) | Phase 6 search facets and query model | US-1 | **Independent track (parallel to Phase 1+).** Soft enhancement — improves Frequents/search quality and unlocks the typed-query hint shown in §8 header. Not blocking; pull in when search work resumes. |
+| [#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458) | Quick Add consolidation | US-5 | **Phase 1 — superseded by [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499).** Close on #1499 ship. |
+| [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465) | Re-adding to Queue / Backlog warning | US-5 | **Phase 1 — folded into [#1499](https://github.com/rsocko/hass-bambulab-config/issues/1499) (re-add semantics) and [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481) (backlog/someday state).** Close when both ship. |
+| [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) | Unified Queue state transitions | US-5 (`backlog` extension lands here) | **Phase 1 — extended by [#1481](https://github.com/rsocko/hass-bambulab-config/issues/1481).** #1407 is the host for the state-machine; #1481 adds the `backlog`/`someday` row. Migration-safe rollout coordinated under #1407. |
+| [#1473](https://github.com/rsocko/hass-bambulab-config/issues/1473) | Sync Tags Archive >> Catalog | US-1 (search/filter quality) | **Phase 2 (parallel) — improves Frequents/search fidelity for [#1478](https://github.com/rsocko/hass-bambulab-config/issues/1478) and chip filters.** Independent of Projects work; can land any time after Phase 1. |
 
 ---
 
