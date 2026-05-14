@@ -85,7 +85,7 @@ This section closes the open ontology questions in [#1373](https://github.com/rs
 | **Collection** | many-per-model | tree | Stable, user-curated browse structure; may contain nested collections | `Filament Tools`, `Office Decor`, `Holiday Gifts 2026` |
 | **Project** | many-per-model | flat at v1, optional parent in v2 | A **build effort with intent and a lifecycle** (`evaluating` → `planning` → `active` → `completed` → `archived`, or `backlog`). Holds tasks, notes, target date, status. May also hold per-member **candidate state** when in `evaluating` mode (US-7). | `Build: Garage Reorg`, `Mom's Birthday Box`, `Evaluating: Shelf Bracket Options` |
 | **Favorite** | boolean per model | n/a | User-pinned for quick access | n/a |
-| **Frequent** | derived (read-only) | n/a | Computed from archive link count + recency window | n/a |
+| **Frequent** | boolean per model (derives from archive count + recency, but manually overridable) | n/a | **Derived source:** archive link count + recency window (configurable 30d/90d/1y/all-time, configurable ≥3 prints threshold). **Manual override:** operator can "Mark as frequent" or "Mark not frequent" on any card/popup, overriding inference. Use case: manually flag items actually printed frequently but not yet linked (e.g., a model updated locally without re-linking archives); or exempt an outlier from the frequent list. | n/a |
 | **Catalog visibility** (US-8) | enum on each model: `active` (default) \| `archived` | n/a | `archived` removes the model from default Catalog grid/rail/Frequents queries while keeping all assets and history intact. **No automatic overrides** — Favorites and Frequents do *not* keep an archived model visible (per operator decision; you'll just leave utility prints `active`). | n/a |
 | **Entity type** (US-9, US-10) | enum on each Catalog entry: `model` (default) \| `idea` \| `working_group` | n/a | All three are first-class Catalog citizens with the same membership semantics (Project / Collection / Tag / Favorite / Visibility). Default Catalog grid filters to `entity_type = model`; toolbar offers `Show ideas` and `Show working groups` chips. Each non-model type can be **promoted** (Idea → Model or Working Group; Working Group → Model) when it acquires the right kind of artifact. | n/a |
 
@@ -94,7 +94,12 @@ This section closes the open ontology questions in [#1373](https://github.com/rs
 **Q&A — is there an implicit link between a Collection and a Project?**
 No enforced link. They stay orthogonal: Collection answers *"what curated tree do I want it grouped with?"* (stable, nested, browseable), while Project answers *"what am I trying to do with it right now?"* (intent, lifecycle, tasks). They will frequently overlap in practice, but enforcing a 1:1 binding would collapse the two roles back together. **Convenience to add (not a constraint):** when creating or editing a Collection, the editor may offer a "Quick fill from parent collection…" or "Clone subtree…" action that pre-populates membership from an existing collection branch; the resulting membership is then explicit and editable. We do *not* keep a live link — once filled, the Collection is its own tree.
 
-**Decision (Project vs Bambuddy Project):** Keep the Bambuddy concept as `print_project` (a group of executed prints). The Catalog `Project` is a **planning/intent entity** that *can* point to one or more `print_project`s for completed work. Catalog Project supports many-models, Bambuddy Project remains 1-project-per-model on the archive side. The Catalog Project optionally exposes "completed prints rolled up from linked print_projects" as a derived view.
+**Decision (Project vs Bambuddy Project):** Keep both concepts distinct:
+  - **Bambuddy `print_project`**: execution record (1 per archive). Immutable history of what was actually printed.
+  - **Catalog `Project`**: planning/intent entity (many models). Operator grouping for "what I'm building" with lifecycle (evaluating → planning → active → completed/archived/backlog).
+  - **Linkage:** Optional; operator chooses when to link a completed Catalog Project to its print history. When linked, shows "completed prints rolled up from N associated print_projects" as a derived view on the Project detail.
+  - **Archive ingestion:** When a print completes in Bambuddy (new archive created), optionally suggest linking to an in-flight Catalog Project if confidence threshold is met (filename match, etc.). Operator confirms before linking.
+  - **UI affordance:** "Link to Project…" action in the Project detail when viewing print history; or post-print offer in popup/Project context when a new archive appears.
 
 **Project status enum** (extended for US-7):
 
@@ -167,6 +172,12 @@ Left rail (collapsible)        Main content
 - **"Open in Slicer"** must work via tokenized custom-protocol handler (per [working-files-local-launch-and-slicer-integration-design.md](working-files-local-launch-and-slicer-integration-design.md)). Until that ships, label and disable with tooltip "Slicer launch requires the Bambuddy companion handler — see setup guide".
 
 **Linking print history back to model** (covered today by archive linkage flow but not visible enough): show on the Frequents card the count + a tiny `↪ History` glyph that opens the popup at the History tab.
+
+**Frequents rail visibility & manual control**
+
+- **Rail toggleable:** Frequents rail header includes collapse/hide control. Visibility state persists per-operator preference.
+- **Manual Frequent flagging:** Every card/popup offers `Mark as frequent` or `Unmark as frequent`. Overrides automatic inference; manually flagged items stay pinned in the rail regardless of window/threshold.
+- **Tuning:** "Tune Frequents" popover adjusts window (30d/90d/1y/all-time) and threshold for computed list; manual flags unaffected.
 
 ### US-2a: Contribution lifecycle panel — for downloaded models (NEW)
 

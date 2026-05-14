@@ -232,6 +232,11 @@
   .queue-flow { display: grid; grid-template-columns: repeat(7, auto); gap: 6px; align-items: center; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
   .qstate { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); font-size: 12px; text-align: center; min-width: 72px; }
   .qstate.new { border-color: var(--accent); color: var(--accent); }
+  .qstate.backlog {
+    border-color: #7a6a57;
+    color: #c7b9a6;
+    background: rgba(82, 65, 47, 0.32);
+  }
   .arrow { color: var(--muted); font-size: 18px; }
 
   /* Quick add dialog */
@@ -246,6 +251,19 @@
   .field select, .field input, .field textarea {
     background: #11141b; color: var(--text); border: 1px solid var(--border); border-radius: 6px;
     padding: 6px 8px; font: inherit;
+  }
+  .plate-list { display: grid; gap: 8px; }
+  .plate-row {
+    display: flex; justify-content: space-between; gap: 10px; align-items: center;
+    padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: #11141b;
+  }
+  .plate-row .meta { color: var(--muted); font-size: 11px; }
+  .queue-filter-bar {
+    margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px;
+  }
+  .queue-filter-bar select {
+    background: #11141b; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
   }
   .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
 
@@ -289,12 +307,13 @@
   <a href="#m15">15. Project popup — Tasks panel (US-11)</a>
   <a href="#m16">16. Model BOM panel + Project BOM roll-up (US-12)</a>
   <a href="#m17">17. Popup — Publication pipeline (US-2b, originals & remixes)</a>
+  <a href="#m18">18. Organization drag-and-drop affordances</a>
 </nav>
 
 <!-- 1. Catalog default landing -->
 <section class="mock" id="m1">
   <h2>1. Catalog — Default landing</h2>
-  <p class="desc">Frequents rail anchors the page above the grid. Left rail offers Projects/Collections/Tags drill-in, with hierarchical collections in the browse tree. Filters are visible chips. Card primary action is contextual ("Print" when there's a printable plate, otherwise "Open in Slicer").</p>
+  <p class="desc">Frequents rail anchors the page above the grid and can be hidden per operator preference. Left rail offers Projects/Collections/Tags drill-in, with hierarchical collections in the browse tree. Filters are visible chips. Card primary action is contextual ("Print" when there's a printable plate, otherwise "Open in Slicer").</p>
   <div class="app">
     <div class="app-header">
       <span class="title">Model Catalog</span>
@@ -308,7 +327,7 @@
     <div class="catalog">
       <aside class="rail">
         <div class="item active"><span>★ Favorites</span><span class="count">12</span></div>
-        <div class="item"><span>⚡ Frequents (auto)</span><span class="count">28</span></div>
+        <div class="item"><span>⚡ Frequents (auto + manual)</span><span class="count">28</span></div>
         <div class="item"><span>🆕 Recently added</span><span class="count">36</span></div>
         <div class="item"><span>🔄 Recently printed</span><span class="count">42</span></div>
 
@@ -337,9 +356,10 @@
       <main class="main">
         <div class="freq-rail">
           <div class="freq-rail-head">
-            <h3>⚡ Frequents &nbsp; <span class="hint">computed from prints in last 90d · ★ pinned first</span></h3>
+            <h3>⚡ Frequents &nbsp; <span class="hint">computed from prints in last 90d · manually flagged first · ★ pinned first</span></h3>
             <span class="spacer"></span>
             <button class="btn ghost">Tune…</button>
+            <button class="btn ghost" title="Hide Frequents rail">−</button>
           </div>
           <div class="freq-cards">
             <div class="freq-card">
@@ -349,6 +369,7 @@
               <div class="actions">
                 <button class="btn primary">Print</button>
                 <button class="btn">Slicer</button>
+                <button class="btn ghost">⚡ Unmark</button>
                 <button class="btn ghost">↪ History</button>
               </div>
             </div>
@@ -359,6 +380,7 @@
               <div class="actions">
                 <button class="btn primary">Print</button>
                 <button class="btn">Slicer</button>
+                <button class="btn ghost">⚡ Unmark</button>
                 <button class="btn ghost">↪ History</button>
               </div>
             </div>
@@ -369,6 +391,7 @@
               <div class="actions">
                 <button class="btn primary">Print</button>
                 <button class="btn">Slicer</button>
+                <button class="btn ghost">⚡ Mark</button>
                 <button class="btn ghost">↪ History</button>
               </div>
             </div>
@@ -379,6 +402,7 @@
               <div class="actions">
                 <button class="btn primary">Print</button>
                 <button class="btn">Slicer</button>
+                <button class="btn ghost">⚡ Mark</button>
                 <button class="btn ghost">↪ History</button>
               </div>
             </div>
@@ -458,6 +482,14 @@
       <div class="field">
         <label>Include backfilled prints</label>
         <select><option>Yes (down-weight)</option><option>Yes (full weight)</option><option>No</option></select>
+      </div>
+      <div class="field">
+        <label>Manual Frequent flags</label>
+        <div class="legend">
+          <div class="row"><span>Filament Swatch v4</span><span><button class="btn ghost">Unmark</button></span></div>
+          <div class="row"><span>Spool Container — 1kg</span><span><button class="btn ghost">Unmark</button></span></div>
+          <div class="row"><span>Bambu AMS Spool Adapter</span><span><button class="btn">Mark</button></span></div>
+        </div>
       </div>
       <div class="dlg-actions" style="border:none;padding:10px 0 0">
         <button class="btn ghost">Reset</button>
@@ -620,9 +652,32 @@
 <!-- 7. Queue states -->
 <section class="mock" id="m7">
   <h2>7. Queue — Extended state machine + <code>backlog</code></h2>
-  <p class="desc">Adds <span class="qstate new" style="display:inline-block">backlog</span> as a low-priority parking lot for "future prints". Adds optional post-print states (<i>assemble</i>, <i>shipped</i>) for projects with assembly work. Re-add allowed; dequeue warns if any entry is already <i>in progress</i>.</p>
+  <p class="desc">Adds <span class="qstate backlog" style="display:inline-block">backlog</span> as a low-priority parking lot for "future prints". Adds optional post-print states (<i>assemble</i>, <i>shipped</i>) for projects with assembly work. Re-add allowed; dequeue warns if any entry is already <i>in progress</i>.</p>
+  <div class="queue-filter-bar">
+    <span class="chip on">Project: Garage Reorg</span>
+    <label>Project
+      <select>
+        <option>All projects</option>
+        <option selected>Garage Reorg</option>
+        <option>Bedside Phone Stand</option>
+        <option>Filament Tooling v3</option>
+      </select>
+    </label>
+    <label>State
+      <select>
+        <option selected>All states</option>
+        <option>backlog</option>
+        <option>up_next</option>
+        <option>ready</option>
+        <option>in progress</option>
+        <option>blocked</option>
+        <option>done</option>
+      </select>
+    </label>
+    <button class="btn">Queue all unprinted from Project</button>
+  </div>
   <div class="queue-flow">
-    <span class="qstate new">backlog</span>
+    <span class="qstate backlog">backlog</span>
     <span class="arrow">→ promote →</span>
     <span class="qstate">up_next</span>
     <span class="arrow">→</span>
@@ -646,7 +701,13 @@
     <span class="qstate">blocked</span>
     <span style="color:var(--muted);font-size:12px">&nbsp; (revert path retained from #1407)</span>
   </div>
-  <p class="legend">Default Catalog filter <b>hides</b> <code>backlog</code> entries from primary printer queues. Send-to-Backlog from Catalog popup creates entries with no printer affinity.</p>
+  <div class="panel" style="margin-top:10px">
+    <h3>Project queue snapshot</h3>
+    <div class="row"><div><b>Pegboard Hook A</b> · ready · P1S</div><div class="meta">Project: Garage Reorg</div></div>
+    <div class="row"><div><b>Drill Bit Holder</b> · backlog</div><div class="meta">Project: Garage Reorg</div></div>
+    <div class="row"><div><b>Outlet Cable Wrap</b> · blocked</div><div class="meta">Project: Garage Reorg</div></div>
+  </div>
+  <p class="legend">Default Catalog filter <b>hides</b> <code>backlog</code> entries from primary printer queues. Send-to-Backlog from Catalog popup creates entries with no printer affinity. Project filter can pivot queue work to one project across all states.</p>
 </section>
 
 <!-- 8. Add to queue dialog -->
@@ -666,14 +727,34 @@
       <div class="dlg-head"><b>Add to Queue</b> — Echo Show 5 Minimal Case</div>
       <div class="dlg-tabs"><span class="tab">Quick</span><span class="tab on">Plan</span></div>
       <div class="dlg-body">
-        <div class="field"><label>File / plates</label><select><option>EchoShow5.3mf — Plate 1 (body+bezel)</option><option>EchoShow5.3mf — Plate 2 (rear shell)</option><option>(both)</option></select></div>
+        <div class="field">
+          <label>Plates (multi-select)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn">Select all</button>
+            <button class="btn ghost">Deselect all</button>
+          </div>
+          <div class="plate-list">
+            <label class="plate-row"><span><input type="checkbox" checked> Plate 1 · body + bezel<br><span class="meta">2h 48m · 2 colors · standard supports</span></span><span class="pill good">selected</span></label>
+            <label class="plate-row"><span><input type="checkbox"> Plate 2 · rear shell<br><span class="meta">1h 22m · 1 color · no supports</span></span><span class="pill">optional</span></label>
+            <label class="plate-row"><span><input type="checkbox" checked> Plate 3 · cable clip variant<br><span class="meta">0h 41m · 2 colors · draft profile</span></span><span class="pill good">selected</span></label>
+          </div>
+        </div>
         <div class="field"><label>Printer</label><select><option>P1S (default)</option><option>X1C</option><option>Any printer</option></select></div>
         <div class="field"><label>Target state</label><select><option>up_next</option><option>ready</option><option selected>backlog</option></select></div>
         <div class="field"><label>Project (optional)</label><select><option>—</option><option>Office Decor Refresh</option><option>Holiday Gifts 2026</option></select></div>
+        <div class="field"><label><input type="checkbox" checked> Download source files when adding to backlog (online sources only)</label></div>
         <div class="field"><label>Notes</label><textarea rows="2" placeholder="e.g. print after AMS clean"></textarea></div>
       </div>
       <div class="dlg-actions"><button class="btn ghost">Cancel</button><button class="btn primary">Add to Queue</button></div>
     </div>
+  </div>
+  <div class="panel" style="margin-top:12px;max-width:960px">
+    <h3>External intake quick actions</h3>
+    <div class="row"><div>Browser Extension / Stream Deck action map</div><div class="meta">future phase</div></div>
+    <div class="row"><div>Add to project</div><div><button class="btn">Pick project</button></div></div>
+    <div class="row"><div>Add to queue</div><div><button class="btn">Open Plan dialog</button></div></div>
+    <div class="row"><div>Add to collection</div><div><button class="btn">Pick collection</button></div></div>
+    <div class="row"><div>Mark favorite / frequent</div><div><button class="btn">Toggle flags</button></div></div>
   </div>
 </section>
 
@@ -1021,6 +1102,33 @@
       </div>
     </div>
   </div>
+</section>
+
+<section class="mock" id="m18">
+  <h2>18. Organization drag-and-drop affordances</h2>
+  <p class="desc">Exploratory interaction sketch for moving models into Projects and Collections by drag-and-drop. This is intentionally marked as advanced and requires accessibility parity (keyboard and menu alternatives).</p>
+  <div class="app">
+    <div class="app-header">
+      <span class="title">Catalog · Drag to organize</span>
+      <span class="spacer"></span>
+      <span class="pill warn">experimental interaction</span>
+    </div>
+    <div style="padding:12px;display:grid;grid-template-columns:220px 1fr;gap:12px">
+      <div class="panel">
+        <h3>Drop zones</h3>
+        <div class="row"><div>📋 Garage Reorg</div><div class="meta">drop to add</div></div>
+        <div class="row"><div>📋 Bedside Phone Stand</div><div class="meta">drop to add</div></div>
+        <div class="row"><div>📁 Filament Tools</div><div class="meta">drop to add</div></div>
+      </div>
+      <div class="panel">
+        <h3>Candidate cards</h3>
+        <div class="row"><div><b>Echo Show 5 Minimal Case</b> <span class="meta">(grab handle ⠿)</span></div><div><button class="btn ghost">Add to…</button></div></div>
+        <div class="row"><div><b>Spool Container — 1kg</b> <span class="meta">(grab handle ⠿)</span></div><div><button class="btn ghost">Add to…</button></div></div>
+        <div class="row"><div><b>Wall Mount Bracket</b> <span class="meta">(grab handle ⠿)</span></div><div><button class="btn ghost">Add to…</button></div></div>
+      </div>
+    </div>
+  </div>
+  <p class="legend">Fallback path remains required: context menu actions (Add to project / Add to collection) must match drag outcomes for keyboard and assistive-technology users.</p>
 </section>
 
 <footer style="padding:16px 24px;color:var(--muted);font-size:12px">

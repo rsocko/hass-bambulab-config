@@ -29,7 +29,7 @@ const VALID_QUEUE_VIEWS = new Set(['list', 'kanban']);
 // Per-state palette — drives card wash, kanban column accent, list group dot,
 // filter swatches. Single source of truth across both views.
 const QUEUE_STATE_PALETTE = {
-  backlog:     '#6b5b95',  // muted purple (parked items)
+  backlog:     '#7a6a57',  // muted gray-brown (parked / someday items)
   up_next:     '#a07cff',  // bright purple (next to print)
   preparing:   '#ff9a3c',
   ready:       '#e6d84a',
@@ -3291,7 +3291,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         --text: var(--primary-text-color);
         --text-secondary: var(--secondary-text-color);
         --text-muted: color-mix(in srgb, var(--secondary-text-color) 70%, transparent);
-        --state-backlog: #6b5b95;
+        --state-backlog: #7a6a57;
         --state-up-next: #a07cff;
         --state-preparing: #ff9a3c;
         --state-ready: #58e0b8;
