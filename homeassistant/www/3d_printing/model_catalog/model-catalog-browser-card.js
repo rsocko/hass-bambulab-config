@@ -415,7 +415,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
           state: String(entry.state || "").toLowerCase(),
           rank: Number(entry.rank || 0),
         };
-        byModelRef[modelRef] = this._choosePreferredQueueEntry(byModelRef[modelRef], candidate);
+        if (!byModelRef[modelRef]) {
+          byModelRef[modelRef] = { preferred: null, count: 0, entries: [] };
+        }
+        byModelRef[modelRef].preferred = this._choosePreferredQueueEntry(byModelRef[modelRef].preferred, candidate);
+        byModelRef[modelRef].count += 1;
+        byModelRef[modelRef].entries.push(candidate);
       }
       this._unifiedQueueByModelRef = byModelRef;
     } catch (_error) {
@@ -901,6 +906,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       for (var i = 0; i < entries.length; i++) {
         var entryId = String(entries[i] && entries[i].queue_entry_id || "").trim();
         if (entryId) {
+          var entryState = String(entries[i].state || "").toLowerCase();
+          // Require confirmation if entry is not in backlog or up_next
+          if (["preparing", "ready", "in_progress", "blocked", "done"].indexOf(entryState) >= 0) {
+            var shouldContinue = confirm(
+              "This queue entry is in " + entryState + " state. Are you sure you want to dequeue it?"
+            );
+            if (!shouldContinue) {
+              return;
+            }
+          }
           await this._deleteUnifiedQueueEntry(entryId);
         }
       }
@@ -908,9 +923,34 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (action === "queue-add") {
-      if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "backlog" });
+      // Always add a new entry; allow same model N times for multi-print workflows
+      // Warn if model already has entries
+      if (entries && entries.length > 0) {
+        var existingCount = entries.length;
+        var shouldContinue = confirm(
+          "This model already has " + existingCount + " queue entr" + (existingCount === 1 ? "y" : "ies") + ". Add another?"
+        );
+        if (!shouldContinue) {
+          return;
+        }
       }
+      await this._addUnifiedQueueEntryForModel(modelRef, { state: "backlog" });
+      return;
+    }
+
+    if (action === "queue-re-add") {
+      // Re-add action from advanced menu: always creates new entry (same as queue-add)
+      // Warn if model already has entries
+      if (entries && entries.length > 0) {
+        var existingCount = entries.length;
+        var shouldContinue = confirm(
+          "This model already has " + existingCount + " queue entr" + (existingCount === 1 ? "y" : "ies") + ". Add another?"
+        );
+        if (!shouldContinue) {
+          return;
+        }
+      }
+      await this._addUnifiedQueueEntryForModel(modelRef, { state: "backlog" });
       return;
     }
 
@@ -1775,7 +1815,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       tags.push(normalizedTag);
     }
     var queueStateInfo = this._unifiedQueueByModelRef[modelRef] || null;
-    var queueStatus = queueStateInfo ? this._queueStateToRibbonState(queueStateInfo.state) : "none";
+    var preferred = queueStateInfo && queueStateInfo.preferred ? queueStateInfo.preferred : null;
+    var queueStatus = preferred ? this._queueStateToRibbonState(preferred.state) : "none";
     var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
     var originType = String(model.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
     var sourcePlatform = String(model.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
@@ -1873,6 +1914,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + '    <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
           + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
           + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-re-add" data-model-ref="' + this._escapeHtml(modelRef) + '">Re-add</button>'
           + '  </div>'
           + deleteButton
           + '</div>'
@@ -1906,10 +1948,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<button class="icon-action favorite-action' + (modelFavorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(modelFavorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(modelFavorite ? 'Remove favorite' : 'Add favorite') + '">'
       + '  <ha-icon icon="' + this._escapeHtml(modelFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
       + '</button>';
-    var queueButtonQueued = !!(queueStateInfo && this._isUnifiedQueueActiveState(queueStateInfo.state));
+    // Always show Add to backlog; re-add option in advanced menu. Show count badge if entries exist.
+    var queueEntryCount = queueStateInfo && queueStateInfo.count ? queueStateInfo.count : 0;
+    var queueStatusClass = queueEntryCount > 0 ? ' has-queue-entries' : '';
+    var queueCountBadge = queueEntryCount > 0 ? '<span class="queue-count-badge">' + this._escapeHtml(String(queueEntryCount)) + '</span>' : '';
     var queueButton = ''
-      + '<button class="icon-action queue-action' + (queueButtonQueued ? ' is-queued' : '') + '" type="button" data-action="' + this._escapeHtml(queueButtonQueued ? 'queue-clear' : 'queue-add') + '" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="' + this._escapeHtml(queueButtonQueued ? 'Dequeue' : 'Add to backlog') + '">'
-      + '  <ha-icon icon="' + this._escapeHtml(queueButtonQueued ? 'mdi:playlist-remove' : 'mdi:playlist-plus') + '"></ha-icon>'
+      + '<button class="icon-action queue-action' + queueStatusClass + '" type="button" data-action="queue-add" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Add to backlog">'
+      + '  <ha-icon icon="mdi:playlist-plus"></ha-icon>'
+      + queueCountBadge
       + '</button>';
 
     var compactMainHtml = ''
@@ -2557,10 +2603,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
       + '.favorite-action.is-active:hover,.favorite-action.is-active:focus-visible{background:rgba(245,194,66,0.26);color:#f5c242;border-color:rgba(245,194,66,0.62);box-shadow:0 0 0 1px rgba(245,194,66,0.28);transform:translateY(-1px);outline:none;}'
-      + '.queue-action{border-color:rgba(96,165,250,0.30);background:rgba(30,64,175,0.14);color:#93c5fd;}'
+      + '.queue-action{border-color:rgba(96,165,250,0.30);background:rgba(30,64,175,0.14);color:#93c5fd;position:relative;}'
       + '.queue-action:hover,.queue-action:focus-visible{background:rgba(59,130,246,0.20);color:#dbeafe;border-color:rgba(96,165,250,0.52);box-shadow:0 0 0 1px rgba(96,165,250,0.20),0 8px 18px rgba(15,23,42,0.20);transform:translateY(-1px);outline:none;}'
-      + '.queue-action.is-queued{background:rgba(59,130,246,0.24);color:#bfdbfe;border-color:rgba(96,165,250,0.50);}'
-      + '.queue-action.is-queued:hover,.queue-action.is-queued:focus-visible{background:rgba(59,130,246,0.30);color:#eff6ff;border-color:rgba(147,197,253,0.66);box-shadow:0 0 0 1px rgba(96,165,250,0.28),0 10px 22px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
+      + '.queue-action.has-queue-entries{background:rgba(59,130,246,0.24);color:#bfdbfe;border-color:rgba(96,165,250,0.50);}'
+      + '.queue-action.has-queue-entries:hover,.queue-action.has-queue-entries:focus-visible{background:rgba(59,130,246,0.30);color:#eff6ff;border-color:rgba(147,197,253,0.66);box-shadow:0 0 0 1px rgba(96,165,250,0.28),0 10px 22px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
+      + '.queue-count-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 4px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}'
