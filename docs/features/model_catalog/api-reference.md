@@ -79,6 +79,13 @@ Response:
 - `Location` header set to `/api/unified-queue/entries/{queue_entry_id}`
 - body includes `{ success, contract, printer_id, entry }`
 
+Implementation note (SQLite foreign keys):
+
+- Unified queue delete behavior relies on schema-level ON DELETE CASCADE relationships from `unified_queue_entries` to child tables such as `unified_queue_file_units` and `unified_queue_plate_units`.
+- In SQLite, foreign-key enforcement is per-connection and disabled by default unless explicitly enabled.
+- Sidecar DB connections must enable `PRAGMA foreign_keys = ON` in the shared connection factory; migration-time PRAGMA settings do not persist as a database-wide default for later runtime connections.
+- If this PRAGMA is not enabled on runtime connections, deleting a queue entry can leave orphaned child rows even when CASCADE constraints exist in the schema.
+
 Unified contract note:
 
 - Legacy queue payload keys (`queue_status`, `queue_priority`, `print_file`, `print_settings`) are rejected on this endpoint to avoid overlapping queue semantics.

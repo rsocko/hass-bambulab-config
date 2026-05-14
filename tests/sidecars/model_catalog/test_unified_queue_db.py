@@ -39,6 +39,18 @@ def test_unified_queue_tables_are_created(tmp_path: Path) -> None:
     assert "unified_queue_plate_units" in table_names
 
 
+def test_connect_enables_foreign_keys(tmp_path: Path) -> None:
+    db_path = _bootstrap(tmp_path)
+    connection = connect(db_path)
+    try:
+        row = connection.execute("PRAGMA foreign_keys").fetchone()
+    finally:
+        connection.close()
+
+    assert row is not None
+    assert int(row[0]) == 1
+
+
 def test_unified_queue_crud_round_trip_for_entry_file_and_plate_units(tmp_path: Path) -> None:
     db_path = _bootstrap(tmp_path)
 
@@ -161,3 +173,9 @@ def test_unified_queue_crud_round_trip_for_entry_file_and_plate_units(tmp_path: 
     assert removed is True
 
     assert list_unified_queue_entries(db_path=db_path) == []
+    assert list_unified_queue_file_units(db_path=db_path, queue_entry_id=entry.queue_entry_id) == []
+    assert list_unified_queue_plate_units(
+        db_path=db_path,
+        queue_entry_id=entry.queue_entry_id,
+        file_unit_id=file_unit.file_unit_id,
+    ) == []

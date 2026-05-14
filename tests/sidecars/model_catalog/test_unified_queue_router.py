@@ -408,6 +408,81 @@ def test_queue_delete_v1_returns_204_and_removes_entry(tmp_path: Path) -> None:
         client.__exit__(None, None, None)
 
 
+def test_queue_delete_v1_cascades_file_and_plate_units(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/v1/queues/p1/add",
+            json={
+                "source_kind": "catalog_model",
+                "source_id": "model-with-children",
+                "copies": 1,
+            },
+        )
+        assert create_response.status_code == 201
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        file_unit = create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id="fu-delete-cascade",
+            file_name="delete-cascade.3mf",
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=entry_id,
+            file_unit_id=file_unit.file_unit_id,
+            plate_unit_id="pu-delete-cascade",
+            plate_key="plate_1",
+        )
+
+        connection = connect(db_path)
+        try:
+            before_file_units = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM unified_queue_file_units WHERE queue_entry_id = ?",
+                    (entry_id,),
+                ).fetchone()[0]
+            )
+            before_plate_units = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM unified_queue_plate_units WHERE queue_entry_id = ?",
+                    (entry_id,),
+                ).fetchone()[0]
+            )
+        finally:
+            connection.close()
+
+        assert before_file_units == 1
+        assert before_plate_units == 1
+
+        delete_response = client.delete(f"/api/v1/queues/p1/entries/{entry_id}")
+        assert delete_response.status_code == 204
+        assert delete_response.content == b""
+
+        connection = connect(db_path)
+        try:
+            after_file_units = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM unified_queue_file_units WHERE queue_entry_id = ?",
+                    (entry_id,),
+                ).fetchone()[0]
+            )
+            after_plate_units = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM unified_queue_plate_units WHERE queue_entry_id = ?",
+                    (entry_id,),
+                ).fetchone()[0]
+            )
+        finally:
+            connection.close()
+
+        assert after_file_units == 0
+        assert after_plate_units == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_queue_delete_v1_returns_404_for_nonexistent_entry(tmp_path: Path) -> None:
     client, _db_path = _create_client(tmp_path)
     try:
