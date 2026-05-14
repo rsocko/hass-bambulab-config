@@ -190,7 +190,7 @@ Placement:
 UI behavior:
 
 - show current memberships as removable chips
-- `Add collection` typeahead control (multi-select)
+- `Add collection` typeahead control (multi-select, path-aware for hierarchical collections)
 - optional `Create collection` inline action (if permissions/config allow)
 - support zero memberships and show `No Collection` status text when empty
 

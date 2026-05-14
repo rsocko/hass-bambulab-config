@@ -278,7 +278,7 @@
   <a href="#m4">4. Popup — Hero + chips + actions</a>
   <a href="#m5">5. Popup — Contribution lifecycle (US-2a, downloaded models)</a>
   <a href="#m6">6. Popup — Recover Print History wizard</a>
-  <a href="#m7">7. Queue — Extended state machine + Someday</a>
+  <a href="#m7">7. Queue — Extended state machine + Backlog</a>
   <a href="#m8">8. Add-to-Queue dialog (Quick / Plan)</a>
   <a href="#m9">9. Storage & Maintenance</a>
   <a href="#m10">10. Project — Evaluation board (US-7)</a>
@@ -294,7 +294,7 @@
 <!-- 1. Catalog default landing -->
 <section class="mock" id="m1">
   <h2>1. Catalog — Default landing</h2>
-  <p class="desc">Frequents rail anchors the page above the grid. Left rail offers Projects/Collections/Categories/Tags drill-in. Filters are visible chips. Card primary action is contextual ("Print" when there's a printable plate, otherwise "Open in Slicer").</p>
+  <p class="desc">Frequents rail anchors the page above the grid. Left rail offers Projects/Collections/Tags drill-in, with hierarchical collections in the browse tree. Filters are visible chips. Card primary action is contextual ("Print" when there's a printable plate, otherwise "Open in Slicer").</p>
   <div class="app">
     <div class="app-header">
       <span class="title">Model Catalog</span>
@@ -317,18 +317,14 @@
         <div class="item sub"><span>Garage Reorg</span><span class="count">7</span></div>
         <div class="item sub"><span>Mom's Birthday Box</span><span class="count">4</span></div>
         <div class="item sub"><span>Filament Tooling v3</span><span class="count">11</span></div>
-        <div class="item"><span>▸ Someday</span><span class="count">9</span></div>
+        <div class="item"><span>▸ Backlog</span><span class="count">9</span></div>
 
         <h4>Collections</h4>
-        <div class="item"><span>Filament Tools</span><span class="count">18</span></div>
-        <div class="item"><span>Office Decor</span><span class="count">9</span></div>
-        <div class="item"><span>Holiday Gifts 2026</span><span class="count">6</span></div>
-
-        <h4>Categories</h4>
-        <div class="item"><span>▾ Functional</span><span class="count">94</span></div>
-        <div class="item sub"><span>Storage</span><span class="count">28</span></div>
-        <div class="item sub"><span>Tooling</span><span class="count">19</span></div>
-        <div class="item"><span>▸ Decorative</span><span class="count">41</span></div>
+        <div class="item"><span>▾ Filament Tools</span><span class="count">18</span></div>
+        <div class="item sub"><span>Spool Accessories</span><span class="count">8</span></div>
+        <div class="item sub"><span>AMS Tools</span><span class="count">5</span></div>
+        <div class="item"><span>▸ Office Decor</span><span class="count">9</span></div>
+        <div class="item"><span>▸ Holiday Gifts 2026</span><span class="count">6</span></div>
 
         <h4>Tags</h4>
         <div class="item"><span>pla-only</span><span class="count">62</span></div>
@@ -432,7 +428,7 @@
             <div class="thumb">preview</div>
             <div class="title">Vase Mode Lampshade</div>
             <div class="pills">
-              <span class="pill">Someday</span>
+              <span class="pill">Backlog</span>
               <span class="pill">Collection: Office Decor</span>
             </div>
             <div class="actions" style="display:flex;gap:6px"><button class="btn">Slicer</button><button class="btn ghost">+ Queue</button><button class="btn ghost">⋯</button></div>
@@ -500,7 +496,7 @@
       </div>
       <div class="grid">
         <div class="card"><div class="thumb">preview</div><div class="title">Pegboard Hook A</div><div class="pills"><span class="pill good">Done · 4×</span></div><div style="display:flex;gap:6px"><button class="btn">Slicer</button><button class="btn ghost">↪ History</button></div></div>
-        <div class="card"><div class="thumb">preview</div><div class="title">Pegboard Hook B</div><div class="pills"><span class="pill accent">In Queue · started</span></div><div style="display:flex;gap:6px"><button class="btn">Open Queue</button></div></div>
+        <div class="card"><div class="thumb">preview</div><div class="title">Pegboard Hook B</div><div class="pills"><span class="pill accent">In Queue · in progress</span></div><div style="display:flex;gap:6px"><button class="btn">Open Queue</button></div></div>
         <div class="card"><div class="thumb">preview</div><div class="title">Drill Bit Holder</div><div class="pills"><span class="pill">Ready</span></div><div style="display:flex;gap:6px"><button class="btn primary">Print</button></div></div>
         <div class="card"><div class="thumb">preview</div><div class="title">Outlet Cable Wrap</div><div class="pills"><span class="pill warn">Not printed</span></div><div style="display:flex;gap:6px"><button class="btn ghost">+ Queue</button></div></div>
       </div>
@@ -529,7 +525,6 @@
           <span class="chip">Project: Holiday Gifts 2026</span>
           <span class="chip">Collection: Office Decor</span>
           <span class="chip">Collection: Echo / Alexa Mods</span>
-          <span class="chip">Category: Decorative › Display</span>
           <span class="chip muted">Tags: echo · alexa · enclosure · bedside</span>
         </div>
       </div>
@@ -624,21 +619,21 @@
 
 <!-- 7. Queue states -->
 <section class="mock" id="m7">
-  <h2>7. Queue — Extended state machine + <code>someday</code></h2>
-  <p class="desc">Adds <span class="qstate new" style="display:inline-block">someday</span> as a low-priority parking lot for "future prints". Adds optional post-print states (<i>assemble</i>, <i>shipped</i>) for projects with assembly work. Re-add allowed; dequeue warns if any entry is past <i>started</i>.</p>
+  <h2>7. Queue — Extended state machine + <code>backlog</code></h2>
+  <p class="desc">Adds <span class="qstate new" style="display:inline-block">backlog</span> as a low-priority parking lot for "future prints". Adds optional post-print states (<i>assemble</i>, <i>shipped</i>) for projects with assembly work. Re-add allowed; dequeue warns if any entry is already <i>in progress</i>.</p>
   <div class="queue-flow">
-    <span class="qstate new">someday</span>
+    <span class="qstate new">backlog</span>
     <span class="arrow">→ promote →</span>
-    <span class="qstate">backlog</span>
+    <span class="qstate">up_next</span>
     <span class="arrow">→</span>
     <span class="qstate">ready</span>
     <span class="arrow">→</span>
-    <span class="qstate">started</span>
+    <span class="qstate">in progress</span>
     <span class="arrow">→</span>
     <span class="qstate">done</span>
   </div>
   <div class="queue-flow" style="margin-top:10px">
-    <span class="qstate">started</span>
+    <span class="qstate">in progress</span>
     <span class="arrow">→ optional →</span>
     <span class="qstate new">assemble</span>
     <span class="arrow">→</span>
@@ -646,24 +641,24 @@
     <span style="color:var(--muted);font-size:12px">&nbsp; (project work continues after print)</span>
   </div>
   <div class="queue-flow" style="margin-top:10px">
-    <span class="qstate">ready/started</span>
+    <span class="qstate">ready/in progress</span>
     <span class="arrow">↔</span>
     <span class="qstate">blocked</span>
     <span style="color:var(--muted);font-size:12px">&nbsp; (revert path retained from #1407)</span>
   </div>
-  <p class="legend">Default Catalog filter <b>hides</b> <code>someday</code> entries from primary printer queues. Send-to-Someday from Catalog popup creates entries with no printer affinity.</p>
+  <p class="legend">Default Catalog filter <b>hides</b> <code>backlog</code> entries from primary printer queues. Send-to-Backlog from Catalog popup creates entries with no printer affinity.</p>
 </section>
 
 <!-- 8. Add to queue dialog -->
 <section class="mock" id="m8">
   <h2>8. Add-to-Queue dialog (Quick / Plan) — unified</h2>
-  <p class="desc">One component. Quick uses defaults (primary plate, default printer, <code>ready</code> state). Plan exposes plates, printer, target state (incl. <code>someday</code>), project, notes. Used from card, popup, intake, and queue editor — closes the inconsistent UX called out in #1458.</p>
+  <p class="desc">One component. Quick uses defaults (primary plate, default printer, <code>up_next</code> state). Plan exposes plates, printer, target state (incl. <code>backlog</code>), project, notes. Used from card, popup, intake, and queue editor — closes the inconsistent UX called out in #1458.</p>
   <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
     <div class="dlg">
       <div class="dlg-head"><b>Add to Queue</b> — Echo Show 5 Minimal Case</div>
       <div class="dlg-tabs"><span class="tab on">Quick</span><span class="tab">Plan</span></div>
       <div class="dlg-body">
-        <div class="legend">Will queue <b>EchoShow5.3mf · primary plate</b> on <b>P1S (default)</b> in state <b>ready</b>.</div>
+        <div class="legend">Will queue <b>EchoShow5.3mf · primary plate</b> on <b>P1S (default)</b> in state <b>up_next</b>.</div>
       </div>
       <div class="dlg-actions"><button class="btn ghost">Cancel</button><button class="btn primary">Add to Queue</button></div>
     </div>
@@ -673,7 +668,7 @@
       <div class="dlg-body">
         <div class="field"><label>File / plates</label><select><option>EchoShow5.3mf — Plate 1 (body+bezel)</option><option>EchoShow5.3mf — Plate 2 (rear shell)</option><option>(both)</option></select></div>
         <div class="field"><label>Printer</label><select><option>P1S (default)</option><option>X1C</option><option>Any printer</option></select></div>
-        <div class="field"><label>Target state</label><select><option>ready</option><option>backlog</option><option selected>someday</option></select></div>
+        <div class="field"><label>Target state</label><select><option>up_next</option><option>ready</option><option selected>backlog</option></select></div>
         <div class="field"><label>Project (optional)</label><select><option>—</option><option>Office Decor Refresh</option><option>Holiday Gifts 2026</option></select></div>
         <div class="field"><label>Notes</label><textarea rows="2" placeholder="e.g. print after AMS clean"></textarea></div>
       </div>
@@ -767,7 +762,7 @@
     <div style="padding:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input type="text" placeholder="Search catalog…" style="flex:1;min-width:200px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 10px">
       <span class="pill">Sort: Recently used</span>
-      <span class="pill">Filter: All categories</span>
+      <span class="pill">Filter: All collections</span>
       <span class="pill warn" title="Toggle to also show archived models">👁 Show archived · 12</span>
       <button class="btn">Advanced actions</button>
     </div>
@@ -807,7 +802,7 @@
         <div class="row"><div>★ Favorites</div><div class="meta">14</div></div>
         <div class="row"><div>⚡ Frequents</div><div class="meta">38</div></div>
         <div class="row"><div>📁 Collections</div><div class="meta">9</div></div>
-        <div class="row"><div>🗂 Categories</div><div class="meta">22</div></div>
+        <div class="row"><div>📁 Collections</div><div class="meta">22</div></div>
         <div class="row"><div>📋 Projects · active</div><div class="meta">3</div></div>
         <div class="row" style="background:#1c1f24;border-radius:6px"><div>📦 <b>Archived</b></div><div class="meta">12</div></div>
       </div>
@@ -1006,7 +1001,7 @@
         <div class="ck todo"><span class="box"></span><span class="text">Gallery (≥ 3 photos)</span><span class="act"><button class="btn">Pick from prints</button></span></div>
         <div class="ck todo"><span class="box"></span><span class="text">Description.md written</span><span class="act"><button class="btn">Open editor</button></span></div>
         <div class="ck todo"><span class="box"></span><span class="text">License chosen</span><span class="act"><button class="btn">Pick license</button></span></div>
-        <div class="ck todo"><span class="box"></span><span class="text">Category + tags set</span><span class="act"><button class="btn">Edit</button></span></div>
+        <div class="ck todo"><span class="box"></span><span class="text">Collection + tags set</span><span class="act"><button class="btn">Edit</button></span></div>
         <div class="ck todo"><span class="box"></span><span class="text">Final 3MF cleaned (no test plates, no scaffolding)</span><span class="act"><button class="btn">Open in Slicer</button></span></div>
         <div class="ck todo"><span class="box"></span><span class="text">Derivative source linked <span class="meta">(remix only)</span></span><span class="act"><button class="btn">Paste parent URL</button></span></div>
       </div>

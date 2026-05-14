@@ -19,7 +19,7 @@ Enable rich model introspection and curation directly within HA, following the s
 
 1. **Model Inspection**: View full model details, photos, and 3D rendering
 2. **Media Management**: Upload additional photos, view photo gallery, set preferred preview
-3. **Field Enrichment**: Edit model name, description, tags, collection, and custom fields
+3. **Field Enrichment**: Edit model name, description, tags, collection memberships, and custom fields
 4. **Cross-System Navigation**: Understand linked archives, navigate to related prints
 5. **Problem Diagnosis**: Review metadata state, enrichment provenance, validation status
 
@@ -58,7 +58,7 @@ Enable rich model introspection and curation directly within HA, following the s
 │ ┌─ Header ─────────────────────────────────────────────────────┐ │
 │ │ [thumbnail]  Model Name                                      │ │
 │ │              Creator: Author Name                             │ │
-│ │              Collection: Category / Subcategory               │ │
+│ │              Collections: Parent / Child                       │ │
 │ │              Tags: tag1 · tag2 · tag3                         │ │
 │ │                                                               │ │
 │ │  [Edit] [Archive Link] [Print] [Download]                     │ │
@@ -100,7 +100,7 @@ Enable rich model introspection and curation directly within HA, following the s
 - Model thumbnail/preview image
 - Model name (editable in edit mode)
 - Creator name with link to creator detail
-- Collection path (Category > Subcategory)
+- Collection path (Parent > Child)
 - Tag chip row (clickable to filter, removable in edit mode)
 - Quick action buttons:
   - `[Edit]` — Enter edit mode

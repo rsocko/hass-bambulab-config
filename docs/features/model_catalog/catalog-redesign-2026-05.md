@@ -20,14 +20,14 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | US-1 | Quickly find models I frequently print (swatches, spool containers, general repeats), then **open / open in Slicer / print / link archive back** | Catalog page (Frequents rail, search/sort) + popup (file actions) |
 | US-2a | **Contribute back** on community-sourced models I downloaded from Makerworld / Printables / etc. — track whether I've rated, boosted, captured photos from my prints, shared those photos | Popup (new "Contribution lifecycle" panel on downloaded models) + Catalog filter |
 | US-2b | **Publish my own** originals / remixes outward to Makerworld / Printables / etc. — track the prep pipeline (clean model, capture cover photo + gallery, write description, choose license, submit, mark published) as a draft with state | Popup (new "Publication pipeline" panel on originals/remixes) + Catalog filter + optional bridge to US-11 task backend |
-| US-3 | Catalog **future prints** as Projects / Collections (multi-membership), and decide what flows to the Queue vs. stays in Catalog | Catalog (Projects panel) + Queue (new `someday` state) |
+| US-3 | Catalog **future prints** as Projects / Collections (multi-membership), and decide what flows to the Queue vs. stays in Catalog | Catalog (Projects panel) + Queue (new `backlog` state) |
 | US-4 | Backfill historical print records for things printed before Bambuddy | Popup (new "Recover History" action) + existing forensics tools |
 | US-5 | Add prints to the Queue and track work (print → assemble → done) | Catalog quick-add + popup; Queue states extended |
 | US-6 | General organization — on disk, storage, navigation | Catalog left rail (Projects/Collections tree), storage dashboard |
 | US-7 | **Curate-then-pick**: gather many candidate models around a goal, evaluate, pick 1+ to print, then prune the set | Project in new `evaluating` mode (per-member candidate / chosen / rejected) |
 | US-8 | **Hide-when-done**: keep completed models in the catalog but stop seeing them in default browse views; default view = "things I might still want to print" | Model `catalog_visibility` flag (`active` / `archived`) + default filter + suggestion banner |
-| US-9 | **Ideas as catalog citizens**: capture an Idea (no files yet) and treat it like a Model for membership (Project / Collection / Category / Tag), but keep it out of the default Catalog grid until promoted | Catalog `entity_type = idea`; hidden by default; opt-in `Show ideas` chip; promote-to-Model or promote-to-Working-Group action |
-| US-10 | **Working Groups in Catalog & Projects**: a Working Group (a curated set of working files staged for slicing/prep) should be addable to a Project / Collection / Category just like a Model, since prep work is a natural project stage | Catalog `entity_type = working_group`; hidden by default; opt-in `Show working groups` chip; project-close → dissolve (with promote-to-Model affordance first) |
+| US-9 | **Ideas as catalog citizens**: capture an Idea (no files yet) and treat it like a Model for membership (Project / Collection / Tag), but keep it out of the default Catalog grid until promoted | Catalog `entity_type = idea`; hidden by default; opt-in `Show ideas` chip; promote-to-Model or promote-to-Working-Group action |
+| US-10 | **Working Groups in Catalog & Projects**: a Working Group (a curated set of working files staged for slicing/prep) should be addable to a Project / Collection / Tag just like a Model, since prep work is a natural project stage | Catalog `entity_type = working_group`; hidden by default; opt-in `Show working groups` chip; project-close → dissolve (with promote-to-Model affordance first) |
 | US-11 | **Project tasks beyond printing**: track non-print work ("Buy filament", "Install heat inserts", "Glue", "Organize parts") as part of a Project | Per-Project `task_backend` setting: `none` \| `internal` \| `github` \| `mstodo`; sidecar shows the task list inline in the Project popup |
 | US-12 | **Bill of Materials**: track non-printed parts a model needs (screws, magnets, heat inserts, glue) on the Model, with a Project-level rolled-up checklist (acquired / installed) | Model `bom[]` template field; Project popup `BOM roll-up` panel with per-item override + manual `Generate shopping tasks` button (writes to chosen task backend) |
 
@@ -41,10 +41,10 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 |---|---|---|---|
 | **US-1 Frequents** | Catalog grid, popup with archive link count and `last_printed`, Phase 3 popup shipped | Phase 6 ranking signals (popularity, recency, success-rate); typed query language; saved searches | No "Frequents" / "Favorites" rail, no top-of-page surfacing of repeat prints, no one-click "Open in Slicer" from card |
 | **US-2a Contribution lifecycle** (downloaded models) | Source URL captured on intake | Phase 6 enrichment of remote metadata (creator, license, rating) | No operator-visible "rated?", "boosted?", "photos captured?", "photos shared?" tracking on downloaded models |
-| **US-2b Publication pipeline** (originals/remixes) | Nothing — no concept of "a model I intend to publish" | None | No draft state machine, no prep checklist (cover photo / gallery / description / license / category / tags), no "submitted"/"published" lifecycle, no link from a remix back to its parent listing |
-| **US-3 Projects / Collections** | Collections data exists; Projects entity in sidecar metadata | `projects-design.md`, multi-collection membership, working-group↔project linkage; #1373 ontology question | No "Create / browse / manage Project" UI; Catalog cannot pivot by Project; ontology (Projects vs Collections vs Categories vs Tags) not finalized |
+| **US-2b Publication pipeline** (originals/remixes) | Nothing — no concept of "a model I intend to publish" | None | No draft state machine, no prep checklist (cover photo / gallery / description / license / collection / tags), no "submitted"/"published" lifecycle, no link from a remix back to its parent listing |
+| **US-3 Projects / Collections** | Collections data exists; Projects entity in sidecar metadata | `projects-design.md`, multi-collection membership, working-group↔project linkage; #1373 ontology question | No "Create / browse / manage Project" UI; Catalog cannot pivot by Project; ontology (Projects vs Collections vs Tags) not finalized |
 | **US-4 Historical backfill** | Forensics CLI tools (`gcode_forensics_viewer.py`, `folder_3mf_catalog_viewer.py`) | `historical-print-backfill-via-model-catalog.md` end-to-end flow | No popup entry point; no "Recover Print History" action; no candidate review UI surfaced from Catalog |
-| **US-5 Add to Queue** | Quick Add from card; unified queue state machine (`idea→backlog→ready→started→done/blocked`) shipped | Plate-level queue tracking; auto-complete on archive match | No `someday` semantics; re-add-to-queue behavior unclear ([#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)); add-to-queue UX inconsistent across card/popup/queue editor ([#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)) |
+| **US-5 Add to Queue** | Quick Add from card; unified queue state machine (`idea→up_next→ready→started→done/blocked`) shipped | Plate-level queue tracking; auto-complete on archive match | No `backlog` semantics; re-add-to-queue behavior unclear ([#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)); add-to-queue UX inconsistent across card/popup/queue editor ([#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)) |
 | **US-6 Organization** | Storage tiers, working groups, intake folder hint | Duplicate / inefficiency dashboard; storage-quota dashboard; on-disk reorg automation | No storage/dupes dashboard surfaced; no Project-aware on-disk layout; left-rail navigation tree not deployed ([#1393](https://github.com/rsocko/hass-bambulab-config/issues/1393), [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390), [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259)) |
 
 ---
@@ -53,8 +53,8 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 
 1. **No "Frequents" signal in the UI** — the data exists (archive link count, `last_printed`, Phase 6 popularity), but no rail/sort/filter surfaces it. The first thing an operator wants on Catalog open ("show me the spool holder I print weekly") is not on screen.
 2. **Makerworld lifecycle is invisible** — fields are stored but no operator UI for: did I rate it, did I boost it, did I capture photos from the print, did I share them on Makerworld.
-3. **Projects are designed but not wired** — multi-collection grouping ("future prints", "this build") has no operator surface. The ontology (Projects vs Collections vs Categories vs Tags) remains an open question per [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373).
-4. **No `someday` Queue state** — the Queue has `idea`/`backlog` but the operator concept of a "super-large backlog" / "I want this someday" is not validated, and the Catalog cannot send things to that state distinctly.
+3. **Projects are designed but not wired** — multi-collection grouping ("future prints", "this build") has no operator surface. The ontology (Projects vs Collections vs Tags) remains an open question per [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373).
+4. **No `backlog` Queue state** — the Queue has `idea`/`up_next` but the operator concept of a "super-large backlog" / "I want this eventually" is not validated, and the Catalog cannot send things to that state distinctly.
 5. **Add-to-queue UX is inconsistent** — different patterns across card / popup / queue editor / intake; no single "what happens when I press Print" affordance.
 6. **History backfill is not catalog-discoverable** — operators can't initiate backfill from the model they're looking at. The CLI tools exist; the UI bridge does not.
 7. **Slicer launch from Catalog files is blocked** by browser policy ([working-files-local-launch-and-slicer-integration-design.md](working-files-local-launch-and-slicer-integration-design.md)) — must be solved with a tokenized custom protocol handler before US-1's "open in Slicer" is honest.
@@ -82,18 +82,17 @@ This section closes the open ontology questions in [#1373](https://github.com/rs
 | Concept | Cardinality | Hierarchy | Purpose | Examples |
 |---|---|---|---|---|
 | **Tag** | many-per-model | flat | Cross-cutting attributes; user- and system-assigned | `pla-only`, `multicolor`, `prototype`, `gift` |
-| **Collection** | many-per-model | flat | Themed groupings the operator curates; **stable membership** | `Filament Tools`, `Office Decor`, `Holiday Gifts 2026` |
-| **Category** | exactly-1-per-model (optional) | tree | The "what is this thing" classification (taxonomy) | `Functional > Storage > Spool`, `Decorative > Holiday` |
-| **Project** | many-per-model | flat at v1, optional parent in v2 | A **build effort with intent and a lifecycle** (`evaluating` → `planning` → `active` → `completed` → `archived`, or `someday`). Holds tasks, notes, target date, status. May also hold per-member **candidate state** when in `evaluating` mode (US-7). | `Build: Garage Reorg`, `Mom's Birthday Box`, `Evaluating: Shelf Bracket Options` |
+| **Collection** | many-per-model | tree | Stable, user-curated browse structure; may contain nested collections | `Filament Tools`, `Office Decor`, `Holiday Gifts 2026` |
+| **Project** | many-per-model | flat at v1, optional parent in v2 | A **build effort with intent and a lifecycle** (`evaluating` → `planning` → `active` → `completed` → `archived`, or `backlog`). Holds tasks, notes, target date, status. May also hold per-member **candidate state** when in `evaluating` mode (US-7). | `Build: Garage Reorg`, `Mom's Birthday Box`, `Evaluating: Shelf Bracket Options` |
 | **Favorite** | boolean per model | n/a | User-pinned for quick access | n/a |
 | **Frequent** | derived (read-only) | n/a | Computed from archive link count + recency window | n/a |
 | **Catalog visibility** (US-8) | enum on each model: `active` (default) \| `archived` | n/a | `archived` removes the model from default Catalog grid/rail/Frequents queries while keeping all assets and history intact. **No automatic overrides** — Favorites and Frequents do *not* keep an archived model visible (per operator decision; you'll just leave utility prints `active`). | n/a |
-| **Entity type** (US-9, US-10) | enum on each Catalog entry: `model` (default) \| `idea` \| `working_group` | n/a | All three are first-class Catalog citizens with the same membership semantics (Project / Collection / Category / Tag / Favorite / Visibility). Default Catalog grid filters to `entity_type = model`; toolbar offers `Show ideas` and `Show working groups` chips. Each non-model type can be **promoted** (Idea → Model or Working Group; Working Group → Model) when it acquires the right kind of artifact. | n/a |
+| **Entity type** (US-9, US-10) | enum on each Catalog entry: `model` (default) \| `idea` \| `working_group` | n/a | All three are first-class Catalog citizens with the same membership semantics (Project / Collection / Tag / Favorite / Visibility). Default Catalog grid filters to `entity_type = model`; toolbar offers `Show ideas` and `Show working groups` chips. Each non-model type can be **promoted** (Idea → Model or Working Group; Working Group → Model) when it acquires the right kind of artifact. | n/a |
 
-**Decision:** Keep both `Collection` and `Category`. Category is *taxonomy* (what), Collection is *curation* (my themed grouping). Both are useful; the cost of keeping both is one extra editor section. Reject the "Category replaces Collection" path because Collections need to be ad-hoc and seasonal, while Category should be deterministic.
+**Decision:** Keep `Collection` as the stable hierarchical curation tree and remove `Category` from the catalog ontology. Collections answer "what curated tree do I want this in?" and can be nested for browse/navigation. Projects answer "what am I actively doing with this set?" and keep the lifecycle/intent semantics. Reject the old split where Category was a separate taxonomy axis; it duplicated the browse tree without a distinct operator job.
 
-**Q&A — is there an implicit link between a Collection and a Category?**
-No enforced link. They're orthogonal concerns: Category answers *"what is it?"* (taxonomy, deterministic), Collection answers *"what set do I want it grouped with?"* (curation, themed). They will frequently overlap in practice (Category=`Functional > Storage > Spool` and Collection=`Filament Tools` will share members) but enforcing a 1:1 binding would re-collapse the two roles back into one and reintroduce the ambiguity #1373 was trying to resolve. **Convenience to add (not a constraint):** when creating or editing a Collection, the editor offers a "Quick fill from Category…" action that pre-populates membership from a chosen category subtree; the resulting membership is then explicit and editable. We do *not* keep a live link — once filled, the Collection is its own set.
+**Q&A — is there an implicit link between a Collection and a Project?**
+No enforced link. They stay orthogonal: Collection answers *"what curated tree do I want it grouped with?"* (stable, nested, browseable), while Project answers *"what am I trying to do with it right now?"* (intent, lifecycle, tasks). They will frequently overlap in practice, but enforcing a 1:1 binding would collapse the two roles back together. **Convenience to add (not a constraint):** when creating or editing a Collection, the editor may offer a "Quick fill from parent collection…" or "Clone subtree…" action that pre-populates membership from an existing collection branch; the resulting membership is then explicit and editable. We do *not* keep a live link — once filled, the Collection is its own tree.
 
 **Decision (Project vs Bambuddy Project):** Keep the Bambuddy concept as `print_project` (a group of executed prints). The Catalog `Project` is a **planning/intent entity** that *can* point to one or more `print_project`s for completed work. Catalog Project supports many-models, Bambuddy Project remains 1-project-per-model on the archive side. The Catalog Project optionally exposes "completed prints rolled up from linked print_projects" as a derived view.
 
@@ -104,7 +103,7 @@ No enforced link. They're orthogonal concerns: Category answers *"what is it?"* 
 | `evaluating` | Yes (under "Active" by default; see US-7) | **Curate-then-pick mode.** Gathering candidates; per-member candidate state in use. No commitment to print all members. |
 | `planning` | Yes (Active) | Decided what to build; preparing files/queue. |
 | `active` | Yes (Active) | In flight: printing / assembling. |
-| `someday` | Yes (Someday section) | Parked; not currently a printer affinity target. |
+| `backlog` | Yes (Backlog section) | Parked; not currently a printer affinity target. |
 | `completed` | No (collapsed under "Recently completed", expandable) | All work done. |
 | `archived` | No (only via `Show archived`) | Wrapped up + intentionally hidden. |
 
@@ -113,7 +112,7 @@ No enforced link. They're orthogonal concerns: Category answers *"what is it?"* 
 
 **Entity types in Catalog (US-9, US-10):**
 
-| `entity_type` | Has files? | Default Catalog visibility | Project / Collection / Category member? | Promotion path |
+| `entity_type` | Has files? | Default Catalog visibility | Project / Collection / Tag member? | Promotion path |
 |---|---|---|---|---|
 | `model` | yes (3MF / STL / etc.) | shown | yes | terminal |
 | `idea` | no (concept only; optional links to external pages, sketches, notes) | hidden — `Show ideas` chip to surface | yes | promote to `model` or `working_group` when files arrive |
@@ -135,14 +134,14 @@ Left rail (collapsible)        Main content
   ▸ Active                     Catalog grid / list
     • Garage Reorg
     • Mom's Birthday Box
-  ▸ Someday
+  ▸ Backlog
     • Workshop Kits
 ─ Collections ───────────
-  • Filament Tools
-  • Office Decor
-─ Categories ────────────
-  ▸ Functional
-  ▸ Decorative
+  ▾ Filament Tools
+    • Spool Accessories
+    • AMS Tools
+  ▸ Office Decor
+  ▸ Holiday Gifts 2026
 ─ Tags ──────────────────       Pagination / load-more
   pla-only · multicolor …
 ─────────────────────────
@@ -160,7 +159,7 @@ Left rail (collapsible)        Main content
 - **Frequents rail** at top of Catalog page, default visible. Cards show preview + "printed N times in last 90d" + primary action (`Print` / `Open in Slicer`). Source = sidecar projection over archive link count + last-N-days recency. Configurable window.
 - **Favorites** (manual pin) shown on the rail before computed Frequents. Star toggle on every card.
 - **Sort options:** Recently printed, Most frequent (90d / 1y / all-time), Recently added, Last modified, Name.
-- **Filter chips:** `★ Favorites only`, `Frequents only`, `In Project`, `In Queue`, plus existing tag/category filters.
+- **Filter chips:** `★ Favorites only`, `Frequents only`, `In Project`, `In Queue`, plus existing tag/collection filters.
 - **Card primary action** = the operator's most likely next intent for this model. Heuristic: if model has a printable plate, default to `Print`; else `Open in Slicer`; always show overflow with both.
 
 **Popup additions**
@@ -221,7 +220,7 @@ For models where the operator intends to publish outward (`publication.source = 
 │   ☐ Gallery (≥ 3 photos)        [Pick from prints]        │
 │   ☐ Description.md written       [Open editor]             │
 │   ☐ License chosen                                         │
-│   ☐ Category + tags set                                    │
+│   ☐ Collection + tags set                                  │
 │   ☐ Final 3MF cleaned (no test-print plates, no scaffolding)│
 │   ☐ Derivative source linked     (only for remixes)        │
 │                                                            │
@@ -234,7 +233,7 @@ For models where the operator intends to publish outward (`publication.source = 
 - `publication.draft.state` enum (`none | in_prep | submitted | published | withdrawn`, default `none`)
 - `publication.draft.target` enum (`makerworld | printables | thingiverse | other`)
 - `publication.draft.intended_license` enum
-- `publication.draft.checklist` JSON of nullable timestamps per item (`cover_photo_at`, `gallery_at`, `description_at`, `license_at`, `category_tags_at`, `cleaned_at`, `derivative_source_at`)
+- `publication.draft.checklist` JSON of nullable timestamps per item (`cover_photo_at`, `gallery_at`, `description_at`, `license_at`, `collection_tags_at`, `cleaned_at`, `derivative_source_at`)
 - `publication.draft.submitted_at` / `published_at` / `withdrawn_at` (nullable timestamps)
 - `publication.draft.published_url` (set when state → `published`; this then becomes the listing the contribution panel can target if/when others fork it)
 - `publication.draft.derived_from_url` (for remixes; the parent listing — links to a contribution-lifecycle panel on the parent if it's also in this catalog)
@@ -261,7 +260,7 @@ This **rolls up [#1326](https://github.com/rsocko/hass-bambulab-config/issues/13
 - Click a chip → opens the Project/Collection view.
 
 **Project entity (operator-visible)**
-- Title, description, status (`planning` | `active` | `someday` | `completed` | `archived`), target date (optional), notes (markdown).
+- Title, description, status (`planning` | `active` | `backlog` | `completed` | `archived`), target date (optional), notes (markdown).
 - Member models (many).
 - Linked Queue entries (auto-derived: queue rows whose `source.model_id` is in this project).
 - Linked archives / print_projects (auto-derived).
@@ -269,7 +268,7 @@ This **rolls up [#1326](https://github.com/rsocko/hass-bambulab-config/issues/13
 **Decision on "what flows to Queue":**
 - Membership in a Project is **independent** of being in the Queue.
 - A Project marked `active` provides a **"Queue all unprinted models"** action that creates Queue entries in `ready` state.
-- A Project marked `someday` enables a **"Queue selected"** action that creates entries in the new `someday` state (see US-5).
+- A Project marked `backlog` enables a **"Queue selected"** action that creates entries in the new `backlog` state (see US-5).
 
 **Multi-collection** is honored: a model can be in N Collections and N Projects.
 
@@ -288,27 +287,35 @@ Backfill records render in the popup's history list with a `Backfilled` badge an
 
 This **converts the existing [historical-print-backfill-via-model-catalog.md](historical-print-backfill-via-model-catalog.md) design into an operator-discoverable surface.**
 
-### US-5: Add-to-Queue, Someday state, and consistent UX
+### US-5: Add-to-Queue, Backlog state, and consistent UX
 
 **Queue state machine extension**
 
-Current: `idea → backlog → ready → started → done/blocked`
+Current: `idea → up_next → ready → started → done/blocked`
 
 Proposed:
 
 ```
-              ┌────────────┐
-              │  someday   │  (super-large backlog; not visible in printer queues by default)
-              └─────┬──────┘
-                    │ (promote)
-                    ▼
-   idea ─────►  backlog  ─────►  ready  ─────►  started  ─────►  done
-                   ▲                                ▲             │
-                   │                                │             ▼
-                   └────────────  blocked ◄─────────┘          assemble*  ───► shipped*
+   ┌─────────────────────────────────────────────────────────────────┐
+   │ Main workflow (printer-affinity):                                │
+   │                                                                   │
+   │  idea  ───►  up_next  ───►  ready  ───►  started  ───►  done     │
+   │   ▲            │             ▲            ▲           │          │
+   │   │            │             │            │           ▼          │
+   │   └────────────┴─ blocked ◄──┴────────────┘      assemble*       │
+   │                                                      │            │
+   │                                                      ▼            │
+   │                                                   shipped*        │
+   └─────────────────────────────────────────────────────────────────┘
+
+   ╔═════════════════════════════════════╗
+   ║ Parking state (no printer affinity) ║
+   ║  backlog — deferred; hidden by default in queue views            ║
+   ╚═════════════════════════════════════╝
 ```
 
-- **`someday`** is a new state with no printer-affinity required. Used for "I want this eventually". Default Catalog-side filter hides it; an explicit toggle shows it.
+- **Main workflow:** `idea` (catalog concept) → `up_next` (next to print) → `ready` (assigned to printer) → `started` (printing) → `done` (complete) or `blocked` (issue).
+- **`backlog`** is a separate, low-priority parking state with no printer-affinity required. Used for "I want this eventually". Default Catalog-side filter hides it; an explicit toggle shows it. Can be promoted back to `up_next` when priorities change.
 - **`assemble`** and **`shipped`** are optional post-print states that satisfy the "track work to be done, printing, assembling" intent in US-5. They are not required; `done` remains valid as a terminal for prints that don't need post-work.
 
 **Re-add-to-queue** (per [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)): allow re-add by default; replace the legacy `count` attribute with multiple discrete entries; warn on dequeue if any entry is `done` or beyond.
@@ -389,7 +396,7 @@ After close, the Project transitions to `completed` (or `archived` if the operat
 
 **Operator scenario:** "I had an idea for a desk organizer at lunch — no files, no link, just a sentence. I want to capture it now, optionally attach it to my Office Decor project, and find it again later. I do *not* want it cluttering my main Catalog grid alongside actual printable models."
 
-**Decision (per Q1):** Ideas are **first-class Catalog citizens** (same membership / favorite / archive machinery as a Model) but **hidden by default** in the Catalog grid. They surface via a `Show ideas` toolbar chip and inside any Project/Collection/Category they're a member of (where they show alongside Models).
+**Decision (per Q1):** Ideas are **first-class Catalog citizens** (same membership / favorite / archive machinery as a Model) but **hidden by default** in the Catalog grid. They surface via a `Show ideas` toolbar chip and inside any Project/Collection they're a member of (where they show alongside Models).
 
 **Data model addition:**
 - `entity_type: model | idea | working_group` (default `model`); see ontology table in §5.1.
@@ -403,23 +410,23 @@ After close, the Project transitions to `completed` (or `archived` if the operat
 - Inside a Project view (any status, including `evaluating`), Ideas show **inline with Models** — no separate section. The point of letting Ideas join Projects is that the Project's curated set is your single working list.
 
 **Popup additions (Idea-specific actions):**
-- `Promote to Model` — opens the standard Add Model intake flow with the Idea's title/notes/links pre-filled; on commit the entity_type flips to `model` and Project/Collection/Category memberships carry over.
+- `Promote to Model` — opens the standard Add Model intake flow with the Idea's title/notes/links pre-filled; on commit the entity_type flips to `model` and Project/Collection memberships carry over.
 - `Promote to Working Group` (per Q2) — opens a Working Group create flow pre-filled the same way; useful when the idea materializes as a set of source files you're prepping rather than a single Model. Same membership carry-over.
 
 **Why a single field instead of a separate Idea entity?** Keeping `entity_type` on the Catalog entry means all the existing Catalog plumbing (search, membership, favorites, popup) works without forking. The cost is one filter and three UI pills.
 
-**Why not just Queue `idea`?** Queue `idea` presumes a *future print* affinity (you'll eventually push it through `backlog → ready → started`). A Catalog Idea is broader — it may never become a print at all; it might be a research note, a parts wishlist, or a concept for someone else. Catalog Ideas can independently *also* be in the Queue at `idea` state if appropriate.
+**Why not just Queue `idea`?** Queue `idea` is the entry point for future prints (flows through `idea → up_next → ready → started → done`). A Catalog Idea is broader — it may never become a print at all; it might be a research note, a parts wishlist, or a concept for someone else. Separately, `backlog` is a low-priority parking state for items deferred indefinitely. Catalog Ideas can independently *also* be in the Queue at `idea` state if they become committed prints.
 
 ### US-10: Working Groups as Catalog & Project members (NEW)
 
 **Operator scenario:** "For the Garage Reorg project, I'm staging a working group of five 3MF files I'm tweaking before printing — some scaled, some recut, some with custom AMS plans. That working group is *part of the project*, not just a side activity. I want it to show on the Project view alongside the Models."
 
-**Decision (per Q3):** Working Groups become **first-class Catalog citizens** (same membership semantics as Models) but **hidden by default** in the Catalog grid. They surface via a `Show working groups` toolbar chip and inside any Project/Collection/Category they're a member of.
+**Decision (per Q3):** Working Groups become **first-class Catalog citizens** (same membership semantics as Models) but **hidden by default** in the Catalog grid. They surface via a `Show working groups` toolbar chip and inside any Project/Collection they're a member of.
 
 **Data model addition:**
 - `entity_type = working_group` on the Catalog entry that represents a Working Group.
 - Existing Working-Files schema (per [working-groups-and-veneer.md](working-groups-and-veneer.md)) is the underlying storage; the Catalog entry is a **lightweight projection** that exposes the WG to membership/favorite/popup machinery without duplicating files.
-- Working Group Catalog entry inherits: title, member-file count, total size, last-modified timestamp; carries Project/Collection/Category/Tag memberships independently.
+- Working Group Catalog entry inherits: title, member-file count, total size, last-modified timestamp; carries Project/Collection/Tag memberships independently.
 
 **Catalog UX**
 - Default grid: hidden. Toolbar `Show working groups · N` chip toggles visibility.
@@ -428,7 +435,7 @@ After close, the Project transitions to `completed` (or `archived` if the operat
 - Existing Working Files surface remains the primary editor for WG contents; the Catalog popup for a WG focuses on **membership + actions**, with a `Open in Working Files` deep link for editing.
 
 **Popup actions (WG-specific):**
-- `Promote to Model` — publishes the WG as a Model entry (canonical 3MF chosen as primary; other files become attachments). Project/Collection/Category memberships carry over to the new Model. The original WG can either be retained (badge `archived working group`) or auto-dissolved (per the project-close decision below).
+- `Promote to Model` — publishes the WG as a Model entry (canonical 3MF chosen as primary; other files become attachments). Project/Collection memberships carry over to the new Model. The original WG can either be retained (badge `archived working group`) or auto-dissolved (per the project-close decision below).
 - `Open in Working Files` — deep link to the existing editor.
 - `Add to Queue` — already supported; behavior unchanged.
 
@@ -497,7 +504,7 @@ Rationale: WGs are inherently transient prep artifacts. Keeping them around afte
 The 2026-05 popup redesign already establishes the hero/carousel/files split. This doc **adds**:
 
 1. **Hero status pills row** (under title): `★ Favorite` · `Frequent (12 prints / 90d)` · `In 2 Projects` · `In Queue` · `Needs photos shared`
-2. **Membership chips** under hero: Projects, Collections, Categories, Tags as chip groups (all clickable to pivot the Catalog page).
+2. **Membership chips** under hero: Projects, Collections, Tags as chip groups (all clickable to pivot the Catalog page).
 3. **Contribution lifecycle panel** (US-2a; right column under file inspector — visible when `publication.source ≠ original`).
 3a. **Publication pipeline panel** (US-2b; right column under file inspector — visible when `publication.source = original` or `publication.draft.state ≠ none`; can coexist with US-2a panel on remix entries via the `Derived from` deep-link).
 4. **Recover Print History** in overflow menu (US-4).
@@ -524,7 +531,7 @@ Key visible elements:
 ## 9. Risks, open questions, sequencing
 
 **Risks**
-- Adding `someday` to the Queue state machine without breaking [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) validation work — needs an audit-log and migration-safe rollout.
+- Adding `backlog` to the Queue state machine without breaking [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) validation work — needs an audit-log and migration-safe rollout.
 - Layer 1 contamination — the temptation to bake "Frequent" / "Needs photos" labels into the projection sensor is real. Per the repo guardrail, derive these in Layer 2.
 - `Open in Slicer` honesty depends on the custom-protocol handler — must ship before US-1's "open in Slicer" promise is real.
 
@@ -535,7 +542,7 @@ Key visible elements:
 
 **Suggested sequencing** (smallest-coherent-shippable first)
 1. **Frequents + Favorites** rail and filters (US-1) — pure UI over existing data.
-2. **Add-to-Queue dialog unification + `someday` state** (US-5) — backend state addition is small.
+2. **Add-to-Queue dialog unification + `backlog` state** (US-5) — backend state addition is small.
 3. **Catalog visibility / Archived** (US-8) — 1 model field + 1 default filter + 1 toolbar chip; tiny scope, high quality-of-life.
 4. **Entity types: Ideas + Working Groups** (US-9, US-10) — 1 enum field + 2 toolbar chips + 2 promote actions; lands the membership plumbing once for the Project & BOM work that follows.
 5. **Contribution lifecycle panel** (US-2a) — adds a few `publication.contribution.*` fields and one filter; tiny scope.
@@ -572,7 +579,7 @@ Key visible elements:
 |---|---|---|
 | [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) | Document use case priorities | All — this doc is the response |
 | [#1376](https://github.com/rsocko/hass-bambulab-config/issues/1376) | Redesign Catalog Popup UI | US-1, US-2a, US-2b, US-4, US-5 (popup pieces) |
-| [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373) | Model Metadata Design: Projects, Collections, Categories, Tags | US-3 (closed by §5.1) |
+| [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373) | Model Metadata Design: Projects, Collections, Tags | US-3 (closed by §5.1) |
 | [#989](https://github.com/rsocko/hass-bambulab-config/issues/989) | Tracking of Makerworld review status | US-2a |
 | [#1326](https://github.com/rsocko/hass-bambulab-config/issues/1326) | Flag as original + uploaded to Makerworld | US-2b |
 | [#1134](https://github.com/rsocko/hass-bambulab-config/issues/1134) | Phase 14: Project CRUD and cross-system | US-3 |
@@ -583,7 +590,7 @@ Key visible elements:
 | [#1094](https://github.com/rsocko/hass-bambulab-config/issues/1094) | Phase 6 search facets and query model | US-1 |
 | [#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458) | Quick Add consolidation | US-5 |
 | [#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465) | Re-adding to Queue / Backlog warning | US-5 |
-| [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) | Unified Queue state transitions | US-5 (`someday` extension lands here) |
+| [#1407](https://github.com/rsocko/hass-bambulab-config/issues/1407) | Unified Queue state transitions | US-5 (`backlog` extension lands here) |
 | [#1473](https://github.com/rsocko/hass-bambulab-config/issues/1473) | Sync Tags Archive >> Catalog | US-1 (search/filter quality) |
 
 ### Proposed new issues
@@ -599,9 +606,9 @@ The full set of pre-filled `issues/new` URLs is published in this design doc's c
 (Quick index — see prefilled links in the chat reply.)
 
 1. Catalog Frequents rail + Favorites pinning (US-1)
-2. Catalog left-rail navigation tree: Projects / Collections / Categories / Tags (US-3, US-6)
+2. Catalog left-rail navigation tree: Projects / Collections / Tags (US-3, US-6)
 3. Contribution lifecycle panel + `publication.contribution.*` fields (US-2a; complements #989) — for downloaded models
-4. Queue `someday` state + UI (US-5; extends #1407)
+4. Queue `backlog` state + UI (US-5; extends #1407)
 5. Unified Add-to-Queue dialog (Quick / Plan) (US-5; closes #1458 scope)
 6. Recover Print History wizard from model popup (US-4)
 7. Catalog Projects UI (CRUD + project view) (US-3; under #1134)

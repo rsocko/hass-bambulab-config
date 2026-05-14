@@ -352,7 +352,7 @@ Both share the same color treatment (amber, matching print-history's `.favorite.
 - **Top-level filter chip** (`Has other files`) on the filter bar — scopes the grid to models that include any non-3D file (PDF assembly instructions, BOMs, READMEs, etc.). New search-payload field `has_other_files: bool`.
 - **Per-card chip group** — already partially in place (`file_kinds` proposed field, §2.2). The compact card surfaces three chips: Model Files / Images / Docs. The Docs chip is the per-card "other files" affordance; clicking it scrolls the detail popup to the file-list section.
 
-**Layering guardrail (re-affirmed):** the *labels* ("Model Files", "Docs", "Has other files") and the *category buckets* are presentation concerns and live in the card / toolbar code, not in the Layer 1 archive sensor. Layer 2 derives `file_kinds` from the existing enrichment payload (mime type / extension grouping); Layer 3 (the card) chooses chip wording, color, and which kinds are aggregated under "Docs".
+**Layering guardrail (re-affirmed):** the *labels* ("Model Files", "Docs", "Has other files") and the *file-kind buckets* are presentation concerns and live in the card / toolbar code, not in the Layer 1 archive sensor. Layer 2 derives `file_kinds` from the existing enrichment payload (mime type / extension grouping); Layer 3 (the card) chooses chip wording, color, and which kinds are aggregated under "Docs".
 
 ### 7.7 Backend touch points
 
@@ -389,7 +389,7 @@ Quick-drop is an acceleration path, not a replacement. Narrow layouts retain onl
 
 ## Collections Browsing Mode (new)
 
-This section adds a first-class browse scope for collections without replacing the existing flat model browser.
+This section adds a first-class hierarchical browse scope for collections without replacing the existing flat model browser.
 
 ### Collections Scope Toggle
 
@@ -649,7 +649,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
   - **Multi-photo badge** — the small `1/7` indicator overlaid on the photo carousel is a great affordance; we adopt it for the Media view.
   - **2-line title clamp** — used in Compact so longer model names don't shrink the metric block.
 - **What we don't borrow:**
-  - The category-tag colour bar Printables uses to brand cards by category — too noisy for a personal catalog.
+  - The tag colour bar Printables uses to brand cards by topic — too noisy for a personal catalog.
   - Sidebar filter ribbons inside cards (Printables uses card-level "featured / contest / make" pills); we keep that information in the filter tray, not on the card.
 
 ### 8.5 Thingiverse

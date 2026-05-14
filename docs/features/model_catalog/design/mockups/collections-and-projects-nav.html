@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Collections & Projects Navigation</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28,33,42,0.92);
+    --bg-elev: rgba(38,44,54,0.96);
+    --border: rgba(148,163,184,0.18);
+    --border-strong: rgba(148,163,184,0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --accent-purple: #a78bfa;
+    --amber: #f5c242;
+    --green: #34d399;
+    --red: #f87171;
+    --shadow: 0 4px 18px rgba(0,0,0,0.32);
+  }
+  html, body { margin: 0; background: var(--bg-page); color: var(--text); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1440px; margin: 0 auto 24px; }
+  .page-header h1 { margin: 0 0 8px; font-size: 24px; }
+  .page-header p { margin: 0; color: var(--text-secondary); font-size: 12px; max-width: 920px; line-height: 1.6; }
+
+  .view-switcher { max-width: 1440px; margin: 0 auto 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .seg { display: inline-flex; padding: 2px; border-radius: 999px; background: rgba(15,19,26,0.60); border: 1px solid var(--border); }
+  .seg button { border: 0; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
+  .seg button:hover { color: var(--text); }
+  .seg button.active { background: rgba(96,165,250,0.16); color: var(--accent-blue); }
+
+  .toolbar { max-width: 1440px; margin: 0 auto 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px; }
+  .toolbar-top { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; font-size: 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.04); }
+  .chip.active { background: rgba(245,194,66,0.14); border-color: rgba(245,194,66,0.32); color: var(--amber); }
+  .toolbar-bottom { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toolbar-bottom input, .toolbar-bottom select { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 12px; }
+  .toolbar-bottom .grow { flex: 1; min-width: 220px; }
+
+  .section { max-width: 1440px; margin: 20px auto 0; }
+  .section h2 { margin: 0 0 6px; font-size: 15px; }
+  .section p { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  .card-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 1200px) { .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 820px) { .card-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border-strong); }
+
+  .mosaic { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 10px; }
+  .tile {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    aspect-ratio: 4 / 3;
+    background: linear-gradient(135deg, #1b2430, #10161d);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a9b4c1;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .card-title { flex: 1; }
+  .card-title strong { display: block; font-size: 15px; margin-bottom: 2px; }
+  .card-path { color: var(--text-muted); font-size: 11px; }
+  .status-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .badge-evaluating { background: rgba(168,85,247,0.16); color: var(--accent-purple); border: 1px solid rgba(168,85,247,0.32); }
+  .badge-active { background: rgba(52,211,153,0.16); color: var(--green); border: 1px solid rgba(52,211,153,0.32); }
+  .badge-backlog { background: rgba(245,194,66,0.16); color: var(--amber); border: 1px solid rgba(245,194,66,0.32); }
+  .badge-completed { background: rgba(96,165,250,0.16); color: var(--accent-blue); border: 1px solid rgba(96,165,250,0.32); }
+
+  .stats { margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.03); padding: 7px 8px; }
+  .stat .k { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .v { margin-top: 2px; font-size: 13px; font-weight: 700; }
+
+  .actions { margin-top: 10px; display: flex; gap: 6px; }
+  .actions button { border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer; transition: all 0.2s; }
+  .actions button:hover { background: rgba(255,255,255,0.08); }
+  .actions button.primary { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.10); }
+  .actions button.primary:hover { background: rgba(94,234,212,0.16); }
+
+  .view-note { max-width: 1440px; margin: 28px auto 0; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent-blue); border-radius: 8px; font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
+  .view-note strong { color: var(--text); }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Model Catalog · Collections & Projects Navigation</h1>
+  <p>Unified card-grid view for both Collections and Projects with scope switcher. Both use the same grid layout and card design language. Projects include status badge and project-specific metrics. Clicking a card navigates into that scope; evaluating projects render the 3-column board instead of the filtered model grid.</p>
+</div>
+
+<!-- ====== COLLECTIONS VIEW ====== -->
+<div id="collections-view">
+  <div class="view-switcher">
+    <div class="seg">
+      <button class="active" onclick="switchView('collections')">📁 Collections</button>
+      <button onclick="switchView('projects')">📋 Projects</button>
+    </div>
+    <span class="chip">Sort: Recent activity</span>
+    <span class="chip active">42 total</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-top">
+      <span style="font-size: 12px; color: var(--text-secondary);">Collections Overview</span>
+    </div>
+    <div class="toolbar-bottom">
+      <input class="grow" placeholder="Search collections..." />
+      <select><option>All collections</option><option>Depth: current only</option></select>
+    </div>
+  </div>
+
+  <section class="section">
+    <h2>Collections (card grid)</h2>
+    <p>Deterministic 2x2 cover mosaics showing representative member models. Multi-collection membership and hierarchical nesting supported. Click to navigate into collection, filtering the model grid to members.</p>
+    <div class="card-grid">
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">model A</div>
+          <div class="tile">model B</div>
+          <div class="tile">model C</div>
+          <div class="tile">model D</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Gridfinity</strong>
+            <span class="card-path">Functional</span>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">42</div></div>
+          <div class="stat"><div class="k">Sub-collections</div><div class="v">5</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">118</div></div>
+        </div>
+        <div class="actions">
+          <button class="primary">Open</button>
+          <button>More</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">model 1</div>
+          <div class="tile">model 2</div>
+          <div class="tile">model 3</div>
+          <div class="tile">empty</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Warhammer Terrain</strong>
+            <span class="card-path">Miniatures</span>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">27</div></div>
+          <div class="stat"><div class="k">Sub-collections</div><div class="v">3</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">64</div></div>
+        </div>
+        <div class="actions">
+          <button class="primary">Open</button>
+          <button>More</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">model X</div>
+          <div class="tile">model Y</div>
+          <div class="tile">empty</div>
+          <div class="tile">empty</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Office Decor</strong>
+            <span class="card-path">Root</span>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">8</div></div>
+          <div class="stat"><div class="k">Sub-collections</div><div class="v">0</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">22</div></div>
+        </div>
+        <div class="actions">
+          <button class="primary">Open</button>
+          <button>More</button>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>
+
+<!-- ====== PROJECTS VIEW ====== -->
+<div id="projects-view" class="hidden">
+  <div class="view-switcher">
+    <div class="seg">
+      <button onclick="switchView('collections')">📁 Collections</button>
+      <button class="active" onclick="switchView('projects')">📋 Projects</button>
+    </div>
+    <span class="chip">Sort: Recent activity</span>
+    <span class="chip active">12 total</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-top">
+      <span style="font-size: 12px; color: var(--text-secondary);">Projects Overview</span>
+    </div>
+    <div class="toolbar-bottom">
+      <input class="grow" placeholder="Search projects..." />
+      <select>
+        <option>All statuses</option>
+        <option>Evaluating</option>
+        <option>Active</option>
+        <option>Backlog</option>
+        <option>Completed</option>
+      </select>
+    </div>
+  </div>
+
+  <section class="section">
+    <h2>Active & Evaluating Projects</h2>
+    <p>Projects visible at a glance with status badges. Mosaic shows member model previews (same sampling as Collections). Project metrics: member count, queue readiness, and linked print count. Evaluating projects render the 3-column evaluation board on click.</p>
+    <div class="card-grid">
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">phone stand</div>
+          <div class="tile">dock v2</div>
+          <div class="tile">tray</div>
+          <div class="tile">cradle</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Bedside Phone Stand</strong>
+            <span class="card-path">Personal</span>
+          </div>
+          <span class="status-badge badge-evaluating">evaluating</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">8</div></div>
+          <div class="stat"><div class="k">In Queue</div><div class="v">1</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">0</div></div>
+        </div>
+        <div class="actions">
+          <button class="primary">Open board</button>
+          <button>More</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">shelf unit</div>
+          <div class="tile">bracket</div>
+          <div class="tile">support</div>
+          <div class="tile">riser</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Garage Reorg</strong>
+            <span class="card-path">Home Improvement</span>
+          </div>
+          <span class="status-badge badge-active">active</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">12</div></div>
+          <div class="stat"><div class="k">In Queue</div><div class="v">3</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">7</div></div>
+        </div>
+        <div class="actions">
+          <button class="primary">Open</button>
+          <button>More</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">gift box</div>
+          <div class="tile">decor</div>
+          <div class="tile">organizer</div>
+          <div class="tile">empty</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Mom's Birthday Box</strong>
+            <span class="card-path">Personal</span>
+          </div>
+          <span class="status-badge badge-completed">completed</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">6</div></div>
+          <div class="stat"><div class="k">In Queue</div><div class="v">0</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">6</div></div>
+        </div>
+        <div class="actions">
+          <button>View</button>
+          <button>More</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">filament holder</div>
+          <div class="tile">spool organizer</div>
+          <div class="tile">rack</div>
+          <div class="tile">tool</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Filament Tooling v3</strong>
+            <span class="card-path">Workshop</span>
+          </div>
+          <span class="status-badge badge-active">active</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">11</div></div>
+          <div class="stat"><div class="k">In Queue</div><div class="v">5</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">14</div></div>
+        </div>
+        <div class="actions">
+          <button class="primary">Open</button>
+          <button>More</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="mosaic">
+          <div class="tile">kit piece 1</div>
+          <div class="tile">kit piece 2</div>
+          <div class="tile">empty</div>
+          <div class="tile">empty</div>
+        </div>
+        <div class="card-header">
+          <div class="card-title">
+            <strong>Workshop Kits</strong>
+            <span class="card-path">Business</span>
+          </div>
+          <span class="status-badge badge-backlog">backlog</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Models</div><div class="v">4</div></div>
+          <div class="stat"><div class="k">In Queue</div><div class="v">0</div></div>
+          <div class="stat"><div class="k">Prints</div><div class="v">0</div></div>
+        </div>
+        <div class="actions">
+          <button>View</button>
+          <button>More</button>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>
+
+<div class="view-note">
+  <strong>Navigation model:</strong> This card-grid view is accessible from two entry points:
+  <br/>1. <strong>Left rail:</strong> "📁 Collections" → expands to show collections tree OR "📋 Projects" section with "View all" link
+  <br/>2. <strong>Catalog header:</strong> "Collections" / "Projects" toggle (scope switcher shown above)
+  <br/><br/>
+  <strong>On click:</strong> Collections filter the model grid to members (existing behavior). Projects in <code>active</code> / <code>backlog</code> also filter to members, but projects in <code>evaluating</code> render the 3-column Kanban board (#m10 from redesign-mockups) instead, allowing the curate-then-pick workflow.
+  <br/><br/>
+  <strong>Multi-membership:</strong> A model can belong to multiple Collections and Projects simultaneously. Clicking a project chip in the model popup navigates to that project's view (consistent with Collections).
+</div>
+
+<script>
+function switchView(view) {
+  document.getElementById('collections-view').classList.toggle('hidden', view !== 'collections');
+  document.getElementById('projects-view').classList.toggle('hidden', view !== 'projects');
+}
+</script>
+
+</body>
+</html>
