@@ -765,9 +765,9 @@
       <div class="overflow-wrap">
         <button id="overflowToggle">More</button>
         <div class="overflow-menu" id="overflowMenu">
-          <div class="overflow-row">
+          <div class="overflow-row" id="recoverPrintHistoryOverflow">
             <div class="label">Recover Print History wizard</div>
-            <div class="meta">Overflow host for #1483 | Launches modal workflow</div>
+            <div class="meta">Overflow host for #1483 | Launches modal workflow<br><span style='color:#64d5c4;font-weight:bold;'>New: Opens right-side drawer in popup</span></div>
           </div>
           <div class="overflow-row">
             <div class="label">Contribution lifecycle panel shortcut</div>
@@ -780,6 +780,19 @@
           <div class="overflow-row">
             <div class="label">Open unified queue planner</div>
             <div class="meta">Dialog host for #1499 quick/plan actions</div>
+          </div>
+        </div>
+      </div>
+      <!-- Drawer overlay for overflow actions -->
+      <div id="drawerOverlay" style="display:none;position:fixed;top:0;right:0;width:480px;max-width:100vw;height:100vh;background:rgba(18,28,40,0.98);box-shadow:-8px 0 32px rgba(0,0,0,0.32);z-index:1001;padding:0 0 0 0;transition:transform 0.3s;">
+        <div style="padding:24px 24px 12px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:17px;font-weight:700;">Recover Print History</span>
+          <button onclick="document.getElementById('drawerOverlay').style.display='none'">Close</button>
+        </div>
+        <div style="padding:24px;">
+          <p style="color:var(--sub);font-size:13px;">This wizard helps you recover and link print history archives that are not currently associated with this model. Review candidates, select matches, and confirm linkage.</p>
+          <div style="margin-top:18px;">
+            <button class="primary" style="font-size:13px;">Start Recovery Wizard</button>
           </div>
         </div>
       </div>
@@ -912,6 +925,10 @@
 
     <div class="tab-panel" id="panel-archives" data-stack-title="Related Archives">
       <h3 class="section-title">sections:archive-linkage</h3>
+      <div style="margin-bottom:10px;">
+        <button class="primary" id="recoverPrintHistoryTabBtn">Recover Print History</button>
+        <span style="color:var(--sub);font-size:11px;margin-left:8px;">(Launches recovery wizard for unlinked archives)</span>
+      </div>
       <div class="archive-list">
         <article class="archive">
           <div>
@@ -984,6 +1001,20 @@
 
 <script>
   (function () {
+        // Overflow drawer logic
+        var drawerOverlay = document.getElementById("drawerOverlay");
+        var recoverPrintHistoryOverflow = document.getElementById("recoverPrintHistoryOverflow");
+        if (recoverPrintHistoryOverflow) {
+          recoverPrintHistoryOverflow.addEventListener("click", function () {
+            drawerOverlay.style.display = "block";
+          });
+        }
+        var recoverPrintHistoryTabBtn = document.getElementById("recoverPrintHistoryTabBtn");
+        if (recoverPrintHistoryTabBtn) {
+          recoverPrintHistoryTabBtn.addEventListener("click", function () {
+            drawerOverlay.style.display = "block";
+          });
+        }
     var popupRoot = document.getElementById("popupRoot");
     var panelShell = document.getElementById("panelShell");
     var width = document.getElementById("width");
@@ -1124,6 +1155,17 @@
     });
 
     applyVars();
+
+    // Responsive mode hint
+    var head = document.querySelector('.head');
+    if (head) {
+      var modeHint = document.createElement('div');
+      modeHint.style.fontSize = '13px';
+      modeHint.style.color = '#64d5c4';
+      modeHint.style.marginTop = '6px';
+      modeHint.innerHTML = '<b>Desktop:</b> Tabs | <b>Mobile:</b> Stacked (collapsible)';
+      head.appendChild(modeHint);
+    }
   })();
 </script>
 
