@@ -785,6 +785,119 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         23,
         (),
     ),
+    (
+        24,
+        (
+            """
+        PRAGMA foreign_keys = OFF
+        """,
+            """
+        ALTER TABLE unified_queue_entries RENAME TO unified_queue_entries_v23
+        """,
+            """
+        CREATE TABLE unified_queue_entries (
+        id INTEGER PRIMARY KEY,
+        queue_entry_id TEXT NOT NULL UNIQUE,
+        source_kind TEXT NOT NULL,
+        source_ref TEXT,
+        title TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'up_next',
+        rank INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT,
+        completed_at TEXT,
+        blocked_reason TEXT,
+        copies_requested INTEGER NOT NULL DEFAULT 1,
+        copies_completed INTEGER NOT NULL DEFAULT 0,
+        selection_mode TEXT NOT NULL DEFAULT 'all_files_all_plates',
+        estimated_total_minutes INTEGER,
+        duration_bucket TEXT NOT NULL DEFAULT 'unknown',
+        ams_ready_score INTEGER NOT NULL DEFAULT 0,
+        overnight_fit_score INTEGER NOT NULL DEFAULT 0,
+        queue_notes TEXT,
+        completion_source TEXT,
+        last_archive_id TEXT,
+        last_attempt_outcome TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (source_kind IN ('catalog_model', 'working_group', 'working_file', 'idea')),
+        CHECK (state IN ('backlog', 'up_next', 'preparing', 'ready', 'in_progress', 'blocked', 'done')),
+        CHECK (selection_mode IN ('all_files_all_plates', 'selected_files', 'selected_plates')),
+        CHECK (duration_bucket IN ('quick', 'medium', 'overnight', 'marathon', 'unknown')),
+        CHECK (last_attempt_outcome IS NULL OR last_attempt_outcome IN ('success', 'failed', 'aborted', 'unknown'))
+        )
+        """,
+            """
+        INSERT INTO unified_queue_entries (
+        id,
+        queue_entry_id,
+        source_kind,
+        source_ref,
+        title,
+        state,
+        rank,
+        started_at,
+        completed_at,
+        blocked_reason,
+        copies_requested,
+        copies_completed,
+        selection_mode,
+        estimated_total_minutes,
+        duration_bucket,
+        ams_ready_score,
+        overnight_fit_score,
+        queue_notes,
+        completion_source,
+        last_archive_id,
+        last_attempt_outcome,
+        created_at,
+        updated_at
+        )
+        SELECT
+        id,
+        queue_entry_id,
+        source_kind,
+        source_ref,
+        title,
+        state,
+        rank,
+        started_at,
+        completed_at,
+        blocked_reason,
+        copies_requested,
+        copies_completed,
+        selection_mode,
+        estimated_total_minutes,
+        duration_bucket,
+        ams_ready_score,
+        overnight_fit_score,
+        queue_notes,
+        completion_source,
+        last_archive_id,
+        last_attempt_outcome,
+        created_at,
+        updated_at
+        FROM unified_queue_entries_v23
+        """,
+            """
+        DROP TABLE unified_queue_entries_v23
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_entries_rank
+        ON unified_queue_entries(rank ASC, created_at ASC)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_entries_state
+        ON unified_queue_entries(state)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_unified_queue_entries_source
+        ON unified_queue_entries(source_kind, source_ref)
+        """,
+            """
+        PRAGMA foreign_keys = ON
+        """,
+        ),
+    ),
 )
 
 

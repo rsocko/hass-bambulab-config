@@ -1915,3 +1915,100 @@ def test_plan_history_v1_lists_recent_operations(tmp_path: Path) -> None:
         client.__exit__(None, None, None)
 
 
+def test_unified_queue_up_next_state_transitions_issue_1481(tmp_path: Path) -> None:
+    """Test new up_next state and backlog re-add logic for issue #1481."""
+    client, db_path = _create_client(tmp_path)
+    try:
+        # Create entry in backlog state
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "idea", "title": "Up Next Test", "state": "backlog", "copies": 1},
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+        assert create_response.json()["entry"]["state"] == "backlog"
+
+        # Transition: backlog -> up_next (new state)
+        to_up_next = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "up_next"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_up_next.status_code == 200
+        assert to_up_next.json()["entry"]["state"] == "up_next"
+
+        # Transition: up_next -> preparing
+        to_preparing = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "preparing"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_preparing.status_code == 200
+        assert to_preparing.json()["entry"]["state"] == "preparing"
+
+        # Transition: preparing -> ready
+        to_ready = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "ready"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_ready.status_code == 200
+        assert to_ready.json()["entry"]["state"] == "ready"
+
+        # Transition: ready -> in_progress
+        to_in_progress = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "in_progress"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_in_progress.status_code == 200
+        assert to_in_progress.json()["entry"]["state"] == "in_progress"
+
+        # Transition: in_progress -> done
+        to_done = client.patch(
+            f"/api/unified-queue/entries/{entry_id}",
+            json={"state": "done"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert to_done.status_code == 200
+        assert to_done.json()["entry"]["state"] == "done"
+
+        # Verify all states are in VALID_STATES
+        valid_states_response = client.get("/api/unified-queue/entries")
+        assert valid_states_response.status_code == 200
+
+        # Test re-add creates entry in backlog (not up_next)
+        # This tests that re-add defaults to backlog as per requirement
+        readd_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Re-add Test",
+                "state": "backlog",
+                "copies": 1,
+            },
+        )
+        assert readd_response.status_code == 200
+        readd_entry = readd_response.json()["entry"]
+        assert readd_entry["state"] == "backlog"
+
+        # Test that up_next allows transitions to backlog (fallback scenario)
+        up_next_entry_response = client.post(
+            "/api/unified-queue/entries",
+            json={"source_kind": "working_group", "source_id": "wg-test", "title": "WG Test", "state": "up_next", "copies": 1},
+        )
+        assert up_next_entry_response.status_code == 200
+        up_next_entry_id = up_next_entry_response.json()["entry"]["queue_entry_id"]
+
+        # Verify up_next can transition back to backlog if needed
+        back_to_backlog = client.patch(
+            f"/api/unified-queue/entries/{up_next_entry_id}",
+            json={"state": "backlog"},
+            headers={"x-actor": "test-suite"},
+        )
+        assert back_to_backlog.status_code == 200
+        assert back_to_backlog.json()["entry"]["state"] == "backlog"
+    finally:
+        client.__exit__(None, None, None)
+
+

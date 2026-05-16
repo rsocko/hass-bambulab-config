@@ -55,13 +55,14 @@ from ..state import AppState
 router = APIRouter(tags=["unified-queue"])
 
 VALID_SOURCE_KINDS = {"catalog_model", "working_group", "working_file", "idea"}
-VALID_STATES = {"backlog", "preparing", "ready", "in_progress", "blocked", "done"}
+VALID_STATES = {"backlog", "up_next", "preparing", "ready", "in_progress", "blocked", "done"}
 VALID_DURATION_BUCKETS = {"quick", "medium", "overnight", "marathon", "unknown"}
 VALID_SELECTION_MODES = {"all_files_all_plates", "selected_files", "selected_plates"}
 STATE_TRANSITIONS: dict[str, set[str]] = {
-    "backlog": {"preparing", "ready", "in_progress"},
-    "preparing": {"ready", "in_progress", "blocked"},
-    "ready": {"in_progress", "blocked"},
+    "backlog": {"up_next", "preparing", "ready", "in_progress"},
+    "up_next": {"backlog", "preparing", "ready", "in_progress", "blocked"},
+    "preparing": {"up_next", "ready", "in_progress", "blocked"},
+    "ready": {"up_next", "backlog", "in_progress", "blocked"},
     "in_progress": {"blocked", "done"},
     "blocked": {"preparing", "ready", "in_progress", "done"},
     "done": set(),

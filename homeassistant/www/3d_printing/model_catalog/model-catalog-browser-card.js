@@ -741,6 +741,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "close-queue-dialog") {
       event.preventDefault();
       event.stopPropagation();
+      if (target.classList && target.classList.contains("queue-dialog-backdrop") && rawTarget !== target) {
+        return;
+      }
       this._closeQueueDialog();
       return;
     }
@@ -1075,7 +1078,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _isUnifiedQueueActiveState(state) {
     var normalized = String(state || "").trim().toLowerCase();
-    return ["backlog", "preparing", "ready", "in_progress", "blocked"].indexOf(normalized) >= 0;
+      return ["backlog", "up_next", "preparing", "ready", "in_progress", "blocked"].indexOf(normalized) >= 0;
   }
 
   _queueStateToRibbonState(state) {
@@ -1094,7 +1097,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _normalizeQueueDialogTargetState(state) {
     var normalized = String(state || "").trim().toLowerCase();
-    if (["up_next", "ready", "backlog"].indexOf(normalized) >= 0) {
+      if (["backlog", "up_next", "preparing", "ready"].indexOf(normalized) >= 0) {
       return normalized;
     }
     return "up_next";
@@ -1102,6 +1105,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _queueDialogTargetStateLabel(state) {
     var normalized = this._normalizeQueueDialogTargetState(state);
+      if (normalized === "preparing") {
+        return "Preparing";
+      }
     if (normalized === "ready") {
       return "Ready";
     }
@@ -1354,6 +1360,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + ".";
   }
 
+  _canSubmitQueueDialog() {
+    if (this._queueDialogLoading || this._queueDialogSubmitting) {
+      return false;
+    }
+    if (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0) {
+      return false;
+    }
+    if (this._queueDialogMode !== "plan") {
+      return true;
+    }
+    return this._getQueueDialogMetrics().selectedPlates > 0;
+  }
+
   async _submitQueueDialog() {
     if (!this._queueDialogModelRef || this._queueDialogLoading || this._queueDialogSubmitting) {
       return;
@@ -1364,17 +1383,34 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (!this._canSubmitQueueDialog()) {
+      this._queueDialogError = this._queueDialogMode === "plan"
+        ? "Select at least one file plate before adding to queue."
+        : "No queueable files were found for this model.";
+      this._render();
+      return;
+    }
+
+    var targetState = this._queueDialogMode === "quick"
+      ? "up_next"
+      : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
+
     var payload = {
       source_kind: "catalog_model",
       source_id: this._queueDialogModelRef,
       title: this._queueDialogModelName,
-      state: this._queueDialogMode === "quick" ? "up_next" : this._normalizeQueueDialogTargetState(this._queueDialogTargetState),
       queue_notes: String(this._queueDialogNotes || "").trim(),
       selection_mode: "selected_plates",
       selected_files: this._queueDialogMode === "quick"
         ? this._buildQueueDialogQuickSelectionPayload()
         : this._buildQueueDialogPlanSelectionPayload(),
     };
+
+    // Preserve Up Next as the UX default while remaining compatible with
+    // deployments whose add endpoint rejects explicit state="up_next".
+    if (targetState !== "up_next") {
+      payload.state = targetState;
+    }
 
     if (this._queueDialogMode === "plan") {
       var metrics = this._getQueueDialogMetrics();
@@ -1484,7 +1520,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     var paths = {
-      backlog: ["preparing", "ready", "in_progress", "done"],
+        backlog: ["up_next", "preparing", "ready", "in_progress", "done"],
+        up_next: ["preparing", "ready", "in_progress", "done"],
       preparing: ["ready", "in_progress", "done"],
       ready: ["in_progress", "done"],
       in_progress: ["done"],
@@ -1529,18 +1566,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (action === "queue-re-add") {
-      await this._openQueueDialog(modelRef, modelName, entries, { intent: "re-add", defaultState: "up_next" });
+        await this._openQueueDialog(modelRef, modelName, entries, { intent: "re-add", defaultState: "backlog" });
       return false;
     }
 
     if (action === "queue-mark-queued") {
       if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "preparing" });
+          await this._addUnifiedQueueEntryForModel(modelRef, { state: "up_next" });
         return true;
       }
       var preferredState = String(preferred.state || "").toLowerCase();
       if (preferredState === "backlog") {
-        await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "preparing" });
+          await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "up_next" });
       }
       return true;
     }
@@ -1556,7 +1593,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "queue-priority-up" || action === "queue-priority-down") {
       if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "preparing", rank: 0 });
+        await this._addUnifiedQueueEntryForModel(modelRef, { state: "up_next", rank: 0 });
         return true;
       }
       var delta = action === "queue-priority-up" ? -1 : 1;
@@ -1574,6 +1611,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     var metrics = this._getQueueDialogMetrics();
+    var canSubmit = this._canSubmitQueueDialog();
     var existingNote = this._queueDialogExistingCount > 0
       ? '<div class="queue-dialog-existing-note">This model already has ' + this._escapeHtml(String(this._queueDialogExistingCount)) + ' queue entr' + (this._queueDialogExistingCount === 1 ? 'y' : 'ies') + '. Re-add is allowed.</div>'
       : "";
@@ -1613,7 +1651,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + (this._queueDialogMode === 'quick'
           ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
           : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
-            + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option></select></label>'
+            + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="preparing"' + (this._queueDialogTargetState === 'preparing' ? ' selected' : '') + '>Preparing</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option></select></label>'
             + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
             + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
             + planBody)
@@ -1621,7 +1659,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '    <div class="queue-dialog-footer">'
       + '      <button class="toolbar-btn ghost" type="button" data-action="close-queue-dialog">Cancel</button>'
-      + '      <button class="toolbar-btn queue-dialog-submit" type="button" data-action="queue-dialog-submit"' + (this._queueDialogLoading || this._queueDialogSubmitting ? ' disabled' : '') + '>' + (this._queueDialogSubmitting ? 'Adding...' : 'Add to Queue') + '</button>'
+        + '      <button class="toolbar-btn queue-dialog-submit" type="button" data-action="queue-dialog-submit"' + (canSubmit ? '' : ' disabled') + '>' + (this._queueDialogSubmitting ? 'Adding...' : 'Add to Queue') + '</button>'
       + '    </div>'
       + '  </div>'
       + '</div>';
