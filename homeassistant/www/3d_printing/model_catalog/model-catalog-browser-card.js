@@ -1912,6 +1912,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderBottomMirrorStrip() {
+    // If selections are active, replace toolbar with bulk action bar
+    var selectedCount = this._selectedModelRefs.size;
+    if (selectedCount > 0) {
+      return this._renderBulkActionBar();
+    }
+    
     return ''
       + '<div class="page-control-strip bottom-mirror">'
       + this._renderNavigationControls()
@@ -2245,8 +2251,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</div>';
 
     if (this._viewMode === "media") {
+      var cardAction = this._selectedModelRefs.size > 0 ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-media' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay">'
@@ -2264,8 +2271,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (this._viewMode === "list") {
+      var cardAction = this._selectedModelRefs.size > 0 ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-list' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-list' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap">'
         + '    <div class="thumb list-thumb">' + previewHtml + '</div>'
         + '    ' + this._renderModelCheckbox(modelRef)
@@ -2274,8 +2282,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '</article>';
     }
 
+    var cardAction = this._selectedModelRefs.size > 0 ? "toggle-model-select" : "view-model-detail";
     return ''
-      + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+      + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
       + '  ' + this._renderModelCheckbox(modelRef)
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
