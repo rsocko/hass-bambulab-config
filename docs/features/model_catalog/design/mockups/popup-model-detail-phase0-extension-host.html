@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Detail Popup Mockup - Phase 0 Extension Host</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #091018;
+    --shell: rgba(12, 20, 31, 0.97);
+    --pane: rgba(255, 255, 255, 0.03);
+    --pane-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(146, 167, 193, 0.24);
+    --line-strong: rgba(146, 167, 193, 0.44);
+    --text: #eaf3ff;
+    --sub: #9db4d3;
+    --accent: #64d5c4;
+    --warn: #efc16e;
+    --ok: #7fdca7;
+    --radius: 16px;
+    --pad: 12px;
+    --mockup-width: 1540px;
+    --thumb-size: 76px;
+    --shadow: 0 26px 58px rgba(0, 0, 0, 0.56);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 11% 11%, rgba(100, 213, 196, 0.18), transparent 40%),
+      radial-gradient(circle at 84% 10%, rgba(122, 156, 235, 0.18), transparent 34%),
+      var(--bg);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+  }
+
+  body {
+    padding: 20px;
+  }
+
+  .head {
+    max-width: var(--mockup-width);
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(22px, 2.2vw, 31px);
+  }
+
+  .head p {
+    margin: 6px 0 0;
+    color: var(--sub);
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 980px;
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .links a {
+    text-decoration: none;
+    color: var(--sub);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    background: var(--pane);
+  }
+
+  .links a.active {
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: var(--pane-strong);
+  }
+
+  .tweaks {
+    max-width: var(--mockup-width);
+    margin: 0 auto 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--pane);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+  }
+
+  .control {
+    display: grid;
+    gap: 6px;
+  }
+
+  .control label {
+    font-size: 11px;
+    color: var(--sub);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .control input[type="range"],
+  .control input[type="color"],
+  .control select {
+    width: 100%;
+    min-height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+  }
+
+  .control input[type="checkbox"] { accent-color: var(--accent); }
+
+  .control .inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .popup {
+    max-width: var(--mockup-width);
+    margin: 0 auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
+    background: var(--shell);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .topbar {
+    padding: 12px var(--pad);
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .title { min-width: 0; }
+
+  .title strong {
+    font-size: clamp(14px, 1.4vw, 18px);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .title span {
+    color: var(--sub);
+    font-size: 12px;
+  }
+
+  .top-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+
+  button {
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    border-radius: 999px;
+    font-size: 11px;
+    padding: 7px 11px;
+    cursor: pointer;
+  }
+
+  button.primary {
+    border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: #dafef8;
+  }
+
+  button.warn {
+    border-color: color-mix(in srgb, var(--warn) 56%, transparent);
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+    color: #ffe8c1;
+  }
+
+  .overflow-wrap {
+    position: relative;
+  }
+
+  .overflow-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    width: 290px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: rgba(14, 22, 33, 0.97);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+    display: none;
+    z-index: 5;
+    padding: 7px;
+  }
+
+  .overflow-menu.open {
+    display: grid;
+    gap: 4px;
+  }
+
+  .overflow-row {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    display: grid;
+    gap: 4px;
+  }
+
+  .overflow-row:hover {
+    border-color: var(--line);
+  }
+
+  .overflow-row .label {
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .overflow-row .meta {
+    font-size: 10px;
+    color: var(--sub);
+  }
+
+  .slot-chip {
+    border: 1px solid color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius: 999px;
+    color: #d8fff7;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .kpi-strip {
+    padding: 8px var(--pad);
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .kpi {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    min-width: 128px;
+    padding: 6px 9px;
+  }
+
+  .kpi .v {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .kpi .l {
+    margin-top: 2px;
+    color: var(--sub);
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    min-height: 530px;
+  }
+
+  .left {
+    border-right: 1px solid var(--line);
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+  }
+
+  .media-filters {
+    padding: 10px var(--pad);
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+  }
+
+  .chip.active {
+    color: #defff9;
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+
+  .main {
+    margin: var(--pad);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(145deg, #16263a, #0f1724);
+  }
+
+  .main img {
+    width: 100%;
+    min-height: 360px;
+    max-height: 620px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .main .badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    background: rgba(7, 15, 24, 0.84);
+    color: #ccfff7;
+    font-size: 10px;
+    padding: 4px 9px;
+    font-weight: 700;
+  }
+
+  .media-actions {
+    padding: 0 var(--pad) 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .thumbs {
+    padding: 0 var(--pad) var(--pad);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size), 1fr));
+    gap: 7px;
+  }
+
+  .thumb {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #121b2c;
+    position: relative;
+    cursor: pointer;
+    aspect-ratio: 1;
+  }
+
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .thumb.active {
+    border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+
+  .thumb .src {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    border-radius: 999px;
+    font-size: 9px;
+    padding: 2px 6px;
+    border: 1px solid rgba(146, 167, 193, 0.56);
+    background: rgba(9, 15, 25, 0.82);
+    color: #d4e4f7;
+  }
+
+  .right {
+    padding: var(--pad);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 10px;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+    overflow: hidden;
+  }
+
+  .card .h {
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 9px 10px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sub);
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .summary {
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .summary .name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .summary .meta {
+    color: var(--sub);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .status span {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--sub);
+    font-size: 10px;
+  }
+
+  .status .ok {
+    color: #ddffe9;
+    border-color: color-mix(in srgb, var(--ok) 48%, transparent);
+    background: color-mix(in srgb, var(--ok) 14%, transparent);
+  }
+
+  .status .warn {
+    color: #ffe7bf;
+    border-color: color-mix(in srgb, var(--warn) 52%, transparent);
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+  }
+
+  .files { padding: 8px; display: grid; gap: 7px; }
+
+  .file {
+    border: 1px solid rgba(146, 167, 193, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .file .n { font-size: 12px; font-weight: 700; }
+  .file .s { font-size: 10px; color: var(--sub); margin-top: 3px; }
+
+  .role {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .panel-shell {
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .panel-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px var(--pad);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .panel-toolbar .left-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .panel-toolbar .view-mode {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .view-mode button {
+    border: 0;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--sub);
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .view-mode button:last-child { border-right: 0; }
+
+  .view-mode button.active {
+    color: #dcfff8;
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .tabs {
+    padding: 10px var(--pad);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tabs button.active {
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: #d6fff7;
+  }
+
+  .count {
+    border: 1px solid rgba(146, 167, 193, 0.45);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 6px;
+    font-size: 10px;
+    color: var(--text);
+  }
+
+  .tab-panel {
+    display: none;
+    padding: 10px var(--pad) var(--pad);
+  }
+
+  .tab-panel.active { display: block; }
+
+  .section-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--sub);
+    letter-spacing: 0.03em;
+  }
+
+  .archive-list,
+  .related-list,
+  .support-list,
+  .queue-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .archive,
+  .related,
+  .support,
+  .queue-row {
+    border: 1px solid rgba(146, 167, 193, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+  }
+
+  .archive {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .archive .l1,
+  .queue-row strong,
+  .related strong,
+  .support strong {
+    font-size: 12px;
+  }
+
+  .archive .l2,
+  .queue-row .detail,
+  .related .detail,
+  .support .detail {
+    margin-top: 3px;
+    color: var(--sub);
+    font-size: 10px;
+  }
+
+  .state {
+    font-size: 10px;
+    border-radius: 999px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+    margin-right: 6px;
+  }
+
+  .state.success {
+    color: #dbffe8;
+    border-color: color-mix(in srgb, var(--ok) 47%, transparent);
+    background: color-mix(in srgb, var(--ok) 14%, transparent);
+  }
+
+  .state.candidate {
+    color: #ffe6be;
+    border-color: color-mix(in srgb, var(--warn) 51%, transparent);
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+  }
+
+  .stacked .tabs {
+    display: none;
+  }
+
+  .stacked .tab-panel {
+    display: block;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stacked .tab-panel:last-child {
+    border-bottom: 0;
+  }
+
+  .stacked .tab-panel::before {
+    content: attr(data-stack-title);
+    display: block;
+    margin-bottom: 9px;
+    color: var(--sub);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .ext-map {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ext-note {
+    font-size: 11px;
+    color: var(--sub);
+    line-height: 1.4;
+    padding: 0 var(--pad) 10px;
+  }
+
+  @media (max-width: 1180px) {
+    .hero {
+      grid-template-columns: 1fr;
+    }
+
+    .left {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+  }
+
+  .is-mobile .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .is-mobile .left {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <h1>Model Detail Popup - Phase 0 Extension Host</h1>
+    <p>Hybrid merge for issue #1376: keeps the newer hero and section architecture, restores direct tab access for all core data panels, and keeps a stacked mode for progressive disclosure. Desktop defaults to a 2/5 media rail and 3/5 details rail.</p>
+  </div>
+  <div class="links">
+    <a href="index.html">Mockup index</a>
+    <a href="popup-model-detail-makerworld-v2.html">Makerworld v2 (tab source)</a>
+    <a href="popup-model-detail-collapsible-sections.html">Collapsible source</a>
+    <a href="popup-model-detail-phase0-extension-host.html" class="active">Phase 0 host</a>
+  </div>
+</div>
+
+<div class="tweaks">
+  <div class="control">
+    <label for="width">Popup Width</label>
+    <input id="width" type="range" min="1200" max="1820" step="10" value="1540" />
+  </div>
+  <div class="control">
+    <label for="radius">Corner Radius</label>
+    <input id="radius" type="range" min="10" max="26" step="1" value="16" />
+  </div>
+  <div class="control">
+    <label for="pad">Density (Padding)</label>
+    <input id="pad" type="range" min="8" max="18" step="1" value="12" />
+  </div>
+  <div class="control">
+    <label for="thumb">Thumb Size</label>
+    <input id="thumb" type="range" min="58" max="98" step="1" value="76" />
+  </div>
+  <div class="control">
+    <label for="accent">Accent Color</label>
+    <input id="accent" type="color" value="#64d5c4" />
+  </div>
+  <div class="control">
+    <label class="inline"><input id="toggle-mobile" type="checkbox" /> Force mobile stack</label>
+    <label class="inline"><input id="toggle-stacked" type="checkbox" /> Default panel mode: Stacked</label>
+  </div>
+</div>
+
+<section class="popup" id="popupRoot">
+  <div class="topbar">
+    <div class="title">
+      <strong>Echo Show 5 Minimal Case</strong>
+      <span>Creator _nesmi | Collection Household / Office | 3 printable files | Phase 0 host contract</span>
+    </div>
+
+    <div class="top-actions">
+      <span class="slot-chip">actions:top-bar</span>
+      <button class="primary">Edit metadata</button>
+      <button class="primary">Add to queue</button>
+      <button>Open 3D viewer</button>
+      <button>Download</button>
+      <div class="overflow-wrap">
+        <button id="overflowToggle">More</button>
+        <div class="overflow-menu" id="overflowMenu">
+          <div class="overflow-row">
+            <div class="label">Recover Print History wizard</div>
+            <div class="meta">Overflow host for #1483 | Launches modal workflow</div>
+          </div>
+          <div class="overflow-row">
+            <div class="label">Contribution lifecycle panel shortcut</div>
+            <div class="meta">Panel host for #1494</div>
+          </div>
+          <div class="overflow-row">
+            <div class="label">Publication pipeline panel shortcut</div>
+            <div class="meta">Panel host for #1495</div>
+          </div>
+          <div class="overflow-row">
+            <div class="label">Open unified queue planner</div>
+            <div class="meta">Dialog host for #1499 quick/plan actions</div>
+          </div>
+        </div>
+      </div>
+      <button>Close</button>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="v">91%</div><div class="l">Print success rate</div></div>
+    <div class="kpi"><div class="v">147h</div><div class="l">Total print time</div></div>
+    <div class="kpi"><div class="v">4.8 kg</div><div class="l">Filament consumed</div></div>
+    <div class="kpi"><div class="v">23</div><div class="l">Archives</div></div>
+    <div class="kpi"><div class="v">2</div><div class="l">Candidates</div></div>
+  </div>
+
+  <div class="hero">
+    <div class="left">
+      <div class="media-filters" id="mediaFilters">
+        <span class="slot-chip">hero-left:media</span>
+        <span class="chip active" data-filter="all">All</span>
+        <span class="chip" data-filter="preview">Preview</span>
+        <span class="chip" data-filter="model-derived">Model-derived</span>
+        <span class="chip" data-filter="assets">Assets</span>
+        <span class="chip" data-filter="uploaded">Uploaded</span>
+      </div>
+
+      <div class="main">
+        <img id="mainImage" src="https://picsum.photos/id/1015/1200/760" alt="Main preview" />
+        <span class="badge" id="mainBadge">Uploaded</span>
+      </div>
+
+      <div class="media-actions">
+        <button>Set preview</button>
+        <button class="warn">Hide image</button>
+        <button class="warn">Delete image</button>
+        <button>Fullscreen</button>
+      </div>
+
+      <div class="thumbs" id="thumbs">
+        <button class="thumb active" data-type="uploaded" data-badge="Uploaded" data-src="https://picsum.photos/id/1015/1200/760"><img src="https://picsum.photos/id/1015/190/190" alt="Thumb 1" /><span class="src">Uploaded</span></button>
+        <button class="thumb" data-type="model-derived" data-badge="Embedded 3MF" data-src="https://picsum.photos/id/1025/1200/760"><img src="https://picsum.photos/id/1025/190/190" alt="Thumb 2" /><span class="src">Embedded</span></button>
+        <button class="thumb" data-type="assets" data-badge="Asset image" data-src="https://picsum.photos/id/1040/1200/760"><img src="https://picsum.photos/id/1040/190/190" alt="Thumb 3" /><span class="src">Asset</span></button>
+        <button class="thumb" data-type="model-derived" data-badge="Derived preview" data-src="https://picsum.photos/id/1062/1200/760"><img src="https://picsum.photos/id/1062/190/190" alt="Thumb 4" /><span class="src">Derived</span></button>
+        <button class="thumb" data-type="uploaded" data-badge="Uploaded" data-src="https://picsum.photos/id/1074/1200/760"><img src="https://picsum.photos/id/1074/190/190" alt="Thumb 5" /><span class="src">Uploaded</span></button>
+        <button class="thumb" data-type="assets" data-badge="Asset image" data-src="https://picsum.photos/id/1084/1200/760"><img src="https://picsum.photos/id/1084/190/190" alt="Thumb 6" /><span class="src">Asset</span></button>
+      </div>
+    </div>
+
+    <div class="right">
+      <section class="card">
+        <div class="h">
+          <span>Summary</span>
+          <span class="slot-chip">hero-right:summary</span>
+        </div>
+        <div class="summary">
+          <div class="name">Echo Show 5 Minimal Case</div>
+          <div class="meta">Tags: echo, alexa, desk, enclosure | Collections: Household, Office | Difficulty: Easy | Source: Manyfold + Makerworld draft</div>
+          <div class="status">
+            <span class="ok">Linked archives: 6</span>
+            <span class="warn">Potential matches: 2</span>
+            <span>Related models: 4</span>
+            <span>Supporting files: 5</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="h">
+          <span>Model Files (quick panel)</span>
+          <span class="slot-chip">panel:files-core</span>
+        </div>
+        <div class="files">
+          <article class="file">
+            <div><div class="n">EchoShow5.3mf</div><div class="s">23.4 MB | 2 plates | queued</div></div>
+            <span class="role">Primary</span>
+          </article>
+          <article class="file">
+            <div><div class="n">EchoStandVariant.3mf</div><div class="s">18.8 MB | 1 plate | draft intent</div></div>
+            <span class="role">Variant</span>
+          </article>
+          <article class="file">
+            <div><div class="n">EchoShow5.step</div><div class="s">6.3 MB | reference CAD</div></div>
+            <span class="role">Reference</span>
+          </article>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel-shell" id="panelShell">
+    <div class="panel-toolbar">
+      <div class="left-tools">
+        <strong style="font-size:12px;">Panel Workspace</strong>
+        <div class="view-mode" id="viewMode">
+          <button type="button" data-mode="tabs" class="active">Tabs</button>
+          <button type="button" data-mode="stacked">Stacked</button>
+        </div>
+      </div>
+      <div class="ext-map">
+        <span class="slot-chip">sections:archive-linkage</span>
+        <span class="slot-chip">sections:queue-status</span>
+        <span class="slot-chip">sections:related-models</span>
+        <span class="slot-chip">sections:supporting-files</span>
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="active" data-tab="panel-files">Model Files <span class="count">3</span></button>
+      <button data-tab="panel-archives">Related Archives <span class="count">6</span><span class="count">2</span></button>
+      <button data-tab="panel-queue">Queue / Prints <span class="count">2</span></button>
+      <button data-tab="panel-related">Related Models <span class="count">4</span></button>
+      <button data-tab="panel-support">Supporting Files <span class="count">5</span></button>
+      <button data-tab="panel-contribution">Contribution <span class="count">#1494</span></button>
+      <button data-tab="panel-publication">Publication <span class="count">#1495</span></button>
+    </div>
+
+    <div class="tab-panel active" id="panel-files" data-stack-title="Model Files">
+      <h3 class="section-title">Core panel</h3>
+      <div class="queue-list">
+        <article class="queue-row">
+          <strong>EchoShow5.3mf - Plate 1</strong>
+          <div class="detail">Primary plate | 4h 12m estimate | 3 AMS colors</div>
+        </article>
+        <article class="queue-row">
+          <strong>EchoStandVariant.3mf - Plate 1</strong>
+          <div class="detail">Variant plate | 3h 26m estimate | draft intent exists</div>
+        </article>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-archives" data-stack-title="Related Archives">
+      <h3 class="section-title">sections:archive-linkage</h3>
+      <div class="archive-list">
+        <article class="archive">
+          <div>
+            <div class="l1">2026-05-01 | Echo Show 5 Minimal Case</div>
+            <div class="l2">P1S | PLA Matte White | 4h 12m | archive_6014</div>
+          </div>
+          <div><span class="state success">Linked</span><button>Open archive</button></div>
+        </article>
+        <article class="archive">
+          <div>
+            <div class="l1">2026-04-13 | EchoShow5-Desk_v3</div>
+            <div class="l2">P1S | PLA Matte Gray | 3h 58m | archive_5871</div>
+          </div>
+          <div><span class="state candidate">Candidate</span><button class="primary">Link</button><button>Skip</button></div>
+        </article>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-queue" data-stack-title="Queue / Prints">
+      <h3 class="section-title">sections:queue-status</h3>
+      <div class="queue-list">
+        <article class="queue-row">
+          <strong>Queue item #842</strong>
+          <div class="detail">EchoShow5.3mf - Plate 1 queued tonight on P1S</div>
+        </article>
+        <article class="queue-row">
+          <strong>Draft intent</strong>
+          <div class="detail">EchoStandVariant.3mf pending tray assignment</div>
+        </article>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-related" data-stack-title="Related Models">
+      <h3 class="section-title">sections:related-models</h3>
+      <div class="related-list">
+        <article class="related"><strong>Echo Show 8 Stand</strong><div class="detail">same collection | similarity 0.89</div></article>
+        <article class="related"><strong>Nest Hub Shelf Mount</strong><div class="detail">similar tags | similarity 0.74</div></article>
+        <article class="related"><strong>Echo Show Cable Clip Set</strong><div class="detail">lineage relation | similarity 0.71</div></article>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-support" data-stack-title="Supporting Files">
+      <h3 class="section-title">sections:supporting-files</h3>
+      <div class="support-list">
+        <article class="support"><strong>README.md</strong><div class="detail">Assembly instructions</div></article>
+        <article class="support"><strong>bom.csv</strong><div class="detail">Bill of materials</div></article>
+        <article class="support"><strong>dimensions.pdf</strong><div class="detail">Measurement reference</div></article>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-contribution" data-stack-title="Contribution Lifecycle (#1494)">
+      <h3 class="section-title">Phase 2 panel host - #1494</h3>
+      <div class="queue-row">
+        <strong>Contribution lifecycle slot</strong>
+        <div class="detail">Contract host for downloaded-model contribution workflow. Can mount checklist, status machine, and CTA actions without changing popup layout.</div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-publication" data-stack-title="Publication Pipeline (#1495)">
+      <h3 class="section-title">Phase 2 panel host - #1495</h3>
+      <div class="queue-row">
+        <strong>Publication pipeline slot</strong>
+        <div class="detail">Contract host for originals/remixes publication planning, draft transitions, and optional task bridge integration.</div>
+      </div>
+    </div>
+
+    <p class="ext-note">Merge intent: the tab model preserves fast panel jumps and future panel landing zones, while Stacked mode keeps the progressive-disclosure behavior introduced in the collapsible redesign.</p>
+  </section>
+</section>
+
+<script>
+  (function () {
+    var popupRoot = document.getElementById("popupRoot");
+    var panelShell = document.getElementById("panelShell");
+    var width = document.getElementById("width");
+    var radius = document.getElementById("radius");
+    var pad = document.getElementById("pad");
+    var thumb = document.getElementById("thumb");
+    var accent = document.getElementById("accent");
+    var toggleMobile = document.getElementById("toggle-mobile");
+    var toggleStacked = document.getElementById("toggle-stacked");
+
+    var overflowToggle = document.getElementById("overflowToggle");
+    var overflowMenu = document.getElementById("overflowMenu");
+
+    var mainImage = document.getElementById("mainImage");
+    var mainBadge = document.getElementById("mainBadge");
+    var thumbsWrap = document.getElementById("thumbs");
+    var filterWrap = document.getElementById("mediaFilters");
+
+    var viewMode = document.getElementById("viewMode");
+    var tabButtons = popupRoot.querySelectorAll(".tabs button[data-tab]");
+    var tabPanels = popupRoot.querySelectorAll(".tab-panel");
+
+    function applyVars() {
+      document.documentElement.style.setProperty("--mockup-width", width.value + "px");
+      document.documentElement.style.setProperty("--radius", radius.value + "px");
+      document.documentElement.style.setProperty("--pad", pad.value + "px");
+      document.documentElement.style.setProperty("--thumb-size", thumb.value + "px");
+      document.documentElement.style.setProperty("--accent", accent.value);
+
+      popupRoot.classList.toggle("is-mobile", toggleMobile.checked);
+      panelShell.classList.toggle("stacked", toggleStacked.checked);
+
+      viewMode.querySelectorAll("button").forEach(function (btn) {
+        var mode = btn.getAttribute("data-mode");
+        var active = (mode === "stacked") ? toggleStacked.checked : !toggleStacked.checked;
+        btn.classList.toggle("active", active);
+      });
+    }
+
+    [width, radius, pad, thumb, accent, toggleMobile, toggleStacked].forEach(function (node) {
+      node.addEventListener("input", applyVars);
+      node.addEventListener("change", applyVars);
+    });
+
+    overflowToggle.addEventListener("click", function () {
+      overflowMenu.classList.toggle("open");
+    });
+
+    document.addEventListener("click", function (event) {
+      if (!event.target.closest(".overflow-wrap")) {
+        overflowMenu.classList.remove("open");
+      }
+    });
+
+    function setActiveThumb(target) {
+      var items = thumbsWrap.querySelectorAll(".thumb");
+      items.forEach(function (thumbItem) {
+        thumbItem.classList.toggle("active", thumbItem === target);
+      });
+      mainImage.src = target.getAttribute("data-src") || "";
+      mainBadge.textContent = target.getAttribute("data-badge") || "Image";
+    }
+
+    thumbsWrap.addEventListener("click", function (event) {
+      var thumbItem = event.target.closest(".thumb");
+      if (!thumbItem) {
+        return;
+      }
+      setActiveThumb(thumbItem);
+    });
+
+    function applyFilter(filterName) {
+      var items = thumbsWrap.querySelectorAll(".thumb");
+      var firstVisible = null;
+
+      items.forEach(function (thumbItem) {
+        var type = thumbItem.getAttribute("data-type");
+        var isPreview = thumbItem.classList.contains("active");
+        var visible = false;
+
+        if (filterName === "all") {
+          visible = true;
+        } else if (filterName === "preview") {
+          visible = isPreview;
+        } else {
+          visible = type === filterName;
+        }
+
+        thumbItem.style.display = visible ? "block" : "none";
+        if (!firstVisible && visible) {
+          firstVisible = thumbItem;
+        }
+      });
+
+      if (firstVisible) {
+        setActiveThumb(firstVisible);
+      }
+    }
+
+    filterWrap.addEventListener("click", function (event) {
+      var chip = event.target.closest(".chip");
+      if (!chip) {
+        return;
+      }
+      var name = chip.getAttribute("data-filter");
+      filterWrap.querySelectorAll(".chip").forEach(function (item) {
+        item.classList.toggle("active", item === chip);
+      });
+      applyFilter(name);
+    });
+
+    tabButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var targetId = button.getAttribute("data-tab");
+
+        tabButtons.forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+
+        tabPanels.forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === targetId);
+        });
+
+        if (toggleStacked.checked) {
+          toggleStacked.checked = false;
+          applyVars();
+        }
+      });
+    });
+
+    viewMode.addEventListener("click", function (event) {
+      var btn = event.target.closest("button[data-mode]");
+      if (!btn) {
+        return;
+      }
+      toggleStacked.checked = btn.getAttribute("data-mode") === "stacked";
+      applyVars();
+    });
+
+    applyVars();
+  })();
+</script>
+
+</body>
+</html>

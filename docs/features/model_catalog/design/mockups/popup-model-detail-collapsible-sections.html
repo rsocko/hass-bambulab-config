@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Detail Popup Mockup - Collapsible Sections Layout</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1119;
+    --shell: rgba(15, 22, 34, 0.96);
+    --pane: rgba(255, 255, 255, 0.03);
+    --pane-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(148, 166, 189, 0.24);
+    --line-strong: rgba(148, 166, 189, 0.42);
+    --text: #edf4ff;
+    --sub: #9fb3ce;
+    --accent: #6edacb;
+    --warn: #f0be62;
+    --danger: #f18b8b;
+    --ok: #7cd9aa;
+    --radius: 16px;
+    --pad: 12px;
+    --mockup-width: 1480px;
+    --thumb-size: 74px;
+    --shadow: 0 26px 60px rgba(0, 0, 0, 0.56);
+  }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 12% 14%, rgba(110, 218, 203, 0.18), transparent 38%),
+      radial-gradient(circle at 86% 10%, rgba(139, 174, 255, 0.16), transparent 36%),
+      var(--bg);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+  }
+
+  .head {
+    max-width: var(--mockup-width);
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .head h1 {
+    margin: 0;
+    font-size: clamp(21px, 2.2vw, 30px);
+  }
+
+  .head p {
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: var(--sub);
+    max-width: 900px;
+    line-height: 1.5;
+  }
+
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .links a {
+    text-decoration: none;
+    color: var(--sub);
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 10px;
+    background: var(--pane);
+  }
+  .links a.active {
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: var(--pane-strong);
+  }
+
+  .tweaks {
+    max-width: var(--mockup-width);
+    margin: 0 auto 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--pane);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .control {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+  }
+
+  .control label {
+    font-size: 11px;
+    color: var(--sub);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .control input[type="range"],
+  .control input[type="color"],
+  .control select {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 8px;
+    min-height: 30px;
+  }
+
+  .control input[type="checkbox"] { accent-color: var(--accent); }
+  .control .inline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
+
+  .popup {
+    max-width: var(--mockup-width);
+    margin: 0 auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
+    background: var(--shell);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1.06fr) minmax(370px, 0.94fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .hero {
+    grid-column: 1 / 3; /* Hero section spans both columns */
+    grid-row: 1 / 2;
+  }
+
+  .right {
+    grid-column: 2 / 3; /* Right section remains in the second column */
+    grid-row: 2 / 3;
+    display: grid;
+    grid-template-rows: auto auto; /* Separate Model Files and collapsible sections */
+    gap: 10px;
+  }
+
+  .model-files {
+    padding: var(--pad);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .lower {
+    grid-row: 2 / 3; /* Collapsible sections placed under Model Files */
+    overflow-y: auto;
+    padding: var(--pad);
+    display: grid;
+    gap: 10px;
+  }
+
+  .collapsible-section {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--pane);
+  }
+
+  .section-header {
+    padding: var(--pad);
+    background: var(--pane-strong);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .section-header .title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--sub);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-header .controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .section-header .toggle-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .section-content {
+    padding: var(--pad);
+    display: grid;
+    gap: 8px;
+  }
+
+  .section-content.collapsed {
+    display: none;
+  }
+
+  .archive-list { display: grid; gap: 7px; }
+
+  .archive {
+    border: 1px solid rgba(148, 166, 189, 0.24);
+    border-radius: 9px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .archive .l1 { font-size: 12px; font-weight: 700; }
+  .archive .l2 { margin-top: 3px; font-size: 10px; color: var(--sub); }
+  .archive .state {
+    font-size: 10px;
+    border-radius: 999px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    color: var(--sub);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .archive .state.success {
+    color: #d7ffe8;
+    border-color: color-mix(in srgb, var(--ok) 46%, transparent);
+    background: color-mix(in srgb, var(--ok) 15%, transparent);
+  }
+  .archive .state.candidate {
+    color: #ffe6be;
+    border-color: color-mix(in srgb, var(--warn) 52%, transparent);
+    background: color-mix(in srgb, var(--warn) 17%, transparent);
+  }
+
+  .archive-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .archive-actions button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--sub);
+    font-size: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+
+  .archive-actions button.primary {
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: #d9fff7;
+  }
+
+  .archive-preview-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    overflow: hidden;
+    background: #121b2c;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .archive-preview-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .candidate-banner {
+    border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+    background: color-mix(in srgb, var(--warn) 13%, transparent);
+    color: #ffe5ba;
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 11px;
+    display: none;
+  }
+
+  .candidate-banner.visible { display: block; }
+
+  .related-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .related-item {
+    border: 1px solid rgba(148, 166, 189, 0.24);
+    border-radius: 9px;
+    padding: 7px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .related-item strong { font-size: 12px; display: block; }
+  .related-item .detail { color: var(--sub); font-size: 10px; margin-top: 3px; }
+
+  .support-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .support-item {
+    border: 1px solid rgba(148, 166, 189, 0.24);
+    border-radius: 9px;
+    padding: 7px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .support-item .name { font-weight: 700; }
+  .support-item .desc { color: var(--sub); font-size: 10px; }
+  .support-item .actions { display: flex; gap: 6px; }
+  .support-item button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--sub);
+    font-size: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+
+  .section-header.with-count .title::after {
+    content: attr(data-count);
+    display: inline-block;
+    border: 1px solid rgba(148, 166, 189, 0.45);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .view-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 11px;
+  }
+
+  .view-controls select {
+    min-height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  @media (max-width: 1080px) {
+    .hero { grid-template-columns: 1fr; }
+    .left { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+
+  .is-mobile .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .is-mobile .left {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <h1>Model Detail Popup - Collapsible Sections Layout</h1>
+    <p>Progressive disclosure layout: hero section always visible, collapsible content sections below. Replaces tab-based interface with scrollable vertical discovery pattern. Supports all five data panels + extension points for dependent issues.</p>
+  </div>
+  <div class="links">
+    <a href="index.html">Mockup index</a>
+    <a href="popup-model-detail.html">Current recommended</a>
+    <a href="popup-model-detail-makerworld-v2.html">Makerworld v2 (tabs)</a>
+    <a href="popup-model-detail-collapsible-sections.html" class="active">Collapsible sections</a>
+  </div>
+</div>
+
+<div class="tweaks">
+  <div class="control">
+    <label for="width">Popup Width</label>
+    <input id="width" type="range" min="1100" max="1720" step="10" value="1480" />
+  </div>
+  <div class="control">
+    <label for="radius">Corner Radius</label>
+    <input id="radius" type="range" min="10" max="26" step="1" value="16" />
+  </div>
+  <div class="control">
+    <label for="pad">Density (Padding)</label>
+    <input id="pad" type="range" min="8" max="18" step="1" value="12" />
+  </div>
+  <div class="control">
+    <label for="thumb">Thumb Size</label>
+    <input id="thumb" type="range" min="58" max="98" step="1" value="74" />
+  </div>
+  <div class="control">
+    <label for="accent">Accent Color</label>
+    <input id="accent" type="color" value="#6edacb" />
+  </div>
+  <div class="control">
+    <label class="inline"><input id="toggle-mobile" type="checkbox" /> Force mobile stack</label>
+  </div>
+</div>
+
+<section class="popup" id="popupRoot">
+  <div class="topbar">
+    <div class="title">
+      <strong>Echo Show 5 Minimal Case</strong>
+      <span>Creator _nesmi | Collection Household / Office | 3 printable files</span>
+    </div>
+    <div class="top-actions">
+      <button class="primary">Edit metadata</button>
+      <button class="primary">Add to queue</button>
+      <button>Open archive list</button>
+      <button>Open 3D viewer</button>
+      <button>Download</button>
+      <button>Close</button>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="v">91%</div><div class="l">Print success rate</div></div>
+    <div class="kpi"><div class="v">147h</div><div class="l">Total print time</div></div>
+    <div class="kpi"><div class="v">4.8 kg</div><div class="l">Filament consumed</div></div>
+    <div class="kpi"><div class="v">23</div><div class="l">Total archives</div></div>
+    <div class="kpi"><div class="v">2</div><div class="l">Candidate matches</div></div>
+  </div>
+
+  <div class="summary">
+    <div class="details">
+      <h2>Summary</h2>
+      <p>Details about the model go here.</p>
+    </div>
+    <div class="actions">
+      <button>Action 1</button>
+      <button>Action 2</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <p>Hero Image</p>
+  </div>
+
+  <div class="right">
+    <div class="model-files">
+      <h3>Model Files</h3>
+      <ul>
+        <li>File 1</li>
+        <li>File 2</li>
+        <li>File 3</li>
+      </ul>
+    </div>
+
+    <div class="lower">
+
+      <!-- ARCHIVE LINKAGE SECTION -->
+      <div class="collapsible-section" data-section="archive-linkage">
+        <div class="section-header" onclick="toggleSection(this)">
+          <div class="title" data-count="6 linked + 2 candidates">Archive Linkage Review</div>
+          <div class="controls">
+            <button class="toggle-btn">−</button>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="candidate-banner visible">2 potential history matches need review to confirm linkage.</div>
+          <div class="view-controls">
+            <label>View:</label>
+            <select onchange="changeArchiveView(this)">
+              <option value="compact" selected>Compact</option>
+              <option value="timeline">Timeline</option>
+            </select>
+          </div>
+          <div class="archive-list" id="archiveList">
+            <article class="archive">
+              <div>
+                <div class="l1">2026-05-01 | Echo Show 5</div>
+                <div class="l2">P1S | PLA White | 4h 12m | archive_6014</div>
+              </div>
+              <div class="archive-actions">
+                <span class="state success">Linked</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview"><img src="https://picsum.photos/id/1025/96/96" alt="Archive" /></button>
+              </div>
+            </article>
+            <article class="archive">
+              <div>
+                <div class="l1">2026-04-16 | Echo Show 5</div>
+                <div class="l2">X1C | PETG Black | 5h 03m | archive_5892</div>
+              </div>
+              <div class="archive-actions">
+                <span class="state success">Linked</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview"><img src="https://picsum.photos/id/1062/96/96" alt="Archive" /></button>
+              </div>
+            </article>
+            <article class="archive">
+              <div>
+                <div class="l1">2026-04-13 | EchoShow5-Desk_v3</div>
+                <div class="l2">P1S | PLA Gray | 3h 58m | archive_5871</div>
+              </div>
+              <div class="archive-actions">
+                <span class="state candidate">Candidate</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview"><img src="https://picsum.photos/id/1040/96/96" alt="Archive" /></button>
+                <button class="primary">Link</button>
+                <button>Skip</button>
+              </div>
+            </article>
+            <article class="archive">
+              <div>
+                <div class="l1">2026-04-10 | Echo Show Minimal</div>
+                <div class="l2">P1S | PLA White | 4h 05m | archive_5841</div>
+              </div>
+              <div class="archive-actions">
+                <span class="state candidate">Candidate</span>
+                <button class="archive-preview-thumb" aria-label="Open archive preview"><img src="https://picsum.photos/id/1074/96/96" alt="Archive" /></button>
+                <button class="primary">Link</button>
+                <button>Skip</button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUEUE STATUS SECTION -->
+      <div class="collapsible-section" data-section="queue-status">
+        <div class="section-header" onclick="toggleSection(this)">
+          <div class="title" data-count="2">Queue Status</div>
+          <div class="controls">
+            <button class="toggle-btn">−</button>
+          </div>
+        </div>
+        <div class="section-content">
+          <div style="font-size: 11px; line-height: 1.6; color: var(--sub);">
+            <div style="margin-bottom: 8px;">
+              <strong style="color: var(--text);">Queue Item #842</strong><br />
+              EchoShow5.3mf — Plate 1 | Queued for tonight on P1S | PLA White Matte
+            </div>
+            <div>
+              <strong style="color: var(--text);">Draft Intent</strong><br />
+              EchoStandVariant.3mf — Plate 1 | Tray assignment pending
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RELATED MODELS SECTION -->
+      <div class="collapsible-section" data-section="related-models">
+        <div class="section-header" onclick="toggleSection(this)">
+          <div class="title" data-count="4">Related Models</div>
+          <div class="controls">
+            <button class="toggle-btn">−</button>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="related-list">
+            <div class="related-item">
+              <strong>Echo Show 8 Stand</strong>
+              <div class="detail">same collection | similarity 0.89</div>
+            </div>
+            <div class="related-item">
+              <strong>Nest Hub Shelf Mount</strong>
+              <div class="detail">similar tags | similarity 0.74</div>
+            </div>
+            <div class="related-item">
+              <strong>Echo Show Cable Clip Set</strong>
+              <div class="detail">lineage relation | similarity 0.71</div>
+            </div>
+            <div class="related-item">
+              <strong>Echo Show Wall Dock</strong>
+              <div class="detail">shared filename lineage | similarity 0.69</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUPPORTING FILES SECTION -->
+      <div class="collapsible-section" data-section="supporting-files">
+        <div class="section-header" onclick="toggleSection(this)">
+          <div class="title" data-count="5">Supporting Files</div>
+          <div class="controls">
+            <button class="toggle-btn">−</button>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="support-list">
+            <div class="support-item">
+              <div>
+                <div class="name">README.md</div>
+                <div class="desc">assembly instructions</div>
+              </div>
+              <div class="actions">
+                <button>Open</button>
+                <button>Download</button>
+              </div>
+            </div>
+            <div class="support-item">
+              <div>
+                <div class="name">bom.csv</div>
+                <div class="desc">bill of materials</div>
+              </div>
+              <div class="actions">
+                <button>Open</button>
+                <button>Download</button>
+              </div>
+            </div>
+            <div class="support-item">
+              <div>
+                <div class="name">dimensions.pdf</div>
+                <div class="desc">measurement reference</div>
+              </div>
+              <div class="actions">
+                <button>Open</button>
+                <button>Download</button>
+              </div>
+            </div>
+            <div class="support-item">
+              <div>
+                <div class="name">materials-notes.txt</div>
+                <div class="desc">material substitutions & notes</div>
+              </div>
+              <div class="actions">
+                <button>Open</button>
+                <button>Download</button>
+              </div>
+            </div>
+            <div class="support-item">
+              <div>
+                <div class="name">mounting-template.svg</div>
+                <div class="desc">wall drill template</div>
+              </div>
+              <div class="actions">
+                <button>Open</button>
+                <button>Download</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var popupRoot = document.getElementById("popupRoot");
+    var width = document.getElementById("width");
+    var radius = document.getElementById("radius");
+    var pad = document.getElementById("pad");
+    var thumb = document.getElementById("thumb");
+    var accent = document.getElementById("accent");
+    var toggleMobile = document.getElementById("toggle-mobile");
+
+    function applyVars() {
+      document.documentElement.style.setProperty("--mockup-width", width.value + "px");
+      document.documentElement.style.setProperty("--radius", radius.value + "px");
+      document.documentElement.style.setProperty("--pad", pad.value + "px");
+      document.documentElement.style.setProperty("--thumb-size", thumb.value + "px");
+      document.documentElement.style.setProperty("--accent", accent.value);
+
+      if (toggleMobile.checked) {
+        popupRoot.classList.add("is-mobile");
+      } else {
+        popupRoot.classList.remove("is-mobile");
+      }
+    }
+
+    [width, radius, pad, thumb, accent, toggleMobile].forEach(function (node) {
+      node.addEventListener("input", applyVars);
+      node.addEventListener("change", applyVars);
+    });
+
+    var mainImage = document.getElementById("mainImage");
+    var mainBadge = document.getElementById("mainBadge");
+    var thumbsWrap = document.getElementById("thumbs");
+    var filterWrap = document.getElementById("mediaFilters");
+
+    function setActiveThumb(target) {
+      var items = thumbsWrap.querySelectorAll(".thumb");
+      items.forEach(function (thumbItem) {
+        thumbItem.classList.toggle("active", thumbItem === target);
+      });
+      mainImage.src = target.getAttribute("data-src") || "";
+      mainBadge.textContent = target.getAttribute("data-badge") || "Image";
+    }
+
+    thumbsWrap.addEventListener("click", function (event) {
+      var thumbItem = event.target.closest(".thumb");
+      if (!thumbItem) return;
+      setActiveThumb(thumbItem);
+    });
+
+    function applyFilter(filterName) {
+      var items = thumbsWrap.querySelectorAll(".thumb");
+      var firstVisible = null;
+      items.forEach(function (thumbItem) {
+        var type = thumbItem.getAttribute("data-type");
+        var isPreview = thumbItem.classList.contains("active");
+        var visible = false;
+        if (filterName === "all") {
+          visible = true;
+        } else if (filterName === "preview") {
+          visible = isPreview;
+        } else {
+          visible = type === filterName;
+        }
+        thumbItem.style.display = visible ? "block" : "none";
+        if (!firstVisible && visible) {
+          firstVisible = thumbItem;
+        }
+      });
+      if (firstVisible) {
+        setActiveThumb(firstVisible);
+      }
+    }
+
+    filterWrap.addEventListener("click", function (event) {
+      var chip = event.target.closest(".chip");
+      if (!chip) return;
+      var name = chip.getAttribute("data-filter");
+      filterWrap.querySelectorAll(".chip").forEach(function (item) {
+        item.classList.toggle("active", item === chip);
+      });
+      applyFilter(name);
+    });
+
+    applyVars();
+  })();
+
+  window.toggleSection = function(headerEl) {
+    var content = headerEl.nextElementSibling;
+    if (content) {
+      content.classList.toggle("collapsed");
+      var btn = headerEl.querySelector(".toggle-btn");
+      if (btn) {
+        btn.textContent = content.classList.contains("collapsed") ? "+" : "−";
+      }
+    }
+  };
+
+  window.changeArchiveView = function(sel) {
+    // Placeholder for view mode switching
+    console.log("Archive view:", sel.value);
+  };
+</script>
+
+</body>
+</html>

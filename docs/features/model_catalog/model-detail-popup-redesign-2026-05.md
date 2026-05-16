@@ -35,9 +35,10 @@ The main shift is from a mostly tab-first popup to a split hero layout:
 
 ### Change
 
+- **Tab-based UI → Progressive disclosure (collapsible sections)**: Replace tab switching with scrollable vertical sections that can be independently collapsed. All sections visible by default; operator can minimize to save space.
 - replace the current simple gallery tab with a left-column carousel that is visible immediately on open
 - move file inspection into the always-visible right column, with expandable file rows and per-file plate drilldown
-- surface potential history matches as a visible review state, not buried in linkage actions
+- surface potential history matches as a **dedicated collapsible section** with explicit candidate review UI, not buried in a tab
 - add a dedicated supporting-files section instead of mixing all assets into one generic list
 - align media actions with Print History: preview, set as preview, hide, delete when allowed
 
@@ -46,12 +47,15 @@ The main shift is from a mostly tab-first popup to a split hero layout:
 - media-type filter chips above the carousel
 - explicit source badges on images: `Uploaded`, `Embedded 3MF`, `Asset`, `Derived`
 - inline metadata edit affordance near the hero area instead of pushing all edits into a full mode switch
+- **collapsible section headers** with toggleable content + item count badges
+- **archive candidate review section** with match confidence breakdown, batch link/skip actions
+- **queue status section** showing queued items and draft print intents for this model
 - related-model cards below the hero area
 - stronger mobile stacking rules so the popup still works on tablet and phone widths
 
 ---
 
-## Layout Direction
+## Layout Direction (REVISED: Collapsible Sections)
 
 ### Desktop Mockup
 
@@ -60,46 +64,84 @@ The main shift is from a mostly tab-first popup to a split hero layout:
 │ Model Catalog                                                                              │
 │ Echo Show 5 Minimal Case                                          [Edit Metadata] [Close] │
 ├──────────────────────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ Media Gallery ──────────────────────────────┐  ┌─ Summary / Files ─────────────────────┐ │
-│ │ [All] [Preview] [Model-Derived] [Assets]    │  │ Status chips                           │ │
-│ │ [Uploaded]                                   │  │ [Linked to 6 archives] [2 candidates] │ │
-│ │                                               │  │ [3 model files] [5 supporting files]  │ │
-│ │ ┌───────────────────────────────────────────┐ │  │                                        │ │
-│ │ │                                           │ │  │ Echo Show 5 Minimal Case              │ │
-│ │ │           large active image             │ │  │ Creator: _nesmi                        │ │
-│ │ │                                           │ │  │ Collections: Household > Office       │ │
-│ │ └───────────────────────────────────────────┘ │  │ Tags: echo, alexa, bedside, enclosure │ │
-│ │ [Delete] [Hide] [Set Preview] [Fullscreen]  │  │                                        │ │
-│ │ note: source badge + permissions hint        │  │ Quick metadata                         │ │
-│ │                                               │  │ License, source, created, updated      │ │
-│ │ [thumb] [thumb] [thumb] [thumb] [thumb]      │  │ difficulty, multicolor, support hints  │ │
-│ └───────────────────────────────────────────────┘  │                                        │ │
-│                                                    │ Model files                            │ │
-│                                                    │ ▼ EchoShow5.3mf        primary        │ │
-│                                                    │   23 MB  1 print profile  2 plates    │ │
-│                                                    │   Plate 1  body + bezel               │ │
-│                                                    │   Plate 2  rear shell                 │ │
-│                                                    │ ▼ EchoStand.3mf        variant        │ │
-│                                                    │ ▶ EchoShow5.step       reference      │ │
-│                                                    │                                        │ │
-│                                                    │ [Open 3D Viewer] [Download] [Add Queue]│ │
-│                                                    └────────────────────────────────────────┘ │
+│ ┌─ HERO: Media Left + Summary/Files Right ──────────────────────────────────────────────────┐
+│ │ Media Gallery              │ Summary + Files                                              │
+│ │ ──────────────────────────┼──────────────────────────────────────────────────            │
+│ │ [All][Preview][Model]    │ Status: [✓ Linked: 6] [⚠ Candidates: 2]                    │
+│ │ [Assets][Uploaded]        │ Related: 4 models | Support: 5 files                       │
+│ │                           │                                                              │
+│ │ ┌─────────────────────┐   │ Echo Show 5 Minimal Case                                     │
+│ │ │  large active image │   │ Creator: _nesmi | Collections: Household, Office           │
+│ │ │                     │   │ Tags: echo, alexa, desk, enclosure                         │
+│ │ └─────────────────────┘   │                                                              │
+│ │ [Delete][Hide][Preview]   │ Model Files (3)                                             │
+│ │ [Fullscreen]              │ ▼ EchoShow5.3mf              [Primary]                      │
+│ │                           │   23.4 MB | 1 profile | 2 plates                           │
+│ │ [thumb][thumb][thumb]     │   • Plate 1: body, bezel                                    │
+│ │ [thumb][thumb][thumb]     │   • Plate 2: rear shell                                     │
+│ │                           │ ▼ EchoStand.3mf              [Variant]                      │
+│ │                           │ ▶ EchoShow5.step             [Reference]                    │
+│ └─────────────────────────────────────────────────────────────────────────────────────────┘
 ├──────────────────────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ Print History / Archives ───────────────────────────────┐ ┌─ Related Models ───────────┐ │
-│ │ [Linked] [Potential Matches]                             │ │ [card] Echo Show 8 Stand   │ │
-│ │                                                          │ │ [card] Nest Hub Shelf      │ │
-│ │ 2026-05-01  Success   P1S   PLA Matte    4h12m  [Open]   │ │ [card] Echo Show 5 Dock    │ │
-│ │ 2026-04-16  Success   X1C   PETG         5h03m  [Open]   │ │ [View All Related]         │ │
-│ │ Candidate review: 2 archives need confirmation           │ └─────────────────────────────┘ │
-│ └───────────────────────────────────────────────────────────┘                                   │
+│ ┌─ Archive Linkage Review [−] ──── ✓ Linked: 6 | ⚠ Candidates: 2 ──────────────────────────┐
+│ │                                                                                          │
+│ │ ⚠ 2 potential matches need review to finalize linkage confidence.                       │
+│ │                                                                                          │
+│ │ 2026-05-01 | Echo Show 5 Minimal | P1S | PLA White | 4h12m | [archive preview]         │
+│ │ Status: ✓ Linked  [Open] [Unlink]                                                      │
+│ │                                                                                          │
+│ │ 2026-04-16 | Echo Show 5 Minimal | X1C | PETG Black | 5h03m | [archive preview]        │
+│ │ Status: ✓ Linked  [Open] [Unlink]                                                      │
+│ │                                                                                          │
+│ │ 2026-04-13 | EchoShow5-Desk_v3   | P1S | PLA Gray | 3h58m   | [archive preview]        │
+│ │ Status: ⚠ Candidate (score 0.78)  Match: filename fuzzy, plate count ✓                  │
+│ │ [Link] [Skip] [Details]                                                                 │
+│ │                                                                                          │
+│ │ 2026-04-10 | Echo Show Minimal   | P1S | PLA White | 4h05m  | [archive preview]        │
+│ │ Status: ⚠ Candidate (score 0.72)  Match: metadata + recent repeat                       │
+│ │ [Link] [Skip] [Details]                                                                 │
+│ │                                                                                          │
+│ └──────────────────────────────────────────────────────────────────────────────────────────┘
 ├──────────────────────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ Supporting Files ───────────────────────────────────────────────────────────────────────┐ │
-│ │ README.md          instructions / notes                        [Open] [Download]         │ │
-│ │ bom.csv            bill of materials                           [Open] [Download]         │ │
-│ │ dimensions.pdf     reference document                          [Open] [Download]         │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ ┌─ Queue Status [−] ────────────────── Queued: 1 | Draft: 1 ────────────────────────────────┐
+│ │                                                                                          │
+│ │ Queue Item #842                                                                         │
+│ │ EchoShow5.3mf — Plate 1 | Queued for tonight on P1S | PLA White Matte                  │
+│ │                                                                                          │
+│ │ Draft Intent                                                                             │
+│ │ EchoStandVariant.3mf — Plate 1 | Tray assignment pending                               │
+│ │                                                                                          │
+│ └──────────────────────────────────────────────────────────────────────────────────────────┘
+├──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Related Models [−] ──────────────────────── 4 related models ──────────────────────────────┐
+│ │                                                                                          │
+│ │ • Echo Show 8 Stand          same collection | similarity 0.89                          │
+│ │ • Nest Hub Shelf Mount       similar tags | similarity 0.74                             │
+│ │ • Echo Show Cable Clip Set   lineage relation | similarity 0.71                         │
+│ │ • Echo Show Wall Dock        shared filename lineage | similarity 0.69                  │
+│ │                                                                                          │
+│ └──────────────────────────────────────────────────────────────────────────────────────────┘
+├──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Supporting Files [−] ────────────────────── 5 supporting files ──────────────────────────┐
+│ │                                                                                          │
+│ │ README.md              assembly instructions        [Open] [Download]                   │
+│ │ bom.csv                bill of materials             [Open] [Download]                   │
+│ │ dimensions.pdf         measurement reference        [Open] [Download]                   │
+│ │ materials-notes.txt    material substitutions       [Open] [Download]                   │
+│ │ mounting-template.svg  wall drill template          [Open] [Download]                   │
+│ │                                                                                          │
+│ └──────────────────────────────────────────────────────────────────────────────────────────┘
 └──────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key changes from tab UI**:
+- All sections visible on page load
+- No manual tab switching
+- Each section independently collapsible with [−] button
+- Count badges show item totals at a glance
+- Archive linkage candidates visible without navigation
+- Queue status shows current print state
+- Progressive scrolling discovers all content
 
 ### File Row Expansion Mockup
 
@@ -132,21 +174,43 @@ The main shift is from a mostly tab-first popup to a split hero layout:
 │ ┌──────────────────────────────────────────┐ │
 │ │ active image                             │ │
 │ └──────────────────────────────────────────┘ │
-│ [Delete] [Hide] [Set Preview]               │
+│ [Delete] [Hide] [Set Preview] [Fullscreen]  │
 │ [thumb] [thumb] [thumb] [thumb]             │
 │                                              │
-│ Status: [6 linked] [2 candidates]            │
+│ Status: [✓ Linked 6] [⚠ Candidates 2]       │
 │ Collections, tags, quick metadata            │
 │                                              │
-│ Model files                                  │
+│ Model files (always visible, scrollable)    │
 │ ▼ EchoShow5.3mf                              │
 │ ▶ EchoStand.3mf                              │
+│ ▶ EchoShow5.step                             │
 │                                              │
-│ Linked archives                              │
-│ Related models                               │
-│ Supporting files                             │
+│ ┌─ Archive Linkage Review [−] ─────────────┐ │
+│ │ ⚠ 2 candidates                           │ │
+│ │ [Linked archives...] [Candidates...]      │ │
+│ └──────────────────────────────────────────┘ │
+│                                              │
+│ ┌─ Queue Status [−] ───────────────────────┐ │
+│ │ Queued #842, Draft intent pending        │ │
+│ └──────────────────────────────────────────┘ │
+│                                              │
+│ ┌─ Related Models [−] ──────────────────────┐ │
+│ │ 4 related models                         │ │
+│ └──────────────────────────────────────────┘ │
+│                                              │
+│ ┌─ Supporting Files [−] ────────────────────┐ │
+│ │ 5 supporting files                       │ │
+│ └──────────────────────────────────────────┘ │
+│                                              │
 └──────────────────────────────────────────────┘
 ```
+
+**Mobile-specific behavior**:
+- Sections stack vertically
+- Collapsible sections default to collapsed state (except hero) to reduce initial scroll length
+- Thumbnail rail wraps to 4 items per row (vs. 6+ on desktop)
+- File inspector collapses to show file list only; plates expand inline on tap
+- Archive list shows compact rows only (no card view on mobile)
 
 ---
 
@@ -258,63 +322,120 @@ Expanded state should show plates as nested rows, not as a separate disconnected
 
 ## Lower Sections
 
-### Print History / Archives
+## Lower Sections (Collapsible, Scrollable)
 
-This should remain recognizably aligned with Print History rather than becoming a generic relation table.
+### Archive Linkage Review (Section 1)
 
-Recommended behavior:
+**Collapsible section** showing confirmed links + candidate matches needing review.
 
-- default sub-filter: `Linked`
-- secondary sub-filter: `Potential Matches`
-- same compact archive-row rhythm as the current popup/browser cards
-- each row shows status, printer, material summary, duration, and date
-- primary action is `Open Archive`
-- secondary action on candidate rows is `Confirm Match` or `Dismiss Candidate`
+#### Default behavior (section expanded)
+
+- **Candidate banner** (visible only when candidates exist):
+  ```
+  ⚠ 2 potential matches need review to finalize linkage confidence.
+  ```
+- **Archive list** with two sub-filters: `[✓ Linked]` `[⚠ Candidates]`
+- **Linked archives**: Compact rows showing date, archive name, printer, filament, duration, state badge, actions
+- **Candidate archives**: Same row format but with `⚠ Candidate (score 0.XX)` badge + match reason
+- **Per-candidate actions**: `[Link]` (primary) `[Skip]` `[Details]`
+- **Per-linked actions**: `[Open archive]` `[Unlink]` `[Hide]`
 
 #### Candidate Review Indicator
 
 When candidate matches exist, show them in two places:
 
-- top-right summary chip
-- archive section banner
+- top-right summary chip: `⚠ Candidates: N` (warning styling)
+- archive section header: count badge showing "6 linked + 2 candidates"
 
-Banner example:
+#### View Mode Selector
 
-```text
-2 potential history matches need review.
-One is high-confidence by filename hash; one is fuzzy-name only.
-[Review Candidates]
-```
+Optional selector for view preference:
+- `Compact` (default): Single-line archive rows
+- `Timeline`: Vertical timeline showing print sequence
 
-### Related Models
+See `archive-candidate-review-workflow.md` for full UX detail (confidence breakdown, match scoring, keyboard shortcuts, accessibility).
 
-Related models should not hide behind a separate future-only tab.
+---
 
-Recommended content:
+### Queue Status (Section 2)
 
-- 3 to 6 compact cards in a right-side stack or responsive grid
-- similarity reason labels when available: `same family`, `same filename lineage`, `similar tags`, `same collection`
-- quick action: `Open Model`
+**Collapsible section** showing queue items and draft print intents related to this model.
 
-### Supporting Files
+#### Content
 
-Supporting files are distinct from printable model files and distinct from gallery media.
+- **Queue Item Display**: "EchoShow5.3mf — Plate 1 | Queued for tonight on P1S | PLA White Matte"
+- **Draft Intent Display**: "EchoStandVariant.3mf — Plate 1 | Tray assignment pending"
+- **Quick action**: Link to full Queue editor for detailed management
+
+#### When Empty
+
+Section remains present but collapsed; count badge shows "0".
+
+---
+
+### Related Models (Section 3)
+
+**Collapsible section** showing models with high similarity to the current model.
+
+#### Content
+
+- List or card grid (responsive; 1–3 columns depending on width)
+- Per-item: model name, relation reason (collection, tags, lineage, filename), similarity score
+- Click to navigate to related model detail
+
+#### Relation Types
+
+- `same collection` — in same user collection
+- `similar tags` — shared tags with high overlap
+- `lineage relation` — filename pattern suggests variant/remix
+- `shared filename lineage` — historical print pattern match
+
+#### When Empty
+
+Section shown but with "No related models" message; count badge "0".
+
+---
+
+### Supporting Files (Section 4)
+
+**Collapsible section** for documentation, BOMs, reference files, and accessory downloads.
+
+#### Content
+
+Supporting files are distinct from:
+- **Model files** (3MF, STL, STEP — always in hero column)
+- **Media gallery** (photos, embeddings — always in hero carousel)
 
 Include:
+- docs, BOMs, PDFs
+- dimension sheets, source references
+- firmware or accessory payloads
 
-- docs
-- BOMs
-- PDFs
-- dimension sheets
-- source references
-- firmware or accessory payloads if intentionally attached to the model
+#### Row Format
 
-Each row should show:
-
-- filename
-- type / purpose label
+Per-file:
+- filename + icon
+- type / purpose label (README | BOM | Reference | Other)
 - size
-- action affordances: `Open`, `Download`
+- actions: `[Open]` `[Download]`
+
+#### When Empty
+
+Section shown but with "No supporting files"; count badge "0".
+
+---
+
+## Archive Linkage Review: Detailed Workflow
+
+See separate document: `archive-candidate-review-workflow.md`
+
+Covers:
+- Candidate scoring algorithm (filename, metadata, folder hints, recency)
+- Matching strategies (fuzzy, plate count, duration, color palette)
+- UI for match confidence breakdown
+- Batch link/skip actions
+- Keyboard navigation and accessibility
+- Performance optimization for 10+ candidate sets
 
 ---
 
@@ -328,7 +449,7 @@ Use a lightweight inline editor launched from the hero area.
 
 Two acceptable variants:
 
-1. Inline expandable editor directly below the summary block.
+1. Inline expandable editor directly below the summary block (preferred).
 2. Right-side drawer inside the popup.
 
 Preferred for HA: inline expandable editor. It is simpler, less fragile in browser_mod, and preserves context.
