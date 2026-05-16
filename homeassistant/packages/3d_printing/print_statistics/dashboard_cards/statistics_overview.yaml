@@ -174,7 +174,7 @@ cards:
 
   - type: custom:button-card
     entity: sensor.bambuddy_statistics
-    name: Print Outcomes
+    name: Run Outcomes
     icon: mdi:chart-donut
     show_state: false
     custom_fields:
@@ -184,21 +184,17 @@ cards:
           const total = Number(attrs.total_prints || 0) || 1;
           const success = Number(attrs.successful_prints || 0);
           const failed = Number(attrs.failed_prints || 0);
-          const stopped = Number(attrs.stopped_prints || 0);
           const sp = (success / total * 100).toFixed(1);
           const fp = (failed / total * 100).toFixed(1);
-          const tp = (stopped / total * 100).toFixed(1);
           return `
             <div style="padding:4px 0 8px">
               <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:8px">
                 <div style="width:${sp}%;background:#2E7D32" title="Successful: ${success}"></div>
                 <div style="width:${fp}%;background:#C62828" title="Failed: ${failed}"></div>
-                <div style="width:${tp}%;background:#6D4C41" title="Stopped: ${stopped}"></div>
               </div>
               <div style="display:flex;gap:12px;font-size:11px;flex-wrap:wrap">
                 <span>Successful: ${success} (${sp}%)</span>
                 <span>Failed: ${failed} (${fp}%)</span>
-                <span>Stopped: ${stopped} (${tp}%)</span>
               </div>
             </div>`;
         ]]]

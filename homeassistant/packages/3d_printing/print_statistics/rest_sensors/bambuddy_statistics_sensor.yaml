@@ -13,7 +13,6 @@
     - total_prints
     - successful_prints
     - failed_prints
-    - stopped_prints
     - total_print_time_hours
     - total_filament_grams
     - total_cost
@@ -41,7 +40,6 @@
     - total_prints
     - successful_prints
     - failed_prints
-    - stopped_prints
     - total_print_time_hours
     - total_filament_grams
     - total_cost
@@ -63,7 +61,6 @@
     - total_prints
     - successful_prints
     - failed_prints
-    - stopped_prints
     - total_print_time_hours
     - total_filament_grams
     - total_cost

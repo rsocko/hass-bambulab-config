@@ -76,9 +76,9 @@ recorder:
 
 | Entity | Endpoint | Interval | State |
 |---|---|---|---|
-| `sensor.bambuddy_statistics` | `GET /api/v1/archives/stats` | 10 min | `total_prints` |
-| `sensor.bambuddy_statistics_this_week` | `GET /api/v1/archives/stats?date_from=<monday>` | 15 min | `total_prints` |
-| `sensor.bambuddy_statistics_this_month` | `GET /api/v1/archives/stats?date_from=<month_start>` | 30 min | `total_prints` |
+| `sensor.bambuddy_statistics` | `GET /api/v1/archives/stats` | 10 min | `total_prints` (print runs/events) |
+| `sensor.bambuddy_statistics_this_week` | `GET /api/v1/archives/stats?date_from=<monday>` | 15 min | `total_prints` (print runs/events) |
+| `sensor.bambuddy_statistics_this_month` | `GET /api/v1/archives/stats?date_from=<month_start>` | 30 min | `total_prints` (print runs/events) |
 | `sensor.bambuddy_failure_analysis` | `GET /api/v1/archives/analysis/failures` | 30 min | `failure_rate` |
 
 > **OpenAPI note**: The endpoint is `/api/v1/archives/stats` (NOT `/api/v1/statistics`). No trailing slash needed (not a collection). Optional query params: `date_from`, `date_to` (YYYY-MM-DD format).
@@ -86,7 +86,7 @@ recorder:
 > **Failure-analysis contract note**: Bambuddy's failure-analysis payload already returns `failure_rate` as a percentage value and exposes `trend` plus `recent_failures`. HA should mirror that payload directly instead of multiplying the rate again or expecting a `weekly_trend` field.
 
 Attributes from `ArchiveStats` schema:
-- `total_prints`, `successful_prints`, `failed_prints`, `stopped_prints`
+- `total_prints`, `successful_prints`, `failed_prints`
 - `total_print_time_hours`, `total_filament_grams`, `total_cost`
 - `prints_by_filament_type` (dict: `{"PLA": 800, "PETG": 300}`)
 - `prints_by_printer` (dict: `{"1": 700, "2": 534}`)
@@ -106,8 +106,8 @@ Attributes from `ArchiveStats` schema:
 | `sensor.bambuddy_total_energy_used` | `total_energy_kwh` | kWh | All-time energy usage |
 | `sensor.bambuddy_total_energy_cost` | `total_energy_cost` | $ | All-time energy cost |
 | `sensor.bambuddy_average_time_accuracy` | `average_time_accuracy` | % | Fleet-level slicer estimate accuracy |
-| `sensor.bambuddy_prints_this_week` | `sensor.bambuddy_statistics_this_week.state` | prints | Prints completed this week |
-| `sensor.bambuddy_prints_this_month` | `sensor.bambuddy_statistics_this_month.state` | prints | Prints completed this month |
+| `sensor.bambuddy_prints_this_week` | `sensor.bambuddy_statistics_this_week.state` | runs | Print runs this week |
+| `sensor.bambuddy_prints_this_month` | `sensor.bambuddy_statistics_this_month.state` | runs | Print runs this month |
 | `sensor.bambuddy_top_failure_reason` | `failures_by_reason` max key | text | Most common failure reason |
 | `sensor.bambuddy_statistics_metrics` | Computed JSON attributes | n/a | Chart-ready attributes for the dashboard |
 
@@ -117,7 +117,7 @@ Attributes from `ArchiveStats` schema:
 > - `prints_this_week` and `prints_this_month` do NOT exist as direct fields. The implemented package uses separate date-windowed stats sensors.
 > - `failure_rate` from `GET /api/v1/archives/analysis/failures` is already a percent value; do not multiply it by 100 in HA.
 > - failure analysis uses `trend` and `recent_failures`, not `weekly_trend`.
-> - `stopped_prints`, `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, and `prints_by_printer` are already surfaced in the first production slice.
+> - `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, and `prints_by_printer` are already surfaced in the first production slice.
 
 ### Automations
 
@@ -147,7 +147,7 @@ Displays the first KPI slice:
 - **Row 1**: Prints this week, this month, all-time totals
 - **Row 2**: Success rate, filament used, print hours
 - **Row 3**: print cost, energy cost, time accuracy
-- **Outcome bar**: stacked bar for successful, failed, and stopped prints
+- **Outcome bar**: stacked bar for successful and failed print runs
 - **Operational cards**: top failure reason, energy used, Bambuddy deep-link
 - **Handoff card**: URL-aware filtered failure-analysis summary for Print History or other scoped launches
 

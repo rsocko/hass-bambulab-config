@@ -57,16 +57,16 @@
       state: >-
         {{ state_attr('sensor.bambuddy_statistics', 'average_time_accuracy') | default(0) | float(0) | round(1) }}
 
-    - name: Bambuddy Prints This Week
+    - name: Bambuddy Print Runs This Week
       unique_id: bambuddy_prints_this_week
-      unit_of_measurement: "prints"
+      unit_of_measurement: "runs"
       icon: mdi:calendar-week
       state: >-
         {{ states('sensor.bambuddy_statistics_this_week') | int(0) }}
 
-    - name: Bambuddy Prints This Month
+    - name: Bambuddy Print Runs This Month
       unique_id: bambuddy_prints_this_month
-      unit_of_measurement: "prints"
+      unit_of_measurement: "runs"
       icon: mdi:calendar-month
       state: >-
         {{ states('sensor.bambuddy_statistics_this_month') | int(0) }}
@@ -114,11 +114,9 @@
         outcome_counts_json: >-
           {% set success = state_attr('sensor.bambuddy_statistics', 'successful_prints') | int(0) %}
           {% set failed = state_attr('sensor.bambuddy_statistics', 'failed_prints') | int(0) %}
-          {% set stopped = state_attr('sensor.bambuddy_statistics', 'stopped_prints') | int(0) %}
           {{ {
             'Successful': success,
-            'Failed': failed,
-            'Stopped': stopped
+            'Failed': failed
           } | tojson }}
         prints_by_filament_type_json: >-
           {% set raw = state_attr('sensor.bambuddy_statistics', 'prints_by_filament_type') %}

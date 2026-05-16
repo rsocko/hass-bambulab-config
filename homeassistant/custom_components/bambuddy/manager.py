@@ -568,11 +568,9 @@ class PrintHistoryBrowserManager:
 
                 if isinstance(stats_result, Exception):
                     _LOGGER.warning(
-                        "Unable to fetch Bambuddy archive stats while refreshing print history; limit warnings may be incomplete: %s",
+                        "Unable to fetch Bambuddy archive stats while refreshing print history; run/event analytics may be incomplete: %s",
                         stats_result,
                     )
-                else:
-                    self.last_refresh_archive_total_count = self._extract_total_prints(stats_result)
 
                 self.last_refresh_fetch_ms = round((perf_counter() - fetch_started) * 1000, 1)
                 self.last_refresh_archive_count = len(raw_archives)
@@ -587,6 +585,7 @@ class PrintHistoryBrowserManager:
                 self.last_refresh_store_replace_ms = round((perf_counter() - store_replace_started) * 1000, 1)
                 self.last_refresh_store_load_ms = 0.0
                 self.last_refresh_store_total_count = int(store_replace_result.get("total_count", 0))
+                self.last_refresh_archive_total_count = self.last_refresh_store_total_count
                 self.last_refresh_store_inserted_count = int(store_replace_result.get("inserted_count", 0))
                 self.last_refresh_store_updated_count = int(store_replace_result.get("updated_count", 0))
                 self.last_refresh_store_unchanged_count = int(store_replace_result.get("unchanged_count", 0))
@@ -967,8 +966,8 @@ class PrintHistoryBrowserManager:
     def limit_notice(self) -> dict[str, Any]:
         limit = self.max_archives
         loaded_count = max(0, len(self.archives))
-        total_prints = self.last_refresh_archive_total_count
-        total_known = isinstance(total_prints, int) and total_prints >= 0
+        total_archives = self.last_refresh_archive_total_count
+        total_known = isinstance(total_archives, int) and total_archives >= 0
         refresh_start_date = normalize_filter_date_value(
             self.hass.states.get("input_text.print_history_filter_start_date").state
             if self.hass.states.get("input_text.print_history_filter_start_date")
@@ -980,12 +979,12 @@ class PrintHistoryBrowserManager:
             else ""
         )
         source_date_scoped = bool(refresh_start_date or refresh_end_date)
-        expected_cached_count = min(limit, total_prints) if total_known else None
+        expected_cached_count = min(limit, total_archives) if total_known else None
         threshold_count = min(limit, max(1, limit - 25, int(limit * 0.9)))
         is_truncated = bool(
             total_known
             and not source_date_scoped
-            and total_prints > limit
+            and total_archives > limit
             and loaded_count >= limit
         )
         is_incomplete = bool(
@@ -1008,38 +1007,38 @@ class PrintHistoryBrowserManager:
             if is_incomplete:
                 state = "incomplete"
                 chip_icon = "mdi:archive-alert-outline"
-                chip_label = f"{loaded_count:,} of {total_prints:,}"
-                missing_count = max(0, total_prints - loaded_count) if total_known else 0
+                chip_label = f"{loaded_count:,} of {total_archives:,}"
+                missing_count = max(0, total_archives - loaded_count) if total_known else 0
                 popup_title = "Print History Cache Incomplete"
                 popup_markdown = (
-                    f"Home Assistant currently cached **{loaded_count:,}** archived prints, while Bambuddy reports **{total_prints:,}** total prints.\n\n"
+                    f"Home Assistant currently cached **{loaded_count:,}** archived prints, while Bambuddy reports **{total_archives:,}** total archived prints.\n\n"
                     f"With your current max of **{limit:,}**, the local browser would normally hold **{expected_cached_count:,}** prints, so **{max(0, expected_cached_count - loaded_count):,}** expected cache entries are missing.\n\n"
                     "Refresh the print history cache and inspect the Bambuddy browser status if this count should match."
                 )
             elif is_truncated:
                 state = "truncated"
                 chip_icon = "mdi:archive-remove-outline"
-                chip_label = f"{loaded_count:,} of {total_prints:,}"
-                missing_count = max(0, total_prints - loaded_count)
+                chip_label = f"{loaded_count:,} of {total_archives:,}"
+                missing_count = max(0, total_archives - loaded_count)
                 popup_title = "Print History Cache Limit Reached"
                 popup_markdown = (
                     f"Home Assistant cached **{loaded_count:,}** archived prints out of your configured limit of **{limit:,}**.\n\n"
-                    f"Bambuddy reports **{total_prints:,}** total prints, so **{missing_count:,}** older prints are not included in the local browser cache right now.\n\n"
+                    f"Bambuddy reports **{total_archives:,}** total archived prints, so **{missing_count:,}** older prints are not included in the local browser cache right now.\n\n"
                     "Increase `input_number.print_history_max_archives` if you want older prints to remain visible here."
                 )
             elif is_at_limit:
                 state = "at_limit"
                 chip_icon = "mdi:archive-alert-outline"
                 chip_label = (
-                    f"{loaded_count:,} of {total_prints:,}"
+                    f"{loaded_count:,} of {total_archives:,}"
                     if total_known
                     else f"{loaded_count:,} of {limit:,}"
                 )
                 popup_title = "Print History Cache At Max"
-                if total_known and total_prints <= limit:
+                if total_known and total_archives <= limit:
                     popup_markdown = (
                         f"Home Assistant cached **{loaded_count:,}** archived prints, which matches your configured limit of **{limit:,}**.\n\n"
-                        f"Bambuddy currently reports **{total_prints:,}** total prints, so nothing appears to be missing yet.\n\n"
+                        f"Bambuddy currently reports **{total_archives:,}** total archived prints, so nothing appears to be missing yet.\n\n"
                         "If new prints arrive, older ones will start falling out of the cache unless you raise the max."
                     )
                 else:
@@ -1066,7 +1065,8 @@ class PrintHistoryBrowserManager:
             "limit": limit,
             "threshold_count": threshold_count,
             "loaded_count": loaded_count,
-            "total_prints": total_prints,
+            "total_prints": total_archives,
+            "total_archives": total_archives,
             "total_known": total_known,
             "source_date_scoped": source_date_scoped,
             "expected_cached_count": expected_cached_count,
@@ -1253,15 +1253,6 @@ class PrintHistoryBrowserManager:
     def _notify_listeners(self) -> None:
         for listener in list(self._listeners):
             listener()
-
-    def _extract_total_prints(self, payload: dict[str, Any]) -> int | None:
-        value = payload.get("total_prints")
-        if value is None:
-            return None
-        try:
-            return max(0, int(value))
-        except (TypeError, ValueError):
-            return None
 
     @property
     def _scheduler_loop(self) -> asyncio.AbstractEventLoop | None:

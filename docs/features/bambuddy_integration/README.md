@@ -24,6 +24,7 @@ Related feature docs:
 
 - [Bambuddy Archive API Catalog](../bambuddy_common/bambuddy-archive-api-catalog.md)
 - [Print History](../print_history/README.md)
+- [Bambuddy v0.2.4.1 Enhancements Roadmap](./bambuddy-v0.2.4.1-enhancements-roadmap.md)
 
 ## Dependencies & Requirements
 
@@ -53,19 +54,22 @@ Related feature docs:
 
 ### Current Compatibility Note
 
-Last reviewed against upstream Bambuddy `v0.2.3.2` on 2026-04-22.
+Last reviewed against upstream Bambuddy `v0.2.4.1` on 2026-05-16.
 
 Current repo assessment:
 
-- `v0.2.3.2` appears safe for this repository without pre-update HA changes.
+- `v0.2.4.1` appears safe for this repository without pre-update HA changes.
 - The repo is insulated from most webhook-shape drift because downstream logic
   listens for the normalized Home Assistant event
   `bambuddy_webhook_event`, not raw upstream payloads.
 - Archive update usage in this repo still matches the upstream
   `PATCH /api/v1/archives/{id}` contract.
-- The newer printer status fields added in `v0.2.3.x`, including
-  `current_archive_id`, `current_plate_id`, and `awaiting_plate_clear`, are
-  additive for this repo's current consumers.
+- Upstream stats semantics shifted toward print-event/run counting, especially
+  for reprints. Dashboard wording and cache diagnostics should avoid assuming
+  `stats.total_prints` means unique archived rows.
+
+Enhancement follow-ons from the `v0.2.4.1` review are documented in
+[bambuddy-v0.2.4.1-enhancements-roadmap.md](./bambuddy-v0.2.4.1-enhancements-roadmap.md).
 
 Operational caveat:
 
