@@ -285,14 +285,14 @@
 
   .hero {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     min-height: 530px;
   }
 
   .left {
     border-right: 1px solid var(--line);
     display: grid;
-    grid-template-rows: auto 1fr auto auto;
+    grid-template-rows: auto 1fr auto auto auto;
   }
 
   .media-filters {
@@ -350,6 +350,54 @@
     font-weight: 700;
   }
 
+  .main-overlay-tools {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+  }
+
+  .main-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
+    background: rgba(8, 14, 24, 0.84);
+    color: #e1eefb;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .main-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.36);
+    background: rgba(4, 8, 14, 0.76);
+    color: #f2f8ff;
+    font-size: 22px;
+    line-height: 1;
+    padding: 0;
+    z-index: 2;
+  }
+
+  .main-nav-btn.prev {
+    left: 10px;
+  }
+
+  .main-nav-btn.next {
+    right: 10px;
+  }
+
   .media-actions {
     padding: 0 var(--pad) 10px;
     display: flex;
@@ -359,9 +407,16 @@
 
   .thumbs {
     padding: 0 var(--pad) var(--pad);
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size), 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
     gap: 7px;
+  }
+
+  .thumbs .thumb {
+    flex: 0 0 var(--thumb-size);
   }
 
   .thumb {
@@ -401,8 +456,9 @@
   .right {
     padding: var(--pad);
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     gap: 10px;
+    overflow: auto;
   }
 
   .card {
@@ -487,6 +543,80 @@
   .file .n { font-size: 12px; font-weight: 700; }
   .file .s { font-size: 10px; color: var(--sub); margin-top: 3px; }
 
+  .collapsible-group {
+    border: 1px solid rgba(146, 167, 193, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+
+  .collapsible-group + .collapsible-group {
+    margin-top: 7px;
+  }
+
+  .collapse-toggle {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .collapse-toggle .meta {
+    color: var(--sub);
+    font-size: 10px;
+    margin-top: 3px;
+  }
+
+  .collapse-toggle .caret {
+    font-size: 13px;
+    color: var(--sub);
+  }
+
+  .collapse-body {
+    display: none;
+    border-top: 1px solid var(--line);
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .collapsible-group.open .collapse-body {
+    display: block;
+  }
+
+  .collapsible-group.open .collapse-toggle .caret {
+    transform: rotate(180deg);
+  }
+
+  .plate-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .plate-row {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    border: 1px solid rgba(146, 167, 193, 0.22);
+    border-radius: 9px;
+    padding: 7px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .plate-row img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: 1px solid rgba(146, 167, 193, 0.42);
+  }
+
   .role {
     border: 1px solid var(--line);
     border-radius: 999px;
@@ -497,8 +627,11 @@
   }
 
   .panel-shell {
-    border-top: 1px solid var(--line);
+    margin: 0 var(--pad) var(--pad);
+    border: 1px solid var(--line);
+    border-radius: 12px;
     background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
   }
 
   .panel-toolbar {
@@ -543,23 +676,39 @@
   }
 
   .tabs {
-    padding: 10px var(--pad);
+    padding: 10px var(--pad) 0;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   .tabs button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    border-radius: 10px 10px 0 0;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    padding: 8px 11px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--sub);
+    position: relative;
+    top: 1px;
+  }
+
+  .tabs button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #d7e8fc;
+    border-color: rgba(146, 167, 193, 0.34);
   }
 
   .tabs button.active {
-    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    border-color: rgba(146, 167, 193, 0.4);
+    background: rgba(9, 18, 30, 0.74);
     color: #d6fff7;
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--accent) 72%, transparent);
   }
 
   .count {
@@ -712,7 +861,7 @@
 <div class="head">
   <div>
     <h1>Model Detail Popup - Phase 0 Extension Host</h1>
-    <p>Hybrid merge for issue #1376: keeps the newer hero and section architecture, restores direct tab access for all core data panels, and keeps a stacked mode for progressive disclosure. Desktop defaults to a 2/5 media rail and 3/5 details rail.</p>
+    <p>Hybrid merge for issue #1376: keeps the newer hero and section architecture, restores direct tab access for all core data panels, and keeps a stacked mode for progressive disclosure. Desktop uses a 50/50 media-details split.</p>
   </div>
   <div class="links">
     <a href="index.html">Mockup index</a>
@@ -822,13 +971,18 @@
       <div class="main">
         <img id="mainImage" src="https://picsum.photos/id/1015/1200/760" alt="Main preview" />
         <span class="badge" id="mainBadge">Uploaded</span>
+        <div class="main-overlay-tools">
+          <button class="main-icon-btn" title="Open 3D view">3D</button>
+          <button class="main-icon-btn" title="Full screen">FS</button>
+        </div>
+        <button class="main-nav-btn prev" id="photoPrev" title="Previous photo">&#8249;</button>
+        <button class="main-nav-btn next" id="photoNext" title="Next photo">&#8250;</button>
       </div>
 
       <div class="media-actions">
         <button>Set preview</button>
         <button class="warn">Hide image</button>
         <button class="warn">Delete image</button>
-        <button>Fullscreen</button>
       </div>
 
       <div class="thumbs" id="thumbs">
@@ -839,6 +993,81 @@
         <button class="thumb" data-type="uploaded" data-badge="Uploaded" data-src="https://picsum.photos/id/1074/1200/760"><img src="https://picsum.photos/id/1074/190/190" alt="Thumb 5" /><span class="src">Uploaded</span></button>
         <button class="thumb" data-type="assets" data-badge="Asset image" data-src="https://picsum.photos/id/1084/1200/760"><img src="https://picsum.photos/id/1084/190/190" alt="Thumb 6" /><span class="src">Asset</span></button>
       </div>
+
+      <section class="panel-shell" id="panelShell">
+        <div class="panel-toolbar">
+          <div class="left-tools">
+            <strong style="font-size:12px;">Panel Workspace</strong>
+            <div class="view-mode" id="viewMode">
+              <button type="button" data-mode="tabs" class="active">Tabs</button>
+              <button type="button" data-mode="stacked">Stacked</button>
+            </div>
+          </div>
+          <div class="ext-map">
+            <span class="slot-chip">sections:queue-status</span>
+            <span class="slot-chip">sections:related-models</span>
+            <span class="slot-chip">sections:supporting-files</span>
+          </div>
+        </div>
+
+        <div class="tabs" id="tabs">
+          <button class="active" data-tab="panel-queue">Queue / Prints <span class="count">2</span></button>
+          <button data-tab="panel-related">Related Models <span class="count">4</span></button>
+          <button data-tab="panel-support">Supporting Files <span class="count">5</span></button>
+          <button data-tab="panel-contribution">Contribution <span class="count">#1494</span></button>
+          <button data-tab="panel-publication">Publication <span class="count">#1495</span></button>
+        </div>
+
+        <div class="tab-panel active" id="panel-queue" data-stack-title="Queue / Prints">
+          <h3 class="section-title">sections:queue-status</h3>
+          <div class="queue-list">
+            <article class="queue-row">
+              <strong>Queue item #842</strong>
+              <div class="detail">EchoShow5.3mf - Plate 1 queued tonight on P1S</div>
+            </article>
+            <article class="queue-row">
+              <strong>Draft intent</strong>
+              <div class="detail">EchoStandVariant.3mf pending tray assignment</div>
+            </article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-related" data-stack-title="Related Models">
+          <h3 class="section-title">sections:related-models</h3>
+          <div class="related-list">
+            <article class="related"><strong>Echo Show 8 Stand</strong><div class="detail">same collection | similarity 0.89</div></article>
+            <article class="related"><strong>Nest Hub Shelf Mount</strong><div class="detail">similar tags | similarity 0.74</div></article>
+            <article class="related"><strong>Echo Show Cable Clip Set</strong><div class="detail">lineage relation | similarity 0.71</div></article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-support" data-stack-title="Supporting Files">
+          <h3 class="section-title">sections:supporting-files</h3>
+          <div class="support-list">
+            <article class="support"><strong>README.md</strong><div class="detail">Assembly instructions</div></article>
+            <article class="support"><strong>bom.csv</strong><div class="detail">Bill of materials</div></article>
+            <article class="support"><strong>dimensions.pdf</strong><div class="detail">Measurement reference</div></article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-contribution" data-stack-title="Contribution Lifecycle (#1494)">
+          <h3 class="section-title">Phase 2 panel host - #1494</h3>
+          <div class="queue-row">
+            <strong>Contribution lifecycle slot</strong>
+            <div class="detail">Contract host for downloaded-model contribution workflow. Can mount checklist, status machine, and CTA actions without changing popup layout.</div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-publication" data-stack-title="Publication Pipeline (#1495)">
+          <h3 class="section-title">Phase 2 panel host - #1495</h3>
+          <div class="queue-row">
+            <strong>Publication pipeline slot</strong>
+            <div class="detail">Contract host for originals/remixes publication planning, draft transitions, and optional task bridge integration.</div>
+          </div>
+        </div>
+
+        <p class="ext-note">Merge intent: the tab model preserves fast panel jumps and future panel landing zones, while Stacked mode keeps the progressive-disclosure behavior introduced in the collapsible redesign.</p>
+      </section>
     </div>
 
     <div class="right">
@@ -861,142 +1090,88 @@
 
       <section class="card">
         <div class="h">
-          <span>Model Files (quick panel)</span>
+          <span>Model Files</span>
           <span class="slot-chip">panel:files-core</span>
         </div>
         <div class="files">
-          <article class="file">
-            <div><div class="n">EchoShow5.3mf</div><div class="s">23.4 MB | 2 plates | queued</div></div>
-            <span class="role">Primary</span>
+          <article class="collapsible-group open">
+            <button class="collapse-toggle" type="button">
+              <div><div class="n">EchoShow5.3mf</div><div class="meta">23.4 MB | 2 plates | queued</div></div>
+              <div><span class="role">Primary</span> <span class="caret">v</span></div>
+            </button>
+            <div class="collapse-body">
+              <div class="plate-list">
+                <article class="plate-row">
+                  <img src="https://picsum.photos/id/116/120/120" alt="Plate preview" />
+                  <div><strong>Plate 1</strong><div class="s">4h 12m | 3 AMS colors | 142g</div></div>
+                </article>
+                <article class="plate-row">
+                  <img src="https://picsum.photos/id/125/120/120" alt="Plate preview" />
+                  <div><strong>Plate 2</strong><div class="s">2h 45m | 2 AMS colors | 89g</div></div>
+                </article>
+              </div>
+            </div>
           </article>
-          <article class="file">
-            <div><div class="n">EchoStandVariant.3mf</div><div class="s">18.8 MB | 1 plate | draft intent</div></div>
-            <span class="role">Variant</span>
+
+          <article class="collapsible-group open">
+            <button class="collapse-toggle" type="button">
+              <div><div class="n">EchoStandVariant.3mf</div><div class="meta">18.8 MB | 1 plate | draft intent</div></div>
+              <div><span class="role">Variant</span> <span class="caret">v</span></div>
+            </button>
+            <div class="collapse-body">
+              <div class="plate-list">
+                <article class="plate-row">
+                  <img src="https://picsum.photos/id/137/120/120" alt="Plate preview" />
+                  <div><strong>Plate 1</strong><div class="s">3h 26m | 2 AMS colors | 101g</div></div>
+                </article>
+              </div>
+            </div>
           </article>
+
           <article class="file">
             <div><div class="n">EchoShow5.step</div><div class="s">6.3 MB | reference CAD</div></div>
             <span class="role">Reference</span>
           </article>
         </div>
       </section>
+
+      <section class="card">
+        <div class="h">
+          <span>Related Archives</span>
+          <span class="slot-chip">sections:archive-linkage</span>
+        </div>
+        <div class="files">
+          <div style="margin-bottom:4px;">
+            <button class="primary" id="recoverPrintHistoryTabBtn">Recover Print History</button>
+            <span style="color:var(--sub);font-size:11px;margin-left:8px;">Review and link unassociated history</span>
+          </div>
+
+          <article class="collapsible-group open">
+            <button class="collapse-toggle" type="button">
+              <div><div class="n">2026-05-01 | Echo Show 5 Minimal Case</div><div class="meta">P1S | PLA Matte White | 4h 12m | archive_6014</div></div>
+              <div><span class="state success">Linked</span> <span class="caret">v</span></div>
+            </button>
+            <div class="collapse-body">
+              <div class="s">Plate: EchoShow5.3mf / Plate 1 | Confidence 1.00</div>
+              <div style="margin-top:8px;"><button>Open archive</button></div>
+            </div>
+          </article>
+
+          <article class="collapsible-group open">
+            <button class="collapse-toggle" type="button">
+              <div><div class="n">2026-04-13 | EchoShow5-Desk_v3</div><div class="meta">P1S | PLA Matte Gray | 3h 58m | archive_5871</div></div>
+              <div><span class="state candidate">Candidate</span> <span class="caret">v</span></div>
+            </button>
+            <div class="collapse-body">
+              <div class="s">Candidate reason: filename similarity + print duration match</div>
+              <div style="margin-top:8px;"><button class="primary">Link</button><button>Skip</button></div>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
   </div>
 
-  <section class="panel-shell" id="panelShell">
-    <div class="panel-toolbar">
-      <div class="left-tools">
-        <strong style="font-size:12px;">Panel Workspace</strong>
-        <div class="view-mode" id="viewMode">
-          <button type="button" data-mode="tabs" class="active">Tabs</button>
-          <button type="button" data-mode="stacked">Stacked</button>
-        </div>
-      </div>
-      <div class="ext-map">
-        <span class="slot-chip">sections:archive-linkage</span>
-        <span class="slot-chip">sections:queue-status</span>
-        <span class="slot-chip">sections:related-models</span>
-        <span class="slot-chip">sections:supporting-files</span>
-      </div>
-    </div>
-
-    <div class="tabs" id="tabs">
-      <button class="active" data-tab="panel-files">Model Files <span class="count">3</span></button>
-      <button data-tab="panel-archives">Related Archives <span class="count">6</span><span class="count">2</span></button>
-      <button data-tab="panel-queue">Queue / Prints <span class="count">2</span></button>
-      <button data-tab="panel-related">Related Models <span class="count">4</span></button>
-      <button data-tab="panel-support">Supporting Files <span class="count">5</span></button>
-      <button data-tab="panel-contribution">Contribution <span class="count">#1494</span></button>
-      <button data-tab="panel-publication">Publication <span class="count">#1495</span></button>
-    </div>
-
-    <div class="tab-panel active" id="panel-files" data-stack-title="Model Files">
-      <h3 class="section-title">Core panel</h3>
-      <div class="queue-list">
-        <article class="queue-row">
-          <strong>EchoShow5.3mf - Plate 1</strong>
-          <div class="detail">Primary plate | 4h 12m estimate | 3 AMS colors</div>
-        </article>
-        <article class="queue-row">
-          <strong>EchoStandVariant.3mf - Plate 1</strong>
-          <div class="detail">Variant plate | 3h 26m estimate | draft intent exists</div>
-        </article>
-      </div>
-    </div>
-
-    <div class="tab-panel" id="panel-archives" data-stack-title="Related Archives">
-      <h3 class="section-title">sections:archive-linkage</h3>
-      <div style="margin-bottom:10px;">
-        <button class="primary" id="recoverPrintHistoryTabBtn">Recover Print History</button>
-        <span style="color:var(--sub);font-size:11px;margin-left:8px;">(Launches recovery wizard for unlinked archives)</span>
-      </div>
-      <div class="archive-list">
-        <article class="archive">
-          <div>
-            <div class="l1">2026-05-01 | Echo Show 5 Minimal Case</div>
-            <div class="l2">P1S | PLA Matte White | 4h 12m | archive_6014</div>
-          </div>
-          <div><span class="state success">Linked</span><button>Open archive</button></div>
-        </article>
-        <article class="archive">
-          <div>
-            <div class="l1">2026-04-13 | EchoShow5-Desk_v3</div>
-            <div class="l2">P1S | PLA Matte Gray | 3h 58m | archive_5871</div>
-          </div>
-          <div><span class="state candidate">Candidate</span><button class="primary">Link</button><button>Skip</button></div>
-        </article>
-      </div>
-    </div>
-
-    <div class="tab-panel" id="panel-queue" data-stack-title="Queue / Prints">
-      <h3 class="section-title">sections:queue-status</h3>
-      <div class="queue-list">
-        <article class="queue-row">
-          <strong>Queue item #842</strong>
-          <div class="detail">EchoShow5.3mf - Plate 1 queued tonight on P1S</div>
-        </article>
-        <article class="queue-row">
-          <strong>Draft intent</strong>
-          <div class="detail">EchoStandVariant.3mf pending tray assignment</div>
-        </article>
-      </div>
-    </div>
-
-    <div class="tab-panel" id="panel-related" data-stack-title="Related Models">
-      <h3 class="section-title">sections:related-models</h3>
-      <div class="related-list">
-        <article class="related"><strong>Echo Show 8 Stand</strong><div class="detail">same collection | similarity 0.89</div></article>
-        <article class="related"><strong>Nest Hub Shelf Mount</strong><div class="detail">similar tags | similarity 0.74</div></article>
-        <article class="related"><strong>Echo Show Cable Clip Set</strong><div class="detail">lineage relation | similarity 0.71</div></article>
-      </div>
-    </div>
-
-    <div class="tab-panel" id="panel-support" data-stack-title="Supporting Files">
-      <h3 class="section-title">sections:supporting-files</h3>
-      <div class="support-list">
-        <article class="support"><strong>README.md</strong><div class="detail">Assembly instructions</div></article>
-        <article class="support"><strong>bom.csv</strong><div class="detail">Bill of materials</div></article>
-        <article class="support"><strong>dimensions.pdf</strong><div class="detail">Measurement reference</div></article>
-      </div>
-    </div>
-
-    <div class="tab-panel" id="panel-contribution" data-stack-title="Contribution Lifecycle (#1494)">
-      <h3 class="section-title">Phase 2 panel host - #1494</h3>
-      <div class="queue-row">
-        <strong>Contribution lifecycle slot</strong>
-        <div class="detail">Contract host for downloaded-model contribution workflow. Can mount checklist, status machine, and CTA actions without changing popup layout.</div>
-      </div>
-    </div>
-
-    <div class="tab-panel" id="panel-publication" data-stack-title="Publication Pipeline (#1495)">
-      <h3 class="section-title">Phase 2 panel host - #1495</h3>
-      <div class="queue-row">
-        <strong>Publication pipeline slot</strong>
-        <div class="detail">Contract host for originals/remixes publication planning, draft transitions, and optional task bridge integration.</div>
-      </div>
-    </div>
-
-    <p class="ext-note">Merge intent: the tab model preserves fast panel jumps and future panel landing zones, while Stacked mode keeps the progressive-disclosure behavior introduced in the collapsible redesign.</p>
-  </section>
 </section>
 
 <script>
@@ -1036,6 +1211,14 @@
     var viewMode = document.getElementById("viewMode");
     var tabButtons = popupRoot.querySelectorAll(".tabs button[data-tab]");
     var tabPanels = popupRoot.querySelectorAll(".tab-panel");
+    var collapsibleToggles = popupRoot.querySelectorAll(".collapse-toggle");
+    var photoPrev = document.getElementById("photoPrev");
+    var photoNext = document.getElementById("photoNext");
+    var mobileMediaQuery = window.matchMedia("(max-width: 900px)");
+
+    function isMobileMode() {
+      return toggleMobile.checked || mobileMediaQuery.matches;
+    }
 
     function applyVars() {
       document.documentElement.style.setProperty("--mockup-width", width.value + "px");
@@ -1044,12 +1227,13 @@
       document.documentElement.style.setProperty("--thumb-size", thumb.value + "px");
       document.documentElement.style.setProperty("--accent", accent.value);
 
-      popupRoot.classList.toggle("is-mobile", toggleMobile.checked);
-      panelShell.classList.toggle("stacked", toggleStacked.checked);
+      var mobile = isMobileMode();
+      popupRoot.classList.toggle("is-mobile", mobile);
+      panelShell.classList.toggle("stacked", mobile || toggleStacked.checked);
 
       viewMode.querySelectorAll("button").forEach(function (btn) {
         var mode = btn.getAttribute("data-mode");
-        var active = (mode === "stacked") ? toggleStacked.checked : !toggleStacked.checked;
+        var active = (mode === "stacked") ? (mobile || toggleStacked.checked) : (!mobile && !toggleStacked.checked);
         btn.classList.toggle("active", active);
       });
     }
@@ -1058,6 +1242,8 @@
       node.addEventListener("input", applyVars);
       node.addEventListener("change", applyVars);
     });
+
+    mobileMediaQuery.addEventListener("change", applyVars);
 
     overflowToggle.addEventListener("click", function () {
       overflowMenu.classList.toggle("open");
@@ -1078,12 +1264,37 @@
       mainBadge.textContent = target.getAttribute("data-badge") || "Image";
     }
 
+    function getVisibleThumbs() {
+      return Array.prototype.slice.call(thumbsWrap.querySelectorAll(".thumb")).filter(function (item) {
+        return item.style.display !== "none";
+      });
+    }
+
+    function stepPhoto(direction) {
+      var visible = getVisibleThumbs();
+      if (!visible.length) {
+        return;
+      }
+      var active = thumbsWrap.querySelector(".thumb.active");
+      var currentIndex = Math.max(0, visible.indexOf(active));
+      var nextIndex = (currentIndex + direction + visible.length) % visible.length;
+      setActiveThumb(visible[nextIndex]);
+    }
+
     thumbsWrap.addEventListener("click", function (event) {
       var thumbItem = event.target.closest(".thumb");
       if (!thumbItem) {
         return;
       }
       setActiveThumb(thumbItem);
+    });
+
+    photoPrev.addEventListener("click", function () {
+      stepPhoto(-1);
+    });
+
+    photoNext.addEventListener("click", function () {
+      stepPhoto(1);
     });
 
     function applyFilter(filterName) {
@@ -1138,10 +1349,20 @@
           panel.classList.toggle("active", panel.id === targetId);
         });
 
-        if (toggleStacked.checked) {
+        if (!isMobileMode() && toggleStacked.checked) {
           toggleStacked.checked = false;
           applyVars();
         }
+      });
+    });
+
+    collapsibleToggles.forEach(function (toggle) {
+      toggle.addEventListener("click", function () {
+        var group = toggle.closest(".collapsible-group");
+        if (!group) {
+          return;
+        }
+        group.classList.toggle("open");
       });
     });
 
