@@ -47,6 +47,13 @@ class ModelDetailPopupCard extends HTMLElement {
     this._showConflictDialog = false;
     this._photoGallery = [];
     this._activePhotoIndex = null;
+    this._heroMediaFilter = 'all';
+    this._heroActiveMediaIndex = 0;
+    this._overflowOpen = false;
+    this._panelMode = 'tabs';
+    this._panelActiveTab = 'panel-queue';
+    this._collapsedSections = {};
+    this._popupExtensions = new Map();
     
     // Render stability: prevent re-rendering during interactions
     this._isInteracting = false;
@@ -181,6 +188,86 @@ class ModelDetailPopupCard extends HTMLElement {
       this._activeTab = tabButton.dataset.tab;
       this._isEditMode = false;
       this._render();
+      return;
+    }
+
+    const overflowToggle = target.closest('#btn-overflow-toggle');
+    if (overflowToggle) {
+      event.preventDefault();
+      this._overflowOpen = !this._overflowOpen;
+      this._render();
+      return;
+    }
+
+    if (!target.closest('.overflow-wrap') && this._overflowOpen) {
+      this._overflowOpen = false;
+      this._render();
+      return;
+    }
+
+    const mediaFilterChip = target.closest('[data-media-filter]');
+    if (mediaFilterChip) {
+      event.preventDefault();
+      this._heroMediaFilter = String(mediaFilterChip.dataset.mediaFilter || 'all');
+      this._heroActiveMediaIndex = 0;
+      this._render();
+      return;
+    }
+
+    const mediaThumb = target.closest('[data-media-index]');
+    if (mediaThumb) {
+      event.preventDefault();
+      const idx = Number(mediaThumb.dataset.mediaIndex);
+      if (Number.isFinite(idx)) {
+        this._heroActiveMediaIndex = idx;
+        this._render();
+      }
+      return;
+    }
+
+    if (target.closest('#btn-hero-prev')) {
+      event.preventDefault();
+      this._stepHeroMedia(-1);
+      return;
+    }
+
+    if (target.closest('#btn-hero-next')) {
+      event.preventDefault();
+      this._stepHeroMedia(1);
+      return;
+    }
+
+    const panelTab = target.closest('[data-panel-tab]');
+    if (panelTab) {
+      event.preventDefault();
+      this._panelActiveTab = String(panelTab.dataset.panelTab || 'panel-queue');
+      this._panelMode = 'tabs';
+      this._render();
+      return;
+    }
+
+    if (target.closest('#btn-panel-mode-tabs')) {
+      event.preventDefault();
+      this._panelMode = 'tabs';
+      this._render();
+      return;
+    }
+
+    if (target.closest('#btn-panel-mode-stacked')) {
+      event.preventDefault();
+      this._panelMode = 'stacked';
+      this._render();
+      return;
+    }
+
+    const collapseToggle = target.closest('[data-collapse-toggle]');
+    if (collapseToggle) {
+      event.preventDefault();
+      const sectionId = String(collapseToggle.dataset.collapseToggle || '').trim();
+      if (sectionId) {
+        this._collapsedSections[sectionId] = !this._collapsedSections[sectionId];
+        this._render();
+      }
       return;
     }
 
@@ -549,446 +636,460 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderPopup() {
     const model = this._modelDetail.model || {};
-    
-    const popupHtml = `
+    const mediaItems = this._heroFilteredMediaItems(this._galleryItems());
+    const activeMedia = this._heroCurrentMedia(mediaItems);
+    const modelName = this._escapeHtml(String(model.name || 'Untitled Model'));
+    const creator = this._escapeHtml(String(model.creator_name || 'Unknown'));
+    const collections = Array.isArray(model.collection_names) ? model.collection_names : [];
+    const collectionText = this._escapeHtml(collections.length ? collections.join(' / ') : 'Uncategorized');
+
+    return `
       <style>
         * { box-sizing: border-box; }
-        
-        .popup-container {
-          max-width: 900px;
-          font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
+        .popup-shell {
+          display: grid;
+          gap: 10px;
           color: var(--primary-text-color);
+          font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
         }
-        
-        .popup-header {
-          padding: 20px;
-          border-bottom: 1px solid var(--divider-color);
+        .topbar {
           display: flex;
-          gap: 16px;
-          align-items: flex-start;
-        }
-        
-        .header-thumbnail {
-          width: 120px;
-          height: 120px;
-          background: var(--secondary-background-color);
-          border-radius: 8px;
-          flex-shrink: 0;
-          overflow: hidden;
-          display: flex;
+          justify-content: space-between;
           align-items: center;
-          justify-content: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          border-bottom: 1px solid var(--divider-color);
+          padding: 12px 14px;
         }
-
-        .header-thumbnail img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        /* Suppress alt-text "flash" on lazy-loaded thumbnails (issue #1383) */
-        .header-thumbnail img[data-thumbnail-lazy-url]:not([src]) {
-          font-size: 0;
-          color: transparent;
-          background: linear-gradient(120deg, rgba(148,163,184,0.22), rgba(148,163,184,0.08));
-        }
-        
-        .header-content {
-          flex: 1;
-          min-width: 0;
-        }
-        
-        .header-title {
-          font-size: 24px;
-          font-weight: 500;
-          margin: 0 0 8px 0;
-          word-break: break-word;
-        }
-        
-        .header-subtitle {
-          font-size: 14px;
+        .title strong { font-size: 18px; display: block; }
+        .title span { color: var(--secondary-text-color); font-size: 12px; }
+        .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .slot-chip {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          padding: 2px 8px;
+          font-size: 10px;
           color: var(--secondary-text-color);
-          margin: 4px 0;
         }
-        
-        .header-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin-top: 8px;
-        }
-        
-        .tag-chip {
-          background: var(--secondary-background-color);
-          border-radius: 16px;
-          padding: 4px 12px;
-          font-size: 12px;
-          color: var(--primary-text-color);
-        }
-        
-        .header-actions {
-          display: flex;
-          gap: 8px;
-          margin-top: 12px;
-          flex-wrap: wrap;
-        }
-        
         .action-button {
           background: var(--primary-color);
           color: var(--text-primary-color);
           border: none;
-          border-radius: 4px;
-          padding: 8px 16px;
-          font-size: 14px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        
-        .action-button:hover {
-          background: var(--dark-primary-color);
-        }
-        
-        .action-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          background: var(--disabled-text-color);
-        }
-        
-        .tab-navigation {
-          display: flex;
-          border-bottom: 2px solid var(--divider-color);
-          padding: 0 20px;
-          gap: 4px;
-        }
-        
-        .tab-button {
-          background: none;
-          border: none;
-          padding: 16px 12px;
-          cursor: pointer;
-          font-size: 14px;
-          color: var(--secondary-text-color);
-          border-bottom: 2px solid transparent;
-          margin-bottom: -2px;
-          transition: all 0.2s;
-        }
-        
-        .tab-button:hover {
-          color: var(--primary-text-color);
-        }
-        
-        .tab-button.active {
-          color: var(--primary-color);
-          border-bottom-color: var(--primary-color);
-        }
-        
-        .tab-content {
-          padding: 20px;
-          min-height: 300px;
-        }
-        
-        .details-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 24px;
-        }
-        
-        .detail-section {
-          break-inside: avoid;
-        }
-        
-        .detail-section-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--secondary-text-color);
-          margin-bottom: 12px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        
-        .detail-item {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 8px;
-          font-size: 14px;
-        }
-        
-        .detail-label {
-          color: var(--secondary-text-color);
-          min-width: 100px;
-          flex-shrink: 0;
-        }
-        
-        .detail-value {
-          color: var(--primary-text-color);
-          word-break: break-word;
-          flex: 1;
-        }
-        
-        .description-text {
-          line-height: 1.6;
-          color: var(--primary-text-color);
-          margin-bottom: 16px;
-          white-space: pre-wrap;
-          word-break: break-word;
-        }
-        
-        .stat-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-        }
-        
-        .stat-list li {
-          padding: 8px 0;
-          border-bottom: 1px solid var(--divider-color);
-          font-size: 14px;
-        }
-        
-        .stat-list li:last-child {
-          border-bottom: none;
-        }
-        
-        .archive-list {
-          display: grid;
-          gap: 12px;
-        }
-        
-        .archive-item {
-          background: var(--secondary-background-color);
-          border-radius: 4px;
-          padding: 12px;
-          font-size: 14px;
-        }
-        
-        .archive-name {
-          font-weight: 500;
-          color: var(--primary-text-color);
-          margin-bottom: 6px;
-        }
-        
-        .archive-detail {
-          color: var(--secondary-text-color);
-          font-size: 12px;
-        }
-        
-        .empty-state {
-          text-align: center;
-          padding: 40px 20px;
-          color: var(--secondary-text-color);
-        }
-
-        .conflict-dialog {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .conflict-dialog-content {
-          background: var(--card-background-color);
           border-radius: 8px;
-          padding: 24px;
-          max-width: 500px;
-          box-shadow: 0 5px 33px rgba(0,0,0,0.12);
-        }
-
-        .conflict-dialog-title {
-          font-size: 20px;
-          font-weight: 600;
-          margin-bottom: 12px;
-          color: var(--primary-text-color);
-        }
-
-        .conflict-dialog-message {
-          font-size: 14px;
-          color: var(--secondary-text-color);
-          margin-bottom: 20px;
-          line-height: 1.5;
-        }
-
-        .conflict-dialog-actions {
-          display: flex;
-          gap: 8px;
-          justify-content: flex-end;
-        }
-
-        .conflict-dialog-actions button {
-          padding: 8px 16px;
-          border: none;
-          border-radius: 4px;
-          font-size: 14px;
+          padding: 7px 12px;
+          font-size: 12px;
           cursor: pointer;
-          font-weight: 500;
         }
-
-        .btn-cancel-dialog {
-          background: var(--divider-color);
+        .action-button.ghost {
+          background: var(--secondary-background-color);
           color: var(--primary-text-color);
         }
-
-        .btn-reload {
-          background: #ff9800;
-          color: white;
+        .overflow-wrap { position: relative; }
+        .overflow-menu {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 4px);
+          min-width: 270px;
+          border: 1px solid var(--divider-color);
+          border-radius: 10px;
+          background: var(--card-background-color);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+          padding: 8px;
+          z-index: 10;
+          display: none;
         }
-
-        .btn-overwrite {
-          background: #f44336;
-          color: white;
+        .overflow-menu.open { display: grid; gap: 6px; }
+        .overflow-row {
+          border: 1px solid var(--divider-color);
+          border-radius: 8px;
+          padding: 8px;
+          background: var(--secondary-background-color);
         }
+        .overflow-row .label { font-size: 12px; font-weight: 600; }
+        .overflow-row .meta { font-size: 10px; color: var(--secondary-text-color); margin-top: 3px; }
 
-        .photo-lightbox {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.82);
+        .hero {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          min-height: 520px;
+        }
+        .left {
+          border-right: 1px solid var(--divider-color);
+          display: grid;
+          grid-template-rows: auto 1fr auto auto auto;
+        }
+        .media-filters {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1100;
-          padding: 24px;
-          box-sizing: border-box;
+          gap: 6px;
+          flex-wrap: wrap;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
         }
-
-        .photo-lightbox-content {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          max-width: min(96vw, 1200px);
-          max-height: min(92vh, 900px);
-          width: 100%;
+        .chip {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          padding: 4px 8px;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          background: var(--card-background-color);
+          cursor: pointer;
         }
-
-        .photo-lightbox-stage {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 320px;
+        .chip.active {
+          border-color: var(--primary-color);
+          color: var(--primary-text-color);
+        }
+        .main-media {
+          margin: 12px;
+          border: 1px solid var(--divider-color);
           border-radius: 12px;
           overflow: hidden;
-          background: rgba(9, 14, 23, 0.92);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-        }
-
-        .photo-lightbox-image {
-          display: block;
-          max-width: 100%;
-          max-height: calc(92vh - 120px);
-          object-fit: contain;
-          background: transparent;
-        }
-
-        .photo-lightbox-close,
-        .photo-lightbox-nav {
-          position: absolute;
-          border: none;
-          border-radius: 999px;
-          width: 44px;
-          height: 44px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          color: #fff;
-          background: rgba(15,23,42,0.72);
-          backdrop-filter: blur(10px);
-        }
-
-        .photo-lightbox-close {
-          top: 16px;
-          right: 16px;
-          font-size: 22px;
-          z-index: 1;
-        }
-
-        .photo-lightbox-nav {
-          top: 50%;
-          transform: translateY(-50%);
-          font-size: 26px;
-        }
-
-        .photo-lightbox-nav.prev {
-          left: 16px;
-        }
-
-        .photo-lightbox-nav.next {
-          right: 16px;
-        }
-
-        .photo-lightbox-meta {
+          position: relative;
+          min-height: 280px;
+          background: var(--secondary-background-color);
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          color: #fff;
+          justify-content: center;
         }
-
-        .photo-lightbox-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #fff;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        .main-media img {
+          width: 100%;
+          max-height: 420px;
+          object-fit: contain;
+          display: block;
         }
-
-        .photo-lightbox-counter {
-          flex: 0 0 auto;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 6px 10px;
+        .main-media .badge {
+          position: absolute;
+          top: 10px;
+          left: 10px;
           border-radius: 999px;
-          background: rgba(15,23,42,0.72);
+          border: 1px solid var(--divider-color);
+          background: rgba(0, 0, 0, 0.55);
+          color: #fff;
+          font-size: 10px;
+          padding: 4px 9px;
+          font-weight: 600;
+        }
+        .main-overlay-tools {
+          position: absolute;
+          right: 10px;
+          top: 10px;
+          display: flex;
+          gap: 6px;
+        }
+        .icon-btn {
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          border: 1px solid var(--divider-color);
+          background: rgba(0, 0, 0, 0.55);
+          color: #fff;
+          padding: 0;
+          font-size: 11px;
+          cursor: pointer;
+        }
+        .main-nav-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 42px;
+          height: 42px;
+          border-radius: 999px;
+          border: 1px solid var(--divider-color);
+          background: rgba(0, 0, 0, 0.55);
+          color: #fff;
+          font-size: 22px;
+          padding: 0;
+          cursor: pointer;
+        }
+        .main-nav-btn.prev { left: 10px; }
+        .main-nav-btn.next { right: 10px; }
+        .media-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          padding: 0 12px 10px;
+        }
+        .thumbs {
+          padding: 0 12px 12px;
+          display: flex;
+          gap: 7px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          scrollbar-width: thin;
+        }
+        .thumb {
+          flex: 0 0 74px;
+          width: 74px;
+          height: 74px;
+          border: 1px solid var(--divider-color);
+          border-radius: 9px;
+          overflow: hidden;
+          background: var(--secondary-background-color);
+          cursor: pointer;
+          position: relative;
+        }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .thumb.active { border-color: var(--primary-color); }
+        .thumb .src {
+          position: absolute;
+          left: 3px;
+          bottom: 3px;
+          font-size: 9px;
+          padding: 2px 5px;
+          border-radius: 999px;
+          background: rgba(0,0,0,0.62);
+          color: #fff;
         }
 
-        @media (max-width: 640px) {
-          .photo-lightbox {
-            padding: 12px;
-          }
+        .panel-shell {
+          margin: 0 12px 12px;
+          border: 1px solid var(--divider-color);
+          border-radius: 12px;
+          overflow: hidden;
+          background: var(--secondary-background-color);
+        }
+        .panel-toolbar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          border-bottom: 1px solid var(--divider-color);
+          padding: 8px 10px;
+        }
+        .view-mode {
+          display: inline-flex;
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          overflow: hidden;
+        }
+        .view-mode button {
+          border: 0;
+          background: transparent;
+          color: var(--secondary-text-color);
+          padding: 5px 10px;
+          font-size: 11px;
+          cursor: pointer;
+        }
+        .view-mode button.active {
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+        }
+        .tabs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          border-bottom: 1px solid var(--divider-color);
+          padding: 9px 10px 0;
+        }
+        .tabs button {
+          border: 1px solid transparent;
+          border-bottom: 0;
+          border-radius: 10px 10px 0 0;
+          padding: 7px 10px;
+          background: var(--card-background-color);
+          color: var(--secondary-text-color);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .tabs button.active {
+          color: var(--primary-text-color);
+          border-color: var(--divider-color);
+          box-shadow: inset 0 -2px 0 var(--primary-color);
+        }
+        .count {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          padding: 1px 6px;
+          font-size: 10px;
+        }
+        .tab-panel {
+          display: none;
+          padding: 10px;
+        }
+        .tab-panel.active { display: block; }
+        .stacked .tabs { display: none; }
+        .stacked .tab-panel {
+          display: block;
+          border-bottom: 1px solid var(--divider-color);
+        }
+        .stacked .tab-panel:last-child { border-bottom: 0; }
 
-          .photo-lightbox-close,
-          .photo-lightbox-nav {
-            width: 38px;
-            height: 38px;
-          }
+        .queue-list, .related-list, .support-list { display: grid; gap: 7px; }
+        .queue-row, .related, .support {
+          border: 1px solid var(--divider-color);
+          border-radius: 9px;
+          background: var(--card-background-color);
+          padding: 8px;
+          font-size: 12px;
+        }
+        .detail { color: var(--secondary-text-color); font-size: 11px; margin-top: 3px; }
 
-          .photo-lightbox-nav.prev {
-            left: 8px;
-          }
+        .right {
+          padding: 12px;
+          display: grid;
+          grid-template-rows: auto auto 1fr;
+          gap: 10px;
+          overflow: auto;
+        }
+        .card {
+          border: 1px solid var(--divider-color);
+          border-radius: 12px;
+          overflow: hidden;
+          background: var(--secondary-background-color);
+        }
+        .card .h {
+          border-bottom: 1px solid var(--divider-color);
+          background: var(--card-background-color);
+          padding: 8px 10px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: var(--secondary-text-color);
+          font-weight: 700;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .summary { padding: 10px; display: grid; gap: 8px; }
+        .summary .name { font-size: 15px; font-weight: 700; }
+        .summary .meta { color: var(--secondary-text-color); font-size: 12px; }
+        .status { display: flex; gap: 6px; flex-wrap: wrap; }
+        .status span {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          padding: 4px 8px;
+          font-size: 10px;
+          color: var(--secondary-text-color);
+          background: var(--card-background-color);
+        }
+        .files { padding: 8px; display: grid; gap: 7px; }
+        .collapsible-group {
+          border: 1px solid var(--divider-color);
+          border-radius: 9px;
+          overflow: hidden;
+          background: var(--card-background-color);
+        }
+        .collapse-toggle {
+          width: 100%;
+          border: 0;
+          background: transparent;
+          padding: 8px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          text-align: left;
+          cursor: pointer;
+          gap: 8px;
+        }
+        .collapse-body {
+          padding: 8px;
+          border-top: 1px solid var(--divider-color);
+          font-size: 11px;
+          color: var(--secondary-text-color);
+        }
+        .hidden { display: none !important; }
+        .state {
+          font-size: 10px;
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          padding: 3px 7px;
+          margin-right: 4px;
+        }
 
-          .photo-lightbox-nav.next {
-            right: 8px;
-          }
-
-          .photo-lightbox-meta {
-            flex-direction: column;
-            align-items: flex-start;
-          }
+        @media (max-width: 980px) {
+          .hero { grid-template-columns: 1fr; }
+          .left { border-right: 0; border-bottom: 1px solid var(--divider-color); }
+          .panel-shell { margin-bottom: 0; }
         }
       </style>
-      
-      <div class="popup-container">
-        ${this._renderHeader(model)}
-        ${this._renderTabNavigation()}
-        ${this._renderTabContent(model)}
+
+      <div class="popup-shell">
+        <div class="topbar">
+          <div class="title">
+            <strong>${modelName}</strong>
+            <span>Creator ${creator} | Collection ${collectionText}</span>
+          </div>
+          <div class="top-actions">
+            <span class="slot-chip">actions:top-bar</span>
+            ${this._renderExtensionSlot('actions:top-bar', '')}
+            <button class="action-button ghost" id="btn-viewer">3D View</button>
+            <button class="action-button ghost" id="btn-download">Download</button>
+            <button class="action-button" id="btn-print">Print</button>
+            <div class="overflow-wrap">
+              <button class="action-button ghost" id="btn-overflow-toggle">More</button>
+              <div class="overflow-menu ${this._overflowOpen ? 'open' : ''}">
+                ${this._renderExtensionSlot('actions:overflow', `
+                  <div class="overflow-row">
+                    <div class="label">Recover Print History wizard</div>
+                    <div class="meta">Extension host for #1483 backfill flow</div>
+                  </div>
+                  <div class="overflow-row">
+                    <div class="label">Contribution lifecycle shortcut</div>
+                    <div class="meta">Extension host for #1494</div>
+                  </div>
+                  <div class="overflow-row">
+                    <div class="label">Publication pipeline shortcut</div>
+                    <div class="meta">Extension host for #1495</div>
+                  </div>
+                `)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero">
+          <div class="left">
+            ${this._renderExtensionSlot('hero-left:media', `
+              <div class="media-filters">
+                <span class="slot-chip">hero-left:media</span>
+                <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All</button>
+                <button class="chip ${this._heroMediaFilter === 'photo' ? 'active' : ''}" data-media-filter="photo">Uploaded</button>
+                <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets</button>
+              </div>
+              <div class="main-media">
+                ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
+                <span class="badge">${this._escapeHtml(activeMedia && activeMedia.type ? activeMedia.type : 'image')}</span>
+                <div class="main-overlay-tools">
+                  <button class="icon-btn" id="btn-viewer" title="3D View">3D</button>
+                  <button class="icon-btn" title="Full screen">FS</button>
+                </div>
+                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous">‹</button>
+                <button class="main-nav-btn next" id="btn-hero-next" title="Next">›</button>
+              </div>
+              <div class="media-actions">
+                <button class="action-button ghost">Set preview</button>
+                <button class="action-button ghost">Hide image</button>
+                <button class="action-button ghost">Delete image</button>
+              </div>
+              <div class="thumbs">
+                ${mediaItems.map((item, idx) => `
+                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''}" data-media-index="${idx}">
+                    ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
+                    <span class="src">${this._escapeHtml(item.type || 'media')}</span>
+                  </button>
+                `).join('')}
+              </div>
+            `)}
+
+            ${this._renderPanelWorkspace(model)}
+          </div>
+
+          <div class="right">
+            ${this._renderSummaryCard(model)}
+            ${this._renderModelFilesCard(model)}
+            ${this._renderArchiveLinkageCard()}
+          </div>
+        </div>
       </div>
 
       ${this._showConflictDialog ? `
         <div class="conflict-dialog">
           <div class="conflict-dialog-content">
-            <div class="conflict-dialog-title">⚠️ Conflict Detected</div>
-            <div class="conflict-dialog-message">
-              This model was modified by another user or session. 
-              Choose how you'd like to proceed:
-            </div>
+            <div class="conflict-dialog-title">Conflict Detected</div>
+            <div class="conflict-dialog-message">This model was modified by another user or session.</div>
             <div class="conflict-dialog-actions">
               <button class="btn-cancel-dialog" id="btn-conflict-cancel">Cancel</button>
               <button class="btn-reload" id="btn-conflict-reload">Reload</button>
@@ -1000,8 +1101,281 @@ class ModelDetailPopupCard extends HTMLElement {
 
       ${this._renderPhotoLightbox()}
     `;
+  }
 
-    return popupHtml;
+  registerPopupExtension(slotName, extension, priority = 100) {
+    const slot = String(slotName || '').trim();
+    if (!slot || !extension) {
+      return;
+    }
+    const list = this._popupExtensions.get(slot) || [];
+    list.push({ extension, priority: Number(priority) || 100 });
+    list.sort((a, b) => a.priority - b.priority);
+    this._popupExtensions.set(slot, list);
+    this._render();
+  }
+
+  unregisterPopupExtension(slotName, extension) {
+    const slot = String(slotName || '').trim();
+    if (!slot || !this._popupExtensions.has(slot)) {
+      return;
+    }
+    const next = (this._popupExtensions.get(slot) || []).filter(item => item.extension !== extension);
+    if (next.length) {
+      this._popupExtensions.set(slot, next);
+    } else {
+      this._popupExtensions.delete(slot);
+    }
+    this._render();
+  }
+
+  _renderExtensionSlot(slotName, fallbackHtml = '') {
+    const entries = this._popupExtensions.get(slotName) || [];
+    if (!entries.length) {
+      return fallbackHtml;
+    }
+    return entries.map(({ extension }) => {
+      try {
+        if (extension && typeof extension.render === 'function') {
+          const rendered = extension.render({
+            model: (this._modelDetail && this._modelDetail.model) || {},
+            detail: this._modelDetail || {},
+            card: this,
+          });
+          return typeof rendered === 'string' ? rendered : '';
+        }
+      } catch (error) {
+        console.warn('Popup extension render failed for slot', slotName, error);
+      }
+      return '';
+    }).join('');
+  }
+
+  _heroFilteredMediaItems(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      return [];
+    }
+    if (this._heroMediaFilter === 'all') {
+      return list;
+    }
+    return list.filter(item => String(item.type || '').toLowerCase() === this._heroMediaFilter);
+  }
+
+  _heroCurrentMedia(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      this._heroActiveMediaIndex = 0;
+      return null;
+    }
+    const clampedIndex = Math.max(0, Math.min(this._heroActiveMediaIndex, list.length - 1));
+    if (clampedIndex !== this._heroActiveMediaIndex) {
+      this._heroActiveMediaIndex = clampedIndex;
+    }
+    return list[clampedIndex] || null;
+  }
+
+  _stepHeroMedia(direction) {
+    const items = this._heroFilteredMediaItems(this._galleryItems());
+    if (!items.length) {
+      return;
+    }
+    const nextIndex = (this._heroActiveMediaIndex + direction + items.length) % items.length;
+    this._heroActiveMediaIndex = nextIndex;
+    this._render();
+  }
+
+  _renderPanelWorkspace(model) {
+    const queueCount = Array.isArray(this._modelDetail.queued_items) ? this._modelDetail.queued_items.length : 0;
+    const relatedCount = Array.isArray(model.related_models) ? model.related_models.length : 0;
+    const supportCount = Array.isArray(model.support_files) ? model.support_files.length : 0;
+    const isNarrow = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 980px)').matches
+      : false;
+    const isStacked = this._panelMode === 'stacked' || isNarrow;
+
+    const panel = (id, title, body) => {
+      const active = this._panelActiveTab === id;
+      return `<div class="tab-panel ${active || isStacked ? 'active' : ''}" data-stack-title="${this._escapeHtml(title)}">${body}</div>`;
+    };
+
+    return `
+      <section class="panel-shell ${isStacked ? 'stacked' : ''}">
+        <div class="panel-toolbar">
+          <div>
+            <strong style="font-size:12px;">Panel Workspace</strong>
+          </div>
+          <div class="view-mode">
+            <button id="btn-panel-mode-tabs" class="${!isStacked ? 'active' : ''}">Tabs</button>
+            <button id="btn-panel-mode-stacked" class="${isStacked ? 'active' : ''}">Stacked</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <button data-panel-tab="panel-queue" class="${this._panelActiveTab === 'panel-queue' ? 'active' : ''}">Queue / Prints <span class="count">${queueCount}</span></button>
+          <button data-panel-tab="panel-related" class="${this._panelActiveTab === 'panel-related' ? 'active' : ''}">Related Models <span class="count">${relatedCount}</span></button>
+          <button data-panel-tab="panel-support" class="${this._panelActiveTab === 'panel-support' ? 'active' : ''}">Supporting Files <span class="count">${supportCount}</span></button>
+          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Contribution <span class="count">#1494</span></button>
+          <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication <span class="count">#1495</span></button>
+        </div>
+        ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
+        ${panel('panel-related', 'Related Models', this._renderExtensionSlot('sections:related-models', this._renderRelatedModelsPanel(model)))}
+        ${panel('panel-support', 'Supporting Files', this._renderExtensionSlot('sections:supporting-files', this._renderSupportingFilesPanel(model)))}
+        ${panel('panel-contribution', 'Contribution Lifecycle', '<div class="queue-row"><strong>Extension host for #1494</strong><div class="detail">Mount contribution lifecycle workflow here.</div></div>')}
+        ${panel('panel-publication', 'Publication Pipeline', '<div class="queue-row"><strong>Extension host for #1495</strong><div class="detail">Mount publication pipeline workflow here.</div></div>')}
+      </section>
+    `;
+  }
+
+  _renderQueueStatusPanel() {
+    const queued = Array.isArray(this._modelDetail.queued_items) ? this._modelDetail.queued_items : [];
+    const drafts = Array.isArray(this._modelDetail.draft_intents) ? this._modelDetail.draft_intents : [];
+    const rows = [
+      ...queued.map(item => `
+        <article class="queue-row">
+          <strong>${this._escapeHtml(String(item.file_name || 'Queued item'))}</strong>
+          <div class="detail">State: ${this._escapeHtml(String(item.state || 'ready'))}${item.plate_index != null ? ` | Plate ${this._escapeHtml(String(item.plate_index))}` : ''}</div>
+        </article>
+      `),
+      ...drafts.map(item => `
+        <article class="queue-row">
+          <strong>${this._escapeHtml(String(item.file_name || 'Draft intent'))}</strong>
+          <div class="detail">Tray assignment: ${this._escapeHtml(String(item.tray_assignment_status || 'pending'))}</div>
+        </article>
+      `),
+    ];
+    if (!rows.length) {
+      rows.push('<article class="queue-row"><strong>No queue activity</strong><div class="detail">Queue items and draft intents appear here.</div></article>');
+    }
+    return `<div class="queue-list">${rows.join('')}</div>`;
+  }
+
+  _renderRelatedModelsPanel(model) {
+    const related = Array.isArray(model.related_models) ? model.related_models : [];
+    if (!related.length) {
+      return '<div class="related-list"><article class="related"><strong>No related models</strong><div class="detail">Related model suggestions will appear here.</div></article></div>';
+    }
+    return `<div class="related-list">${related.map(item => `
+      <article class="related">
+        <strong>${this._escapeHtml(String(item.name || item.model_id || 'Related model'))}</strong>
+        <div class="detail">${this._escapeHtml(String(item.relation_type || 'relation'))}${item.similarity_score != null ? ` | similarity ${this._escapeHtml(String(item.similarity_score))}` : ''}</div>
+      </article>
+    `).join('')}</div>`;
+  }
+
+  _renderSupportingFilesPanel(model) {
+    const files = Array.isArray(model.support_files) ? model.support_files : [];
+    if (!files.length) {
+      return '<div class="support-list"><article class="support"><strong>No supporting files</strong><div class="detail">Documentation and references appear here.</div></article></div>';
+    }
+    return `<div class="support-list">${files.map(file => `
+      <article class="support">
+        <strong>${this._escapeHtml(String(file.name || 'Support file'))}</strong>
+        <div class="detail">${this._escapeHtml(String(file.description || file.category || ''))}</div>
+      </article>
+    `).join('')}</div>`;
+  }
+
+  _renderSummaryCard(model) {
+    const linkedCount = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives.length : Number(this._modelDetail.link_count || 0);
+    const candidateCount = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives.length : 0;
+    const relatedCount = Array.isArray(model.related_models) ? model.related_models.length : 0;
+    const supportCount = Array.isArray(model.support_files) ? model.support_files.length : 0;
+    const tags = Array.isArray(model.keywords) ? model.keywords : [];
+
+    return `
+      <section class="card" data-slot="hero-right:summary">
+        <div class="h">
+          <span>Summary</span>
+          <span class="slot-chip">hero-right:summary</span>
+        </div>
+        ${this._renderExtensionSlot('hero-right:summary', `
+          <div class="summary">
+            <div class="name">${this._escapeHtml(String(model.name || 'Untitled Model'))}</div>
+            <div class="meta">Tags: ${this._escapeHtml(tags.join(', ') || 'none')} | Collections: ${this._escapeHtml((model.collection_names || []).join(', ') || 'none')}</div>
+            <div class="status">
+              <span>Linked archives: ${linkedCount}</span>
+              <span>Candidates: ${candidateCount}</span>
+              <span>Related: ${relatedCount}</span>
+              <span>Supporting: ${supportCount}</span>
+            </div>
+          </div>
+        `)}
+      </section>
+    `;
+  }
+
+  _renderModelFilesCard(model) {
+    const files = Array.isArray(model.files) ? model.files : [];
+    const rows = files.length ? files.map(file => {
+      const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
+      const meta = [
+        file.asset_type ? String(file.asset_type) : '',
+        file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / (1024 * 1024))} MB` : '',
+      ].filter(Boolean).join(' | ');
+      return `
+        <article class="collapsible-group">
+          <button class="collapse-toggle" data-collapse-toggle="file-${this._escapeHtml(String(file.id || filename))}">
+            <div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div>
+            <div>▾</div>
+          </button>
+          <div class="collapse-body ${this._collapsedSections[`file-${String(file.id || filename)}`] ? 'hidden' : ''}">
+            Plate and file details host (Phase 0). File id: ${this._escapeHtml(String(file.id || 'n/a'))}
+          </div>
+        </article>
+      `;
+    }).join('') : '<article class="queue-row"><strong>No files found</strong><div class="detail">Model file inventory is empty.</div></article>';
+
+    return `
+      <section class="card" data-slot="panel:files-core">
+        <div class="h">
+          <span>Model Files</span>
+          <span class="slot-chip">panel:files-core</span>
+        </div>
+        <div class="files">${rows}</div>
+      </section>
+    `;
+  }
+
+  _renderArchiveLinkageCard() {
+    const linked = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives : [];
+    const candidates = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
+
+    const renderArchive = (archive, isCandidate) => {
+      const id = String(archive.archive_id || archive.id || 'archive');
+      const title = this._escapeHtml(String(archive.name || archive.archive_name || `Archive ${id}`));
+      const meta = [archive.printer, archive.filament_name, archive.completed_at ? new Date(archive.completed_at).toLocaleDateString() : ''].filter(Boolean).join(' | ');
+      const sectionKey = `archive-${id}`;
+      return `
+        <article class="collapsible-group" data-slot="actions:per-archive">
+          <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
+            <div><strong>${title}</strong><div class="detail">${this._escapeHtml(meta || 'Archive metadata')}</div></div>
+            <div><span class="state">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
+          </button>
+          <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
+            ${isCandidate ? '<button class="action-button">Link</button> <button class="action-button ghost">Skip</button>' : '<button class="action-button ghost">Open archive</button>'}
+            ${this._renderExtensionSlot('actions:per-archive', '')}
+          </div>
+        </article>
+      `;
+    };
+
+    return `
+      <section class="card" data-slot="sections:archive-linkage">
+        <div class="h">
+          <span>Related Archives</span>
+          <span class="slot-chip">sections:archive-linkage</span>
+        </div>
+        <div class="files">
+          <div>
+            <button class="action-button">Recover Print History</button>
+          </div>
+          ${linked.slice(0, 4).map(item => renderArchive(item, false)).join('')}
+          ${candidates.slice(0, 4).map(item => renderArchive(item, true)).join('')}
+          ${this._renderExtensionSlot('sections:archive-linkage', '')}
+          ${!linked.length && !candidates.length ? '<article class="queue-row"><strong>No linked or candidate archives</strong><div class="detail">Archive linkage review appears here.</div></article>' : ''}
+        </div>
+      </section>
+    `;
   }
 
   _renderHeader(model) {
