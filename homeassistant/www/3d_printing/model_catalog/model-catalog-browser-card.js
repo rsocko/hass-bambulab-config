@@ -30,6 +30,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       backfill_weight: 0.5,
       initialized: false,
     };
+    this._frequentsRailItems = [];
+    this._frequentsRailVisible = this._readFrequentsRailVisibility();
 
     this._boundClick = this._handleClick.bind(this);
     this._boundInput = this._handleInput.bind(this);
@@ -59,6 +61,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
       frequents_only: false,
       has_other_files: false,
     };
+  }
+
+  _readFrequentsRailVisibility() {
+    try {
+      if (window && window.localStorage) {
+        var stored = window.localStorage.getItem("model-catalog-frequents-rail-visible");
+        if (stored === "false") {
+          return false;
+        }
+      }
+    } catch (_error) {
+    }
+    return true;
+  }
+
+  _persistFrequentsRailVisibility() {
+    try {
+      if (window && window.localStorage) {
+        window.localStorage.setItem("model-catalog-frequents-rail-visible", this._frequentsRailVisible ? "true" : "false");
+      }
+    } catch (_error) {
+    }
   }
 
   _clampInteger(value, fallback, min, max) {
@@ -409,8 +433,34 @@ class ModelCatalogBrowserCard extends HTMLElement {
         per_page: this._pagination.per_page,
       };
 
-      var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
+      var frequentRailPayload = Object.assign({}, requestPayload, {
+        sort: "frequent",
+        favorites_only: false,
+        frequents_only: false,
+        page: 1,
+        per_page: 24,
+      });
+      var favoriteRailPayload = Object.assign({}, requestPayload, {
+        favorites_only: true,
+        frequents_only: false,
+        page: 1,
+        per_page: 24,
+      });
+
+      var responses = await Promise.all([
+        this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload),
+        this._callServiceWithResponse("rest_command", "model_catalog_search_models", frequentRailPayload).catch(function () { return null; }),
+        this._callServiceWithResponse("rest_command", "model_catalog_search_models", favoriteRailPayload).catch(function () { return null; }),
+      ]);
+
+      var data = responses[0];
+      var railFrequentData = responses[1];
+      var railFavoriteData = responses[2];
       this._results = Array.isArray(data && data.results) ? data.results : [];
+      this._frequentsRailItems = this._buildFrequentsRailItems(
+        Array.isArray(railFrequentData && railFrequentData.results) ? railFrequentData.results : this._results,
+        Array.isArray(railFavoriteData && railFavoriteData.results) ? railFavoriteData.results : this._results
+      );
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
       this._frequentsTuning.window_days = this._clampInteger(
         responseFilters.frequent_window_days,
@@ -439,6 +489,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
     } catch (error) {
       this._results = [];
+      this._frequentsRailItems = [];
       this._pagination.page = 1;
       this._pagination.total = 0;
       this._pagination.total_pages = 0;
@@ -772,6 +823,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = error && error.message ? String(error.message) : "Could not update favorite state.";
         this._render();
         console.warn("Could not update favorite state", error);
+      }
+      return;
+    }
+
+    if (action === "bulk-pin-favorites") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkSetFavorites(true);
+      return;
+    }
+
+    if (action === "bulk-unpin-favorites") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkSetFavorites(false);
+      return;
+    }
+
+    if (action === "toggle-frequents-rail") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._frequentsRailVisible = !this._frequentsRailVisible;
+      this._persistFrequentsRailVisibility();
+      this._render();
+      return;
+    }
+
+    if (action === "open-model-history") {
+      event.preventDefault();
+      event.stopPropagation();
+      var historyModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var historyModelName = String(target.getAttribute("data-model-name") || "Model Details").trim();
+      if (historyModelRef) {
+        this._openModelDetailPopup(historyModelRef, historyModelName, "prints");
       }
       return;
     }
@@ -1158,6 +1243,212 @@ class ModelCatalogBrowserCard extends HTMLElement {
       model.structured_metadata.catalog_signals.model_favorite = !!isFavorite;
       break;
     }
+
+    for (var j = 0; j < this._frequentsRailItems.length; j++) {
+      var railModel = this._frequentsRailItems[j];
+      if (this._modelRef(railModel) !== targetRef) {
+        continue;
+      }
+      railModel.model_favorite = !!isFavorite;
+      if (!railModel.custom_fields || typeof railModel.custom_fields !== "object") {
+        railModel.custom_fields = {};
+      }
+      railModel.custom_fields.model_favorite = !!isFavorite;
+      if (!railModel.structured_metadata || typeof railModel.structured_metadata !== "object") {
+        railModel.structured_metadata = {};
+      }
+      if (!railModel.structured_metadata.catalog_signals || typeof railModel.structured_metadata.catalog_signals !== "object") {
+        railModel.structured_metadata.catalog_signals = {};
+      }
+      railModel.structured_metadata.catalog_signals.model_favorite = !!isFavorite;
+      break;
+    }
+  }
+
+  _isModelFavorite(model) {
+    var structured = model && model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
+    var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
+    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    var favorite = this._coerceBoolish(model && model.model_favorite);
+    if (favorite === null) {
+      favorite = this._coerceBoolish(catalogSignals.model_favorite);
+    }
+    if (favorite === null) {
+      favorite = this._coerceBoolish(fields.model_favorite);
+    }
+    return !!favorite;
+  }
+
+  _isModelFrequent(model) {
+    var frequents = model && model.frequents && typeof model.frequents === "object" ? model.frequents : {};
+    var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
+    if (this._coerceBoolish(model && model.model_frequent) === true) {
+      return true;
+    }
+    if (this._coerceBoolish(frequents.is_frequent) === true) {
+      return true;
+    }
+    return Number(ranking.frequent_score || 0) > 0;
+  }
+
+  _frequentWindowPrintLabel(model) {
+    var frequents = model && model.frequents && typeof model.frequents === "object" ? model.frequents : {};
+    var windowDays = this._clampInteger(frequents.window_days, this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650), 7, 3650);
+    var count = Number(frequents.print_count_window);
+    if (!Number.isFinite(count)) {
+      count = Number(frequents.weighted_print_count);
+    }
+    if (!Number.isFinite(count)) {
+      count = Number(model && model.linked_archive_count || 0);
+    }
+    count = Math.max(0, Math.round(count));
+    return "Printed " + String(count) + " time" + (count === 1 ? "" : "s") + " in last " + String(windowDays) + "d";
+  }
+
+  _frequentScore(model) {
+    var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
+    var frequents = model && model.frequents && typeof model.frequents === "object" ? model.frequents : {};
+    var score = Number(ranking.frequent_score || 0);
+    if (!Number.isFinite(score)) {
+      score = Number(frequents.weighted_print_count || 0);
+    }
+    if (!Number.isFinite(score)) {
+      score = Number(model && model.linked_archive_count || 0);
+    }
+    return Number.isFinite(score) ? score : 0;
+  }
+
+  _buildFrequentsRailItems(frequentCandidates, favoriteCandidates) {
+    var merged = [];
+    var seen = {};
+
+    var favorites = Array.isArray(favoriteCandidates) ? favoriteCandidates : [];
+    for (var i = 0; i < favorites.length; i++) {
+      var favoriteModel = favorites[i];
+      var favoriteRef = this._modelRef(favoriteModel);
+      if (!favoriteRef || seen[favoriteRef] || !this._isModelFavorite(favoriteModel)) {
+        continue;
+      }
+      seen[favoriteRef] = true;
+      merged.push(favoriteModel);
+      if (merged.length >= 8) {
+        return merged;
+      }
+    }
+
+    var frequents = Array.isArray(frequentCandidates) ? frequentCandidates.slice() : [];
+    frequents.sort(function (a, b) {
+      return this._frequentScore(b) - this._frequentScore(a);
+    }.bind(this));
+    for (var j = 0; j < frequents.length; j++) {
+      var frequentModel = frequents[j];
+      var frequentRef = this._modelRef(frequentModel);
+      if (!frequentRef || seen[frequentRef] || !this._isModelFrequent(frequentModel)) {
+        continue;
+      }
+      seen[frequentRef] = true;
+      merged.push(frequentModel);
+      if (merged.length >= 8) {
+        break;
+      }
+    }
+
+    return merged;
+  }
+
+  _renderFrequentsRail() {
+    if (this._browserScope === "collections" || !this._frequentsRailItems.length) {
+      return "";
+    }
+    var cards = this._frequentsRailItems.map(function (model) {
+      var modelRef = this._modelRef(model);
+      if (!modelRef) {
+        return "";
+      }
+      var modelName = String(model.name || "Unnamed Model");
+      var mediaUrls = this._modelMediaUrls(model);
+      var previewUrl = mediaUrls.length ? mediaUrls[0] : "";
+      var sourceDownloadUrl = String(model.source_download_url || "").trim();
+      var favorite = this._isModelFavorite(model);
+      var favoriteButton = ''
+        + '<button class="icon-action favorite-action' + (favorite ? ' is-active' : '') + '" type="button" data-action="toggle-favorite" data-model-ref="' + this._escapeHtml(modelRef) + '" data-next-favorite="' + this._escapeHtml(favorite ? 'false' : 'true') + '" aria-label="' + this._escapeHtml(favorite ? 'Remove favorite' : 'Add favorite') + '">'
+        + '  <ha-icon icon="' + this._escapeHtml(favorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
+        + '</button>';
+      var previewHtml = previewUrl
+        ? (this._isThumbnailLazyEndpoint(previewUrl)
+          ? (function () {
+              var cachedObjectUrl = getCachedThumbnailObjectUrl(String(previewUrl));
+              if (cachedObjectUrl) {
+                return '<img src="' + this._escapeHtml(String(cachedObjectUrl)) + '" alt="' + this._escapeHtml(modelName) + ' preview" loading="lazy">';
+              }
+              return '<img data-thumbnail-lazy-url="' + this._escapeHtml(String(previewUrl)) + '" alt="' + this._escapeHtml(modelName) + ' preview" loading="lazy">';
+            }).call(this)
+          : '<img src="' + this._escapeHtml(String(previewUrl)) + '" alt="' + this._escapeHtml(modelName) + ' preview" loading="lazy">')
+        : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon></div>';
+
+      return ''
+        + '<article class="frequent-card" role="group">'
+        + '  <button class="frequent-preview" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(modelName) + '">' + previewHtml + '</button>'
+        + '  <div class="frequent-content">'
+        + '    <button class="frequent-title" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(modelName) + '">' + this._escapeHtml(modelName) + '</button>'
+        + '    <div class="frequent-subtitle">' + this._escapeHtml(this._frequentWindowPrintLabel(model)) + '</div>'
+        + '    <div class="frequent-actions">'
+        + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Download</button>' : '<button class="toolbar-btn" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(modelName) + '">Open</button>')
+        + '      <button class="icon-action" type="button" data-action="open-model-history" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(modelName) + '" aria-label="Open print history tab"><ha-icon icon="mdi:history"></ha-icon></button>'
+        + favoriteButton
+        + '    </div>'
+        + '  </div>'
+        + '</article>';
+    }.bind(this)).join("");
+
+    return ''
+      + '<section class="frequents-rail" aria-label="Frequents rail">'
+      + '  <div class="frequents-rail-header">'
+      + '    <div class="frequents-rail-title-wrap">'
+      + '      <div class="frequents-rail-title">Frequents</div>'
+      + '      <div class="frequents-rail-subtitle">Favorites are pinned first.</div>'
+      + '    </div>'
+      + '    <button class="toolbar-btn ghost" type="button" data-action="toggle-frequents-rail">' + (this._frequentsRailVisible ? 'Hide rail' : 'Show rail') + '</button>'
+      + '  </div>'
+      + (this._frequentsRailVisible ? '<div class="frequents-rail-scroll">' + cards + '</div>' : '')
+      + '</section>';
+  }
+
+  async _bulkSetFavorites(isFavorite) {
+    var selectedRefs = this.getSelectedModelRefs();
+    if (!selectedRefs.length || this._loading) {
+      return;
+    }
+
+    var failedRefs = [];
+    this._error = "";
+
+    for (var i = 0; i < selectedRefs.length; i++) {
+      this._setModelFavoriteState(selectedRefs[i], !!isFavorite);
+    }
+    this._render();
+
+    for (var j = 0; j < selectedRefs.length; j++) {
+      var modelRef = selectedRefs[j];
+      try {
+        await this._callServiceWithResponse("rest_command", "model_catalog_toggle_model_favorite", {
+          model_ref: modelRef,
+          model_favorite: !!isFavorite,
+        });
+      } catch (_error) {
+        failedRefs.push(modelRef);
+      }
+    }
+
+    for (var k = 0; k < failedRefs.length; k++) {
+      this._setModelFavoriteState(failedRefs[k], !isFavorite);
+    }
+    if (failedRefs.length) {
+      this._error = "Updated favorites with partial failure (" + String(failedRefs.length) + " failed).";
+    }
+
+    this._requestLoad(this._currentPage(), true);
+    this._render();
   }
 
   async _deleteModel(modelRef, modelName) {
@@ -1905,6 +2196,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="bulkbar shown">'
       + '  <span class="count">' + this._escapeHtml(String(count) + ' model' + (count === 1 ? '' : 's') + ' selected') + '</span>'
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
       + '  <div class="right">'
       + '    <button class="bulk-btn" type="button" data-action="clear-selection">Clear</button>'
       + '  </div>'
@@ -2183,7 +2476,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="compact-file-kinds">' + fileKindChipMarkup + '</div>'
       + '  </div>'
       + '  <div class="compact-action-row">'
-      + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Source</button>' : '')
+      + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Download</button>' : '')
       + '  </div>'
       + '</div>';
 
@@ -2210,7 +2503,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>'
       + '  <div class="media-actions-row">'
       + '    <div class="media-actions">'
-      + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Source</button>' : '')
+      + (sourceDownloadUrl ? '<button class="toolbar-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(sourceDownloadUrl) + '">Download</button>' : '')
       + '    </div>'
       + '  </div>'
       + '</div>';
@@ -2572,7 +2865,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     });
   }
 
-  _openModelDetailPopup(modelRef, modelName) {
+  _openModelDetailPopup(modelRef, modelName, initialTab) {
     if (!modelRef) {
       return;
     }
@@ -2583,6 +2876,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       content: {
         type: "custom:model-detail-popup-card",
         model_ref: modelRef,
+        initial_tab: String(initialTab || "details"),
         model_entity: "input_text.model_catalog_sidecar_base_url",
         model_sidecar_url: this._modelSidecarUrl || (this._config && this._config.model_sidecar_url ? String(this._config.model_sidecar_url) : ""),
       },
@@ -2857,6 +3151,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.filter-chip.favorite.active{background:rgba(245,194,66,0.20);border-color:rgba(245,194,66,0.48);color:#f5c242;}'
       + '.filter-chip.frequent.active{background:rgba(16,185,129,0.20);border-color:rgba(16,185,129,0.44);color:#6ee7b7;}'
       + '.filter-chip.docs.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.34);color:#93c5fd;}'
+      + '.frequents-rail{display:grid;gap:10px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(16,185,129,0.08);}'
+      + '.frequents-rail-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}'
+      + '.frequents-rail-title-wrap{display:grid;gap:2px;}'
+      + '.frequents-rail-title{font-size:14px;font-weight:800;letter-spacing:.02em;}'
+      + '.frequents-rail-subtitle{font-size:11px;color:var(--secondary-text-color);}'
+      + '.frequents-rail-scroll{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:10px;overflow-x:auto;padding-bottom:2px;}'
+      + '.frequent-card{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(15,23,42,0.14);min-height:88px;}'
+      + '.frequent-preview{display:flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--line);background:rgba(15,23,42,0.20);border-radius:10px;overflow:hidden;cursor:pointer;}'
+      + '.frequent-preview img{width:100%;height:100%;object-fit:cover;display:block;}'
+      + '.frequent-content{display:grid;align-content:start;gap:6px;min-width:0;}'
+      + '.frequent-title{padding:0;border:0;background:transparent;color:var(--primary-text-color);font-size:13px;font-weight:800;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+      + '.frequent-subtitle{font-size:11px;color:var(--secondary-text-color);}'
+      + '.frequent-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}'
       + '.page-control-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);}'
       + '.toolbar-group{display:inline-flex;align-items:center;gap:8px;min-width:0;}'
       + '.toolbar-group label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
@@ -3050,6 +3357,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="shell-header">'
       + this._renderHeaderTitleRow()
       + this._renderFilterBar()
+      + this._renderFrequentsRail()
       + this._renderPageControlStrip()
       + '    </div>'
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'

@@ -72,7 +72,11 @@ class ModelDetailPopupCard extends HTMLElement {
     this._config = config || {};
     this._modelRef = String(this._config.model_ref || "").trim();
     this._modelSidecarUrl = String(this._config.model_sidecar_url || "").trim();
-    this._activeTab = "details";
+    var requestedInitialTab = String(this._config.initial_tab || "details").trim().toLowerCase();
+    if (requestedInitialTab !== "details" && requestedInitialTab !== "gallery" && requestedInitialTab !== "prints") {
+      requestedInitialTab = "details";
+    }
+    this._activeTab = requestedInitialTab;
     this._render();
   }
 
