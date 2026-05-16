@@ -30,6 +30,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       backfill_weight: 0.5,
       initialized: false,
     };
+    this._visibilityCounts = { active: 0, archived: 0 };
     this._frequentsRailItems = [];
     this._frequentsRailVisible = this._readFrequentsRailVisibility();
     this._queueDialogOpen = false;
@@ -72,6 +73,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       favorites_only: false,
       frequents_only: false,
       has_other_files: false,
+      show_archived: false,
     };
   }
 
@@ -342,6 +344,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._filters.favorites_only = !!(root.querySelector("#mc-favorites-only") && root.querySelector("#mc-favorites-only").checked);
     this._filters.frequents_only = !!(root.querySelector("#mc-frequents-only") && root.querySelector("#mc-frequents-only").checked);
     this._filters.has_other_files = !!(root.querySelector("#mc-has-other-files") && root.querySelector("#mc-has-other-files").checked);
+    this._filters.show_archived = !!(root.querySelector("#mc-show-archived") && root.querySelector("#mc-show-archived").checked);
     this._frequentsTuning.window_days = this._clampInteger(read("#mc-frequent-window"), this._frequentsTuning.window_days || 90, 7, 3650);
     this._frequentsTuning.min_prints = this._clampInteger(read("#mc-frequent-min-prints"), this._frequentsTuning.min_prints || 3, 1, 9999);
     this._frequentsTuning.backfill_weight = 0.5;
@@ -440,6 +443,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         frequent_min_prints: this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999),
         frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
+        show_archived: !!this._filters.show_archived,
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
         per_page: this._pagination.per_page,
@@ -449,12 +453,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
         sort: "frequent",
         favorites_only: false,
         frequents_only: false,
+        show_archived: false,
         page: 1,
         per_page: 24,
       });
       var favoriteRailPayload = Object.assign({}, requestPayload, {
         favorites_only: true,
         frequents_only: false,
+        show_archived: false,
         page: 1,
         per_page: 24,
       });
@@ -474,6 +480,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
         Array.isArray(railFavoriteData && railFavoriteData.results) ? railFavoriteData.results : this._results
       );
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
+      var responseVisibility = data && data.visibility && typeof data.visibility === "object" ? data.visibility : {};
+      var responseVisibilityCounts = responseVisibility && responseVisibility.counts && typeof responseVisibility.counts === "object"
+        ? responseVisibility.counts
+        : {};
+      this._visibilityCounts = {
+        active: Math.max(0, Number(responseVisibilityCounts.active || 0) || 0),
+        archived: Math.max(0, Number(responseVisibilityCounts.archived || 0) || 0),
+      };
       this._frequentsTuning.window_days = this._clampInteger(
         responseFilters.frequent_window_days,
         requestPayload.frequent_window_days,
@@ -488,6 +502,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       );
       if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
         this._filters.frequents_only = !!responseFilters.frequents_only;
+      }
+      if (Object.prototype.hasOwnProperty.call(responseFilters, "show_archived")) {
+        this._filters.show_archived = !!responseFilters.show_archived;
       }
 
       var pagination = data && data.pagination ? data.pagination : {};
@@ -506,6 +523,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.total = 0;
       this._pagination.total_pages = 0;
       this._unifiedQueueByModelRef = {};
+      this._visibilityCounts = { active: 0, archived: 0 };
       this._error = error && error.message ? String(error.message) : "Could not load model catalog.";
     } finally {
       this._loading = false;
@@ -835,6 +853,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-other-files-filter") {
       this._filters.has_other_files = !this._filters.has_other_files;
+      this._cancelScheduledApply();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === "toggle-show-archived-filter") {
+      this._filters.show_archived = !this._filters.show_archived;
       this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
@@ -1760,6 +1786,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return Number(ranking.frequent_score || 0) > 0;
   }
 
+  _modelCatalogVisibility(model) {
+    var normalized = String(model && model.catalog_visibility || "").trim().toLowerCase();
+    if (normalized === "active" || normalized === "archived") {
+      return normalized;
+    }
+    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    normalized = String(fields.catalog_visibility || "").trim().toLowerCase();
+    if (normalized === "active" || normalized === "archived") {
+      return normalized;
+    }
+    var structured = model && model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
+    var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
+    normalized = String(catalogSignals.catalog_visibility || "").trim().toLowerCase();
+    if (normalized === "active" || normalized === "archived") {
+      return normalized;
+    }
+    return "active";
+  }
+
   _frequentWindowPrintLabel(model) {
     var frequents = model && model.frequents && typeof model.frequents === "object" ? model.frequents : {};
     var windowDays = this._clampInteger(frequents.window_days, this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650), 7, 3650);
@@ -1795,7 +1840,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     for (var i = 0; i < favorites.length; i++) {
       var favoriteModel = favorites[i];
       var favoriteRef = this._modelRef(favoriteModel);
-      if (!favoriteRef || seen[favoriteRef] || !this._isModelFavorite(favoriteModel)) {
+      if (!favoriteRef || seen[favoriteRef] || !this._isModelFavorite(favoriteModel) || this._modelCatalogVisibility(favoriteModel) !== "active") {
         continue;
       }
       seen[favoriteRef] = true;
@@ -1812,7 +1857,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     for (var j = 0; j < frequents.length; j++) {
       var frequentModel = frequents[j];
       var frequentRef = this._modelRef(frequentModel);
-      if (!frequentRef || seen[frequentRef] || !this._isModelFrequent(frequentModel)) {
+      if (!frequentRef || seen[frequentRef] || !this._isModelFrequent(frequentModel) || this._modelCatalogVisibility(frequentModel) !== "active") {
         continue;
       }
       seen[frequentRef] = true;
@@ -2576,6 +2621,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _renderFilterBar() {
     var windowDays = this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650);
     var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
+    var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
+    var showArchivedLabel = 'Show archived' + (archivedCount > 0 ? (' \u00b7 ' + String(archivedCount)) : '');
     return ''
       + '<div class="filter-row">'
       + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search models" value="' + this._escapeHtml(this._filters.q) + '">'
@@ -2585,6 +2632,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="filter-chip toggle-chip' + (this._filters.favorites_only ? ' active favorite' : '') + '" type="button" data-action="toggle-favorites-filter" aria-pressed="' + (this._filters.favorites_only ? 'true' : 'false') + '">Favorites only</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.frequents_only ? ' active frequent' : '') + '" type="button" data-action="toggle-frequents-filter" aria-pressed="' + (this._filters.frequents_only ? 'true' : 'false') + '">Frequents only</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
+      + '  <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active warn' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
       + '  <label class="inline-select" for="mc-frequent-window">Freq window'
       + '    <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
       + '      <option value="30"' + (windowDays === 30 ? ' selected' : '') + '>30d</option>'
@@ -2606,6 +2654,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <input id="mc-favorites-only" type="checkbox" hidden ' + (this._filters.favorites_only ? 'checked' : '') + '>'
       + '  <input id="mc-frequents-only" type="checkbox" hidden ' + (this._filters.frequents_only ? 'checked' : '') + '>'
       + '  <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
+        + '  <input id="mc-show-archived" type="checkbox" hidden ' + (this._filters.show_archived ? 'checked' : '') + '>'
       + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
       + '</div>';
   }
@@ -3817,6 +3866,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.queue-dialog-field{display:grid;gap:6px;}'
       + '.queue-dialog-field span{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}'
       + '.queue-dialog-target-state,.queue-dialog-notes{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}'
+      + '.queue-dialog-target-state{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:rgba(15,23,42,0.92);}'
+      + '.queue-dialog-target-state:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
+      + '.queue-dialog-target-state option{background-color:rgba(15,23,42,0.98);color:var(--primary-text-color);}'
       + '.queue-dialog-toolbar{display:flex;gap:8px;flex-wrap:wrap;}'
       + '.queue-dialog-file-list{display:grid;gap:10px;}'
       + '.queue-dialog-file-block{display:grid;gap:8px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}'

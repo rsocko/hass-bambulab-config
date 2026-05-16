@@ -42,6 +42,9 @@ model_catalog_search_models:
     {%- if has_other_files is defined -%}
       {%- set ns.params = ns.params + ['has_other_files=' ~ ((has_other_files | bool) | string | lower)] -%}
     {%- endif -%}
+    {%- if show_archived is defined -%}
+      {%- set ns.params = ns.params + ['show_archived=' ~ ((show_archived | bool) | string | lower)] -%}
+    {%- endif -%}
     {%- if refresh is defined -%}
       {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
     {%- endif -%}

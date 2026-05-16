@@ -700,9 +700,9 @@ class TestListModelsEndpointMerge:
             # Patch Manyfold cache/refresh so tests don't make real HTTP calls.
             # Empty Manyfold cache is fine — local models are the point of these tests.
             with (
-                patch("sidecars.model_catalog.app.main.read_cached_manyfold_summaries", return_value=[]),
+                patch("sidecars.model_catalog.app.routers.models.read_cached_manyfold_summaries", return_value=[]),
                 patch(
-                    "sidecars.model_catalog.app.main.refresh_manyfold_cache_with_status",
+                    "sidecars.model_catalog.app.routers.models.refresh_manyfold_cache_with_status",
                     return_value=([], {"outcome": "refreshed"}),
                 ),
             ):
@@ -737,6 +737,36 @@ class TestListModelsEndpointMerge:
 
         result_urls = [r["model_url"] for r in data["results"]]
         assert "local://local-001" in result_urls
+
+    def test_search_hides_archived_models_by_default(self, app_with_local_models):
+        """GET /api/models/search excludes archived models unless show_archived is enabled."""
+        client, db = app_with_local_models
+        set_model_field(db_path=db, model_ref="local-002", field_key="catalog_visibility", field_value="archived")
+
+        resp = client.get("/api/models/search")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        result_urls = [r["model_url"] for r in data["results"]]
+        assert "local://local-001" in result_urls
+        assert "local://local-002" not in result_urls
+        assert data["filters"]["show_archived"] is False
+        assert data["visibility"]["counts"]["active"] >= 1
+        assert data["visibility"]["counts"]["archived"] >= 1
+
+    def test_search_show_archived_includes_archived_models(self, app_with_local_models):
+        """GET /api/models/search?show_archived=true includes archived models."""
+        client, db = app_with_local_models
+        set_model_field(db_path=db, model_ref="local-002", field_key="catalog_visibility", field_value="archived")
+
+        resp = client.get("/api/models/search?show_archived=true")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        result_urls = [r["model_url"] for r in data["results"]]
+        assert "local://local-001" in result_urls
+        assert "local://local-002" in result_urls
+        assert data["filters"]["show_archived"] is True
 
     def test_list_models_local_entries_use_local_preview_asset_url(self, app_with_local_models):
         """GET /api/models exposes local preview asset URLs without Manyfold proxy rewriting."""
@@ -1068,6 +1098,7 @@ class TestListModelsEndpointMerge:
                         "catalog_signals": {
                             "model_favorite": False,
                             "model_rating": 4,
+                            "catalog_visibility": "archived",
                         },
                     }
                 },
@@ -1083,6 +1114,7 @@ class TestListModelsEndpointMerge:
         assert structured["publishing"]["published_urls"]["printables"] == "https://printables.example/model/123"
         assert structured["catalog_signals"]["model_favorite"] is False
         assert structured["catalog_signals"]["model_rating"] == 4
+        assert structured["catalog_signals"]["catalog_visibility"] == "archived"
 
     def test_update_local_model_endpoint_clears_structured_metadata(self, app_with_local_models):
         """PATCH /api/models/{model_ref} clears structured metadata fields when null is provided."""

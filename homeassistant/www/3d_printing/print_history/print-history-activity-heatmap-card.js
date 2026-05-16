@@ -193,7 +193,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "<style>" +
       "ha-card{padding:6px 16px 10px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
-      ".chart-wrap{position:relative;min-height:var(--chart-min-height,300px);}" +
+      ".chart-wrap{position:relative;}" +
       ".chart-wrap.loading{overflow:hidden;}" +
       ".refresh-indicator{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;background:rgba(15,23,42,0.68);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);color:#fff;font-size:11px;font-weight:700;line-height:1.1;letter-spacing:0.01em;z-index:5;pointer-events:none;box-shadow:0 8px 18px rgba(15,23,42,0.16);}" +
       ".refresh-indicator.hidden{display:none;}" +
@@ -251,7 +251,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".color-dot{width:12px;height:12px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.32);}" +
       ".error{color:var(--error-color);font-size:.9rem;line-height:1.4;padding:12px 0;}" +
       "@keyframes printHistoryHeatmapShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}" +
-      ".loading-shell{display:grid;gap:8px;min-height:var(--chart-min-height,300px);box-sizing:border-box;}" +
+      ".loading-shell{display:grid;gap:8px;box-sizing:border-box;}" +
       ".loading-month-row{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;margin-top:6px;margin-bottom:6px;}" +
       ".loading-month-labels{display:grid;grid-template-columns:repeat(var(--week-count,53), minmax(var(--cell-size,10px),1fr));column-gap:4px;align-items:center;min-height:14px;}" +
       ".loading-grid{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;}" +
@@ -513,7 +513,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._destroyChart();
     this._chartContainer.classList.add("loading");
     this._chartContainer.innerHTML = '' +
-      '<div class="loading-shell" style="--week-count:' + this._escapeHtml(String(weekCount || 53)) + ';min-height:var(--chart-min-height,300px);">' +
+      '<div class="loading-shell" style="--week-count:' + this._escapeHtml(String(weekCount || 53)) + ';">' +
         '<div class="loading-grid"><div class="loading-day-labels">' + dayLabels.join('') + '</div><div class="loading-cells">' + rows.join('') + '</div></div>' +
         '<div class="loading-month-row"><span></span><div class="loading-month-labels">' + monthLabels.join('') + '</div></div>' +
       '</div>';
@@ -1579,6 +1579,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     this._suppressPointSelection = true;
     try {
+      // Only enforce min-height when rendering the real chart, not shimmer
+      if (this._chartContainer) {
+        this._chartContainer.style.minHeight = 'var(--chart-min-height,300px)';
+      }
       if (currentSelection) {
         this._chart.toggleDataPointSelection(currentSelection.seriesIndex, currentSelection.dataPointIndex);
       }
@@ -1650,8 +1654,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _findSelectedPointElement() {
-    if (!this._chartContainer) {
-      return null;
+    if (this._chartContainer) {
+      this._chartContainer.style.minHeight = '';
     }
 
     return this._chartContainer.querySelector('.apexcharts-series path.apexcharts-active, .apexcharts-series .apexcharts-active');

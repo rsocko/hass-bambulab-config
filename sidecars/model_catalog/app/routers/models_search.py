@@ -30,6 +30,7 @@ def list_models(
     frequent_min_prints: int = 3,
     frequent_backfill_weight: float = 0.5,
     frequents_only: bool = False,
+    show_archived: bool = False,
     sort: str = "name",
 ) -> dict[str, Any]:
     return list_models_service(
@@ -43,6 +44,7 @@ def list_models(
         frequent_min_prints=frequent_min_prints,
         frequent_backfill_weight=frequent_backfill_weight,
         frequents_only=frequents_only,
+        show_archived=show_archived,
         sort=sort,
     )
 
@@ -64,6 +66,7 @@ def search_models(
     frequent_min_prints: int = 3,
     frequent_backfill_weight: float = 0.5,
     has_other_files: bool = False,
+    show_archived: bool = False,
     sort: str = "best",
     refresh: bool = False,
     page: int = 1,
@@ -86,6 +89,7 @@ def search_models(
         frequent_min_prints=frequent_min_prints,
         frequent_backfill_weight=frequent_backfill_weight,
         has_other_files=has_other_files,
+        show_archived=show_archived,
         sort=sort,
         refresh=refresh,
         page=page,

@@ -1104,6 +1104,7 @@ def _serialize_model_summary(
     provenance = structured_metadata.get("provenance") if isinstance(structured_metadata.get("provenance"), dict) else {}
     publishing = structured_metadata.get("publishing") if isinstance(structured_metadata.get("publishing"), dict) else {}
     catalog_signals = structured_metadata.get("catalog_signals") if isinstance(structured_metadata.get("catalog_signals"), dict) else {}
+    catalog_visibility = _normalize_catalog_visibility(catalog_signals.get("catalog_visibility")) or "active"
     published_to = publishing.get("published_to") if isinstance(publishing.get("published_to"), list) else []
     published_urls = publishing.get("published_urls") if isinstance(publishing.get("published_urls"), dict) else {}
     preview_url = summary.preview_url
@@ -1145,6 +1146,7 @@ def _serialize_model_summary(
         "published_to": published_to,
         "published_urls": published_urls,
         "model_favorite": catalog_signals.get("model_favorite"),
+        "catalog_visibility": catalog_visibility,
         "ranking": ranking_payload,
         "last_printed_at": ranking.last_printed_at if ranking is not None else None,
         "linked_archive_count": int(link_counts_by_url.get(summary.model_url, 0)),
@@ -1185,6 +1187,7 @@ _CANONICAL_PLATFORM_IDS = {
 _PUBLISHABLE_PLATFORM_IDS = _CANONICAL_PLATFORM_IDS - {"original_local"}
 
 _ALLOWED_ORIGIN_TYPES = {"custom_unique", "remix", "derivative"}
+_ALLOWED_CATALOG_VISIBILITY = {"active", "archived"}
 
 
 def _normalize_platform_id(value: object | None, *, allow_original_local: bool = True) -> str | None:
@@ -1200,6 +1203,13 @@ def _normalize_platform_id(value: object | None, *, allow_original_local: bool =
 def _normalize_origin_type(value: object | None) -> str | None:
     normalized = str(value or "").strip().lower()
     if normalized in _ALLOWED_ORIGIN_TYPES:
+        return normalized
+    return None
+
+
+def _normalize_catalog_visibility(value: object | None) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if normalized in _ALLOWED_CATALOG_VISIBILITY:
         return normalized
     return None
 
@@ -1288,6 +1298,7 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     origin_type = _normalize_origin_type(fields.get("origin_type"))
     remix_source = _normalize_remix_source(fields.get("remix_source"))
     source_platform = _normalize_platform_id(fields.get("source_platform"))
+    catalog_visibility = _normalize_catalog_visibility(fields.get("catalog_visibility")) or "active"
     published_to = _normalize_published_to(fields.get("published_to"))
     published_urls = _normalize_published_urls(fields.get("published_urls"), allowed_platforms=set(published_to) or None)
 
@@ -1306,6 +1317,7 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
         "catalog_signals": {
             "model_favorite": _coerce_boolish(fields.get("model_favorite")),
             "model_rating": model_rating,
+            "catalog_visibility": catalog_visibility,
         },
     }
 
@@ -1382,6 +1394,12 @@ def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, 
                     clears.add("model_rating")
                 else:
                     normalized["model_rating"] = normalized_model_rating
+            if "catalog_visibility" in catalog_signals:
+                normalized_catalog_visibility = _normalize_catalog_visibility(catalog_signals.get("catalog_visibility"))
+                if normalized_catalog_visibility is None:
+                    clears.add("catalog_visibility")
+                else:
+                    normalized["catalog_visibility"] = normalized_catalog_visibility
 
     for key, value in enrichment.items():
         if key == "structured_metadata":
@@ -1696,6 +1714,28 @@ def _model_is_favorite(model_payload: dict[str, Any]) -> bool:
             if favorite is not None:
                 return favorite
     return False
+
+
+def _model_catalog_visibility(model_payload: dict[str, Any]) -> str:
+    visibility = _normalize_catalog_visibility(model_payload.get("catalog_visibility"))
+    if visibility:
+        return visibility
+
+    custom_fields = model_payload.get("custom_fields") or {}
+    if isinstance(custom_fields, dict):
+        visibility = _normalize_catalog_visibility(custom_fields.get("catalog_visibility"))
+        if visibility:
+            return visibility
+
+    structured = model_payload.get("structured_metadata") or {}
+    if isinstance(structured, dict):
+        catalog_signals = structured.get("catalog_signals")
+        if isinstance(catalog_signals, dict):
+            visibility = _normalize_catalog_visibility(catalog_signals.get("catalog_visibility"))
+            if visibility:
+                return visibility
+
+    return "active"
 
 
 def _model_has_other_files(model_payload: dict[str, Any]) -> bool:
@@ -2196,6 +2236,7 @@ def list_models(
     frequent_min_prints: int = DEFAULT_FREQUENT_MIN_PRINTS,
     frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
     frequents_only: bool = False,
+    show_archived: bool = False,
     sort: str = "name",
 ) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
@@ -2219,6 +2260,7 @@ def list_models(
         backfill_weight=resolved_backfill_weight,
     )
     models = []
+    visibility_counts = {"active": 0, "archived": 0}
     for summary in all_summaries:
         model_ref = summary.public_id or summary.model_id or summary.model_url
         custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
@@ -2257,6 +2299,11 @@ def list_models(
         if frequents_only and not _model_is_frequent(model_payload, frequent_min_prints=resolved_min_prints):
             models.pop()
             continue
+        catalog_visibility = _model_catalog_visibility(model_payload)
+        visibility_counts[catalog_visibility] = int(visibility_counts.get(catalog_visibility, 0)) + 1
+        if not show_archived and catalog_visibility == "archived":
+            models.pop()
+            continue
 
     models.sort(key=lambda item: _sort_value(item, sort))
     return {
@@ -2269,6 +2316,10 @@ def list_models(
             "backfill_weight": resolved_backfill_weight,
         },
         "refresh_status": refresh_status,
+        "visibility": {
+            "show_archived": bool(show_archived),
+            "counts": visibility_counts,
+        },
     }
 
 def search_models(
@@ -2287,6 +2338,7 @@ def search_models(
     frequent_min_prints: int = DEFAULT_FREQUENT_MIN_PRINTS,
     frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
     has_other_files: bool = False,
+    show_archived: bool = False,
     sort: str = "best",
     refresh: bool = False,
     page: int = 1,
@@ -2333,6 +2385,7 @@ def search_models(
 
     # Filter and score models
     scored_models: list[tuple[float, dict[str, Any]]] = []
+    visibility_counts = {"active": 0, "archived": 0}
     for summary in summaries:
         # Apply filters
         if not _matches_filters(summary, collection, creator, tag):
@@ -2391,6 +2444,11 @@ def search_models(
             continue
         if has_other_files and not _model_has_other_files(model_payload):
             continue
+
+        catalog_visibility = _model_catalog_visibility(model_payload)
+        visibility_counts[catalog_visibility] = int(visibility_counts.get(catalog_visibility, 0)) + 1
+        if not show_archived and catalog_visibility == "archived":
+            continue
         
         scored_models.append((score, model_payload))
 
@@ -2430,6 +2488,11 @@ def search_models(
             "frequent_min_prints": resolved_min_prints,
             "frequent_backfill_weight": resolved_backfill_weight,
             "has_other_files": has_other_files,
+            "show_archived": bool(show_archived),
+        },
+        "visibility": {
+            "show_archived": bool(show_archived),
+            "counts": visibility_counts,
         },
         "sort": normalized_sort,
         "pagination": {

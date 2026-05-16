@@ -414,6 +414,7 @@ class TestModelDetailEndpoint:
                             "catalog_signals": {
                                 "model_favorite": True,
                                 "model_rating": 5,
+                                "catalog_visibility": "archived",
                             },
                         }
                     }
@@ -427,6 +428,7 @@ class TestModelDetailEndpoint:
             assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld"]
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_rating"] == 5
+            assert data["enrichment"]["structured_metadata"]["catalog_signals"]["catalog_visibility"] == "archived"
             mock_client.update_model.assert_not_called()
 
     def test_update_model_endpoint_clears_structured_metadata(self, client, sample_model_summary):
@@ -480,6 +482,7 @@ class TestModelDetailEndpoint:
             assert data["enrichment"]["structured_metadata"]["provenance"]["origin_type"] is None
             assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == []
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is None
+            assert data["enrichment"]["structured_metadata"]["catalog_signals"]["catalog_visibility"] == "active"
 
     def test_update_model_endpoint_rejects_manyfold_backed_updates_in_local_authority_mode(self, sample_model_summary):
         """PATCH /api/models/{model_ref} refuses Manyfold-backed writes when authority_mode is local."""
