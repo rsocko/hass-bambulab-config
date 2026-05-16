@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 import logging
 import hashlib
 from io import BytesIO
@@ -3863,6 +3864,143 @@ def test_model_ranking_can_be_refreshed_from_accepted_links(tmp_path: Path) -> N
         frequent = test_client.get("/api/models?sort=frequent")
         assert frequent.status_code == 200
         assert [model["public_id"] for model in frequent.json()["models"]] == ["gridfinity-bin", "tool-rack"]
+
+
+def test_frequents_layer2_derivation_applies_window_threshold_and_backfill_weight(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    now = datetime.now(timezone.utc)
+    recent_1 = (now - timedelta(days=2)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    recent_2 = (now - timedelta(days=4)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    recent_3 = (now - timedelta(days=5)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    old_1 = (now - timedelta(days=120)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for model_url, public_id, name in [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (model_url, public_id, name, None, None, None, "[]", "[]", "{}", recent_1),
+            )
+
+        accepted_links = [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", 9101, recent_1),
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", 9102, recent_2),
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", 9103, old_1),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", 9201, recent_2),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", 9202, recent_3),
+        ]
+        for model_url, public_id, archive_id, updated_at in accepted_links:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_links (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_file_id,
+                    bambuddy_archive_id,
+                    relationship_type,
+                    link_role,
+                    match_method,
+                    match_confidence,
+                    review_state,
+                    is_active,
+                    review_note,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    None,
+                    archive_id,
+                    "source_for",
+                    "primary",
+                    "manual",
+                    "high",
+                    "accepted",
+                    1,
+                    None,
+                    updated_at,
+                    updated_at,
+                ),
+            )
+
+        # Mark one recent archive as historical backfill so weighted count differs.
+        connection.execute(
+            """
+            INSERT INTO model_catalog_print_history_jobs (
+                job_id,
+                source_kind,
+                archive_intent,
+                created_archive_id,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            ("job-9102", "catalog_model", "historical", 9102, recent_2, recent_2),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    reference_time = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    with TestClient(app) as test_client:
+        refresh = test_client.post(
+            "/api/models/ranking/refresh",
+            json={
+                "reference_time": reference_time,
+                "frequent_window_days": 30,
+                "frequent_min_prints": 2,
+                "frequent_backfill_weight": 0.5,
+            },
+        )
+        assert refresh.status_code == 200
+        refresh_payload = refresh.json()
+        assert refresh_payload["frequents_tuning"] == {
+            "window_days": 30,
+            "min_prints": 2,
+            "backfill_weight": pytest.approx(0.5),
+        }
+
+        by_public_id = {
+            row["manyfold_model_public_id"]: row
+            for row in refresh_payload["rankings"]
+        }
+        assert by_public_id["gridfinity-bin"]["frequents"]["weighted_print_count"] == pytest.approx(1.5)
+        assert by_public_id["gridfinity-bin"]["frequent_score"] == pytest.approx(0.0)
+        assert by_public_id["gridfinity-bin"]["frequents"]["is_frequent"] is False
+
+        assert by_public_id["tool-rack"]["frequents"]["weighted_print_count"] == pytest.approx(2.0)
+        assert by_public_id["tool-rack"]["frequent_score"] == pytest.approx(2.0)
+        assert by_public_id["tool-rack"]["frequents"]["is_frequent"] is True
+
+        frequent_only = test_client.get(
+            "/api/models/search?frequents_only=true&frequent_window_days=30&frequent_min_prints=2&frequent_backfill_weight=0.5&sort=frequent"
+        )
+        assert frequent_only.status_code == 200
+        frequent_only_payload = frequent_only.json()
+        assert frequent_only_payload["pagination"]["total"] == 1
+        assert frequent_only_payload["results"][0]["public_id"] == "tool-rack"
 
 
 def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Path) -> None:

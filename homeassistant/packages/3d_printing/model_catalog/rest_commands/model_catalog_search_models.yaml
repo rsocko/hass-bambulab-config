@@ -21,6 +21,24 @@ model_catalog_search_models:
     {%- if favorites_only is defined -%}
       {%- set ns.params = ns.params + ['favorites_only=' ~ ((favorites_only | bool) | string | lower)] -%}
     {%- endif -%}
+    {%- if frequents_only is defined -%}
+      {%- set ns.params = ns.params + ['frequents_only=' ~ ((frequents_only | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- set configured_frequent_window_days = states('input_number.model_catalog_frequent_window_days') | int(90) -%}
+    {%- set configured_frequent_min_prints = states('input_number.model_catalog_frequent_min_prints') | int(3) -%}
+    {%- if frequent_window_days is defined -%}
+      {%- set ns.params = ns.params + ['frequent_window_days=' ~ ((frequent_window_days | int(configured_frequent_window_days)) | string)] -%}
+    {%- else -%}
+      {%- set ns.params = ns.params + ['frequent_window_days=' ~ (configured_frequent_window_days | string)] -%}
+    {%- endif -%}
+    {%- if frequent_min_prints is defined -%}
+      {%- set ns.params = ns.params + ['frequent_min_prints=' ~ ((frequent_min_prints | int(configured_frequent_min_prints)) | string)] -%}
+    {%- else -%}
+      {%- set ns.params = ns.params + ['frequent_min_prints=' ~ (configured_frequent_min_prints | string)] -%}
+    {%- endif -%}
+    {%- if frequent_backfill_weight is defined -%}
+      {%- set ns.params = ns.params + ['frequent_backfill_weight=' ~ ((frequent_backfill_weight | float(0.5)) | string)] -%}
+    {%- endif -%}
     {%- if has_other_files is defined -%}
       {%- set ns.params = ns.params + ['has_other_files=' ~ ((has_other_files | bool) | string | lower)] -%}
     {%- endif -%}

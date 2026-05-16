@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -53,6 +54,14 @@ class ModelRankingInput:
     linked_archive_count: int
     print_count: int
     last_linked_at: str | None
+
+
+@dataclass(frozen=True)
+class ModelFrequencyWindowStat:
+    manyfold_model_url: str
+    weighted_print_count: float
+    print_count_window: int
+    backfill_print_count_window: int
 
 
 @dataclass(frozen=True)
@@ -1027,3 +1036,75 @@ def read_model_ranking_inputs(*, db_path: Path) -> list[ModelRankingInput]:
         )
         for row in rows
     ]
+
+
+def read_model_frequency_window_stats(
+    *,
+    db_path: Path,
+    reference_time: datetime,
+    window_days: int,
+    backfill_weight: float,
+) -> dict[str, ModelFrequencyWindowStat]:
+    """Return per-model weighted print totals within a recency window.
+
+    Historical backfill archives are included but down-weighted according to
+    ``backfill_weight`` to avoid overwhelming genuine repeat-print signals.
+    """
+    window_start_iso = (reference_time - timedelta(days=max(1, int(window_days)))).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    safe_backfill_weight = max(0.0, min(float(backfill_weight), 1.0))
+
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                l.manyfold_model_url AS manyfold_model_url,
+                SUM(
+                    CASE
+                        WHEN l.updated_at >= ?
+                            THEN CASE
+                                WHEN b.created_archive_id IS NOT NULL THEN ?
+                                ELSE 1.0
+                            END
+                        ELSE 0.0
+                    END
+                ) AS weighted_print_count,
+                SUM(CASE WHEN l.updated_at >= ? THEN 1 ELSE 0 END) AS print_count_window,
+                SUM(
+                    CASE
+                        WHEN l.updated_at >= ? AND b.created_archive_id IS NOT NULL THEN 1
+                        ELSE 0
+                    END
+                ) AS backfill_print_count_window
+            FROM model_catalog_links l
+            LEFT JOIN (
+                SELECT DISTINCT created_archive_id
+                FROM model_catalog_print_history_jobs
+                WHERE workflow_kind = 'historical_backfill'
+                  AND created_archive_id IS NOT NULL
+            ) b
+                ON b.created_archive_id = l.bambuddy_archive_id
+            WHERE l.is_active = 1
+              AND l.review_state = 'accepted'
+            GROUP BY l.manyfold_model_url
+            ORDER BY l.manyfold_model_url ASC
+            """,
+            (
+                window_start_iso,
+                safe_backfill_weight,
+                window_start_iso,
+                window_start_iso,
+            ),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    return {
+        str(row["manyfold_model_url"]): ModelFrequencyWindowStat(
+            manyfold_model_url=str(row["manyfold_model_url"]),
+            weighted_print_count=float(row["weighted_print_count"] or 0.0),
+            print_count_window=int(row["print_count_window"] or 0),
+            backfill_print_count_window=int(row["backfill_print_count_window"] or 0),
+        )
+        for row in rows
+    }

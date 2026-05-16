@@ -26,6 +26,10 @@ def list_models(
     to_print_priority: int | None = None,
     to_print_priority_min: int | None = None,
     to_print_priority_max: int | None = None,
+    frequent_window_days: int = 90,
+    frequent_min_prints: int = 3,
+    frequent_backfill_weight: float = 0.5,
+    frequents_only: bool = False,
     sort: str = "name",
 ) -> dict[str, Any]:
     return list_models_service(
@@ -35,6 +39,10 @@ def list_models(
         to_print_priority=to_print_priority,
         to_print_priority_min=to_print_priority_min,
         to_print_priority_max=to_print_priority_max,
+        frequent_window_days=frequent_window_days,
+        frequent_min_prints=frequent_min_prints,
+        frequent_backfill_weight=frequent_backfill_weight,
+        frequents_only=frequents_only,
         sort=sort,
     )
 
@@ -51,6 +59,10 @@ def search_models(
     to_print_priority_min: int | None = None,
     to_print_priority_max: int | None = None,
     favorites_only: bool = False,
+    frequents_only: bool = False,
+    frequent_window_days: int = 90,
+    frequent_min_prints: int = 3,
+    frequent_backfill_weight: float = 0.5,
     has_other_files: bool = False,
     sort: str = "best",
     refresh: bool = False,
@@ -69,6 +81,10 @@ def search_models(
         to_print_priority_min=to_print_priority_min,
         to_print_priority_max=to_print_priority_max,
         favorites_only=favorites_only,
+        frequents_only=frequents_only,
+        frequent_window_days=frequent_window_days,
+        frequent_min_prints=frequent_min_prints,
+        frequent_backfill_weight=frequent_backfill_weight,
         has_other_files=has_other_files,
         sort=sort,
         refresh=refresh,

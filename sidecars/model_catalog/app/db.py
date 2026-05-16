@@ -38,6 +38,7 @@ from .db_migrations import (
 from .db_archive_links import (
     ArchiveModelLink,
     CanonicalModelUrlRepairResult,
+    ModelFrequencyWindowStat,
     ModelRankingInput,
     ModelRankingSnapshot,
     create_archive_link,
@@ -46,6 +47,7 @@ from .db_archive_links import (
     read_all_model_ranking,
     read_archive_links,
     read_model_link_counts,
+    read_model_frequency_window_stats,
     read_model_ranking,
     read_model_ranking_inputs,
     repair_canonical_model_urls,
@@ -166,6 +168,7 @@ __all__ = [
     # Archive linking (re-exported for backward compatibility)
     "ArchiveModelLink",
     "CanonicalModelUrlRepairResult",
+    "ModelFrequencyWindowStat",
     "ModelRankingSnapshot",
     "ModelRankingInput",
     "create_archive_link",
@@ -180,6 +183,7 @@ __all__ = [
     "read_model_ranking",
     "read_all_model_ranking",
     "read_model_link_counts",
+    "read_model_frequency_window_stats",
     "read_model_ranking_inputs",
     # Model fields (re-exported for backward compatibility)
     "set_model_field",

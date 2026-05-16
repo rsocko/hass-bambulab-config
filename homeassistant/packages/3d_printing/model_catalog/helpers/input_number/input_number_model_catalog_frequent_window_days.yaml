@@ -1,0 +1,9 @@
+model_catalog_frequent_window_days:
+  name: Model Catalog Frequent Window (days)
+  icon: mdi:calendar-clock
+  min: 7
+  max: 365
+  step: 1
+  mode: box
+  unit_of_measurement: d
+  initial: 90

@@ -24,6 +24,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._debounceHandle = null;
     this._modelSidecarUrl = "";
     this._unifiedQueueByModelRef = {};
+    this._frequentsTuning = {
+      window_days: 90,
+      min_prints: 3,
+      backfill_weight: 0.5,
+      initialized: false,
+    };
 
     this._boundClick = this._handleClick.bind(this);
     this._boundInput = this._handleInput.bind(this);
@@ -46,8 +52,56 @@ class ModelCatalogBrowserCard extends HTMLElement {
       tag: "",
       sort: "recent",
       favorites_only: false,
+      frequents_only: false,
       has_other_files: false,
     };
+  }
+
+  _clampInteger(value, fallback, min, max) {
+    var numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return fallback;
+    }
+    return Math.max(min, Math.min(max, Math.round(numeric)));
+  }
+
+  _readInputNumber(entityId, fallback, min, max) {
+    if (!this._hass || !this._hass.states) {
+      return fallback;
+    }
+    var entity = this._hass.states[String(entityId || "")];
+    if (!entity || entity.state === "unknown" || entity.state === "unavailable") {
+      return fallback;
+    }
+    return this._clampInteger(entity.state, fallback, min, max);
+  }
+
+  _syncFrequentsTuningFromHelpers(force) {
+    if (!force && this._frequentsTuning.initialized) {
+      return;
+    }
+    this._frequentsTuning.window_days = this._readInputNumber("input_number.model_catalog_frequent_window_days", 90, 7, 3650);
+    this._frequentsTuning.min_prints = this._readInputNumber("input_number.model_catalog_frequent_min_prints", 3, 1, 9999);
+    this._frequentsTuning.backfill_weight = 0.5;
+    this._frequentsTuning.initialized = true;
+  }
+
+  async _persistFrequentsTuningToHelpers() {
+    if (!this._hass || typeof this._hass.callService !== "function") {
+      return;
+    }
+    try {
+      await this._hass.callService("input_number", "set_value", {
+        entity_id: "input_number.model_catalog_frequent_window_days",
+        value: this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650),
+      });
+      await this._hass.callService("input_number", "set_value", {
+        entity_id: "input_number.model_catalog_frequent_min_prints",
+        value: this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999),
+      });
+    } catch (_error) {
+      // Keep local state even if helper persistence fails.
+    }
   }
 
   setConfig(config) {
@@ -68,6 +122,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var hadHass = !!this._hass;
     this._hass = hass;
     this._modelSidecarUrl = this._resolveModelSidecarUrl();
+    this._syncFrequentsTuningFromHelpers(false);
 
     if (!hadHass && !this._hasAttemptedLoad && !this._loading && !this._error) {
       this._hasAttemptedLoad = true;
@@ -245,7 +300,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.per_page = Math.max(1, Math.min(96, perPage));
     }
     this._filters.favorites_only = !!(root.querySelector("#mc-favorites-only") && root.querySelector("#mc-favorites-only").checked);
+    this._filters.frequents_only = !!(root.querySelector("#mc-frequents-only") && root.querySelector("#mc-frequents-only").checked);
     this._filters.has_other_files = !!(root.querySelector("#mc-has-other-files") && root.querySelector("#mc-has-other-files").checked);
+    this._frequentsTuning.window_days = this._clampInteger(read("#mc-frequent-window"), this._frequentsTuning.window_days || 90, 7, 3650);
+    this._frequentsTuning.min_prints = this._clampInteger(read("#mc-frequent-min-prints"), this._frequentsTuning.min_prints || 3, 1, 9999);
+    this._frequentsTuning.backfill_weight = 0.5;
   }
 
   _applyPerPageChange(nextValue) {
@@ -336,6 +395,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
         tag: this._filters.tag,
         sort: this._filters.sort,
         favorites_only: !!this._filters.favorites_only,
+        frequents_only: !!this._filters.frequents_only,
+        frequent_window_days: this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650),
+        frequent_min_prints: this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999),
+        frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
@@ -344,6 +407,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
       var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
       this._results = Array.isArray(data && data.results) ? data.results : [];
+      var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
+      this._frequentsTuning.window_days = this._clampInteger(
+        responseFilters.frequent_window_days,
+        requestPayload.frequent_window_days,
+        7,
+        3650
+      );
+      this._frequentsTuning.min_prints = this._clampInteger(
+        responseFilters.frequent_min_prints,
+        requestPayload.frequent_min_prints,
+        1,
+        9999
+      );
+      if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
+        this._filters.frequents_only = !!responseFilters.frequents_only;
+      }
 
       var pagination = data && data.pagination ? data.pagination : {};
       this._pagination.page = Number(pagination.page || requestPayload.page) || 1;
@@ -512,6 +591,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (targetId === "mc-frequent-window" || targetId === "mc-frequent-min-prints") {
+      this._syncFormIntoFilters();
+      await this._persistFrequentsTuningToHelpers();
+      this._cancelScheduledApply();
+      this._applyFilters();
+      return;
+    }
+
     if (!target.classList || !target.classList.contains("control-input")) {
       return;
     }
@@ -567,6 +654,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "clear-filters") {
       this._cancelScheduledApply();
       this._filters = this._defaultFilters();
+      this._syncFrequentsTuningFromHelpers(true);
       this._error = "";
       this._activeActionMenu = "";
       this._requestLoad(1, false);
@@ -600,6 +688,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-favorites-filter") {
       this._filters.favorites_only = !this._filters.favorites_only;
+      this._cancelScheduledApply();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === "toggle-frequents-filter") {
+      this._filters.frequents_only = !this._filters.frequents_only;
       this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
@@ -1689,6 +1785,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderFilterBar() {
+    var windowDays = this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650);
+    var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
     return ''
       + '<div class="filter-row">'
       + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search models" value="' + this._escapeHtml(this._filters.q) + '">'
@@ -1696,8 +1794,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <input id="mc-creator" class="control-input" type="text" placeholder="Creator" value="' + this._escapeHtml(this._filters.creator) + '">'
       + '  <input id="mc-tag" class="control-input" type="text" placeholder="Tag" value="' + this._escapeHtml(this._filters.tag) + '">'
       + '  <button class="filter-chip toggle-chip' + (this._filters.favorites_only ? ' active favorite' : '') + '" type="button" data-action="toggle-favorites-filter" aria-pressed="' + (this._filters.favorites_only ? 'true' : 'false') + '">Favorites only</button>'
+      + '  <button class="filter-chip toggle-chip' + (this._filters.frequents_only ? ' active frequent' : '') + '" type="button" data-action="toggle-frequents-filter" aria-pressed="' + (this._filters.frequents_only ? 'true' : 'false') + '">Frequents only</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
+      + '  <label class="inline-select" for="mc-frequent-window">Freq window'
+      + '    <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
+      + '      <option value="30"' + (windowDays === 30 ? ' selected' : '') + '>30d</option>'
+      + '      <option value="90"' + (windowDays === 90 ? ' selected' : '') + '>90d</option>'
+      + '      <option value="365"' + (windowDays === 365 ? ' selected' : '') + '>1y</option>'
+      + '      <option value="3650"' + (windowDays === 3650 ? ' selected' : '') + '>All</option>'
+      + '    </select>'
+      + '  </label>'
+      + '  <label class="inline-select" for="mc-frequent-min-prints">Min prints'
+      + '    <select id="mc-frequent-min-prints" class="control-input compact-select tuning-select">'
+      + '      <option value="1"' + (minPrints === 1 ? ' selected' : '') + '>1</option>'
+      + '      <option value="2"' + (minPrints === 2 ? ' selected' : '') + '>2</option>'
+      + '      <option value="3"' + (minPrints === 3 ? ' selected' : '') + '>3</option>'
+      + '      <option value="4"' + (minPrints === 4 ? ' selected' : '') + '>4</option>'
+      + '      <option value="5"' + (minPrints === 5 ? ' selected' : '') + '>5</option>'
+      + '      <option value="6"' + (minPrints === 6 ? ' selected' : '') + '>6</option>'
+      + '    </select>'
+      + '  </label>'
       + '  <input id="mc-favorites-only" type="checkbox" hidden ' + (this._filters.favorites_only ? 'checked' : '') + '>'
+      + '  <input id="mc-frequents-only" type="checkbox" hidden ' + (this._filters.frequents_only ? 'checked' : '') + '>'
       + '  <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
       + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
       + '</div>';
@@ -2514,12 +2632,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-mode-item:hover,.view-mode-item:focus-visible{background:rgba(148,163,184,0.16);outline:none;}'
       + '.view-mode-item.active{background:var(--accent);border-color:var(--accent-strong);}'
       + '.view-mode-item:disabled{opacity:.55;cursor:not-allowed;}'
-      + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(3,minmax(130px,1fr)) auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
+      + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(3,minmax(130px,1fr)) auto auto auto auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
       + '.filter-search{grid-column:auto;}'
+      + '.inline-select{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}'
+      + '.inline-select .tuning-select{min-width:84px;min-height:34px;}'
       + '.filter-chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;appearance:none;pointer-events:auto;position:relative;z-index:1;}'
       + '.filter-chip:hover,.filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'
       + '.filter-chip.active{color:var(--primary-text-color);}'
       + '.filter-chip.favorite.active{background:rgba(245,194,66,0.20);border-color:rgba(245,194,66,0.48);color:#f5c242;}'
+      + '.filter-chip.frequent.active{background:rgba(16,185,129,0.20);border-color:rgba(16,185,129,0.44);color:#6ee7b7;}'
       + '.filter-chip.docs.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.34);color:#93c5fd;}'
       + '.page-control-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);}'
       + '.toolbar-group{display:inline-flex;align-items:center;gap:8px;min-width:0;}'
@@ -2694,8 +2815,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
-      + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto;}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto auto auto auto;}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'

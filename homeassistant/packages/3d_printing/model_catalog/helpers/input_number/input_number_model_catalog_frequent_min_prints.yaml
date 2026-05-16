@@ -1,0 +1,8 @@
+model_catalog_frequent_min_prints:
+  name: Model Catalog Frequent Min Prints
+  icon: mdi:counter
+  min: 1
+  max: 50
+  step: 1
+  mode: box
+  initial: 3

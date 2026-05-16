@@ -54,6 +54,7 @@ from ..db import (
     read_model_field,
     read_model_fields,
     read_model_link_counts,
+    read_model_frequency_window_stats,
     read_model_ranking,
     read_model_ranking_inputs,
     repair_canonical_model_urls,
@@ -157,6 +158,9 @@ MAX_SERVER_SIDE_3MF_BYTES = 256 * 1024 * 1024
 # just above 1M while still fitting comfortably in the post-parse memory
 # budget once the array.array buffers are freed and decimation/LOD applies.
 MAX_SERVER_SIDE_3MF_TRIANGLES = 1_500_000
+DEFAULT_FREQUENT_WINDOW_DAYS = 90
+DEFAULT_FREQUENT_MIN_PRINTS = 3
+DEFAULT_FREQUENT_BACKFILL_WEIGHT = 0.5
 GEOMETRY_LOD_TRIANGLE_LIMITS: dict[str, int] = {
     "low": 150_000,
     "medium": 400_000,
@@ -991,6 +995,87 @@ def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
         common_score = ranking.get("common_score")
         return (0 if common_score is not None else 1, -(float(common_score or 0)), model_payload["name"].lower())
     return (0, model_payload["name"].lower())
+
+
+def _normalize_frequents_window_days(value: object | None) -> int:
+    candidate = _coerce_int(value)
+    if candidate is None:
+        return DEFAULT_FREQUENT_WINDOW_DAYS
+    return max(1, min(candidate, 3650))
+
+
+def _normalize_frequents_min_prints(value: object | None) -> int:
+    candidate = _coerce_int(value)
+    if candidate is None:
+        return DEFAULT_FREQUENT_MIN_PRINTS
+    return max(1, min(candidate, 9999))
+
+
+def _normalize_frequents_backfill_weight(value: object | None) -> float:
+    try:
+        candidate = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_FREQUENT_BACKFILL_WEIGHT
+    return max(0.0, min(candidate, 1.0))
+
+
+def _apply_frequents_layer2_derivation(
+    model_payload: dict[str, Any],
+    *,
+    weighted_print_count: float,
+    window_print_count: int,
+    window_backfill_count: int,
+    frequent_min_prints: int,
+    frequent_window_days: int,
+    frequent_backfill_weight: float,
+) -> None:
+    weighted_count = float(max(weighted_print_count, 0.0))
+    min_prints = max(1, int(frequent_min_prints))
+    is_frequent = weighted_count >= float(min_prints)
+
+    ranking = model_payload.get("ranking")
+    if not isinstance(ranking, dict):
+        ranking = {}
+        model_payload["ranking"] = ranking
+
+    ranking["frequent_score"] = weighted_count if is_frequent else 0.0
+    recent_score = ranking.get("recent_score")
+    ranking["common_score"] = (
+        float(ranking["frequent_score"]) * float(recent_score)
+        if recent_score is not None
+        else None
+    )
+
+    model_payload["model_frequent"] = is_frequent
+    model_payload["frequents"] = {
+        "is_frequent": is_frequent,
+        "weighted_print_count": weighted_count,
+        "print_count_window": int(max(window_print_count, 0)),
+        "backfill_print_count_window": int(max(window_backfill_count, 0)),
+        "min_prints": min_prints,
+        "window_days": max(1, int(frequent_window_days)),
+        "backfill_weight": max(0.0, min(float(frequent_backfill_weight), 1.0)),
+    }
+
+
+def _model_is_frequent(model_payload: dict[str, Any], *, frequent_min_prints: int) -> bool:
+    frequents = model_payload.get("frequents")
+    if isinstance(frequents, dict):
+        flag = _coerce_boolish(frequents.get("is_frequent"))
+        if flag is not None:
+            return flag
+        weighted = frequents.get("weighted_print_count")
+        try:
+            return float(weighted) >= float(max(1, frequent_min_prints))
+        except (TypeError, ValueError):
+            pass
+    ranking = model_payload.get("ranking")
+    if isinstance(ranking, dict):
+        try:
+            return float(ranking.get("frequent_score") or 0.0) >= float(max(1, frequent_min_prints))
+        except (TypeError, ValueError):
+            return False
+    return False
 
 
 def _serialize_model_summary(
@@ -2107,6 +2192,10 @@ def list_models(
     to_print_priority: int | None = None,
     to_print_priority_min: int | None = None,
     to_print_priority_max: int | None = None,
+    frequent_window_days: int = DEFAULT_FREQUENT_WINDOW_DAYS,
+    frequent_min_prints: int = DEFAULT_FREQUENT_MIN_PRINTS,
+    frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
+    frequents_only: bool = False,
     sort: str = "name",
 ) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
@@ -2120,6 +2209,15 @@ def list_models(
 
     ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
     link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
+    resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
+    resolved_min_prints = _normalize_frequents_min_prints(frequent_min_prints)
+    resolved_backfill_weight = _normalize_frequents_backfill_weight(frequent_backfill_weight)
+    frequency_stats_by_url = read_model_frequency_window_stats(
+        db_path=state.settings.db_path,
+        reference_time=datetime.now(timezone.utc),
+        window_days=resolved_window_days,
+        backfill_weight=resolved_backfill_weight,
+    )
     models = []
     for summary in all_summaries:
         model_ref = summary.public_id or summary.model_id or summary.model_url
@@ -2145,11 +2243,31 @@ def list_models(
             )
         )
 
+        model_payload = models[-1]
+        stats = frequency_stats_by_url.get(summary.model_url)
+        _apply_frequents_layer2_derivation(
+            model_payload,
+            weighted_print_count=stats.weighted_print_count if stats is not None else 0.0,
+            window_print_count=stats.print_count_window if stats is not None else 0,
+            window_backfill_count=stats.backfill_print_count_window if stats is not None else 0,
+            frequent_min_prints=resolved_min_prints,
+            frequent_window_days=resolved_window_days,
+            frequent_backfill_weight=resolved_backfill_weight,
+        )
+        if frequents_only and not _model_is_frequent(model_payload, frequent_min_prints=resolved_min_prints):
+            models.pop()
+            continue
+
     models.sort(key=lambda item: _sort_value(item, sort))
     return {
         "source": source,
         "count": len(models),
         "models": models,
+        "frequents_tuning": {
+            "window_days": resolved_window_days,
+            "min_prints": resolved_min_prints,
+            "backfill_weight": resolved_backfill_weight,
+        },
         "refresh_status": refresh_status,
     }
 
@@ -2164,6 +2282,10 @@ def search_models(
     to_print_priority_min: int | None = None,
     to_print_priority_max: int | None = None,
     favorites_only: bool = False,
+    frequents_only: bool = False,
+    frequent_window_days: int = DEFAULT_FREQUENT_WINDOW_DAYS,
+    frequent_min_prints: int = DEFAULT_FREQUENT_MIN_PRINTS,
+    frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
     has_other_files: bool = False,
     sort: str = "best",
     refresh: bool = False,
@@ -2191,6 +2313,15 @@ def search_models(
     # Get ranking and link count data
     ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
     link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
+    resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
+    resolved_min_prints = _normalize_frequents_min_prints(frequent_min_prints)
+    resolved_backfill_weight = _normalize_frequents_backfill_weight(frequent_backfill_weight)
+    frequency_stats_by_url = read_model_frequency_window_stats(
+        db_path=state.settings.db_path,
+        reference_time=datetime.now(timezone.utc),
+        window_days=resolved_window_days,
+        backfill_weight=resolved_backfill_weight,
+    )
     preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
 
     collection_diagnostics = None
@@ -2236,6 +2367,17 @@ def search_models(
             settings=state.settings,
         )
 
+        stats = frequency_stats_by_url.get(summary.model_url)
+        _apply_frequents_layer2_derivation(
+            model_payload,
+            weighted_print_count=stats.weighted_print_count if stats is not None else 0.0,
+            window_print_count=stats.print_count_window if stats is not None else 0,
+            window_backfill_count=stats.backfill_print_count_window if stats is not None else 0,
+            frequent_min_prints=resolved_min_prints,
+            frequent_window_days=resolved_window_days,
+            frequent_backfill_weight=resolved_backfill_weight,
+        )
+
         # Inject local asset counts so the card can render file-kind chips
         if _is_local_summary(summary) and summary.public_id:
             _counts = local_asset_kind_counts.get(str(summary.public_id), {})
@@ -2244,6 +2386,8 @@ def search_models(
             model_payload["other_files_count"] = _counts.get("other", 0)
 
         if favorites_only and not _model_is_favorite(model_payload):
+            continue
+        if frequents_only and not _model_is_frequent(model_payload, frequent_min_prints=resolved_min_prints):
             continue
         if has_other_files and not _model_has_other_files(model_payload):
             continue
@@ -2281,6 +2425,10 @@ def search_models(
             "to_print_priority_min": to_print_priority_min,
             "to_print_priority_max": to_print_priority_max,
             "favorites_only": favorites_only,
+            "frequents_only": frequents_only,
+            "frequent_window_days": resolved_window_days,
+            "frequent_min_prints": resolved_min_prints,
+            "frequent_backfill_weight": resolved_backfill_weight,
             "has_other_files": has_other_files,
         },
         "sort": normalized_sort,
@@ -2688,12 +2836,30 @@ def refresh_model_rankings_endpoint(request: Request, payload: dict[str, Any] | 
     state: AppState = request.app.state.model_catalog
     request_payload = payload or {}
     reference_time = _parse_iso_datetime(str(request_payload.get("reference_time") or "").strip()) or datetime.now(timezone.utc)
+    frequent_window_days = _normalize_frequents_window_days(request_payload.get("frequent_window_days"))
+    frequent_min_prints = _normalize_frequents_min_prints(request_payload.get("frequent_min_prints"))
+    frequent_backfill_weight = _normalize_frequents_backfill_weight(request_payload.get("frequent_backfill_weight"))
     inputs = read_model_ranking_inputs(db_path=state.settings.db_path)
+    frequency_stats_by_url = read_model_frequency_window_stats(
+        db_path=state.settings.db_path,
+        reference_time=reference_time,
+        window_days=frequent_window_days,
+        backfill_weight=frequent_backfill_weight,
+    )
     refreshed = []
+    stats_payload_by_url: dict[str, dict[str, Any]] = {}
     for item in inputs:
         recent_score = _compute_recent_score(last_printed_at=item.last_linked_at, reference_time=reference_time)
-        frequent_score = float(item.print_count)
+        stats = frequency_stats_by_url.get(item.manyfold_model_url)
+        weighted_window_prints = float(stats.weighted_print_count if stats is not None else 0.0)
+        frequent_score = weighted_window_prints if weighted_window_prints >= float(frequent_min_prints) else 0.0
         common_score = None if recent_score is None else frequent_score * recent_score
+        stats_payload_by_url[item.manyfold_model_url] = {
+            "weighted_print_count": weighted_window_prints,
+            "print_count_window": int(stats.print_count_window if stats is not None else 0),
+            "backfill_print_count_window": int(stats.backfill_print_count_window if stats is not None else 0),
+            "is_frequent": frequent_score > 0,
+        }
         refreshed.append(
             upsert_model_ranking(
                 db_path=state.settings.db_path,
@@ -2711,11 +2877,22 @@ def refresh_model_rankings_endpoint(request: Request, payload: dict[str, Any] | 
         "success": True,
         "refreshed_count": len(refreshed),
         "reference_time": reference_time.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "frequents_tuning": {
+            "window_days": frequent_window_days,
+            "min_prints": frequent_min_prints,
+            "backfill_weight": frequent_backfill_weight,
+        },
         "rankings": [
             {
                 "manyfold_model_url": ranking.manyfold_model_url,
                 "manyfold_model_public_id": ranking.manyfold_model_public_id,
                 **_ranking_payload(ranking),
+                "frequents": stats_payload_by_url.get(ranking.manyfold_model_url, {
+                    "weighted_print_count": 0.0,
+                    "print_count_window": 0,
+                    "backfill_print_count_window": 0,
+                    "is_frequent": False,
+                }),
             }
             for ranking in refreshed
         ],

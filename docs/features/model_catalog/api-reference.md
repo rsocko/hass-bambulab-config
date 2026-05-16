@@ -111,6 +111,10 @@ Model/search filtering supported by `GET /api/models` and `GET /api/models/searc
 - `model_rating`
 - `colors_used` (Phase 3 baseline: hex-first; later phase may add optional `filament_id` linkage)
 
+Frequents/Favorites Layer 2 contract:
+
+- See `frequents-favorites-layer2-derivation-rules.md` for weighting, threshold, and tunable parameters (`frequent_window_days`, `frequent_min_prints`, `frequent_backfill_weight`).
+
 Deprecation and migration timeline:
 
 - Historical queue interfaces and migration milestones are documented in `docs/features/model_catalog/unified-queue-deprecation-timeline.md`.
