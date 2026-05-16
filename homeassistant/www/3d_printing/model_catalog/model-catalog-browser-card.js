@@ -1161,7 +1161,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   async _loadQueueDialogSourceDetail(modelRef) {
-    var response = await fetch(this._resolveModelSidecarUrl() + "/api/v1/models/" + encodeURIComponent(modelRef) + "/detail");
+    var response = await fetch(this._resolveModelSidecarUrl() + "/api/models/" + encodeURIComponent(modelRef) + "/detail");
     if (!response.ok) {
       throw new Error("Failed to load model detail (" + response.status + ").");
     }
@@ -1181,7 +1181,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
       if (lowerName.endsWith(".3mf") || fileType.indexOf("3mf") >= 0) {
         try {
-          var platesResponse = await fetch(this._resolveModelSidecarUrl() + "/api/v1/models/" + encodeURIComponent(modelRef) + "/files/" + encodeURIComponent(fileId) + "/plates");
+          var platesResponse = await fetch(this._resolveModelSidecarUrl() + "/api/models/" + encodeURIComponent(modelRef) + "/files/" + encodeURIComponent(fileId) + "/plates");
           if (platesResponse.ok) {
             var platesPayload = await platesResponse.json();
             var rawPlates = Array.isArray(platesPayload && platesPayload.plates) ? platesPayload.plates : [];
