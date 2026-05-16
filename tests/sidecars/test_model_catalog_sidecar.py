@@ -2117,6 +2117,116 @@ def test_unified_queue_file_units_fk_legacy_reference_is_repaired(tmp_path: Path
     assert row_count == 1
 
 
+def test_unified_queue_file_units_fk_v23_reference_is_repaired_without_pending_migrations(tmp_path: Path) -> None:
+    db_path = tmp_path / "model_catalog.db"
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+      connection.execute(
+          """
+          INSERT INTO unified_queue_entries (
+              queue_entry_id,
+              source_kind,
+              title,
+              created_at,
+              updated_at
+          ) VALUES (?, ?, ?, ?, ?)
+          """,
+          ("qe-1", "catalog_model", "Sample", "2026-05-16T00:00:00Z", "2026-05-16T00:00:00Z"),
+      )
+      connection.execute(
+          """
+          INSERT INTO unified_queue_file_units (
+              queue_entry_id,
+              file_unit_id,
+              file_id,
+              file_name,
+              created_at,
+              updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+          """,
+          ("qe-1", "fu-1", "file-1", "sample.3mf", "2026-05-16T00:00:00Z", "2026-05-16T00:00:00Z"),
+      )
+
+      connection.execute("PRAGMA foreign_keys = OFF")
+      connection.execute("ALTER TABLE unified_queue_file_units RENAME TO unified_queue_file_units_old")
+      connection.execute(
+          """
+          CREATE TABLE unified_queue_file_units (
+              id INTEGER PRIMARY KEY,
+              queue_entry_id TEXT NOT NULL,
+              file_unit_id TEXT NOT NULL,
+              file_id TEXT,
+              file_name TEXT NOT NULL,
+              selected INTEGER NOT NULL DEFAULT 1,
+              estimated_minutes INTEGER,
+              filament_requirements_json TEXT NOT NULL DEFAULT '{}',
+              archive_link_summary_json TEXT NOT NULL DEFAULT '{}',
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY (queue_entry_id) REFERENCES unified_queue_entries_v23(queue_entry_id) ON DELETE CASCADE,
+              UNIQUE(queue_entry_id, file_unit_id)
+          )
+          """
+      )
+      connection.execute(
+          """
+          INSERT INTO unified_queue_file_units (
+              id,
+              queue_entry_id,
+              file_unit_id,
+              file_id,
+              file_name,
+              selected,
+              estimated_minutes,
+              filament_requirements_json,
+              archive_link_summary_json,
+              created_at,
+              updated_at
+          )
+          SELECT
+              id,
+              queue_entry_id,
+              file_unit_id,
+              file_id,
+              file_name,
+              selected,
+              estimated_minutes,
+              filament_requirements_json,
+              archive_link_summary_json,
+              created_at,
+              updated_at
+          FROM unified_queue_file_units_old
+          """
+      )
+      connection.execute("DROP TABLE unified_queue_file_units_old")
+      connection.execute(
+          "CREATE INDEX IF NOT EXISTS idx_unified_queue_file_units_entry ON unified_queue_file_units(queue_entry_id)"
+      )
+      connection.execute("PRAGMA foreign_keys = ON")
+      connection.commit()
+    finally:
+      connection.close()
+
+    # No migration versions are deleted here: bootstrap must still run repair.
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+      fk_targets = {
+          row[2]
+          for row in connection.execute("PRAGMA foreign_key_list(unified_queue_file_units)").fetchall()
+      }
+      row_count = connection.execute("SELECT COUNT(*) FROM unified_queue_file_units").fetchone()[0]
+    finally:
+      connection.close()
+
+    assert "unified_queue_entries_v23" not in fk_targets
+    assert "unified_queue_entries" in fk_targets
+    assert row_count == 1
+
+
 def test_refresh_manyfold_cache_prunes_stale_rows(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

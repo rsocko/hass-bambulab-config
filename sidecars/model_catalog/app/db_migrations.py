@@ -981,14 +981,20 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
             (version,),
         )
 
+    # Always run FK drift repair after migration application, even when no
+    # migration versions are pending. Some deployed DBs can retain stale
+    # references to temporary renamed entry tables from prior schema upgrades.
+    _repair_unified_queue_file_units_foreign_key(connection)
+
 
 def _repair_unified_queue_file_units_foreign_key(connection: sqlite3.Connection) -> None:
-    """Repair v21 FK drift from unified_queue_entries to legacy temp table.
+    """Repair unified_queue_file_units FK drift to temporary entry tables.
 
-    Migration v21 temporarily renamed unified_queue_entries while foreign keys
-    were disabled. In some databases, SQLite rewrote unified_queue_file_units
-    to reference unified_queue_entries_legacy_v20, then the legacy table was
-    dropped, leaving dangling FK metadata that breaks schema introspection.
+    In some databases, SQLite rewrote unified_queue_file_units to reference
+    temporary renamed tables during prior entry-table migrations, e.g.
+    unified_queue_entries_legacy_v20 or unified_queue_entries_v23. Once those
+    temp tables are dropped, inserts into unified_queue_file_units can fail with
+    "no such table" errors unless we rebuild the FK back to unified_queue_entries.
     """
     row = connection.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='unified_queue_file_units'"
@@ -1000,7 +1006,7 @@ def _repair_unified_queue_file_units_foreign_key(connection: sqlite3.Connection)
     fk_targets = {str(r["table"]) for r in fk_rows}
 
     # Already healthy in normal/current schemas.
-    if "unified_queue_entries_legacy_v20" not in fk_targets:
+    if "unified_queue_entries_legacy_v20" not in fk_targets and "unified_queue_entries_v23" not in fk_targets:
         return
 
     connection.execute("PRAGMA foreign_keys = OFF")
