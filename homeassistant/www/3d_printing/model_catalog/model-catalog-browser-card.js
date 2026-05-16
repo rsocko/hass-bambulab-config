@@ -575,7 +575,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._scheduleDebouncedApply();
   }
 
-  _handleChange(event) {
+  async _handleChange(event) {
     var target = event && event.target;
     if (!target) {
       return;
