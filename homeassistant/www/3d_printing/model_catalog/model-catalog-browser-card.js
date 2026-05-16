@@ -42,6 +42,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._lastAppliedScopeStamp = 0;
     this._catalogScope = "curated";
     this._thumbnailObserver = null;
+
+    // Multi-select primitive (#1401 Phase 0 Foundations)
+    this._selectedModelRefs = new Set();
+    this._selectionChangeCallbacks = [];
   }
 
   _defaultFilters() {
@@ -835,6 +839,31 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (url) {
         window.open(url, "_blank", "noopener,noreferrer");
       }
+      return;
+    }
+
+    if (action === "toggle-model-select") {
+      event.preventDefault();
+      event.stopPropagation();
+      var selectModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      if (!selectModelRef) {
+        return;
+      }
+      this._toggleModelSelection(selectModelRef);
+      return;
+    }
+
+    if (action === "toggle-select-all-models") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._toggleSelectAllModels();
+      return;
+    }
+
+    if (action === "clear-selection") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._clearModelSelection();
       return;
     }
 
@@ -1822,6 +1851,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderPageControlStrip() {
+    // If selections are active, replace toolbar with bulk action bar
+    var selectedCount = this._selectedModelRefs.size;
+    if (selectedCount > 0) {
+      return this._renderBulkActionBar();
+    }
+    
     return ''
       + '<div class="page-control-strip">'
       + this._renderNavigationControls()
@@ -1839,6 +1874,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="toolbar-icon-btn media-toggle' + (this._showMedia ? ' active' : '') + '" type="button" data-action="toggle-show-media" aria-pressed="' + (this._showMedia ? 'true' : 'false') + '" title="' + (this._showMedia ? 'Hide media' : 'Show media') + '"><ha-icon icon="mdi:eye' + (this._showMedia ? '' : '-off') + '"></ha-icon></button>'
       + '  <button class="toolbar-icon-btn refresh-btn' + (this._refreshSpin ? ' spinning' : '') + '" type="button" data-action="refresh-page" aria-label="Refresh results" title="Refresh" ' + (this._loading ? 'disabled' : '') + '><ha-icon icon="mdi:refresh"></ha-icon></button>'
       + '</div>'
+      + '</div>';
+  }
+
+  _renderBottomMirrorStrip() {
+    return ''
+      + '<div class="page-control-strip bottom-mirror">'
+      + this._renderNavigationControls()
+      + '<div class="toolbar-group density-group">'
+      + '  <label for="mc-per-page-bottom">Models / Page</label>'
+      + '  <select id="mc-per-page-bottom" class="control-input compact-select">'
+      + '    <option value="12"' + (Number(this._pagination.per_page) === 12 ? ' selected' : '') + '>12</option>'
+      + '    <option value="24"' + (Number(this._pagination.per_page) === 24 ? ' selected' : '') + '>24</option>'
+      + '    <option value="48"' + (Number(this._pagination.per_page) === 48 ? ' selected' : '') + '>48</option>'
+      + '    <option value="96"' + (Number(this._pagination.per_page) === 96 ? ' selected' : '') + '>96</option>'
+      + '  </select>'
+      + '</div>'
+      + '</div>';
+  }
+
+  _renderBulkActionBar() {
+    var count = this._selectedModelRefs.size;
+    var visible = this._getVisibleModelRefs().length;
+    if (count === 0) {
+      return '';
+    }
+
+    var selectAllLabel = count === visible ? 'Deselect all' : 'Select all ' + String(visible);
+    return ''
+      + '<div class="bulkbar shown">'
+      + '  <span class="count">' + this._escapeHtml(String(count) + ' model' + (count === 1 ? '' : 's') + ' selected') + '</span>'
+      + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
+      + '  <div class="right">'
+      + '    <button class="bulk-btn" type="button" data-action="clear-selection">Clear</button>'
+      + '  </div>'
       + '</div>';
   }
 
@@ -2177,11 +2246,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (this._viewMode === "media") {
       return ''
-        + '<article class="model-card view-media' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay">'
         + '      <div class="media-overlay-actions">'
+        + this._renderModelCheckbox(modelRef)
         + '        <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
         + favoriteButton
         + advancedActions
@@ -2195,14 +2265,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (this._viewMode === "list") {
       return ''
-        + '<article class="model-card view-list' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
-        + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div></div>'
+        + '<article class="model-card view-list' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+        + '  <div class="thumb-wrap list-wrap">'
+        + '    <div class="thumb list-thumb">' + previewHtml + '</div>'
+        + '    ' + this._renderModelCheckbox(modelRef)
+        + '  </div>'
         + listBodyHtml
         + '</article>';
     }
 
     return ''
-      + '<article class="model-card view-compact' + queueRibbonClass + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+      + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open details for ' + this._escapeHtml(name) + '">'
+      + '  ' + this._renderModelCheckbox(modelRef)
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
       + compactFullHtml
@@ -2398,6 +2472,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     };
   }
 
+  _renderModelCheckbox(modelRef) {
+    var isSelected = this._isModelSelected(modelRef);
+    return '<div class="model-card-checkbox" data-action="toggle-model-select" data-model-ref="' + this._escapeHtml(modelRef) + '">'
+      + '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' aria-label="Select ' + this._escapeHtml(modelRef) + '">'
+      + '</div>';
+  }
+
   _renderFileKindChipRow(counts) {
     var modelFiles = this._coerceNonNegativeInt(counts && counts.model_files);
     var images = this._coerceNonNegativeInt(counts && counts.images);
@@ -2518,6 +2599,131 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     this.dispatchEvent(event);
+  }
+
+  // ===== Multi-select primitive implementation (#1401 Phase 0 Foundations) =====
+
+  _toggleModelSelection(modelRef) {
+    var modelRefStr = String(modelRef || "").trim();
+    if (!modelRefStr) {
+      return;
+    }
+    if (this._selectedModelRefs.has(modelRefStr)) {
+      this._selectedModelRefs.delete(modelRefStr);
+    } else {
+      this._selectedModelRefs.add(modelRefStr);
+    }
+    this._notifySelectionChanged();
+    this._render();
+  }
+
+  _toggleSelectAllModels() {
+    var visibleRefs = this._getVisibleModelRefs();
+    if (visibleRefs.length === 0) {
+      return;
+    }
+    // If all are selected, deselect all. Otherwise, select all.
+    var allSelected = visibleRefs.every(function (ref) {
+      return this._selectedModelRefs.has(ref);
+    }.bind(this));
+
+    if (allSelected) {
+      this._clearModelSelection();
+    } else {
+      for (var i = 0; i < visibleRefs.length; i++) {
+        this._selectedModelRefs.add(visibleRefs[i]);
+      }
+      this._notifySelectionChanged();
+      this._render();
+    }
+  }
+
+  _clearModelSelection() {
+    if (this._selectedModelRefs.size === 0) {
+      return;
+    }
+    this._selectedModelRefs.clear();
+    this._notifySelectionChanged();
+    this._render();
+  }
+
+  _getVisibleModelRefs() {
+    if (this._browserScope === "collections") {
+      return [];
+    }
+    return this._results.map(function (model) {
+      return this._modelRef(model);
+    }.bind(this)).filter(function (ref) {
+      return !!ref;
+    });
+  }
+
+  _isModelSelected(modelRef) {
+    return this._selectedModelRefs.has(String(modelRef || "").trim());
+  }
+
+  _notifySelectionChanged() {
+    var selectedRefs = Array.from(this._selectedModelRefs);
+    for (var i = 0; i < this._selectionChangeCallbacks.length; i++) {
+      var cb = this._selectionChangeCallbacks[i];
+      if (typeof cb === "function") {
+        try {
+          cb({
+            selected_model_refs: selectedRefs,
+            count: selectedRefs.length,
+            visible_count: this._getVisibleModelRefs().length,
+          });
+        } catch (_err) {
+          console.warn("Selection change callback error", _err);
+        }
+      }
+    }
+  }
+
+  // ===== Public API for multi-select (consumed by #1478, Phase 3 D&D) =====
+
+  /**
+   * Get array of currently selected model references.
+   * @returns {Array<string>}
+   */
+  getSelectedModelRefs() {
+    return Array.from(this._selectedModelRefs);
+  }
+
+  /**
+   * Set selection programmatically.
+   * @param {Array<string>} refs - Model references to select
+   */
+  setSelectedModelRefs(refs) {
+    this._selectedModelRefs.clear();
+    if (Array.isArray(refs)) {
+      for (var i = 0; i < refs.length; i++) {
+        var ref = String(refs[i] || "").trim();
+        if (ref) {
+          this._selectedModelRefs.add(ref);
+        }
+      }
+    }
+    this._notifySelectionChanged();
+    this._render();
+  }
+
+  /**
+   * Subscribe to selection changes.
+   * Callback receives { selected_model_refs: [], count: N, visible_count: N }
+   * @param {Function} callback
+   */
+  onSelectionChange(callback) {
+    if (typeof callback === "function") {
+      this._selectionChangeCallbacks.push(callback);
+    }
+  }
+
+  /**
+   * Clear all selection subscribers.
+   */
+  clearSelectionChangeListeners() {
+    this._selectionChangeCallbacks = [];
   }
 
   _renderLoadingPlaceholders() {
@@ -2817,6 +3023,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto auto auto auto;}}'
       + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
+      + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'
+      + '.model-card.is-selected{border-color:var(--accent-strong);background:linear-gradient(180deg,rgba(96,165,250,0.12),rgba(96,165,250,0.06));}'
+      + '.model-card.is-selected::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:2px solid var(--accent-strong);opacity:0;animation:pulse-border 1.2s ease-in-out;}'
+      + '.bulkbar{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);color:var(--primary-text-color);font-size:13px;}'
+      + '.bulkbar .count{font-weight:700;min-width:120px;flex:0 0 auto;}'
+      + '.bulkbar .right{margin-left:auto;display:flex;gap:8px;flex:0 0 auto;}'
+      + '.bulkbar .bulk-btn{min-height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;}'
+      + '.bulkbar .bulk-btn:hover{background:var(--surface-3);border-color:var(--accent);}'
+      + '.bulkbar .bulk-btn:active{transform:scale(0.98);}'
+      + '.bulkbar .bulk-btn:disabled{opacity:.5;cursor:not-allowed;}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'
