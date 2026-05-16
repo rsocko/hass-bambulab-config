@@ -32,6 +32,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
     };
     this._frequentsRailItems = [];
     this._frequentsRailVisible = this._readFrequentsRailVisibility();
+    this._queueDialogOpen = false;
+    this._queueDialogMode = "quick";
+    this._queueDialogModelRef = "";
+    this._queueDialogModelName = "";
+    this._queueDialogIntent = "add";
+    this._queueDialogExistingCount = 0;
+    this._queueDialogTargetState = "up_next";
+    this._queueDialogNotes = "";
+    this._queueDialogLoading = false;
+    this._queueDialogSubmitting = false;
+    this._queueDialogError = "";
+    this._queueDialogFiles = [];
 
     this._boundClick = this._handleClick.bind(this);
     this._boundInput = this._handleInput.bind(this);
@@ -620,6 +632,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _handleInput(event) {
     var target = event && event.target;
+    if (target && target.classList && target.classList.contains("queue-dialog-notes")) {
+      this._queueDialogNotes = String(target.value || "");
+      return;
+    }
     if (!target || !target.classList || !target.classList.contains("control-input")) {
       return;
     }
@@ -633,6 +649,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
   async _handleChange(event) {
     var target = event && event.target;
     if (!target) {
+      return;
+    }
+    if (target.classList && target.classList.contains("queue-dialog-target-state")) {
+      this._queueDialogTargetState = this._normalizeQueueDialogTargetState(target.value);
+      this._render();
       return;
     }
     var targetId = String(target.id || "").trim();
@@ -714,6 +735,58 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._activeActionMenu = "";
       this._requestLoad(1, false);
       this._render();
+      return;
+    }
+
+    if (action === "close-queue-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeQueueDialog();
+      return;
+    }
+
+    if (action === "queue-dialog-mode") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._setQueueDialogMode(target.getAttribute("data-mode"));
+      return;
+    }
+
+    if (action === "queue-dialog-submit") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitQueueDialog();
+      return;
+    }
+
+    if (action === "queue-dialog-select-all") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._setQueueDialogAllPlatesSelected(true);
+      return;
+    }
+
+    if (action === "queue-dialog-clear-all") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._setQueueDialogAllPlatesSelected(false);
+      return;
+    }
+
+    if (action === "queue-dialog-toggle-file") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._toggleQueueDialogFileSelection(String(target.getAttribute("data-file-id") || "").trim());
+      return;
+    }
+
+    if (action === "queue-dialog-toggle-plate") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._toggleQueueDialogPlateSelection(
+        String(target.getAttribute("data-file-id") || "").trim(),
+        String(target.getAttribute("data-plate-id") || "").trim()
+      );
       return;
     }
 
@@ -979,6 +1052,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       var queueModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var queueModelName = String(target.getAttribute("data-model-name") || "Model").trim();
       if (!queueModelRef || this._loading) {
         return;
       }
@@ -987,9 +1061,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = "";
         this._activeActionMenu = "";
 
-        await this._applyUnifiedQueueAction(action, queueModelRef);
+        var shouldRefresh = await this._applyUnifiedQueueAction(action, queueModelRef, { modelName: queueModelName });
 
-        await this._loadPage(this._currentPage(), false);
+        if (shouldRefresh) {
+          await this._loadPage(this._currentPage(), false);
+        }
       } catch (error) {
         this._error = error && error.message ? String(error.message) : "Could not update queue state.";
         this._render();
@@ -1014,6 +1090,319 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return "queued";
     }
     return "none";
+  }
+
+  _normalizeQueueDialogTargetState(state) {
+    var normalized = String(state || "").trim().toLowerCase();
+    if (["up_next", "ready", "backlog"].indexOf(normalized) >= 0) {
+      return normalized;
+    }
+    return "up_next";
+  }
+
+  _queueDialogTargetStateLabel(state) {
+    var normalized = this._normalizeQueueDialogTargetState(state);
+    if (normalized === "ready") {
+      return "Ready";
+    }
+    if (normalized === "backlog") {
+      return "Backlog";
+    }
+    return "Up Next";
+  }
+
+  _resetQueueDialogState() {
+    this._queueDialogOpen = false;
+    this._queueDialogMode = "quick";
+    this._queueDialogModelRef = "";
+    this._queueDialogModelName = "";
+    this._queueDialogIntent = "add";
+    this._queueDialogExistingCount = 0;
+    this._queueDialogTargetState = "up_next";
+    this._queueDialogNotes = "";
+    this._queueDialogLoading = false;
+    this._queueDialogSubmitting = false;
+    this._queueDialogError = "";
+    this._queueDialogFiles = [];
+  }
+
+  _closeQueueDialog() {
+    this._resetQueueDialogState();
+    this._render();
+  }
+
+  async _openQueueDialog(modelRef, modelName, entries, options) {
+    var normalizedEntries = Array.isArray(entries) ? entries : [];
+    var dialogOptions = options && typeof options === "object" ? options : {};
+
+    this._queueDialogOpen = true;
+    this._queueDialogMode = "quick";
+    this._queueDialogModelRef = String(modelRef || "").trim();
+    this._queueDialogModelName = String(modelName || "Model").trim() || "Model";
+    this._queueDialogIntent = dialogOptions.intent === "re-add" ? "re-add" : "add";
+    this._queueDialogExistingCount = normalizedEntries.length;
+    this._queueDialogTargetState = dialogOptions.defaultState ? this._normalizeQueueDialogTargetState(dialogOptions.defaultState) : "up_next";
+    this._queueDialogNotes = "";
+    this._queueDialogLoading = true;
+    this._queueDialogSubmitting = false;
+    this._queueDialogError = "";
+    this._queueDialogFiles = [];
+    this._render();
+
+    try {
+      this._queueDialogFiles = await this._loadQueueDialogSourceDetail(this._queueDialogModelRef);
+    } catch (error) {
+      this._queueDialogError = error && error.message ? String(error.message) : "Could not load model queue defaults.";
+      this._queueDialogFiles = [];
+    } finally {
+      this._queueDialogLoading = false;
+      this._render();
+    }
+  }
+
+  async _loadQueueDialogSourceDetail(modelRef) {
+    var response = await fetch(this._resolveModelSidecarUrl() + "/api/v1/models/" + encodeURIComponent(modelRef) + "/detail");
+    if (!response.ok) {
+      throw new Error("Failed to load model detail (" + response.status + ").");
+    }
+    var payload = await response.json();
+    var model = payload && payload.model && typeof payload.model === "object" ? payload.model : {};
+    var files = Array.isArray(model.files) ? model.files : [];
+    if (!files.length) {
+      throw new Error("Selected model has no queueable files.");
+    }
+
+    var normalized = await Promise.all(files.map(async function (file, index) {
+      var fileId = String(file.id || file.file_id || "").trim() || ("catalog-file-" + String(index + 1));
+      var fileName = String(file.filename || file.name || fileId).trim();
+      var fileType = String(file.file_type || file.content_type || file.asset_type || "").toLowerCase();
+      var lowerName = fileName.toLowerCase();
+      var plates = [{ plate_id: "default", plate_name: "Primary Plate", selected: true, is_primary: true }];
+
+      if (lowerName.endsWith(".3mf") || fileType.indexOf("3mf") >= 0) {
+        try {
+          var platesResponse = await fetch(this._resolveModelSidecarUrl() + "/api/v1/models/" + encodeURIComponent(modelRef) + "/files/" + encodeURIComponent(fileId) + "/plates");
+          if (platesResponse.ok) {
+            var platesPayload = await platesResponse.json();
+            var rawPlates = Array.isArray(platesPayload && platesPayload.plates) ? platesPayload.plates : [];
+            if (rawPlates.length > 0) {
+              plates = rawPlates.map(function (plate, plateIndex) {
+                return {
+                  plate_id: String(plate.plate_key || plate.plate_id || plate.id || ("plate-" + String(plateIndex + 1))).trim(),
+                  plate_name: String(plate.plate_name || plate.name || ("Plate " + String(plateIndex + 1))).trim(),
+                  selected: plateIndex === 0,
+                  is_primary: plateIndex === 0,
+                };
+              });
+            }
+          }
+        } catch (_error) {
+        }
+      }
+
+      return {
+        file_id: fileId,
+        file_name: fileName,
+        selected: index === 0,
+        thumbnail_url: String(file.thumbnail_url || file.preview_url || "").trim(),
+        plates: plates,
+      };
+    }.bind(this)));
+
+    var hasSelectedFile = normalized.some(function (file) {
+      return !!file.selected;
+    });
+    if (!hasSelectedFile && normalized.length > 0) {
+      normalized[0].selected = true;
+    }
+    return normalized;
+  }
+
+  _setQueueDialogMode(mode) {
+    var normalized = String(mode || "").trim().toLowerCase();
+    if (normalized !== "quick" && normalized !== "plan") {
+      return;
+    }
+    this._queueDialogMode = normalized;
+    this._render();
+  }
+
+  _setQueueDialogAllPlatesSelected(selected) {
+    var nextSelected = !!selected;
+    this._queueDialogFiles = this._queueDialogFiles.map(function (file) {
+      return Object.assign({}, file, {
+        selected: nextSelected,
+        plates: Array.isArray(file.plates)
+          ? file.plates.map(function (plate) {
+              return Object.assign({}, plate, { selected: nextSelected });
+            })
+          : [],
+      });
+    });
+    this._render();
+  }
+
+  _toggleQueueDialogFileSelection(fileId) {
+    if (!fileId) {
+      return;
+    }
+    this._queueDialogFiles = this._queueDialogFiles.map(function (file) {
+      if (String(file.file_id || "") !== fileId) {
+        return file;
+      }
+      var nextSelected = !file.selected;
+      return Object.assign({}, file, {
+        selected: nextSelected,
+        plates: Array.isArray(file.plates)
+          ? file.plates.map(function (plate, plateIndex) {
+              return Object.assign({}, plate, { selected: nextSelected ? plateIndex === 0 || !!plate.selected : false });
+            })
+          : [],
+      });
+    });
+    this._render();
+  }
+
+  _toggleQueueDialogPlateSelection(fileId, plateId) {
+    if (!fileId || !plateId) {
+      return;
+    }
+    this._queueDialogFiles = this._queueDialogFiles.map(function (file) {
+      if (String(file.file_id || "") !== fileId) {
+        return file;
+      }
+      var nextPlates = (file.plates || []).map(function (plate) {
+        if (String(plate.plate_id || "") !== plateId) {
+          return plate;
+        }
+        return Object.assign({}, plate, { selected: !plate.selected });
+      });
+      var hasSelectedPlates = nextPlates.some(function (plate) {
+        return !!plate.selected;
+      });
+      return Object.assign({}, file, {
+        selected: hasSelectedPlates,
+        plates: nextPlates,
+      });
+    });
+    this._render();
+  }
+
+  _getQueueDialogMetrics() {
+    var files = Array.isArray(this._queueDialogFiles) ? this._queueDialogFiles : [];
+    var totalFiles = files.length;
+    var totalPlates = files.reduce(function (sum, file) {
+      return sum + (Array.isArray(file.plates) ? file.plates.length : 0);
+    }, 0);
+    var selectedFiles = files.filter(function (file) {
+      return !!file.selected;
+    });
+    var selectedPlates = selectedFiles.reduce(function (sum, file) {
+      return sum + (Array.isArray(file.plates) ? file.plates.filter(function (plate) { return !!plate.selected; }).length : 0);
+    }, 0);
+    return {
+      totalFiles: totalFiles,
+      totalPlates: totalPlates,
+      selectedFiles: selectedFiles.length,
+      selectedPlates: selectedPlates,
+    };
+  }
+
+  _buildQueueDialogQuickSelectionPayload() {
+    if (!Array.isArray(this._queueDialogFiles) || !this._queueDialogFiles.length) {
+      return [];
+    }
+    var primaryFile = this._queueDialogFiles[0];
+    var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
+    return [{
+      file_id: primaryFile.file_id,
+      file_name: primaryFile.file_name,
+      selected: true,
+      plates: primaryPlate ? [{ plate_id: primaryPlate.plate_id, selected: true }] : [],
+    }];
+  }
+
+  _buildQueueDialogPlanSelectionPayload() {
+    return this._queueDialogFiles.map(function (file) {
+      return {
+        file_id: file.file_id,
+        file_name: file.file_name,
+        selected: !!file.selected,
+        plates: Array.isArray(file.plates)
+          ? file.plates.map(function (plate) {
+              return { plate_id: plate.plate_id, selected: !!plate.selected };
+            })
+          : [],
+      };
+    });
+  }
+
+  _queueDialogPrimarySummary() {
+    if (!Array.isArray(this._queueDialogFiles) || !this._queueDialogFiles.length) {
+      return "Loading queue defaults...";
+    }
+    var primaryFile = this._queueDialogFiles[0] || {};
+    var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
+    return "Will queue "
+      + String(primaryFile.file_name || "Primary file")
+      + " · "
+      + String(primaryPlate && primaryPlate.plate_name ? primaryPlate.plate_name : "Primary Plate")
+      + " on "
+      + String(this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1")
+      + " in state "
+      + this._queueDialogTargetStateLabel(this._queueDialogTargetState)
+      + ".";
+  }
+
+  async _submitQueueDialog() {
+    if (!this._queueDialogModelRef || this._queueDialogLoading || this._queueDialogSubmitting) {
+      return;
+    }
+    if (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0) {
+      this._queueDialogError = "No queueable files were found for this model.";
+      this._render();
+      return;
+    }
+
+    var payload = {
+      source_kind: "catalog_model",
+      source_id: this._queueDialogModelRef,
+      title: this._queueDialogModelName,
+      state: this._queueDialogMode === "quick" ? "up_next" : this._normalizeQueueDialogTargetState(this._queueDialogTargetState),
+      queue_notes: String(this._queueDialogNotes || "").trim(),
+      selection_mode: "selected_plates",
+      selected_files: this._queueDialogMode === "quick"
+        ? this._buildQueueDialogQuickSelectionPayload()
+        : this._buildQueueDialogPlanSelectionPayload(),
+    };
+
+    if (this._queueDialogMode === "plan") {
+      var metrics = this._getQueueDialogMetrics();
+      if (metrics.selectedPlates <= 0) {
+        this._queueDialogError = "Select at least one plate in Plan mode.";
+        this._render();
+        return;
+      }
+    }
+
+    this._queueDialogSubmitting = true;
+    this._queueDialogError = "";
+    this._render();
+
+    try {
+      await addUnifiedQueueEntry({
+        queueApiBase: this._resolveModelSidecarUrl() + "/api/v1",
+        printerId: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
+        payload: payload,
+      });
+      this._closeQueueDialog();
+      this._error = "";
+      await this._loadPage(this._currentPage(), false);
+    } catch (error) {
+      this._queueDialogSubmitting = false;
+      this._queueDialogError = error && error.message ? String(error.message) : "Could not add to queue.";
+      this._render();
+    }
   }
 
   async _listUnifiedQueueEntriesForModel(modelRef) {
@@ -1108,9 +1497,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
   }
 
-  async _applyUnifiedQueueAction(action, modelRef) {
+  async _applyUnifiedQueueAction(action, modelRef, options) {
     var entries = await this._listUnifiedQueueEntriesForModel(modelRef);
     var preferred = this._preferredUnifiedQueueEntry(entries);
+    var actionOptions = options && typeof options === "object" ? options : {};
+    var modelName = String(actionOptions.modelName || "Model").trim() || "Model";
 
     if (action === "queue-clear") {
       for (var i = 0; i < entries.length; i++) {
@@ -1129,71 +1520,111 @@ class ModelCatalogBrowserCard extends HTMLElement {
           await this._deleteUnifiedQueueEntry(entryId);
         }
       }
-      return;
+      return true;
     }
 
     if (action === "queue-add") {
-      // Always add a new entry; allow same model N times for multi-print workflows
-      // Warn if model already has entries
-      if (entries && entries.length > 0) {
-        var existingCount = entries.length;
-        var shouldContinue = confirm(
-          "This model already has " + existingCount + " queue entr" + (existingCount === 1 ? "y" : "ies") + ". Add another?"
-        );
-        if (!shouldContinue) {
-          return;
-        }
-      }
-      await this._addUnifiedQueueEntryForModel(modelRef, { state: "backlog" });
-      return;
+      await this._openQueueDialog(modelRef, modelName, entries, { intent: "add", defaultState: "up_next" });
+      return false;
     }
 
     if (action === "queue-re-add") {
-      // Re-add action from advanced menu: always creates new entry (same as queue-add)
-      // Warn if model already has entries
-      if (entries && entries.length > 0) {
-        var existingCount = entries.length;
-        var shouldContinue = confirm(
-          "This model already has " + existingCount + " queue entr" + (existingCount === 1 ? "y" : "ies") + ". Add another?"
-        );
-        if (!shouldContinue) {
-          return;
-        }
-      }
-      await this._addUnifiedQueueEntryForModel(modelRef, { state: "backlog" });
-      return;
+      await this._openQueueDialog(modelRef, modelName, entries, { intent: "re-add", defaultState: "up_next" });
+      return false;
     }
 
     if (action === "queue-mark-queued") {
       if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
         await this._addUnifiedQueueEntryForModel(modelRef, { state: "preparing" });
-        return;
+        return true;
       }
       var preferredState = String(preferred.state || "").toLowerCase();
       if (preferredState === "backlog") {
         await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "preparing" });
       }
-      return;
+      return true;
     }
 
     if (action === "queue-mark-done") {
       if (!preferred) {
         await this._addUnifiedQueueEntryForModel(modelRef, { state: "done" });
-        return;
+        return true;
       }
       await this._transitionQueueEntryToDone(preferred);
-      return;
+      return true;
     }
 
     if (action === "queue-priority-up" || action === "queue-priority-down") {
       if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
         await this._addUnifiedQueueEntryForModel(modelRef, { state: "preparing", rank: 0 });
-        return;
+        return true;
       }
       var delta = action === "queue-priority-up" ? -1 : 1;
       var nextRank = Math.max(0, Number(preferred.rank || 0) + delta);
       await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { rank: nextRank });
+      return true;
     }
+
+    return true;
+  }
+
+  _renderQueueDialog() {
+    if (!this._queueDialogOpen) {
+      return "";
+    }
+
+    var metrics = this._getQueueDialogMetrics();
+    var existingNote = this._queueDialogExistingCount > 0
+      ? '<div class="queue-dialog-existing-note">This model already has ' + this._escapeHtml(String(this._queueDialogExistingCount)) + ' queue entr' + (this._queueDialogExistingCount === 1 ? 'y' : 'ies') + '. Re-add is allowed.</div>'
+      : "";
+    var planBody = this._queueDialogLoading
+      ? '<div class="queue-dialog-note">Loading model files and plates...</div>'
+      : this._queueDialogFiles.length === 0
+      ? '<div class="queue-dialog-note">No queueable files available for this model.</div>'
+      : '<div class="queue-dialog-toolbar"><button class="toolbar-btn" type="button" data-action="queue-dialog-select-all">Select all</button><button class="toolbar-btn ghost" type="button" data-action="queue-dialog-clear-all">Deselect all</button></div>'
+        + '<div class="queue-dialog-file-list">'
+        + this._queueDialogFiles.map(function (file) {
+            var plateCount = Array.isArray(file.plates) ? file.plates.length : 0;
+            var selectedPlates = Array.isArray(file.plates) ? file.plates.filter(function (plate) { return !!plate.selected; }).length : 0;
+            return '<section class="queue-dialog-file-block">'
+              + '  <button class="queue-dialog-file-toggle' + (file.selected ? ' active' : '') + '" type="button" data-action="queue-dialog-toggle-file" data-file-id="' + this._escapeHtml(String(file.file_id || '')) + '">' + this._escapeHtml(String(file.file_name || 'Queue file')) + '<span>' + this._escapeHtml(String(selectedPlates) + '/' + String(plateCount) + ' plates') + '</span></button>'
+              + '  <div class="queue-dialog-plates">'
+              + (file.plates || []).map(function (plate) {
+                  return '<button class="queue-dialog-plate-toggle' + (plate.selected ? ' active' : '') + '" type="button" data-action="queue-dialog-toggle-plate" data-file-id="' + this._escapeHtml(String(file.file_id || '')) + '" data-plate-id="' + this._escapeHtml(String(plate.plate_id || '')) + '">' + this._escapeHtml(String(plate.plate_name || 'Plate')) + '</button>';
+                }.bind(this)).join('')
+              + '  </div>'
+              + '</section>';
+          }.bind(this)).join('')
+        + '</div>';
+
+    return ''
+      + '<div class="queue-dialog-backdrop" data-action="close-queue-dialog">'
+      + '  <div class="queue-dialog" role="dialog" aria-modal="true" aria-label="Add to Queue">'
+      + '    <div class="queue-dialog-header">'
+      + '      <div><h3>Add to Queue</h3><div class="queue-dialog-subtitle">' + this._escapeHtml(this._queueDialogModelName) + '</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-queue-dialog" aria-label="Close">✕</button>'
+      + '    </div>'
+      + '    <div class="queue-dialog-tabs">'
+      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'quick' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>'
+      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'plan' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>'
+      + '    </div>'
+      + '    <div class="queue-dialog-body">'
+      + existingNote
+      + (this._queueDialogMode === 'quick'
+          ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
+          : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
+            + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option></select></label>'
+            + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
+            + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
+            + planBody)
+      + (this._queueDialogError ? '<div class="queue-dialog-error">' + this._escapeHtml(this._queueDialogError) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="queue-dialog-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-queue-dialog">Cancel</button>'
+      + '      <button class="toolbar-btn queue-dialog-submit" type="button" data-action="queue-dialog-submit"' + (this._queueDialogLoading || this._queueDialogSubmitting ? ' disabled' : '') + '>' + (this._queueDialogSubmitting ? 'Adding...' : 'Add to Queue') + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
   }
 
   _updateActionMenus() {
@@ -2395,12 +2826,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + (modelUrl ? '  <button class="advanced-action" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '"><ha-icon icon="mdi:open-in-new"></ha-icon><span>Open source page</span></button>' : '')
           + '  <div class="advanced-group-label">Queue actions</div>'
           + '  <div class="advanced-inline-grid">'
-          + '    <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '">-P</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '">+P</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-re-add" data-model-ref="' + this._escapeHtml(modelRef) + '">Re-add</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">-P</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">+P</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Queued</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Done</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Clear</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-re-add" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Re-add</button>'
           + '  </div>'
           + deleteButton
           + '</div>'
@@ -2439,7 +2870,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var queueStatusClass = queueEntryCount > 0 ? ' has-queue-entries' : '';
     var queueCountBadge = queueEntryCount > 0 ? '<span class="queue-count-badge">' + this._escapeHtml(String(queueEntryCount)) + '</span>' : '';
     var queueButton = ''
-      + '<button class="icon-action queue-action' + queueStatusClass + '" type="button" data-action="queue-add" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Add to backlog">'
+      + '<button class="icon-action queue-action' + queueStatusClass + '" type="button" data-action="queue-add" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Add to queue">'
       + '  <ha-icon icon="mdi:playlist-plus"></ha-icon>'
       + queueCountBadge
       + '</button>';
@@ -3334,6 +3765,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.advanced-inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.state-row{padding:20px;border-radius:16px;border:1px dashed rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:13px;color:var(--secondary-text-color);}'
       + '.state-row.error{background:rgba(185,28,28,0.16);color:var(--primary-text-color);}'
+      + '.queue-dialog-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}'
+      + '.queue-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}'
+      + '.queue-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,0.18);}'
+      + '.queue-dialog-header h3{margin:0;font-size:18px;font-weight:800;}'
+      + '.queue-dialog-subtitle{margin-top:4px;font-size:12px;color:var(--secondary-text-color);}'
+      + '.queue-dialog-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid rgba(148,163,184,0.16);}'
+      + '.queue-dialog-tab{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.16);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;}'
+      + '.queue-dialog-tab.active{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:var(--primary-text-color);}'
+      + '.queue-dialog-body{display:grid;gap:12px;padding:18px 20px;overflow:auto;}'
+      + '.queue-dialog-summary,.queue-dialog-existing-note,.queue-dialog-note,.queue-dialog-metrics{padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(148,163,184,0.08);font-size:13px;line-height:1.45;}'
+      + '.queue-dialog-existing-note{background:rgba(96,165,250,0.12);border-color:rgba(96,165,250,0.24);color:#dbeafe;}'
+      + '.queue-dialog-field{display:grid;gap:6px;}'
+      + '.queue-dialog-field span{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}'
+      + '.queue-dialog-target-state,.queue-dialog-notes{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}'
+      + '.queue-dialog-toolbar{display:flex;gap:8px;flex-wrap:wrap;}'
+      + '.queue-dialog-file-list{display:grid;gap:10px;}'
+      + '.queue-dialog-file-block{display:grid;gap:8px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}'
+      + '.queue-dialog-file-toggle,.queue-dialog-plate-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;padding:0 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.20);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}'
+      + '.queue-dialog-file-toggle span{font-size:11px;color:var(--secondary-text-color);font-weight:700;}'
+      + '.queue-dialog-file-toggle.active,.queue-dialog-plate-toggle.active{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);}'
+      + '.queue-dialog-plates{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
+      + '.queue-dialog-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}'
+      + '.queue-dialog-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}'
+      + '.queue-dialog-submit{background:rgba(96,165,250,0.22);border-color:rgba(96,165,250,0.34);}'
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
@@ -3362,6 +3817,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
+      + this._renderQueueDialog()
       + '  </div>'
       + '</ha-card>';
 
