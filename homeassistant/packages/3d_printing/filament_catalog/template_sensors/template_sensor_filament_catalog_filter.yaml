@@ -1,9 +1,53 @@
-- sensor:
+- triggers:
+    # Re-render when any filter/sort/search helper changes.
+    # Spoolman spool state changes are NOT listed here on purpose — adding
+    # states.sensor as a broad dependency caused WebSocket queue overflows
+    # (4096 pending messages). Instead a 5-minute time_pattern trigger is
+    # used to pick up spool changes (remaining weight, location, etc.) on a
+    # reasonable cadence without flooding the event bus.
+    - trigger: state
+      entity_id:
+        - input_select.filament_catalog_filter_material
+        - input_select.filament_catalog_filter_vendor
+        - input_select.filament_catalog_filter_color
+        - input_select.filament_catalog_filter_color_family
+        - input_select.filament_catalog_filter_type
+        - input_select.filament_catalog_filter_location
+        - input_select.filament_catalog_filter_spool_type
+        - input_select.filament_catalog_filter_clip_type
+        - input_select.filament_catalog_filter_inventory_rule
+        - input_select.filament_catalog_filter_scope
+        - input_select.filament_catalog_filter_sealed
+        - input_select.filament_catalog_filter_data_quality
+        - input_select.filament_catalog_filter_desiccant
+        - input_select.filament_catalog_filter_stock_level
+        - input_select.filament_catalog_tab
+        - input_select.filament_catalog_sort
+        - input_boolean.filament_catalog_filter_qty_to_purchase
+        - input_boolean.filament_catalog_filter_nearly_empty
+        - input_boolean.filament_catalog_filter_needs_repurchase
+        - input_boolean.filament_catalog_filter_needs_drying
+        - input_boolean.filament_catalog_filter_stale
+        - input_boolean.filament_catalog_filter_missing_desiccant
+        - input_text.filament_catalog_search
+        - input_number.filament_catalog_stock_threshold
+        - input_number.desiccant_threshold_yellow_days
+        - input_number.desiccant_threshold_orange_days
+        - input_number.desiccant_threshold_red_days
+        - sensor.filament_catalog_metrics
+        - sensor.filament_shortage_status
+    - trigger: time_pattern
+      # Periodic refresh picks up spool state changes (weight, location, etc.)
+      # without subscribing to every sensor.spoolman_spool_* state change.
+      minutes: /5
+    - trigger: homeassistant
+      event: start
+  sensor:
     - name: Filament Catalog Filtered Spools
       unique_id: filament_catalog_filtered_spools
       icon: mdi:filter-variant
       state: >
-        {% set ej = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+        {% set ej = this.attributes.get('entity_ids_json', '[]') %}
         {% if ej in [none, '', 'unknown', 'unavailable'] %}
           0
         {% elif ej is string %}
@@ -517,7 +561,7 @@
         # Flat entity ID list derived from grouped output (for count & compat)
         # ================================================================
         entity_ids_json: >-
-          {%- set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) -%}
+          {%- set gj = this.attributes.get('grouped_entity_ids_json', '[]') -%}
           {%- if gj is string -%}
             {%- set groups = gj | from_json -%}
           {%- elif gj is iterable -%}
@@ -533,7 +577,7 @@
           {%- endfor -%}
           {{ ns.ids | tojson }}
         entity_ids: >
-          {% set ej = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+          {% set ej = this.attributes.get('entity_ids_json', '[]') %}
           {% if ej in [none, '', 'unknown', 'unavailable'] %}
             []
           {% elif ej is string %}
