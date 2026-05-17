@@ -910,6 +910,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+)
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
     """Get the current schema version."""
