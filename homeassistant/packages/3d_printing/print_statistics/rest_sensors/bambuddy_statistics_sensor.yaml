@@ -2,7 +2,7 @@
   name: "Bambuddy Statistics"
   unique_id: bambuddy_statistics
   resource_template: >-
-    {{ states('input_text.bambuddy_api_base_url') | default('http://localhost:8000') }}/api/v1/archives/stats
+    {{ states('input_text.bambuddy_api_base_url') if states('input_text.bambuddy_api_base_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://localhost:8000' }}/api/v1/archives/stats
   headers:
     X-API-Key: !secret bambuddy_api_key
     Content-Type: application/json
@@ -29,7 +29,7 @@
   name: "Bambuddy Statistics This Week"
   unique_id: bambuddy_statistics_this_week
   resource_template: >-
-    {{ states('input_text.bambuddy_api_base_url') | default('http://localhost:8000') }}/api/v1/archives/stats?date_from={{ (now().date() - timedelta(days=now().weekday())).isoformat() }}
+    {{ states('input_text.bambuddy_api_base_url') if states('input_text.bambuddy_api_base_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://localhost:8000' }}/api/v1/archives/stats?date_from={{ (now().date() - timedelta(days=now().weekday())).isoformat() }}
   headers:
     X-API-Key: !secret bambuddy_api_key
     Content-Type: application/json
@@ -50,7 +50,7 @@
   name: "Bambuddy Statistics This Month"
   unique_id: bambuddy_statistics_this_month
   resource_template: >-
-    {{ states('input_text.bambuddy_api_base_url') | default('http://localhost:8000') }}/api/v1/archives/stats?date_from={{ now().replace(day=1).date().isoformat() }}
+    {{ states('input_text.bambuddy_api_base_url') if states('input_text.bambuddy_api_base_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://localhost:8000' }}/api/v1/archives/stats?date_from={{ now().replace(day=1).date().isoformat() }}
   headers:
     X-API-Key: !secret bambuddy_api_key
     Content-Type: application/json
@@ -71,7 +71,7 @@
   name: "Bambuddy Failure Analysis"
   unique_id: bambuddy_failure_analysis
   resource_template: >-
-    {{ states('input_text.bambuddy_api_base_url') | default('http://localhost:8000') }}/api/v1/archives/analysis/failures
+    {{ states('input_text.bambuddy_api_base_url') if states('input_text.bambuddy_api_base_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://localhost:8000' }}/api/v1/archives/analysis/failures
   headers:
     X-API-Key: !secret bambuddy_api_key
     Content-Type: application/json
