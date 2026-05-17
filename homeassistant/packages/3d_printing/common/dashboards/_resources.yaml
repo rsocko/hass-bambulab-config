@@ -47,7 +47,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=9
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=34
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=35
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=40
   type: module
@@ -55,6 +55,6 @@
   type: module
 - url: /local/3d_printing/model_catalog/intake-browser-card.js?v=1
   type: module
-- url: /local/3d_printing/print_queue/unified-queue-board-card.js?v=60
+- url: /local/3d_printing/print_queue/unified-queue-board-card.js?v=61
   type: module
 

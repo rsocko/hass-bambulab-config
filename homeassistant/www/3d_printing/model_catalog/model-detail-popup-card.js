@@ -24,6 +24,7 @@
  */
 
 import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
+import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 
 class ModelDetailPopupCard extends HTMLElement {
   constructor() {
@@ -54,6 +55,20 @@ class ModelDetailPopupCard extends HTMLElement {
     this._panelActiveTab = 'panel-queue';
     this._collapsedSections = {};
     this._popupExtensions = new Map();
+
+    // Unified queue dialog state (#1499)
+    this._queueDialogOpen = false;
+    this._queueDialogMode = "quick";
+    this._queueDialogModelRef = "";
+    this._queueDialogModelName = "";
+    this._queueDialogIntent = "add";
+    this._queueDialogExistingCount = 0;
+    this._queueDialogTargetState = "up_next";
+    this._queueDialogNotes = "";
+    this._queueDialogLoading = false;
+    this._queueDialogSubmitting = false;
+    this._queueDialogError = "";
+    this._queueDialogFiles = [];
     
     // Render stability: prevent re-rendering during interactions
     this._isInteracting = false;
@@ -63,6 +78,7 @@ class ModelDetailPopupCard extends HTMLElement {
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundChangeHandler = this._handleChange.bind(this);
+    this._boundInputHandler = this._handleInput.bind(this);
     this._boundDragOverHandler = this._handleDragOver.bind(this);
     this._boundDragLeaveHandler = this._handleDragLeave.bind(this);
     this._boundDropHandler = this._handleDrop.bind(this);
@@ -120,6 +136,7 @@ class ModelDetailPopupCard extends HTMLElement {
   connectedCallback() {
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
     this.shadowRoot.addEventListener("change", this._boundChangeHandler);
+    this.shadowRoot.addEventListener("input", this._boundInputHandler);
     this.shadowRoot.addEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.addEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.addEventListener("drop", this._boundDropHandler);
@@ -128,6 +145,7 @@ class ModelDetailPopupCard extends HTMLElement {
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
     this.shadowRoot.removeEventListener("change", this._boundChangeHandler);
+    this.shadowRoot.removeEventListener("input", this._boundInputHandler);
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
@@ -313,10 +331,53 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    // Print button
+    // Print button — opens unified queue dialog (#1499)
     if (target.closest("#btn-print")) {
       event.preventDefault();
       this._handlePrint();
+      return;
+    }
+
+    // Queue dialog actions (#1499)
+    if (target.classList && target.classList.contains("queue-dialog-backdrop")) {
+      event.preventDefault();
+      this._closeQueueDialog();
+      return;
+    }
+    const qdAction = target.getAttribute ? target.getAttribute("data-action") : null;
+    if (qdAction === "close-queue-dialog") {
+      event.preventDefault();
+      this._closeQueueDialog();
+      return;
+    }
+    if (qdAction === "queue-dialog-mode") {
+      event.preventDefault();
+      this._setQueueDialogMode(target.getAttribute("data-mode") || "quick");
+      return;
+    }
+    if (qdAction === "queue-dialog-submit") {
+      event.preventDefault();
+      this._submitQueueDialog();
+      return;
+    }
+    if (qdAction === "queue-dialog-select-all") {
+      event.preventDefault();
+      this._setQueueDialogAllPlatesSelected(true);
+      return;
+    }
+    if (qdAction === "queue-dialog-clear-all") {
+      event.preventDefault();
+      this._setQueueDialogAllPlatesSelected(false);
+      return;
+    }
+    if (qdAction === "queue-dialog-toggle-file") {
+      event.preventDefault();
+      this._toggleQueueDialogFileSelection(target.getAttribute("data-file-id") || "");
+      return;
+    }
+    if (qdAction === "queue-dialog-toggle-plate") {
+      event.preventDefault();
+      this._toggleQueueDialogPlateSelection(target.getAttribute("data-file-id") || "", target.getAttribute("data-plate-id") || "");
       return;
     }
 
@@ -414,6 +475,16 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _handleChange(event) {
     const target = event.target;
+    // Queue dialog: target-state select
+    if (target instanceof HTMLSelectElement && target.classList.contains("queue-dialog-target-state")) {
+      this._queueDialogTargetState = this._normalizeQueueDialogTargetState(String(target.value || "up_next"));
+      return;
+    }
+    // Queue dialog: notes textarea (also handle input event via _handleInput if present)
+    if (target instanceof HTMLTextAreaElement && target.getAttribute("data-queue-dialog-notes")) {
+      this._queueDialogNotes = String(target.value || "");
+      return;
+    }
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
@@ -424,6 +495,13 @@ class ModelDetailPopupCard extends HTMLElement {
     const selectedFiles = Array.from(target.files || []);
     target.value = '';
     this._handlePhotoFileSelect(selectedFiles);
+  }
+
+  _handleInput(event) {
+    const target = event.target;
+    if (target instanceof HTMLTextAreaElement && target.getAttribute("data-queue-dialog-notes")) {
+      this._queueDialogNotes = String(target.value || "");
+    }
   }
 
   _getPhotoUploadArea(target) {
@@ -689,6 +767,33 @@ class ModelDetailPopupCard extends HTMLElement {
           background: var(--secondary-background-color);
           color: var(--primary-text-color);
         }
+        .queue-dialog-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+        .queue-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}
+        .queue-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,0.18);}
+        .queue-dialog-header h3{margin:0;font-size:18px;font-weight:800;}
+        .queue-dialog-subtitle{margin-top:4px;font-size:12px;color:var(--secondary-text-color);}
+        .queue-dialog-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid rgba(148,163,184,0.16);}
+        .queue-dialog-tab{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.16);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;}
+        .queue-dialog-tab.active{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:var(--primary-text-color);}
+        .queue-dialog-body{display:grid;gap:12px;padding:18px 20px;overflow:auto;}
+        .queue-dialog-summary,.queue-dialog-existing-note,.queue-dialog-note,.queue-dialog-metrics{padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(148,163,184,0.08);font-size:13px;line-height:1.45;}
+        .queue-dialog-existing-note{background:rgba(96,165,250,0.12);border-color:rgba(96,165,250,0.24);color:#dbeafe;}
+        .queue-dialog-field{display:grid;gap:6px;}
+        .queue-dialog-field span{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}
+        .queue-dialog-target-state,.queue-dialog-notes{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}
+        .queue-dialog-target-state{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:rgba(15,23,42,0.92);}
+        .queue-dialog-target-state:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}
+        .queue-dialog-target-state option{background-color:rgba(15,23,42,0.98);color:var(--primary-text-color);}
+        .queue-dialog-toolbar{display:flex;gap:8px;flex-wrap:wrap;}
+        .queue-dialog-file-list{display:grid;gap:10px;}
+        .queue-dialog-file-block{display:grid;gap:8px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}
+        .queue-dialog-file-toggle,.queue-dialog-plate-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;padding:0 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.20);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}
+        .queue-dialog-file-toggle span{font-size:11px;color:var(--secondary-text-color);font-weight:700;}
+        .queue-dialog-file-toggle.active,.queue-dialog-plate-toggle.active{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);}
+        .queue-dialog-plates{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}
+        .queue-dialog-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}
+        .queue-dialog-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}
+        .queue-dialog-submit{background:rgba(96,165,250,0.22);border-color:rgba(96,165,250,0.34);}
         .overflow-wrap { position: relative; }
         .overflow-menu {
           position: absolute;
@@ -1088,6 +1193,8 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
       </div>
+
+      ${this._renderQueueDialog()}
 
       ${this._showConflictDialog ? `
         <div class="conflict-dialog">
@@ -2390,26 +2497,299 @@ class ModelDetailPopupCard extends HTMLElement {
       console.warn('No model detail available for print');
       return;
     }
+    var model = this._modelDetail.model;
+    var modelName = String(model.name || this._modelRef || "Model").trim() || "Model";
+    // Check for existing queue entries to populate re-add warning in dialog.
+    this._listUnifiedQueueEntriesForModel(this._modelRef).then(function (entries) {
+      this._openQueueDialog(this._modelRef, modelName, entries, { intent: entries.length ? "re-add" : "add", defaultState: "up_next" });
+    }.bind(this)).catch(function () {
+      this._openQueueDialog(this._modelRef, modelName, [], { intent: "add", defaultState: "up_next" });
+    }.bind(this));
+  }
 
-    const model = this._modelDetail.model;
-    const files = model.files || [];
-    
-    if (files.length === 0) {
-      this._error = 'No files available to print';
+  // ── Unified Queue Dialog methods (#1499) ──────────────────────────────────
+
+  _getPrinterId() {
+    return String(this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1");
+  }
+
+  async _listUnifiedQueueEntriesForModel(modelRef) {
+    var queueApiBase = this._resolveModelSidecarUrl() + "/api/v1";
+    var printerId = this._getPrinterId();
+    var response = await fetch(queueApiBase + "/queues/" + encodeURIComponent(printerId) + "/entries?source_kind=catalog_model&limit=200");
+    if (!response.ok) {
+      return [];
+    }
+    var payload = await response.json().catch(function () { return {}; });
+    var entries = Array.isArray(payload && payload.entries) ? payload.entries : [];
+    return entries.filter(function (entry) {
+      return String((entry && (entry.source_id || entry.source_ref)) || "").trim() === modelRef;
+    });
+  }
+
+  async _openQueueDialog(modelRef, modelName, entries, options) {
+    var normalizedEntries = Array.isArray(entries) ? entries : [];
+    var dialogOptions = options && typeof options === "object" ? options : {};
+    this._queueDialogOpen = true;
+    this._queueDialogMode = "quick";
+    this._queueDialogModelRef = String(modelRef || "").trim();
+    this._queueDialogModelName = String(modelName || "Model").trim() || "Model";
+    this._queueDialogIntent = dialogOptions.intent === "re-add" ? "re-add" : "add";
+    this._queueDialogExistingCount = normalizedEntries.length;
+    this._queueDialogTargetState = this._normalizeQueueDialogTargetState(dialogOptions.defaultState || "up_next");
+    this._queueDialogNotes = "";
+    this._queueDialogLoading = true;
+    this._queueDialogSubmitting = false;
+    this._queueDialogError = "";
+    this._queueDialogFiles = [];
+    this._render();
+    try {
+      this._queueDialogFiles = await this._loadQueueDialogSourceDetail(this._queueDialogModelRef);
+    } catch (error) {
+      this._queueDialogError = error && error.message ? String(error.message) : "Could not load model queue defaults.";
+      this._queueDialogFiles = [];
+    } finally {
+      this._queueDialogLoading = false;
+      this._render();
+    }
+  }
+
+  _closeQueueDialog() {
+    this._queueDialogOpen = false;
+    this._queueDialogLoading = false;
+    this._queueDialogSubmitting = false;
+    this._queueDialogError = "";
+    this._queueDialogFiles = [];
+    this._render();
+  }
+
+  _normalizeQueueDialogTargetState(state) {
+    var valid = ["backlog", "up_next", "preparing", "ready"];
+    var s = String(state || "").trim().toLowerCase();
+    return valid.indexOf(s) >= 0 ? s : "up_next";
+  }
+
+  _queueDialogTargetStateLabel(state) {
+    var map = { backlog: "Backlog", up_next: "Up Next", preparing: "Preparing", ready: "Ready" };
+    return map[String(state || "").trim()] || String(state || "Up Next");
+  }
+
+  async _loadQueueDialogSourceDetail(modelRef) {
+    var response = await fetch(this._resolveModelSidecarUrl() + "/api/models/" + encodeURIComponent(modelRef) + "/detail");
+    if (!response.ok) {
+      throw new Error("Failed to load model detail (" + response.status + ").");
+    }
+    var payload = await response.json();
+    var model = payload && payload.model && typeof payload.model === "object" ? payload.model : {};
+    var files = Array.isArray(model.files) ? model.files : [];
+    if (!files.length) {
+      throw new Error("Selected model has no queueable files.");
+    }
+    var sidecarUrl = this._resolveModelSidecarUrl();
+    var normalized = await Promise.all(files.map(async function (file, index) {
+      var fileId = String(file.id || file.file_id || "").trim() || ("catalog-file-" + String(index + 1));
+      var fileName = String(file.filename || file.name || fileId).trim();
+      var fileType = String(file.file_type || file.content_type || file.asset_type || "").toLowerCase();
+      var lowerName = fileName.toLowerCase();
+      var plates = [{ plate_id: "default", plate_name: "Primary Plate", selected: true, is_primary: true }];
+      if (lowerName.endsWith(".3mf") || fileType.indexOf("3mf") >= 0) {
+        try {
+          var pr = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef) + "/files/" + encodeURIComponent(fileId) + "/plates");
+          if (pr.ok) {
+            var pp = await pr.json();
+            var rawPlates = Array.isArray(pp && pp.plates) ? pp.plates : [];
+            if (rawPlates.length > 0) {
+              plates = rawPlates.map(function (plate, pi) {
+                return {
+                  plate_id: String(plate.plate_key || plate.plate_id || plate.id || ("plate-" + String(pi + 1))).trim(),
+                  plate_name: String(plate.plate_name || plate.name || ("Plate " + String(pi + 1))).trim(),
+                  selected: pi === 0,
+                  is_primary: pi === 0,
+                };
+              });
+            }
+          }
+        } catch (_e) { /* skip */ }
+      }
+      return {
+        file_id: fileId,
+        file_name: fileName,
+        selected: index === 0,
+        thumbnail_url: String(file.thumbnail_url || file.preview_url || "").trim(),
+        plates: plates,
+      };
+    }));
+    if (!normalized.some(function (f) { return !!f.selected; }) && normalized.length > 0) {
+      normalized[0].selected = true;
+    }
+    return normalized;
+  }
+
+  _setQueueDialogMode(mode) {
+    var normalized = String(mode || "").trim().toLowerCase();
+    if (normalized !== "quick" && normalized !== "plan") return;
+    this._queueDialogMode = normalized;
+    this._render();
+  }
+
+  _setQueueDialogAllPlatesSelected(selected) {
+    var nextSelected = !!selected;
+    this._queueDialogFiles = this._queueDialogFiles.map(function (file) {
+      return Object.assign({}, file, {
+        selected: nextSelected,
+        plates: Array.isArray(file.plates) ? file.plates.map(function (p) { return Object.assign({}, p, { selected: nextSelected }); }) : [],
+      });
+    });
+    this._render();
+  }
+
+  _toggleQueueDialogFileSelection(fileId) {
+    if (!fileId) return;
+    this._queueDialogFiles = this._queueDialogFiles.map(function (file) {
+      if (String(file.file_id || "") !== fileId) return file;
+      var nextSelected = !file.selected;
+      return Object.assign({}, file, {
+        selected: nextSelected,
+        plates: Array.isArray(file.plates) ? file.plates.map(function (p, pi) {
+          return Object.assign({}, p, { selected: nextSelected ? pi === 0 || !!p.selected : false });
+        }) : [],
+      });
+    });
+    this._render();
+  }
+
+  _toggleQueueDialogPlateSelection(fileId, plateId) {
+    if (!fileId || !plateId) return;
+    this._queueDialogFiles = this._queueDialogFiles.map(function (file) {
+      if (String(file.file_id || "") !== fileId) return file;
+      var nextPlates = (file.plates || []).map(function (plate) {
+        if (String(plate.plate_id || "") !== plateId) return plate;
+        return Object.assign({}, plate, { selected: !plate.selected });
+      });
+      return Object.assign({}, file, { selected: nextPlates.some(function (p) { return !!p.selected; }), plates: nextPlates });
+    });
+    this._render();
+  }
+
+  _getQueueDialogMetrics() {
+    var files = Array.isArray(this._queueDialogFiles) ? this._queueDialogFiles : [];
+    var selectedFiles = files.filter(function (f) { return !!f.selected; });
+    var selectedPlates = selectedFiles.reduce(function (sum, f) {
+      return sum + (Array.isArray(f.plates) ? f.plates.filter(function (p) { return !!p.selected; }).length : 0);
+    }, 0);
+    return { totalFiles: files.length, selectedFiles: selectedFiles.length, selectedPlates: selectedPlates };
+  }
+
+  _canSubmitQueueDialog() {
+    if (this._queueDialogLoading || this._queueDialogSubmitting) return false;
+    if (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0) return false;
+    if (this._queueDialogMode !== "plan") return true;
+    return this._getQueueDialogMetrics().selectedPlates > 0;
+  }
+
+  _queueDialogPrimarySummary() {
+    if (!Array.isArray(this._queueDialogFiles) || !this._queueDialogFiles.length) return "Loading queue defaults...";
+    var primaryFile = this._queueDialogFiles[0] || {};
+    var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
+    return "Will queue " + String(primaryFile.file_name || "Primary file") + " · " + String(primaryPlate && primaryPlate.plate_name ? primaryPlate.plate_name : "Primary Plate") + " on " + this._getPrinterId() + " in state " + this._queueDialogTargetStateLabel("up_next") + ".";
+  }
+
+  async _submitQueueDialog() {
+    if (!this._queueDialogModelRef || this._queueDialogLoading || this._queueDialogSubmitting) return;
+    if (!this._canSubmitQueueDialog()) {
+      this._queueDialogError = this._queueDialogMode === "plan" ? "Select at least one file plate before adding to queue." : "No queueable files were found for this model.";
       this._render();
       return;
     }
-
-    // For now, log and show notification
-    console.log('Print triggered. Available files:', files);
-    
-    // In future: could trigger print workflow via HA service
-    if (this._hass) {
-      this._hass.callService('persistent_notification', 'create', {
-        title: 'Model Print',
-        message: `${files.length} file(s) ready. Print workflow coming soon.`,
-      }).catch(err => console.error('Notification failed:', err));
+    var targetState = this._queueDialogMode === "quick" ? "up_next" : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
+    var primaryFile = this._queueDialogFiles[0] || {};
+    var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
+    var payload = {
+      source_kind: "catalog_model",
+      source_id: this._queueDialogModelRef,
+      title: this._queueDialogModelName,
+      queue_notes: String(this._queueDialogNotes || "").trim(),
+      selection_mode: "selected_plates",
+      selected_files: this._queueDialogMode === "quick"
+        ? [{ file_id: primaryFile.file_id, file_name: primaryFile.file_name, selected: true, plates: primaryPlate ? [{ plate_id: primaryPlate.plate_id, selected: true }] : [] }]
+        : this._queueDialogFiles.map(function (f) { return { file_id: f.file_id, file_name: f.file_name, selected: !!f.selected, plates: (f.plates || []).map(function (p) { return { plate_id: p.plate_id, selected: !!p.selected }; }) }; }),
+    };
+    if (targetState !== "up_next") {
+      payload.state = targetState;
     }
+    this._queueDialogSubmitting = true;
+    this._queueDialogError = "";
+    this._render();
+    try {
+      await addUnifiedQueueEntry({
+        queueApiBase: this._resolveModelSidecarUrl() + "/api/v1",
+        printerId: this._getPrinterId(),
+        payload: payload,
+      });
+      this._closeQueueDialog();
+      // Reload model detail to refresh queued_items count
+      await this._loadModelDetail();
+    } catch (error) {
+      this._queueDialogSubmitting = false;
+      this._queueDialogError = error && error.message ? String(error.message) : "Could not add to queue.";
+      this._render();
+    }
+  }
+
+  _renderQueueDialog() {
+    if (!this._queueDialogOpen) return "";
+    var metrics = this._getQueueDialogMetrics();
+    var canSubmit = this._canSubmitQueueDialog();
+    var existingNote = this._queueDialogExistingCount > 0
+      ? '<div class="queue-dialog-existing-note">This model already has ' + this._escapeHtml(String(this._queueDialogExistingCount)) + ' queue entr' + (this._queueDialogExistingCount === 1 ? 'y' : 'ies') + '. A new entry will be created.</div>'
+      : "";
+    var planBody = this._queueDialogLoading
+      ? '<div class="queue-dialog-note">Loading model files and plates...</div>'
+      : this._queueDialogFiles.length === 0
+      ? '<div class="queue-dialog-note">No queueable files available for this model.</div>'
+      : '<div class="queue-dialog-toolbar"><button class="toolbar-btn" type="button" data-action="queue-dialog-select-all">Select all</button><button class="toolbar-btn ghost" type="button" data-action="queue-dialog-clear-all">Deselect all</button></div>'
+        + '<div class="queue-dialog-file-list">'
+        + this._queueDialogFiles.map(function (file) {
+            var plateCount = Array.isArray(file.plates) ? file.plates.length : 0;
+            var selectedPlates = Array.isArray(file.plates) ? file.plates.filter(function (p) { return !!p.selected; }).length : 0;
+            return '<section class="queue-dialog-file-block">'
+              + '  <button class="queue-dialog-file-toggle' + (file.selected ? ' active' : '') + '" type="button" data-action="queue-dialog-toggle-file" data-file-id="' + this._escapeHtml(String(file.file_id || '')) + '">' + this._escapeHtml(String(file.file_name || 'Queue file')) + '<span>' + this._escapeHtml(String(selectedPlates) + '/' + String(plateCount) + ' plates') + '</span></button>'
+              + '  <div class="queue-dialog-plates">'
+              + (file.plates || []).map(function (plate) {
+                  return '<button class="queue-dialog-plate-toggle' + (plate.selected ? ' active' : '') + '" type="button" data-action="queue-dialog-toggle-plate" data-file-id="' + this._escapeHtml(String(file.file_id || '')) + '" data-plate-id="' + this._escapeHtml(String(plate.plate_id || '')) + '">' + this._escapeHtml(String(plate.plate_name || 'Plate')) + '</button>';
+                }.bind(this)).join('')
+              + '  </div>'
+              + '</section>';
+          }.bind(this)).join('')
+        + '</div>';
+    return ''
+      + '<div class="queue-dialog-backdrop" data-action="close-queue-dialog">'
+      + '  <div class="queue-dialog" role="dialog" aria-modal="true" aria-label="Add to Queue">'
+      + '    <div class="queue-dialog-header">'
+      + '      <div><h3>Add to Queue</h3><div class="queue-dialog-subtitle">' + this._escapeHtml(this._queueDialogModelName) + '</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-queue-dialog" aria-label="Close">✕</button>'
+      + '    </div>'
+      + '    <div class="queue-dialog-tabs">'
+      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'quick' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>'
+      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'plan' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>'
+      + '    </div>'
+      + '    <div class="queue-dialog-body">'
+      + existingNote
+      + (this._queueDialogMode === 'quick'
+          ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
+          : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
+            + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="preparing"' + (this._queueDialogTargetState === 'preparing' ? ' selected' : '') + '>Preparing</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option></select></label>'
+            + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
+            + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
+            + planBody)
+      + (this._queueDialogError ? '<div class="queue-dialog-error">' + this._escapeHtml(this._queueDialogError) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="queue-dialog-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-queue-dialog">Cancel</button>'
+      + '      <button class="toolbar-btn queue-dialog-submit" type="button" data-action="queue-dialog-submit"' + (canSubmit ? '' : ' disabled') + '>' + (this._queueDialogSubmitting ? 'Adding...' : 'Add to Queue') + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
   }
 
   _buildModelViewerCardConfig() {

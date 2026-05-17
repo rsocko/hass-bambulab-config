@@ -1202,6 +1202,22 @@ class UnifiedQueueBoardCard extends HTMLElement {
       return;
     }
 
+    if (this._addSourceKind === 'catalog_model' || this._addSourceKind === 'working_group') {
+      const existingEntries = this._entries.filter(entry => {
+        const entrySourceId = String(entry.source_id || entry.source_ref || '').trim();
+        return String(entry.source_kind || '').trim() === this._addSourceKind && entrySourceId === sourceId;
+      });
+      if (existingEntries.length > 0) {
+        const entryLabel = existingEntries.length === 1 ? 'entry' : 'entries';
+        const confirmed = window.confirm(
+          `This source already has ${existingEntries.length} queue ${entryLabel}. Re-adding will create another independent entry. Continue?`
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+    }
+
     this._addSubmitting = true;
     this._addDetailError = null;
     this._render();
@@ -2772,6 +2788,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
     if (!this._pendingDeleteEntryId) return '';
     const entry = this._getEntryById(this._pendingDeleteEntryId);
     const label = entry ? this._stripTitlePrefix(entry.title || this._pendingDeleteEntryId) : this._pendingDeleteEntryId;
+    const state = String(entry && entry.state ? entry.state : '').trim();
+    const guardedStates = new Set(['preparing', 'ready', 'in_progress', 'blocked', 'done']);
+    const stateWarning = state && guardedStates.has(state)
+      ? `<div class="delete-confirm-message" style="margin-top:10px;color:#fca5a5;">
+            This entry is currently in <strong>${this._escapeHtml(state)}</strong> state. Deleting it will discard the current progress and cannot be undone.
+         </div>`
+      : '';
     return `
       <div class="delete-confirm" role="dialog" aria-modal="true" aria-label="Delete queue entry">
         <div class="delete-confirm-backdrop"></div>
@@ -2780,6 +2803,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
           <div class="delete-confirm-message">
             This removes <strong>${this._escapeHtml(label)}</strong> from the queue. This cannot be undone.
           </div>
+          ${stateWarning}
           <div class="delete-confirm-actions">
             <button class="delete-confirm-btn" data-action="delete-confirm-cancel">Keep Entry</button>
             <button class="delete-confirm-btn danger" data-action="delete-confirm-accept">Delete Entry</button>
