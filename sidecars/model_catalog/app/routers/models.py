@@ -553,6 +553,7 @@ def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = No
         creator_name=entry.creator_name,
         collection_names=entry.collection_names,
         keyword_names=tuple(compatibility_keywords),
+        entity_type=str(entry.entity_type or "model"),
     )
 
 

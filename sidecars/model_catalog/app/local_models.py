@@ -569,6 +569,32 @@ def delete_model_asset(
 
 def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
     """Convert DB row to LocalModelEntry dataclass."""
+    entity_type = "model"
+    try:
+        entity_type_raw = row["entity_type"]
+    except Exception:
+        entity_type_raw = "model"
+    entity_type = str(entity_type_raw or "model")
+
+    def _safe_json_list(value: Any) -> tuple[str, ...]:
+        if value is None:
+            return ()
+        raw = str(value).strip()
+        if not raw:
+            return ()
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return ()
+        if not isinstance(parsed, list):
+            return ()
+        normalized: list[str] = []
+        for item in parsed:
+            text = str(item or "").strip()
+            if text:
+                normalized.append(text)
+        return tuple(normalized)
+
     return LocalModelEntry(
         id=int(row["id"]),
         local_model_id=str(row["local_model_id"]),
@@ -576,15 +602,15 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         model_description=row["model_description"],
         creator_name=row["creator_name"],
         created_by=row["created_by"],
-        collection_names=tuple(json.loads(row["collection_names_json"] or "[]")),
-        keyword_names=tuple(json.loads(row["keyword_names_json"] or "[]")),
-        tags=tuple(json.loads(row["tags_json"] or "[]")),
+        collection_names=_safe_json_list(row["collection_names_json"]),
+        keyword_names=_safe_json_list(row["keyword_names_json"]),
+        tags=_safe_json_list(row["tags_json"]),
         license_type=row["license_type"],
         preview_image_url=row["preview_image_url"],
         source_origin=row["source_origin"],
         source_origin_url=row["source_origin_url"],
         revision_hash=row["revision_hash"],
-        entity_type=str(row.get("entity_type", "model")),
+        entity_type=entity_type,
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
@@ -593,7 +619,10 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
 def _row_to_model_asset(row: Any) -> ModelAsset:
     """Convert DB row to ModelAsset dataclass."""
     bounds_json = row["geometry_bounds_json"]
-    bounds = json.loads(bounds_json) if bounds_json else None
+    try:
+        bounds = json.loads(bounds_json) if bounds_json else None
+    except Exception:
+        bounds = None
 
     return ModelAsset(
         id=int(row["id"]),
