@@ -13,5 +13,6 @@ recorder:
   exclude:
     entities:
       - sensor.filament_catalog_metrics
+      - sensor.filament_catalog_filtered_spools
 
 template: !include_dir_merge_list template_sensors
