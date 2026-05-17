@@ -217,17 +217,58 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return slug + "--" + suffix;
   }
 
-  async _createIdeaEntity(name) {
+  _parseIdeaExternalLinks(rawValue) {
+    var text = String(rawValue || "").trim();
+    if (!text) {
+      return [];
+    }
+    var tokens = text.split(/[\n,]+/);
+    var links = [];
+    for (var i = 0; i < tokens.length; i++) {
+      var token = String(tokens[i] || "").trim();
+      if (!token) {
+        continue;
+      }
+      var parts = token.split("|");
+      var url = String(parts[0] || "").trim();
+      var label = String(parts[1] || "").trim();
+      if (!url) {
+        continue;
+      }
+      if (label) {
+        links.push({ url: url, label: label });
+      } else {
+        links.push({ url: url });
+      }
+    }
+    return links;
+  }
+
+  async _createIdeaEntity(ideaDraft) {
     var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
     if (!sidecarUrl) {
       throw new Error("Model Catalog sidecar URL not configured");
     }
+    var draft = (ideaDraft && typeof ideaDraft === "object") ? ideaDraft : { name: ideaDraft };
+    var name = String(draft.name || "").trim();
+    var notes = String(draft.notes || "").trim();
+    var links = Array.isArray(draft.external_links) ? draft.external_links : [];
+    var sketchImage = String(draft.sketch_image || "").trim();
     var payload = {
       local_model_id: this._generateIdeaLocalModelId(name),
-      model_name: String(name || "").trim(),
+      model_name: name,
       entity_type: "idea",
       tags: [],
     };
+    if (notes) {
+      payload.notes = notes;
+    }
+    if (links.length) {
+      payload.external_links = links;
+    }
+    if (sketchImage) {
+      payload.sketch_image = { url: sketchImage };
+    }
     var response = await fetch(sidecarUrl + "/api/local/models", {
       method: "POST",
       headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(false)),
@@ -1236,15 +1277,31 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "create-model") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openIntakePopup("browser");
+      return;
+    }
+
     if (action === "create-idea") {
       event.preventDefault();
       event.stopPropagation();
       var ideaName = window.prompt("Idea title:", "");
-      if (!ideaName || !String(ideaName).trim()) {
+      var normalizedIdeaName = String(ideaName || "").trim();
+      if (!normalizedIdeaName) {
         return;
       }
+      var ideaNotes = window.prompt("Idea notes (optional):", "") || "";
+      var ideaLinksRaw = window.prompt("Idea external links (optional, comma/newline-separated, use url|label):", "") || "";
+      var ideaSketchUrl = window.prompt("Idea sketch image URL (optional):", "") || "";
       try {
-        await this._createIdeaEntity(String(ideaName).trim());
+        await this._createIdeaEntity({
+          name: normalizedIdeaName,
+          notes: String(ideaNotes || "").trim(),
+          external_links: this._parseIdeaExternalLinks(ideaLinksRaw),
+          sketch_image: String(ideaSketchUrl || "").trim(),
+        });
         this._entityTypeFilters.showIdeas = true;
         this._activeActionMenu = "";
         this._error = "";
@@ -2877,6 +2934,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '        <option value="name"' + (this._filters.sort === 'name' ? ' selected' : '') + '>Name</option>'
       + '      </select>'
       + '    </div>'
+      + '    <button class="toolbar-btn" type="button" data-action="create-model" ' + (this._loading ? 'disabled' : '') + '>+ Add Model</button>'
       + '    <button class="toolbar-btn" type="button" data-action="create-idea" ' + (this._loading ? 'disabled' : '') + '>+ Add Idea</button>'
       + '    <details class="import-menu">'
       + '      <summary class="toolbar-btn import-trigger">Import <ha-icon icon="mdi:chevron-down"></ha-icon></summary>'

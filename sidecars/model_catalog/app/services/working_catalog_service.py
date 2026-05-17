@@ -20,9 +20,10 @@ from .._helpers import (
     _is_path_within_roots,
     _model_photo_storage_root,
 )
-from ..db import read_model_field, read_model_fields, set_model_field
+from ..db import delete_model_field, read_model_field, read_model_fields, set_model_field
 from ..local_models import (
     create_local_model,
+    delete_local_model,
     create_model_asset,
     list_model_assets,
     read_local_model,
@@ -157,6 +158,71 @@ def _ensure_unique_local_model_id(*, db_path: Path, preferred: str) -> str:
         candidate = f"{base_slug}-{suffix}"
         suffix += 1
     return candidate
+
+
+def _working_group_projection_local_model_id(group_id: int) -> str:
+    return f"working-group-{int(group_id)}"
+
+
+def _sync_working_group_projection(*, settings: Settings, group_row: Any) -> None:
+    group_id = int(group_row["id"])
+    local_model_id = _working_group_projection_local_model_id(group_id)
+    title = str(group_row["title"] or f"Working Group {group_id}").strip() or f"Working Group {group_id}"
+    notes = str(group_row["notes"] or "").strip() or None
+    stage = str(group_row["stage"] or "draft").strip() or "draft"
+    slug = str(group_row["slug"] or "").strip() or None
+    project_id = _resolve_project_id_value(group_row["project_id"] if "project_id" in set(group_row.keys()) else None)
+    source_origin_url = f"working-group://{group_id}"
+
+    existing = read_local_model(db_path=settings.db_path, local_model_id=local_model_id)
+    if existing is None:
+        create_local_model(
+            db_path=settings.db_path,
+            local_model_id=local_model_id,
+            model_name=title,
+            model_description=notes,
+            created_by="working_group_projection",
+            source_origin="working_group_projection",
+            source_origin_url=source_origin_url,
+            entity_type="working_group",
+        )
+    else:
+        update_local_model(
+            db_path=settings.db_path,
+            local_model_id=local_model_id,
+            model_name=title,
+            model_description=notes,
+            source_origin="working_group_projection",
+            source_origin_url=source_origin_url,
+            entity_type="working_group",
+        )
+
+    set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_id", field_value=group_id)
+    set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_stage", field_value=stage)
+
+    if slug:
+        set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_slug", field_value=slug)
+    else:
+        delete_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_slug")
+
+    if notes:
+        set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_notes", field_value=notes)
+    else:
+        delete_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_notes")
+
+    if project_id is not None:
+        set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="project_id", field_value=project_id)
+    else:
+        delete_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="project_id")
+
+
+def _archive_working_group_projection(*, settings: Settings, group_id: int) -> None:
+    local_model_id = _working_group_projection_local_model_id(group_id)
+    delete_local_model(
+        db_path=settings.db_path,
+        local_model_id=local_model_id,
+        hard_delete=False,
+    )
 
 
 def _create_project_record(
@@ -296,6 +362,7 @@ def create_working_group_service(*, settings: Settings, payload: dict[str, Any])
         group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
         row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         connection.commit()
+        _sync_working_group_projection(settings=settings, group_row=row)
         return {"success": True, "group": _serialize_working_group(connection, row, settings)}
     finally:
         connection.close()
@@ -415,6 +482,7 @@ def update_working_group_service(*, settings: Settings, group_id: int, payload: 
         )
         row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         connection.commit()
+        _sync_working_group_projection(settings=settings, group_row=row)
         return {"success": True, "group": _serialize_working_group(connection, row, settings)}
     finally:
         connection.close()
@@ -430,6 +498,7 @@ def delete_working_group_service(*, settings: Settings, group_id: int) -> Any:
         connection.execute("DELETE FROM working_items WHERE working_group_id = ?", (group_id,))
         connection.execute("DELETE FROM working_groups WHERE id = ?", (group_id,))
         connection.commit()
+        _archive_working_group_projection(settings=settings, group_id=group_id)
         return {"success": True, "deleted": True, "working_group_id": group_id}
     finally:
         connection.close()
