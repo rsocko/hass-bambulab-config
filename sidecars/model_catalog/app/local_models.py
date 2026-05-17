@@ -36,6 +36,7 @@ def create_local_model(
     source_origin: str | None = None,
     source_origin_url: str | None = None,
     revision_hash: str | None = None,
+    entity_type: str = "model",
 ) -> LocalModelEntry:
     """Create a new local model catalog entry."""
     connection = connect(db_path)
@@ -49,8 +50,9 @@ def create_local_model(
                 collection_names_json, keyword_names_json, tags_json,
                 license_type, preview_image_url,
                 source_origin, source_origin_url, revision_hash,
+                entity_type,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 local_model_id,
@@ -66,6 +68,7 @@ def create_local_model(
                 source_origin,
                 source_origin_url,
                 revision_hash,
+                entity_type,
                 now,
                 now,
             ),
@@ -173,6 +176,7 @@ def update_local_model(
     source_origin: str | None = None,
     source_origin_url: str | None = None,
     revision_hash: str | None = None,
+    entity_type: str | None = None,
 ) -> LocalModelEntry | None:
     """Update a local model entry (partial update).
     
@@ -230,6 +234,9 @@ def update_local_model(
         if revision_hash is not None:
             updates.append("revision_hash = ?")
             params.append(revision_hash)
+        if entity_type is not None:
+            updates.append("entity_type = ?")
+            params.append(entity_type)
 
         if not updates:
             # No updates requested, return current state
@@ -577,6 +584,7 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         source_origin=row["source_origin"],
         source_origin_url=row["source_origin_url"],
         revision_hash=row["revision_hash"],
+        entity_type=str(row.get("entity_type", "model")),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )

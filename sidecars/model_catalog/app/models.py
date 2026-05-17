@@ -33,6 +33,7 @@ class LocalModelEntry:
     source_origin: str | None
     source_origin_url: str | None
     revision_hash: str | None
+    entity_type: str  # 'model', 'idea', or 'working_group'
     created_at: str
     updated_at: str
 

@@ -88,6 +88,11 @@ from ..local_models import (
     delete_model_asset,
 )
 
+from ..promote import (
+    promote_entity,
+    can_promote,
+)
+
 from ..manyfold import (
     CachedManyfoldModel,
     ManyfoldClient,
@@ -2515,16 +2520,26 @@ def search_models(
 
 @router.post("/api/local/models")
 def create_local_model_endpoint(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
-    """Create a new local model entry."""
+    """Create a new local model entry.
+    
+    Supports creating models, ideas, and working groups via entity_type parameter.
+    """
     state: AppState = request.app.state.model_catalog
     
     local_model_id = str(payload.get("local_model_id") or "").strip()
     model_name = str(payload.get("model_name") or "").strip()
+    entity_type = str(payload.get("entity_type") or "model").strip().lower()
     
     if not local_model_id or not model_name:
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": "local_model_id and model_name are required"}
+        )
+    
+    if entity_type not in ("model", "idea", "working_group"):
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": f"Invalid entity_type: {entity_type}"}
         )
     
     try:
@@ -2543,12 +2558,14 @@ def create_local_model_endpoint(request: Request, payload: dict[str, Any]) -> di
             source_origin=payload.get("source_origin"),
             source_origin_url=payload.get("source_origin_url"),
             revision_hash=payload.get("revision_hash"),
+            entity_type=entity_type,
         )
         summary = _local_entry_to_summary(entry, db_path=state.settings.db_path)
         return {
             "success": True,
             "local_model_id": entry.local_model_id,
             "model_name": entry.model_name,
+            "entity_type": entry.entity_type,
             "summary": asdict(summary),
         }
     except Exception as error:
@@ -2638,6 +2655,7 @@ def update_local_model_endpoint(request: Request, local_model_id: str, payload: 
         source_origin=payload.get("source_origin"),
         source_origin_url=payload.get("source_origin_url"),
         revision_hash=payload.get("revision_hash"),
+        entity_type=payload.get("entity_type"),
     )
     
     if not updated:
@@ -2650,6 +2668,7 @@ def update_local_model_endpoint(request: Request, local_model_id: str, payload: 
     return {
         "success": True,
         "local_model_id": updated.local_model_id,
+        "entity_type": updated.entity_type,
         "summary": asdict(summary),
         "entry": asdict(updated),
     }
@@ -2809,6 +2828,71 @@ def delete_model_asset_endpoint(request: Request, local_model_id: str, asset_id:
         "asset_id": asset_id,
         "deleted": True,
     }
+
+
+@router.put("/api/local/models/{local_model_id}/promote")
+def promote_entity_endpoint(request: Request, local_model_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Promote an entity to a new type (Idea → Model/WG, WG → Model).
+    
+    Body schema:
+    {
+        "from_entity_type": "idea" | "working_group",
+        "to_entity_type": "model" | "working_group" | "idea"
+    }
+    """
+    state: AppState = request.app.state.model_catalog
+    
+    from_entity_type = str(payload.get("from_entity_type") or "").strip().lower()
+    to_entity_type = str(payload.get("to_entity_type") or "").strip().lower()
+    
+    if not from_entity_type or not to_entity_type:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "from_entity_type and to_entity_type are required"}
+        )
+    
+    # Validate promotion path
+    if not can_promote(from_entity_type, to_entity_type):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": f"Invalid promotion path: {from_entity_type} → {to_entity_type}",
+                "from_entity_type": from_entity_type,
+                "to_entity_type": to_entity_type,
+            }
+        )
+    
+    try:
+        entry = promote_entity(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            from_entity_type=from_entity_type,
+            to_entity_type=to_entity_type,
+        )
+        
+        if entry is None:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": f"Failed to promote {local_model_id}"}
+            )
+        
+        summary = _local_entry_to_summary(entry, db_path=state.settings.db_path)
+        return {
+            "success": True,
+            "local_model_id": entry.local_model_id,
+            "entity_type": entry.entity_type,
+            "from_entity_type": from_entity_type,
+            "to_entity_type": to_entity_type,
+            "summary": asdict(summary),
+        }
+    except Exception as error:
+        logger.exception(f"Error promoting {local_model_id}: {error}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(error)}
+        )
+
 
 def proxy_model_preview(request: Request, source: str) -> Response:
     client: ManyfoldClient = request.app.state.manyfold_client

@@ -898,8 +898,18 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
-)
-
+    (
+        25,
+        (
+            """
+        ALTER TABLE model_catalog_entries ADD COLUMN entity_type TEXT NOT NULL DEFAULT 'model'
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_entries_entity_type
+        ON model_catalog_entries(entity_type)
+        """,
+        ),
+    ),
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
     """Get the current schema version."""

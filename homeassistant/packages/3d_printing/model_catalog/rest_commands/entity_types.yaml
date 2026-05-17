@@ -1,0 +1,23 @@
+# Model Catalog REST commands for entity type filtering and management
+# Phase 2 (Issue #1490): Ideas + Working Groups as first-class catalog citizens
+
+rest_command:
+  model_catalog_list_models_by_entity_type:
+    url: "{{ state_attr('sensor.model_catalog_sidecar_db_profile', 'sidecar_url') }}/api/local/models?limit=500&offset=0"
+    method: GET
+    headers:
+      content-type: "application/json"
+
+  model_catalog_create_idea:
+    url: "{{ state_attr('sensor.model_catalog_sidecar_db_profile', 'sidecar_url') }}/api/local/models"
+    method: POST
+    payload: '{"entity_type":"idea","local_model_id":"{{local_model_id}}","model_name":"{{model_name}}","model_description":"{{model_description | default("") }}","tags":{{tags | tojson | default("[]") }}}'
+    headers:
+      content-type: "application/json"
+
+  model_catalog_promote_entity:
+    url: "{{ state_attr('sensor.model_catalog_sidecar_db_profile', 'sidecar_url') }}/api/local/models/{{local_model_id}}/promote"
+    method: PUT
+    payload: '{"from_entity_type":"{{from_entity_type}}","to_entity_type":"{{to_entity_type}}"}'
+    headers:
+      content-type: "application/json"
