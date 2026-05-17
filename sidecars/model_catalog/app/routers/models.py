@@ -1328,6 +1328,100 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     }
 
 
+_VALID_LOCAL_ENTITY_TYPES = {"model", "idea", "working_group"}
+_IDEA_METADATA_FIELD_KEYS = ("external_links", "notes", "sketch_image")
+
+
+def _normalize_idea_external_links(value: object | None) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+
+    normalized: list[dict[str, str]] = []
+    for raw_entry in value:
+        if isinstance(raw_entry, dict):
+            url = str(raw_entry.get("url") or "").strip()
+            label = str(raw_entry.get("label") or "").strip()
+        else:
+            url = str(raw_entry or "").strip()
+            label = ""
+
+        if not url:
+            continue
+
+        entry: dict[str, str] = {"url": url}
+        if label:
+            entry["label"] = label
+        normalized.append(entry)
+
+    return normalized
+
+
+def _normalize_idea_sketch_image(value: object | None) -> object | None:
+    if isinstance(value, dict):
+        url = str(value.get("url") or "").strip()
+        asset_id = str(value.get("asset_id") or "").strip()
+        normalized: dict[str, str] = {}
+        if url:
+            normalized["url"] = url
+        if asset_id:
+            normalized["asset_id"] = asset_id
+        return normalized or None
+
+    sketch = str(value or "").strip()
+    return sketch or None
+
+
+def _extract_idea_metadata(payload: dict[str, Any]) -> dict[str, object]:
+    metadata: dict[str, object] = {}
+
+    if "external_links" in payload:
+        metadata["external_links"] = _normalize_idea_external_links(payload.get("external_links"))
+
+    if "notes" in payload:
+        notes = str(payload.get("notes") or "").strip()
+        metadata["notes"] = notes or None
+
+    if "sketch_image" in payload:
+        metadata["sketch_image"] = _normalize_idea_sketch_image(payload.get("sketch_image"))
+
+    return metadata
+
+
+def _persist_idea_metadata(*, db_path: Path, model_ref: str, metadata: dict[str, object]) -> None:
+    for field_key in _IDEA_METADATA_FIELD_KEYS:
+        if field_key not in metadata:
+            continue
+        value = metadata.get(field_key)
+        should_clear = value is None
+        if isinstance(value, str):
+            should_clear = not value.strip()
+        elif isinstance(value, list):
+            should_clear = not value
+        elif isinstance(value, dict):
+            should_clear = not value
+
+        if should_clear:
+            delete_model_field(db_path=db_path, model_ref=model_ref, field_key=field_key)
+        else:
+            set_model_field(db_path=db_path, model_ref=model_ref, field_key=field_key, field_value=value)
+
+
+def _clear_idea_metadata(*, db_path: Path, model_ref: str) -> None:
+    for field_key in _IDEA_METADATA_FIELD_KEYS:
+        delete_model_field(db_path=db_path, model_ref=model_ref, field_key=field_key)
+
+
+def _read_idea_metadata(*, db_path: Path, model_ref: str) -> dict[str, object]:
+    fields = read_model_fields(db_path=db_path, model_ref=model_ref)
+    if not isinstance(fields, dict):
+        return {}
+    return {
+        "external_links": _normalize_idea_external_links(fields.get("external_links")),
+        "notes": str(fields.get("notes") or "").strip() or None,
+        "sketch_image": _normalize_idea_sketch_image(fields.get("sketch_image")),
+    }
+
+
 def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, object], set[str]]:
     if not isinstance(enrichment, dict):
         return {}, set()
@@ -2530,6 +2624,7 @@ def create_local_model_endpoint(request: Request, payload: dict[str, Any]) -> di
     local_model_id = str(payload.get("local_model_id") or "").strip()
     model_name = str(payload.get("model_name") or "").strip()
     entity_type = str(payload.get("entity_type") or "model").strip().lower()
+    idea_metadata = _extract_idea_metadata(payload)
     
     if not local_model_id or not model_name:
         return JSONResponse(
@@ -2537,10 +2632,16 @@ def create_local_model_endpoint(request: Request, payload: dict[str, Any]) -> di
             content={"success": False, "error": "local_model_id and model_name are required"}
         )
     
-    if entity_type not in ("model", "idea", "working_group"):
+    if entity_type not in _VALID_LOCAL_ENTITY_TYPES:
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": f"Invalid entity_type: {entity_type}"}
+        )
+
+    if idea_metadata and entity_type != "idea":
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Idea metadata fields are only valid for entity_type='idea'"}
         )
     
     try:
@@ -2561,12 +2662,19 @@ def create_local_model_endpoint(request: Request, payload: dict[str, Any]) -> di
             revision_hash=payload.get("revision_hash"),
             entity_type=entity_type,
         )
+        if idea_metadata:
+            _persist_idea_metadata(
+                db_path=state.settings.db_path,
+                model_ref=entry.local_model_id,
+                metadata=idea_metadata,
+            )
         summary = _local_entry_to_summary(entry, db_path=state.settings.db_path)
         return {
             "success": True,
             "local_model_id": entry.local_model_id,
             "model_name": entry.model_name,
             "entity_type": entry.entity_type,
+            "idea_metadata": _read_idea_metadata(db_path=state.settings.db_path, model_ref=entry.local_model_id),
             "summary": asdict(summary),
         }
     except Exception as error:
@@ -2632,6 +2740,7 @@ def get_local_model_endpoint(request: Request, local_model_id: str) -> dict[str,
         "success": True,
         "model": asdict(summary),
         "entry": asdict(entry),
+        "idea_metadata": _read_idea_metadata(db_path=state.settings.db_path, model_ref=local_model_id),
         "preview_file_id": preview_file_id,
         "assets": _serialize_local_model_assets(assets=assets, model_ref=local_model_id),
     }
@@ -2640,6 +2749,34 @@ def get_local_model_endpoint(request: Request, local_model_id: str) -> dict[str,
 def update_local_model_endpoint(request: Request, local_model_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Update a local model entry (partial update)."""
     state: AppState = request.app.state.model_catalog
+
+    existing = read_local_model(
+        db_path=state.settings.db_path,
+        local_model_id=local_model_id,
+    )
+
+    if not existing:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
+        )
+
+    payload_entity_type = None
+    if "entity_type" in payload:
+        payload_entity_type = str(payload.get("entity_type") or "").strip().lower()
+        if payload_entity_type not in _VALID_LOCAL_ENTITY_TYPES:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": f"Invalid entity_type: {payload_entity_type}"}
+            )
+
+    next_entity_type = payload_entity_type or str(existing.entity_type or "model").strip().lower()
+    idea_metadata = _extract_idea_metadata(payload)
+    if idea_metadata and next_entity_type != "idea":
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Idea metadata fields are only valid for entity_type='idea'"}
+        )
     
     updated = update_local_model(
         db_path=state.settings.db_path,
@@ -2656,13 +2793,23 @@ def update_local_model_endpoint(request: Request, local_model_id: str, payload: 
         source_origin=payload.get("source_origin"),
         source_origin_url=payload.get("source_origin_url"),
         revision_hash=payload.get("revision_hash"),
-        entity_type=payload.get("entity_type"),
+        entity_type=payload_entity_type,
     )
     
-    if not updated:
+    if updated is None:
         return JSONResponse(
-            status_code=404,
-            content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
+            status_code=500,
+            content={"success": False, "error": "update_failed", "local_model_id": local_model_id}
+        )
+
+    if payload_entity_type is not None and payload_entity_type != "idea":
+        _clear_idea_metadata(db_path=state.settings.db_path, model_ref=local_model_id)
+
+    if idea_metadata:
+        _persist_idea_metadata(
+            db_path=state.settings.db_path,
+            model_ref=updated.local_model_id,
+            metadata=idea_metadata,
         )
     
     summary = _local_entry_to_summary(updated, db_path=state.settings.db_path)
@@ -2670,6 +2817,7 @@ def update_local_model_endpoint(request: Request, local_model_id: str, payload: 
         "success": True,
         "local_model_id": updated.local_model_id,
         "entity_type": updated.entity_type,
+        "idea_metadata": _read_idea_metadata(db_path=state.settings.db_path, model_ref=updated.local_model_id),
         "summary": asdict(summary),
         "entry": asdict(updated),
     }

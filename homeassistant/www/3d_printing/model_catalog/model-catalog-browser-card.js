@@ -175,6 +175,31 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return "";
   }
 
+  _workingGroupIdForModel(model) {
+    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    var candidates = [
+      fields.working_group_id,
+      fields.published_from_group_id,
+      model && model.working_group_id,
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      var candidate = Number(candidates[i] || 0);
+      if (Number.isFinite(candidate) && candidate > 0) {
+        return Math.round(candidate);
+      }
+    }
+
+    var sourceOriginUrl = String(fields.source_origin_url || model && model.source_origin_url || "").trim();
+    var match = sourceOriginUrl.match(/working-group:\/\/(\d+)/i);
+    if (match) {
+      var parsed = Number(match[1] || 0);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return Math.round(parsed);
+      }
+    }
+    return 0;
+  }
+
   _slugifyName(value) {
     var slug = String(value || "")
       .trim()
@@ -1255,6 +1280,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = error && error.message ? String(error.message) : "Could not promote entity.";
         this._render();
       }
+      return;
+    }
+
+    if (action === "open-working-files") {
+      event.preventDefault();
+      event.stopPropagation();
+      var groupId = Number(target.getAttribute("data-working-group-id") || 0);
+      var groupTitle = String(target.getAttribute("data-model-name") || "Working Files").trim();
+      this._activeActionMenu = "";
+      this._openWorkingFilesExplorer(groupId, groupTitle);
       return;
     }
 
@@ -3159,6 +3194,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         promotionActions += '  <button class="advanced-action" type="button" data-action="promote-entity" data-local-model-id="' + this._escapeHtml(localModelId) + '" data-from-entity-type="' + this._escapeHtml(entityType) + '" data-to-entity-type="' + this._escapeHtml(promoteTarget) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:arrow-up-bold-circle-outline"></ha-icon><span>' + this._escapeHtml(promoteLabel) + '</span></button>';
       }
     }
+    var workingGroupId = this._workingGroupIdForModel(model);
+    var workingGroupActions = '';
+    if (entityType === "working_group") {
+      workingGroupActions = '  <button class="advanced-action" type="button" data-action="open-working-files" data-model-name="' + this._escapeHtml(name) + '" data-working-group-id="' + this._escapeHtml(String(workingGroupId || 0)) + '"><ha-icon icon="mdi:folder-open-outline"></ha-icon><span>Open in Working Files</span></button>';
+    }
     var advancedActions = ''
       + '<div class="advanced-menu-shell">'
       + '  <button class="icon-action advanced" type="button" data-action="toggle-actions" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Open advanced actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
@@ -3166,6 +3206,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
           + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
           + (modelUrl ? '  <button class="advanced-action" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '"><ha-icon icon="mdi:open-in-new"></ha-icon><span>Open source page</span></button>' : '')
+          + workingGroupActions
           + promotionActions
           + '  <div class="advanced-group-label">Queue actions</div>'
           + '  <div class="advanced-inline-grid">'
@@ -3656,6 +3697,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
         initial_tab: String(initialTab || "details"),
         model_entity: "input_text.model_catalog_sidecar_base_url",
         model_sidecar_url: this._modelSidecarUrl || (this._config && this._config.model_sidecar_url ? String(this._config.model_sidecar_url) : ""),
+      },
+    });
+  }
+
+  _openWorkingFilesExplorer(groupId, groupTitle) {
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: groupTitle ? (groupTitle + " - Working Files") : "Working Files",
+      size: "wide",
+      content: {
+        type: "custom:model-catalog-working-files-explorer-card",
+        initial_group_id: Number.isFinite(Number(groupId)) && Number(groupId) > 0 ? Math.round(Number(groupId)) : 0,
       },
     });
   }

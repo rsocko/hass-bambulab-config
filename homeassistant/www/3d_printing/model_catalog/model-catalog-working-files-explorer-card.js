@@ -336,11 +336,24 @@
     }
 
     setConfig(config) {
+      var requestedInitialGroupId = Number(config && config.initial_group_id ? config.initial_group_id : 0);
+      var normalizedInitialGroupId = Number.isFinite(requestedInitialGroupId) && requestedInitialGroupId > 0
+        ? Math.round(requestedInitialGroupId)
+        : 0;
+      var initialQuery = config && config.initial_query ? String(config.initial_query).trim() : '';
       this._config = {
         title: config && config.title ? String(config.title) : 'Working Files',
         per_page: config && config.per_page ? Number(config.per_page) : 200,
         auto_reindex_on_initial_load: !(config && config.auto_reindex_on_initial_load === false),
+        initial_group_id: normalizedInitialGroupId,
+        initial_query: initialQuery,
       };
+      if (initialQuery) {
+        this._query = initialQuery;
+      }
+      if (normalizedInitialGroupId > 0) {
+        this._selectedGroupId = normalizedInitialGroupId;
+      }
       this._render();
     }
 
@@ -455,6 +468,15 @@
           if (!this._groups.length) {
             this._selectedGroupId = 0;
           } else {
+            var preferredGroupId = Number(this._config && this._config.initial_group_id || 0);
+            if (preferredGroupId > 0) {
+              var preferredGroup = this._groups.find(function (group) {
+                return Number(group && group.id) === preferredGroupId;
+              });
+              if (preferredGroup) {
+                this._selectedGroupId = preferredGroupId;
+              }
+            }
             var selected = this._currentSelectedGroup();
             if (!selected) {
               this._selectedGroupId = Number(this._groups[0].id || 0);
