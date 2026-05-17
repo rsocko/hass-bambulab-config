@@ -3108,6 +3108,63 @@ def test_variant3_manager_refresh_does_not_reload_archives_from_store(tmp_path: 
     assert manager.last_refresh_store_total_count == 1
 
 
+def test_variant3_manager_refresh_skips_recompute_when_store_and_state_unchanged(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query("seed")
+    seeded_recompute_count = manager.recompute_stats["count"]
+
+    FakeApiClient.archives = [dict(item) for item in manager.archives]
+    FakeApiClient.printers = []
+    FakeApiClient.projects = []
+    FakeApiClient.archive_stats = {"total_prints": len(FakeApiClient.archives)}
+
+    recompute_calls = 0
+
+    async def fake_async_recompute_query(_reason: str) -> bool:
+        nonlocal recompute_calls
+        recompute_calls += 1
+        return False
+
+    original_client = manager_module.BambuddyApiClient
+    original_async_recompute_query = manager._async_recompute_query
+    original_replace_archives = manager.store.replace_archives
+
+    def fake_replace_archives(_projected: list[dict[str, object]]) -> dict[str, int]:
+        return {
+            "total_count": len(manager.archives),
+            "inserted_count": 0,
+            "updated_count": 0,
+            "unchanged_count": len(manager.archives),
+            "removed_count": 0,
+            "fast_unchanged_count": len(manager.archives),
+            "serialized_count": 0,
+        }
+
+    manager_module.BambuddyApiClient = FakeApiClient
+    manager._async_recompute_query = fake_async_recompute_query
+    manager.store.replace_archives = fake_replace_archives
+    try:
+        asyncio.run(manager.async_refresh("startup"))
+    finally:
+        manager_module.BambuddyApiClient = original_client
+        manager._async_recompute_query = original_async_recompute_query
+        manager.store.replace_archives = original_replace_archives
+
+    assert recompute_calls == 0
+    assert manager.recompute_stats["count"] == seeded_recompute_count
+
+
 def test_variant3_manager_limit_notice_reports_truncated_history(tmp_path: Path) -> None:
     _const_module, _query_module, manager_module, _init_module = _import_component_modules()
 

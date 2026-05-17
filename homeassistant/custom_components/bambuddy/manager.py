@@ -272,6 +272,7 @@ class PrintHistoryBrowserManager:
         self._scheduled_refresh_reasons: list[str] = []
         self._scheduled_recompute_handle: asyncio.TimerHandle | None = None
         self._scheduled_recompute_reasons: list[str] = []
+        self._last_recompute_state_snapshot: dict[str, str] | None = None
         self.query_stats: dict[str, Any] = {
             "count": 0,
             "slow_count": 0,
@@ -599,7 +600,22 @@ class PrintHistoryBrowserManager:
                 self.last_refresh = dt_util.utcnow().isoformat()
                 self.last_error = ""
                 self._store_unavailable_until = None
-                query_changed = await self._async_recompute_query(f"refresh:{reason}")
+                store_content_changed = any(
+                    (
+                        self.last_refresh_store_inserted_count,
+                        self.last_refresh_store_updated_count,
+                        self.last_refresh_store_removed_count,
+                    )
+                )
+                current_state_snapshot = self._state_snapshot()
+                if not store_content_changed and self._last_recompute_state_snapshot == current_state_snapshot:
+                    query_changed = False
+                    _LOGGER.debug(
+                        "Skipping Bambuddy query recompute for refresh:%s because archives and helper state are unchanged",
+                        reason,
+                    )
+                else:
+                    query_changed = await self._async_recompute_query(f"refresh:{reason}")
                 if archives_changed or query_changed:
                     self.browser_revision += 1
                 await self._async_sync_options()
@@ -1188,12 +1204,14 @@ class PrintHistoryBrowserManager:
 
     def _recompute_query(self, reason: str = "internal") -> bool:
         started = perf_counter()
+        state_snapshot = self._state_snapshot()
         with self.store._connect() as connection:
-            next_result = self.store.load_query_result(self._state_snapshot(), connection=connection)
+            next_result = self.store.load_query_result(state_snapshot, connection=connection)
             next_activity_summary = self.store.load_activity_summary(connection=connection)
         changed = next_result != self.result or next_activity_summary != self.activity_summary
         self.result = next_result
         self.activity_summary = next_activity_summary
+        self._last_recompute_state_snapshot = state_snapshot
         if changed:
             self.loaded_at = dt_util.utcnow().isoformat()
         self._record_recompute_stats(
