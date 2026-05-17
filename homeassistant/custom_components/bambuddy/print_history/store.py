@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import contextmanager
 import json
 import logging
@@ -1231,6 +1232,13 @@ class PrintHistoryStore:
             )
 
     def _fd_snapshot(self) -> dict[str, int | None]:
+        try:
+            asyncio.get_running_loop()
+            # Called from the event loop thread – skip blocking I/O
+            return {"proc_fd_count": None, "db_fd_count": None}
+        except RuntimeError:
+            pass  # No running event loop; safe to perform blocking I/O
+
         proc_fd_path = Path("/proc/self/fd")
         if not proc_fd_path.exists():
             return {"proc_fd_count": None, "db_fd_count": None}

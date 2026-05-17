@@ -236,6 +236,7 @@ class PrintHistoryBrowserManager:
             DEFAULT_RESTORE_UPLOAD_SESSION_TTL,
         )
         self.restore_workflow = RestoreWorkflowManager()
+        self._temp_storage_summary_cache: dict[str, Any] = {"total_bytes": 0, "total_files": 0, "categories": []}
         self.archives: list[dict[str, Any]] = []
         self.result = query_archives([], self._state_snapshot())
         self.activity_summary: dict[str, Any] = {"archive_count": 0, "active_day_count": 0, "latest_archive_id": 0}
@@ -338,7 +339,8 @@ class PrintHistoryBrowserManager:
         await self.hass.async_add_executor_job(self.store.initialize)
         _LOGGER.info("Initialized Bambuddy local store at %s", self.store._db_path)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-        if self._recompute_query("initialize"):
+        await self.hass.async_add_executor_job(self.get_temp_storage_summary)
+        if await self._async_recompute_query("initialize"):
             self.browser_revision += 1
 
         self._unsubscribers.append(
@@ -597,7 +599,7 @@ class PrintHistoryBrowserManager:
                 self.last_refresh = dt_util.utcnow().isoformat()
                 self.last_error = ""
                 self._store_unavailable_until = None
-                query_changed = self._recompute_query(f"refresh:{reason}")
+                query_changed = await self._async_recompute_query(f"refresh:{reason}")
                 if archives_changed or query_changed:
                     self.browser_revision += 1
                 await self._async_sync_options()
@@ -665,7 +667,7 @@ class PrintHistoryBrowserManager:
         projected_archive = project_archive(enriched_archive)
         sync_result = await self.hass.async_add_executor_job(self.store.upsert_archive, projected_archive)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-        query_changed = self._recompute_query(f"{operation}:{normalized_archive_id}")
+        query_changed = await self._async_recompute_query(f"{operation}:{normalized_archive_id}")
         if query_changed or int(sync_result.get("inserted_count", 0)) > 0 or int(sync_result.get("updated_count", 0)) > 0:
             self.browser_revision += 1
         mutation_details = {
@@ -909,15 +911,24 @@ class PrintHistoryBrowserManager:
         }
 
     def get_temp_storage_summary(self) -> dict[str, Any]:
+        try:
+            asyncio.get_running_loop()
+            # Called from the event loop thread – return cached result to avoid blocking I/O
+            return self._temp_storage_summary_cache
+        except RuntimeError:
+            pass  # No running event loop; safe to perform blocking I/O
+
         categories = [
             self._summarize_directory("snapshot_cache", self.snapshot_dir, shared=True),
             self._summarize_directory("restore_upload_staging", self.restore_upload_dir, shared=False),
         ]
-        return {
+        result = {
             "total_bytes": sum(item["bytes"] for item in categories),
             "total_files": sum(item["file_count"] for item in categories),
             "categories": categories,
         }
+        self._temp_storage_summary_cache = result
+        return result
 
     def _summarize_directory(self, category: str, path: Path, *, shared: bool) -> dict[str, Any]:
         file_count = 0
@@ -1170,6 +1181,10 @@ class PrintHistoryBrowserManager:
                 "current_plate_id": as_int(printer.get("current_plate_id")),
             }
         return printer_runtime
+
+    async def _async_recompute_query(self, reason: str = "internal") -> bool:
+        """Offload the blocking SQLite recompute to an executor thread."""
+        return await self.hass.async_add_executor_job(self._recompute_query, reason)
 
     def _recompute_query(self, reason: str = "internal") -> bool:
         started = perf_counter()
