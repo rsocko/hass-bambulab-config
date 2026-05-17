@@ -25,6 +25,7 @@
 
 import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
+import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
 
 class ModelDetailPopupCard extends HTMLElement {
   constructor() {
@@ -55,6 +56,20 @@ class ModelDetailPopupCard extends HTMLElement {
     this._panelActiveTab = 'panel-queue';
     this._collapsedSections = {};
     this._popupExtensions = new Map();
+    this._queueDialogController = new UnifiedQueueDialogController(this, {
+      loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
+      addEntry: async ({ queueApiBase, printerId, payload }) => {
+        await addUnifiedQueueEntry({ queueApiBase, printerId, payload });
+      },
+      afterSubmit: async () => {
+        await this._loadModelDetail();
+      },
+      getPrinterId: () => String(this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1"),
+      getQueueApiBase: () => {
+        const resolved = String(this._resolveModelSidecarUrl() || "").trim();
+        return resolved ? `${resolved}/api/v1` : "";
+      },
+    });
 
     // Unified queue dialog state (#1499)
     this._queueDialogOpen = false;
@@ -2870,3 +2885,48 @@ class ModelDetailPopupCard extends HTMLElement {
 }
 
 customElements.define("model-detail-popup-card", ModelDetailPopupCard);
+
+Object.assign(ModelDetailPopupCard.prototype, {
+  _resetQueueDialogState() {
+    this._queueDialogController.resetState();
+  },
+  _closeQueueDialog() {
+    this._queueDialogController.close();
+  },
+  _openQueueDialog(modelRef, modelName, entries, options) {
+    return this._queueDialogController.open(modelRef, modelName, entries, options);
+  },
+  _setQueueDialogMode(mode) {
+    this._queueDialogController.setMode(mode);
+  },
+  _setQueueDialogAllPlatesSelected(selected) {
+    this._queueDialogController.setAllPlatesSelected(selected);
+  },
+  _toggleQueueDialogFileSelection(fileId) {
+    this._queueDialogController.toggleFileSelection(fileId);
+  },
+  _toggleQueueDialogPlateSelection(fileId, plateId) {
+    this._queueDialogController.togglePlateSelection(fileId, plateId);
+  },
+  _getQueueDialogMetrics() {
+    return this._queueDialogController.getMetrics();
+  },
+  _queueDialogPrimarySummary() {
+    return this._queueDialogController.primarySummary();
+  },
+  _canSubmitQueueDialog() {
+    return this._queueDialogController.canSubmit();
+  },
+  _submitQueueDialog() {
+    return this._queueDialogController.submit();
+  },
+  _normalizeQueueDialogTargetState(state) {
+    return normalizeQueueDialogTargetState(state);
+  },
+  _queueDialogTargetStateLabel(state) {
+    return queueDialogTargetStateLabel(state);
+  },
+  _renderQueueDialog() {
+    return this._queueDialogController.render();
+  },
+});

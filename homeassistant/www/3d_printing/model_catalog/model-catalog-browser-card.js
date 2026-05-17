@@ -1,5 +1,6 @@
 import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
+import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
 
 class ModelCatalogBrowserCard extends HTMLElement {
   constructor() {
@@ -31,20 +32,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
       initialized: false,
     };
     this._visibilityCounts = { active: 0, archived: 0 };
+    this._entityTypeFilters = {
+      showIdeas: false,
+      showWorkingGroups: false,
+    };
     this._frequentsRailItems = [];
     this._frequentsRailVisible = this._readFrequentsRailVisibility();
-    this._queueDialogOpen = false;
-    this._queueDialogMode = "quick";
-    this._queueDialogModelRef = "";
-    this._queueDialogModelName = "";
-    this._queueDialogIntent = "add";
-    this._queueDialogExistingCount = 0;
-    this._queueDialogTargetState = "up_next";
-    this._queueDialogNotes = "";
-    this._queueDialogLoading = false;
-    this._queueDialogSubmitting = false;
-    this._queueDialogError = "";
-    this._queueDialogFiles = [];
+    this._queueDialogController = new UnifiedQueueDialogController(this, {
+      loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
+      addEntry: async ({ queueApiBase, printerId, payload }) => {
+        await addUnifiedQueueEntry({ queueApiBase, printerId, payload });
+      },
+      afterSubmit: async () => {
+        await this._refreshData();
+      },
+      getPrinterId: () => String(this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1"),
+      getQueueApiBase: () => {
+        const resolved = String(this._resolveModelSidecarUrl() || "").trim();
+        return resolved ? `${resolved}/api/v1` : "";
+      },
+    });
 
     this._boundClick = this._handleClick.bind(this);
     this._boundInput = this._handleInput.bind(this);
@@ -75,6 +82,169 @@ class ModelCatalogBrowserCard extends HTMLElement {
       has_other_files: false,
       show_archived: false,
     };
+  }
+
+  _normalizedEntityType(value) {
+    var normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "idea" || normalized === "working_group" || normalized === "model") {
+      return normalized;
+    }
+    return "model";
+  }
+
+  _entityTypeForModel(model) {
+    var direct = this._normalizedEntityType(model && model.entity_type);
+    if (direct !== "model") {
+      return direct;
+    }
+    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    var fieldType = this._normalizedEntityType(fields.entity_type);
+    if (fieldType !== "model") {
+      return fieldType;
+    }
+    var structured = model && model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
+    var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
+    return this._normalizedEntityType(catalogSignals.entity_type);
+  }
+
+  _isEntityTypeVisible(entityType) {
+    var normalized = this._normalizedEntityType(entityType);
+    if (normalized === "idea") {
+      return !!this._entityTypeFilters.showIdeas;
+    }
+    if (normalized === "working_group") {
+      return !!this._entityTypeFilters.showWorkingGroups;
+    }
+    return true;
+  }
+
+  _entityTypeCounts() {
+    var counts = { model: 0, idea: 0, working_group: 0 };
+    for (var i = 0; i < this._results.length; i++) {
+      var entityType = this._entityTypeForModel(this._results[i]);
+      counts[entityType] = (counts[entityType] || 0) + 1;
+    }
+    return counts;
+  }
+
+  _filteredResultsForScope() {
+    if (this._browserScope === "collections") {
+      return this._results;
+    }
+    var filtered = [];
+    for (var i = 0; i < this._results.length; i++) {
+      var candidate = this._results[i];
+      if (this._isEntityTypeVisible(this._entityTypeForModel(candidate))) {
+        filtered.push(candidate);
+      }
+    }
+    return filtered;
+  }
+
+  _localModelIdForModel(model) {
+    var localModelId = String(model && model.local_model_id || "").trim();
+    if (localModelId) {
+      return localModelId;
+    }
+    var publicId = String(model && model.public_id || "").trim();
+    if (publicId && String(model && model.model_url || "").trim().indexOf("local://") === 0) {
+      return publicId;
+    }
+    return "";
+  }
+
+  _promotionTargets(fromType) {
+    var normalized = this._normalizedEntityType(fromType);
+    if (normalized === "idea") {
+      return ["model", "working_group"];
+    }
+    if (normalized === "working_group") {
+      return ["model"];
+    }
+    return [];
+  }
+
+  _entityTypeBadgeLabel(entityType) {
+    var normalized = this._normalizedEntityType(entityType);
+    if (normalized === "idea") {
+      return "4a1 Idea";
+    }
+    if (normalized === "working_group") {
+      return "9f0 Working Group";
+    }
+    return "";
+  }
+
+  _slugifyName(value) {
+    var slug = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    return slug || "idea";
+  }
+
+  _generateIdeaLocalModelId(name) {
+    var slug = this._slugifyName(name);
+    var suffix = Date.now().toString(36).slice(-8);
+    return slug + "--" + suffix;
+  }
+
+  async _createIdeaEntity(name) {
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      throw new Error("Model Catalog sidecar URL not configured");
+    }
+    var payload = {
+      local_model_id: this._generateIdeaLocalModelId(name),
+      model_name: String(name || "").trim(),
+      entity_type: "idea",
+      tags: [],
+    };
+    var response = await fetch(sidecarUrl + "/api/local/models", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(false)),
+      credentials: "same-origin",
+      body: JSON.stringify(payload),
+    });
+    var data = {};
+    try {
+      data = await response.json();
+    } catch (_error) {
+      data = {};
+    }
+    if (!response.ok || !data.success) {
+      throw new Error(String(data.error || ("Failed to create idea (HTTP " + String(response.status) + ")")));
+    }
+    return data;
+  }
+
+  async _promoteEntity(localModelId, fromType, toType) {
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      throw new Error("Model Catalog sidecar URL not configured");
+    }
+    var response = await fetch(sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "/promote", {
+      method: "PUT",
+      headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(false)),
+      credentials: "same-origin",
+      body: JSON.stringify({
+        from_entity_type: this._normalizedEntityType(fromType),
+        to_entity_type: this._normalizedEntityType(toType),
+      }),
+    });
+    var data = {};
+    try {
+      data = await response.json();
+    } catch (_error) {
+      data = {};
+    }
+    if (!response.ok || !data.success) {
+      throw new Error(String(data.error || ("Failed to promote entity (HTTP " + String(response.status) + ")")));
+    }
+    return data;
   }
 
   _readFrequentsRailVisibility() {
@@ -3918,4 +4088,49 @@ class ModelCatalogBrowserCard extends HTMLElement {
 }
 
 customElements.define("model-catalog-browser-card", ModelCatalogBrowserCard);
+
+Object.assign(ModelCatalogBrowserCard.prototype, {
+  _resetQueueDialogState() {
+    this._queueDialogController.resetState();
+  },
+  _closeQueueDialog() {
+    this._queueDialogController.close();
+  },
+  _openQueueDialog(modelRef, modelName, entries, options) {
+    return this._queueDialogController.open(modelRef, modelName, entries, options);
+  },
+  _setQueueDialogMode(mode) {
+    this._queueDialogController.setMode(mode);
+  },
+  _setQueueDialogAllPlatesSelected(selected) {
+    this._queueDialogController.setAllPlatesSelected(selected);
+  },
+  _toggleQueueDialogFileSelection(fileId) {
+    this._queueDialogController.toggleFileSelection(fileId);
+  },
+  _toggleQueueDialogPlateSelection(fileId, plateId) {
+    this._queueDialogController.togglePlateSelection(fileId, plateId);
+  },
+  _getQueueDialogMetrics() {
+    return this._queueDialogController.getMetrics();
+  },
+  _queueDialogPrimarySummary() {
+    return this._queueDialogController.primarySummary();
+  },
+  _canSubmitQueueDialog() {
+    return this._queueDialogController.canSubmit();
+  },
+  _submitQueueDialog() {
+    return this._queueDialogController.submit();
+  },
+  _normalizeQueueDialogTargetState(state) {
+    return normalizeQueueDialogTargetState(state);
+  },
+  _queueDialogTargetStateLabel(state) {
+    return queueDialogTargetStateLabel(state);
+  },
+  _renderQueueDialog() {
+    return this._queueDialogController.render();
+  },
+});
 
