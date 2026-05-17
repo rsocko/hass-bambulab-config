@@ -1,4 +1,5 @@
 model_catalog_sidecar_base_url:
   name: Model Catalog Sidecar Base URL
+  initial: http://model-catalog.socko.us
   max: 255
   icon: mdi:server-network
