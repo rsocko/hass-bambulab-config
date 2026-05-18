@@ -1,231 +1,118 @@
 # Docs: docs/features/printer_dashboards/README.md
 # Home view top info separator with inline system chips and Bambu Lab logo.
+# CRITICAL FIX: Removed config-template-card wrapper (was causing re-evaluation on every state change for 18+ entities)
 
-type: custom:config-template-card
-entities:
-  - input_boolean.screenshot_mode
-  - sensor.3d_printer_name_display
-  - sensor.3d_printer_ip_address_display
-  - sensor.ntk_ryansoffice_3dprinter_mqtt_connection_mode
-  - sensor.3d_printer_sd_card_status
-  - sensor.3d_printer_serial_number_display
-  - sensor.ntk_ryansoffice_3dprinter_total_usage
-  - sensor.ntk_ryansoffice_3dprinter_wifi_signal
-  - binary_sensor.ntk_ryansoffice_3dprinter_recording_timelapse
-card:
-  type: custom:bubble-card
-  card_type: separator
-  entity: sensor.3d_printer_name_display
-  name: >-
-    ${states['sensor.3d_printer_name_display']?.state || '3D Printer'}
-  icon: mdi:printer-3d
-  sub_button:
-    - entity: input_boolean.screenshot_mode
-      sub_button_type: default
-      name: Screenshot Mode
-      icon: mdi:eye-off
-      show_name: false
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      double_tap_action:
-        action: none
-    - entity: sensor.3d_printer_ip_address_display
-      sub_button_type: default
-      name: IP Address
-      icon: mdi:ip-network
-      show_name: false
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-    - entity: sensor.ntk_ryansoffice_3dprinter_mqtt_connection_mode
-      sub_button_type: default
-      name: MQTT Mode
-      icon: mdi:connection
-      show_name: true
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-    - entity: sensor.3d_printer_sd_card_status
-      sub_button_type: default
-      name: SD Card Status
-      icon: mdi:sd
-      show_name: true
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-    - entity: sensor.3d_printer_serial_number_display
-      sub_button_type: default
-      name: Serial Number
-      icon: mdi:barcode
-      show_name: true
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-    - entity: sensor.ntk_ryansoffice_3dprinter_total_usage
-      sub_button_type: default
-      name: Total Usage
-      icon: mdi:timer
-      show_name: true
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-    - entity: sensor.ntk_ryansoffice_3dprinter_wifi_signal
-      sub_button_type: default
-      name: Wi-Fi Signal
-      icon: mdi:wifi
-      show_name: true
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-    - entity: binary_sensor.ntk_ryansoffice_3dprinter_recording_timelapse
-      sub_button_type: default
-      name: Timelapse
-      icon: mdi:video
-      show_name: true
-      show_state: true
-      show_icon: true
-      show_background: true
-      state_background: false
-      state_color: false
-      fill_width: false
-      tap_action:
-        action: more-info
-  styles: >-
-    ${(() => {
-      const homeAssistantApp = document.querySelector('home-assistant');
-      const darkMode = homeAssistantApp?.hass
-        ? Boolean(homeAssistantApp.hass.themes?.darkMode)
-        : Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      const logoUrl = darkMode
-        ? '/local/3d_printing/common/bambu-lab-header-logo-dark.svg'
-        : '/local/3d_printing/common/bambu-lab-header-logo-light.svg';
-      return `
-        .bubble-container {
-          align-items: center !important;
-          justify-content: flex-start !important;
-          gap: 8px !important;
-          overflow: visible !important;
-          width: 100% !important;
-          min-width: 0 !important;
-        }
-        .bubble-icon {
-          opacity: 0 !important;
-          width: 0 !important;
-          min-width: 0 !important;
-          height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        .bubble-name {
-          display: block !important;
-          width: 92px !important;
-          min-width: 92px !important;
-          height: 34px !important;
-          min-height: 34px !important;
-          white-space: nowrap !important;
-          overflow: hidden !important;
-          text-overflow: clip !important;
-          line-height: 0 !important;
-          font-size: 0 !important;
-          color: transparent !important;
-          min-height: 34px !important;
-          padding-left: 0 !important;
-          margin: 0 !important;
-          background: left center / 92px 34px no-repeat url('${logoUrl}') !important;
-        }
-        .bubble-line {
-          display: none !important;
-          width: 0 !important;
-          min-width: 0 !important;
-          margin: 0 !important;
-          flex: 0 0 0 !important;
-        }
-        .bubble-sub-button-container,
-        .bubble-sub-buttons-container {
-          right: 0 !important;
-          justify-content: flex-start !important;
-          flex-wrap: nowrap !important;
-          overflow-x: auto !important;
-          overflow-y: hidden !important;
-          scrollbar-width: none !important;
-          -ms-overflow-style: none !important;
-          flex: 1 1 auto !important;
-          width: auto !important;
-          max-width: none !important;
-          min-width: 0 !important;
-          padding-top: 0 !important;
-          padding-bottom: 0 !important;
-          padding-right: 0 !important;
-          gap: 6px !important;
-        }
-        .bubble-sub-button-container::-webkit-scrollbar,
-        .bubble-sub-buttons-container::-webkit-scrollbar {
-          display: none !important;
-        }
-        .bubble-sub-button {
-          min-height: 28px !important;
-          flex: 0 0 auto !important;
-          background: rgba(255, 255, 255, 0.06) !important;
-          box-shadow: none !important;
-        }
-        .bubble-sub-button.background-on,
-        .bubble-sub-button.background-off {
-          background: rgba(255, 255, 255, 0.06) !important;
-        }
-        .bubble-sub-button-icon {
-          --mdc-icon-size: 14px !important;
-          color: var(--primary-color) !important;
-        }
-        .bubble-sub-button-state,
-        .bubble-sub-button-name {
-          white-space: nowrap !important;
-        }
-        .bubble-sub-button-name {
-          font-size: 10px !important;
-          font-weight: 500 !important;
-          opacity: 0.78 !important;
-        }
-        .bubble-sub-button-state {
-          font-size: 12px !important;
-          font-weight: 600 !important;
-        }
-      `;
-    })()}
+type: custom:bubble-card
+card_type: separator
+entity: sensor.3d_printer_name_display
+name: '3D Printer'
+icon: mdi:printer-3d
+sub_button:
+  - entity: input_boolean.screenshot_mode
+    sub_button_type: default
+    name: Screenshot Mode
+    icon: mdi:eye-off
+    show_name: false
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    double_tap_action:
+      action: none
+  - entity: sensor.3d_printer_ip_address_display
+    sub_button_type: default
+    name: IP Address
+    icon: mdi:ip-network
+    show_name: false
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info
+  - entity: sensor.ntk_ryansoffice_3dprinter_mqtt_connection_mode
+    sub_button_type: default
+    name: MQTT Mode
+    icon: mdi:connection
+    show_name: true
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info
+  - entity: sensor.3d_printer_sd_card_status
+    sub_button_type: default
+    name: SD Card Status
+    icon: mdi:sd
+    show_name: true
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info
+  - entity: sensor.3d_printer_serial_number_display
+    sub_button_type: default
+    name: Serial Number
+    icon: mdi:barcode
+    show_name: true
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info
+  - entity: sensor.ntk_ryansoffice_3dprinter_total_usage
+    sub_button_type: default
+    name: Total Usage
+    icon: mdi:timer
+    show_name: true
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info
+  - entity: sensor.ntk_ryansoffice_3dprinter_wifi_signal
+    sub_button_type: default
+    name: Wi-Fi Signal
+    icon: mdi:wifi
+    show_name: true
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info
+  - entity: binary_sensor.ntk_ryansoffice_3dprinter_recording_timelapse
+    sub_button_type: default
+    name: Timelapse
+    icon: mdi:video
+    show_name: true
+    show_state: true
+    show_icon: true
+    show_background: true
+    state_background: false
+    state_color: false
+    fill_width: false
+    tap_action:
+      action: more-info

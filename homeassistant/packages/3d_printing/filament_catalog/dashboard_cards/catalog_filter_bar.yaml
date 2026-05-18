@@ -35,8 +35,8 @@ cards:
           show_state: false
           show_background: true
           fill_width: false
-          state_background: ${states['input_boolean.filament_catalog_compact_cards']?.state === 'on'}
-          state_color: ${states['input_boolean.filament_catalog_compact_cards']?.state === 'on'}
+          state_background: ${(states['input_boolean.filament_catalog_compact_cards']?.state ?? 'off') === 'on'}
+          state_color: ${(states['input_boolean.filament_catalog_compact_cards']?.state ?? 'off') === 'on'}
           tap_action:
             action: toggle
   - type: custom:config-template-card
@@ -75,8 +75,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_scope']?.state !== 'In-Stock Spools'}
-                state_color: ${states['input_select.filament_catalog_filter_scope']?.state !== 'In-Stock Spools'}
+                state_background: ${(states['input_select.filament_catalog_filter_scope']?.state ?? 'In-Stock Spools') !== 'In-Stock Spools'}
+                state_color: ${(states['input_select.filament_catalog_filter_scope']?.state ?? 'In-Stock Spools') !== 'In-Stock Spools'}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_material
                 sub_button_type: select
@@ -85,8 +85,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_material']?.state ?? '') !== ((states['input_select.filament_catalog_filter_material']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_material']?.state ?? '') !== ((states['input_select.filament_catalog_filter_material']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_vendor
                 sub_button_type: select
@@ -95,8 +95,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_vendor']?.state ?? '') !== ((states['input_select.filament_catalog_filter_vendor']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_vendor']?.state ?? '') !== ((states['input_select.filament_catalog_filter_vendor']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_color
                 sub_button_type: select
@@ -105,8 +105,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_color']?.state ?? '') !== ((states['input_select.filament_catalog_filter_color']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_color']?.state ?? '') !== ((states['input_select.filament_catalog_filter_color']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_color_family
                 sub_button_type: select
@@ -115,8 +115,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_color_family']?.state ?? '') !== ((states['input_select.filament_catalog_filter_color_family']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_color_family']?.state ?? '') !== ((states['input_select.filament_catalog_filter_color_family']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -128,8 +128,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_type']?.state ?? '') !== ((states['input_select.filament_catalog_filter_type']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_type']?.state ?? '') !== ((states['input_select.filament_catalog_filter_type']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_location
                 sub_button_type: select
@@ -138,8 +138,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_location']?.state ?? '') !== ((states['input_select.filament_catalog_filter_location']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_location']?.state ?? '') !== ((states['input_select.filament_catalog_filter_location']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_spool_type
                 sub_button_type: select
@@ -148,8 +148,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_spool_type']?.state ?? '') !== ((states['input_select.filament_catalog_filter_spool_type']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_spool_type']?.state ?? '') !== ((states['input_select.filament_catalog_filter_spool_type']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_clip_type
                 sub_button_type: select
@@ -158,8 +158,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_clip_type']?.state ?? '') !== ((states['input_select.filament_catalog_filter_clip_type']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_clip_type']?.state ?? '') !== ((states['input_select.filament_catalog_filter_clip_type']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -171,8 +171,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_sealed']?.state ?? '') !== ((states['input_select.filament_catalog_filter_sealed']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_sealed']?.state ?? '') !== ((states['input_select.filament_catalog_filter_sealed']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_desiccant
                 sub_button_type: select
@@ -181,8 +181,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_desiccant']?.state ?? '') !== ((states['input_select.filament_catalog_filter_desiccant']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_desiccant']?.state ?? '') !== ((states['input_select.filament_catalog_filter_desiccant']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_data_quality
                 sub_button_type: select
@@ -191,8 +191,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_data_quality']?.state ?? '') !== ((states['input_select.filament_catalog_filter_data_quality']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_data_quality']?.state ?? '') !== ((states['input_select.filament_catalog_filter_data_quality']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -215,8 +215,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_stock_level']?.state ?? '') !== ((states['input_select.filament_catalog_filter_stock_level']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_stock_level']?.state ?? '') !== ((states['input_select.filament_catalog_filter_stock_level']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_inventory_rule
                 sub_button_type: select
@@ -225,8 +225,8 @@ cards:
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_inventory_rule']?.state !== (states['input_select.filament_catalog_filter_inventory_rule']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_inventory_rule']?.state !== (states['input_select.filament_catalog_filter_inventory_rule']?.attributes?.options?.[0] ?? '')}
+                state_background: ${(states['input_select.filament_catalog_filter_inventory_rule']?.state ?? '') !== ((states['input_select.filament_catalog_filter_inventory_rule']?.attributes?.options)?.[0] ?? '')}
+                state_color: ${(states['input_select.filament_catalog_filter_inventory_rule']?.state ?? '') !== ((states['input_select.filament_catalog_filter_inventory_rule']?.attributes?.options)?.[0] ?? '')}
                 fill_width: true
               - entity: input_boolean.filament_catalog_filter_qty_to_purchase
                 sub_button_type: default
@@ -235,8 +235,8 @@ cards:
                 show_name: true
                 show_state: false
                 show_background: true
-                state_background: ${states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on'}
-                state_color: ${states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on'}
+                state_background: ${(states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state ?? 'off') === 'on'}
+                state_color: ${(states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state ?? 'off') === 'on'}
                 fill_width: true
                 tap_action:
                   action: toggle
