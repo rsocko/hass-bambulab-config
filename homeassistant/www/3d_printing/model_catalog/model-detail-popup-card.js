@@ -739,6 +739,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const creator = this._escapeHtml(String(model.creator_name || 'Unknown'));
     const collections = Array.isArray(model.collection_names) ? model.collection_names : [];
     const collectionText = this._escapeHtml(collections.length ? collections.join(' / ') : 'Uncategorized');
+    const entityType = this._getEntityType(model);
+    const isIdea = entityType === 'idea';
 
     return `
       <style>
@@ -761,6 +763,22 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .title strong { font-size: 18px; display: block; }
         .title span { color: var(--secondary-text-color); font-size: 12px; }
+        .entity-type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          padding: 4px 10px;
+          font-size: 11px;
+          font-weight: 600;
+          background: var(--card-background-color);
+          color: var(--secondary-text-color);
+        }
+        .entity-type-badge.idea {
+          border-color: #ffc107;
+          color: #ffc107;
+        }
         .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .slot-chip {
           border: 1px solid var(--divider-color);
@@ -1137,11 +1155,12 @@ class ModelDetailPopupCard extends HTMLElement {
             <span>Creator ${creator} | Collection ${collectionText}</span>
           </div>
           <div class="top-actions">
+            ${isIdea ? `<span class="entity-type-badge idea">💡 Idea</span>` : ''}
             <span class="slot-chip">actions:top-bar</span>
             ${this._renderExtensionSlot('actions:top-bar', '')}
-            <button class="action-button ghost" id="btn-viewer">3D View</button>
-            <button class="action-button ghost" id="btn-download">Download</button>
-            <button class="action-button" id="btn-print">Print</button>
+            ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
+            ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
+            ${isIdea ? '' : '<button class="action-button" id="btn-print">Print</button>'}
             <div class="overflow-wrap">
               <button class="action-button ghost" id="btn-overflow-toggle">More</button>
               <div class="overflow-menu ${this._overflowOpen ? 'open' : ''}">
@@ -1203,8 +1222,8 @@ class ModelDetailPopupCard extends HTMLElement {
 
           <div class="right">
             ${this._renderSummaryCard(model)}
-            ${this._renderModelFilesCard(model)}
-            ${this._renderArchiveLinkageCard()}
+            ${isIdea ? this._renderIdeaMetadataCard(model) : this._renderModelFilesCard(model)}
+            ${isIdea ? '' : this._renderArchiveLinkageCard()}
           </div>
         </div>
       </div>
@@ -2116,6 +2135,86 @@ class ModelDetailPopupCard extends HTMLElement {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  _getEntityType(model) {
+    // Detect entity type from model.entity_type, custom_fields, or catalog_signals
+    if (model.entity_type) {
+      return String(model.entity_type).toLowerCase();
+    }
+    const customFields = model.custom_fields || {};
+    if (customFields.entity_type) {
+      return String(customFields.entity_type).toLowerCase();
+    }
+    const signals = model.catalog_signals || {};
+    if (signals.entity_type) {
+      return String(signals.entity_type).toLowerCase();
+    }
+    return 'model'; // Default to model
+  }
+
+  _renderIdeaMetadataCard(model) {
+    const customFields = model.custom_fields || {};
+    const externalLinks = Array.isArray(customFields.external_links) ? customFields.external_links : [];
+    const sketchImage = customFields.sketch_image || null;
+    const notes = customFields.notes || '';
+
+    const linksHtml = externalLinks.length ? externalLinks.map(link => {
+      const url = this._escapeHtml(String(link.url || ''));
+      const label = this._escapeHtml(String(link.label || url));
+      return `
+        <a href="${url}" target="_blank" rel="noopener noreferrer" style="
+          display: block;
+          padding: 6px 8px;
+          color: var(--primary-color);
+          text-decoration: none;
+          border-bottom: 1px solid var(--divider-color);
+          font-size: 12px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        ">${label} ↗</a>
+      `;
+    }).join('') : '<div style="padding: 8px; color: var(--secondary-text-color); font-size: 12px;">No links</div>';
+
+    return `
+      <section class="card">
+        <div class="h">
+          <span>💡 Idea Details</span>
+        </div>
+        <div style="padding: 10px; display: grid; gap: 8px; font-size: 12px;">
+          ${notes ? `
+            <div>
+              <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">Notes</div>
+              <div style="color: var(--primary-text-color); line-height: 1.4;">${this._escapeHtml(notes)}</div>
+            </div>
+          ` : ''}
+          ${externalLinks.length ? `
+            <div>
+              <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">External Links</div>
+              <div style="border: 1px solid var(--divider-color); border-radius: 8px; overflow: hidden;">
+                ${linksHtml}
+              </div>
+            </div>
+          ` : ''}
+          ${sketchImage ? `
+            <div>
+              <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">Sketch/Reference</div>
+              <img src="${this._escapeHtml(String(sketchImage))}" alt="Sketch" style="
+                max-width: 100%;
+                height: auto;
+                border: 1px solid var(--divider-color);
+                border-radius: 8px;
+                max-height: 200px;
+              " onerror="this.style.display='none'">
+            </div>
+          ` : ''}
+          <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 4px; font-style: italic;">
+            💡 This is an idea. Editing features available in Phase 2.2
+          </div>
+        </div>
+      </section>
+    `;
   }
 
   // Phase 3.1 Methods: Edit Mode & Conflict Detection

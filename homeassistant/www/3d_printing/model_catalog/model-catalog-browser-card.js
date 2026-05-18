@@ -2473,7 +2473,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderPageStatusWithCount() {
-    var total = Math.max(0, Number(this._filteredResultsForScope().length || 0));
+    var total = Math.max(0, Number(this._pagination.total || 0));
     var noun = total === 1 ? "model" : "models";
     return ''
       + '<span class="page-value">' + this._escapeHtml(this._pageStatusText()) + '</span>'
