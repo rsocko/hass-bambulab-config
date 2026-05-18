@@ -60,72 +60,72 @@ def build_model_detail_response(
         preview_file_id = models_router._select_local_preview_asset_id(assets=assets)
         preview_photo_id = str(custom_fields.get(models_router.MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
         serialized_assets = models_router._serialize_local_model_assets(assets=assets, model_ref=local_model_id)
-            response: dict[str, Any] = {
-                "success": True,
-                "model_ref": model_ref,
-                "authority": "local",
-                "local_model_id": local_model_id,
+        response: dict[str, Any] = {
+            "success": True,
+            "model_ref": model_ref,
+            "authority": "local",
+            "local_model_id": local_model_id,
+            "entity_type": str(entry.entity_type or "model"),
+            "idea_metadata": models_router._read_idea_metadata(db_path=state.settings.db_path, model_ref=local_model_id),
+            "model_url": summary.model_url,
+            "model": {
+                "public_id": summary.public_id,
+                "model_id": summary.model_id,
                 "entity_type": str(entry.entity_type or "model"),
-                "idea_metadata": models_router._read_idea_metadata(db_path=state.settings.db_path, model_ref=local_model_id),
-                "model_url": summary.model_url,
-                "model": {
-                    "public_id": summary.public_id,
-                    "model_id": summary.model_id,
-                    "entity_type": str(entry.entity_type or "model"),
-                    "name": entry.model_name,
-                    "description": entry.model_description or "",
-                    "preview_url": models_router._local_summary_preview_url(entry=entry, db_path=state.settings.db_path),
-                    "creator_name": entry.creator_name,
-                    "created_by": entry.created_by,
-                    "collection_names": list(entry.collection_names),
-                    "keywords": list(models_router._local_entry_to_summary(entry, db_path=state.settings.db_path).keyword_names),
-                    "tags": list(entry.tags),
-                    "license_type": entry.license_type,
-                    "source_origin": entry.source_origin,
-                    "source_origin_url": entry.source_origin_url,
-                    "revision_hash": entry.revision_hash,
-                    "structured_metadata": structured_metadata,
-                    "files": serialized_assets,
-                    "preview_file_id": preview_file_id,
-                    "created_at": entry.created_at,
-                    "updated_at": entry.updated_at,
+                "name": entry.model_name,
+                "description": entry.model_description or "",
+                "preview_url": models_router._local_summary_preview_url(entry=entry, db_path=state.settings.db_path),
+                "creator_name": entry.creator_name,
+                "created_by": entry.created_by,
+                "collection_names": list(entry.collection_names),
+                "keywords": list(models_router._local_entry_to_summary(entry, db_path=state.settings.db_path).keyword_names),
+                "tags": list(entry.tags),
+                "license_type": entry.license_type,
+                "source_origin": entry.source_origin,
+                "source_origin_url": entry.source_origin_url,
+                "revision_hash": entry.revision_hash,
+                "structured_metadata": structured_metadata,
+                "files": serialized_assets,
+                "preview_file_id": preview_file_id,
+                "created_at": entry.created_at,
+                "updated_at": entry.updated_at,
+            },
+            "enrichment": {
+                "custom_fields": {
+                    key: value
+                    for key, value in custom_fields.items()
+                    if key not in {models_router.MODEL_UPLOAD_PHOTOS_FIELD, models_router.MODEL_PREVIEW_PHOTO_FIELD}
                 },
-                "enrichment": {
-                    "custom_fields": {
-                        key: value
-                        for key, value in custom_fields.items()
-                        if key not in {models_router.MODEL_UPLOAD_PHOTOS_FIELD, models_router.MODEL_PREVIEW_PHOTO_FIELD}
-                    },
-                    "structured_metadata": structured_metadata,
-                    "color_scheme": custom_fields.get("color_scheme", []),
-                    "print_time_estimate": custom_fields.get("print_time_estimate"),
-                    "support_type_hint": custom_fields.get("support_type_hint"),
-                    "multi_color_scheme": custom_fields.get("multi_color_scheme"),
-                    "difficulty_level": custom_fields.get("difficulty_level"),
-                    "print_notes": custom_fields.get("print_notes"),
-                    "external_reference": custom_fields.get("external_reference"),
-                    "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
-                },
-                "photos": models_router._serialize_uploaded_photo_rows(
-                    request=request,
-                    settings=state.settings,
-                    model_ref=local_model_id,
-                    preview_photo_id=preview_photo_id,
-                    uploaded_rows=models_router._read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=local_model_id),
-                ),
-                "preview_photo_id": preview_photo_id,
-                "ranking": None if ranking is None else models_router._ranking_payload(ranking),
-                "linked_archives": [],
-                "link_count": 0,
-                "degraded": False,
+                "structured_metadata": structured_metadata,
+                "color_scheme": custom_fields.get("color_scheme", []),
+                "print_time_estimate": custom_fields.get("print_time_estimate"),
+                "support_type_hint": custom_fields.get("support_type_hint"),
+                "multi_color_scheme": custom_fields.get("multi_color_scheme"),
+                "difficulty_level": custom_fields.get("difficulty_level"),
+                "print_notes": custom_fields.get("print_notes"),
+                "external_reference": custom_fields.get("external_reference"),
+                "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
+            },
+            "photos": models_router._serialize_uploaded_photo_rows(
+                request=request,
+                settings=state.settings,
+                model_ref=local_model_id,
+                preview_photo_id=preview_photo_id,
+                uploaded_rows=models_router._read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=local_model_id),
+            ),
+            "preview_photo_id": preview_photo_id,
+            "ranking": None if ranking is None else models_router._ranking_payload(ranking),
+            "linked_archives": [],
+            "link_count": 0,
+            "degraded": False,
+        }
+        if include_debug:
+            response["_debug"] = {
+                "resolved_ref": local_model_id,
+                "authority": "local",
+                "asset_count": len(assets),
             }
-            if include_debug:
-                response["_debug"] = {
-                    "resolved_ref": local_model_id,
-                    "authority": "local",
-                    "asset_count": len(assets),
-                }
-            return response
+        return response
 
     except Exception as exc:
         error_response: dict[str, Any] = {
