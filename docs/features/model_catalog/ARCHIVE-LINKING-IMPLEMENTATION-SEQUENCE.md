@@ -257,10 +257,10 @@ Tier 7: Polish
 
 ## Overlap / Deduplication Notes
 
-| Issues | Relationship | Action |
-|--------|-------------|--------|
-| #1185 ↔ #1454 | #1454 is the refined/scoped version under the orca-slicer-api epic. | **Close #1185** — implement under #1454. |
-| #1043 ↔ #1483 | #1483 is the redesigned version of #1043. | **Close #1043** — superseded by #1483. |
+| Issues        | Relationship                                                                      | Action                                                                      |
+| ------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| #1185 ↔ #1454 | #1454 is the refined/scoped version under the orca-slicer-api epic.               | **Close #1185** — implement under #1454.                                    |
+| #1043 ↔ #1483 | #1483 is the redesigned version of #1043.                                         | **Close #1043** — superseded by #1483.                                      |
 | #1114 ↔ #1118 | Heavily overlapping scope (model-scoped vs. archive-scoped candidate broadening). | Implement as single PR with two facets; keep both issues open for tracking. |
 
 ---
