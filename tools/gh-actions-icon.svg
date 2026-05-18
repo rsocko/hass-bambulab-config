@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1e2e"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#58a6ff"/>
+      <stop offset="100%" stop-color="#1f6feb"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#ffd866"/>
+      <stop offset="100%" stop-color="#f0883e"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Outer glow ring (circular workflow indicator) -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#ring)" stroke-width="24" stroke-linecap="round" stroke-dasharray="280 120 180 120" opacity="0.9"/>
+  <!-- Inner subtle ring -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#30363d" stroke-width="8"/>
+  <!-- Status dots on the ring -->
+  <circle cx="256" cy="66" r="18" fill="#3fb950"/>
+  <circle cx="446" cy="256" r="18" fill="#3fb950"/>
+  <circle cx="256" cy="446" r="14" fill="#58a6ff"/>
+  <circle cx="66" cy="256" r="14" fill="#8b949e"/>
+  <!-- Lightning bolt center -->
+  <path d="M280 120 L220 260 L276 260 L232 392 L340 230 L278 230 Z" fill="url(#bolt)" stroke="#ffd866" stroke-width="4" stroke-linejoin="round"/>
+</svg>
