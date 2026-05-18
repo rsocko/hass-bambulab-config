@@ -681,39 +681,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
         refresh: !!refresh,
+        include_supplements: true,
         page: Math.max(1, Number(page || 1)),
         per_page: this._pagination.per_page,
       };
 
-      var frequentRailPayload = Object.assign({}, requestPayload, {
-        sort: "frequent",
-        favorites_only: false,
-        frequents_only: false,
-        show_archived: false,
-        page: 1,
-        per_page: 24,
-      });
-      var favoriteRailPayload = Object.assign({}, requestPayload, {
-        favorites_only: true,
-        frequents_only: false,
-        show_archived: false,
-        page: 1,
-        per_page: 24,
-      });
-
-      var responses = await Promise.all([
-        this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload),
-        this._callServiceWithResponse("rest_command", "model_catalog_search_models", frequentRailPayload).catch(function () { return null; }),
-        this._callServiceWithResponse("rest_command", "model_catalog_search_models", favoriteRailPayload).catch(function () { return null; }),
-      ]);
-
-      var data = responses[0];
-      var railFrequentData = responses[1];
-      var railFavoriteData = responses[2];
+      var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
+      var supplements = data && data.supplements && typeof data.supplements === "object" ? data.supplements : {};
+      var supplementFrequentCandidates = Array.isArray(supplements.frequent_candidates) ? supplements.frequent_candidates : null;
+      var supplementFavoriteCandidates = Array.isArray(supplements.favorite_candidates) ? supplements.favorite_candidates : null;
       this._results = Array.isArray(data && data.results) ? data.results : [];
       this._frequentsRailItems = this._buildFrequentsRailItems(
-        Array.isArray(railFrequentData && railFrequentData.results) ? railFrequentData.results : this._results,
-        Array.isArray(railFavoriteData && railFavoriteData.results) ? railFavoriteData.results : this._results
+        supplementFrequentCandidates || this._results,
+        supplementFavoriteCandidates || this._results
       );
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
       var responseVisibility = data && data.visibility && typeof data.visibility === "object" ? data.visibility : {};
@@ -748,10 +728,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.per_page = Number(pagination.per_page || this._pagination.per_page) || this._pagination.per_page;
       this._pagination.total = Number(pagination.total || 0) || 0;
       this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
-      await this._refreshUnifiedQueueIndex();
       if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
+      this._refreshUnifiedQueueIndex().then(function () {
+        if (!this._loading) {
+          this._render();
+        }
+      }.bind(this));
     } catch (error) {
       this._results = [];
       this._frequentsRailItems = [];

@@ -48,6 +48,9 @@ model_catalog_search_models:
     {%- if refresh is defined -%}
       {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
     {%- endif -%}
+    {%- if include_supplements is defined -%}
+      {%- set ns.params = ns.params + ['include_supplements=' ~ ((include_supplements | bool) | string | lower)] -%}
+    {%- endif -%}
     {%- set ns.params = ns.params + ['page=' ~ ((page | default(1)) | int(1) | string)] -%}
     {%- set ns.params = ns.params + ['per_page=' ~ ((per_page | default(10)) | int(10) | string)] -%}
     {{- (

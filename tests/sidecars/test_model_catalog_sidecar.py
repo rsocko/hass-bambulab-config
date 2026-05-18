@@ -4113,6 +4113,106 @@ def test_frequents_layer2_derivation_applies_window_threshold_and_backfill_weigh
         assert frequent_only_payload["results"][0]["public_id"] == "tool-rack"
 
 
+def test_model_search_can_include_rail_supplements_without_extra_queries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    now = datetime.now(timezone.utc)
+    recent_1 = (now - timedelta(days=2)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    recent_2 = (now - timedelta(days=4)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    recent_3 = (now - timedelta(days=5)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for model_url, public_id, name in [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack"),
+            ("http://manyfold.test/models/spare-hook", "spare-hook", "Spare Hook"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (model_url, public_id, name, None, None, None, "[]", "[]", "{}", recent_1),
+            )
+
+        accepted_links = [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", 9101, recent_1),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", 9201, recent_2),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", 9202, recent_3),
+        ]
+        for model_url, public_id, archive_id, updated_at in accepted_links:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_links (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_file_id,
+                    bambuddy_archive_id,
+                    relationship_type,
+                    link_role,
+                    match_method,
+                    match_confidence,
+                    review_state,
+                    is_active,
+                    review_note,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    None,
+                    archive_id,
+                    "source_for",
+                    "primary",
+                    "manual",
+                    "high",
+                    "accepted",
+                    1,
+                    None,
+                    updated_at,
+                    updated_at,
+                ),
+            )
+
+        connection.commit()
+    finally:
+        connection.close()
+
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="gridfinity-bin",
+        field_key="model_favorite",
+        field_value=True,
+    )
+
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            "/api/models/search?include_supplements=true&sort=recent&frequent_window_days=30&frequent_min_prints=2"
+        )
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["pagination"]["total"] == 3
+        assert "supplements" in payload
+        assert [item["public_id"] for item in payload["supplements"]["favorite_candidates"]] == ["gridfinity-bin"]
+        assert [item["public_id"] for item in payload["supplements"]["frequent_candidates"]] == ["tool-rack"]
+
+
 def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Path) -> None:
     app = create_app(settings=_build_settings(tmp_path))
 

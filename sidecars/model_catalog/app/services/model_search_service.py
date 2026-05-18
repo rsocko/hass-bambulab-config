@@ -64,6 +64,7 @@ def search_models_service(
     refresh: bool = False,
     page: int = 1,
     per_page: int = 10,
+    include_supplements: bool = False,
     debug_collection_lookup: bool = False,
 ) -> dict[str, Any]:
     from ..routers import models as models_router
@@ -89,6 +90,7 @@ def search_models_service(
         refresh=refresh,
         page=page,
         per_page=per_page,
+        include_supplements=include_supplements,
         debug_collection_lookup=debug_collection_lookup,
     )
 
