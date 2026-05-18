@@ -239,7 +239,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".header.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
       ".name-note-inline{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;position:relative;top:-3px;margin-left:6px;color:var(--primary-color, var(--accent-color, #03a9f4));}" +
-      ".name-note-inline ha-icon{--mdc-icon-size:14px;width:14px;height:14px;min-width:14px;min-height:14px;display:block;}" +
+      ".inline-icon{fill:currentColor;flex-shrink:0;pointer-events:none;}" +
+      ".name-note-inline .inline-icon{display:block;}" +
       ".subtle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}" +
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip-row.compact-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
@@ -262,10 +263,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".enrichment-chip.interactive-chip:hover,.enrichment-chip.interactive-chip:focus-visible{background:color-mix(in srgb, var(--enrichment-chip-background, #546E7A) 84%, rgba(255,255,255,0.12));}" +
       ".archive-error-chip{color:#fff;font-weight:700;}" +
       ".chip.icon-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;flex:0 0 auto;line-height:0;}" +
-      ".chip.icon-chip ha-icon{--mdc-icon-size:15px;width:15px;height:15px;min-width:15px;min-height:15px;display:block;}" +
+      ".chip.icon-chip .inline-icon{display:block;}" +
       ".icon-chip-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#1565C0;color:#fff;font-size:9px;font-weight:800;line-height:15px;text-align:center;box-sizing:border-box;}" +
       ".project-chip{display:inline-flex;align-items:center;border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:3px 8px;gap:4px;min-height:24px;height:24px;font-size:10px;max-width:min(100%,180px);line-height:1;box-sizing:border-box;overflow:hidden;}" +
-      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));--mdc-icon-size:11px;width:11px;height:11px;min-width:11px;flex:0 0 11px;}" +
+      ".project-chip .inline-icon{color:var(--project-chip-color, var(--primary-text-color));flex:0 0 11px;}" +
       ".project-chip span{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
       ".project-chip.interactive-chip:hover,.project-chip.interactive-chip:focus-visible{background:color-mix(in srgb, var(--project-chip-background, rgba(255,255,255,0.05)) 82%, rgba(255,255,255,0.12));}" +
       ".metrics{display:grid;gap:10px;}" +
@@ -329,7 +330,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card.selection-mode{cursor:pointer;}" +
       ".card.selection-mode.selected{border-color:color-mix(in srgb, var(--primary-color, #1976d2) 48%, var(--divider-color));box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color, #1976d2) 28%, rgba(255,255,255,0.08)),0 12px 24px rgba(15,23,42,0.12);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 84%, rgba(25,118,210,0.16)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 92%, rgba(25,118,210,0.10)));}" +
       ".selection-badge{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.32);border:1px solid rgba(255,255,255,0.12);color:var(--secondary-text-color);font-size:11px;font-weight:700;line-height:1.1;white-space:nowrap;}" +
-      ".selection-badge ha-icon{--mdc-icon-size:15px;width:15px;height:15px;min-width:15px;min-height:15px;display:block;}" +
+      ".selection-badge .inline-icon{display:block;}" +
       ".selection-badge.active{background:rgba(25,118,210,0.18);border-color:rgba(25,118,210,0.44);color:var(--primary-text-color);}" +
       ".selection-meta{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;}" +
       ".bulk-dialog-backdrop{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,0.56);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}" +
@@ -937,19 +938,19 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? '<button class="chip status-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="status_set" data-filter-value="' + this._escapeAttribute(normalized.statusFilterValue) + '" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Status: ' + normalized.statusLabel, 'Click to filter by this status')) + '" aria-label="' + this._escapeAttribute('Status ' + normalized.statusLabel + '. Click to filter by this status.') + '" style="background:' + this._escapeAttribute(normalized.statusColor) + ';--status-chip-background:' + this._escapeAttribute(normalized.statusColor) + ';--interactive-chip-border:rgba(255,255,255,0.68);">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</button>'
       : '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>';
     var projectChip = normalized.projectLabel
-      ? '<button class="chip project-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="project_set" data-filter-value="' + this._escapeAttribute(normalized.projectLabel) + '" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';--interactive-chip-border:' + this._escapeAttribute(normalized.projectColor) + ';" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Project: ' + normalized.projectLabel, 'Click to filter by this project')) + '" aria-label="' + this._escapeAttribute('Project ' + normalized.projectLabel + '. Click to filter by this project.') + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></button>'
+      ? '<button class="chip project-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="project_set" data-filter-value="' + this._escapeAttribute(normalized.projectLabel) + '" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';--interactive-chip-border:' + this._escapeAttribute(normalized.projectColor) + ';" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Project: ' + normalized.projectLabel, 'Click to filter by this project')) + '" aria-label="' + this._escapeAttribute('Project ' + normalized.projectLabel + '. Click to filter by this project.') + '">' + this._svg('folder-outline', 11) + '<span>' + this._escapeHtml(normalized.projectLabel) + '</span></button>'
       : '';
     var overlayArchivePillLabel = normalized.compactArchiveIdLabel && variant !== 'Media'
       ? this._escapeHtml(normalized.compactArchiveIdLabel)
       : '';
     var noteInline = normalized.noteText
-      ? '<span class="name-note-inline" title="' + this._escapeAttribute(normalized.noteText) + '"><ha-icon icon="mdi:note-text-outline"></ha-icon></span>'
+      ? '<span class="name-note-inline" title="' + this._escapeAttribute(normalized.noteText) + '">' + this._svg('note-text-outline', 14) + '</span>'
       : '';
     var photoAction = normalized.photoCount > 0
-      ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
+      ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '">' + this._svg('image-multiple-outline', 15) + '<span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
       : '';
     var selectionBadge = selectionMode
-      ? '<span class="selection-badge' + (isSelected ? ' active' : '') + '" aria-hidden="true"><ha-icon icon="' + (isSelected ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline') + '"></ha-icon>' + this._escapeHtml(isSelected ? 'Selected' : 'Select') + '</span>'
+      ? '<span class="selection-badge' + (isSelected ? ' active' : '') + '" aria-hidden="true">' + this._svg(isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline', 15) + this._escapeHtml(isSelected ? 'Selected' : 'Select') + '</span>'
       : '';
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var favoriteButton = this._renderFavoriteButton(normalized, archiveId);
@@ -957,7 +958,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction))
       + '</div>';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
-    var mediaObjectsChip = normalized.mediaObjectsLabel ? '<span class="chip"><ha-icon icon="mdi:cube-outline"></ha-icon>' + this._escapeHtml(normalized.mediaObjectsLabel) + '</span>' : '';
+    var mediaObjectsChip = normalized.mediaObjectsLabel ? '<span class="chip">' + this._svg('cube-outline', 15) + this._escapeHtml(normalized.mediaObjectsLabel) + '</span>' : '';
     var mediaImageUrls = variant === 'Media' ? this._mediaImageUrls(archive, baseUrl) : [];
     var mediaGalleryCount = mediaImageUrls.length;
     var mediaGalleryIndex = mediaGalleryCount > 0
@@ -1124,7 +1125,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
         + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction)) + '</div></div>'
-        + (!selectionMode && mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive-id="' + this._escapeAttribute(archiveId) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive-id="' + this._escapeAttribute(archiveId) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
+        + (!selectionMode && mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive-id="' + this._escapeAttribute(archiveId) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image">' + this._svg('chevron-left', 18) + '</button><button class="icon-action" data-action="media-next" data-archive-id="' + this._escapeAttribute(archiveId) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image">' + this._svg('chevron-right', 18) + '</button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
         ? (listImageUrl
@@ -1159,13 +1160,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archive = normalized && normalized.archive && typeof normalized.archive === "object" ? normalized.archive : null;
     var escapedArchiveId = this._escapeAttribute(String(archiveId || ""));
     var timelapseButton = this._timelapsePath(archive)
-      ? '<button class="icon-action timelapse" data-action="timelapse" data-archive-id="' + escapedArchiveId + '" aria-label="Open timelapse for ' + this._escapeAttribute(normalized.printName) + '" title="Open timelapse"><ha-icon icon="mdi:movie-open-play-outline"></ha-icon></button>'
+      ? '<button class="icon-action timelapse" data-action="timelapse" data-archive-id="' + escapedArchiveId + '" aria-label="Open timelapse for ' + this._escapeAttribute(normalized.printName) + '" title="Open timelapse">' + this._svg('movie-open-play-outline', 18) + '</button>'
       : '';
-    return '<button class="icon-action viewer" data-action="viewer" data-archive-id="' + escapedArchiveId + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+    return '<button class="icon-action viewer" data-action="viewer" data-archive-id="' + escapedArchiveId + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' + this._svg('cube-scan', 18) + '</button>'
       + timelapseButton
       + favoriteButton
       + photoAction
-      + '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive-id="' + escapedArchiveId + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>';
+      + '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive-id="' + escapedArchiveId + '" aria-label="Open advanced archive actions" title="Open advanced archive actions">' + this._svg('dots-horizontal', 18) + '</button>';
   }
 
   _timelapsePath(archive) {
@@ -1184,7 +1185,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _renderFavoriteButton(normalized, archiveId) {
     var isFavorite = !!(normalized && normalized.isFavorite);
     var buttonTitle = this._favoriteButtonTitle(isFavorite);
-    return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(archiveId || normalized && normalized.id || "")) + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '"><ha-icon icon="' + (isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>';
+    return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(archiveId || normalized && normalized.id || "")) + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '">' + this._svg(isFavorite ? 'star' : 'star-outline', 18) + '</button>';
   }
 
   _openAdvancedActions(archive) {
@@ -3213,6 +3214,29 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _escapeAttribute(value) {
     return this._escapeHtml(value).replace(/`/g, "&#96;");
   }
+
+  _svg(name, size) {
+    var s = size || 18;
+    var d = PrintHistoryBrowserCard._svgPaths[name] || "";
+    if (!d) { return ""; }
+    return '<svg viewBox="0 0 24 24" class="inline-icon" style="width:' + s + 'px;height:' + s + 'px;min-width:' + s + 'px;min-height:' + s + 'px;" aria-hidden="true"><path d="' + d + '"/></svg>';
+  }
 }
+
+PrintHistoryBrowserCard._svgPaths = {
+  "cube-scan": "M17,22V20H20V17H22V20.5C22,20.89 21.84,21.24 21.54,21.54C21.24,21.84 20.89,22 20.5,22H17M7,22H3.5C3.11,22 2.76,21.84 2.46,21.54C2.16,21.24 2,20.89 2,20.5V17H4V20H7V22M17,2H20.5C20.89,2 21.24,2.16 21.54,2.46C21.84,2.76 22,3.11 22,3.5V7H20V4H17V2M7,2V4H4V7H2V3.5C2,3.11 2.16,2.76 2.46,2.46C2.76,2.16 3.11,2 3.5,2H7M13,17.25L17,14.95V10.36L13,12.66V17.25M12,10.92L16,8.63L12,6.28L8,8.63L12,10.92M7,14.95L11,17.25V12.66L7,10.36V14.95M18.23,7.59C18.73,7.91 19,8.34 19,8.91V15.23C19,15.8 18.73,16.23 18.23,16.55L12.75,19.73C12.25,20.05 11.75,20.05 11.25,19.73L5.77,16.55C5.27,16.23 5,15.8 5,15.23V8.91C5,8.34 5.27,7.91 5.77,7.59L11.25,4.41C11.5,4.28 11.75,4.22 12,4.22C12.25,4.22 12.5,4.28 12.75,4.41L18.23,7.59Z",
+  "star": "M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z",
+  "star-outline": "M12,15.39L8.24,17.66L9.23,13.38L5.91,10.5L10.29,10.13L12,6.09L13.71,10.13L18.09,10.5L14.77,13.38L15.76,17.66M22,9.24L14.81,8.63L12,2L9.19,8.63L2,9.24L7.45,13.97L5.82,21L12,17.27L18.18,21L16.54,13.97L22,9.24Z",
+  "dots-horizontal": "M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z",
+  "folder-outline": "M20,18H4V8H20M20,6H12L10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6Z",
+  "image-multiple-outline": "M21,17H7V3H21M21,1H7A2,2 0 0,0 5,3V17A2,2 0 0,0 7,19H21A2,2 0 0,0 23,17V3A2,2 0 0,0 21,1M3,5H1V21A2,2 0 0,0 3,23H19V21H3M15.96,10.29L13.21,13.83L11.25,11.47L8.5,15H19.5L15.96,10.29Z",
+  "movie-open-play-outline": "M22 10V13.81C21.39 13.46 20.72 13.22 20 13.09V12H4V20H13.09C13.21 20.72 13.46 21.39 13.81 22H4C2.9 22 2 21.11 2 20V10H22M16.71 7.07L13.97 3.54L12 3.93L14.75 7.46L16.71 7.07M21.62 6.1L20.84 2.18L16.91 2.96L19.65 6.5L21.62 6.1M11.81 8.05L9.07 4.5L7.1 4.91L9.85 8.44L11.81 8.05M4.16 5.5L3.18 5.69C2.1 5.9 1.39 6.96 1.61 8.04L2 10L6.9 9.03L4.16 5.5M17 22L22 19L17 16V22Z",
+  "chevron-left": "M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z",
+  "chevron-right": "M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z",
+  "note-text-outline": "M15 3H5A2 2 0 0 0 3 5V19A2 2 0 0 0 5 21H19A2 2 0 0 0 21 19V9L15 3M19 19H5V5H14V10H19M17 14H7V12H17M14 17H7V15H14",
+  "cube-outline": "M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5M12,4.15L6.04,7.5L12,10.85L17.96,7.5L12,4.15M5,15.91L11,19.29V12.58L5,9.21V15.91M19,15.91V9.21L13,12.58V19.29L19,15.91Z",
+  "checkbox-marked-circle": "M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z",
+  "checkbox-blank-circle-outline": "M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z",
+};
 
 customElements.define("print-history-browser-card", PrintHistoryBrowserCard);
