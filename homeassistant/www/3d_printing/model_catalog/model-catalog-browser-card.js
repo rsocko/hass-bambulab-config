@@ -23,6 +23,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._loadingModelMedia = {};
     this._pendingLoad = null;
     this._debounceHandle = null;
+    this._deferredRenderHandle = null;
     this._modelSidecarUrl = "";
     this._unifiedQueueByModelRef = {};
     this._frequentsTuning = {
@@ -464,6 +465,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     this._cancelScheduledApply();
+    if (this._deferredRenderHandle) {
+      window.clearTimeout(this._deferredRenderHandle);
+      this._deferredRenderHandle = null;
+    }
     if (this._thumbnailObserver && typeof this._thumbnailObserver.disconnect === "function") {
       try { this._thumbnailObserver.disconnect(); } catch (_e) { /* ignore */ }
       this._thumbnailObserver = null;
@@ -618,6 +623,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
   }
 
+  _scheduleDeferredRender(delayMs) {
+    if (this._deferredRenderHandle) {
+      window.clearTimeout(this._deferredRenderHandle);
+      this._deferredRenderHandle = null;
+    }
+    var delay = Number.isFinite(Number(delayMs)) ? Math.max(0, Number(delayMs)) : 90;
+    this._deferredRenderHandle = window.setTimeout(function () {
+      this._deferredRenderHandle = null;
+      this._render();
+    }.bind(this), delay);
+  }
+
   _requestLoad(page, refresh) {
     var targetPage = Math.max(1, Number(page || 1));
     if (!this._hass) {
@@ -733,7 +750,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       this._refreshUnifiedQueueIndex().then(function () {
         if (!this._loading) {
-          this._render();
+          this._scheduleDeferredRender(70);
         }
       }.bind(this));
     } catch (error) {
@@ -2685,11 +2702,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       .finally(function () {
         delete this._loadingModelMedia[modelRef];
         if (this._viewMode === "media") {
-          this._render();
+          this._scheduleDeferredRender(90);
           return;
         }
         if (!this._updateModelCardThumb(modelRef)) {
-          this._render();
+          this._scheduleDeferredRender(90);
         }
       }.bind(this));
   }
@@ -3181,11 +3198,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var mediaUrls = this._modelMediaUrls(model);
     var mediaCount = mediaUrls.length;
-    // Some summaries omit preview URLs until detail is loaded; hydrate in compact
-    // so images appear on first load without requiring a view-mode toggle.
-    if (this._showMedia && this._viewMode === "compact" && mediaCount === 0) {
-      this._loadModelMedia(model);
-    }
     var mediaIndex = this._currentModelMediaIndex(modelRef, mediaCount || 1);
     var mediaUrl = mediaCount > 0 ? mediaUrls[mediaIndex] : "";
     var detail = modelRef ? this._modelDetailCache[modelRef] : null;
