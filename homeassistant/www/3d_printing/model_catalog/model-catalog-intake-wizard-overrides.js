@@ -426,6 +426,7 @@ function renderPlanSummary(card, options) {
   var settings = options || {};
   var preview = card._previewData;
   var isLoading = card._loading || card._previewLoading || false;
+  var isPublishing = isLoading && card._wizardStep === card._wizardStepCount();
   var uploadProgress = card._uploadProgress || null;
   var uploadProgressText = '';
   if (uploadProgress && uploadProgress.mode === 'determinate' && uploadProgress.percent != null) {
@@ -439,7 +440,7 @@ function renderPlanSummary(card, options) {
   var skipSummary = settings.skipSummary || false;
   if (!preview || !preview.planned_models || !preview.planned_models.length) {
     if (isLoading) {
-      return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...' + (uploadProgressText ? '<div class="muted" style="margin-top:6px;">' + escapeHtml(uploadProgressText) + '</div>' : '') + '</div>';
+      return '<div class="state-row recalculating"><span class="intake-spinner spin-20"></span> ' + (isPublishing ? 'Publishing to destinations...' : 'Recalculating output...') + (uploadProgressText ? '<div class="muted" style="margin-top:6px;">' + escapeHtml(uploadProgressText) + '</div>' : '') + '</div>';
     }
     // When the plan call has succeeded but produced zero models, surface the
     // backend warnings here on the Organize step so the user knows BEFORE they
@@ -490,7 +491,7 @@ function renderPlanSummary(card, options) {
       + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
       + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>';
     if (isLoading) {
-      summaryHtml += '  <div class="result-line muted"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 16px; width: 16px; height: 16px; display: inline-block; margin-right: 6px;"></ha-icon>Recalculating...</div>';
+      summaryHtml += '  <div class="result-line muted"><span class="intake-spinner spin-16" style="margin-right:6px;"></span>' + (isPublishing ? 'Publishing...' : 'Recalculating...') + '</div>';
       if (uploadProgressText) {
         summaryHtml += '  <div class="result-line muted">' + escapeHtml(uploadProgressText) + '</div>';
       }
@@ -2542,6 +2543,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .entry-row.right-pane-jump:hover{background:rgba(96,165,250,0.12);border-color:var(--primary-color,rgba(96,165,250,0.55));}'
       + '.wizard-dialog .entry-row.loading-item{opacity:0.5;pointer-events:none;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
+      + '.intake-spinner{display:inline-block;border-radius:50%;border:2px solid rgba(148,163,184,0.45);border-top-color:rgba(96,165,250,0.95);animation:spin .9s linear infinite;flex-shrink:0;}'
+      + '.intake-spinner.spin-20{width:20px;height:20px;}'
+      + '.intake-spinner.spin-16{width:16px;height:16px;}'
       + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
       + '.wizard-dialog .input,.wizard-dialog .select{background:var(--card-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
       + '.wizard-dialog .button{background:var(--secondary-background-color,rgba(148,163,184,0.12));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
@@ -2569,7 +2573,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.45);z-index:10;border-radius:18px;pointer-events:none;}'
       + '.wizard-panel.recalculating-panel{position:relative;}'
       + '.entries.loading-entries{opacity:0.5;pointer-events:none;}'
-      + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       // Issue #1307: fixed (non-scrolling) panels for the Validate-step results
       // and Commit-step summary so the operator-facing chrome stays put while
       // the right-pane Resolved Output handles scrolling on its own.
@@ -2983,7 +2986,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep === 2) {
       var preview = this._previewData;
       var isLoading = this._loading || this._previewLoading || false;
-      var recalculatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>';
+      var recalculatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><span class="intake-spinner spin-16"></span>Recalculating...</div>';
       var planSummaryMarkup = preview && preview.planned_models && preview.planned_models.length 
         ? '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
           + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
@@ -3019,7 +3022,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Plan was removed from this pane.
       // Issue #1364: show blur overlay + spinner on the left pane while validation is running.
       var isValidating = !!this._loading;
-      var validatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Running validation...</div>';
+      var validatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><span class="intake-spinner spin-16"></span>Running validation...</div>';
       return ''
         + '<div class="wizard-panel' + (isValidating ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
         + '  <div class="title-row"><div><div class="title">Validate</div><div class="subtitle">Create one prepared upload snapshot and verify it before the final commit.</div></div></div>'
@@ -3032,6 +3035,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '</div>';
     }
     var isBrowserMode = this._wizardMode === 'browser';
+    var isPublishing = !!this._loading;
+    var publishingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><span class="intake-spinner spin-16"></span>Publishing to destinations...</div>';
     // Issue #1307: Commit step layout cleanup.
     //   Left  -> compact validation summary (counts, not full list)
     //            + cleanup policy selector (Server only) — entire panel fixed,
@@ -3043,7 +3048,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       ? this._cleanupPolicyFriendlyLabel(cleanupPolicyValue)
       : String(cleanupPolicyValue || '');
     return ''
-      + '<div class="wizard-panel">'
+      + '<div class="wizard-panel' + (isPublishing ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
       + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">' + (isBrowserMode ? 'Confirm validation results before the final publish.' : 'Confirm validation results and choose how the originals are handled after publish.') + '</div></div></div>'
       + '  <div class="wizard-commit-fixed">'
       + renderValidationSummaryCompact(this)
@@ -3056,6 +3061,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '</div>'
           + '</div>')
       + '  </div>'
+      + (isPublishing ? publishingBadge : '')
       + '</div>'
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload, resolved plan, and destination mapping.</div></div></div>'
@@ -3072,9 +3078,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var commitButtonLabel = 'Publish Destinations';
     return ''
       + '<div class="wizard-footer">'
-      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button></div>'
+      + '  <div class="button-row"><button class="button" data-action="close-wizard"' + (this._loading ? ' disabled' : '') + '>Cancel</button></div>'
       + '  <div class="button-row">'
-      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
+      + (!atFirstStep ? '<button class="button" data-action="wizard-back"' + (this._loading ? ' disabled' : '') + '>Back</button>' : '')
       + (this._wizardStep === 4
         ? '<button class="button primary" data-action="run-wizard-validation"' + (this._loading ? ' disabled' : '') + '>' + (this._validationData ? 'Re-Run Validation' : 'Run Validation') + '</button>' + '<button class="button" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
         : (!atLastStep
