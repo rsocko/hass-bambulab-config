@@ -3408,6 +3408,7 @@ def _model_detail_service_helpers() -> dict[str, Any]:
         "_resolve_model_summary": _resolve_model_summary,
         "_summary_map": _summary_map,
         "_is_local_summary": _is_local_summary,
+        "_read_idea_metadata": _read_idea_metadata,
         "read_local_model": read_local_model,
         "read_model_fields": read_model_fields,
         "read_model_ranking": read_model_ranking,

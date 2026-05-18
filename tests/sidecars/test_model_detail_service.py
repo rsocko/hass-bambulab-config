@@ -166,3 +166,10 @@ def test_build_model_detail_response_manyfold_degraded(monkeypatch) -> None:
     assert payload["model"]["tags"] == ["remote", "catalog"]
     assert payload["photos"][0]["id"] == "preview:1"
     assert "manyfold_model_files_unavailable" in payload["_debug"]["degraded_reasons"]
+
+
+def test_model_detail_helpers_include_idea_metadata_dependency() -> None:
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    helpers = models_router._model_detail_service_helpers()
+    assert "_read_idea_metadata" in helpers
