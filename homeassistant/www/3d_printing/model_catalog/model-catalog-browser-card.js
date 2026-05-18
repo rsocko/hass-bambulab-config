@@ -3080,24 +3080,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
       + '</div>';
   }
-    var count = this._selectedModelRefs.size;
-    var visible = this._getVisibleModelRefs().length;
-    if (count === 0) {
-      return '';
-    }
-
-    var selectAllLabel = count === visible ? 'Deselect all' : 'Select all ' + String(visible);
-    return ''
-      + '<div class="bulkbar shown">'
-      + '  <span class="count">' + this._escapeHtml(String(count) + ' model' + (count === 1 ? '' : 's') + ' selected') + '</span>'
-      + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
-      + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
-      + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
-      + '  <div class="right">'
-      + '    <button class="bulk-btn" type="button" data-action="clear-selection">Clear</button>'
-      + '  </div>'
-      + '</div>';
-  }
 
   async _openIntakePopup(mode) {
     if (!this._hass) {
