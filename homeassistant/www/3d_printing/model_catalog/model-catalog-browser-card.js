@@ -2967,7 +2967,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '    <button class="toolbar-btn" type="button" data-action="create-model" ' + (this._loading ? 'disabled' : '') + '>+ Add Model</button>'
       + '    <button class="toolbar-btn" type="button" data-action="create-idea" ' + (this._loading ? 'disabled' : '') + '>+ Add Idea</button>'
-      + '    <button class="toolbar-btn ms-toggle' + (this._multiSelectMode ? ' active' : '') + '" type="button" data-action="toggle-multi-select"><ha-icon icon="mdi:checkbox-multiple-marked-outline"></ha-icon> Select</button>'
       + '    <details class="import-menu">'
       + '      <summary class="toolbar-btn import-trigger">Import <ha-icon icon="mdi:chevron-down"></ha-icon></summary>'
       + '      <div class="import-menu-items">'
@@ -3024,6 +3023,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderPageControlStrip() {
+    if (this._multiSelectMode) {
+      return this._renderMultiSelectStrip('');
+    }
     return ''
       + '<div class="page-control-strip">'
       + this._renderNavigationControls()
@@ -3040,11 +3042,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderViewModePicker()
       + '  <button class="toolbar-icon-btn media-toggle' + (this._showMedia ? ' active' : '') + '" type="button" data-action="toggle-show-media" aria-pressed="' + (this._showMedia ? 'true' : 'false') + '" title="' + (this._showMedia ? 'Hide media' : 'Show media') + '"><ha-icon icon="mdi:eye' + (this._showMedia ? '' : '-off') + '"></ha-icon></button>'
       + '  <button class="toolbar-icon-btn refresh-btn' + (this._refreshSpin ? ' spinning' : '') + '" type="button" data-action="refresh-page" aria-label="Refresh results" title="Refresh" ' + (this._loading ? 'disabled' : '') + '><ha-icon icon="mdi:refresh"></ha-icon></button>'
+      + '  <button class="toolbar-icon-btn ms-toggle" type="button" data-action="toggle-multi-select" aria-label="Multi-select" title="Multi-select"><ha-icon icon="mdi:checkbox-multiple-marked-outline"></ha-icon></button>'
       + '</div>'
       + '</div>';
   }
 
   _renderBottomMirrorStrip() {
+    if (this._multiSelectMode) {
+      return this._renderMultiSelectStrip(' bottom-mirror');
+    }
     return ''
       + '<div class="page-control-strip bottom-mirror">'
       + this._renderNavigationControls()
@@ -3060,7 +3066,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</div>';
   }
 
-  _renderBulkActionBar() {
+  _renderMultiSelectStrip(extraClass) {
+    var count = this._selectedModelRefs.size;
+    var visible = this._getVisibleModelRefs().length;
+    var selectAllLabel = count > 0 && count === visible ? 'Deselect All' : 'Select All' + (visible > 0 ? ' (' + String(visible) + ')' : '');
+    return ''
+      + '<div class="page-control-strip multi-select-active' + extraClass + '">'
+      + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
+      + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
+      + '  <div class="ms-spacer"></div>'
+      + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
+      + '</div>';
+  }
     var count = this._selectedModelRefs.size;
     var visible = this._getVisibleModelRefs().length;
     if (count === 0) {
@@ -3077,40 +3096,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="right">'
       + '    <button class="bulk-btn" type="button" data-action="clear-selection">Clear</button>'
       + '  </div>'
-      + '</div>';
-  }
-
-  _renderMultiSelectBar() {
-    if (!this._multiSelectMode) {
-      return '';
-    }
-    var count = this._selectedModelRefs.size;
-    var visible = this._getVisibleModelRefs().length;
-    var selectAllLabel = count > 0 && count === visible ? 'Deselect All' : 'Select All' + (visible > 0 ? ' (' + String(visible) + ')' : '');
-    return ''
-      + '<div class="multi-select-bar visible">'
-      + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
-      + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
-      + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
-      + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
-      + '  <div class="ms-spacer"></div>'
-      + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit Selection</button>'
-      + '</div>';
-  }
-
-  _renderBottomMirrorStrip() {
-    return ''
-      + '<div class="page-control-strip bottom-mirror">'
-      + this._renderNavigationControls()
-      + '<div class="toolbar-group density-group">'
-      + '  <label for="mc-per-page-bottom">Models / Page</label>'
-      + '  <select id="mc-per-page-bottom" class="control-input compact-select">'
-      + '    <option value="12"' + (Number(this._pagination.per_page) === 12 ? ' selected' : '') + '>12</option>'
-      + '    <option value="24"' + (Number(this._pagination.per_page) === 24 ? ' selected' : '') + '>24</option>'
-      + '    <option value="48"' + (Number(this._pagination.per_page) === 48 ? ' selected' : '') + '>48</option>'
-      + '    <option value="96"' + (Number(this._pagination.per_page) === 96 ? ' selected' : '') + '>96</option>'
-      + '  </select>'
-      + '</div>'
       + '</div>';
   }
 
@@ -4303,18 +4288,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.bulkbar .bulk-btn:hover{background:var(--surface-3);border-color:var(--accent);}'
       + '.bulkbar .bulk-btn:active{transform:scale(0.98);}'
       + '.bulkbar .bulk-btn:disabled{opacity:.5;cursor:not-allowed;}'
-      + '.ms-toggle ha-icon{--mdc-icon-size:16px;vertical-align:middle;margin-right:2px;}'
-      + '.ms-toggle.active{background:var(--accent);border-color:var(--accent-strong);color:#fff;}'
-      + '.multi-select-bar{display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin:0 0 6px;border-radius:16px;border:1px solid var(--accent-strong);background:rgba(96,165,250,0.08);color:var(--primary-text-color);font-size:13px;}'
-      + '.multi-select-bar.visible{display:flex;}'
-      + '.multi-select-bar .ms-count{font-weight:700;min-width:120px;flex:0 0 auto;}'
-      + '.multi-select-bar .ms-spacer{flex:1 1 auto;}'
-      + '.multi-select-bar .bulk-btn{min-height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;}'
-      + '.multi-select-bar .bulk-btn:hover{background:var(--surface-3);border-color:var(--accent);}'
-      + '.multi-select-bar .bulk-btn:active{transform:scale(0.98);}'
-      + '.multi-select-bar .bulk-btn.exit{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
-      + '.multi-select-bar .bulk-btn.exit:hover{background:rgba(239,68,68,0.1);}'
-      + '.multi-select-bar .bulk-btn.exit ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'
+      + '.ms-toggle ha-icon{--mdc-icon-size:18px;}'
+      + '.ms-toggle.active,.ms-toggle:hover{background:var(--accent);border-color:var(--accent-strong);color:#fff;}'
+      + '.page-control-strip.multi-select-active{border:1px solid var(--accent-strong);background:rgba(96,165,250,0.08);}'
+      + '.page-control-strip.multi-select-active .ms-count{font-weight:700;min-width:120px;flex:0 0 auto;font-size:13px;}'
+      + '.page-control-strip.multi-select-active .ms-spacer{flex:1 1 auto;}'
+      + '.page-control-strip.multi-select-active .bulk-btn{min-height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;}'
+      + '.page-control-strip.multi-select-active .bulk-btn:hover{background:var(--surface-3);border-color:var(--accent);}'
+      + '.page-control-strip.multi-select-active .bulk-btn:active{transform:scale(0.98);}'
+      + '.page-control-strip.multi-select-active .bulk-btn.exit{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
+      + '.page-control-strip.multi-select-active .bulk-btn.exit:hover{background:rgba(239,68,68,0.1);}'
+      + '.page-control-strip.multi-select-active .bulk-btn.exit ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'
@@ -4325,7 +4309,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderFrequentsRail()
       + this._renderPageControlStrip()
       + '    </div>'
-      + this._renderMultiSelectBar()
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + this._renderQueueDialog()
