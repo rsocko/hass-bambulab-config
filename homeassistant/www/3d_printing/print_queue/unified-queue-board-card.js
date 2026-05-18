@@ -3336,11 +3336,14 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .shell {
         width: 100%;
+        height: 100%;
         background: transparent;
         border: 0;
         border-radius: 0;
         box-shadow: none;
         overflow: visible;
+        display: flex;
+        flex-direction: column;
       }
 
       .card-title {
@@ -3676,6 +3679,9 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         gap: 18px;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
       }
 
       .filter-bar {
@@ -5678,12 +5684,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
         grid-auto-columns: 280px;
         gap: 12px;
         overflow-x: auto;
-        align-items: start;
+        align-items: stretch;
         padding-bottom: 10px;
         scrollbar-gutter: stable;
+        height: 100%;
       }
       .kanban-column {
-        align-self: start;
         background: var(--bg-card-alt);
         background-image:
           linear-gradient(180deg,
@@ -5698,6 +5704,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         flex-direction: column;
         gap: 8px;
         min-height: 120px;
+        flex: 1;
       }
       .kanban-column-header {
         display: flex;
@@ -5745,6 +5752,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         padding: 4px;
         border-radius: 8px;
         transition: background 0.15s;
+        flex: 1;
       }
       .kanban-col-body.drop-target {
         background: color-mix(in srgb, var(--state, #9eacba) 18%, transparent);
