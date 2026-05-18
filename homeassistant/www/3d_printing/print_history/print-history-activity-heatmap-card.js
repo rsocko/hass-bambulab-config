@@ -372,16 +372,18 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       self._debugStats.executedRenders += 1;
       self._renderQueued = true;
 
-      Promise.resolve()
-        .then(function () {
-          return self._renderCard();
-        })
-        .catch(function (err) {
-          self._showError(self._describeRenderError(err));
-        })
-        .then(function () {
-          self._renderQueued = false;
-        });
+      requestAnimationFrame(function () {
+        Promise.resolve()
+          .then(function () {
+            return self._renderCard();
+          })
+          .catch(function (err) {
+            self._showError(self._describeRenderError(err));
+          })
+          .then(function () {
+            self._renderQueued = false;
+          });
+      });
     }, 180);
   }
 
