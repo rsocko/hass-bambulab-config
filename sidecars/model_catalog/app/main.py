@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .manyfold import ManyfoldClient
 from .routers import intake as intake_module
 from .routers import intake_verification as intake_verification_module
 from .routers import working as working_module
@@ -41,28 +40,16 @@ intake_verification_module._sha256_file = _sha256_file_proxy
 working_module._sha256_file = _sha256_file_proxy
 
 
-def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
+def create_app(*, settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         resolved_settings = settings if settings is not None else load_settings()
         app.state.model_catalog = AppState(resolved_settings)
-        app.state.manyfold_client = manyfold_client or ManyfoldClient(
-            resolved_settings.manyfold_base_url,
-            models_path=resolved_settings.manyfold_models_path,
-            collections_path=resolved_settings.manyfold_collections_path,
-            creators_path=resolved_settings.manyfold_creators_path,
-            oauth_token_path=resolved_settings.manyfold_oauth_token_path,
-            client_id=resolved_settings.manyfold_client_id,
-            client_secret=resolved_settings.manyfold_client_secret,
-            oauth_scopes=resolved_settings.manyfold_oauth_scopes,
-            session_email=resolved_settings.manyfold_session_email,
-            session_password=resolved_settings.manyfold_session_password,
-        )
+        app.state.catalog_client = None  # Legacy stub — no longer used
         try:
             yield
         finally:
-            client: ManyfoldClient = app.state.manyfold_client
-            client.close()
+            pass
 
     app = FastAPI(title="Model Catalog Sidecar", version="0.1.0", lifespan=lifespan)
 

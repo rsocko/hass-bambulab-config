@@ -11,14 +11,7 @@ from sidecars.model_catalog.app.settings import Settings
 
 def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.test",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="client-id",
-        manyfold_client_secret="client-secret",
-        manyfold_oauth_scopes="public read",
+        catalog_base_url="http://catalog.test",
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -33,7 +26,7 @@ def _build_settings(tmp_path: Path) -> Settings:
 def test_create_idea_persists_idea_metadata(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
-    app = create_app(settings=settings, manyfold_client=None)
+    app = create_app(settings=settings)
 
     with TestClient(app) as client:
         response = client.post(
@@ -80,7 +73,7 @@ def test_create_idea_persists_idea_metadata(tmp_path: Path) -> None:
 def test_idea_metadata_requires_idea_entity_type(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
-    app = create_app(settings=settings, manyfold_client=None)
+    app = create_app(settings=settings)
 
     with TestClient(app) as client:
         create_response = client.post(

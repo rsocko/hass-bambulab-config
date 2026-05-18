@@ -158,8 +158,8 @@ class TestArchiveLinkingEndpoint:
         """Test creating an archive link with valid payload."""
         archive_id = 12345
         payload = {
-            "manyfold_model_url": "http://manyfold.local/models/abc123",
-            "manyfold_model_public_id": "gridfinity-bin",
+            "model_url": "http://catalog.local/models/abc123",
+            "model_public_id": "gridfinity-bin",
             "relationship_type": "source_for",
             "link_role": "primary",
             "match_method": "manual",
@@ -174,7 +174,7 @@ class TestArchiveLinkingEndpoint:
             "link": {
                 "id": 1,
                 "archive_id": archive_id,
-                "manyfold_model_url": payload["manyfold_model_url"],
+                "model_url": payload["model_url"],
                 "is_active": True,
                 "link_role": "primary",
                 "match_method": "manual"
@@ -185,17 +185,17 @@ class TestArchiveLinkingEndpoint:
         assert expected_response["link"]["is_active"] is True
 
     def test_create_archive_link_missing_url(self):
-        """Test error when manyfold_model_url is missing."""
+        """Test error when model_url is missing."""
         archive_id = 12345
         payload = {
-            "manyfold_model_public_id": "gridfinity-bin"
-            # Missing manyfold_model_url
+            "model_public_id": "gridfinity-bin"
+            # Missing model_url
         }
         
         expected_error = {
             "success": False,
             "error": "invalid_payload",
-            "message": "manyfold_model_url is required.",
+            "message": "model_url is required.",
             "status_code": 400
         }
         
@@ -248,7 +248,7 @@ class TestArchiveDetailIntegration:
             "linked_model": {
                 "model_ref": "gridfinity-bin",
                 "model_id": "model_123",
-                "model_url": "http://manyfold.local/models/abc123",
+                "model_url": "http://catalog.local/models/abc123",
                 "name": "Gridfinity Bin"
             }
         }

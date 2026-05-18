@@ -5,12 +5,8 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class ManyfoldModelSummary:
-    """Catalog model summary used by search/list payloads.
-
-    Legacy note: the class name retains "Manyfold" for compatibility, but
-    it now also represents local-authority catalog entries in decoupled mode.
-    """
+class CatalogModelSummary:
+    """Catalog model summary used by search/list payloads."""
     model_url: str
     public_id: str | None
     model_id: str | None
@@ -20,10 +16,6 @@ class ManyfoldModelSummary:
     collection_names: tuple[str, ...]
     keyword_names: tuple[str, ...]
     entity_type: str = "model"
-
-
-# Preferred decoupled naming for new code; kept as alias to avoid churn.
-CatalogModelSummary = ManyfoldModelSummary
 
 
 @dataclass(frozen=True)

@@ -461,7 +461,7 @@ def _resolve_catalog_quick_add_specs(
     request: Request,
     source_ref: str,
 ) -> tuple[list[dict[str, Any]], int, int, str | None]:
-    client = request.app.state.manyfold_client
+    client = getattr(request.app.state, "catalog_client", None)
     detail = build_model_detail_response(state, client, source_ref, request=request)
     if detail.get("success") is not True:
         return [], 0, 0, "catalog model not found"

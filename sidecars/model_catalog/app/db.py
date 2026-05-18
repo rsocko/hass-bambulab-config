@@ -127,31 +127,31 @@ def bootstrap_database(db_path: Path) -> DatabaseInfo:
     return DatabaseInfo(path=str(db_path), tables=tuple(str(row["name"]) for row in rows), schema_version=schema_version)
 
 
-def derive_manyfold_model_key(
+def derive_model_key(
     *,
-    manyfold_model_url: str | None,
-    manyfold_model_public_id: str | None,
-    manyfold_model_id: str | None,
+    model_url: str | None,
+    model_public_id: str | None,
+    model_id: str | None,
 ) -> str:
     """Derive a canonical model key from various identifiers."""
-    public_id = str(manyfold_model_public_id or "").strip()
+    public_id = str(model_public_id or "").strip()
     if public_id:
         return f"public:{public_id}"
 
-    model_id = str(manyfold_model_id or "").strip()
-    if model_id:
-        return f"id:{model_id}"
+    _model_id = str(model_id or "").strip()
+    if _model_id:
+        return f"id:{_model_id}"
 
-    model_url = str(manyfold_model_url or "").strip()
-    if model_url:
-        parsed = urlsplit(model_url)
+    _model_url = str(model_url or "").strip()
+    if _model_url:
+        parsed = urlsplit(_model_url)
         path = parsed.path or ""
         parts = [segment for segment in path.split("/") if segment]
         if len(parts) >= 2 and parts[-2] == "models":
             return f"url:{parts[-1]}"
         if path:
             return f"url-path:{path}"
-        return f"url:{model_url}"
+        return f"url:{_model_url}"
 
     return "unknown:missing-model-reference"
 
@@ -164,7 +164,7 @@ __all__ = [
     "bootstrap_database",
     "DatabaseInfo",
     # Shared utilities
-    "derive_manyfold_model_key",
+    "derive_model_key",
     # Archive linking (re-exported for backward compatibility)
     "ArchiveModelLink",
     "CanonicalModelUrlRepairResult",

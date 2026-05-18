@@ -53,7 +53,7 @@ SUPPORTED_INTAKE_FILE_EXTENSIONS: set[str] = (
 
 def _normalized_authority_mode(settings: Settings) -> str:
     normalized = str(getattr(settings, "authority_mode", "hybrid") or "hybrid").strip().lower()
-    if normalized not in {"local", "hybrid", "manyfold"}:
+    if normalized not in {"local", "hybrid"}:
         return "hybrid"
     return normalized
 

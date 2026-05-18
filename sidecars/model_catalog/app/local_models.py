@@ -1,7 +1,7 @@
 """Local model catalog CRUD operations (Phase 1+).
 
 This module handles local SQLite-based model storage and asset management,
-replacing Manyfold-dependent read paths during Phase 1 transition.
+replacing legacy read paths during Phase 1 transition.
 
 Authority: Sidecar-owned local model authority.
 Migration context: See Phase 1 Implementation Plan.

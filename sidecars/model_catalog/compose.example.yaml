@@ -3,16 +3,6 @@ services:
     image: registry.socko.us/model-catalog:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
     container_name: model-catalog
     environment:
-      MANYFOLD_BASE_URL: http://manyfold:3214
-      MANYFOLD_MODELS_PATH: /models
-      
-      MANYFOLD_OAUTH_TOKEN_PATH: /oauth/token
-      MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
-      MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}
-      MANYFOLD_OAUTH_SCOPES: ${MANYFOLD_OAUTH_SCOPES:-public read write delete}
-      MANYFOLD_SESSION_EMAIL: ${MANYFOLD_SESSION_EMAIL:-}
-      MANYFOLD_SESSION_PASSWORD: ${MANYFOLD_SESSION_PASSWORD:-}
-
       MODEL_CATALOG_DB_PROFILE: prod
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
       MODEL_CATALOG_DB_PATH_TEST: /data/model_catalog_test.db

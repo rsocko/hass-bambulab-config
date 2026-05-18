@@ -50,10 +50,10 @@ def _build_cleanup_stub(*, upload_id: str, file_path: Path, uploaded_row: dict[s
         local_model_id = str(uploaded_row.get("local_model_id") or "").strip()
         local_asset_id = str(uploaded_row.get("local_asset_id") or uploaded_row.get("asset_id") or "").strip()
         local_storage_path = str(uploaded_row.get("local_storage_path") or uploaded_row.get("storage_path") or "").strip()
-        model_ref = str(uploaded_row.get("manyfold_model_ref") or "").strip()
-        file_ref = str(uploaded_row.get("manyfold_file_ref") or "").strip()
-        model_url = str(uploaded_row.get("manyfold_model_url") or "").strip()
-        file_url = str(uploaded_row.get("manyfold_file_url") or "").strip()
+        model_ref = str(uploaded_row.get("catalog_model_ref") or "").strip()
+        file_ref = str(uploaded_row.get("catalog_file_ref") or "").strip()
+        model_url = str(uploaded_row.get("catalog_model_url") or "").strip()
+        file_url = str(uploaded_row.get("catalog_file_url") or "").strip()
         if local_model_id:
             lines.append(f"local_model_id={local_model_id}")
         if local_asset_id:
@@ -61,13 +61,13 @@ def _build_cleanup_stub(*, upload_id: str, file_path: Path, uploaded_row: dict[s
         if local_storage_path:
             lines.append(f"local_storage_path={local_storage_path}")
         if model_ref:
-            lines.append(f"manyfold_model_ref={model_ref}")
+            lines.append(f"catalog_model_ref={model_ref}")
         if file_ref:
-            lines.append(f"manyfold_file_ref={file_ref}")
+            lines.append(f"catalog_file_ref={file_ref}")
         if model_url:
-            lines.append(f"manyfold_model_url={model_url}")
+            lines.append(f"catalog_model_url={model_url}")
         if file_url:
-            lines.append(f"manyfold_file_url={file_url}")
+            lines.append(f"catalog_file_url={file_url}")
     lines.append("status=source_replaced_after_verified_publish")
     return "\n".join(lines) + "\n"
 

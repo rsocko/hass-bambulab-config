@@ -34,7 +34,7 @@ class TestLinkCandidate:
     def test_link_candidate_creation(self):
         """Test creating link candidate."""
         candidate = LinkCandidate(
-            model_url="https://manyfold.example.com/models/123",
+            model_url="https://catalog.example.com/models/123",
             model_id="123",
             model_name="Test Model",
             match_method="fuzzy_name",
@@ -128,7 +128,7 @@ class TestArchiveLinkingEngine:
     
     def test_mock_find_candidates_by_time_proximity(self):
         """Test finding candidates by time proximity."""
-        mock_client = MockManyfoldClient()
+        mock_client = MockCatalogClient()
         engine = ArchiveLinkingEngine(mock_client)
         
         now = datetime.now(timezone.utc)
@@ -145,7 +145,7 @@ class TestArchiveLinkingEngine:
     
     def test_no_candidates_below_min_score(self):
         """Test that candidates below minimum score are filtered."""
-        mock_client = MockManyfoldClient()
+        mock_client = MockCatalogClient()
         engine = ArchiveLinkingEngine(mock_client)
         
         archive = ArchiveMetadata(
@@ -161,7 +161,7 @@ class TestArchiveLinkingEngine:
     
     def test_get_best_match(self):
         """Test getting single best match."""
-        mock_client = MockManyfoldClient()
+        mock_client = MockCatalogClient()
         engine = ArchiveLinkingEngine(mock_client)
         
         archive = ArchiveMetadata(
@@ -177,8 +177,8 @@ class TestArchiveLinkingEngine:
         assert best.deterministic
 
 
-class MockManyfoldClient:
-    """Mock Manyfold client for testing."""
+class MockCatalogClient:
+    """Mock catalog client for testing."""
     
     def list_model_payloads(self) -> list[dict]:
         """Return mock model payloads."""
@@ -187,7 +187,7 @@ class MockManyfoldClient:
         return [
             {
                 "id": "1",
-                "@id": "https://manyfold.example.com/models/1",
+                "@id": "https://catalog.example.com/models/1",
                 "name": "Test Model",
                 "source_hash": "abc123",  # Hash match
                 "created_at": now,
@@ -197,7 +197,7 @@ class MockManyfoldClient:
             },
             {
                 "id": "2",
-                "@id": "https://manyfold.example.com/models/2",
+                "@id": "https://catalog.example.com/models/2",
                 "name": "Awesome Model",  # Fuzzy name match
                 "created_at": now,
                 "files": [
@@ -206,7 +206,7 @@ class MockManyfoldClient:
             },
             {
                 "id": "3",
-                "@id": "https://manyfold.example.com/models/3",
+                "@id": "https://catalog.example.com/models/3",
                 "name": "Recent Model",
                 "created_at": now,  # Time proximity match
                 "files": [
@@ -221,7 +221,7 @@ class TestArchiveLinkingIntegration:
     
     def test_full_linking_workflow(self):
         """Test complete linking workflow from archive to model."""
-        mock_client = MockManyfoldClient()
+        mock_client = MockCatalogClient()
         engine = ArchiveLinkingEngine(mock_client)
         
         # Create an archive that should match "Test Model"
@@ -246,7 +246,7 @@ class TestArchiveLinkingIntegration:
     
     def test_multiple_fuzzy_matches(self):
         """Test ranking multiple fuzzy matches."""
-        mock_client = MockManyfoldClient()
+        mock_client = MockCatalogClient()
         engine = ArchiveLinkingEngine(mock_client)
         
         # Archive with name that could match multiple models

@@ -6,7 +6,7 @@ This module re-exports all intake endpoints from specialized routers:
 - intake_verification: Item validation and working group creation
 - intake_cleanup: Source file cleanup operations
 
-Publishing operations (publish-to-local, upload-to-manyfold) remain here.
+Publishing operations (publish-to-local, upload-to-catalog) remain here.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ from ..local_models import (
     list_model_assets,
 )
 from ..db import (
-    derive_manyfold_model_key,
+    derive_model_key,
     read_model_field,
     read_model_fields,
     set_model_field,
@@ -62,8 +62,7 @@ from ..services.shared_helpers import (
     _sha256_file,
     _slugify_title,
 )
-from ..manyfold import (
-    ManyfoldClient,
+from ..catalog_cache import (
     _model_ref_from_payload,
     canonicalize_model_url,
 )
@@ -716,7 +715,7 @@ def _publish_group_to_working_destination(
                 """
                 INSERT INTO working_groups (
                     slug, title, stage, notes, primary_file_path, folder_hint,
-                    related_manyfold_model_id, created_at, updated_at,
+                    related_catalog_model_id, created_at, updated_at,
                     discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -1134,7 +1133,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     Publish a queued or reviewed intake upload into the local-authority catalog.
     
     Transitions from validated_ready → published_to_catalog (terminal state).
-    This is the authoritative post-Manyfold sink for reviewed queue/source inputs.
+    This is the authoritative intake sink for reviewed queue/source inputs.
     """
     payload = payload or {}
     state: AppState = request.app.state.model_catalog
@@ -1571,7 +1570,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             "is_terminal": True,
             "allowed_actions": [],
             "legacy_adapter": {
-                "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
+                "upload_to_catalog_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-catalog",
                 "authoritative": False,
                 "status": "transition_only",
             },
@@ -1856,7 +1855,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
 
     detail_payload = build_model_detail_response(
         state,
-        request.app.state.manyfold_client,
+        request.app.state.catalog_client,
         local_model_id,
         include_debug=False,
         request=request,
@@ -1891,7 +1890,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         "is_terminal": True,
         "allowed_actions": [],
         "legacy_adapter": {
-            "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
+            "upload_to_catalog_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-catalog",
             "authoritative": False,
             "status": "transition_only",
         },
@@ -2084,7 +2083,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                 """
                 INSERT INTO working_groups (
                     slug, title, stage, notes, primary_file_path, folder_hint,
-                    related_manyfold_model_id, created_at, updated_at,
+                    related_catalog_model_id, created_at, updated_at,
                     discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -2333,24 +2332,24 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
         "group": primary_group,
         "plan_summary": plan_summary,
         "legacy_adapter": {
-            "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
+            "upload_to_catalog_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-catalog",
             "authoritative": False,
             "status": "transition_only",
         },
     }
 
 
-@router.post("/api/intake/uploads/{upload_id}/upload-to-manyfold")
-async def intake_upload_to_manyfold(
+@router.post("/api/intake/uploads/{upload_id}/upload-to-catalog")
+async def intake_upload_to_catalog(
     upload_id: str,
     request: Request,
     collection_id: int | None = None,
     collection_name: str | None = None,
 ) -> Any:
     """
-    Upload files from verified intake upload to Manyfold library.
+    Upload files from verified intake upload to catalog.
     
-    Streams file from local filesystem directly to Manyfold server.
+    Streams file from local filesystem directly to catalog server.
     Handles multipart form submission with file hash verification.
     
     Query Parameters:
@@ -2363,7 +2362,7 @@ async def intake_upload_to_manyfold(
     
     Response:
     - upload_record: Updated intake upload status
-    - manyfold_response: Manyfold's response metadata
+    - catalog_response: catalog response metadata
     - files_uploaded: List of files successfully uploaded
     """
     state: AppState = request.app.state.model_catalog
@@ -2404,13 +2403,13 @@ async def intake_upload_to_manyfold(
                 content={
                     "success": False,
                     "error": "upload_not_verified",
-                    "message": f"Upload is in '{upload_row['status']}' state. Only unverified uploads can be uploaded to Manyfold.",
+                    "message": f"Upload is in '{upload_row['status']}' state. Only unverified uploads can be uploaded to catalog.",
                 },
             )
     finally:
         connection.close()
     
-    client = request.app.state.manyfold_client
+    client = request.app.state.catalog_client
 
     # Get source entries and expand to files
     source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
@@ -2424,7 +2423,7 @@ async def intake_upload_to_manyfold(
             state.settings.db_path,
             upload_id,
             "failed",
-            event_type="manyfold_upload_failed",
+            event_type="catalog_upload_failed",
             error_message=error_message,
         )
         return JSONResponse(
@@ -2448,10 +2447,10 @@ async def intake_upload_to_manyfold(
             },
         )
 
-    # Upload files to Manyfold
+    # Upload files to catalog
     uploaded_rows: list[dict[str, Any]] = []
     file_hashes: list[str] = []
-    manyfold_file_ids: list[str] = []
+    catalog_file_ids: list[str] = []
     verification_methods: list[str] = []
 
     try:
@@ -2466,10 +2465,10 @@ async def intake_upload_to_manyfold(
                 baseline_payloads = client.list_model_payloads()
                 for p in baseline_payloads:
                     if isinstance(p, dict):
-                        key = derive_manyfold_model_key(
-                            manyfold_model_url=str(p.get("url") or p.get("@id") or "").strip() or None,
-                            manyfold_model_public_id=str(p.get("public_id") or p.get("slug") or "").strip() or None,
-                            manyfold_model_id=str(p.get("id") or "").strip() or None,
+                        key = derive_model_key(
+                            model_url=str(p.get("url") or p.get("@id") or "").strip() or None,
+                            model_public_id=str(p.get("public_id") or p.get("slug") or "").strip() or None,
+                            model_id=str(p.get("id") or "").strip() or None,
                         )
                         baseline_model_keys.add(key)
             except Exception:
@@ -2485,14 +2484,14 @@ async def intake_upload_to_manyfold(
                 ".stp": "model/step",
             }.get(suffix, "application/octet-stream")
             
-            # Upload file to Manyfold
+            # Upload file to catalog
             uploaded_file_ref = client.upload_file(
                 filename=file_path.name,
                 content=file_bytes,
                 content_type=content_type,
             )
             
-            # Create model in Manyfold
+            # Create model in catalog
             client.create_model_from_uploads(
                 name=file_path.stem,
                 collection_ref=collection_ref,
@@ -2507,10 +2506,10 @@ async def intake_upload_to_manyfold(
                     for payload in payloads:
                         if not isinstance(payload, dict):
                             continue
-                        payload_key = derive_manyfold_model_key(
-                            manyfold_model_url=str(payload.get("url") or payload.get("@id") or "").strip() or None,
-                            manyfold_model_public_id=str(payload.get("public_id") or payload.get("slug") or "").strip() or None,
-                            manyfold_model_id=str(payload.get("id") or "").strip() or None,
+                        payload_key = derive_model_key(
+                            model_url=str(payload.get("url") or payload.get("@id") or "").strip() or None,
+                            model_public_id=str(payload.get("public_id") or payload.get("slug") or "").strip() or None,
+                            model_id=str(payload.get("id") or "").strip() or None,
                         )
                         if payload_key not in baseline_model_keys:
                             model_payload = payload
@@ -2535,7 +2534,7 @@ async def intake_upload_to_manyfold(
                 model_id = str(model_payload.get("id") or "").strip() or None
                 model_url = str(model_payload.get("url") or model_payload.get("@id") or "").strip()
                 if model_url and not model_url.startswith("http"):
-                    model_url = canonicalize_model_url(state.settings.manyfold_base_url, model_url, fallback_model_id=model_id)
+                    model_url = canonicalize_model_url(state.settings.catalog_base_url, model_url, fallback_model_id=model_id)
                 model_ref = _model_ref_from_payload(model_payload)
                 
                 # Fetch model detail to get file information
@@ -2559,7 +2558,7 @@ async def intake_upload_to_manyfold(
             
             file_hashes.append(file_hash)
             if file_ref:
-                manyfold_file_ids.append(file_ref)
+                catalog_file_ids.append(file_ref)
             verification_methods.append(verification_method)
             
             uploaded_rows.append({
@@ -2567,11 +2566,11 @@ async def intake_upload_to_manyfold(
                 "filename": file_path.name,
                 "sha256": file_hash,
                 "size_bytes": file_size,
-                "manyfold_model_ref": model_ref,
-                "manyfold_model_id": model_id,
-                "manyfold_model_url": model_url,
-                "manyfold_file_ref": file_ref,
-                "manyfold_file_url": file_url,
+                "catalog_model_ref": model_ref,
+                "catalog_model_id": model_id,
+                "model_url": model_url,
+                "catalog_file_ref": file_ref,
+                "catalog_file_url": file_url,
                 "verification_method": verification_method,
             })
     except Exception as exc:
@@ -2581,12 +2580,12 @@ async def intake_upload_to_manyfold(
             failure_connection.execute(
                 """
                 UPDATE intake_queue_uploads
-                SET file_hashes_json = ?, manyfold_file_ids_json = ?, verification_status = ?, updated_at = ?
+                SET file_hashes_json = ?, catalog_file_ids_json = ?, verification_status = ?, updated_at = ?
                 WHERE upload_id = ?
                 """,
                 (
                     json.dumps(file_hashes),
-                    json.dumps(manyfold_file_ids),
+                    json.dumps(catalog_file_ids),
                     "failed",
                     _bulk_utc_now_iso(),
                     upload_id,
@@ -2600,19 +2599,19 @@ async def intake_upload_to_manyfold(
             state.settings.db_path,
             upload_id,
             "failed",
-            event_type="manyfold_upload_failed",
+            event_type="catalog_upload_failed",
             error_message=str(exc),
             metadata={
                 "uploaded_count": len(uploaded_rows),
                 "file_hashes": file_hashes,
-                "manyfold_file_ids": manyfold_file_ids,
+                "catalog_file_ids": catalog_file_ids,
             },
         )
         return JSONResponse(
             status_code=502,
             content={
                 "success": False,
-                "error": "manyfold_upload_failed",
+                "error": "catalog_upload_failed",
                 "message": str(exc),
                 "upload_id": upload_id,
                 "files_uploaded": uploaded_rows,
@@ -2626,12 +2625,12 @@ async def intake_upload_to_manyfold(
         success_connection.execute(
             """
             UPDATE intake_queue_uploads
-            SET file_hashes_json = ?, manyfold_file_ids_json = ?, verification_status = ?, updated_at = ?
+            SET file_hashes_json = ?, catalog_file_ids_json = ?, verification_status = ?, updated_at = ?
             WHERE upload_id = ?
             """,
             (
                 json.dumps(file_hashes),
-                json.dumps(manyfold_file_ids),
+                json.dumps(catalog_file_ids),
                 "pass",
                 verified_at,
                 upload_id,
@@ -2646,11 +2645,11 @@ async def intake_upload_to_manyfold(
         state.settings.db_path,
         upload_id,
         "verified",
-        event_type="manyfold_upload_verified",
+        event_type="catalog_upload_verified",
         metadata={
             "uploaded_count": len(uploaded_rows),
             "file_hashes": file_hashes,
-            "manyfold_file_ids": manyfold_file_ids,
+            "catalog_file_ids": catalog_file_ids,
             "verification_methods": verification_methods,
         },
     )
@@ -2670,7 +2669,7 @@ async def intake_upload_to_manyfold(
         "upload_id": upload_id,
         "status": "verified",
         "verification_status": "pass",
-        "manyfold_response": {
+        "catalog_response": {
             "collection_id": collection_id,
             "collection_name": collection_name,
             "collection_ref": collection_ref,

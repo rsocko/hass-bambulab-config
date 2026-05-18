@@ -14,12 +14,11 @@ tests/sidecars/model_catalog/
    - `test_settings`: Test configuration
    - `test_client`: FastAPI test client
    - `httpx_client`: HTTP client for service testing
-   - `manyfold_base_url`: Manyfold service URL (from env or default)
    - `sidecar_base_url`: Sidecar service URL (from env or default)
 
 2. **test_spike_1061_deployment.py** (16 tests)
    - Health check endpoints validation
-   - Manyfold service connectivity
+   - Service connectivity
    - OAuth configuration
    - Docker network discovery
    - Environment variable validation
@@ -58,7 +57,7 @@ tests/sidecars/model_catalog/
    - TUS upload protocol flow
    - Add-file endpoint validation
    - Upload→file workflow gaps
-   - Manyfold rescan operation
+   - Rescan operation
    - File deletion/restoration recovery
    - Orphaned record cleanup
    - **Recovery implementation checklist with 12 best practices**
@@ -93,7 +92,7 @@ pytest tests/sidecars/model_catalog/test_spike_1060_ranking_signals.py::TestRank
 
 ### Run specific test:
 ```bash
-pytest tests/sidecars/model_catalog/test_spike_1056_patch_behavior.py::TestManyfoldPatchBehavior::test_patch_safe_fields -v -s
+pytest tests/sidecars/model_catalog/test_spike_1056_patch_behavior.py::TestPatchBehavior::test_patch_safe_fields -v -s
 ```
 
 ### Use test runner:
@@ -119,7 +118,7 @@ python tests/sidecars/model_catalog/test_runner.py spike_1056
 ### From test_spike_1061_deployment.py:
 ```
 ✓ Health check endpoints at /healthz, /config, /diagnostics
-✓ Manyfold API accessibility validated
+✓ API accessibility validated
 ✓ OAuth endpoint detection
 ✓ Docker network discovery works
 ✓ Production deployment checklist provided
@@ -158,7 +157,7 @@ python tests/sidecars/model_catalog/test_runner.py spike_1056
 ✓ CRITICAL: Use public_id for archive links (not model_id)
   - public_id stable across rescan/deletion/restore
   - model_id changes on file operations
-✓ Manyfold Rescan API Gap:
+✓ Rescan API Gap:
   - Rescan exists in Rails but NOT in REST API
   - Workaround: Manual trigger or periodic polling
 ✓ Upload→File Gap:
@@ -180,15 +179,11 @@ Each test module provides detailed checklists for its phase:
 
 ```bash
 # Required
-MANYFOLD_BASE_URL=http://manyfold:3000
-MANYFOLD_CLIENT_ID=model-catalog-sidecar
-MANYFOLD_CLIENT_SECRET=<secret>
 MODEL_CATALOG_DB_PATH=/data/model-catalog/catalog.db
 MODEL_CATALOG_HOST=0.0.0.0
 MODEL_CATALOG_PORT=8314
 
 # Optional
-MANYFOLD_OAUTH_SCOPES=public.read models.write files.write
 MODEL_CATALOG_REFRESH_TTL_SECONDS=900
 ```
 
@@ -221,7 +216,7 @@ MODEL_CATALOG_REFRESH_TTL_SECONDS=900
 
 - **Spike Validation Documents**: `docs/features/model_catalog/integration/spike-*.md`
 - **Implementation Plan**: `docs/features/model_catalog/implementation-plan.md`
-- **API Gap Analysis**: `docs/features/model_catalog/manyfold-api-gap-analysis-2026-04-21.md`
+- **API Gap Analysis**: `docs/features/model_catalog/api-gap-analysis-2026-04-21.md`
 - **Sidecar README**: `sidecars/model_catalog/README.md`
 
 ---

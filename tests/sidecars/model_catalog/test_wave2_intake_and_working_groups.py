@@ -12,30 +12,17 @@ from app.main import create_app
 from app.settings import Settings
 
 
-class FakeManyfoldClient:
-    base_url = "http://manyfold.example"
-
-    def close(self) -> None:
-        return None
-
 def _make_settings(db_path: Path, source_root: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.example",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="test-client",
-        manyfold_client_secret="test-secret",
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://catalog.example",
         db_path=db_path,
-        refresh_ttl_seconds=900,
+        refresh_ttl_seconds=300,
         host="127.0.0.1",
         port=8314,
         image_tag="test",
-        image_version="test",
+        image_version="0.0.0",
         image_revision="test",
-        image_created="test",
+        image_created="2024-01-01T00:00:00Z",
         intake_source_roots=(source_root.resolve(),),
         working_files_root=source_root.resolve(),
     )
@@ -44,22 +31,15 @@ def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> 
     resolved_roots = tuple(root.resolve() for root in source_roots)
     working_root = next((root for root in resolved_roots if root.name.lower() == "model working files"), resolved_roots[-1] if resolved_roots else None)
     return Settings(
-        manyfold_base_url="http://manyfold.example",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="test-client",
-        manyfold_client_secret="test-secret",
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://catalog.example",
         db_path=db_path,
-        refresh_ttl_seconds=900,
+        refresh_ttl_seconds=300,
         host="127.0.0.1",
         port=8314,
         image_tag="test",
-        image_version="test",
+        image_version="0.0.0",
         image_revision="test",
-        image_created="test",
+        image_created="2024-01-01T00:00:00Z",
         intake_source_roots=resolved_roots,
         working_files_root=working_root,
     )
@@ -67,7 +47,7 @@ def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> 
 
 def _create_client(tmp_path: Path, source_root: Path) -> TestClient:
     db_path = tmp_path / "model_catalog.db"
-    app = create_app(settings=_make_settings(db_path, source_root), manyfold_client=FakeManyfoldClient())
+    app = create_app(settings=_make_settings(db_path, source_root))
     client = TestClient(app)
     client.__enter__()
     return client
@@ -75,7 +55,7 @@ def _create_client(tmp_path: Path, source_root: Path) -> TestClient:
 
 def _create_client_with_roots(tmp_path: Path, source_roots: tuple[Path, ...]) -> TestClient:
     db_path = tmp_path / "model_catalog.db"
-    app = create_app(settings=_make_settings_with_roots(db_path, source_roots), manyfold_client=FakeManyfoldClient())
+    app = create_app(settings=_make_settings_with_roots(db_path, source_roots))
     client = TestClient(app)
     client.__enter__()
     return client

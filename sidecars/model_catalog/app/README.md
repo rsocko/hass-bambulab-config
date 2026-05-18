@@ -45,7 +45,7 @@ app/
 ├── db_migrations.py             (Schema initialization & versioning)
 │
 ├── domain/                      (Specialized domain logic)
-│   ├── manyfold.py             (Manyfold API client)
+│   ├── manyfold.py             (ARCHIVED — was Manyfold API client)
 │   ├── local_models.py         (Local model CRUD)
 │   ├── geometry_3mf.py         (3MF geometry extraction)
 │   ├── model_statistics.py     (Ranking & aggregation)
@@ -115,7 +115,7 @@ SQLite schema, migrations, and CRUD operations organized by **bounded context**:
 
 Specialized logic for integration points and complex operations:
 
-- `manyfold.py` — Manyfold API client, caching, session bridge
+- `manyfold.py` — ARCHIVED (was Manyfold API client; see `archive/model_catalog/`)
 - `local_models.py` — Local model CRUD, filesystem, SQLite
 - `geometry_3mf.py` — 3MF file parsing, geometry extraction
 - `model_statistics.py` — Ranking aggregation, print statistics
@@ -135,7 +135,7 @@ Router (request validation)
 Service (business logic)
     ├─ db_*.py (data persistence)
     ├─ domain/*.py (specialized logic)
-    └─ manyfold.py (external API)
+    └─ local_models.py (local authority)
     ↓
 HTTP Response
 ```
@@ -187,25 +187,13 @@ See `settings.py` for the authoritative list:
 
 - `DATABASE_PATH` — SQLite database location
 - `ASSETS_ROOT_HOST` — Bind-mount path for file storage
-- `MANYFOLD_MODE` — Model authority mode (local, hybrid, manyfold)
-- `MANYFOLD_URL` — Manyfold API base URL (if hybrid/manyfold mode)
-- `MANYFOLD_API_KEY` — Manyfold API authentication
 
-### Modes
+### Authority Mode
 
-**Local Authority** (default):
+**Local Authority** (only supported mode):
 - All model queries hit local SQLite
-- No Manyfold dependency
-- Graceful degradation if unavailable
-
-**Hybrid**:
-- Queries both local SQLite + Manyfold cache
-- Merge and deduplicate results
-- Allow publishing to Manyfold
-
-**Manyfold-Only** (legacy):
-- Query Manyfold API for all operations
-- Fallback: None (requires Manyfold)
+- Identity scheme: `local://model/{local_model_id}`
+- No external service dependencies
 
 ## Phase 2 Implementation Status
 

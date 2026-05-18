@@ -12,14 +12,7 @@ from app.state import AppState
 
 def _base_settings(*, db_path: Path, db_path_prod: Path, db_path_test: Path, db_profile: str = "prod") -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.example",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id=None,
-        manyfold_client_secret=None,
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://catalog.example",
         db_path=db_path,
         refresh_ttl_seconds=900,
         host="127.0.0.1",

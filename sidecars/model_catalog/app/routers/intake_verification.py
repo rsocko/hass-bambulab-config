@@ -1692,7 +1692,7 @@ def get_intake_item(request: Request, item_id: str) -> Any:
         row = connection.execute(
             """
             SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
-                   source_entries_json, file_hashes_json, manyfold_file_ids_json, error_json,
+                   source_entries_json, file_hashes_json, uploaded_file_ids_json, error_json,
                    created_at, updated_at, uploaded_at, verified_at, cleanup_done_at, decision_note
             FROM intake_queue_uploads
             WHERE upload_id = ?
@@ -1722,7 +1722,7 @@ def get_intake_item(request: Request, item_id: str) -> Any:
             "cleanup_policy": row["cleanup_policy"],
             "source_entries": source_entries,
             "file_hashes": json.loads(str(row["file_hashes_json"] or "[]")),
-            "manyfold_file_ids": json.loads(str(row["manyfold_file_ids_json"] or "[]")),
+            "uploaded_file_ids": json.loads(str(row["uploaded_file_ids_json"] or "[]")),
             "error": json.loads(str(row["error_json"] or "null")),
             "decision_note": row["decision_note"],
             "created_at": row["created_at"],
@@ -2183,7 +2183,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                     """
                     INSERT INTO working_groups (
                         slug, title, stage, notes, primary_file_path, folder_hint,
-                        related_manyfold_model_id, created_at, updated_at,
+                        related_model_id, created_at, updated_at,
                         discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,

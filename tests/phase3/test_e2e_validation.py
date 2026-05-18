@@ -79,7 +79,7 @@ class Phase3ValidatorE2E:
                 data = response.json()
                 # Verify required config fields
                 required_fields = [
-                    "manyfold_base_url",
+                    "catalog_base_url",
                     "db_path",
                     "host",
                     "port"
@@ -130,7 +130,7 @@ class Phase3ValidatorE2E:
                 required_fields = [
                     "success",
                     "model_ref",
-                    "manyfold_model_url",
+                    "model_url",
                     "model",
                     "enrichment",
                     "linked_archives",

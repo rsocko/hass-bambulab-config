@@ -1,5 +1,5 @@
 # Independent Model Catalog Stack
-# This stack runs independently from Manyfold and can exist on its own.
+# This stack runs independently as a local-authority catalog service.
 #
 # Storage Architecture:
 # - /data          → Named volume (service-owned database)
@@ -15,19 +15,6 @@ services:
       - traefik
     
     environment:
-      # Manyfold integration (OPTIONAL as of Phase 1.1)
-      # These can be empty; the service will work without Manyfold.
-      MANYFOLD_BASE_URL: ${MANYFOLD_BASE_URL:-http://manyfold:3214}
-      MANYFOLD_MODELS_PATH: ${MANYFOLD_MODELS_PATH:-/models}
-      MANYFOLD_COLLECTIONS_PATH: ${MANYFOLD_COLLECTIONS_PATH:-/collections}
-      MANYFOLD_CREATORS_PATH: ${MANYFOLD_CREATORS_PATH:-/creators}
-      MANYFOLD_OAUTH_TOKEN_PATH: ${MANYFOLD_OAUTH_TOKEN_PATH:-/oauth/token}
-      MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
-      MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}
-      MANYFOLD_OAUTH_SCOPES: ${MANYFOLD_OAUTH_SCOPES:-public read}
-      MANYFOLD_SESSION_EMAIL: ${MANYFOLD_SESSION_EMAIL:-}
-      MANYFOLD_SESSION_PASSWORD: ${MANYFOLD_SESSION_PASSWORD:-}
-      
       # Service Configuration
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
       # Test DB path (auto-derived as /data/model_catalog_test.db if not set).
@@ -59,8 +46,7 @@ services:
       # Required by Working Files actions that translate /assets paths to host paths.
       ASSETS_ROOT_HOST: ${ASSETS_ROOT_HOST:-}
       
-      # Local authority is the default for the standalone stack.
-      # Keep standalone mode enabled so the sidecar can start without Manyfold.
+      # Local authority is the default mode.
       MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-true}
     
     volumes:
@@ -86,14 +72,6 @@ services:
       - "127.0.0.1:8314:8314"
     
     restart: unless-stopped
-    
-    # NOTE: No depends_on on Manyfold
-    # The service starts independently and handles Manyfold unavailability gracefully.
-    # If Manyfold is not running, the service will:
-    # - Start successfully with catalog models available
-    # - Log warnings about Manyfold unavailability
-    # - Return degraded status in /healthz
-    # - Resume Manyfold operations when it becomes available
 
   model-catalog-datasette:
     image: datasetteproject/datasette:latest

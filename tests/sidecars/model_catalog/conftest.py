@@ -29,12 +29,15 @@ def temp_db_path() -> Generator[str, None, None]:
 def test_settings(temp_db_path: str) -> Settings:
     """Create test settings with temporary database."""
     return Settings(
-        manyfold_base_url="http://localhost:3000",
-        manyfold_client_id="test-client",
-        manyfold_client_secret="test-secret",
-        model_catalog_db_path=temp_db_path,
-        model_catalog_host="127.0.0.1",
-        model_catalog_port=8314,
+        catalog_base_url="http://localhost:3000",
+        db_path=Path(temp_db_path),
+        refresh_ttl_seconds=900,
+        host="127.0.0.1",
+        port=8314,
+        image_tag="test",
+        image_version="test",
+        image_revision="test",
+        image_created="test",
     )
 
 
@@ -53,9 +56,9 @@ def httpx_client() -> httpx.Client:
 
 
 @pytest.fixture(scope="session")
-def manyfold_base_url() -> str:
-    """Get Manyfold base URL from environment or use default."""
-    return os.getenv("MANYFOLD_BASE_URL", "http://manyfold.socko.us")
+def catalog_base_url() -> str:
+    """Get catalog base URL from environment or use default."""
+    return os.getenv("MODEL_CATALOG_BASE_URL", "http://catalog.socko.us")
 
 
 @pytest.fixture(scope="session")

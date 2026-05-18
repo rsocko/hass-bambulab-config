@@ -11,7 +11,7 @@ This router handles:
 - Ranking and queue management
 - Photo upload/download/preview
 - 3MF geometry extraction
-- Model file download proxy (local + Manyfold)
+- Model file download proxy (local)
 - Related model discovery
 - Local model CRUD and asset management
 - Archive model integration stub
@@ -48,7 +48,7 @@ from ..db import (
     ArchiveModelLink,
     delete_model_field,
     deactivate_archive_link,
-    derive_manyfold_model_key,
+    derive_model_key,
     read_all_model_ranking,
     read_archive_links,
     read_model_field,
@@ -93,18 +93,14 @@ from ..promote import (
     can_promote,
 )
 
-from ..manyfold import (
-    CachedManyfoldModel,
-    ManyfoldClient,
-    _model_ref_from_payload,
+from ..catalog_cache import (
+    CachedCatalogModel,
     canonicalize_model_url,
-    read_cached_manyfold_models,
-    read_cached_manyfold_summaries,
-    refresh_manyfold_cache,
-    refresh_manyfold_cache_with_status,
+    read_cached_catalog_models,
+    read_cached_model_summaries,
 )
 
-from ..models import ManyfoldModelSummary, LocalModelEntry
+from ..models import CatalogModelSummary, LocalModelEntry
 
 from .._helpers import (
     SUPPORTED_WORKING_FILE_EXTENSIONS,
@@ -193,7 +189,7 @@ LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".ya
 
 @dataclass(frozen=True)
 class CandidateMatch:
-    summary: ManyfoldModelSummary
+    summary: CatalogModelSummary
     score: float
     deterministic: bool
     rationale: tuple[str, ...]
@@ -526,13 +522,12 @@ def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None =
     return fallback_preview_url
 
 
-def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = None) -> ManyfoldModelSummary:
-    """Convert LocalModelEntry to ManyfoldModelSummary for backward compatibility.
+def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = None) -> CatalogModelSummary:
+    """Convert LocalModelEntry to CatalogModelSummary for backward compatibility.
 
     This wrapper allows HA services to work with local models without changes.
-    Model URLs use local:// scheme for non-Manyfold entries.
+    Model URLs use local:// scheme.
 
-    Phase 1 Note: Manyfold-originated models still use manyfold:// URLs;
     this function handles local-authority models created after Phase 1.
     """
     compatibility_keywords: list[str] = []
@@ -543,7 +538,7 @@ def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = No
             seen_keywords.add(keyword)
             compatibility_keywords.append(keyword)
 
-    return ManyfoldModelSummary(
+    return CatalogModelSummary(
         model_url=f"local://{entry.local_model_id}",
         public_id=entry.local_model_id,
         model_id=str(entry.id),
@@ -556,26 +551,26 @@ def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = No
     )
 
 
-def _is_local_summary(summary: ManyfoldModelSummary) -> bool:
+def _is_local_summary(summary: CatalogModelSummary) -> bool:
     return str(summary.model_url or "").startswith("local://")
 
 
-def _read_local_summaries(*, db_path: Any) -> list[ManyfoldModelSummary]:
+def _read_local_summaries(*, db_path: Any) -> list[CatalogModelSummary]:
     local_entries, _local_total = list_local_models(db_path=db_path, limit=10000, offset=0)
     return [_local_entry_to_summary(entry, db_path=db_path) for entry in local_entries]
 
 
-def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
-    summaries = [*_read_local_summaries(db_path=db_path), *read_cached_manyfold_summaries(db_path=db_path)]
+def _summary_map(db_path: Any) -> dict[str, CatalogModelSummary]:
+    summaries = [*_read_local_summaries(db_path=db_path), *read_cached_model_summaries(db_path=db_path)]
     return {summary.model_url: summary for summary in summaries}
 
 
 def _load_runtime_summaries(
     *,
     settings: Settings,
-    client: ManyfoldClient,
+    client: object,
     refresh: bool,
-) -> tuple[list[ManyfoldModelSummary], str, dict[str, Any]]:
+) -> tuple[list[CatalogModelSummary], str, dict[str, Any]]:
     authority_mode = _normalized_authority_mode(settings)
     refresh_status: dict[str, Any] = {
         "refresh_requested": bool(refresh),
@@ -585,19 +580,19 @@ def _load_runtime_summaries(
     }
 
     local_summaries = _read_local_summaries(db_path=settings.db_path)
-    manyfold_summaries: list[ManyfoldModelSummary] = []
-    manyfold_source = "cache"
+    catalog_summaries: list[CatalogModelSummary] = []
+    catalog_source = "cache"
 
-    if authority_mode in {"hybrid", "manyfold"}:
+    if authority_mode in {"hybrid", "catalog"}:
         if refresh:
             try:
-                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
+                catalog_summaries, refresh_meta = refresh_model_cache_with_status(db_path=settings.db_path, client=client)
                 refresh_status.update(refresh_meta)
-                manyfold_source = "manyfold"
+                catalog_source = "catalog"
             except Exception as error:
-                fallback_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
+                fallback_summaries = read_cached_model_summaries(db_path=settings.db_path)
                 if fallback_summaries:
-                    manyfold_summaries = fallback_summaries
+                    catalog_summaries = fallback_summaries
                     refresh_status.update(
                         {
                             "outcome": "refresh_failed_cache_retained",
@@ -609,34 +604,34 @@ def _load_runtime_summaries(
                 else:
                     raise
         else:
-            manyfold_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
-            if not manyfold_summaries:
-                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
+            catalog_summaries = read_cached_model_summaries(db_path=settings.db_path)
+            if not catalog_summaries:
+                catalog_summaries, refresh_meta = refresh_model_cache_with_status(db_path=settings.db_path, client=client)
                 refresh_status = {
                     "refresh_requested": False,
                     "authority_mode": authority_mode,
                     **refresh_meta,
                 }
-                manyfold_source = "manyfold"
+                catalog_source = "catalog"
 
     if authority_mode == "local":
         refresh_status.update(
             {
                 "outcome": "local_authority_only",
-                "preserved_cache": bool(read_cached_manyfold_summaries(db_path=settings.db_path)),
+                "preserved_cache": bool(read_cached_model_summaries(db_path=settings.db_path)),
             }
         )
         return local_summaries, "local", refresh_status
-    if authority_mode == "manyfold":
-        return manyfold_summaries, manyfold_source, refresh_status
-    if local_summaries and manyfold_summaries:
-        return [*manyfold_summaries, *local_summaries], f"{manyfold_source}+local", refresh_status
+    if authority_mode == "catalog":
+        return catalog_summaries, catalog_source, refresh_status
+    if local_summaries and catalog_summaries:
+        return [*catalog_summaries, *local_summaries], f"{catalog_source}+local", refresh_status
     if local_summaries:
         return local_summaries, "local", refresh_status
-    return manyfold_summaries, manyfold_source, refresh_status
+    return catalog_summaries, catalog_source, refresh_status
 
 
-def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
+def _resolve_model_summary(summary_by_url: dict[str, CatalogModelSummary], model_ref: str) -> CatalogModelSummary | None:
     normalized_ref = str(model_ref or "").strip()
     if not normalized_ref:
         return None
@@ -909,7 +904,7 @@ def _matches_priority_filters(
 
 
 def _preview_source_candidates(source: str) -> list[str]:
-    """Return unique URL candidates for Manyfold preview fetch fallback."""
+    """Return unique URL candidates for catalog preview fetch fallback."""
     normalized = str(source or "").strip()
     if not normalized:
         return []
@@ -1084,7 +1079,7 @@ def _model_is_frequent(model_payload: dict[str, Any], *, frequent_min_prints: in
 
 
 def _serialize_model_summary(
-    summary: ManyfoldModelSummary,
+    summary: CatalogModelSummary,
     *,
     custom_fields: dict[str, object],
     ranking_by_url: dict[str, Any],
@@ -1135,7 +1130,7 @@ def _serialize_model_summary(
     if preview_url and preview_proxy_base_url and not _is_local_summary(summary):
         preview_url = f"{preview_proxy_base_url}?source={quote(preview_url, safe='')}"
 
-    authority = "local" if _is_local_summary(summary) else "manyfold"
+    authority = "local" if _is_local_summary(summary) else "catalog"
     model_ref = str(summary.public_id or summary.model_id or summary.model_url)
     return {
         **asdict(summary),
@@ -1184,7 +1179,7 @@ _CANONICAL_PLATFORM_IDS = {
     "printables",
     "thingiverse",
     "cults3d",
-    "manyfold",
+    "catalog",
     "other",
     "original_local",
 }
@@ -1193,7 +1188,7 @@ _PUBLISHABLE_PLATFORM_IDS = _CANONICAL_PLATFORM_IDS - {"original_local"}
 
 _ALLOWED_ORIGIN_TYPES = {"custom_unique", "remix", "derivative"}
 _ALLOWED_CATALOG_VISIBILITY = {"active", "archived"}
-_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other", "original"}
+_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "catalog", "other", "original"}
 
 
 def _normalize_platform_id(value: object | None, *, allow_original_local: bool = True) -> str | None:
@@ -1582,17 +1577,17 @@ def _ranking_payload(ranking: Any) -> dict[str, Any]:
 def _archive_link_to_response(
     link: ArchiveModelLink,
     *,
-    summary_by_url: dict[str, ManyfoldModelSummary] | None = None,
+    summary_by_url: dict[str, CatalogModelSummary] | None = None,
 ) -> dict[str, Any]:
-    summary = summary_by_url.get(link.manyfold_model_url) if summary_by_url else None
+    summary = summary_by_url.get(link.model_url) if summary_by_url else None
     return {
         "id": link.id,
         "archive_id": link.bambuddy_archive_id,
-        "manyfold_model_url": link.manyfold_model_url,
-        "manyfold_model_public_id": link.manyfold_model_public_id,
-        "manyfold_model_file_id": link.manyfold_model_file_id,
-        "manyfold_model_name": summary.name if summary else None,
-        "manyfold_preview_url": summary.preview_url if summary else None,
+        "model_url": link.model_url,
+        "model_public_id": link.model_public_id,
+        "model_asset_id": link.model_asset_id,
+        "model_name": summary.name if summary else None,
+        "preview_url": summary.preview_url if summary else None,
         "relationship_type": link.relationship_type,
         "link_role": link.link_role,
         "match_method": link.match_method,
@@ -1662,7 +1657,7 @@ def _extract_model_hashes(payload: dict[str, Any]) -> set[str]:
     }
 
 
-def _extract_model_filenames(summary: ManyfoldModelSummary, payload: dict[str, Any]) -> set[str]:
+def _extract_model_filenames(summary: CatalogModelSummary, payload: dict[str, Any]) -> set[str]:
     names = {summary.name}
     names.update(_extract_string_values(payload, {"source_file_name", "filename", "original_filename", "name", "title"}))
     return {normalized for normalized in (_normalized_filename_stem(name) for name in names) if normalized}
@@ -1694,7 +1689,7 @@ def _time_proximity_boost(*, archive_times: list[datetime], candidate_times: lis
 
 def _build_candidate_match(
     *,
-    cached_model: CachedManyfoldModel,
+    cached_model: CachedCatalogModel,
     archive_name: str,
     source_file_name: str | None,
     source_hash: str | None,
@@ -1782,7 +1777,7 @@ def _normalized_model_url(settings: Settings, model_url: str | None) -> str | No
     normalized = str(model_url or "").strip()
     if not normalized:
         return None
-    return canonicalize_model_url(settings.manyfold_base_url, normalized)
+    return canonicalize_model_url(settings.catalog_base_url, normalized)
 
 
 def _cleanup_sort_key(link: ArchiveModelLink) -> tuple[int, int, str, int]:
@@ -1794,7 +1789,7 @@ def _cleanup_sort_key(link: ArchiveModelLink) -> tuple[int, int, str, int]:
     )
 
 
-def _search_score(query_tokens: set[str], summary: ManyfoldModelSummary) -> float:
+def _search_score(query_tokens: set[str], summary: CatalogModelSummary) -> float:
     """Score a model based on query token overlap with name, collections, keywords, and creator."""
     if not query_tokens:
         return 0.0
@@ -1820,7 +1815,7 @@ def _search_score(query_tokens: set[str], summary: ManyfoldModelSummary) -> floa
 
 
 def _matches_filters(
-    summary: ManyfoldModelSummary,
+    summary: CatalogModelSummary,
     collection_filter: str | None = None,
     creator_filter: str | None = None,
     tag_filter: str | None = None,
@@ -1938,7 +1933,7 @@ def _parse_json_objectish(value: object | None) -> dict[str, Any] | None:
 
 
 def _collection_filter_diagnostics(
-    summaries: list[ManyfoldModelSummary],
+    summaries: list[CatalogModelSummary],
     collection_filter: str | None,
 ) -> dict[str, Any]:
     request_input = str(collection_filter or "")
@@ -2387,7 +2382,7 @@ def list_models(
     sort: str = "name",
 ) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
+    client: object = request.app.state.catalog_client
     preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
     all_summaries, source, refresh_status = _load_runtime_summaries(
         settings=state.settings,
@@ -2495,7 +2490,7 @@ def search_models(
 ) -> dict[str, Any]:
     """Search catalog with pagination and filtering support."""
     state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
+    client: object = request.app.state.catalog_client
     
     # Clamp pagination parameters
     page = max(1, page)
@@ -2701,7 +2696,7 @@ def _build_model_search_supplements(
     }
 
 # ==================== Local Model CRUD (Phase 1) ====================
-# These endpoints manage models created locally, not imported from Manyfold.
+# These endpoints manage models created locally, not imported from external catalog.
 # Local models use local:// scheme and are stored in local SQLite authority.
 
 @router.post("/api/local/models")
@@ -3135,7 +3130,7 @@ def promote_entity_endpoint(request: Request, local_model_id: str, payload: dict
 
 
 def proxy_model_preview(request: Request, source: str) -> Response:
-    client: ManyfoldClient = request.app.state.manyfold_client
+    client: object = request.app.state.catalog_client
     for candidate in _preview_source_candidates(source):
         preview_response = client.fetch_binary(candidate)
         media_type = str(preview_response.headers.get("content-type") or "").split(";", 1)[0].strip()
@@ -3156,7 +3151,7 @@ def get_model_fields(request: Request, model_ref: str) -> dict[str, Any]:
     return {
         "success": True,
         "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
+        "model_url": summary.model_url,
         "fields": read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref)),
     }
 
@@ -3172,7 +3167,7 @@ def get_model_field(request: Request, model_ref: str, field_key: str) -> dict[st
     return {
         "success": True,
         "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
+        "model_url": summary.model_url,
         "field_key": field_key,
         "field_value": value,
     }
@@ -3189,7 +3184,7 @@ def put_model_field(request: Request, model_ref: str, field_key: str, payload: d
     return {
         "success": True,
         "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
+        "model_url": summary.model_url,
         "field_key": field_key,
         "field_value": value,
     }
@@ -3203,7 +3198,7 @@ def remove_model_field(request: Request, model_ref: str, field_key: str) -> dict
     deleted = delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key)
     if not deleted:
         return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
-    return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
+    return {"success": True, "model_ref": model_ref, "model_url": summary.model_url, "field_key": field_key}
 
 
 def mark_model_contribution_action(
@@ -3239,7 +3234,7 @@ def mark_model_contribution_action(
         return {
             "success": True,
             "model_ref": model_ref,
-            "manyfold_model_url": summary.model_url,
+            "model_url": summary.model_url,
             "action": action,
             "cleared": True,
         }
@@ -3252,7 +3247,7 @@ def mark_model_contribution_action(
         return {
             "success": True,
             "model_ref": model_ref,
-            "manyfold_model_url": summary.model_url,
+            "model_url": summary.model_url,
             "action": action,
             "skipped": True,
             "timestamp": now,
@@ -3266,7 +3261,7 @@ def mark_model_contribution_action(
         return {
             "success": True,
             "model_ref": model_ref,
-            "manyfold_model_url": summary.model_url,
+            "model_url": summary.model_url,
             "action": action,
             "timestamp": now,
         }
@@ -3296,7 +3291,7 @@ def get_model_contribution_status(request: Request, model_ref: str) -> dict[str,
     return {
         "success": True,
         "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
+        "model_url": summary.model_url,
         "publication_source": publication_source,
         "contribution": {
             "rated_at": fields.get("publication_contribution_rated_at"),
@@ -3314,11 +3309,11 @@ def get_model_ranking_endpoint(request: Request, model_ref: str) -> dict[str, An
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
     if summary is None:
         return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
-    ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
+    ranking = read_model_ranking(db_path=state.settings.db_path, model_url=summary.model_url)
     return {
         "success": True,
         "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
+        "model_url": summary.model_url,
         "ranking": None if ranking is None else _ranking_payload(ranking),
     }
 
@@ -3341,11 +3336,11 @@ def refresh_model_rankings_endpoint(request: Request, payload: dict[str, Any] | 
     stats_payload_by_url: dict[str, dict[str, Any]] = {}
     for item in inputs:
         recent_score = _compute_recent_score(last_printed_at=item.last_linked_at, reference_time=reference_time)
-        stats = frequency_stats_by_url.get(item.manyfold_model_url)
+        stats = frequency_stats_by_url.get(item.model_url)
         weighted_window_prints = float(stats.weighted_print_count if stats is not None else 0.0)
         frequent_score = weighted_window_prints if weighted_window_prints >= float(frequent_min_prints) else 0.0
         common_score = None if recent_score is None else frequent_score * recent_score
-        stats_payload_by_url[item.manyfold_model_url] = {
+        stats_payload_by_url[item.model_url] = {
             "weighted_print_count": weighted_window_prints,
             "print_count_window": int(stats.print_count_window if stats is not None else 0),
             "backfill_print_count_window": int(stats.backfill_print_count_window if stats is not None else 0),
@@ -3354,8 +3349,8 @@ def refresh_model_rankings_endpoint(request: Request, payload: dict[str, Any] | 
         refreshed.append(
             upsert_model_ranking(
                 db_path=state.settings.db_path,
-                manyfold_model_url=item.manyfold_model_url,
-                manyfold_model_public_id=item.manyfold_model_public_id,
+                model_url=item.model_url,
+                model_public_id=item.model_public_id,
                 last_printed_at=item.last_linked_at,
                 linked_archive_count=item.linked_archive_count,
                 print_count=item.print_count,
@@ -3375,10 +3370,10 @@ def refresh_model_rankings_endpoint(request: Request, payload: dict[str, Any] | 
         },
         "rankings": [
             {
-                "manyfold_model_url": ranking.manyfold_model_url,
-                "manyfold_model_public_id": ranking.manyfold_model_public_id,
+                "model_url": ranking.model_url,
+                "model_public_id": ranking.model_public_id,
                 **_ranking_payload(ranking),
-                "frequents": stats_payload_by_url.get(ranking.manyfold_model_url, {
+                "frequents": stats_payload_by_url.get(ranking.model_url, {
                     "weighted_print_count": 0.0,
                     "print_count_window": 0,
                     "backfill_print_count_window": 0,
@@ -3397,8 +3392,8 @@ def put_model_ranking_endpoint(request: Request, model_ref: str, payload: dict[s
         return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
     ranking = upsert_model_ranking(
         db_path=state.settings.db_path,
-        manyfold_model_url=summary.model_url,
-        manyfold_model_public_id=summary.public_id,
+        model_url=summary.model_url,
+        model_public_id=summary.public_id,
         last_printed_at=str(payload.get("last_printed_at") or "").strip() or None,
         linked_archive_count=int(payload.get("linked_archive_count") or 0),
         print_count=int(payload.get("print_count") or 0),
@@ -3409,7 +3404,7 @@ def put_model_ranking_endpoint(request: Request, model_ref: str, payload: dict[s
     return {
         "success": True,
         "model_ref": model_ref,
-        "manyfold_model_url": summary.model_url,
+        "model_url": summary.model_url,
         "ranking": _ranking_payload(ranking),
     }
 
@@ -3449,7 +3444,7 @@ def repair_canonical_model_urls_endpoint(request: Request, ) -> dict[str, Any]:
 # Archive-link candidate review endpoints are registered via
 # routers/archive_links.py.
 
-def _map_manyfold_model_files(file_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _map_catalog_model_files(file_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for file_obj in file_rows:
         if not isinstance(file_obj, dict):
@@ -3469,24 +3464,24 @@ def _map_manyfold_model_files(file_rows: list[dict[str, Any]]) -> list[dict[str,
 def _normalize_photo_urls(
     photo_rows: list[dict[str, Any]],
     photo_proxy_url: str | None = None,
-    manyfold_base_url: str | None = None,
+    catalog_base_url: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Normalize Manyfold photo data and optionally rewrite URLs through proxy."""
+    """Normalize photo data and optionally rewrite URLs through proxy."""
     normalized: list[dict[str, Any]] = []
     for photo_obj in photo_rows:
         if not isinstance(photo_obj, dict):
             continue
         # Extract image URL from multiple possible field names
         image_url = photo_obj.get("image_url") or photo_obj.get("url") or photo_obj.get("contentUrl") or photo_obj.get("@id")
-        if image_url and manyfold_base_url:
-            image_url = canonicalize_model_url(manyfold_base_url, str(image_url))
+        if image_url and catalog_base_url:
+            image_url = canonicalize_model_url(catalog_base_url, str(image_url))
         # Rewrite through proxy if available
         if image_url and photo_proxy_url:
             image_url = f"{photo_proxy_url}?source={quote(image_url, safe='')}"
-        # Extract thumbnail URL (some Manyfold versions provide this)
+        # Extract thumbnail URL (some catalog versions provide this)
         thumbnail_url = photo_obj.get("thumbnail_url") or photo_obj.get("thumbnailUrl")
-        if thumbnail_url and manyfold_base_url:
-            thumbnail_url = canonicalize_model_url(manyfold_base_url, str(thumbnail_url))
+        if thumbnail_url and catalog_base_url:
+            thumbnail_url = canonicalize_model_url(catalog_base_url, str(thumbnail_url))
         if not thumbnail_url:
             thumbnail_url = image_url
         if thumbnail_url and photo_proxy_url and not thumbnail_url.startswith(photo_proxy_url):
@@ -3506,7 +3501,7 @@ def _normalize_photo_urls(
 def _derive_photos_from_model_files(
     file_rows: list[dict[str, Any]],
     photo_proxy_url: str | None = None,
-    manyfold_base_url: str | None = None,
+    catalog_base_url: str | None = None,
 ) -> list[dict[str, Any]]:
     """Build gallery-compatible photo entries from image model files."""
     derived: list[dict[str, Any]] = []
@@ -3542,7 +3537,7 @@ def _derive_photos_from_model_files(
             }
         )
 
-    return _normalize_photo_urls(derived, photo_proxy_url, manyfold_base_url)
+    return _normalize_photo_urls(derived, photo_proxy_url, catalog_base_url)
 
 def _derive_photo_from_preview_url(
     preview_url: str | None,
@@ -3586,7 +3581,7 @@ def _model_detail_service_helpers() -> dict[str, Any]:
         "_ranking_payload": _ranking_payload,
         "read_archive_links": read_archive_links,
         "_archive_link_to_response": _archive_link_to_response,
-        "_map_manyfold_model_files": _map_manyfold_model_files,
+        "_map_catalog_model_files": _map_catalog_model_files,
         "_normalize_photo_urls": _normalize_photo_urls,
         "_derive_photos_from_model_files": _derive_photos_from_model_files,
         "_derive_photo_from_preview_url": _derive_photo_from_preview_url,
@@ -3600,7 +3595,7 @@ def _model_detail_service_helpers() -> dict[str, Any]:
 async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     """Update model metadata and enrichment fields (Phase 3.1)."""
     state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
+    client: object = request.app.state.catalog_client
 
     # REST command sends JSON body; parse it explicitly so updates are not silently dropped.
     payload: dict[str, Any] = {}
@@ -3663,31 +3658,31 @@ async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, A
             )
         return get_model_detail_endpoint(request, model_ref)
     
-    # Build update payload for Manyfold (only include fields that are provided)
-    manyfold_updates = {}
+    # Build update payload (only include fields that are provided)
+    catalog_updates = {}
     if model_name is not None:
-        manyfold_updates["name"] = str(model_name)
+        catalog_updates["name"] = str(model_name)
     if description is not None:
-        manyfold_updates["description"] = str(description)
+        catalog_updates["description"] = str(description)
     if tags is not None:
         normalized_tags = tags
         if isinstance(normalized_tags, str):
             normalized_tags = [token.strip() for token in normalized_tags.split(",") if token.strip()]
         if isinstance(normalized_tags, list):
-            manyfold_updates["keywords"] = [str(tag).strip() for tag in normalized_tags if str(tag).strip()]
-    # Manyfold expects collection relationship as isPartOf object (by @id),
+            catalog_updates["keywords"] = [str(tag).strip() for tag in normalized_tags if str(tag).strip()]
+    # Collection relationship expectation as isPartOf object (by @id),
     # not a free-form string field. Ignore string collection updates here.
     
-    # Update model in Manyfold first
-    if manyfold_updates:
+    # Update model in catalog first
+    if catalog_updates:
         try:
             # Prefer API-native refs over URLs to avoid web-route ambiguity.
             resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
-            client.update_model(resolved_ref, manyfold_updates)
+            client.update_model(resolved_ref, catalog_updates)
             # Keep summary cache in sync so the popup reflects latest title/tags immediately.
-            refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+            refresh_model_cache(db_path=state.settings.db_path, client=client)
         except Exception as e:
-            return JSONResponse(status_code=502, content={"error": f"Failed to update model in Manyfold: {e}"})
+            return JSONResponse(status_code=502, content={"error": f"Failed to update model in catalog: {e}"})
     
     # Update enrichment fields in local database (these are HA-only)
     for key, value in normalized_enrichment.items():
@@ -4153,7 +4148,7 @@ def _get_geometry_endpoint_impl(
     """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
     try:
         state: AppState = request.app.state.model_catalog
-        client: ManyfoldClient = request.app.state.manyfold_client
+        client: object = request.app.state.catalog_client
         debug_info: dict[str, Any] = {
             "model_ref": model_ref,
             "file_id": file_id,
@@ -4300,10 +4295,10 @@ def _get_geometry_endpoint_impl(
                 return None
             return canonicalize_model_url(client.base_url, text)
         
-        # Fetch model files using documented Manyfold route.
+        # Fetch model files from catalog.
         try:
             resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
-            files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
+            files = _map_catalog_model_files(client.list_model_files(resolved_ref))
             debug_info["files_count"] = len(files)
             file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
             
@@ -4442,7 +4437,7 @@ def get_3mf_plates_endpoint(request: Request, model_ref: str, file_id: str):
     and ``Metadata/plate_*.json`` -- it never materializes mesh data.
     """
     state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
+    client: object = request.app.state.catalog_client
 
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
     if summary is None:
@@ -4478,7 +4473,7 @@ def get_3mf_plates_endpoint(request: Request, model_ref: str, file_id: str):
             return canonicalize_model_url(client.base_url, text)
 
         try:
-            files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
+            files = _map_catalog_model_files(client.list_model_files(resolved_ref))
         except Exception as exc:
             return JSONResponse(status_code=502, content={"error": f"Failed to list files: {exc}"})
 
@@ -4534,9 +4529,9 @@ def get_3mf_plates_endpoint(request: Request, model_ref: str, file_id: str):
 
 
 def download_model_file_endpoint(request: Request, model_ref: str, file_id: str) -> Response:
-    """Proxy model file bytes from Manyfold so HA frontend can fetch geometry directly."""
+    """Proxy model file bytes from catalog so HA frontend can fetch geometry directly."""
     state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
+    client: object = request.app.state.catalog_client
 
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
     if summary is None:
@@ -4638,7 +4633,7 @@ def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id:
     For local models: extracts embedded thumbnail from 3MF file at known paths
     (Metadata/thumbnail.*, Thumbnails/*, 3D/Thumbnail.*, etc.)
     
-    For Manyfold models: returns 404 (thumbnails not embedded in Manyfold-sourced files)
+    For catalog models: returns 404 (thumbnails not embedded in catalog-sourced files)
     
     Returns:
         Response: PNG or JPEG image bytes with cache headers (public, max-age=300)
@@ -4691,10 +4686,10 @@ def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id:
         }
         return Response(content=thumbnail_bytes, media_type=mime_type, headers=headers)
 
-    # Manyfold models don't have embedded thumbnails; use preview_url instead
+    # Catalog models don't have embedded thumbnails; use preview_url instead
     return JSONResponse(
         status_code=404,
-        content={"error": "Manyfold-sourced models do not have embedded thumbnails; use preview_url"},
+        content={"error": "Catalog-sourced models do not have embedded thumbnails; use preview_url"},
     )
 
 # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
@@ -4710,7 +4705,7 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
     
     # Get all models for comparison
     try:
-        all_summaries = read_cached_manyfold_models(state.settings.db_path)
+        all_summaries = read_cached_catalog_models(state.settings.db_path)
     except Exception:
         all_summaries = []
     

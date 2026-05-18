@@ -338,7 +338,7 @@ def create_working_group_service(*, settings: Settings, payload: dict[str, Any])
             """
             INSERT INTO working_groups (
                 slug, title, stage, project_id, notes, primary_file_path, folder_hint,
-                related_manyfold_model_id, created_at, updated_at,
+                related_model_id, created_at, updated_at,
                 discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -350,7 +350,7 @@ def create_working_group_service(*, settings: Settings, payload: dict[str, Any])
                 notes,
                 primary_file_path,
                 folder_hint,
-                str(payload.get("related_manyfold_model_id") or "").strip() or None,
+                str(payload.get("related_model_id") or "").strip() or None,
                 now_iso,
                 now_iso,
                 None,
@@ -436,7 +436,7 @@ def update_working_group_service(*, settings: Settings, group_id: int, payload: 
         "notes": "notes",
         "primary_file_path": "primary_file_path",
         "folder_hint": "folder_hint",
-        "related_manyfold_model_id": "related_manyfold_model_id",
+        "related_model_id": "related_model_id",
     }
     updates: list[str] = []
     params: list[Any] = []

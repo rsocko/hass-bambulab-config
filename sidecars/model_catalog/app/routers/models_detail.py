@@ -17,7 +17,7 @@ router = APIRouter(tags=["models"])
 @router.get("/api/models/{model_ref:path}/detail")
 def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
     state = request.app.state.model_catalog
-    client = request.app.state.manyfold_client
+    client = getattr(request.app.state, "catalog_client", None)
 
     payload = build_model_detail_response(
         state,

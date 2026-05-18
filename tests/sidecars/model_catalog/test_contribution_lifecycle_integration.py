@@ -20,7 +20,7 @@ def test_model_data():
     """Fixture providing test model data with contribution fields."""
     return {
         "model_id": "test-model-1494",
-        "model_url": "https://manyfold.test/models/42",
+        "model_url": "https://catalog.test/models/42",
         "name": "Gridfinity Bins",
         "creator_name": "Test User",
         "structured_metadata": {
@@ -268,7 +268,7 @@ class TestContributionAPIFormat:
         response_format = {
             "success": True,
             "model_ref": test_model_data["model_url"],
-            "manyfold_model_url": test_model_data["model_url"],
+            "model_url": test_model_data["model_url"],
             "publication_source": test_model_data["structured_metadata"]["publishing"]["publication_source"],
             "contribution": test_model_data["structured_metadata"]["publishing"]["contribution"],
         }
@@ -285,7 +285,7 @@ class TestContributionAPIFormat:
         response_format = {
             "success": True,
             "model_ref": "test-model-1494",
-            "manyfold_model_url": "https://manyfold.test/models/42",
+            "model_url": "https://catalog.test/models/42",
             "action": "rated",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }

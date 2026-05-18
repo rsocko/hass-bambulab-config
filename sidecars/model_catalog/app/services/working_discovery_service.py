@@ -383,7 +383,7 @@ def bulk_import_working_groups_service(*, db_path: Path, payload: dict[str, Any]
                     notes,
                     primary_file_path,
                     folder_hint,
-                    related_manyfold_model_id,
+                    related_model_id,
                     created_at,
                     updated_at,
                     discovery_source_folder,

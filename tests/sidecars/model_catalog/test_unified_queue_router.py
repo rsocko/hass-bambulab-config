@@ -7,37 +7,23 @@ from app.main import create_app
 from app.settings import Settings
 
 
-class FakeManyfoldClient:
-    base_url = "http://manyfold.example"
-
-    def close(self) -> None:
-        return None
-
-
 def _make_settings(db_path: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.example",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="test-client",
-        manyfold_client_secret="test-secret",
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://catalog.example",
         db_path=db_path,
-        refresh_ttl_seconds=900,
+        refresh_ttl_seconds=300,
         host="127.0.0.1",
         port=8314,
         image_tag="test",
-        image_version="test",
+        image_version="0.0.0",
         image_revision="test",
-        image_created="test",
+        image_created="2024-01-01T00:00:00Z",
     )
 
 
 def _create_client(tmp_path: Path) -> tuple[TestClient, Path]:
     db_path = tmp_path / "model_catalog.db"
-    app = create_app(settings=_make_settings(db_path), manyfold_client=FakeManyfoldClient())
+    app = create_app(settings=_make_settings(db_path))
     client = TestClient(app)
     client.__enter__()
     return client, db_path

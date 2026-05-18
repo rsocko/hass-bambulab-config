@@ -30,7 +30,7 @@ from sidecars.model_catalog.app.local_models import (
     update_model_asset,
     delete_model_asset,
 )
-from sidecars.model_catalog.app.models import LocalModelEntry, ManyfoldModelSummary
+from sidecars.model_catalog.app.models import LocalModelEntry, CatalogModelSummary
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -450,8 +450,8 @@ class TestModelAssetManagement:
 class TestBackwardCompatibility:
     """Test backward-compatibility conversions."""
 
-    def test_local_entry_to_manyfold_summary(self):
-        """Convert LocalModelEntry to ManyfoldModelSummary."""
+    def test_local_entry_to_catalog_summary(self):
+        """Convert LocalModelEntry to CatalogModelSummary."""
         from sidecars.model_catalog.app.main import _local_entry_to_summary
 
         entry = LocalModelEntry(
@@ -523,14 +523,7 @@ class TestBackwardCompatibility:
         model_file.write_bytes(_build_simple_3mf())
 
         settings = Settings(
-            manyfold_base_url="http://manyfold.test",
-            manyfold_models_path="/models",
-            manyfold_collections_path="/collections",
-            manyfold_creators_path="/creators",
-            manyfold_oauth_token_path="/oauth/token",
-            manyfold_client_id=None,
-            manyfold_client_secret=None,
-            manyfold_oauth_scopes=None,
+            catalog_base_url="http://localhost:8314",
             db_path=tmp_path / "test.db",
             refresh_ttl_seconds=900,
             host="127.0.0.1",
@@ -579,14 +572,7 @@ class TestBackwardCompatibility:
         )
 
         settings = Settings(
-            manyfold_base_url="http://manyfold.test",
-            manyfold_models_path="/models",
-            manyfold_collections_path="/collections",
-            manyfold_creators_path="/creators",
-            manyfold_oauth_token_path="/oauth/token",
-            manyfold_client_id=None,
-            manyfold_client_secret=None,
-            manyfold_oauth_scopes=None,
+            catalog_base_url="http://localhost:8314",
             db_path=db,
             refresh_ttl_seconds=900,
             host="127.0.0.1",
@@ -677,14 +663,7 @@ class TestListModelsEndpointMerge:
             assets_root.mkdir(parents=True, exist_ok=True)
             # Create Settings with catalog assets root
             settings = Settings(
-                    manyfold_base_url="http://manyfold.test",
-                    manyfold_models_path="/models",
-                    manyfold_collections_path="/collections",
-                    manyfold_creators_path="/creators",
-                    manyfold_oauth_token_path="/oauth/token",
-                    manyfold_client_id=None,
-                    manyfold_client_secret=None,
-                    manyfold_oauth_scopes=None,
+                    catalog_base_url="http://localhost:8314",
                     db_path=db,
                     refresh_ttl_seconds=900,
                     host="127.0.0.1",
@@ -697,17 +676,9 @@ class TestListModelsEndpointMerge:
                     model_catalog_assets_root=assets_root,
             )
             app = create_app(settings=settings)
-            # Patch Manyfold cache/refresh so tests don't make real HTTP calls.
-            # Empty Manyfold cache is fine — local models are the point of these tests.
-            with (
-                patch("sidecars.model_catalog.app.routers.models.read_cached_manyfold_summaries", return_value=[]),
-                patch(
-                    "sidecars.model_catalog.app.routers.models.refresh_manyfold_cache_with_status",
-                    return_value=([], {"outcome": "refreshed"}),
-                ),
-            ):
-                with TestClient(app) as client:
-                    yield client, db
+            # Local-authority-only mode — no external catalog cache to patch.
+            with TestClient(app) as client:
+                yield client, db
 
     def test_list_models_includes_local_entries(self, app_with_local_models):
         """GET /api/models returns local model entries merged into the response."""
@@ -769,7 +740,7 @@ class TestListModelsEndpointMerge:
         assert data["filters"]["show_archived"] is True
 
     def test_list_models_local_entries_use_local_preview_asset_url(self, app_with_local_models):
-        """GET /api/models exposes local preview asset URLs without Manyfold proxy rewriting."""
+        """GET /api/models exposes local preview asset URLs without catalog proxy rewriting."""
         client, db = app_with_local_models
         resp = client.get("/api/models")
         assert resp.status_code == 200
@@ -875,24 +846,24 @@ class TestListModelsEndpointMerge:
         names = {m["name"] for m in local_models}
         assert names == {"Local Alpha", "Local Beta"}
 
-    def test_list_models_local_authority_hides_manyfold_cache(self, app_with_local_models):
-        """Local authority mode does not surface Manyfold cache records in /api/models."""
+    def test_list_models_local_authority_hides_legacy_cache(self, app_with_local_models):
+        """Local authority mode does not surface legacy cache records in /api/models."""
         client, db = app_with_local_models
         connection = sqlite3.connect(db)
         try:
             connection.execute(
                 """
-                INSERT INTO manyfold_model_summary_cache (
-                    manyfold_model_url, manyfold_model_public_id, manyfold_model_id, manyfold_model_name,
+                INSERT INTO model_summary_cache (
+                    model_url, model_public_id, model_id, model_name,
                     preview_url, creator_name, collection_names_json, keyword_names_json,
                     raw_json, refreshed_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    "http://manyfold.test/models/legacy-1",
+                    "http://legacy.test/models/legacy-1",
                     "legacy-1",
                     "legacy-1",
-                    "Legacy Manyfold Model",
+                    "Legacy Cached Model",
                     None,
                     None,
                     "[]",
@@ -912,8 +883,8 @@ class TestListModelsEndpointMerge:
         model_names = {model["name"] for model in data["models"]}
         assert "Legacy Manyfold Model" not in model_names
 
-    def test_search_models_local_authority_hides_manyfold_cache(self, app_with_local_models):
-        """Local authority mode does not surface Manyfold cache records in /api/models/search."""
+    def test_search_models_local_authority_hides_catalog_cache(self, app_with_local_models):
+        """Local authority mode does not surface catalog cache records in /api/models/search."""
         client, db = app_with_local_models
         connection = sqlite3.connect(db)
         try:
@@ -947,7 +918,7 @@ class TestListModelsEndpointMerge:
         assert resp.json()["results"] == []
 
     def test_local_model_detail_endpoint_uses_local_authority(self, app_with_local_models):
-        """GET /api/models/{model_ref}/detail resolves local models without Manyfold reads."""
+        """GET /api/models/{model_ref}/detail resolves local models without catalog reads."""
         client, db = app_with_local_models
         response = client.get("/api/models/local-001/detail")
         assert response.status_code == 200
@@ -956,7 +927,7 @@ class TestListModelsEndpointMerge:
         assert payload["success"] is True
         assert payload["authority"] == "local"
         assert payload["local_model_id"] == "local-001"
-        assert payload["manyfold_model_url"] == "local://local-001"
+        assert payload["model_url"] == "local://local-001"
         assert payload["model"]["name"] == "Local Alpha"
         assert payload["model"]["collection_names"] == []
         assert payload["model"]["created_by"] == "phase2-user"

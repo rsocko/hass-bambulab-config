@@ -26,14 +26,7 @@ from sidecars.model_catalog.app.settings import Settings
 
 def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.test",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="client-id",
-        manyfold_client_secret="client-secret",
-        manyfold_oauth_scopes="public read",
+        catalog_base_url="http://localhost:8314",
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -58,7 +51,7 @@ def test_get_working_items_hashes_reads_from_working_items_table(tmp_path: Path)
             """
             INSERT INTO working_groups (
                 slug, title, stage, notes, primary_file_path, folder_hint,
-                related_manyfold_model_id, created_at, updated_at
+                related_model_id, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             ("test_group", "Test Group", "draft", None, "/tmp/test.3mf", "/tmp", None, now, now),
@@ -170,7 +163,7 @@ def test_get_all_indexed_file_hashes_combines_working_and_queue_hashes(tmp_path:
             """
             INSERT INTO working_groups (
                 slug, title, stage, notes, primary_file_path, folder_hint,
-                related_manyfold_model_id, created_at, updated_at
+                related_model_id, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             ("test_group", "Test Group", "draft", None, "/tmp/test.3mf", "/tmp", None, now, now),
@@ -233,7 +226,7 @@ def test_detect_duplicate_files_catches_indexed_collisions(tmp_path: Path) -> No
             """
             INSERT INTO working_groups (
                 slug, title, stage, notes, primary_file_path, folder_hint,
-                related_manyfold_model_id, created_at, updated_at
+                related_model_id, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             ("test_group", "Test Group", "draft", None, "/tmp/test.3mf", "/tmp", None, now, now),

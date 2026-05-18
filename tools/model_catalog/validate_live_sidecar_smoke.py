@@ -111,7 +111,6 @@ def run_smoke(base_url: str) -> list[CheckResult]:
     openapi_status, openapi_payload = _request_json(base_url=base_url, path="/openapi.json")
     openapi_ok = (
         isinstance(openapi_payload, dict)
-        and "/api/intake/uploads/{upload_id}/upload-to-manyfold" in openapi_payload.get("paths", {})
         and "/api/intake/uploads" in openapi_payload.get("paths", {})
     )
     results.append(
@@ -120,7 +119,7 @@ def run_smoke(base_url: str) -> list[CheckResult]:
             status=openapi_status,
             expected_status=200,
             condition=openapi_ok,
-            detail="validated intake upload and upload-to-manyfold paths present",
+            detail="validated intake upload paths present",
         )
     )
 
@@ -164,22 +163,7 @@ def run_smoke(base_url: str) -> list[CheckResult]:
         )
     )
 
-    missing_status, missing_payload = _request_json(
-        base_url=base_url,
-        path="/api/intake/uploads/nonexistent/upload-to-manyfold",
-        method="POST",
-        payload={},
-    )
-    missing_ok = isinstance(missing_payload, dict) and missing_payload.get("error") == "upload_not_found"
-    results.append(
-        _expect(
-            "upload_adapter_missing_upload",
-            status=missing_status,
-            expected_status=404,
-            condition=missing_ok,
-            detail=f"error={isinstance(missing_payload, dict) and missing_payload.get('error')}",
-        )
-    )
+
 
     source_status, source_payload = _request_json(base_url=base_url, path="/api/source-filesystems")
     source_ok = isinstance(source_payload, dict) and isinstance(source_payload.get("roots"), list)

@@ -12,14 +12,7 @@ from sidecars.model_catalog.app.settings import Settings
 
 def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.test",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="client-id",
-        manyfold_client_secret="client-secret",
-        manyfold_oauth_scopes="public read",
+        catalog_base_url="http://localhost:8314",
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",

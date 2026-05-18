@@ -11,14 +11,7 @@ from sidecars.model_catalog.app.settings import Settings
 
 def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.test",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id=None,
-        manyfold_client_secret=None,
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://localhost:8314",
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -57,7 +50,7 @@ def test_representative_route_parity_contract(tmp_path: Path) -> None:
         "/api/models/{model_ref:path}/detail": {"GET"},
         "/api/archive-links/{archive_id}": {"GET", "POST"},
         "/api/intake/uploads": {"GET", "POST"},
-        "/api/intake/uploads/{upload_id}/upload-to-manyfold": {"POST"},
+        "/api/intake/uploads/{upload_id}/upload-to-catalog": {"POST"},
         "/api/source-filesystems": {"GET"},
         "/api/source-filesystems/browse": {"GET"},
         "/api/working-files": {"GET"},

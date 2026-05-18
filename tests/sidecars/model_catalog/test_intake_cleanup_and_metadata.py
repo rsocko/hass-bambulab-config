@@ -10,23 +10,9 @@ from app.main import create_app
 from app.settings import Settings
 
 
-class FakeManyfoldClient:
-    base_url = "http://manyfold.example"
-
-    def close(self) -> None:
-        return None
-
-
 def _make_settings(db_path: Path, source_root: Path, working_root: Path, curated_root: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.example",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="test-client",
-        manyfold_client_secret="test-secret",
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://catalog.example",
         db_path=db_path,
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -52,7 +38,6 @@ def _create_client(tmp_path: Path) -> tuple[TestClient, Path]:
     db_path = tmp_path / "model_catalog.db"
     app = create_app(
         settings=_make_settings(db_path, source_root, working_root, curated_root),
-        manyfold_client=FakeManyfoldClient(),
     )
     client = TestClient(app)
     client.__enter__()
@@ -236,7 +221,7 @@ def test_publish_persists_source_and_import_timestamps(tmp_path: Path) -> None:
                 """
                 SELECT field_key, field_value_json
                                 FROM model_catalog_custom_fields
-                                WHERE entity_type = 'manyfold_model' AND entity_id = ?
+                                WHERE entity_type = 'catalog_model' AND entity_id = ?
                                     AND field_namespace = 'model_catalog'
                                     AND field_key IN ('intake_source_timestamp_summary', 'intake_imported_at')
                 """,

@@ -335,15 +335,15 @@ class FilamentAnalyzer:
 class RecommendationEngine:
     """Generate recommendations based on print history."""
 
-    def __init__(self, analyzer: PrintStatisticsAnalyzer, manyfold_client=None):
+    def __init__(self, analyzer: PrintStatisticsAnalyzer, catalog_client=None):
         """Initialize engine.
         
         Args:
             analyzer: PrintStatisticsAnalyzer instance
-            manyfold_client: Optional ManyfoldClient for model lookups
+            catalog_client: Optional catalog client for model lookups
         """
         self.analyzer = analyzer
-        self.manyfold_client = manyfold_client
+        self.catalog_client = catalog_client
 
     def get_recommendations(
         self,

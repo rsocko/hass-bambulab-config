@@ -21,9 +21,9 @@ model_catalog_accept_and_notify:
         number:
           min: 1
           mode: box
-    manyfold_model_url:
-      name: Manyfold Model URL
-      description: Canonical URL of the Manyfold model (for the event payload).
+    model_url:
+      name: Model URL
+      description: Canonical URL of the catalog model (for the event payload).
       required: false
       selector:
         text:
@@ -37,4 +37,4 @@ model_catalog_accept_and_notify:
       event_data:
         archive_id: "{{ archive_id | string }}"
         link_id: "{{ link_id | int }}"
-        manyfold_model_url: "{{ manyfold_model_url | default('', true) }}"
+        model_url: "{{ model_url | default('', true) }}"

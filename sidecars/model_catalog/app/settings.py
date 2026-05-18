@@ -57,14 +57,7 @@ def _parse_path_csv(raw_value: str | None) -> tuple[Path, ...]:
 
 @dataclass(frozen=True)
 class Settings:
-    manyfold_base_url: str
-    manyfold_models_path: str
-    manyfold_collections_path: str
-    manyfold_creators_path: str
-    manyfold_oauth_token_path: str
-    manyfold_client_id: str | None
-    manyfold_client_secret: str | None
-    manyfold_oauth_scopes: str | None
+    catalog_base_url: str
     db_path: Path
     refresh_ttl_seconds: int
     host: str
@@ -73,8 +66,6 @@ class Settings:
     image_version: str
     image_revision: str
     image_created: str
-    manyfold_session_email: str | None = None
-    manyfold_session_password: str | None = None
     authority_mode: str = "hybrid"
     model_catalog_assets_root: Path | None = None
     intake_source_roots: tuple[Path, ...] = ()
@@ -95,16 +86,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    base_url = os.getenv("MANYFOLD_BASE_URL", "http://manyfold.socko.us")
-    models_path = os.getenv("MANYFOLD_MODELS_PATH", "/models")
-    collections_path = os.getenv("MANYFOLD_COLLECTIONS_PATH", "/collections")
-    creators_path = os.getenv("MANYFOLD_CREATORS_PATH", "/creators")
-    token_path = os.getenv("MANYFOLD_OAUTH_TOKEN_PATH", "/oauth/token")
-    client_id = str(os.getenv("MANYFOLD_CLIENT_ID", "")).strip() or None
-    client_secret = str(os.getenv("MANYFOLD_CLIENT_SECRET", "")).strip() or None
-    oauth_scopes = str(os.getenv("MANYFOLD_OAUTH_SCOPES", "")).strip() or None
-    session_email = str(os.getenv("MANYFOLD_SESSION_EMAIL", "")).strip() or None
-    session_password = str(os.getenv("MANYFOLD_SESSION_PASSWORD", "")).strip() or None
+    base_url = os.getenv("MODEL_CATALOG_BASE_URL", "")
     db_profile = _normalize_db_profile(os.getenv("MODEL_CATALOG_DB_PROFILE", "prod"))
     db_path_prod = Path(os.getenv("MODEL_CATALOG_DB_PATH", ":memory:"))
     db_path_test_raw = str(os.getenv("MODEL_CATALOG_DB_PATH_TEST", "")).strip()
@@ -136,14 +118,7 @@ def load_settings() -> Settings:
         working_files_root = Path(working_files_root_raw).expanduser().resolve()
     assets_root_host = str(os.getenv("ASSETS_ROOT_HOST", "")).strip() or None
     return Settings(
-        manyfold_base_url=base_url.rstrip("/"),
-        manyfold_models_path=models_path if models_path.startswith("/") else f"/{models_path}",
-        manyfold_collections_path=collections_path if collections_path.startswith("/") else f"/{collections_path}",
-        manyfold_creators_path=creators_path if creators_path.startswith("/") else f"/{creators_path}",
-        manyfold_oauth_token_path=token_path if token_path.startswith("/") else f"/{token_path}",
-        manyfold_client_id=client_id,
-        manyfold_client_secret=client_secret,
-        manyfold_oauth_scopes=oauth_scopes,
+        catalog_base_url=base_url.rstrip("/"),
         db_path=db_path,
         refresh_ttl_seconds=refresh_ttl_seconds,
         host=host,
@@ -152,8 +127,6 @@ def load_settings() -> Settings:
         image_version=image_version,
         image_revision=image_revision,
         image_created=image_created,
-        manyfold_session_email=session_email,
-        manyfold_session_password=session_password,
         authority_mode=authority_mode,
         model_catalog_assets_root=model_catalog_assets_root,
         intake_source_roots=intake_source_roots,

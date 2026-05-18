@@ -13,7 +13,7 @@
     - alias: "Extract link information"
       variables:
         archive_id: "{{ trigger.event.data.archive_id }}"
-        model_url: "{{ trigger.event.data.manyfold_model_url | default('', true) }}"
+        model_url: "{{ trigger.event.data.model_url | default('', true) }}"
         link_id: "{{ trigger.event.data.link_id | default('', true) }}"
         archive_status: "{{ trigger.event.data.archive_status | default('unknown', true) }}"
 

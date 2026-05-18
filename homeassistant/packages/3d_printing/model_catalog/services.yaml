@@ -119,7 +119,7 @@ homeassistant:
       fields:
         source_type:
           name: Source Type
-          description: "Source mode: 'browser' (filesystem), 'server' (Manyfold), or 'mixed' (both)"
+          description: "Source mode: 'browser' (filesystem) — the only supported source type."
           required: true
           example: "browser"
         source_path:

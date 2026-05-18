@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.db import connect, derive_manyfold_model_key
+from app.db import connect, derive_model_key
 from app.main import create_app
 from app.settings import Settings
 
@@ -15,8 +15,8 @@ ONE_PIXEL_PNG_BASE64 = (
 ONE_PIXEL_PNG_BYTES = base64.b64decode(ONE_PIXEL_PNG_BASE64)
 
 
-class FakeManyfoldClient:
-    base_url = "http://manyfold.example"
+class FakeCatalogClient:
+    base_url = "http://catalog.example"
 
     def close(self) -> None:
         return None
@@ -40,14 +40,7 @@ class FakeManyfoldClient:
 
 def _make_settings(db_path: Path) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.example",
-        manyfold_models_path="/models",
-        manyfold_collections_path="/collections",
-        manyfold_creators_path="/creators",
-        manyfold_oauth_token_path="/oauth/token",
-        manyfold_client_id="test-client",
-        manyfold_client_secret="test-secret",
-        manyfold_oauth_scopes=None,
+        catalog_base_url="http://catalog.example",
         db_path=db_path,
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -60,17 +53,17 @@ def _make_settings(db_path: Path) -> Settings:
 
 
 def _insert_cached_summary(db_path: Path) -> None:
-    model_url = "http://manyfold.example/models/test-model"
+    model_url = "http://catalog.example/models/test-model"
     connection = connect(db_path)
     try:
         connection.execute(
             """
-            INSERT INTO manyfold_model_summary_cache (
-                manyfold_model_key,
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_name,
-                manyfold_model_id,
+            INSERT INTO model_summary_cache (
+                model_key,
+                model_url,
+                model_public_id,
+                model_name,
+                model_id,
                 preview_url,
                 creator_name,
                 collection_names_json,
@@ -80,10 +73,10 @@ def _insert_cached_summary(db_path: Path) -> None:
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                derive_manyfold_model_key(
-                    manyfold_model_url=model_url,
-                    manyfold_model_public_id="test-model",
-                    manyfold_model_id="model-1",
+                derive_model_key(
+                    model_url=model_url,
+                    model_public_id="test-model",
+                    model_id="model-1",
                 ),
                 model_url,
                 "test-model",
@@ -104,7 +97,7 @@ def _insert_cached_summary(db_path: Path) -> None:
 
 def _create_client(tmp_path: Path) -> TestClient:
     db_path = tmp_path / "model_catalog.db"
-    app = create_app(settings=_make_settings(db_path), manyfold_client=FakeManyfoldClient())
+    app = create_app(settings=_make_settings(db_path))
     client = TestClient(app)
     client.__enter__()
     _insert_cached_summary(db_path)
@@ -141,7 +134,7 @@ def test_chartdb_schema_export_returns_live_sqlite_ddl(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
     assert response.headers["content-disposition"] == 'inline; filename="model_catalog_chartdb_schema.sql"'
-    assert "CREATE TABLE manyfold_model_summary_cache" in response.text
+    assert "CREATE TABLE model_summary_cache" in response.text
     assert "CREATE TABLE model_catalog_entries" in response.text
     assert "CREATE INDEX idx_model_catalog_assets_entry_id" in response.text
 

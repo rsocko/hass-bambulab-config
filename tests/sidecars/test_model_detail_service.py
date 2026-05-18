@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from sidecars.model_catalog.app.models import ManyfoldModelSummary
+from sidecars.model_catalog.app.models import CatalogModelSummary
 from sidecars.model_catalog.app.services.model_detail_service import build_model_detail_response
 
 
@@ -34,7 +34,7 @@ def test_build_model_detail_response_not_found(monkeypatch) -> None:
 def test_build_model_detail_response_local_success(monkeypatch) -> None:
     from sidecars.model_catalog.app.routers import models as models_router
 
-    summary = ManyfoldModelSummary(
+    summary = CatalogModelSummary(
         model_url="local://local-model-1",
         public_id="local-model-1",
         model_id="1",
@@ -108,15 +108,15 @@ def test_build_model_detail_response_local_success(monkeypatch) -> None:
     assert payload["_debug"]["authority"] == "local"
 
 
-def test_build_model_detail_response_manyfold_degraded(monkeypatch) -> None:
+def test_build_model_detail_response_catalog_degraded(monkeypatch) -> None:
     from sidecars.model_catalog.app.routers import models as models_router
 
-    summary = ManyfoldModelSummary(
-        model_url="https://manyfold.test/models/123",
+    summary = CatalogModelSummary(
+        model_url="https://catalog.test/models/123",
         public_id="remote-model",
         model_id="123",
         name="Remote Summary",
-        preview_url="https://manyfold.test/models/123/preview.png",
+        preview_url="https://catalog.test/models/123/preview.png",
         creator_name="Remote Creator",
         collection_names=["Collection A"],
         keyword_names=["remote"],
@@ -130,7 +130,7 @@ def test_build_model_detail_response_manyfold_degraded(monkeypatch) -> None:
     monkeypatch.setattr(models_router, "read_model_ranking", lambda **_kwargs: None)
     monkeypatch.setattr(models_router, "_structured_detail_metadata", lambda _fields: {})
     monkeypatch.setattr(models_router, "_archive_link_to_response", lambda _link: {})
-    monkeypatch.setattr(models_router, "_map_manyfold_model_files", lambda _files: [])
+    monkeypatch.setattr(models_router, "_map_catalog_model_files", lambda _files: [])
     monkeypatch.setattr(models_router, "_normalize_photo_urls", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(models_router, "_read_uploaded_photo_rows", lambda **_kwargs: [])
     monkeypatch.setattr(models_router, "_serialize_uploaded_photo_rows", lambda **_kwargs: [])
@@ -142,10 +142,10 @@ def test_build_model_detail_response_manyfold_degraded(monkeypatch) -> None:
     )
 
     client = Mock()
-    client.base_url = "https://manyfold.test"
+    client.base_url = "https://catalog.test"
     client.get_model_detail.return_value = {
         "name": "Remote Model",
-        "description": "Model from manyfold",
+        "description": "Model from catalog",
         "keywords": ["remote", "catalog"],
     }
     client.list_model_files.side_effect = RuntimeError("files unavailable")
@@ -160,12 +160,12 @@ def test_build_model_detail_response_manyfold_degraded(monkeypatch) -> None:
     )
 
     assert payload["success"] is True
-    assert payload["authority"] == "manyfold"
+    assert payload["authority"] == "catalog"
     assert payload["degraded"] is True
     assert payload["model"]["name"] == "Remote Model"
     assert payload["model"]["tags"] == ["remote", "catalog"]
     assert payload["photos"][0]["id"] == "preview:1"
-    assert "manyfold_model_files_unavailable" in payload["_debug"]["degraded_reasons"]
+    assert "catalog_model_files_unavailable" in payload["_debug"]["degraded_reasons"]
 
 
 def test_model_detail_helpers_include_idea_metadata_dependency() -> None:

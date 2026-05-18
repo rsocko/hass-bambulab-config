@@ -26,7 +26,7 @@ class TestArchiveModelLinking:
             "linked_model": {
                 "model_ref": "calibration-cube",
                 "model_name": "Calibration Cube (20mm)",
-                "model_url": "http://manyfold.local/models/cal-cube-20"
+                "model_url": "local://cal-cube-20"
             }
         }
         

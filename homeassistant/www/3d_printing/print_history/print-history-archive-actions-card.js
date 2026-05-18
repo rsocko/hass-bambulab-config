@@ -635,7 +635,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (action === "model-accept-link") {
       this._modelCatalogAction("accept-link", this._resolveCurrentArchiveId(),
         button.getAttribute("data-link-id"),
-        { manyfold_model_url: button.getAttribute("data-model-url") || "" });
+        { model_url: button.getAttribute("data-model-url") || "" });
       return;
     }
     if (action === "model-reject-link") {
@@ -653,7 +653,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       var manualUrl = manualInput ? String(manualInput.value || "").trim() : "";
       this._modelManualUrl = manualUrl;
       this._modelCatalogAction("create-manual-link", this._resolveCurrentArchiveId(), null,
-        { manyfold_model_url: manualUrl });
+        { model_url: manualUrl });
       return;
     }
     if (action === "model-search-library") {
@@ -692,7 +692,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (action === "model-search-link-result") {
       var resultUrl = button.getAttribute("data-result-url") || "";
       this._modelCatalogAction("create-manual-link", this._resolveCurrentArchiveId(), null,
-        { manyfold_model_url: resultUrl });
+        { model_url: resultUrl });
       return;
     }
     // Phase 3.3 Model Catalog Navigation Actions
@@ -3783,7 +3783,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         await this._callServiceWithResponse("script", "model_catalog_accept_and_notify", {
           archive_id: String(archiveId),
           link_id: Number(linkId),
-          manyfold_model_url: extra && extra.manyfold_model_url ? String(extra.manyfold_model_url) : "",
+          model_url: extra && extra.model_url ? String(extra.model_url) : "",
         });
         statusMessage = "Model link accepted.";
         statusTone = "success";
@@ -3802,9 +3802,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         statusMessage = "Model link removed.";
         statusTone = "success";
       } else if (action === "create-manual-link") {
-        var manualUrl = String(extra && extra.manyfold_model_url ? extra.manyfold_model_url : "").trim();
+        var manualUrl = String(extra && extra.model_url ? extra.model_url : "").trim();
         if (!manualUrl) {
-          this._modelLinksError = "Enter a Manyfold model URL to create a manual link.";
+          this._modelLinksError = "Enter a model URL to create a manual link.";
           this._modelLinksBusy = false;
           this._lastRenderSignature = "";
           this._render();
@@ -3812,7 +3812,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         }
         await this._callServiceWithResponse("rest_command", "model_catalog_create_archive_link", {
           archive_id: String(archiveId),
-          manyfold_model_url: manualUrl,
+          model_url: manualUrl,
           relationship_type: "printed_from",
         });
         this._modelManualUrl = "";
@@ -3836,8 +3836,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   _renderModelLinkRow(link, archiveId) {
-    var modelUrl = link.manyfold_model_url ? String(link.manyfold_model_url) : "";
-    var modelName = link.manyfold_model_name ? String(link.manyfold_model_name) : "";
+    var modelUrl = link.model_url ? String(link.model_url) : "";
+    var modelName = link.model_name ? String(link.model_name) : "";
     var displayUrl = modelUrl.length > 60 ? modelUrl.slice(0, 57) + "…" : modelUrl;
     var role = String(link.link_role || "manual");
     var confidence = String(link.match_confidence || "");
@@ -3864,7 +3864,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       ? '<button class="model-link-action-btn btn-deactivate" type="button" data-action="model-deactivate-link" data-link-id="' + String(link.id) + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>Remove</button>'
       : "";
 
-    var manyfoldLink = modelUrl
+    var catalogLink = modelUrl
       ? '<a class="model-link-url" href="' + this._escapeHtml(modelUrl) + '" target="_blank" rel="noopener noreferrer">' + this._escapeHtml(displayUrl) + '</a>'
       : '<span class="model-link-url-empty">(no URL)</span>';
     var nameHtml = modelName
@@ -3874,7 +3874,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return '<div class="model-link-row">'
       + '<div class="model-link-row-header">' + statusBadge + '</div>'
       + nameHtml
-      + manyfoldLink
+      + catalogLink
       + noteHtml
       + '<div class="model-link-row-actions">' + acceptBtn + rejectBtn + deactivateBtn + '</div>'
       + '</div>';
@@ -3912,8 +3912,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
 
     var manualForm = '<div class="model-manual-form">'
-      + '<label class="model-manual-label">Manyfold model URL</label>'
-      + '<input class="model-manual-input" type="text" id="model-manual-url-input" placeholder="http://manyfold.local/models/abc123" value="' + this._escapeHtml(this._modelManualUrl || "") + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>'
+      + '<label class="model-manual-label">Model URL</label>'
+      + '<input class="model-manual-input" type="text" id="model-manual-url-input" placeholder="local://model/my-model-name" value="' + this._escapeHtml(this._modelManualUrl || "") + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>'
       + '<button class="model-link-action-btn btn-accept" type="button" data-action="model-create-link" ' + (this._modelLinksBusy ? "disabled" : "") + '>Link</button>'
       + '</div>';
 

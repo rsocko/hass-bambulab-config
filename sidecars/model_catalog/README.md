@@ -1,22 +1,19 @@
 # Model Catalog Sidecar
 
-**Phase 1.1**: Independent sidecar stack with local model authority, independent of Manyfold.
+**Phase 1.1**: Standalone sidecar stack with local model authority.
 
 Current scope:
 
 - FastAPI service scaffold with local SQLite authority
-- Independent Docker Compose stack (no Manyfold dependency)
+- Standalone Docker Compose stack
 - Local model CRUD + asset management (Phase 1.1)
-- Optional Manyfold integration (graceful degradation)
 - Bind-mount file storage for host visibility
 - Health, config, and diagnostics endpoints
 - Archive-link read contract endpoint for HA/print_history integration
 
-Unified endpoint authority modes:
+Endpoint authority mode:
 
-- `local` - local SQLite authority only for `/api/models` and `/api/models/search` (default for the standalone stack)
-- `hybrid` - merge frozen Manyfold cache with local models for compatibility
-- `manyfold` - legacy compatibility mode backed by Manyfold cache
+- `local` - local SQLite authority for `/api/models` and `/api/models/search`
 
 ## Module Architecture
 
@@ -26,7 +23,7 @@ After Phase 2 refactoring (#1207-#1211), the architecture follows a clean layere
 
 ### App Factory (`main.py` — 65 lines)
 
-Responsibilities: FastAPI app creation, lifespan (AppState + ManyfoldClient init/teardown), CORS middleware, router registration. Contains **zero** endpoint handlers.
+Responsibilities: FastAPI app creation, lifespan (AppState init/teardown), CORS middleware, router registration. Contains **zero** endpoint handlers.
 
 ### Routers (`app/routers/`)
 
@@ -57,7 +54,6 @@ Responsibilities: FastAPI app creation, lifespan (AppState + ManyfoldClient init
 
 | Module | Purpose |
 |--------|---------|
-| `manyfold.py` | Manyfold API client, OAuth, cache, session bridge |
 | `local_models.py` | Local model + asset CRUD (filesystem + SQLite) |
 | `model_statistics.py` | Print statistics aggregation and ranking |
 | `geometry_3mf.py` | 3MF geometry extraction for 3D viewer |
@@ -66,13 +62,13 @@ Responsibilities: FastAPI app creation, lifespan (AppState + ManyfoldClient init
 | `build_volume_helper.py` | Build volume detection and plate layout |
 | `_helpers.py` | Shared path, timestamp, and validation utilities |
 | `settings.py` | Pydantic settings from environment variables |
-| `models.py` | Pydantic data models (ManyfoldModelSummary, LocalModelEntry) |
+| `models.py` | Pydantic data models (LocalModelEntry) |
 | `state.py`g.py` | 563 | Archive-link candidate matching and scoring |
 | `model_export.py` | 551 | Model data export and serialization |
 | `build_volume_helper.py` | 453 | Build volume detection and plate layout |
 | `_helpers.py` | 228 | Shared path, timestamp, and validation utilities |
 | `settings.py` | 98 | Pydantic settings from environment variables |
-| `models.py` | 55 | Pydantic data models (ManyfoldModelSummary, LocalModelEntry) |
+| `models.py` | 55 | Pydantic data models (LocalModelEntry) |
 | `state.py` | 15 | AppState dataclass |
 
 ### Services (`app/services/`) — Business Logic & Workflows
@@ -129,7 +125,7 @@ tables = [
 	"model_catalog_events",
 	"model_catalog_links",
 	"model_catalog_model_ranking",
-	"manyfold_model_summary_cache",
+	"manyfold_model_summary_cache",  # legacy table name
 	"model_catalog_entries",
 ]
 
@@ -281,9 +277,6 @@ MODEL_CATALOG_DB_SEED_TEST_OVERWRITE=false
 MODEL_CATALOG_CURATED_ASSETS_ROOT=/assets/Model Catalog
 MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
 MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
-MANYFOLD_BASE_URL=http://manyfold:3214
-MANYFOLD_CLIENT_ID=
-MANYFOLD_CLIENT_SECRET=
 ```
 
 See `.env.example` for complete template with detailed comments on each option.
@@ -296,7 +289,7 @@ The sidecar now runs as a standalone Docker stack with independent file storage:
 
 - **Named Volume** (`/data`): Sidecar-owned SQLite database + ephemeral cache
 - **Bind Mount** (`/assets`): Host-visible model files (OneDrive, local, NAS)
-- **No dependency on Manyfold**: Standalone or optional integration
+- **Standalone**: No external service dependencies
 
 ### Intake Queue Runtime Storage
 
@@ -418,7 +411,7 @@ All local model files, assets, and photos are stored in `/assets/Model Catalog` 
 ├── Model Catalog/       # Local models (all assets, photos, files)
 ├── working/             # Active working groups (Phase 1.5+)
 ├── inbox/               # Temporary staging for intake (Phase 1.5+)
-└── imported/            # External imports from Manyfold (Phase 2+)
+└── imported/            # External imports (Phase 2+)
 ```
 ### File Storage Architecture
 
@@ -433,54 +426,14 @@ Topics covered:
 - OneDrive / NAS / local disk deployment options
 - Inbox/working/catalog/imported tier organization
 
-## Compose Tag Management
-
-The example compose file uses an environment variable for the image tag:
-
-```yaml
-image: registry.socko.us/model-catalog:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
-```
-
-Recommended update flow:
-
-1. run the workflow
-2. copy the `MODEL_CATALOG_IMAGE_TAG=...` line from the run summary
-3. paste it into the stack `.env`
-4. run `docker compose pull && docker compose up -d`
-
-If you want to stop updating the stack `.env` for every release, run the workflow with `push_latest=true` and set the compose tag to `latest` once:
-
-```text
-MODEL_CATALOG_IMAGE_TAG=latest
-```
-
-That gives Dockhand a stable image reference to pull and recreate on demand, while the workflow still publishes the immutable semantic tag for rollback.
-
-## Dockhand / Manyfold Stack Compose (Legacy)
-
-The repo now standardizes on the independent stack in `docker-compose.yml`.
-
-If your live environment still has a model catalog service embedded in the Manyfold stack, remove that duplicate service during cutover so only the standalone model-catalog service owns `model-catalog.socko.us`.
-
 ## Environment Variables
 
-- `MANYFOLD_BASE_URL` — base URL for the Manyfold instance
-- `MANYFOLD_MODELS_PATH` — API endpoint used to list Manyfold models; default `/models`
-- `MANYFOLD_COLLECTIONS_PATH` — API endpoint used to list collections; default `/collections`
-- `MANYFOLD_CREATORS_PATH` — API endpoint used to list creators; default `/creators`
-- `MANYFOLD_OAUTH_TOKEN_PATH` — OAuth token endpoint path; default `/oauth/token`
-- `MANYFOLD_CLIENT_ID` — OAuth client ID for machine-to-machine access
-- `MANYFOLD_CLIENT_SECRET` — OAuth client secret for machine-to-machine access
-- `MANYFOLD_OAUTH_SCOPES` — optional scope string sent during token acquisition when the OAuth server requires explicit requested permissions
-- `MANYFOLD_SESSION_EMAIL` — optional Manyfold login email used to bootstrap a real web session when upload endpoints reject pure OAuth client-credentials
-- `MANYFOLD_SESSION_PASSWORD` — optional Manyfold login password paired with `MANYFOLD_SESSION_EMAIL`; only needed for the upload/session bridge workaround
 - `MODEL_CATALOG_DB_PROFILE` — active database profile (`prod` or `test`)
 - `MODEL_CATALOG_DB_PATH` — SQLite path used for production profile (base path)
 - `MODEL_CATALOG_DB_PATH_TEST` — SQLite path used for test/dev profile
 - `MODEL_CATALOG_DB_BOOTSTRAP_ALL_PROFILES` — when `true`, startup migrations run for both prod and test DBs
 - `MODEL_CATALOG_DB_SEED_TEST_FROM_PROD_ON_START` — when `true`, startup copies prod DB into test DB before bootstrapping
 - `MODEL_CATALOG_DB_SEED_TEST_OVERWRITE` — when `true`, startup seed may overwrite an existing test DB
-- `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
 - `MODEL_CATALOG_PORT` — local bind port for manual `uvicorn` runs
 - `MODEL_CATALOG_CURATED_ASSETS_ROOT` — sidecar-controlled published asset root for curated local storage
@@ -494,72 +447,7 @@ If your live environment still has a model catalog service embedded in the Manyf
 - `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_CREATED` — image build timestamp emitted by `/config` and `/diagnostics` (injected at build time)
 
-## OAuth Notes
 
-The sidecar now supports OAuth client-credentials for Manyfold API access.
-
-Current recommendation:
-
-- use a client with read-only access for the current phase
-- set `MANYFOLD_OAUTH_SCOPES=public read` if your Manyfold OAuth server requires explicit requested permissions during client-credentials token acquisition
-- use the official Manyfold REST API documented at `http://manyfold.socko.us/api/index.html`, which exposes `GET /models` with `client_credentials` scopes `public` and `read`
-- send `Accept: application/vnd.manyfold.v0+json` when calling `GET /models`, because Manyfold uses content negotiation on that route and can otherwise redirect to the browser sign-in page
-- expect preview image fetches to use the sidecar proxy endpoint rather than hotlinking raw Manyfold `model_files` URLs from Home Assistant
-- expect the sidecar to bootstrap an anonymous Manyfold site session before retrying a `model_files` image fetch when a cold request returns HTML or an upstream error page
-- if `POST /upload` redirects to `/users/sign_in` even though OAuth token acquisition succeeds, configure `MANYFOLD_SESSION_EMAIL` and `MANYFOLD_SESSION_PASSWORD` so the sidecar can bootstrap a real logged-in web session for the Tus upload endpoints
-- in this deployment, `http://host.docker.internal:3214` is the known-good direct path from a container to Manyfold when service-name or public-host routes still redirect authenticated API requests to the sign-in page
-
-Why scopes are configurable instead of hard-coded:
-
-- some OAuth providers default to the client's full allowed scope set when no scope is requested
-- some expect an explicit space-delimited scope string
-- the sidecar only needs read access today, so keeping scopes explicit helps avoid accidentally over-privileged tokens
-
-## Manyfold OAuth Troubleshooting
-
-Observed on Manyfold `0.138.0 (cf629cff)` in single-user mode:
-
-- deleting an OAuth application or API key from the UI can return a 404 instead of removing it
-- this appears distinct from the older owner-authorization bug fixed upstream in `v0.135.0`
-- in single-user mode, current policy checks may still block OAuth application delete paths and surface as a 404 via the authorization handler
-
-Practical workaround for now:
-
-- open a shell in the Manyfold app container
-- start Rails console with `bin/rails console`
-- if that fails, run `bundle exec rails console`
-- if you are not already in the app directory, `cd /app` first
-
-Useful Rails console commands:
-
-```ruby
-Doorkeeper::Application.all.pluck(:id, :name)
-Doorkeeper::AccessToken.all.pluck(:id, :application_id, :created_at, :revoked_at)
-```
-
-Delete an OAuth application by id:
-
-```ruby
-Doorkeeper::Application.find(ID).destroy!
-```
-
-Revoke a token by id without deleting the application:
-
-```ruby
-Doorkeeper::AccessToken.find(ID).revoke
-```
-
-If you are not already inside the container, the usual host-side command is:
-
-```bash
-docker compose exec app bin/rails console
-```
-
-and the common fallback is:
-
-```bash
-docker compose exec app bundle exec rails console
-```
 
 ## Run Locally
 
@@ -623,7 +511,7 @@ For a non-destructive smoke check against the deployed sidecar:
 	--base-url "http://model-catalog.socko.us"
 ```
 
-This validates the live health/config/diagnostics/openapi endpoints plus the safe intake queue read and validation paths without creating or mutating Manyfold data.
+This validates the live health/config/diagnostics/openapi endpoints plus the safe intake queue read and validation paths without creating or mutating data.
 
 For issue #1160 local-authority API cutover validation (creates a temporary local model, validates browse/search/detail/update behavior, then hard-deletes it):
 

@@ -18,7 +18,7 @@ def _normalize_model_ref(model_ref: str) -> str:
 
 
 def _field_entity(model_ref: str) -> tuple[str, str]:
-    return ("manyfold_model", _normalize_model_ref(model_ref))
+    return ("catalog_model", _normalize_model_ref(model_ref))
 
 
 def _coerce_json_value(raw_value: str) -> object:

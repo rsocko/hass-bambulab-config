@@ -203,7 +203,7 @@ def _serialize_working_group(connection: Any, group_row: Any, settings: Settings
             "primary": _launch_context_for_path(primary_file_path, settings),
             "folder": _launch_context_for_path(effective_folder_path, settings),
         },
-        "related_manyfold_model_id": group_row["related_manyfold_model_id"],
+        "related_model_id": group_row["related_model_id"],
         "discovery": {
             "source_folder": group_row["discovery_source_folder"],
             "strategy": group_row["discovery_strategy"],

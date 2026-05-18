@@ -2,7 +2,7 @@
  * Model Detail Popup Card
  * 
  * Provides a comprehensive detail view and inline editing interface for models
- * from the Manyfold catalog directly in Home Assistant UI.
+ * from the local catalog directly in Home Assistant UI.
  * 
  * Phase 3.0 MVP - Detail View (Read-Only)
  * - Details tab with model metadata and enrichment
@@ -138,7 +138,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Only re-render if model data has changed
-    const currentModelUrl = this._modelDetail?.manyfold_model_url || '';
+    const currentModelUrl = this._modelDetail?.model_url || '';
     if (this._lastRenderedModelUrl === currentModelUrl) {
       // Model data hasn't changed, skip re-render
       return;
@@ -2402,7 +2402,7 @@ class ModelDetailPopupCard extends HTMLElement {
       return '';
     };
 
-    // Support all current payload shapes for local and manyfold detail responses.
+    // Support all current payload shapes for local detail responses.
     const direct = normalized(model && model.entity_type);
     if (direct) {
       return direct;

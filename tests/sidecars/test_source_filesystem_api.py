@@ -14,7 +14,7 @@ from sidecars.model_catalog.app.settings import Settings
 
 def _build_settings(tmp_path: Path, source_roots: list[Path] | None = None) -> Settings:
     return Settings(
-        manyfold_base_url="http://manyfold.test",
+        manyfold_base_url="",
         manyfold_models_path="/models",
         manyfold_collections_path="/collections",
         manyfold_creators_path="/creators",

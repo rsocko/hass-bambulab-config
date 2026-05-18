@@ -19,9 +19,9 @@ from .db_common import connect, utc_now_iso
 @dataclass(frozen=True)
 class ArchiveModelLink:
     id: int
-    manyfold_model_url: str
-    manyfold_model_public_id: str | None
-    manyfold_model_file_id: str | None
+    model_url: str
+    model_public_id: str | None
+    model_asset_id: str | None
     bambuddy_archive_id: int
     relationship_type: str
     link_role: str
@@ -36,8 +36,8 @@ class ArchiveModelLink:
 
 @dataclass(frozen=True)
 class ModelRankingSnapshot:
-    manyfold_model_url: str
-    manyfold_model_public_id: str | None
+    model_url: str
+    model_public_id: str | None
     last_printed_at: str | None
     linked_archive_count: int
     print_count: int
@@ -49,8 +49,8 @@ class ModelRankingSnapshot:
 
 @dataclass(frozen=True)
 class ModelRankingInput:
-    manyfold_model_url: str
-    manyfold_model_public_id: str | None
+    model_url: str
+    model_public_id: str | None
     linked_archive_count: int
     print_count: int
     last_linked_at: str | None
@@ -58,7 +58,7 @@ class ModelRankingInput:
 
 @dataclass(frozen=True)
 class ModelFrequencyWindowStat:
-    manyfold_model_url: str
+    model_url: str
     weighted_print_count: float
     print_count_window: int
     backfill_print_count_window: int
@@ -77,9 +77,9 @@ def _read_archive_link_by_id(connection: sqlite3.Connection, *, archive_id: int,
         """
         SELECT
             id,
-            manyfold_model_url,
-            manyfold_model_public_id,
-            manyfold_model_file_id,
+            model_url,
+            model_public_id,
+            model_asset_id,
             bambuddy_archive_id,
             relationship_type,
             link_role,
@@ -99,9 +99,9 @@ def _read_archive_link_by_id(connection: sqlite3.Connection, *, archive_id: int,
         return None
     return ArchiveModelLink(
         id=int(row["id"]),
-        manyfold_model_url=str(row["manyfold_model_url"]),
-        manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-        manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+        model_url=str(row["model_url"]),
+        model_public_id=str(row["model_public_id"] or "").strip() or None,
+        model_asset_id=str(row["model_asset_id"] or "").strip() or None,
         bambuddy_archive_id=int(row["bambuddy_archive_id"]),
         relationship_type=str(row["relationship_type"]),
         link_role=str(row["link_role"]),
@@ -119,9 +119,9 @@ def create_archive_link(
     *,
     db_path: Path,
     archive_id: int,
-    manyfold_model_url: str,
-    manyfold_model_public_id: str | None,
-    manyfold_model_file_id: str | None,
+    model_url: str,
+    model_public_id: str | None,
+    model_asset_id: str | None,
     relationship_type: str,
     link_role: str,
     match_method: str,
@@ -138,7 +138,7 @@ def create_archive_link(
             SELECT id
             FROM model_catalog_links
             WHERE bambuddy_archive_id = ?
-              AND manyfold_model_url = ?
+              AND model_url = ?
             ORDER BY is_active DESC,
                      CASE review_state
                          WHEN 'accepted' THEN 0
@@ -148,7 +148,7 @@ def create_archive_link(
                      id DESC
             LIMIT 1
             """,
-            (archive_id, manyfold_model_url),
+            (archive_id, model_url),
         ).fetchone()
 
         if is_active:
@@ -177,9 +177,9 @@ def create_archive_link(
             connection.execute(
                 """
                 INSERT INTO model_catalog_links (
-                    manyfold_model_url,
-                    manyfold_model_public_id,
-                    manyfold_model_file_id,
+                    model_url,
+                    model_public_id,
+                    model_asset_id,
                     bambuddy_archive_id,
                     relationship_type,
                     link_role,
@@ -193,9 +193,9 @@ def create_archive_link(
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    manyfold_model_url,
-                    manyfold_model_public_id,
-                    manyfold_model_file_id,
+                    model_url,
+                    model_public_id,
+                    model_asset_id,
                     archive_id,
                     relationship_type,
                     link_role,
@@ -214,8 +214,8 @@ def create_archive_link(
             connection.execute(
                 """
                 UPDATE model_catalog_links
-                SET manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
-                    manyfold_model_file_id = COALESCE(?, manyfold_model_file_id),
+                SET model_public_id = COALESCE(?, model_public_id),
+                    model_asset_id = COALESCE(?, model_asset_id),
                     relationship_type = ?,
                     link_role = ?,
                     match_method = ?,
@@ -227,8 +227,8 @@ def create_archive_link(
                 WHERE id = ?
                 """,
                 (
-                    manyfold_model_public_id,
-                    manyfold_model_file_id,
+                    model_public_id,
+                    model_asset_id,
                     relationship_type,
                     link_role,
                     match_method,
@@ -254,9 +254,9 @@ def update_archive_link(
     db_path: Path,
     archive_id: int,
     link_id: int,
-    manyfold_model_url: str | None = None,
-    manyfold_model_public_id: str | None = None,
-    manyfold_model_file_id: str | None = None,
+    model_url: str | None = None,
+    model_public_id: str | None = None,
+    model_asset_id: str | None = None,
     relationship_type: str | None = None,
     link_role: str | None = None,
     match_method: str | None = None,
@@ -274,9 +274,9 @@ def update_archive_link(
         updates.append(f"{field} = ?")
         params.append(value)
 
-    _set("manyfold_model_url", manyfold_model_url)
-    _set("manyfold_model_public_id", manyfold_model_public_id)
-    _set("manyfold_model_file_id", manyfold_model_file_id)
+    _set("model_url", model_url)
+    _set("model_public_id", model_public_id)
+    _set("model_asset_id", model_asset_id)
     _set("relationship_type", relationship_type)
     _set("link_role", link_role)
     _set("match_method", match_method)
@@ -336,9 +336,9 @@ def delete_archive_links(*, db_path: Path, archive_id: int, link_ids: list[int])
             f"""
             SELECT
                 id,
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_file_id,
+                model_url,
+                model_public_id,
+                model_asset_id,
                 bambuddy_archive_id,
                 relationship_type,
                 link_role,
@@ -359,9 +359,9 @@ def delete_archive_links(*, db_path: Path, archive_id: int, link_ids: list[int])
         removed_links = [
             ArchiveModelLink(
                 id=int(row["id"]),
-                manyfold_model_url=str(row["manyfold_model_url"]),
-                manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-                manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+                model_url=str(row["model_url"]),
+                model_public_id=str(row["model_public_id"] or "").strip() or None,
+                model_asset_id=str(row["model_asset_id"] or "").strip() or None,
                 bambuddy_archive_id=int(row["bambuddy_archive_id"]),
                 relationship_type=str(row["relationship_type"]),
                 link_role=str(row["link_role"]),
@@ -441,7 +441,7 @@ def refresh_archive_link_candidates(
         candidate_urls: list[str] = []
 
         for candidate in candidates:
-            model_url = candidate["manyfold_model_url"]
+            model_url = candidate["model_url"]
             desired_review_state = str(candidate.get("review_state") or "new")
             desired_is_active = bool(candidate.get("is_active", False))
             candidate_urls.append(model_url)
@@ -450,7 +450,7 @@ def refresh_archive_link_candidates(
                 SELECT id, review_state, is_active
                 FROM model_catalog_links
                 WHERE bambuddy_archive_id = ?
-                  AND manyfold_model_url = ?
+                  AND model_url = ?
                 ORDER BY is_active DESC,
                          CASE review_state
                              WHEN 'accepted' THEN 0
@@ -477,9 +477,9 @@ def refresh_archive_link_candidates(
                 connection.execute(
                     """
                     INSERT INTO model_catalog_links (
-                        manyfold_model_url,
-                        manyfold_model_public_id,
-                        manyfold_model_file_id,
+                        model_url,
+                        model_public_id,
+                        model_asset_id,
                         bambuddy_archive_id,
                         relationship_type,
                         link_role,
@@ -494,7 +494,7 @@ def refresh_archive_link_candidates(
                     """,
                     (
                         model_url,
-                        candidate.get("manyfold_model_public_id"),
+                        candidate.get("model_public_id"),
                         None,
                         archive_id,
                         "printed_from",
@@ -514,12 +514,12 @@ def refresh_archive_link_candidates(
                     connection.execute(
                         """
                         UPDATE model_catalog_links
-                        SET manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
+                        SET model_public_id = COALESCE(?, model_public_id),
                             updated_at = ?
                         WHERE id = ?
                         """,
                         (
-                            candidate.get("manyfold_model_public_id"),
+                            candidate.get("model_public_id"),
                             now,
                             int(existing["id"]),
                         ),
@@ -538,7 +538,7 @@ def refresh_archive_link_candidates(
                     connection.execute(
                         """
                         UPDATE model_catalog_links
-                        SET manyfold_model_public_id = ?,
+                        SET model_public_id = ?,
                             match_method = ?,
                             match_confidence = ?,
                             review_state = ?,
@@ -548,7 +548,7 @@ def refresh_archive_link_candidates(
                         WHERE id = ?
                         """,
                         (
-                            candidate.get("manyfold_model_public_id"),
+                            candidate.get("model_public_id"),
                             candidate["match_method"],
                             candidate["match_confidence"],
                             desired_review_state,
@@ -570,7 +570,7 @@ def refresh_archive_link_candidates(
                 WHERE bambuddy_archive_id = ?
                   AND link_role = 'candidate'
                   AND review_state = 'new'
-                  AND manyfold_model_url NOT IN ({placeholders})
+                  AND model_url NOT IN ({placeholders})
                 """,
                 (now, archive_id, *candidate_urls),
             )
@@ -592,9 +592,9 @@ def refresh_archive_link_candidates(
             """
             SELECT
                 id,
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_file_id,
+                model_url,
+                model_public_id,
+                model_asset_id,
                 bambuddy_archive_id,
                 relationship_type,
                 link_role,
@@ -618,9 +618,9 @@ def refresh_archive_link_candidates(
         [
             ArchiveModelLink(
                 id=int(row["id"]),
-                manyfold_model_url=str(row["manyfold_model_url"]),
-                manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-                manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+                model_url=str(row["model_url"]),
+                model_public_id=str(row["model_public_id"] or "").strip() or None,
+                model_asset_id=str(row["model_asset_id"] or "").strip() or None,
                 bambuddy_archive_id=int(row["bambuddy_archive_id"]),
                 relationship_type=str(row["relationship_type"]),
                 link_role=str(row["link_role"]),
@@ -644,9 +644,9 @@ def read_archive_links(*, db_path: Path, archive_id: int, active_only: bool = Tr
         query = """
             SELECT
                 id,
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_file_id,
+                model_url,
+                model_public_id,
+                model_asset_id,
                 bambuddy_archive_id,
                 relationship_type,
                 link_role,
@@ -674,9 +674,9 @@ def read_archive_links(*, db_path: Path, archive_id: int, active_only: bool = Tr
     return [
         ArchiveModelLink(
             id=int(row["id"]),
-            manyfold_model_url=str(row["manyfold_model_url"]),
-            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-            manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+            model_url=str(row["model_url"]),
+            model_public_id=str(row["model_public_id"] or "").strip() or None,
+            model_asset_id=str(row["model_asset_id"] or "").strip() or None,
             bambuddy_archive_id=int(row["bambuddy_archive_id"]),
             relationship_type=str(row["relationship_type"]),
             link_role=str(row["link_role"]),
@@ -705,9 +705,9 @@ def repair_canonical_model_urls(
             """
             SELECT
                 id,
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_file_id,
+                model_url,
+                model_public_id,
+                model_asset_id,
                 bambuddy_archive_id,
                 relationship_type,
                 link_role,
@@ -728,9 +728,9 @@ def repair_canonical_model_urls(
         for row in link_rows:
             link = ArchiveModelLink(
                 id=int(row["id"]),
-                manyfold_model_url=str(row["manyfold_model_url"]),
-                manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-                manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+                model_url=str(row["model_url"]),
+                model_public_id=str(row["model_public_id"] or "").strip() or None,
+                model_asset_id=str(row["model_asset_id"] or "").strip() or None,
                 bambuddy_archive_id=int(row["bambuddy_archive_id"]),
                 relationship_type=str(row["relationship_type"]),
                 link_role=str(row["link_role"]),
@@ -742,10 +742,10 @@ def repair_canonical_model_urls(
                 created_at=str(row["created_at"]),
                 updated_at=str(row["updated_at"]),
             )
-            canonical_url = canonicalize_url(link.manyfold_model_url) or link.manyfold_model_url
+            canonical_url = canonicalize_url(link.model_url) or link.model_url
             group_key = (link.bambuddy_archive_id, canonical_url)
             grouped_links.setdefault(group_key, []).append(link)
-            if canonical_url != link.manyfold_model_url:
+            if canonical_url != link.model_url:
                 affected_link_groups.add(group_key)
 
         updated_link_ids: list[int] = []
@@ -758,25 +758,25 @@ def repair_canonical_model_urls(
                 key=lambda link: (
                     1 if link.is_active else 0,
                     1 if link.review_state == "accepted" else 0,
-                    1 if link.manyfold_model_url == canonical_url else 0,
+                    1 if link.model_url == canonical_url else 0,
                     link.updated_at,
                     link.id,
                 ),
                 reverse=True,
             )[0]
-            merged_public_id = next((link.manyfold_model_public_id for link in links if link.manyfold_model_public_id), None)
-            merged_file_id = next((link.manyfold_model_file_id for link in links if link.manyfold_model_file_id), None)
+            merged_public_id = next((link.model_public_id for link in links if link.model_public_id), None)
+            merged_file_id = next((link.model_asset_id for link in links if link.model_asset_id), None)
             if (
-                survivor.manyfold_model_url != canonical_url
-                or (merged_public_id and merged_public_id != survivor.manyfold_model_public_id)
-                or (merged_file_id and merged_file_id != survivor.manyfold_model_file_id)
+                survivor.model_url != canonical_url
+                or (merged_public_id and merged_public_id != survivor.model_public_id)
+                or (merged_file_id and merged_file_id != survivor.model_asset_id)
             ):
                 connection.execute(
                     """
                     UPDATE model_catalog_links
-                    SET manyfold_model_url = ?,
-                        manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
-                        manyfold_model_file_id = COALESCE(?, manyfold_model_file_id),
+                    SET model_url = ?,
+                        model_public_id = COALESCE(?, model_public_id),
+                        model_asset_id = COALESCE(?, model_asset_id),
                         updated_at = ?
                     WHERE id = ?
                     """,
@@ -795,15 +795,15 @@ def repair_canonical_model_urls(
 
         ranking_rows = connection.execute(
             """
-            SELECT manyfold_model_url, manyfold_model_public_id, refreshed_at
+            SELECT model_url, model_public_id, refreshed_at
             FROM model_catalog_model_ranking
-            ORDER BY refreshed_at DESC, manyfold_model_url ASC
+            ORDER BY refreshed_at DESC, model_url ASC
             """
         ).fetchall()
         grouped_rankings: dict[str, list[sqlite3.Row]] = {}
         affected_ranking_groups: set[str] = set()
         for row in ranking_rows:
-            original_url = str(row["manyfold_model_url"])
+            original_url = str(row["model_url"])
             canonical_url = canonicalize_url(original_url) or original_url
             grouped_rankings.setdefault(canonical_url, []).append(row)
             if canonical_url != original_url:
@@ -816,30 +816,30 @@ def repair_canonical_model_urls(
             survivor = sorted(
                 rows,
                 key=lambda row: (
-                    1 if str(row["manyfold_model_url"]) == canonical_url else 0,
+                    1 if str(row["model_url"]) == canonical_url else 0,
                     str(row["refreshed_at"]),
-                    str(row["manyfold_model_url"]),
+                    str(row["model_url"]),
                 ),
                 reverse=True,
             )[0]
-            merged_public_id = next((str(row["manyfold_model_public_id"] or "").strip() for row in rows if str(row["manyfold_model_public_id"] or "").strip()), None)
-            survivor_url = str(survivor["manyfold_model_url"])
+            merged_public_id = next((str(row["model_public_id"] or "").strip() for row in rows if str(row["model_public_id"] or "").strip()), None)
+            survivor_url = str(survivor["model_url"])
             if survivor_url != canonical_url or merged_public_id:
                 connection.execute(
                     """
                     UPDATE model_catalog_model_ranking
-                    SET manyfold_model_url = ?,
-                        manyfold_model_public_id = COALESCE(?, manyfold_model_public_id)
-                    WHERE manyfold_model_url = ?
+                    SET model_url = ?,
+                        model_public_id = COALESCE(?, model_public_id)
+                    WHERE model_url = ?
                     """,
                     (canonical_url, merged_public_id, survivor_url),
                 )
                 updated_ranking_urls.append(canonical_url)
-            loser_urls = [str(row["manyfold_model_url"]) for row in rows if str(row["manyfold_model_url"]) != survivor_url]
+            loser_urls = [str(row["model_url"]) for row in rows if str(row["model_url"]) != survivor_url]
             if loser_urls:
                 placeholders = ",".join("?" for _ in loser_urls)
                 connection.execute(
-                    f"DELETE FROM model_catalog_model_ranking WHERE manyfold_model_url IN ({placeholders})",
+                    f"DELETE FROM model_catalog_model_ranking WHERE model_url IN ({placeholders})",
                     tuple(loser_urls),
                 )
                 removed_ranking_urls.extend(loser_urls)
@@ -858,8 +858,8 @@ def repair_canonical_model_urls(
 def upsert_model_ranking(
     *,
     db_path: Path,
-    manyfold_model_url: str,
-    manyfold_model_public_id: str | None = None,
+    model_url: str,
+    model_public_id: str | None = None,
     last_printed_at: str | None = None,
     linked_archive_count: int = 0,
     print_count: int = 0,
@@ -873,8 +873,8 @@ def upsert_model_ranking(
         connection.execute(
             """
             INSERT INTO model_catalog_model_ranking (
-                manyfold_model_url,
-                manyfold_model_public_id,
+                model_url,
+                model_public_id,
                 last_printed_at,
                 linked_archive_count,
                 print_count,
@@ -883,9 +883,9 @@ def upsert_model_ranking(
                 common_score,
                 refreshed_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(manyfold_model_url)
+            ON CONFLICT(model_url)
             DO UPDATE SET
-                manyfold_model_public_id = COALESCE(excluded.manyfold_model_public_id, model_catalog_model_ranking.manyfold_model_public_id),
+                model_public_id = COALESCE(excluded.model_public_id, model_catalog_model_ranking.model_public_id),
                 last_printed_at = excluded.last_printed_at,
                 linked_archive_count = excluded.linked_archive_count,
                 print_count = excluded.print_count,
@@ -895,8 +895,8 @@ def upsert_model_ranking(
                 refreshed_at = excluded.refreshed_at
             """,
             (
-                manyfold_model_url,
-                manyfold_model_public_id,
+                model_url,
+                model_public_id,
                 last_printed_at,
                 linked_archive_count,
                 print_count,
@@ -909,20 +909,20 @@ def upsert_model_ranking(
         connection.commit()
         row = connection.execute(
             """
-            SELECT manyfold_model_url, manyfold_model_public_id, last_printed_at, linked_archive_count,
+            SELECT model_url, model_public_id, last_printed_at, linked_archive_count,
                    print_count, recent_score, frequent_score, common_score, refreshed_at
             FROM model_catalog_model_ranking
-            WHERE manyfold_model_url = ?
+            WHERE model_url = ?
             """,
-            (manyfold_model_url,),
+            (model_url,),
         ).fetchone()
     finally:
         connection.close()
     if row is None:
         raise RuntimeError("Failed to read model ranking after upsert.")
     return ModelRankingSnapshot(
-        manyfold_model_url=str(row["manyfold_model_url"]),
-        manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+        model_url=str(row["model_url"]),
+        model_public_id=str(row["model_public_id"] or "").strip() or None,
         last_printed_at=str(row["last_printed_at"] or "").strip() or None,
         linked_archive_count=int(row["linked_archive_count"]),
         print_count=int(row["print_count"]),
@@ -933,25 +933,25 @@ def upsert_model_ranking(
     )
 
 
-def read_model_ranking(*, db_path: Path, manyfold_model_url: str) -> ModelRankingSnapshot | None:
+def read_model_ranking(*, db_path: Path, model_url: str) -> ModelRankingSnapshot | None:
     connection = connect(db_path)
     try:
         row = connection.execute(
             """
-            SELECT manyfold_model_url, manyfold_model_public_id, last_printed_at, linked_archive_count,
+            SELECT model_url, model_public_id, last_printed_at, linked_archive_count,
                    print_count, recent_score, frequent_score, common_score, refreshed_at
             FROM model_catalog_model_ranking
-            WHERE manyfold_model_url = ?
+            WHERE model_url = ?
             """,
-            (manyfold_model_url,),
+            (model_url,),
         ).fetchone()
     finally:
         connection.close()
     if row is None:
         return None
     return ModelRankingSnapshot(
-        manyfold_model_url=str(row["manyfold_model_url"]),
-        manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+        model_url=str(row["model_url"]),
+        model_public_id=str(row["model_public_id"] or "").strip() or None,
         last_printed_at=str(row["last_printed_at"] or "").strip() or None,
         linked_archive_count=int(row["linked_archive_count"]),
         print_count=int(row["print_count"]),
@@ -967,18 +967,18 @@ def read_all_model_ranking(*, db_path: Path) -> dict[str, ModelRankingSnapshot]:
     try:
         rows = connection.execute(
             """
-            SELECT manyfold_model_url, manyfold_model_public_id, last_printed_at, linked_archive_count,
+            SELECT model_url, model_public_id, last_printed_at, linked_archive_count,
                    print_count, recent_score, frequent_score, common_score, refreshed_at
             FROM model_catalog_model_ranking
-            ORDER BY manyfold_model_url ASC
+            ORDER BY model_url ASC
             """
         ).fetchall()
     finally:
         connection.close()
     return {
-        str(row["manyfold_model_url"]): ModelRankingSnapshot(
-            manyfold_model_url=str(row["manyfold_model_url"]),
-            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+        str(row["model_url"]): ModelRankingSnapshot(
+            model_url=str(row["model_url"]),
+            model_public_id=str(row["model_public_id"] or "").strip() or None,
             last_printed_at=str(row["last_printed_at"] or "").strip() or None,
             linked_archive_count=int(row["linked_archive_count"]),
             print_count=int(row["print_count"]),
@@ -996,15 +996,15 @@ def read_model_link_counts(*, db_path: Path) -> dict[str, int]:
     try:
         rows = connection.execute(
             """
-            SELECT manyfold_model_url, COUNT(DISTINCT bambuddy_archive_id) AS linked_archive_count
+            SELECT model_url, COUNT(DISTINCT bambuddy_archive_id) AS linked_archive_count
             FROM model_catalog_links
             WHERE is_active = 1 AND review_state = 'accepted'
-            GROUP BY manyfold_model_url
+            GROUP BY model_url
             """
         ).fetchall()
     finally:
         connection.close()
-    return {str(row["manyfold_model_url"]): int(row["linked_archive_count"]) for row in rows}
+    return {str(row["model_url"]): int(row["linked_archive_count"]) for row in rows}
 
 
 def read_model_ranking_inputs(*, db_path: Path) -> list[ModelRankingInput]:
@@ -1013,23 +1013,23 @@ def read_model_ranking_inputs(*, db_path: Path) -> list[ModelRankingInput]:
         rows = connection.execute(
             """
             SELECT
-                manyfold_model_url,
-                MAX(NULLIF(TRIM(COALESCE(manyfold_model_public_id, '')), '')) AS manyfold_model_public_id,
+                model_url,
+                MAX(NULLIF(TRIM(COALESCE(model_public_id, '')), '')) AS model_public_id,
                 COUNT(*) AS print_count,
                 COUNT(DISTINCT bambuddy_archive_id) AS linked_archive_count,
                 MAX(updated_at) AS last_linked_at
             FROM model_catalog_links
             WHERE is_active = 1 AND review_state = 'accepted'
-            GROUP BY manyfold_model_url
-            ORDER BY manyfold_model_url ASC
+            GROUP BY model_url
+            ORDER BY model_url ASC
             """
         ).fetchall()
     finally:
         connection.close()
     return [
         ModelRankingInput(
-            manyfold_model_url=str(row["manyfold_model_url"]),
-            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+            model_url=str(row["model_url"]),
+            model_public_id=str(row["model_public_id"] or "").strip() or None,
             linked_archive_count=int(row["linked_archive_count"]),
             print_count=int(row["print_count"]),
             last_linked_at=str(row["last_linked_at"]),
@@ -1058,7 +1058,7 @@ def read_model_frequency_window_stats(
         rows = connection.execute(
             """
             SELECT
-                l.manyfold_model_url AS manyfold_model_url,
+                l.model_url AS model_url,
                 SUM(
                     CASE
                         WHEN l.updated_at >= ?
@@ -1086,8 +1086,8 @@ def read_model_frequency_window_stats(
                 ON b.created_archive_id = l.bambuddy_archive_id
             WHERE l.is_active = 1
               AND l.review_state = 'accepted'
-            GROUP BY l.manyfold_model_url
-            ORDER BY l.manyfold_model_url ASC
+            GROUP BY l.model_url
+            ORDER BY l.model_url ASC
             """,
             (
                 window_start_iso,
@@ -1100,8 +1100,8 @@ def read_model_frequency_window_stats(
         connection.close()
 
     return {
-        str(row["manyfold_model_url"]): ModelFrequencyWindowStat(
-            manyfold_model_url=str(row["manyfold_model_url"]),
+        str(row["model_url"]): ModelFrequencyWindowStat(
+            model_url=str(row["model_url"]),
             weighted_print_count=float(row["weighted_print_count"] or 0.0),
             print_count_window=int(row["print_count_window"] or 0),
             backfill_print_count_window=int(row["backfill_print_count_window"] or 0),

@@ -8,13 +8,6 @@ from app.main import create_app
 from app.settings import load_settings
 
 
-class FakeManyfoldClient:
-    base_url = "http://manyfold.example"
-
-    def close(self) -> None:
-        return None
-
-
 def test_runtime_db_profile_switch_endpoint(monkeypatch, tmp_path: Path) -> None:
     prod_db = tmp_path / "model_catalog_prod.db"
     test_db = tmp_path / "model_catalog_test.db"
@@ -26,7 +19,7 @@ def test_runtime_db_profile_switch_endpoint(monkeypatch, tmp_path: Path) -> None
     monkeypatch.setenv("MODEL_CATALOG_CURATED_ASSETS_ROOT", str(tmp_path / "assets" / "prod"))
     monkeypatch.setenv("MODEL_CATALOG_CURATED_ASSETS_ROOT_TEST", str(tmp_path / "assets" / "test"))
 
-    app = create_app(settings=load_settings(), manyfold_client=FakeManyfoldClient())
+    app = create_app(settings=load_settings())
 
     with TestClient(app) as client:
         before = client.get("/config")

@@ -910,6 +910,75 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        26,
+        (
+            # --- Rename table: manyfold_model_summary_cache → model_summary_cache ---
+            """
+        ALTER TABLE manyfold_model_summary_cache RENAME TO model_summary_cache
+        """,
+            """
+        ALTER TABLE model_summary_cache RENAME COLUMN manyfold_model_url TO model_url
+        """,
+            """
+        ALTER TABLE model_summary_cache RENAME COLUMN manyfold_model_public_id TO model_public_id
+        """,
+            """
+        ALTER TABLE model_summary_cache RENAME COLUMN manyfold_model_name TO model_name
+        """,
+            """
+        ALTER TABLE model_summary_cache RENAME COLUMN manyfold_model_id TO model_id
+        """,
+            """
+        ALTER TABLE model_summary_cache RENAME COLUMN manyfold_model_key TO model_key
+        """,
+            # Recreate unique index with new name
+            """
+        DROP INDEX IF EXISTS idx_manyfold_model_summary_cache_model_key
+        """,
+            """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_model_summary_cache_model_key
+        ON model_summary_cache(model_key)
+        """,
+            # --- Rename columns in model_catalog_links ---
+            """
+        ALTER TABLE model_catalog_links RENAME COLUMN manyfold_model_url TO model_url
+        """,
+            """
+        ALTER TABLE model_catalog_links RENAME COLUMN manyfold_model_public_id TO model_public_id
+        """,
+            """
+        ALTER TABLE model_catalog_links RENAME COLUMN manyfold_model_file_id TO model_asset_id
+        """,
+            # --- Rename columns in model_catalog_model_ranking ---
+            """
+        ALTER TABLE model_catalog_model_ranking RENAME COLUMN manyfold_model_url TO model_url
+        """,
+            """
+        ALTER TABLE model_catalog_model_ranking RENAME COLUMN manyfold_model_public_id TO model_public_id
+        """,
+            # --- Rename column in working_groups ---
+            """
+        ALTER TABLE working_groups RENAME COLUMN related_manyfold_model_id TO related_model_id
+        """,
+            # --- Rename column in intake_queue_uploads ---
+            """
+        ALTER TABLE intake_queue_uploads RENAME COLUMN manyfold_file_ids_json TO uploaded_file_ids_json
+        """,
+        ),
+    ),
+    (
+        27,
+        (
+            # --- Rename entity_type value 'manyfold_model' → 'catalog_model' ---
+            """
+        UPDATE model_catalog_custom_fields SET entity_type = 'catalog_model' WHERE entity_type = 'manyfold_model'
+        """,
+            """
+        UPDATE model_catalog_events SET entity_type = 'catalog_model' WHERE entity_type = 'manyfold_model'
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
@@ -1087,7 +1156,7 @@ def _repair_unified_queue_file_units_foreign_key(connection: sqlite3.Connection)
 
 def _migrate_manyfold_model_cache_keys(connection: sqlite3.Connection) -> None:
     """Migrate manyfold model cache keys (migration v5)."""
-    from .db import derive_manyfold_model_key
+    from .db import derive_model_key
 
     ensure_column(connection, "manyfold_model_summary_cache", "manyfold_model_key", "TEXT")
 
@@ -1105,10 +1174,10 @@ def _migrate_manyfold_model_cache_keys(connection: sqlite3.Connection) -> None:
 
     for row in rows:
         row_id = int(row["rowid"])
-        model_key = derive_manyfold_model_key(
-            manyfold_model_url=str(row["manyfold_model_url"] or "").strip() or None,
-            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-            manyfold_model_id=str(row["manyfold_model_id"] or "").strip() or None,
+        model_key = derive_model_key(
+            model_url=str(row["manyfold_model_url"] or "").strip() or None,
+            model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+            model_id=str(row["manyfold_model_id"] or "").strip() or None,
         )
 
         if model_key in survivor_by_key:

@@ -19,12 +19,12 @@ from ..db import (
     set_archive_link_review_state,
     update_archive_link,
 )
-from ..manyfold import (
-    CachedManyfoldModel,
+from ..catalog_cache import (
+    CachedCatalogModel,
     canonicalize_model_url,
-    read_cached_manyfold_summaries,
+    read_cached_model_summaries,
 )
-from ..models import ManyfoldModelSummary
+from ..models import CatalogModelSummary
 from ..state import AppState
 
 router = APIRouter(tags=["archive-links"])
@@ -32,7 +32,7 @@ router = APIRouter(tags=["archive-links"])
 
 @dataclass(frozen=True)
 class CandidateMatch:
-    summary: ManyfoldModelSummary
+    summary: CatalogModelSummary
     score: float
     deterministic: bool
     rationale: tuple[str, ...]
@@ -40,8 +40,8 @@ class CandidateMatch:
     match_confidence: str
 
 
-def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
-    summaries = read_cached_manyfold_summaries(db_path=db_path)
+def _summary_map(db_path: Any) -> dict[str, CatalogModelSummary]:
+    summaries = read_cached_model_summaries(db_path=db_path)
     result = {summary.model_url: summary for summary in summaries}
     # Also include local catalog entries so links using local:// URLs resolve
     for entry_summary in _read_local_catalog_summaries(db_path):
@@ -54,8 +54,8 @@ def _local_model_url(local_model_id: str) -> str:
     return f"local://model/{local_model_id}"
 
 
-def _read_local_catalog_summaries(db_path: Any) -> list[ManyfoldModelSummary]:
-    """Read local catalog entries and return as ManyfoldModelSummary for compatibility."""
+def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
+    """Read local catalog entries and return as CatalogModelSummary for compatibility."""
     connection = connect(db_path)
     try:
         rows = connection.execute(
@@ -69,11 +69,11 @@ def _read_local_catalog_summaries(db_path: Any) -> list[ManyfoldModelSummary]:
         ).fetchall()
     finally:
         connection.close()
-    summaries: list[ManyfoldModelSummary] = []
+    summaries: list[CatalogModelSummary] = []
     for row in rows:
         local_model_id = str(row["local_model_id"])
         summaries.append(
-            ManyfoldModelSummary(
+            CatalogModelSummary(
                 model_url=_local_model_url(local_model_id),
                 public_id=local_model_id,
                 model_id=local_model_id,
@@ -88,10 +88,10 @@ def _read_local_catalog_summaries(db_path: Any) -> list[ManyfoldModelSummary]:
     return summaries
 
 
-def _read_local_catalog_for_matching(db_path: Any) -> list[CachedManyfoldModel]:
-    """Read local catalog entries + assets as CachedManyfoldModel for scoring compatibility.
+def _read_local_catalog_for_matching(db_path: Any) -> list[CachedCatalogModel]:
+    """Read local catalog entries + assets as CachedCatalogModel for scoring compatibility.
 
-    Returns models in the same shape as read_cached_manyfold_models() so the
+    Returns models in the same shape as read_cached_catalog_models() so the
     existing scoring logic (_build_candidate_match) works without modification.
     """
     connection = connect(db_path)
@@ -129,7 +129,7 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedManyfoldModel]:
             "created_at": str(asset_row["created_at"] or ""),
         })
 
-    models: list[CachedManyfoldModel] = []
+    models: list[CachedCatalogModel] = []
     for row in entry_rows:
         entry_id = int(row["id"])
         local_model_id = str(row["local_model_id"])
@@ -145,7 +145,7 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedManyfoldModel]:
             "files": assets,
         }
 
-        summary = ManyfoldModelSummary(
+        summary = CatalogModelSummary(
             model_url=_local_model_url(local_model_id),
             public_id=local_model_id,
             model_id=local_model_id,
@@ -156,11 +156,11 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedManyfoldModel]:
             keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
             entity_type=str(row["entity_type"] or "model"),
         )
-        models.append(CachedManyfoldModel(summary=summary, raw_payload=raw_payload))
+        models.append(CachedCatalogModel(summary=summary, raw_payload=raw_payload))
     return models
 
 
-def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
+def _resolve_model_summary(summary_by_url: dict[str, CatalogModelSummary], model_ref: str) -> CatalogModelSummary | None:
     normalized_ref = str(model_ref or "").strip()
     if not normalized_ref:
         return None
@@ -177,17 +177,17 @@ def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], mode
 def _archive_link_to_response(
     link: ArchiveModelLink,
     *,
-    summary_by_url: dict[str, ManyfoldModelSummary] | None = None,
+    summary_by_url: dict[str, CatalogModelSummary] | None = None,
 ) -> dict[str, Any]:
-    summary = summary_by_url.get(link.manyfold_model_url) if summary_by_url else None
+    summary = summary_by_url.get(link.model_url) if summary_by_url else None
     return {
         "id": link.id,
         "archive_id": link.bambuddy_archive_id,
-        "manyfold_model_url": link.manyfold_model_url,
-        "manyfold_model_public_id": link.manyfold_model_public_id,
-        "manyfold_model_file_id": link.manyfold_model_file_id,
-        "manyfold_model_name": summary.name if summary else None,
-        "manyfold_preview_url": summary.preview_url if summary else None,
+        "model_url": link.model_url,
+        "model_public_id": link.model_public_id,
+        "model_asset_id": link.model_asset_id,
+        "model_name": summary.name if summary else None,
+        "preview_url": summary.preview_url if summary else None,
         "relationship_type": link.relationship_type,
         "link_role": link.link_role,
         "match_method": link.match_method,
@@ -257,7 +257,7 @@ def _extract_model_hashes(payload: dict[str, Any]) -> set[str]:
     }
 
 
-def _extract_model_filenames(summary: ManyfoldModelSummary, payload: dict[str, Any]) -> set[str]:
+def _extract_model_filenames(summary: CatalogModelSummary, payload: dict[str, Any]) -> set[str]:
     names = {summary.name}
     names.update(_extract_string_values(payload, {"source_file_name", "filename", "original_filename", "name", "title"}))
     return {normalized for normalized in (_normalized_filename_stem(name) for name in names) if normalized}
@@ -299,7 +299,7 @@ def _time_proximity_boost(*, archive_times: list[datetime], candidate_times: lis
 
 def _build_candidate_match(
     *,
-    cached_model: CachedManyfoldModel,
+    cached_model: CachedCatalogModel,
     archive_name: str,
     source_file_name: str | None,
     source_hash: str | None,
@@ -391,7 +391,7 @@ def _normalized_model_url(settings: Any, model_url: str | None) -> str | None:
     normalized = str(model_url or "").strip()
     if not normalized:
         return None
-    return canonicalize_model_url(settings.manyfold_base_url, normalized)
+    return canonicalize_model_url(settings.catalog_base_url, normalized)
 
 @router.get("/api/archive-links/{archive_id}")
 def get_archive_links(request: Request, archive_id: int, include_inactive: bool = False) -> dict[str, Any]:
@@ -408,17 +408,17 @@ def get_archive_links(request: Request, archive_id: int, include_inactive: bool 
 @router.post("/api/archive-links/{archive_id}")
 def create_archive_link_endpoint(request: Request, archive_id: int, payload: dict[str, Any]) -> Any:
     state: AppState = request.app.state.model_catalog
-    manyfold_model_url = _normalized_model_url(state.settings, payload.get("manyfold_model_url")) or ""
-    if not manyfold_model_url:
-        return _error_response(archive_id=archive_id, error="invalid_payload", message="manyfold_model_url is required.")
-    created = create_archive_link(db_path=state.settings.db_path, archive_id=archive_id, manyfold_model_url=manyfold_model_url, manyfold_model_public_id=str(payload.get("manyfold_model_public_id") or "").strip() or None, manyfold_model_file_id=str(payload.get("manyfold_model_file_id") or "").strip() or None, relationship_type=str(payload.get("relationship_type") or "source_for").strip(), link_role=str(payload.get("link_role") or "primary").strip(), match_method=str(payload.get("match_method") or "manual").strip(), match_confidence=str(payload.get("match_confidence") or "high").strip(), review_state=str(payload.get("review_state") or "accepted").strip(), is_active=bool(payload.get("is_active", True)), review_note=str(payload.get("review_note") or "").strip() or None)
+    model_url = _normalized_model_url(state.settings, payload.get("model_url")) or ""
+    if not model_url:
+        return _error_response(archive_id=archive_id, error="invalid_payload", message="model_url is required.")
+    created = create_archive_link(db_path=state.settings.db_path, archive_id=archive_id, model_url=model_url, model_public_id=str(payload.get("model_public_id") or "").strip() or None, model_asset_id=str(payload.get("model_asset_id") or "").strip() or None, relationship_type=str(payload.get("relationship_type") or "source_for").strip(), link_role=str(payload.get("link_role") or "primary").strip(), match_method=str(payload.get("match_method") or "manual").strip(), match_confidence=str(payload.get("match_confidence") or "high").strip(), review_state=str(payload.get("review_state") or "accepted").strip(), is_active=bool(payload.get("is_active", True)), review_note=str(payload.get("review_note") or "").strip() or None)
     summary_by_url = _summary_map(state.settings.db_path)
     return {"success": True, "archive_id": archive_id, "link": _archive_link_to_response(created, summary_by_url=summary_by_url)}
 
 @router.patch("/api/archive-links/{archive_id}/{link_id}")
 def update_archive_link_endpoint(request: Request, archive_id: int, link_id: int, payload: dict[str, Any]) -> Any:
     state: AppState = request.app.state.model_catalog
-    updated = update_archive_link(db_path=state.settings.db_path, archive_id=archive_id, link_id=link_id, manyfold_model_url=_normalized_model_url(state.settings, payload.get("manyfold_model_url")), manyfold_model_public_id=str(payload.get("manyfold_model_public_id") or "").strip() or None, manyfold_model_file_id=str(payload.get("manyfold_model_file_id") or "").strip() or None, relationship_type=str(payload.get("relationship_type") or "").strip() or None, link_role=str(payload.get("link_role") or "").strip() or None, match_method=str(payload.get("match_method") or "").strip() or None, match_confidence=str(payload.get("match_confidence") or "").strip() or None, review_state=str(payload.get("review_state") or "").strip() or None, is_active=payload.get("is_active") if "is_active" in payload else None, review_note=str(payload.get("review_note") or "").strip() or None)
+    updated = update_archive_link(db_path=state.settings.db_path, archive_id=archive_id, link_id=link_id, model_url=_normalized_model_url(state.settings, payload.get("model_url")), model_public_id=str(payload.get("model_public_id") or "").strip() or None, model_asset_id=str(payload.get("model_asset_id") or "").strip() or None, relationship_type=str(payload.get("relationship_type") or "").strip() or None, link_role=str(payload.get("link_role") or "").strip() or None, match_method=str(payload.get("match_method") or "").strip() or None, match_confidence=str(payload.get("match_confidence") or "").strip() or None, review_state=str(payload.get("review_state") or "").strip() or None, is_active=payload.get("is_active") if "is_active" in payload else None, review_note=str(payload.get("review_note") or "").strip() or None)
     if updated is None:
         return _error_response(archive_id=archive_id, error="link_not_found", message=f"No archive link found for archive_id={archive_id}, link_id={link_id}.", status_code=404)
     summary_by_url = _summary_map(state.settings.db_path)
@@ -442,7 +442,7 @@ def cleanup_archive_link_duplicates_endpoint(request: Request, archive_id: int, 
     all_links = read_archive_links(db_path=state.settings.db_path, archive_id=archive_id, active_only=False)
     grouped_links: dict[str, list[ArchiveModelLink]] = {}
     for link in all_links:
-        canonical_url = _normalized_model_url(state.settings, link.manyfold_model_url) or link.manyfold_model_url
+        canonical_url = _normalized_model_url(state.settings, link.model_url) or link.model_url
         grouped_links.setdefault(canonical_url, []).append(link)
     removable_link_ids: list[int] = []
     duplicate_groups: list[dict[str, Any]] = []
@@ -479,7 +479,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
     if not archive_name:
         return _error_response(archive_id=archive_id, error="invalid_payload", message="archive_name is required for candidate refresh.")
 
-    # Use local catalog entries as the candidate source (replaces Manyfold cache)
+    # Use local catalog entries as the candidate source (local catalog source)
     cached_models = _read_local_catalog_for_matching(db_path=state.settings.db_path)
     archive_times = [value for value in (archive_completed_at, archive_started_at) if value is not None]
     candidate_matches_by_url: dict[str, CandidateMatch] = {}
@@ -497,7 +497,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
         if match is None or match.score < min_score:
             continue
         canonical_url = _normalized_model_url(state.settings, match.summary.model_url) or match.summary.model_url
-        canonical_summary = ManyfoldModelSummary(
+        canonical_summary = CatalogModelSummary(
             model_url=canonical_url,
             public_id=match.summary.public_id,
             model_id=match.summary.model_id,
@@ -539,8 +539,8 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
         auto_accept = match.deterministic and len(deterministic_matches) == 1 and not active_confirmed_link
         selected_candidates.append(
             {
-                "manyfold_model_url": match.summary.model_url,
-                "manyfold_model_public_id": match.summary.public_id or "",
+                "model_url": match.summary.model_url,
+                "model_public_id": match.summary.public_id or "",
                 "match_method": match.match_method,
                 "match_confidence": match.match_confidence,
                 "review_state": "accepted" if auto_accept else "new",

@@ -25,7 +25,7 @@ A comprehensive pytest-based validation test suite has been created to systemati
 
 **Test Classes** (16 tests):
 - `TestHealthCheckEndpoints`: Health check endpoint validation
-- `TestManyfoldConnectivity`: Service reachability testing
+- `TestServiceConnectivity`: Service reachability testing
 - `TestServiceNetworking`: Docker network discovery
 - `TestEnvironmentConfiguration`: Environment variable validation
 - `TestErrorRecovery`: Error scenarios and recovery patterns
@@ -34,7 +34,7 @@ A comprehensive pytest-based validation test suite has been created to systemati
 **Key Validations**:
 ```
 ✓ Health checks at /healthz, /config, /diagnostics
-✓ Manyfold API accessibility
+✓ API accessibility
 ✓ OAuth endpoint detection
 ✓ Service DNS resolution (Docker networking)
 ✓ Environment variable schema
@@ -137,10 +137,10 @@ pytest tests/sidecars/model_catalog/test_spike_1059_working_files.py -v -s
 ---
 
 ### Module 4: `test_spike_1056_patch_behavior.py`
-**Focus**: Manyfold PATCH Behavior and Safe Write-Back Fields
+**Focus**: PATCH Behavior and Safe Write-Back Fields
 
 **Test Classes** (7 tests):
-- `TestManyfoldPatchBehavior`: PATCH field safety
+- `TestPatchBehavior`: PATCH field safety
 - `TestTagConversion`: Keywords ↔ CSV conversion
 - `TestFieldUpdateCycleWithRanking`: Ranking survival
 - `TestPatchErrorRecovery`: Error handling patterns
@@ -188,8 +188,8 @@ pytest tests/sidecars/model_catalog/test_spike_1056_patch_behavior.py -v -s
 **Focus**: Upload Flows, Rescan Behavior, and Recovery Scenarios
 
 **Test Classes** (9 tests):
-- `TestManyfoldUploadAndAddFile`: TUS upload protocol
-- `TestManyfoldRescan`: Rescan operation details
+- `TestUploadAndAddFile`: TUS upload protocol
+- `TestRescan`: Rescan operation details
 - `TestFileRestorationRecovery`: Recovery scenarios
 - `TestRecoveryWorkflows`: Operator workflows
 - `TestRecoveryValidationChecklist`: Recovery testing
@@ -211,7 +211,7 @@ pytest tests/sidecars/model_catalog/test_spike_1056_patch_behavior.py -v -s
 ✓ Rescan exists in Rails controllers
 ✓ Rescan NOT exposed via REST API (API gap!)
 ✓ Workarounds:
-  1. Manual trigger via Manyfold UI
+  1. Manual trigger via web UI
   2. Periodic polling: GET /api/v1/models/{id}
   3. Request upstream API enhancement
 ✓ Phase 3+: Contribute REST API endpoint
@@ -230,7 +230,7 @@ pytest tests/sidecars/model_catalog/test_spike_1056_patch_behavior.py -v -s
   - File replaced with different version
   - Partial restore (missing files)
   - Data loss recovery workflows
-  - Manyfold upgrade recovery
+  - Service upgrade recovery
   - Network failure recovery
 ```
 
@@ -308,11 +308,11 @@ Each test module includes comprehensive implementation checklists for the corres
 ### Deployment Checklist (Spike #1061):
 - [ ] Docker Compose file syntax valid
 - [ ] All required environment variables set
-- [ ] OAuth app created in Manyfold
+- [ ] OAuth app created
 - [ ] Shared volumes configured and writable
 - [ ] Network created: docker network ls
 - [ ] Health checks pass for all services
-- [ ] Sidecar can reach Manyfold
+- [ ] Sidecar can reach catalog service
 - [ ] HA can reach sidecar
 - [ ] Database persists across restarts
 
@@ -336,7 +336,7 @@ Each test module includes comprehensive implementation checklists for the corres
    - Public IDs are stable across rescan/deletion/restoration
    - Model IDs change when files are moved/rescanned
 
-2. **Manyfold Rescan API Gap** (Spike #1057)
+2. **Rescan API Gap** (Spike #1057)
    - Rescan exists in Rails but NOT exposed via REST API
    - Workaround: Manual trigger via UI or periodic polling
    - Phase 3+: Contribute REST API endpoint to upstream
@@ -402,8 +402,6 @@ def test_client(TestClient): ...     # FastAPI test client
 @pytest.fixture
 def httpx_client(): ...              # HTTP client for service testing
 @pytest.fixture(scope="session")
-def manyfold_base_url(): ...         # Manyfold service URL
-@pytest.fixture(scope="session")
 def sidecar_base_url(): ...          # Sidecar service URL
 ```
 
@@ -414,7 +412,7 @@ def sidecar_base_url(): ...          # Sidecar service URL
 These tests can be integrated into:
 1. **Pre-deployment validation** - Run before Phase 2 launch
 2. **Regression testing** - After sidecar code changes
-3. **Upgrade validation** - After Manyfold version upgrades
+3. **Upgrade validation** - After service version upgrades
 4. **Integration tests** - With full Docker stack running
 5. **Documentation** - Tests serve as executable reference
 
@@ -456,9 +454,9 @@ These tests can be integrated into:
 - [tests/sidecars/model_catalog/test_spike_1055_1057_1058.py](tests/sidecars/model_catalog/test_spike_1055_1057_1058.py)
 
 **Documentation**:
-- [docs/features/model_catalog/integration/spike-1055-manyfold-upload-add-file-validation.md](docs/features/model_catalog/integration/spike-1055-manyfold-upload-add-file-validation.md)
-- [docs/features/model_catalog/integration/spike-1056-manyfold-patch-behavior-validation.md](docs/features/model_catalog/integration/spike-1056-manyfold-patch-behavior-validation.md)
-- [docs/features/model_catalog/integration/spike-1057-manyfold-rescan-behavior-validation.md](docs/features/model_catalog/integration/spike-1057-manyfold-rescan-behavior-validation.md)
+- [docs/features/model_catalog/integration/spike-1055-upload-add-file-validation.md](docs/features/model_catalog/integration/spike-1055-upload-add-file-validation.md)
+- [docs/features/model_catalog/integration/spike-1056-patch-behavior-validation.md](docs/features/model_catalog/integration/spike-1056-patch-behavior-validation.md)
+- [docs/features/model_catalog/integration/spike-1057-rescan-behavior-validation.md](docs/features/model_catalog/integration/spike-1057-rescan-behavior-validation.md)
 - [docs/features/model_catalog/integration/spike-1058-recovery-restoration-validation.md](docs/features/model_catalog/integration/spike-1058-recovery-restoration-validation.md)
 - [docs/features/model_catalog/integration/spike-1059-working-file-indexing-validation.md](docs/features/model_catalog/integration/spike-1059-working-file-indexing-validation.md)
 - [docs/features/model_catalog/integration/spike-1060-archive-ranking-signals-validation.md](docs/features/model_catalog/integration/spike-1060-archive-ranking-signals-validation.md)

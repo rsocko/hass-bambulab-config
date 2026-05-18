@@ -58,14 +58,14 @@ class ArchiveLinkingEngine:
     FILENAME_MATCH_WEIGHT = 1.5
     TIME_PROXIMITY_WEIGHT = 0.15
     
-    def __init__(self, manyfold_client: Any, db_client: Any | None = None):
+    def __init__(self, catalog_client: Any, db_client: Any | None = None):
         """Initialize linking engine.
         
         Args:
-            manyfold_client: ManyfoldClient for fetching models
+            catalog_client: Client for fetching models
             db_client: Database client for caching (optional)
         """
-        self.manyfold_client = manyfold_client
+        self.catalog_client = catalog_client
         self.db_client = db_client
         self._cache: dict[int, list[LinkCandidate]] = {}
     
@@ -90,7 +90,7 @@ class ArchiveLinkingEngine:
         candidates: dict[str, LinkCandidate] = {}
         
         try:
-            models = self.manyfold_client.list_model_payloads()
+            models = self.catalog_client.list_model_payloads()
         except Exception as e:
             raise RuntimeError(f"Failed to fetch models: {str(e)}")
         
@@ -446,7 +446,7 @@ class ArchiveLinkingEngine:
             List of related model info sorted by similarity score
         """
         try:
-            models = self.manyfold_client.list_model_payloads()
+            models = self.catalog_client.list_model_payloads()
         except Exception as e:
             raise RuntimeError(f"Failed to fetch models: {str(e)}")
         
