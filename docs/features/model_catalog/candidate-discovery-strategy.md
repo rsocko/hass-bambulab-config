@@ -211,3 +211,23 @@ When a deterministic hash match resolves to a specific catalog asset (file), the
 ### Graduation Migration
 
 When a working group is published to the local catalog, all archive links referencing the old `local://working-group/{id}` URL are automatically migrated to the new `local://model/{uuid}` identity. This is handled by `migrate_links_for_graduation()` in `db_archive_links.py`, called during the publish workflow in `working_catalog_service.py`.
+
+## Implementation Status — Issue #1118 Broadening
+
+### Structured Candidate Rationale
+
+Each `CandidateMatch` now carries a `signals` tuple of typed dictionaries alongside the human-readable `rationale` list. Each signal records `type`, `strength` (deterministic / strong / moderate / weak), and signal-specific metadata (e.g. `score`, `days`, `count`). The `review_note` stored in the database is now a JSON blob with `summary` (human-readable) and `signals` (structured array), enabling the popup UI to render typed signal pills with colour-coded strength.
+
+### Linked-Archive Count Boost
+
+A new Tier 2 heuristic signal (`linked_archive_count`) gives a small score boost (+0.1 per prior accepted link, capped at 5) to models already linked to other archives. The boost is only applied when the candidate already has a positive score from other signals, preventing popular-but-unrelated models from surfacing as noise. The current archive is excluded from the count to avoid self-reinforcing signals.
+
+### Signal Types
+
+| Signal Type | Tier | Strength | Notes |
+|---|---|---|---|
+| `source_hash_exact` | 1 (Deterministic) | `deterministic` | Auto-accept when unique |
+| `name_overlap` | 2 (Heuristic) | varies by score | Token overlap between archive name and model name |
+| `filename_overlap` | 2 (Heuristic) | varies by score | Token overlap between source filename and catalog filenames |
+| `time_proximity` | 2 (Heuristic) | varies by boost | Upload recency relative to archive timestamps |
+| `linked_archive_count` | 2 (Heuristic) | `weak` | Prior accepted links to other archives |
