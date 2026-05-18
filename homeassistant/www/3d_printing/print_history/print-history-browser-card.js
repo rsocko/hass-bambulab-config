@@ -62,6 +62,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._viewSignature = "";
     this._selectionSignature = "";
     this._refreshIndicatorSignature = "";
+    this._suppressRevisionEcho = false;
     this._selectedArchiveIds = {};
     this._handledMultiSelectRequest = "";
     this._bulkDialog = null;
@@ -86,6 +87,25 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var selectionChanged = nextSelectionSignature !== this._selectionSignature;
 
     if (nextQuerySignature !== this._querySignature) {
+      // After _refreshData() completes, the server echoes back a bumped
+      // browser_revision via state_changed.  If the only fields that
+      // changed are the revision counters, absorb without re-fetching.
+      if (this._suppressRevisionEcho) {
+        this._suppressRevisionEcho = false;
+        try {
+          var prev = JSON.parse(this._querySignature);
+          var next = JSON.parse(nextQuerySignature);
+          prev.filteredRevision = next.filteredRevision;
+          prev.pageInfoRevision = next.pageInfoRevision;
+          if (JSON.stringify(prev) === JSON.stringify(next)) {
+            this._querySignature = nextQuerySignature;
+            this._selectionSignature = nextSelectionSignature;
+            return;
+          }
+        } catch (_e) {
+          // Fall through to normal refresh path.
+        }
+      }
       this._querySignature = nextQuerySignature;
       this._selectionSignature = nextSelectionSignature;
       this._queueRefresh();
@@ -496,6 +516,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._loading = false;
       this._querySignature = this._buildQuerySignature(this._hass);
       this._viewSignature = this._buildViewSignature(this._hass);
+      this._suppressRevisionEcho = true;
       var renderStart = _perf ? _perf.now() : Date.now();
       if (this._initialRenderDone) {
         this._renderBody();
