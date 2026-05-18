@@ -10,6 +10,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._queryToken = 0;
     this._refreshTimer = null;
     this._refreshIndicatorSignature = "";
+    this._refreshRequestTimeoutMs = 20000;
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
@@ -460,7 +461,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var token = ++this._queryToken;
     var started = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
     try {
-      var response = await this._hass.callWS(this._buildQueryPayload());
+      var response = await this._callWsWithTimeout(this._buildQueryPayload(), this._refreshRequestTimeoutMs);
       if (token !== this._queryToken) {
         return;
       }
@@ -475,11 +476,41 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._response = { archives: [], query: {} };
       this._error = error && error.message ? error.message : String(error);
       this._recordDebug("browser_error", { error: this._error }, started);
+    } finally {
+      if (token !== this._queryToken) {
+        return;
+      }
+      this._loading = false;
+      this._viewSignature = this._buildViewSignature(this._hass);
+      this._renderBody();
+      this._syncRefreshIndicator(true);
     }
-    this._loading = false;
-    this._viewSignature = this._buildViewSignature(this._hass);
-    this._renderBody();
-    this._syncRefreshIndicator(true);
+  }
+
+  async _callWsWithTimeout(payload, timeoutMs) {
+    if (!this._hass || typeof this._hass.callWS !== "function") {
+      throw new Error("Home Assistant connection unavailable");
+    }
+
+    var timeout = Number(timeoutMs) || 0;
+    if (timeout <= 0) {
+      return this._hass.callWS(payload);
+    }
+
+    var timeoutHandle = null;
+    var timeoutPromise = new Promise(function (_resolve, reject) {
+      timeoutHandle = setTimeout(function () {
+        reject(new Error("Print history request timed out while loading archives."));
+      }, timeout);
+    });
+
+    try {
+      return await Promise.race([this._hass.callWS(payload), timeoutPromise]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   }
 
   _backendRefreshState() {
