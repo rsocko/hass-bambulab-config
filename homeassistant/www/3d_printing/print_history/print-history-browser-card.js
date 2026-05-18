@@ -29,6 +29,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       executedRefreshes: 0,
       coalescedRefreshes: 0,
     };
+    this._pendingBodyRaf = 0;
+    this._initialRenderDone = false;
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundKeydownHandler = this._handleKeydown.bind(this);
     this._boundPointerDownHandler = this._handlePointerDown.bind(this);
@@ -92,7 +94,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     if (nextViewSignature !== this._viewSignature) {
       this._viewSignature = nextViewSignature;
-      this._renderBody();
+      if (this._initialRenderDone) {
+        this._renderBody();
+      }
     }
 
     if (selectionChanged) {
@@ -134,6 +138,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (this._refreshTimer) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
+    }
+    if (this._pendingBodyRaf) {
+      cancelAnimationFrame(this._pendingBodyRaf);
+      this._pendingBodyRaf = 0;
     }
   }
 
@@ -484,7 +492,19 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._loading = false;
       this._querySignature = this._buildQuerySignature(this._hass);
       this._viewSignature = this._buildViewSignature(this._hass);
-      this._renderBody();
+      if (this._initialRenderDone) {
+        this._renderBody();
+      } else {
+        this._initialRenderDone = true;
+        if (this._pendingBodyRaf) {
+          cancelAnimationFrame(this._pendingBodyRaf);
+        }
+        this._pendingBodyRaf = requestAnimationFrame(function () {
+          this._pendingBodyRaf = 0;
+          this._renderBody();
+          this._syncRefreshIndicator(true);
+        }.bind(this));
+      }
       this._syncRefreshIndicator(true);
     }
   }
