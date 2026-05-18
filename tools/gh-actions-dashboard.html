@@ -32,7 +32,7 @@
       background: var(--bg-primary);
       color: var(--text-primary);
       font-family: var(--font-sans);
-      font-size: 13px;
+      font-size: 16px;
       line-height: 1.4;
       -webkit-font-smoothing: antialiased;
     }
@@ -48,7 +48,7 @@
       flex-shrink: 0;
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
-      padding: 6px 10px;
+      padding: 8px 12px;
       transition: border-color 0.3s, box-shadow 0.3s;
     }
 
@@ -70,7 +70,7 @@
     }
 
     .header-title {
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 600;
       display: flex;
       align-items: center;
@@ -80,7 +80,7 @@
     }
 
     .header-repo {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-secondary);
       font-weight: 400;
       overflow: hidden;
@@ -95,32 +95,11 @@
     }
 
     .refresh-text {
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-tertiary);
       font-family: var(--font-mono);
-      min-width: 24px;
+      min-width: 28px;
       text-align: right;
-    }
-
-    .header-stats {
-      display: flex;
-      gap: 12px;
-      margin-top: 3px;
-      font-size: 11px;
-    }
-
-    .stat {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: var(--text-secondary);
-    }
-
-    .stat-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
     }
 
     /* ── Buttons ──────────────────────────── */
@@ -130,8 +109,8 @@
       color: var(--text-secondary);
       cursor: pointer;
       border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 14px;
+      padding: 4px 8px;
+      font-size: 18px;
       line-height: 1;
     }
 
@@ -141,9 +120,9 @@
     }
 
     .btn {
-      padding: 5px 14px;
+      padding: 6px 16px;
       border-radius: 4px;
-      font-size: 12px;
+      font-size: 15px;
       cursor: pointer;
       border: 1px solid var(--border);
       background: var(--bg-tertiary);
@@ -183,12 +162,12 @@
 
     /* ── Section headers ─────────────────── */
     .section-header {
-      font-size: 10px;
+      font-size: 13px;
       font-weight: 700;
       color: var(--text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      padding: 6px 4px 4px;
+      padding: 8px 4px 5px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -223,25 +202,25 @@
     .run-row {
       display: flex;
       align-items: center;
-      padding: 5px 8px;
-      gap: 6px;
+      padding: 7px 10px;
+      gap: 8px;
       cursor: pointer;
-      min-height: 34px;
+      min-height: 42px;
       transition: background 0.1s;
     }
 
     .run-row:hover { background: var(--bg-tertiary); }
 
     .run-row.child-row {
-      padding-left: 22px;
-      min-height: 30px;
+      padding-left: 26px;
+      min-height: 38px;
       border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
     }
 
     /* ── Status dots ─────────────────────── */
     .s-dot {
-      width: 10px;
-      height: 10px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       flex-shrink: 0;
     }
@@ -270,7 +249,7 @@
     }
 
     .run-name {
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -278,18 +257,18 @@
     }
 
     .run-meta {
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-secondary);
       display: flex;
-      gap: 5px;
+      gap: 6px;
       align-items: center;
     }
 
     .run-branch {
       color: var(--accent);
       font-family: var(--font-mono);
-      font-size: 10px;
-      max-width: 100px;
+      font-size: 13px;
+      max-width: 120px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -298,16 +277,16 @@
     .run-num {
       color: var(--text-tertiary);
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
     }
 
     .trigger-badge {
-      font-size: 9px;
+      font-size: 12px;
       color: var(--text-tertiary);
     }
 
     .run-time {
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-secondary);
       font-family: var(--font-mono);
       white-space: nowrap;
@@ -318,8 +297,8 @@
       flex-shrink: 0;
       color: var(--text-tertiary);
       text-decoration: none;
-      font-size: 13px;
-      padding: 2px 4px;
+      font-size: 16px;
+      padding: 3px 5px;
       border-radius: 3px;
       line-height: 1;
     }
@@ -332,13 +311,13 @@
     /* ── Expanded detail panel ───────────── */
     .run-details {
       border-top: 1px solid var(--border);
-      padding: 6px 8px 8px 28px;
+      padding: 8px 10px 10px 30px;
       background: var(--bg-primary);
-      font-size: 11px;
+      font-size: 14px;
     }
 
     .run-details.child-detail {
-      padding-left: 40px;
+      padding-left: 44px;
     }
 
     .commit-msg {
@@ -348,23 +327,23 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      font-size: 10px;
+      font-size: 13px;
     }
 
     .job-label {
       font-weight: 600;
       color: var(--text-primary);
-      margin-bottom: 2px;
-      font-size: 11px;
+      margin-bottom: 3px;
+      font-size: 14px;
     }
 
     .step-row {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 1px 0 1px 10px;
+      gap: 5px;
+      padding: 2px 0 2px 12px;
       color: var(--text-secondary);
-      font-size: 11px;
+      font-size: 13px;
     }
 
     .step-row.current-step {
@@ -378,9 +357,9 @@
 
     .step-icon {
       flex-shrink: 0;
-      width: 14px;
+      width: 16px;
       text-align: center;
-      font-size: 11px;
+      font-size: 13px;
     }
 
     .step-name {
@@ -392,7 +371,7 @@
 
     .step-dur {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text-tertiary);
       flex-shrink: 0;
     }
@@ -402,13 +381,13 @@
       text-align: center;
       padding: 24px;
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: 15px;
     }
 
     .spin {
       display: inline-block;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border: 2px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -440,13 +419,189 @@
       width: 92%;
     }
 
+    /* Wide modal variant for summary popup */
+    .modal-wide {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      max-width: 520px;
+      width: 96%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-wide .summary-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      flex-shrink: 0;
+    }
+
+    .modal-wide .summary-header h2 {
+      font-size: 16px;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .modal-wide .summary-body {
+      overflow-y: auto;
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .summary-body h1, .summary-body h2, .summary-body h3, .summary-body h4 {
+      color: var(--text-primary);
+      margin: 12px 0 6px;
+    }
+    .summary-body h1 { font-size: 18px; }
+    .summary-body h2 { font-size: 16px; }
+    .summary-body h3 { font-size: 14px; }
+    .summary-body h4 { font-size: 13px; }
+
+    .summary-body table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin: 8px 0;
+    }
+    .summary-body th, .summary-body td {
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .summary-body th {
+      background: var(--bg-tertiary);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .summary-body ul, .summary-body ol {
+      padding-left: 20px;
+      margin: 6px 0;
+    }
+    .summary-body li { margin: 2px 0; }
+
+    .summary-body code {
+      background: var(--bg-tertiary);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .summary-body pre {
+      background: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin: 8px 0;
+    }
+    .summary-body pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .summary-body hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .summary-body strong { color: var(--text-primary); }
+
+    .summary-body .no-summary {
+      text-align: center;
+      color: var(--text-tertiary);
+      padding: 20px 0;
+      font-style: italic;
+    }
+
+    /* Step-based summary */
+    .smry-meta {
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+    }
+    .smry-row {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      padding: 2px 0;
+      font-size: 13px;
+    }
+    .smry-label {
+      color: var(--text-tertiary);
+      min-width: 60px;
+      flex-shrink: 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .smry-val {
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .smry-job-hdr {
+      font-size: 14px;
+      margin: 10px 0 4px;
+      color: var(--text-primary);
+    }
+    .smry-steps {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .smry-steps td {
+      padding: 3px 6px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+    }
+    .smry-icon {
+      width: 20px;
+      text-align: center;
+    }
+    .smry-step-name { color: var(--text-secondary); }
+    .c-ok .smry-icon { color: var(--success); }
+    .c-fail .smry-icon { color: var(--failure); }
+    .c-fail .smry-step-name { color: var(--failure); font-weight: 600; }
+    .c-skip { opacity: 0.45; }
+    .c-skip .smry-step-name { font-style: italic; }
+
+    .btn-summary {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      min-width: 44px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-summary:hover, .btn-summary:active {
+      background: color-mix(in srgb, var(--accent) 15%, transparent);
+    }
+
     .modal h2 {
-      font-size: 15px;
-      margin-bottom: 6px;
+      font-size: 18px;
+      margin-bottom: 8px;
     }
 
     .modal p, .modal .hint {
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-secondary);
       margin-bottom: 10px;
       line-height: 1.5;
@@ -457,19 +612,19 @@
       padding: 1px 4px;
       border-radius: 3px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
     }
 
     .modal input[type="password"],
     .modal input[type="text"] {
       width: 100%;
-      padding: 6px 8px;
+      padding: 8px 10px;
       background: var(--bg-primary);
       border: 1px solid var(--border);
       border-radius: 4px;
       color: var(--text-primary);
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 15px;
       margin-bottom: 10px;
     }
 
@@ -488,19 +643,19 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 5px 0;
-      font-size: 12px;
+      padding: 6px 0;
+      font-size: 15px;
     }
 
     .setting-row label { color: var(--text-secondary); }
 
     .setting-row select {
-      padding: 3px 6px;
+      padding: 4px 8px;
       background: var(--bg-primary);
       border: 1px solid var(--border);
       border-radius: 4px;
       color: var(--text-primary);
-      font-size: 12px;
+      font-size: 14px;
     }
 
     .divider {
@@ -513,8 +668,8 @@
     .demo-banner {
       background: color-mix(in srgb, var(--pending) 12%, var(--bg-secondary));
       border-bottom: 1px solid color-mix(in srgb, var(--pending) 40%, var(--border));
-      padding: 4px 10px;
-      font-size: 11px;
+      padding: 5px 12px;
+      font-size: 14px;
       color: var(--pending);
       text-align: center;
       cursor: pointer;
@@ -534,8 +689,8 @@
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 5px 14px;
-      font-size: 11px;
+      padding: 6px 16px;
+      font-size: 14px;
       z-index: 200;
       opacity: 0;
       transition: opacity 0.3s;
@@ -548,14 +703,112 @@
     .error-bar {
       background: color-mix(in srgb, var(--failure) 15%, var(--bg-secondary));
       border-bottom: 1px solid var(--failure);
-      padding: 4px 10px;
-      font-size: 11px;
+      padding: 5px 12px;
+      font-size: 14px;
       color: var(--failure);
       text-align: center;
       flex-shrink: 0;
     }
 
     .error-bar.hidden { display: none; }
+    .demo-banner.hidden { display: none; }
+
+    /* ── KPI Hero Section ────────────────── */
+    .kpi-strip {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 8px 10px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .kpi-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: center;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .kpi-card.kpi-highlight {
+      border-color: var(--kpi-color, var(--border));
+      box-shadow: 0 0 8px color-mix(in srgb, var(--kpi-color, transparent) 25%, transparent);
+    }
+
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.1;
+      font-family: var(--font-mono);
+      color: var(--kpi-color, var(--text-primary));
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Overall status banner */
+    .status-beacon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 6px 12px;
+      font-size: 16px;
+      font-weight: 600;
+      border-bottom: 2px solid;
+      transition: all 0.3s;
+    }
+
+    .status-beacon.beacon-ok {
+      background: color-mix(in srgb, var(--success) 8%, var(--bg-primary));
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .status-beacon.beacon-running {
+      background: color-mix(in srgb, var(--running) 8%, var(--bg-primary));
+      border-color: var(--running);
+      color: var(--running);
+    }
+
+    .status-beacon.beacon-failed {
+      background: color-mix(in srgb, var(--failure) 10%, var(--bg-primary));
+      border-color: var(--failure);
+      color: var(--failure);
+    }
+
+    .beacon-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .beacon-running .beacon-dot {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
   </style>
 </head>
 <body>
@@ -620,6 +873,19 @@
       ⚡ Demo Mode — click to connect with your GitHub token for live data
     </div>
 
+    <!-- Summary popup overlay -->
+    <div id="overlay-summary" class="overlay hidden" onclick="if(event.target===this)closeSummary()">
+      <div class="modal-wide">
+        <div class="summary-header">
+          <h2 id="summary-title">Summary</h2>
+          <button class="btn-icon" onclick="closeSummary()" title="Close">✕</button>
+        </div>
+        <div class="summary-body" id="summary-body">
+          <span class="spin"></span>&ensp;Loading…
+        </div>
+      </div>
+    </div>
+
     <!-- Error bar -->
     <div id="error-bar" class="error-bar hidden"></div>
 
@@ -636,9 +902,38 @@
           <button class="btn-icon" onclick="openSettings()" title="Settings">⚙</button>
         </div>
       </div>
-      <div id="hdr-stats" class="header-stats"></div>
     </header>
     <div class="refresh-bar"><div id="bar-fill" class="refresh-bar-fill" style="width:100%"></div></div>
+
+    <!-- Status beacon -->
+    <div id="status-beacon" class="status-beacon beacon-ok">
+      <div class="beacon-dot"></div>
+      <span id="beacon-text">All Clear</span>
+    </div>
+
+    <!-- KPI strip -->
+    <div id="kpi-strip" class="kpi-strip">
+      <div class="kpi-card" id="kpi-running">
+        <div class="kpi-value" style="--kpi-color: var(--running)">0</div>
+        <div class="kpi-label">Running</div>
+        <div class="kpi-sub" id="kpi-running-sub">&nbsp;</div>
+      </div>
+      <div class="kpi-card" id="kpi-queued">
+        <div class="kpi-value" style="--kpi-color: var(--pending)">0</div>
+        <div class="kpi-label">Queued</div>
+        <div class="kpi-sub" id="kpi-queued-sub">&nbsp;</div>
+      </div>
+      <div class="kpi-card" id="kpi-failed">
+        <div class="kpi-value" style="--kpi-color: var(--failure)">0</div>
+        <div class="kpi-label">Failed</div>
+        <div class="kpi-sub" id="kpi-failed-sub">&nbsp;</div>
+      </div>
+      <div class="kpi-card" id="kpi-last">
+        <div class="kpi-value" style="--kpi-color: var(--success)">—</div>
+        <div class="kpi-label">Last OK</div>
+        <div class="kpi-sub" id="kpi-last-sub">&nbsp;</div>
+      </div>
+    </div>
 
     <!-- Main content -->
     <main id="content">
@@ -693,7 +988,7 @@ let tickId = null;
 // ── DOM refs ────────────────────────────────────────────────────
 const $content   = () => document.getElementById('content');
 const $hdr       = () => document.getElementById('hdr');
-const $hdrStats  = () => document.getElementById('hdr-stats');
+
 const $cdText    = () => document.getElementById('countdown-text');
 const $barFill   = () => document.getElementById('bar-fill');
 const $demoBnr   = () => document.getElementById('demo-banner');
@@ -832,16 +1127,11 @@ function render() {
   const anyFailed  = S.runs.slice(0, 8).some(r => r.conclusion === 'failure');
   hdr.className = anyRunning ? 'glow-running' : anyFailed ? 'glow-failure' : '';
 
-  // Stats
+  // KPI stats
   const nRun = S.runs.filter(r => r.status === 'in_progress').length;
   const nQ   = S.runs.filter(r => r.status === 'queued' || r.status === 'waiting').length;
   const nF   = S.runs.filter(r => r.conclusion === 'failure').length;
-  let st = '';
-  if (nRun) st += `<div class="stat"><span class="stat-dot" style="background:var(--running)"></span>${nRun} running</div>`;
-  if (nQ)   st += `<div class="stat"><span class="stat-dot" style="background:var(--pending)"></span>${nQ} queued</div>`;
-  if (nF)   st += `<div class="stat"><span class="stat-dot" style="background:var(--failure)"></span>${nF} failed</div>`;
-  if (!nRun && !nQ && !nF) st = `<div class="stat"><span class="stat-dot" style="background:var(--success)"></span>All clear</div>`;
-  $hdrStats().innerHTML = st;
+  renderKPI(nRun, nQ, nF);
 
   // Content
   let h = '';
@@ -855,6 +1145,71 @@ function render() {
   }
   if (!gs.length) h = '<div class="empty-state">No workflow runs found</div>';
   $content().innerHTML = h;
+}
+
+function renderKPI(nRun, nQ, nF) {
+  // Running
+  const kpiRunning = document.getElementById('kpi-running');
+  kpiRunning.querySelector('.kpi-value').textContent = nRun;
+  kpiRunning.className = nRun > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
+  kpiRunning.style.setProperty('--kpi-color', 'var(--running)');
+  const runningRuns = S.runs.filter(r => r.status === 'in_progress');
+  document.getElementById('kpi-running-sub').textContent =
+    runningRuns.length > 0 ? (SHORT[runningRuns[0].name] || runningRuns[0].name) : '\u00A0';
+
+  // Queued
+  const kpiQueued = document.getElementById('kpi-queued');
+  kpiQueued.querySelector('.kpi-value').textContent = nQ;
+  kpiQueued.className = nQ > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
+  kpiQueued.style.setProperty('--kpi-color', 'var(--pending)');
+  const queuedRuns = S.runs.filter(r => r.status === 'queued' || r.status === 'waiting');
+  document.getElementById('kpi-queued-sub').textContent =
+    queuedRuns.length > 0 ? (SHORT[queuedRuns[0].name] || queuedRuns[0].name) : '\u00A0';
+
+  // Failed (recent)
+  const kpiFailed = document.getElementById('kpi-failed');
+  kpiFailed.querySelector('.kpi-value').textContent = nF;
+  kpiFailed.className = nF > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
+  kpiFailed.style.setProperty('--kpi-color', 'var(--failure)');
+  const failedRuns = S.runs.filter(r => r.conclusion === 'failure');
+  document.getElementById('kpi-failed-sub').textContent =
+    failedRuns.length > 0 ? ago(failedRuns[0].updated_at) : '\u00A0';
+
+  // Last OK
+  const kpiLast = document.getElementById('kpi-last');
+  const lastOK = S.runs.find(r => r.conclusion === 'success');
+  kpiLast.querySelector('.kpi-value').textContent = lastOK ? agoShort(lastOK.updated_at) : '—';
+  kpiLast.style.setProperty('--kpi-color', 'var(--success)');
+  document.getElementById('kpi-last-sub').textContent =
+    lastOK ? (SHORT[lastOK.name] || lastOK.name) : '\u00A0';
+
+  // Status beacon
+  const beacon = document.getElementById('status-beacon');
+  const beaconText = document.getElementById('beacon-text');
+  if (nRun > 0) {
+    beacon.className = 'status-beacon beacon-running';
+    const names = runningRuns.map(r => SHORT[r.name] || r.name).join(', ');
+    beaconText.textContent = `Running: ${names}`;
+  } else if (nF > 0) {
+    beacon.className = 'status-beacon beacon-failed';
+    const names = failedRuns.slice(0, 2).map(r => SHORT[r.name] || r.name).join(', ');
+    beaconText.textContent = `Failed: ${names}`;
+  } else {
+    beacon.className = 'status-beacon beacon-ok';
+    beaconText.textContent = 'All Clear';
+  }
+}
+
+function agoShort(iso) {
+  const d = Date.now() - new Date(iso).getTime();
+  if (d < 0) return 'now';
+  const s = Math.floor(d / 1000);
+  if (s < 60)  return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + 'h';
+  return Math.floor(h / 24) + 'd';
 }
 
 function renderGrp(g) {
@@ -894,6 +1249,7 @@ function runRow(r, child) {
         </div>
       </div>
       <span class="run-time">${t}</span>
+      ${r.status === 'completed' ? `<button class="btn-summary" onclick="event.stopPropagation();showSummary(${r.id},'${(SHORT[r.name]||r.name).replace(/'/g,"\\'")}')">📋</button>` : ''}
       <a class="run-link" href="${esc(r.html_url)}" target="_blank" rel="noopener"
          onclick="event.stopPropagation()" title="Open on GitHub">↗</a>
     </div>`;
@@ -971,6 +1327,172 @@ function saveToken() {
   closeSetup();
   refresh();
   toast('Connected to GitHub');
+}
+
+// ── Summary popup ───────────────────────────────────────────────
+function closeSummary() { document.getElementById('overlay-summary').classList.add('hidden'); }
+
+async function showSummary(runId, runName) {
+  const overlay = document.getElementById('overlay-summary');
+  const title   = document.getElementById('summary-title');
+  const body    = document.getElementById('summary-body');
+
+  title.textContent = runName + ' - Summary';
+  body.innerHTML = '<span class="spin"></span>&ensp;Loading summary…';
+  overlay.classList.remove('hidden');
+
+  try {
+    // Load jobs
+    let jobs = S.jobs[runId];
+    if (!jobs) {
+      jobs = await loadJobs(runId);
+      S.jobs[runId] = jobs;
+    }
+
+    const completedJobs = jobs.jobs.filter(j => j.status === 'completed');
+    if (!completedJobs.length) {
+      body.innerHTML = '<div class="no-summary">No completed jobs yet.</div>';
+      return;
+    }
+
+    // Demo mode
+    if (S.demo) {
+      body.innerHTML = mdToHtml(demoSummary(completedJobs));
+      return;
+    }
+
+    // Try check-run output.summary first (some apps set it)
+    const crResults = await Promise.all(
+      completedJobs.map(j =>
+        api('/check-runs/' + j.id)
+          .then(d => ({ name: j.name, md: d.output && d.output.summary }))
+          .catch(() => ({ name: j.name, md: null }))
+      )
+    );
+    const mdParts = crResults.filter(r => r.md && r.md.trim());
+
+    if (mdParts.length) {
+      const combined = mdParts.length === 1
+        ? mdParts[0].md
+        : mdParts.map(p => '## ' + p.name + '\n\n' + p.md).join('\n\n---\n\n');
+      body.innerHTML = mdToHtml(combined);
+      return;
+    }
+
+    // Fallback: build rich summary from run metadata + step data
+    const run = S.runs.find(r => r.id === runId);
+    body.innerHTML = buildStepSummary(run, completedJobs);
+  } catch (e) {
+    console.error('Summary fetch error:', e);
+    body.innerHTML = '<div style="color:var(--failure)">Failed to load summary: ' + esc(e.message) + '</div>';
+  }
+}
+
+function buildStepSummary(run, jobs) {
+  let h = '';
+
+  // Run metadata
+  if (run) {
+    const sha = (run.head_sha || '').substring(0, 7);
+    const msg = run.head_commit?.message?.split('\n')[0] || '';
+    const branch = run.head_branch || '';
+    const elapsed = run.created_at && run.updated_at
+      ? dur(run.created_at, run.updated_at) : '';
+
+    h += '<div class="smry-meta">';
+    if (sha) h += '<div class="smry-row"><span class="smry-label">Commit</span><code>' + esc(sha) + '</code></div>';
+    if (msg) h += '<div class="smry-row"><span class="smry-label">Message</span><span class="smry-val">' + esc(msg) + '</span></div>';
+    if (branch) h += '<div class="smry-row"><span class="smry-label">Branch</span><span class="smry-val">' + esc(branch) + '</span></div>';
+    if (elapsed) h += '<div class="smry-row"><span class="smry-label">Duration</span><span class="smry-val">' + elapsed + '</span></div>';
+    h += '</div>';
+  }
+
+  // Per-job step table
+  for (const j of jobs) {
+    if (jobs.length > 1) {
+      const cIcon = j.conclusion === 'success' ? '✓' : j.conclusion === 'failure' ? '✗' : '—';
+      const cCls  = j.conclusion === 'success' ? 'c-ok' : j.conclusion === 'failure' ? 'c-fail' : '';
+      h += '<h3 class="smry-job-hdr"><span class="' + cCls + '">' + cIcon + '</span> ' + esc(j.name) + '</h3>';
+    }
+
+    const steps = (j.steps || []).filter(s =>
+      s.name !== 'Set up job' && s.name !== 'Complete job' &&
+      !s.name.startsWith('Post ')
+    );
+
+    h += '<table class="smry-steps"><tbody>';
+    for (const s of steps) {
+      const icon = s.conclusion === 'success' ? '✓'
+        : s.conclusion === 'failure' ? '✗'
+        : s.conclusion === 'skipped' ? '⊘'
+        : '·';
+      const cls = s.conclusion === 'success' ? 'c-ok'
+        : s.conclusion === 'failure' ? 'c-fail'
+        : s.conclusion === 'skipped' ? 'c-skip'
+        : '';
+      h += '<tr class="' + cls + '"><td class="smry-icon">' + icon + '</td>';
+      h += '<td class="smry-step-name">' + esc(s.name) + '</td></tr>';
+    }
+    h += '</tbody></table>';
+  }
+
+  return h;
+}
+
+function demoSummary(jobs) {
+  const name = jobs[0]?.name || 'job';
+  if (name === 'deploy') {
+    return `### Actual Files Changed In Deploy\n\n| Status | File |\n|--------|------|\n| Updated | \`packages/3d_printing/common/dashboards/_resources.yaml\` |\n| Updated | \`www/print-history-browser.js\` |\n| Added | \`www/model-catalog-browser.js\` |\n\n### In-Scope Git Diff Files\n\n- \`homeassistant/packages/3d_printing/common/dashboards/_resources.yaml\`\n- \`homeassistant/www/print-history-browser.js\`\n- \`homeassistant/www/model-catalog-browser.js\``;
+  }
+  return `### ${name}\n\nAll steps completed successfully.\n\n- **Duration**: ${jobs[0].started_at && jobs[0].completed_at ? dur(jobs[0].started_at, jobs[0].completed_at) : 'N/A'}\n- **Conclusion**: ${jobs[0].conclusion || 'unknown'}`;
+}
+
+// Lightweight markdown to HTML (covers GH step summary output)
+function mdToHtml(md) {
+  let html = esc(md);
+
+  // Code blocks (``` ... ```)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    '<pre><code>' + code.trim() + '</code></pre>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold & italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Horizontal rules
+  html = html.replace(/^---+$/gm, '<hr>');
+
+  // Tables
+  html = html.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)+)/gm, (_, hdr, sep, rows) => {
+    const ths = hdr.split('|').filter(c => c.trim()).map(c => '<th>' + c.trim() + '</th>').join('');
+    const trs = rows.trim().split('\n').map(row => {
+      const tds = row.split('|').filter(c => c.trim()).map(c => '<td>' + c.trim() + '</td>').join('');
+      return '<tr>' + tds + '</tr>';
+    }).join('');
+    return '<table><thead><tr>' + ths + '</tr></thead><tbody>' + trs + '</tbody></table>';
+  });
+
+  // Unordered lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // Line breaks for remaining lines (but not inside block elements)
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+
+  // Clean up empty paragraphs
+  html = html.replace(/<p><\/p>/g, '');
+
+  return '<p>' + html + '</p>';
 }
 
 function updateSetting(k, v) {
