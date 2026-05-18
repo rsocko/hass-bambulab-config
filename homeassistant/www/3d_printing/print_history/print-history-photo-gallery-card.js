@@ -19,6 +19,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._uploadStatusTone = "info";
     this._operationType = null;
     this._preloadedSources = {};
+    this._preloadTimer = null;
     this._lastRenderSignature = "";
     this._overlayRoot = null;
     this._previousBodyOverflow = null;
@@ -78,6 +79,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundShadowClickHandler);
       this.shadowRoot.removeEventListener("change", this._boundShadowChangeHandler);
+    }
+    if (this._preloadTimer) {
+      clearTimeout(this._preloadTimer);
+      this._preloadTimer = null;
     }
     this._destroyOverlayRoot();
   }
@@ -519,6 +524,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       var images = this._buildImages(nextArchive);
       this._activeIndex = Math.max(0, Math.min(this._activeIndex, images.length - 1));
       this._emitArchiveStateChanged(nextArchive);
+      this._render();
       this._setUploadStatus("Photo deleted.", "success", false, "delete");
     } catch (error) {
       var message = error && error.message ? error.message : "Photo delete failed";
@@ -526,12 +532,41 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
   }
 
+  _syncOperationUiState() {
+    if (!this.shadowRoot || !this.shadowRoot.querySelector(".wrap")) {
+      return false;
+    }
+
+    var active = this._images && this._images.length ? this._images[this._activeIndex] : null;
+    var primaryAction = this._buildPrimaryAction(active, "action-button");
+    var deleteAction = this._buildDeleteAction(active, "action-button");
+    var uploadAction = this._buildUploadAction("action-button");
+
+    var metaActions = this.shadowRoot.querySelector(".meta-actions");
+    if (metaActions) {
+      metaActions.innerHTML = uploadAction + primaryAction + deleteAction;
+    }
+
+    var uploadStatusHost = this.shadowRoot.querySelector(".upload-status-host");
+    if (uploadStatusHost) {
+      uploadStatusHost.innerHTML = this._renderUploadStatus();
+    }
+
+    if (this._expanded) {
+      this._renderOverlay();
+    }
+
+    return true;
+  }
+
   _setUploadStatus(message, tone, inProgress, operationType) {
     this._uploadStatus = String(message || "").trim();
     this._uploadStatusTone = tone === "error" ? "error" : tone === "success" ? "success" : "info";
     this._uploadInProgress = !!inProgress;
     this._operationType = operationType || null;
-    this._render();
+    if (!this._syncOperationUiState()) {
+      this._render();
+    }
   }
 
   _openUploadPicker() {
@@ -594,6 +629,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         if (photoCount > 0) {
           this._activeIndex = photoCount - 1 + (this._config && this._config.include_thumbnail ? 1 : 0);
         }
+        this._render();
         uploadedCount += 1;
       }
       this._setUploadStatus(
@@ -1421,15 +1457,51 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   }
 
   _preloadImages(images) {
-    images.forEach(function (image) {
-      if (!image || !image.src || this._preloadedSources[image.src]) {
-        return;
+    if (this._preloadTimer) {
+      clearTimeout(this._preloadTimer);
+      this._preloadTimer = null;
+    }
+
+    var list = Array.isArray(images) ? images : [];
+    if (!list.length) {
+      return;
+    }
+
+    var activeIndex = Math.max(0, Math.min(Number(this._activeIndex) || 0, list.length - 1));
+    var preloadOrder = [];
+    var seen = {};
+    var maxPreload = Math.min(12, list.length);
+
+    for (var step = 0; preloadOrder.length < maxPreload && step < list.length; step += 1) {
+      var left = activeIndex - step;
+      var right = activeIndex + step;
+      if (left >= 0 && !seen[left]) {
+        seen[left] = true;
+        preloadOrder.push(left);
       }
-      this._preloadedSources[image.src] = true;
-      var preloadImage = new Image();
-      preloadImage.decoding = "async";
-      preloadImage.src = image.src;
-    }, this);
+      if (preloadOrder.length >= maxPreload) {
+        break;
+      }
+      if (right < list.length && !seen[right]) {
+        seen[right] = true;
+        preloadOrder.push(right);
+      }
+    }
+
+    this._preloadTimer = setTimeout(function () {
+      this._preloadTimer = null;
+      preloadOrder.forEach(function (index) {
+        var image = list[index];
+        if (!image || !image.src || this._preloadedSources[image.src]) {
+          return;
+        }
+        this._preloadedSources[image.src] = true;
+        var preloadImage = new Image();
+        preloadImage.decoding = "async";
+        preloadImage.loading = "lazy";
+        preloadImage.src = image.src;
+      }, this);
+    }.bind(this), 0);
   }
 
   _ensureOverlayRoot() {
@@ -1555,7 +1627,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '</div>' +
       '<div class="filmstrip">' + this._images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '" aria-label="' + this._escapeHtml(image.label) + '">' +
-          '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || this._archiveName) + '">' +
+          '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || this._archiveName) + '" loading="lazy" decoding="async">' +
           '</button>';
       }.bind(this)).join("") + '</div>' +
       '</div>' +
@@ -1845,7 +1917,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="upload-status-host">' + this._renderUploadStatus() + '</div>' +
       (hasImages ? ('<div class="thumbs">' + images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
-          '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || archiveName) + '">' +
+          '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || archiveName) + '" loading="lazy" decoding="async">' +
           '<span class="thumb-label">' + this._escapeHtml(image.label) + '</span>' +
           '</button>';
       }.bind(this)).join("") + '</div>') : "") +

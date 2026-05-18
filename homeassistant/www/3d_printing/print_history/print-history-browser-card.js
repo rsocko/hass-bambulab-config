@@ -2619,7 +2619,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       if (Date.now() < this._suppressOpenUntil && String(this._suppressOpenArchiveId || "") === String(archive && archive.id || "")) {
         return;
       }
-      await this._openArchivePopup(archive);
+      this._openArchivePopup(archive);
     }
   }
 
@@ -2790,7 +2790,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._toggleSelectedArchive(archive);
       return;
     }
-    await this._openArchivePopup(archive);
+    this._openArchivePopup(archive);
   }
 
   async _toggleFavorite(archive) {
@@ -2890,7 +2890,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archiveId = archive.id;
     var archiveName = archive.print_name || ("Archive " + archiveId);
     var popupTitle = archiveName + " · #" + archiveId;
-    var archiveInfo = this._splitArchiveNotes(archive.notes);
+    var archiveInfo = this._splitArchiveNotesLight(archive.notes);
     var archiveUserTags = this._userTags(archive.tags);
     var archiveStatus = this._normalizeStatus(archive.status || "completed");
     var archiveFailureReason = String(archive.failure_reason || "").trim();
@@ -3086,86 +3086,90 @@ class PrintHistoryBrowserCard extends HTMLElement {
       },
     });
 
-    this._fireBrowserModEvent("browser_mod.sequence", {
-      sequence: [
-        {
-          service: "input_text.set_value",
-          data: {
-            entity_id: "input_text.print_history_popup_archive_id",
-            value: String(archiveId),
-          },
+    var popupHydrationSequence = [
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_popup_archive_id",
+          value: String(archiveId),
         },
-        {
-          service: archive.is_favorite ? "input_boolean.turn_on" : "input_boolean.turn_off",
-          data: {
-            entity_id: "input_boolean.print_history_popup_is_favorite",
-          },
+      },
+      {
+        service: archive.is_favorite ? "input_boolean.turn_on" : "input_boolean.turn_off",
+        data: {
+          entity_id: "input_boolean.print_history_popup_is_favorite",
         },
-        {
-          service: "input_text.set_value",
-          data: {
-            entity_id: "input_text.print_history_popup_print_name",
-            value: editablePrintName,
-          },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_popup_print_name",
+          value: editablePrintName,
         },
-        {
-          service: "input_text.set_value",
-          data: {
-            entity_id: "input_text.print_history_popup_tags",
-            value: editableTags,
-          },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_popup_tags",
+          value: editableTags,
         },
-        {
-          service: "input_text.set_value",
-          data: {
-            entity_id: "input_text.print_history_popup_notes",
-            value: editableNotes,
-          },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_popup_notes",
+          value: editableNotes,
         },
-        {
-          service: "input_select.set_options",
-          data: {
-            entity_id: "input_select.print_history_popup_project",
-            options: projectPicker.options,
-          },
+      },
+      {
+        service: "input_select.set_options",
+        data: {
+          entity_id: "input_select.print_history_popup_project",
+          options: projectPicker.options,
         },
-        {
-          service: "input_select.select_option",
-          data: {
-            entity_id: "input_select.print_history_popup_project",
-            option: projectPicker.selected,
-          },
+      },
+      {
+        service: "input_select.select_option",
+        data: {
+          entity_id: "input_select.print_history_popup_project",
+          option: projectPicker.selected,
         },
-        {
-          service: "input_select.set_options",
-          data: {
-            entity_id: "input_select.print_history_popup_status",
-            options: statusOptions,
-          },
+      },
+      {
+        service: "input_select.set_options",
+        data: {
+          entity_id: "input_select.print_history_popup_status",
+          options: statusOptions,
         },
-        {
-          service: "input_select.select_option",
-          data: {
-            entity_id: "input_select.print_history_popup_status",
-            option: archiveStatusOption,
-          },
+      },
+      {
+        service: "input_select.select_option",
+        data: {
+          entity_id: "input_select.print_history_popup_status",
+          option: archiveStatusOption,
         },
-        {
-          service: "input_select.set_options",
-          data: {
-            entity_id: "input_select.print_history_popup_failure_reason",
-            options: failureReasonOptions,
-          },
+      },
+      {
+        service: "input_select.set_options",
+        data: {
+          entity_id: "input_select.print_history_popup_failure_reason",
+          options: failureReasonOptions,
         },
-        {
-          service: "input_select.select_option",
-          data: {
-            entity_id: "input_select.print_history_popup_failure_reason",
-            option: archiveFailureReason || "Unspecified",
-          },
+      },
+      {
+        service: "input_select.select_option",
+        data: {
+          entity_id: "input_select.print_history_popup_failure_reason",
+          option: archiveFailureReason || "Unspecified",
         },
-      ],
-    });
+      },
+    ];
+
+    setTimeout(function () {
+      this._fireBrowserModEvent("browser_mod.sequence", {
+        sequence: popupHydrationSequence,
+      });
+    }.bind(this), 0);
   }
 
   _fireBrowserModEvent(service, data) {
