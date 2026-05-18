@@ -2138,26 +2138,87 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _getEntityType(model) {
-    // Detect entity type from model.entity_type, custom_fields, or catalog_signals
-    if (model.entity_type) {
-      return String(model.entity_type).toLowerCase();
+    const normalized = (value) => {
+      const candidate = String(value || '').trim().toLowerCase();
+      if (candidate === 'idea' || candidate === 'working_group' || candidate === 'model') {
+        return candidate;
+      }
+      return '';
+    };
+
+    // Support all current payload shapes for local and manyfold detail responses.
+    const direct = normalized(model && model.entity_type);
+    if (direct) {
+      return direct;
     }
-    const customFields = model.custom_fields || {};
-    if (customFields.entity_type) {
-      return String(customFields.entity_type).toLowerCase();
+
+    const rootEntityType = normalized(this._modelDetail && this._modelDetail.entity_type);
+    if (rootEntityType) {
+      return rootEntityType;
     }
-    const signals = model.catalog_signals || {};
-    if (signals.entity_type) {
-      return String(signals.entity_type).toLowerCase();
+
+    const detailEnrichment = this._modelDetail && this._modelDetail.enrichment && typeof this._modelDetail.enrichment === 'object'
+      ? this._modelDetail.enrichment
+      : {};
+    const enrichmentFields = detailEnrichment.custom_fields && typeof detailEnrichment.custom_fields === 'object'
+      ? detailEnrichment.custom_fields
+      : {};
+    const enrichmentEntityType = normalized(enrichmentFields.entity_type);
+    if (enrichmentEntityType) {
+      return enrichmentEntityType;
     }
-    return 'model'; // Default to model
+
+    const structured = detailEnrichment.structured_metadata && typeof detailEnrichment.structured_metadata === 'object'
+      ? detailEnrichment.structured_metadata
+      : {};
+    const catalogSignals = structured.catalog_signals && typeof structured.catalog_signals === 'object'
+      ? structured.catalog_signals
+      : {};
+    const catalogSignalType = normalized(catalogSignals.entity_type);
+    if (catalogSignalType) {
+      return catalogSignalType;
+    }
+
+    // Local idea metadata implies idea type even when entity_type is not projected.
+    const ideaMetadata = this._modelDetail && this._modelDetail.idea_metadata && typeof this._modelDetail.idea_metadata === 'object'
+      ? this._modelDetail.idea_metadata
+      : null;
+    if (ideaMetadata) {
+      return 'idea';
+    }
+
+    return 'model';
   }
 
   _renderIdeaMetadataCard(model) {
-    const customFields = model.custom_fields || {};
-    const externalLinks = Array.isArray(customFields.external_links) ? customFields.external_links : [];
-    const sketchImage = customFields.sketch_image || null;
-    const notes = customFields.notes || '';
+    const detailIdeaMetadata = this._modelDetail && this._modelDetail.idea_metadata && typeof this._modelDetail.idea_metadata === 'object'
+      ? this._modelDetail.idea_metadata
+      : {};
+    const enrichment = this._modelDetail && this._modelDetail.enrichment && typeof this._modelDetail.enrichment === 'object'
+      ? this._modelDetail.enrichment
+      : {};
+    const enrichmentFields = enrichment.custom_fields && typeof enrichment.custom_fields === 'object'
+      ? enrichment.custom_fields
+      : {};
+    const modelFields = model && model.custom_fields && typeof model.custom_fields === 'object'
+      ? model.custom_fields
+      : {};
+
+    const externalLinks = Array.isArray(detailIdeaMetadata.external_links)
+      ? detailIdeaMetadata.external_links
+      : (Array.isArray(enrichmentFields.external_links)
+        ? enrichmentFields.external_links
+        : (Array.isArray(modelFields.external_links) ? modelFields.external_links : []));
+    const sketchImage = detailIdeaMetadata.sketch_image && detailIdeaMetadata.sketch_image.url
+      ? detailIdeaMetadata.sketch_image.url
+      : (enrichmentFields.sketch_image && enrichmentFields.sketch_image.url
+        ? enrichmentFields.sketch_image.url
+        : (enrichmentFields.sketch_image || modelFields.sketch_image || null));
+    const notes = String(
+      detailIdeaMetadata.notes != null
+        ? detailIdeaMetadata.notes
+        : (enrichmentFields.notes != null ? enrichmentFields.notes : (modelFields.notes || ''))
+    ).trim();
 
     const linksHtml = externalLinks.length ? externalLinks.map(link => {
       const url = this._escapeHtml(String(link.url || ''));

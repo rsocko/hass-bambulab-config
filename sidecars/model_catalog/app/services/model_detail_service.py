@@ -58,10 +58,13 @@ def build_model_detail_response(
                 "model_ref": model_ref,
                 "authority": "local",
                 "local_model_id": local_model_id,
+                "entity_type": str(entry.entity_type or "model"),
+                "idea_metadata": models_router._read_idea_metadata(db_path=state.settings.db_path, model_ref=local_model_id),
                 "manyfold_model_url": summary.model_url,
                 "model": {
                     "public_id": summary.public_id,
                     "model_id": summary.model_id,
+                    "entity_type": str(entry.entity_type or "model"),
                     "name": entry.model_name,
                     "description": entry.model_description or "",
                     "preview_url": models_router._local_summary_preview_url(entry=entry, db_path=state.settings.db_path),
