@@ -1343,6 +1343,15 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     photos_shared_at = _normalize_iso_datetime(fields.get("publication_contribution_photos_shared_at"))
     if photos_shared_at:
         contribution["photos_shared_at"] = photos_shared_at
+    rated_skipped_at = _normalize_iso_datetime(fields.get("publication_contribution_rated_skipped_at"))
+    if rated_skipped_at:
+        contribution["rated_skipped_at"] = rated_skipped_at
+    boosted_skipped_at = _normalize_iso_datetime(fields.get("publication_contribution_boosted_skipped_at"))
+    if boosted_skipped_at:
+        contribution["boosted_skipped_at"] = boosted_skipped_at
+    photos_shared_skipped_at = _normalize_iso_datetime(fields.get("publication_contribution_photos_shared_skipped_at"))
+    if photos_shared_skipped_at:
+        contribution["photos_shared_skipped_at"] = photos_shared_skipped_at
 
     return {
         "provenance": {
@@ -3201,11 +3210,12 @@ def mark_model_contribution_action(
     request: Request, model_ref: str, action: str, payload: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """
-    Mark a contribution action as completed for a downloaded model.
+    Mark a contribution action as completed or skipped for a downloaded model.
     
     Actions: rated, boosted, photos_shared
     
     Call with empty payload to set action timestamp to current UTC time.
+    Call with {\"skip\": true} to mark as intentionally skipped.
     Call with {\"clear\": true} to clear the timestamp (mark as not done).
     """
     state: AppState = request.app.state.model_catalog
@@ -3220,12 +3230,12 @@ def mark_model_contribution_action(
         )
     
     resolved_ref = summary.public_id or summary.model_id or summary.model_url
-    field_key = f"publication_contribution_{action}_at"
     data = payload or {}
     
     if data.get("clear", False):
-        # Clear the timestamp (mark as not done)
-        delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key)
+        # Clear both done and skipped timestamps
+        delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=f"publication_contribution_{action}_at")
+        delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=f"publication_contribution_{action}_skipped_at")
         return {
             "success": True,
             "model_ref": model_ref,
@@ -3233,10 +3243,26 @@ def mark_model_contribution_action(
             "action": action,
             "cleared": True,
         }
+    elif data.get("skip", False):
+        # Mark as intentionally skipped
+        now = datetime.now(timezone.utc).isoformat()
+        set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=f"publication_contribution_{action}_skipped_at", field_value=now)
+        # Clear the done timestamp if it was set
+        delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=f"publication_contribution_{action}_at")
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "action": action,
+            "skipped": True,
+            "timestamp": now,
+        }
     else:
         # Set to current UTC timestamp
         now = datetime.now(timezone.utc).isoformat()
-        set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key, field_value=now)
+        set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=f"publication_contribution_{action}_at", field_value=now)
+        # Clear skip timestamp if it was set
+        delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=f"publication_contribution_{action}_skipped_at")
         return {
             "success": True,
             "model_ref": model_ref,
@@ -3276,6 +3302,9 @@ def get_model_contribution_status(request: Request, model_ref: str) -> dict[str,
             "rated_at": fields.get("publication_contribution_rated_at"),
             "boosted_at": fields.get("publication_contribution_boosted_at"),
             "photos_shared_at": fields.get("publication_contribution_photos_shared_at"),
+            "rated_skipped_at": fields.get("publication_contribution_rated_skipped_at"),
+            "boosted_skipped_at": fields.get("publication_contribution_boosted_skipped_at"),
+            "photos_shared_skipped_at": fields.get("publication_contribution_photos_shared_skipped_at"),
         },
     }
 

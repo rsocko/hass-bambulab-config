@@ -397,12 +397,13 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Contribution lifecycle actions (#1494)
-    const contributionActionBtn = target.closest('.action-mark[data-action], .action-open[data-action]');
+    const contributionActionBtn = target.closest('.action-mark[data-action], .action-skip[data-action], .action-open[data-action]');
     if (contributionActionBtn) {
       event.preventDefault();
       const action = contributionActionBtn.getAttribute("data-action");
+      const isSkip = contributionActionBtn.classList.contains('action-skip');
       if (action === "rated" || action === "boosted" || action === "photos_shared") {
-        this._markContributionAction(action);
+        this._markContributionAction(action, isSkip ? { skip: true } : undefined);
       } else if (action === "open-source") {
         this._openSourcePlatform();
       } else if (action === "open-gallery") {
@@ -1449,6 +1450,9 @@ class ModelDetailPopupCard extends HTMLElement {
     const ratedAt = contribution.rated_at;
     const boostedAt = contribution.boosted_at;
     const photosSharedAt = contribution.photos_shared_at;
+    const ratedSkipped = contribution.rated_skipped_at;
+    const boostedSkipped = contribution.boosted_skipped_at;
+    const photosSharedSkipped = contribution.photos_shared_skipped_at;
     const photoCaptureCount = model.photo_capture_count || 0;
     
     // Platform info
@@ -1482,26 +1486,26 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
 
         <div class="checklist-item">
-          <div class="status-badge ${ratedAt ? 'complete' : 'pending'}">
-            ${ratedAt ? '✓' : '○'}
+          <div class="status-badge ${ratedAt ? 'complete' : ratedSkipped ? 'skipped' : 'pending'}">
+            ${ratedAt ? '✓' : ratedSkipped ? '—' : '○'}
           </div>
           <div class="item-content">
-            <strong>Rated on ${this._escapeHtml(platformName)}</strong>
-            ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ''}
+            <strong${ratedSkipped ? ' class="skipped-text"' : ''}>Rated on ${this._escapeHtml(platformName)}</strong>
+            ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
-          ${!ratedAt ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button>` : ''}
+          ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
           <button class="action-button action-open" data-action="open-source">Open ↗</button>
         </div>
 
         <div class="checklist-item">
-          <div class="status-badge ${boostedAt ? 'complete' : 'pending'}">
-            ${boostedAt ? '✓' : '○'}
+          <div class="status-badge ${boostedAt ? 'complete' : boostedSkipped ? 'skipped' : 'pending'}">
+            ${boostedAt ? '✓' : boostedSkipped ? '—' : '○'}
           </div>
           <div class="item-content">
-            <strong>Boosted</strong>
-            ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : ''}
+            <strong${boostedSkipped ? ' class="skipped-text"' : ''}>Boosted</strong>
+            ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
-          ${!boostedAt ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button>` : ''}
+          ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
         </div>
 
         <div class="checklist-item">
@@ -1515,14 +1519,14 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
 
         <div class="checklist-item">
-          <div class="status-badge ${photosSharedAt ? 'complete' : 'pending'}">
-            ${photosSharedAt ? '✓' : '○'}
+          <div class="status-badge ${photosSharedAt ? 'complete' : photosSharedSkipped ? 'skipped' : 'pending'}">
+            ${photosSharedAt ? '✓' : photosSharedSkipped ? '—' : '○'}
           </div>
           <div class="item-content">
-            <strong>Photos Shared on ${this._escapeHtml(platformName)}</strong>
-            ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : ''}
+            <strong${photosSharedSkipped ? ' class="skipped-text"' : ''}>Photos Shared on ${this._escapeHtml(platformName)}</strong>
+            ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
-          ${!photosSharedAt ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button>` : ''}
+          ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
           ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos ↗</button>` : ''}
         </div>
       </div>
@@ -1577,6 +1581,16 @@ class ModelDetailPopupCard extends HTMLElement {
           border: 1px solid rgba(156, 163, 175, 0.2);
           color: var(--secondary-text-color);
         }
+        .status-badge.skipped {
+          background: rgba(156, 163, 175, 0.08);
+          border: 1px solid rgba(156, 163, 175, 0.15);
+          color: var(--secondary-text-color);
+          font-size: 16px;
+        }
+        .skipped-text {
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
         .item-content {
           display: grid;
           gap: 2px;
@@ -1605,6 +1619,15 @@ class ModelDetailPopupCard extends HTMLElement {
         .action-button.action-open {
           background: var(--secondary-background-color);
           color: var(--primary-text-color);
+        }
+        .action-button.action-skip {
+          background: transparent;
+          color: var(--secondary-text-color);
+          border: 1px solid var(--divider-color);
+          font-size: 11px;
+        }
+        .action-button.action-skip:hover {
+          background: rgba(156, 163, 175, 0.1);
         }
       </style>
     `;
@@ -3272,7 +3295,8 @@ class ModelDetailPopupCard extends HTMLElement {
     });
   }
 
-  async _markContributionAction(action) {
+  async _markContributionAction(action, opts) {
+    const skip = opts && opts.skip;
     if (!this._modelDetail || !this._modelDetail.model) {
       console.warn('No model detail available');
       return;
@@ -3286,30 +3310,38 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Optimistic local update — avoids a full re-fetch / flash
+    const metadata = model.structured_metadata || (this._modelDetail.enrichment || {}).structured_metadata || {};
+    const publishing = metadata.publishing || {};
+    if (!publishing.contribution) publishing.contribution = {};
+    const now = new Date().toISOString();
+    if (skip) {
+      publishing.contribution[action + '_skipped_at'] = now;
+    } else {
+      publishing.contribution[action + '_at'] = now;
+    }
+    this._render();
+
     try {
+      const body = skip ? { skip: true } : {};
       const response = await fetch(this._resolveModelSidecarUrl() + `/api/models/${encodeURIComponent(model_ref)}/contribution/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         throw new Error(`Failed to mark ${action}: ${response.statusText}`);
       }
-
-      const result = await response.json();
-
-      if (this._hass) {
-        this._hass.callService('persistent_notification', 'create', {
-          title: 'Contribution Updated',
-          message: `Marked as ${action}. Great job contributing back to the community!`,
-        }).catch(err => console.error('Notification failed:', err));
-      }
-
-      // Refresh model detail to update contribution status
-      this._loadModelDetail();
     } catch (error) {
       console.error('Error marking contribution action:', error);
+      // Revert optimistic update on failure
+      if (skip) {
+        delete publishing.contribution[action + '_skipped_at'];
+      } else {
+        delete publishing.contribution[action + '_at'];
+      }
+      this._render();
       if (this._hass) {
         this._hass.callService('persistent_notification', 'create', {
           title: 'Error',
