@@ -468,9 +468,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   async _refreshData() {
     var token = ++this._queryToken;
-    var started = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+    var _perf = typeof performance !== "undefined" && typeof performance.now === "function" ? performance : null;
+    var started = _perf ? _perf.now() : Date.now();
+    var wsFetchMs = 0;
     try {
       var response = await this._callWsWithTimeout(this._buildQueryPayload(), this._refreshRequestTimeoutMs);
+      wsFetchMs = (_perf ? _perf.now() : Date.now()) - started;
       if (token !== this._queryToken) {
         return;
       }
@@ -479,6 +482,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._error = "";
       this._recordDebug("browser", response, started);
     } catch (error) {
+      wsFetchMs = (_perf ? _perf.now() : Date.now()) - started;
       if (token !== this._queryToken) {
         return;
       }
@@ -492,6 +496,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._loading = false;
       this._querySignature = this._buildQuerySignature(this._hass);
       this._viewSignature = this._buildViewSignature(this._hass);
+      var renderStart = _perf ? _perf.now() : Date.now();
       if (this._initialRenderDone) {
         this._renderBody();
       } else {
@@ -501,10 +506,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
         }
         this._pendingBodyRaf = requestAnimationFrame(function () {
           this._pendingBodyRaf = 0;
+          renderStart = _perf ? _perf.now() : Date.now();
           this._renderBody();
+          this._recordPerfTiming(wsFetchMs, renderStart, _perf);
           this._syncRefreshIndicator(true);
         }.bind(this));
+        this._syncRefreshIndicator(true);
+        return;
       }
+      this._recordPerfTiming(wsFetchMs, renderStart, _perf);
       this._syncRefreshIndicator(true);
     }
   }
@@ -585,6 +595,32 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _debugEnabled() {
     return this._stateValue("input_boolean.print_history_debug_instrumentation") === "on";
+  }
+
+  _recordPerfTiming(wsFetchMs, renderStart, _perf) {
+    var renderMs = (_perf ? _perf.now() : Date.now()) - renderStart;
+    var timing = {
+      at: new Date().toISOString(),
+      wsFetchMs: Math.round(wsFetchMs * 10) / 10,
+      renderBodyMs: Math.round(renderMs * 10) / 10,
+      htmlGenMs: this._lastRenderTiming ? this._lastRenderTiming.htmlMs : null,
+      innerHtmlMs: this._lastRenderTiming ? this._lastRenderTiming.domMs : null,
+      cardCount: this._lastRenderTiming ? this._lastRenderTiming.cardCount : 0,
+      htmlBytes: this._lastRenderTiming ? this._lastRenderTiming.htmlBytes : 0,
+    };
+    var self = this;
+    requestAnimationFrame(function () {
+      timing.firstPaintMs = Math.round(((_perf ? _perf.now() : Date.now()) - renderStart) * 10) / 10;
+      window.__printHistoryPerf = window.__printHistoryPerf || [];
+      window.__printHistoryPerf.push(timing);
+      if (window.__printHistoryPerf.length > 50) {
+        window.__printHistoryPerf.shift();
+      }
+      if (typeof console !== "undefined" && typeof console.debug === "function") {
+        console.debug("[print-history-perf]", timing);
+      }
+      self._lastRenderTiming = null;
+    });
   }
 
   _recordDebug(channel, response, started) {
@@ -863,7 +899,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var variant = this._variant();
     var variantClass = variant.toLowerCase();
     body.className = "grid " + variantClass + (this._loading ? " refreshing" : "");
-    body.innerHTML = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
+    var _perf = typeof performance !== "undefined" && typeof performance.now === "function" ? performance : null;
+    var htmlStart = _perf ? _perf.now() : 0;
+    var html = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
+    var htmlMs = _perf ? (_perf.now() - htmlStart) : 0;
+    var domStart = _perf ? _perf.now() : 0;
+    body.innerHTML = html;
+    var domMs = _perf ? (_perf.now() - domStart) : 0;
+    this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length };
     this._renderBulkDialog();
     this._syncRefreshIndicator(true);
   }
