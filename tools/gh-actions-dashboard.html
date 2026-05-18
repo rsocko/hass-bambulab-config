@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GH Actions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-tertiary: #6e7681;
+      --success: #3fb950;
+      --failure: #f85149;
+      --pending: #d29922;
+      --running: #2f81f7;
+      --cancelled: #8b949e;
+      --accent: #58a6ff;
+      --font-mono: 'Cascadia Code', 'SF Mono', 'Fira Code', Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ───────────────────────────── */
+    header {
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 10px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    header.glow-running {
+      border-bottom-color: var(--running);
+      box-shadow: 0 1px 10px rgba(47, 129, 247, 0.2);
+    }
+
+    header.glow-failure {
+      border-bottom-color: var(--failure);
+      box-shadow: 0 1px 10px rgba(248, 81, 73, 0.15);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .header-repo {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 400;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .refresh-text {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      min-width: 24px;
+      text-align: right;
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 12px;
+      margin-top: 3px;
+      font-size: 11px;
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-secondary);
+    }
+
+    .stat-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Buttons ──────────────────────────── */
+    .btn-icon {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .btn-icon:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .btn {
+      padding: 5px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    /* ── Refresh progress bar ────────────── */
+    .refresh-bar {
+      height: 2px;
+      background: var(--bg-tertiary);
+    }
+
+    .refresh-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 1s linear;
+    }
+
+    /* ── Main scrollable content ─────────── */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px 12px;
+    }
+
+    main::-webkit-scrollbar { width: 5px; }
+    main::-webkit-scrollbar-track { background: transparent; }
+    main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Section headers ─────────────────── */
+    .section-header {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 6px 4px 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-header::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Run groups ──────────────────────── */
+    .run-group {
+      margin-bottom: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-secondary);
+    }
+
+    .run-group.active-group {
+      border-color: color-mix(in srgb, var(--running) 60%, var(--border));
+      box-shadow: 0 0 6px rgba(47, 129, 247, 0.12);
+    }
+
+    .run-group.failed-group {
+      border-color: color-mix(in srgb, var(--failure) 35%, var(--border));
+    }
+
+    /* ── Run rows ────────────────────────── */
+    .run-row {
+      display: flex;
+      align-items: center;
+      padding: 5px 8px;
+      gap: 6px;
+      cursor: pointer;
+      min-height: 34px;
+      transition: background 0.1s;
+    }
+
+    .run-row:hover { background: var(--bg-tertiary); }
+
+    .run-row.child-row {
+      padding-left: 22px;
+      min-height: 30px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    }
+
+    /* ── Status dots ─────────────────────── */
+    .s-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .s-dot.success { background: var(--success); }
+    .s-dot.failure { background: var(--failure); }
+    .s-dot.in_progress {
+      background: var(--running);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .s-dot.queued, .s-dot.waiting, .s-dot.pending {
+      background: var(--pending);
+      animation: pulse 3s ease-in-out infinite;
+    }
+    .s-dot.cancelled, .s-dot.skipped { background: var(--cancelled); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ── Run info ────────────────────────── */
+    .run-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .run-name {
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .run-meta {
+      font-size: 10px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .run-branch {
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-num {
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .trigger-badge {
+      font-size: 9px;
+      color: var(--text-tertiary);
+    }
+
+    .run-time {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .run-link {
+      flex-shrink: 0;
+      color: var(--text-tertiary);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1;
+    }
+
+    .run-link:hover {
+      color: var(--accent);
+      background: var(--bg-tertiary);
+    }
+
+    /* ── Expanded detail panel ───────────── */
+    .run-details {
+      border-top: 1px solid var(--border);
+      padding: 6px 8px 8px 28px;
+      background: var(--bg-primary);
+      font-size: 11px;
+    }
+
+    .run-details.child-detail {
+      padding-left: 40px;
+    }
+
+    .commit-msg {
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 10px;
+    }
+
+    .job-label {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+      font-size: 11px;
+    }
+
+    .step-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 0 1px 10px;
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+
+    .step-row.current-step {
+      color: var(--running);
+      font-weight: 600;
+    }
+
+    .step-row.failed-step {
+      color: var(--failure);
+    }
+
+    .step-icon {
+      flex-shrink: 0;
+      width: 14px;
+      text-align: center;
+      font-size: 11px;
+    }
+
+    .step-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .step-dur {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+
+    /* ── Empty / loading states ──────────── */
+    .empty-state {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    .spin {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin-anim 0.7s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin-anim { to { transform: rotate(360deg); } }
+
+    /* ── Overlays / modals ───────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      max-width: 360px;
+      width: 92%;
+    }
+
+    .modal h2 {
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    .modal p, .modal .hint {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .modal code {
+      background: var(--bg-tertiary);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .modal input[type="password"],
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .modal input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 12px;
+    }
+
+    .setting-row label { color: var(--text-secondary); }
+
+    .setting-row select {
+      padding: 3px 6px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 0;
+    }
+
+    /* ── Demo banner ─────────────────────── */
+    .demo-banner {
+      background: color-mix(in srgb, var(--pending) 12%, var(--bg-secondary));
+      border-bottom: 1px solid color-mix(in srgb, var(--pending) 40%, var(--border));
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--pending);
+      text-align: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .demo-banner:hover {
+      background: color-mix(in srgb, var(--pending) 20%, var(--bg-secondary));
+    }
+
+    /* ── Toast notification ──────────────── */
+    .toast {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 14px;
+      font-size: 11px;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show { opacity: 1; }
+
+    /* ── Error bar ───────────────────────── */
+    .error-bar {
+      background: color-mix(in srgb, var(--failure) 15%, var(--bg-secondary));
+      border-bottom: 1px solid var(--failure);
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--failure);
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .error-bar.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- PAT Setup Overlay -->
+    <div id="overlay-setup" class="overlay hidden">
+      <div class="modal">
+        <h2>🔑 Connect to GitHub</h2>
+        <p>
+          Create a <strong>fine-grained PAT</strong> at
+          <a href="https://github.com/settings/tokens?type=beta" target="_blank" style="color:var(--accent)">github.com/settings/tokens</a>
+          with <code>Actions: Read</code> permission on <code>rsocko/hass-bambulab-config</code>.<br>
+          Stored only in your browser's localStorage.
+        </p>
+        <input id="inp-token" type="password" placeholder="github_pat_xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+        <div class="modal-actions">
+          <button class="btn" onclick="closeSetup()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveToken()">Connect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Overlay -->
+    <div id="overlay-settings" class="overlay hidden">
+      <div class="modal">
+        <h2>⚙ Settings</h2>
+        <div class="setting-row">
+          <label>Refresh interval</label>
+          <select id="sel-interval" onchange="updateSetting('interval', this.value)">
+            <option value="10">10 s</option>
+            <option value="15">15 s</option>
+            <option value="30">30 s</option>
+            <option value="60">60 s</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Runs to fetch</label>
+          <select id="sel-maxruns" onchange="updateSetting('maxruns', this.value)">
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <hr class="divider">
+        <div class="setting-row">
+          <label>GitHub token</label>
+          <button class="btn" onclick="openSetup(); closeSettings()">Change</button>
+        </div>
+        <div class="setting-row">
+          <label>Reset everything</label>
+          <button class="btn" style="color:var(--failure)" onclick="resetAll()">Clear</button>
+        </div>
+        <hr class="divider">
+        <div class="modal-actions">
+          <button class="btn" onclick="closeSettings()">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Demo mode banner -->
+    <div id="demo-banner" class="demo-banner hidden" onclick="openSetup()">
+      ⚡ Demo Mode — click to connect with your GitHub token for live data
+    </div>
+
+    <!-- Error bar -->
+    <div id="error-bar" class="error-bar hidden"></div>
+
+    <!-- Header -->
+    <header id="hdr">
+      <div class="header-top">
+        <div class="header-title">
+          ⚡ Actions
+          <span class="header-repo">rsocko/hass-bambulab-config</span>
+        </div>
+        <div class="header-controls">
+          <span id="countdown-text" class="refresh-text">—</span>
+          <button class="btn-icon" onclick="manualRefresh()" title="Refresh now">⟳</button>
+          <button class="btn-icon" onclick="openSettings()" title="Settings">⚙</button>
+        </div>
+      </div>
+      <div id="hdr-stats" class="header-stats"></div>
+    </header>
+    <div class="refresh-bar"><div id="bar-fill" class="refresh-bar-fill" style="width:100%"></div></div>
+
+    <!-- Main content -->
+    <main id="content">
+      <div class="empty-state"><span class="spin"></span>&ensp;Loading…</div>
+    </main>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+<script>
+/* ================================================================
+   GitHub Actions Dashboard  –  single-file, zero-dependency
+   ================================================================ */
+
+// ── Constants ───────────────────────────────────────────────────
+const OWNER = 'rsocko';
+const REPO  = 'hass-bambulab-config';
+const API   = `https://api.github.com/repos/${OWNER}/${REPO}`;
+
+const AUTO_DISPATCH = 'Auto-Dispatch Home Assistant Deploy';
+
+const SHORT = {
+  'Auto-Dispatch Home Assistant Deploy':          'Auto-Dispatch',
+  'Deploy Home Assistant Config (HAOS Template)': 'Deploy HA',
+  'Build Model Catalog Image':                    'Build Model Catalog',
+  'Build Bambuddy Runtime Repair Image':          'Build Bambuddy Repair',
+  'Python Pytest':                                'Pytest',
+  'Runner Smoke Test':                            'Smoke Test',
+};
+
+const TRIGGER = { push: '⬆', pull_request: '⤴', workflow_dispatch: '▶', schedule: '⏰' };
+
+// ── State ───────────────────────────────────────────────────────
+const cfg = {
+  interval: +(localStorage.getItem('ghd_interval') || 15),
+  maxruns:  +(localStorage.getItem('ghd_maxruns')  || 30),
+};
+
+const S = {
+  token:    localStorage.getItem('ghd_token'),
+  runs:     [],
+  expanded: new Set(),
+  jobs:     {},          // runId → jobs payload (cached for completed runs)
+  countdown: cfg.interval,
+  demo:     false,
+  fetching: false,
+};
+
+let tickId = null;
+
+// ── DOM refs ────────────────────────────────────────────────────
+const $content   = () => document.getElementById('content');
+const $hdr       = () => document.getElementById('hdr');
+const $hdrStats  = () => document.getElementById('hdr-stats');
+const $cdText    = () => document.getElementById('countdown-text');
+const $barFill   = () => document.getElementById('bar-fill');
+const $demoBnr   = () => document.getElementById('demo-banner');
+const $errBar    = () => document.getElementById('error-bar');
+const $toast     = () => document.getElementById('toast');
+
+// ── Helpers: time formatting ────────────────────────────────────
+function ago(iso) {
+  const d = Date.now() - new Date(iso).getTime();
+  if (d < 0) return 'now';
+  const s = Math.floor(d / 1000);
+  if (s < 60)  return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + 'h ' + (m % 60) + 'm ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+function elapsed(iso) {
+  const d = Date.now() - new Date(iso).getTime();
+  const s = Math.max(0, Math.floor(d / 1000));
+  if (s < 60)  return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return m + 'm ' + (s % 60) + 's';
+  const h = Math.floor(m / 60);
+  return h + 'h ' + (m % 60) + 'm';
+}
+
+function dur(start, end) {
+  if (!start || !end) return '';
+  const d = new Date(end) - new Date(start);
+  const s = Math.max(0, Math.floor(d / 1000));
+  if (s < 60)  return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return m + 'm ' + (s % 60) + 's';
+  const h = Math.floor(m / 60);
+  return h + 'h ' + (m % 60) + 'm';
+}
+
+// ── Helpers: status ─────────────────────────────────────────────
+function sCls(r) {
+  return r.status === 'completed' ? (r.conclusion || 'success') : r.status;
+}
+
+function stepIco(st) {
+  if (st.status === 'completed') {
+    if (st.conclusion === 'success')   return '<span style="color:var(--success)">✓</span>';
+    if (st.conclusion === 'failure')   return '<span style="color:var(--failure)">✗</span>';
+    if (st.conclusion === 'skipped')   return '<span style="color:var(--cancelled)">⊘</span>';
+    return '<span style="color:var(--cancelled)">·</span>';
+  }
+  if (st.status === 'in_progress') return '<span style="color:var(--running)">▸</span>';
+  return '<span style="color:var(--text-tertiary)">·</span>';
+}
+
+function isActive(r) {
+  return r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting';
+}
+
+// ── Grouping ────────────────────────────────────────────────────
+function group(runs) {
+  const ads    = runs.filter(r => r.name === AUTO_DISPATCH);
+  const rest   = runs.filter(r => r.name !== AUTO_DISPATCH);
+  const used   = new Set();
+  const groups = [];
+
+  for (const ad of ads) {
+    const kids = rest.filter(r =>
+      r.head_sha === ad.head_sha &&
+      r.event === 'workflow_dispatch' &&
+      !used.has(r.id)
+    );
+    kids.forEach(k => used.add(k.id));
+    kids.sort((a, b) => statusPri(a) - statusPri(b));
+    groups.push({ parent: ad, children: kids, multi: true });
+  }
+
+  rest.filter(r => !used.has(r.id))
+      .forEach(r => groups.push({ parent: r, children: [], multi: false }));
+
+  groups.sort((a, b) => latest(b) - latest(a));
+  return groups;
+}
+
+function statusPri(r) {
+  if (r.status === 'in_progress') return 0;
+  if (r.status === 'queued' || r.status === 'waiting') return 1;
+  return 2;
+}
+
+function latest(g) {
+  let t = new Date(g.parent.updated_at).getTime();
+  g.children.forEach(c => { t = Math.max(t, new Date(c.updated_at).getTime()); });
+  return t;
+}
+
+function grpActive(g) {
+  return isActive(g.parent) || g.children.some(isActive);
+}
+
+// ── API ─────────────────────────────────────────────────────────
+async function api(path) {
+  const res = await fetch(API + path, {
+    headers: {
+      Authorization: 'token ' + S.token,
+      Accept: 'application/vnd.github+json',
+    },
+  });
+  if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+  return res.json();
+}
+
+async function loadRuns() {
+  if (S.demo) return demoRuns();
+  return (await api('/actions/runs?per_page=' + cfg.maxruns)).workflow_runs;
+}
+
+async function loadJobs(id) {
+  if (S.jobs[id]) return S.jobs[id];
+  const d = S.demo ? demoJobs(id) : await api('/actions/runs/' + id + '/jobs');
+  const r = S.runs.find(x => x.id === id);
+  if (r && r.status === 'completed') S.jobs[id] = d;   // cache only done
+  return d;
+}
+
+// ── Rendering ───────────────────────────────────────────────────
+function render() {
+  const gs      = group(S.runs);
+  const active  = gs.filter(grpActive);
+  const recent  = gs.filter(g => !grpActive(g));
+
+  // Header glow
+  const hdr = $hdr();
+  const anyRunning = S.runs.some(r => r.status === 'in_progress');
+  const anyFailed  = S.runs.slice(0, 8).some(r => r.conclusion === 'failure');
+  hdr.className = anyRunning ? 'glow-running' : anyFailed ? 'glow-failure' : '';
+
+  // Stats
+  const nRun = S.runs.filter(r => r.status === 'in_progress').length;
+  const nQ   = S.runs.filter(r => r.status === 'queued' || r.status === 'waiting').length;
+  const nF   = S.runs.filter(r => r.conclusion === 'failure').length;
+  let st = '';
+  if (nRun) st += `<div class="stat"><span class="stat-dot" style="background:var(--running)"></span>${nRun} running</div>`;
+  if (nQ)   st += `<div class="stat"><span class="stat-dot" style="background:var(--pending)"></span>${nQ} queued</div>`;
+  if (nF)   st += `<div class="stat"><span class="stat-dot" style="background:var(--failure)"></span>${nF} failed</div>`;
+  if (!nRun && !nQ && !nF) st = `<div class="stat"><span class="stat-dot" style="background:var(--success)"></span>All clear</div>`;
+  $hdrStats().innerHTML = st;
+
+  // Content
+  let h = '';
+  if (active.length) {
+    h += '<div class="section-header">Active</div>';
+    active.forEach(g => h += renderGrp(g));
+  }
+  if (recent.length) {
+    h += '<div class="section-header">Recent</div>';
+    recent.forEach(g => h += renderGrp(g));
+  }
+  if (!gs.length) h = '<div class="empty-state">No workflow runs found</div>';
+  $content().innerHTML = h;
+}
+
+function renderGrp(g) {
+  const act = grpActive(g);
+  const fail = g.parent.conclusion === 'failure' || g.children.some(c => c.conclusion === 'failure');
+  let cls = 'run-group';
+  if (act)       cls += ' active-group';
+  else if (fail) cls += ' failed-group';
+
+  let h = `<div class="${cls}">`;
+  h += runRow(g.parent, false);
+  if (S.expanded.has(g.parent.id)) h += runDetail(g.parent, false);
+  for (const c of g.children) {
+    h += runRow(c, true);
+    if (S.expanded.has(c.id)) h += runDetail(c, true);
+  }
+  h += '</div>';
+  return h;
+}
+
+function runRow(r, child) {
+  const sc  = sCls(r);
+  const t   = r.status === 'completed' ? ago(r.updated_at)
+            : r.status === 'queued' || r.status === 'waiting' ? 'queued'
+            : elapsed(r.created_at);
+  const cls = child ? 'run-row child-row' : 'run-row';
+  const trg = TRIGGER[r.event] || '?';
+
+  return `
+    <div class="${cls}" onclick="toggle(${r.id})">
+      <div class="s-dot ${sc}"></div>
+      <div class="run-info">
+        <div class="run-name">${SHORT[r.name] || r.name} <span class="run-num">#${r.run_number}</span></div>
+        <div class="run-meta">
+          <span class="trigger-badge">${trg}</span>
+          <span class="run-branch" title="${r.head_branch}">${r.head_branch}</span>
+        </div>
+      </div>
+      <span class="run-time">${t}</span>
+      <a class="run-link" href="${esc(r.html_url)}" target="_blank" rel="noopener"
+         onclick="event.stopPropagation()" title="Open on GitHub">↗</a>
+    </div>`;
+}
+
+function runDetail(r, child) {
+  const cls = child ? 'run-details child-detail' : 'run-details';
+  const id  = r.id;
+  const cached = S.jobs[id];
+
+  let h = `<div class="${cls}" id="det-${id}">`;
+  if (r.display_title) h += `<div class="commit-msg">"${esc(r.display_title)}"</div>`;
+
+  if (!cached) {
+    h += `<div style="color:var(--text-tertiary)"><span class="spin"></span>&ensp;Loading…</div>`;
+    loadJobs(id).then(d => { S.jobs[id] = d; render(); })
+                .catch(() => {
+                  const el = document.getElementById('det-' + id);
+                  if (el) el.innerHTML = '<div style="color:var(--failure)">Failed to load jobs</div>';
+                });
+  } else {
+    for (const j of cached.jobs) {
+      h += `<div class="job-label">${esc(j.name)}`;
+      if (j.started_at && j.completed_at) h += ` <span class="step-dur">${dur(j.started_at, j.completed_at)}</span>`;
+      h += '</div>';
+      if (j.steps) {
+        for (const s of j.steps) {
+          const isCur  = s.status === 'in_progress';
+          const isFail = s.conclusion === 'failure';
+          const rc = isCur ? 'step-row current-step' : isFail ? 'step-row failed-step' : 'step-row';
+          const sd = s.completed_at && s.started_at ? dur(s.started_at, s.completed_at)
+                   : s.status === 'in_progress' && s.started_at ? elapsed(s.started_at)
+                   : '';
+          h += `<div class="${rc}">
+            <span class="step-icon">${stepIco(s)}</span>
+            <span class="step-name">${esc(s.name)}</span>
+            <span class="step-dur">${sd}</span>
+          </div>`;
+        }
+      }
+    }
+  }
+  h += '</div>';
+  return h;
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Interactions ────────────────────────────────────────────────
+function toggle(id) { S.expanded.has(id) ? S.expanded.delete(id) : S.expanded.add(id); render(); }
+
+function openSetup()     { document.getElementById('overlay-setup').classList.remove('hidden'); document.getElementById('inp-token').focus(); }
+function closeSetup()    { document.getElementById('overlay-setup').classList.add('hidden'); }
+function openSettings()  {
+  document.getElementById('overlay-settings').classList.remove('hidden');
+  document.getElementById('sel-interval').value = cfg.interval;
+  document.getElementById('sel-maxruns').value  = cfg.maxruns;
+}
+function closeSettings() { document.getElementById('overlay-settings').classList.add('hidden'); }
+
+function saveToken() {
+  const v = document.getElementById('inp-token').value.trim();
+  if (!v) return;
+  localStorage.setItem('ghd_token', v);
+  S.token = v;
+  S.demo  = false;
+  S.jobs  = {};
+  $demoBnr().classList.add('hidden');
+  $errBar().classList.add('hidden');
+  closeSetup();
+  refresh();
+  toast('Connected to GitHub');
+}
+
+function updateSetting(k, v) {
+  cfg[k] = +v;
+  localStorage.setItem('ghd_' + k, v);
+  if (k === 'interval') { S.countdown = cfg.interval; startTick(); }
+  if (k === 'maxruns')  refresh();
+}
+
+function resetAll() {
+  ['ghd_token', 'ghd_interval', 'ghd_maxruns'].forEach(k => localStorage.removeItem(k));
+  S.token = null; S.demo = true; S.jobs = {};
+  cfg.interval = 15; cfg.maxruns = 30;
+  closeSettings();
+  toast('Data cleared');
+  init();
+}
+
+function toast(msg) {
+  const t = $toast();
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function manualRefresh() { S.countdown = 0; refresh(); }
+
+// ── Refresh cycle ───────────────────────────────────────────────
+async function refresh() {
+  if (S.fetching) return;
+  S.fetching = true;
+  const prev = new Set(S.runs.filter(r => r.status === 'in_progress').map(r => r.id));
+
+  try {
+    S.runs = await loadRuns();
+    $errBar().classList.add('hidden');
+
+    // Auto-expand newly in-progress runs
+    S.runs.filter(r => r.status === 'in_progress' && !prev.has(r.id))
+          .forEach(r => S.expanded.add(r.id));
+
+    // Invalidate jobs cache for still-active runs
+    S.runs.filter(r => r.status !== 'completed').forEach(r => delete S.jobs[r.id]);
+
+    render();
+  } catch (e) {
+    console.error('Refresh error:', e);
+    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      showError('Network error — if opened from file://, serve via HTTP instead (see console)');
+      console.info(
+        '%c💡 To use live mode, serve this file over HTTP:%c\n' +
+        '   cd tools && python -m http.server 9090\n' +
+        '   Then open http://localhost:9090/gh-actions-dashboard.html',
+        'font-weight:bold', ''
+      );
+    } else if (e.message.startsWith('401')) {
+      showError('Invalid token — click ⚙ to update');
+    } else if (e.message.startsWith('403')) {
+      showError('Forbidden / rate-limited');
+    } else {
+      showError(e.message);
+    }
+  }
+  S.fetching = false;
+  S.countdown = cfg.interval;
+}
+
+function showError(msg) {
+  const el = $errBar();
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function startTick() {
+  if (tickId) clearInterval(tickId);
+  S.countdown = cfg.interval;
+  tickId = setInterval(() => {
+    S.countdown--;
+    const pct = Math.max(0, (S.countdown / cfg.interval) * 100);
+    $barFill().style.width = pct + '%';
+    $cdText().textContent  = S.countdown + 's';
+    if (S.countdown <= 0) refresh();
+  }, 1000);
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'r' && !e.ctrlKey && !e.metaKey && !e.target.closest('input')) manualRefresh();
+  if (e.key === 'Escape') { closeSetup(); closeSettings(); }
+});
+
+document.getElementById('inp-token').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveToken();
+});
+
+// ── Demo data ───────────────────────────────────────────────────
+function demoRuns() {
+  const n = Date.now();
+  return [
+    mk(10142, AUTO_DISPATCH, 142, 'in_progress', null, 'push', 'main', 'abc123', n-45000, n-5000, 'Fix printer status card layout'),
+    mk(10087, 'Deploy Home Assistant Config (HAOS Template)', 87, 'in_progress', null, 'workflow_dispatch', 'main', 'abc123', n-30000, n-2000, 'Fix printer status card layout'),
+    mk(10044, 'Build Model Catalog Image', 44, 'queued', null, 'workflow_dispatch', 'main', 'abc123', n-20000, n-20000, 'Fix printer status card layout'),
+    mk(10141, AUTO_DISPATCH, 141, 'completed', 'success', 'push', 'main', 'def456', n-720000, n-460000, 'Add filament catalog caching layer'),
+    mk(10086, 'Deploy Home Assistant Config (HAOS Template)', 86, 'completed', 'success', 'workflow_dispatch', 'main', 'def456', n-700000, n-475000, 'Add filament catalog caching layer'),
+    mk(10021, 'Build Bambuddy Runtime Repair Image', 21, 'completed', 'success', 'workflow_dispatch', 'main', 'def456', n-695000, n-565000, 'Add filament catalog caching layer'),
+    mk(10055, 'Python Pytest', 55, 'completed', 'success', 'pull_request', 'feature/spool-matching', 'ghi789', n-5000000, n-4865000, 'PR #42: Improve spool matching accuracy'),
+    mk(10140, AUTO_DISPATCH, 140, 'completed', 'failure', 'push', 'main', 'jkl012', n-10800000, n-10500000, 'Update dashboard resource versions'),
+    mk(10085, 'Deploy Home Assistant Config (HAOS Template)', 85, 'completed', 'failure', 'workflow_dispatch', 'main', 'jkl012', n-10780000, n-10510000, 'Update dashboard resource versions'),
+    mk(10008, 'Runner Smoke Test', 8, 'completed', 'success', 'workflow_dispatch', 'main', 'mno345', n-86400000, n-86385000, 'Manual smoke test'),
+  ];
+}
+
+function mk(id, name, num, status, conclusion, event, branch, sha, created, updated, title) {
+  return {
+    id, name, run_number: num, status, conclusion, event,
+    head_branch: branch, head_sha: sha,
+    created_at: new Date(created).toISOString(),
+    updated_at: new Date(updated).toISOString(),
+    html_url: `https://github.com/${OWNER}/${REPO}/actions/runs/${id}`,
+    display_title: title,
+  };
+}
+
+function demoJobs(rid) {
+  const n = Date.now();
+  const DEPLOY_STEPS_DONE = [
+    { name: 'Set up job',                    status: 'completed', conclusion: 'success', number: 1, started_at: ts(n-28000), completed_at: ts(n-26000) },
+    { name: 'Check out code',                status: 'completed', conclusion: 'success', number: 2, started_at: ts(n-26000), completed_at: ts(n-23000) },
+    { name: 'Resolve allowlist & packages',  status: 'completed', conclusion: 'success', number: 3, started_at: ts(n-23000), completed_at: ts(n-22000) },
+    { name: 'SSH preflight',                 status: 'completed', conclusion: 'success', number: 4, started_at: ts(n-22000), completed_at: ts(n-18000) },
+  ];
+
+  if (rid === 10087) return { jobs: [{ id: 20001, name: 'deploy', status: 'in_progress', conclusion: null, started_at: ts(n-28000), completed_at: null, html_url: '#', steps: [
+    ...DEPLOY_STEPS_DONE,
+    { name: 'Deploy sync (rsync)',           status: 'in_progress', conclusion: null,      number: 5, started_at: ts(n-18000), completed_at: null },
+    { name: 'Post-deploy config validation', status: 'queued',      conclusion: null,      number: 6 },
+    { name: 'Lovelace resource sync',        status: 'queued',      conclusion: null,      number: 7 },
+    { name: 'Post-deploy action',            status: 'queued',      conclusion: null,      number: 8 },
+  ]}]};
+
+  if (rid === 10086) return { jobs: [{ id: 20002, name: 'deploy', status: 'completed', conclusion: 'success', started_at: ts(n-700000), completed_at: ts(n-475000), html_url: '#', steps: [
+    ...DEPLOY_STEPS_DONE.map(s => ({...s})),
+    { name: 'Deploy sync (rsync)',           status: 'completed', conclusion: 'success', number: 5, started_at: ts(n-18000), completed_at: ts(n-15000) },
+    { name: 'Post-deploy config validation', status: 'completed', conclusion: 'success', number: 6, started_at: ts(n-15000), completed_at: ts(n-10000) },
+    { name: 'Lovelace resource sync',        status: 'completed', conclusion: 'success', number: 7, started_at: ts(n-10000), completed_at: ts(n-7000) },
+    { name: 'Post-deploy action',            status: 'completed', conclusion: 'success', number: 8, started_at: ts(n-7000),  completed_at: ts(n-3000) },
+  ]}]};
+
+  if (rid === 10085) return { jobs: [{ id: 20003, name: 'deploy', status: 'completed', conclusion: 'failure', started_at: ts(n-10780000), completed_at: ts(n-10510000), html_url: '#', steps: [
+    ...DEPLOY_STEPS_DONE.map(s => ({...s})),
+    { name: 'Deploy sync (rsync)',           status: 'completed', conclusion: 'success', number: 5, started_at: ts(n-18000), completed_at: ts(n-15000) },
+    { name: 'Post-deploy config validation', status: 'completed', conclusion: 'failure', number: 6, started_at: ts(n-15000), completed_at: ts(n-12000) },
+    { name: 'Lovelace resource sync',        status: 'completed', conclusion: 'skipped', number: 7 },
+    { name: 'Post-deploy action',            status: 'completed', conclusion: 'skipped', number: 8 },
+  ]}]};
+
+  if (rid === 10055) return { jobs: [
+    { id: 20010, name: 'sidecars', status: 'completed', conclusion: 'success', started_at: ts(n-5000000), completed_at: ts(n-4930000), html_url: '#', steps: [
+      { name: 'Set up job',       status: 'completed', conclusion: 'success', number: 1, started_at: ts(n-5000000), completed_at: ts(n-4998000) },
+      { name: 'Check out code',   status: 'completed', conclusion: 'success', number: 2, started_at: ts(n-4998000), completed_at: ts(n-4995000) },
+      { name: 'Set up Python',    status: 'completed', conclusion: 'success', number: 3, started_at: ts(n-4995000), completed_at: ts(n-4980000) },
+      { name: 'Install deps',     status: 'completed', conclusion: 'success', number: 4, started_at: ts(n-4980000), completed_at: ts(n-4960000) },
+      { name: 'Run pytest',       status: 'completed', conclusion: 'success', number: 5, started_at: ts(n-4960000), completed_at: ts(n-4935000) },
+    ]},
+    { id: 20011, name: 'print_history', status: 'completed', conclusion: 'success', started_at: ts(n-5000000), completed_at: ts(n-4865000), html_url: '#', steps: [
+      { name: 'Set up job',       status: 'completed', conclusion: 'success', number: 1, started_at: ts(n-5000000), completed_at: ts(n-4998000) },
+      { name: 'Check out code',   status: 'completed', conclusion: 'success', number: 2, started_at: ts(n-4998000), completed_at: ts(n-4995000) },
+      { name: 'Set up Python',    status: 'completed', conclusion: 'success', number: 3, started_at: ts(n-4995000), completed_at: ts(n-4980000) },
+      { name: 'Install deps',     status: 'completed', conclusion: 'success', number: 4, started_at: ts(n-4980000), completed_at: ts(n-4960000) },
+      { name: 'Run pytest',       status: 'completed', conclusion: 'success', number: 5, started_at: ts(n-4960000), completed_at: ts(n-4870000) },
+    ]},
+  ]};
+
+  // Fallback for auto-dispatch and other simple runs
+  return { jobs: [{ id: 29000 + rid, name: 'auto-dispatch', status: 'completed', conclusion: 'success', started_at: ts(n-60000), completed_at: ts(n-45000), html_url: '#', steps: [
+    { name: 'Set up job',        status: 'completed', conclusion: 'success', number: 1, started_at: ts(n-60000), completed_at: ts(n-58000) },
+    { name: 'Check out code',    status: 'completed', conclusion: 'success', number: 2, started_at: ts(n-58000), completed_at: ts(n-55000) },
+    { name: 'Analyze diff',      status: 'completed', conclusion: 'success', number: 3, started_at: ts(n-55000), completed_at: ts(n-50000) },
+    { name: 'Dispatch workflows', status: 'completed', conclusion: 'success', number: 4, started_at: ts(n-50000), completed_at: ts(n-47000) },
+  ]}]};
+}
+
+function ts(ms) { return new Date(ms).toISOString(); }
+
+// ── Init ────────────────────────────────────────────────────────
+function init() {
+  if (!S.token) {
+    S.demo = true;
+    $demoBnr().classList.remove('hidden');
+  } else {
+    $demoBnr().classList.add('hidden');
+  }
+  refresh();
+  startTick();
+}
+
+init();
+</script>
+</body>
+</html>
