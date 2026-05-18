@@ -749,7 +749,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
       this._refreshUnifiedQueueIndex().then(function () {
-        if (!this._loading) {
+        if (!this._loading && this._viewMode === "media") {
           this._scheduleDeferredRender(70);
         }
       }.bind(this));
@@ -2706,7 +2706,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
           return;
         }
         if (!this._updateModelCardThumb(modelRef)) {
-          this._scheduleDeferredRender(90);
+          window.setTimeout(function () {
+            this._updateModelCardThumb(modelRef);
+          }.bind(this), 120);
         }
       }.bind(this));
   }
@@ -3213,8 +3215,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var successLabel = Number.isFinite(successRatePct) ? (String(Math.round(Math.max(0, Math.min(100, successRatePct)))) + "%") : "--";
 
-    // Avoid prefetch/re-render churn in compact/list; only hydrate media galleries in media mode.
-    if (this._showMedia && this._viewMode === "media") {
+    // Hydrate missing preview media in compact view, but patch cards in place to
+    // avoid whole-grid repaint churn.
+    if (this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) {
       this._loadModelMedia(model);
     }
 
