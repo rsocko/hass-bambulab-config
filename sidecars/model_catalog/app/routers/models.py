@@ -128,7 +128,6 @@ from ..state import AppState
 from ..services import (
     get_all_indexed_file_hashes,
 )
-from ..services.model_detail_service import build_model_detail_response
 from ..services.shared_helpers import (
     _resolve_local_asset_storage_path,
     _serialize_project_row,
@@ -3430,25 +3429,6 @@ def _model_detail_service_helpers() -> dict[str, Any]:
         "MODEL_PREVIEW_PHOTO_FIELD": MODEL_PREVIEW_PHOTO_FIELD,
         "MODEL_UPLOAD_PHOTOS_FIELD": MODEL_UPLOAD_PHOTOS_FIELD,
     }
-
-@router.get("/api/models/{model_ref:path}/detail")
-def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
-    """Fetch comprehensive model detail for Phase 3 detail view popup."""
-    state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
-
-    payload = build_model_detail_response(
-        state,
-        client,
-        model_ref,
-        include_debug=include_debug,
-        request=request,
-        helpers=_model_detail_service_helpers(),
-    )
-    if payload.get("success") is False:
-        status_code = 404 if payload.get("error") == "model_not_found" else 500
-        return JSONResponse(status_code=status_code, content=payload)
-    return payload
 
 # ==================== Phase 3.1 Endpoints: Edit Mode & Photo Upload ====================
 
