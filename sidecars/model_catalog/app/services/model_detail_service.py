@@ -48,6 +48,7 @@ def build_model_detail_response(
                 }
 
             custom_fields = models_router.read_model_fields(db_path=state.settings.db_path, model_ref=local_model_id) or {}
+            structured_metadata = models_router._structured_detail_metadata(custom_fields)
             ranking = models_router.read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
             assets = models_router.list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
             preview_file_id = models_router._select_local_preview_asset_id(assets=assets)
@@ -77,6 +78,7 @@ def build_model_detail_response(
                     "source_origin": entry.source_origin,
                     "source_origin_url": entry.source_origin_url,
                     "revision_hash": entry.revision_hash,
+                    "structured_metadata": structured_metadata,
                     "files": serialized_assets,
                     "preview_file_id": preview_file_id,
                     "created_at": entry.created_at,
@@ -88,7 +90,7 @@ def build_model_detail_response(
                         for key, value in custom_fields.items()
                         if key not in {models_router.MODEL_UPLOAD_PHOTOS_FIELD, models_router.MODEL_PREVIEW_PHOTO_FIELD}
                     },
-                    "structured_metadata": models_router._structured_detail_metadata(custom_fields),
+                    "structured_metadata": structured_metadata,
                     "color_scheme": custom_fields.get("color_scheme", []),
                     "print_time_estimate": custom_fields.get("print_time_estimate"),
                     "support_type_hint": custom_fields.get("support_type_hint"),
@@ -273,6 +275,8 @@ def build_model_detail_response(
         response["model"]["preview_file_id"] = manyfold_detail.get("preview_file_id")
         response["model"]["created_at"] = manyfold_detail.get("created_at")
         response["model"]["updated_at"] = manyfold_detail.get("updated_at")
+        structured_metadata = models_router._structured_detail_metadata(custom_fields)
+        response["model"]["structured_metadata"] = structured_metadata
 
         response["enrichment"] = {
             "custom_fields": {
@@ -280,7 +284,7 @@ def build_model_detail_response(
                 for key, value in custom_fields.items()
                 if key not in {models_router.MODEL_UPLOAD_PHOTOS_FIELD, models_router.MODEL_PREVIEW_PHOTO_FIELD}
             },
-            "structured_metadata": models_router._structured_detail_metadata(custom_fields),
+            "structured_metadata": structured_metadata,
             "color_scheme": custom_fields.get("color_scheme", []),
             "print_time_estimate": custom_fields.get("print_time_estimate"),
             "support_type_hint": custom_fields.get("support_type_hint"),

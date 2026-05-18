@@ -370,7 +370,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v115</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v116</span>';
     }
 
     this._syncRefreshIndicator(true);
@@ -899,7 +899,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var mediaShowsImages = variant === 'Media' ? true : showImages;
     var baseUrl = this._apiBaseUrl();
     var hasImage = showImages && !!normalized.thumbnailUrl(baseUrl);
-    var archiveJson = this._escapeAttribute(JSON.stringify(archive || {}));
     var tags = normalized.userTags.slice(0, variant === "Media" || variant === "List" ? 4 : 6);
     var hiddenTagCount = Math.max(0, normalized.userTags.length - tags.length);
     var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "") + (selectionMode ? " selection-mode" : "") + (isSelected ? " selected" : "");
@@ -924,7 +923,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var favoriteButton = this._renderFavoriteButton(normalized, archiveJson);
     var listHeaderActions = '<div class="action-buttons">'
-      + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction))
+      + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction))
       + '</div>';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
     var mediaObjectsChip = normalized.mediaObjectsLabel ? '<span class="chip"><ha-icon icon="mdi:cube-outline"></ha-icon>' + this._escapeHtml(normalized.mediaObjectsLabel) + '</span>' : '';
@@ -990,7 +989,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<div class="content compact-summary">' +
         '<div class="content-top compact">' +
         '<div class="action-buttons compact-actions">' +
-        (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)) +
+        (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction)) +
         '</div>' +
         '</div>' +
       '<div class="chip-row compact-status-line">' +
@@ -1093,8 +1092,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var thumbMarkup = variant === 'Media'
       ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
-        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)) + '</div></div>'
-        + (!selectionMode && mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
+        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction)) + '</div></div>'
+        + (!selectionMode && mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive-id="' + this._escapeAttribute(archiveId) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive-id="' + this._escapeAttribute(archiveId) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
         ? (listImageUrl
@@ -1107,7 +1106,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         : ''));
 
     return "" +
-      '<article class="' + cardClass + (overlayArchivePillLabel ? ' has-archive-pill' : '') + (cardArchivePill ? ' no-thumb' : '') + '" tabindex="0" role="' + (selectionMode ? 'checkbox' : 'button') + '" data-action="' + (selectionMode ? 'select-archive' : 'open') + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute((selectionMode ? 'Select ' : 'Open details for ') + normalized.printName) + '"' + (selectionMode ? (' aria-checked="' + (isSelected ? 'true' : 'false') + '"') : '') + '>' +
+      '<article class="' + cardClass + (overlayArchivePillLabel ? ' has-archive-pill' : '') + (cardArchivePill ? ' no-thumb' : '') + '" tabindex="0" role="' + (selectionMode ? 'checkbox' : 'button') + '" data-action="' + (selectionMode ? 'select-archive' : 'open') + '" data-archive-id="' + this._escapeAttribute(archiveId) + '" aria-label="' + this._escapeAttribute((selectionMode ? 'Select ' : 'Open details for ') + normalized.printName) + '"' + (selectionMode ? (' aria-checked="' + (isSelected ? 'true' : 'false') + '"') : '') + '>' +
       cardArchivePill +
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
       thumbMarkup +
@@ -1125,16 +1124,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return isFavorite ? 'Remove from favorites' : 'Add to favorites';
   }
 
-  _renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {
+  _renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction) {
     var archive = normalized && normalized.archive && typeof normalized.archive === "object" ? normalized.archive : null;
+    var escapedArchiveId = this._escapeAttribute(String(archiveId || ""));
     var timelapseButton = this._timelapsePath(archive)
-      ? '<button class="icon-action timelapse" data-action="timelapse" data-archive="' + archiveJson + '" aria-label="Open timelapse for ' + this._escapeAttribute(normalized.printName) + '" title="Open timelapse"><ha-icon icon="mdi:movie-open-play-outline"></ha-icon></button>'
+      ? '<button class="icon-action timelapse" data-action="timelapse" data-archive-id="' + escapedArchiveId + '" aria-label="Open timelapse for ' + this._escapeAttribute(normalized.printName) + '" title="Open timelapse"><ha-icon icon="mdi:movie-open-play-outline"></ha-icon></button>'
       : '';
-    return '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+    return '<button class="icon-action viewer" data-action="viewer" data-archive-id="' + escapedArchiveId + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + timelapseButton
       + favoriteButton
       + photoAction
-      + '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive="' + archiveJson + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>';
+      + '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive-id="' + escapedArchiveId + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>';
   }
 
   _timelapsePath(archive) {
@@ -1150,10 +1150,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return String(storagePath || "").trim();
   }
 
-  _renderFavoriteButton(normalized, archiveJson) {
+  _renderFavoriteButton(normalized, archiveId) {
     var isFavorite = !!(normalized && normalized.isFavorite);
     var buttonTitle = this._favoriteButtonTitle(isFavorite);
-    return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized && normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '"><ha-icon icon="' + (isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>';
+    return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(archiveId || normalized && normalized.id || "")) + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '"><ha-icon icon="' + (isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>';
   }
 
   _openAdvancedActions(archive) {
@@ -2491,6 +2491,25 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
   }
 
+  _archiveIdFromActionNode(actionNode) {
+    if (!actionNode) {
+      return "";
+    }
+    var directId = String(actionNode.getAttribute("data-archive-id") || "").trim();
+    if (directId) {
+      return directId;
+    }
+    var parentWithId = actionNode.closest ? actionNode.closest("[data-archive-id]") : null;
+    var parentId = String(parentWithId && parentWithId.getAttribute ? parentWithId.getAttribute("data-archive-id") : "").trim();
+    if (parentId) {
+      return parentId;
+    }
+
+    var rawArchive = actionNode.getAttribute("data-archive") || actionNode.closest("[data-archive]")?.getAttribute("data-archive") || "{}";
+    var archive = this._parseJson(rawArchive, {});
+    return archive && archive.id != null ? String(archive.id).trim() : "";
+  }
+
   async _handleClick(event) {
     var actionNode = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
     if (!actionNode) {
@@ -2500,8 +2519,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     event.stopPropagation();
 
     var action = actionNode.getAttribute("data-action");
-    var rawArchive = actionNode.getAttribute("data-archive") || actionNode.closest("[data-archive]")?.getAttribute("data-archive") || "{}";
-    var archive = this._parseJson(rawArchive, {});
+  var archiveId = this._archiveIdFromActionNode(actionNode);
+  var archive = this._archiveById(archiveId) || {};
 
     if (action === "select-archive") {
       this._toggleSelectedArchive(archive);
@@ -2735,7 +2754,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
     event.preventDefault();
     event.stopPropagation();
-    var archive = this._parseJson(cardNode.getAttribute("data-archive") || "{}", {});
+    var archive = this._archiveById(this._archiveIdFromActionNode(cardNode)) || {};
     if (cardNode.getAttribute("data-action") === "select-archive") {
       this._toggleSelectedArchive(archive);
       return;

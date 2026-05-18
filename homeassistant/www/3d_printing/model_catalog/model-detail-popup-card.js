@@ -1437,7 +1437,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderContributionPanel(model) {
     // Check if model is downloaded (not original)
-    const metadata = model.structured_metadata || {};
+    const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const publishing = metadata.publishing || {};
     const publication_source = publishing.publication_source;
     const contribution = publishing.contribution || {};
@@ -1673,6 +1673,24 @@ class ModelDetailPopupCard extends HTMLElement {
     `;
   }
 
+
+  async _handleArchiveCandidateAction(archiveId, action) {
+    if (!this._modelRef || !this._modelSidecarUrl) return;
+    try {
+      const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/archives/link`;
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archive_id: archiveId, action })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await this._loadModelDetail();
+    } catch (e) {
+      // Optionally show error
+      alert('Failed to update archive linkage: ' + e);
+    }
+  }
+
   _renderArchiveLinkageCard() {
     const linked = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives : [];
     const candidates = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
@@ -1680,21 +1698,46 @@ class ModelDetailPopupCard extends HTMLElement {
     const renderArchive = (archive, isCandidate) => {
       const id = String(archive.archive_id || archive.id || 'archive');
       const title = this._escapeHtml(String(archive.name || archive.archive_name || `Archive ${id}`));
-      const meta = [archive.printer, archive.filament_name, archive.completed_at ? new Date(archive.completed_at).toLocaleDateString() : ''].filter(Boolean).join(' | ');
+      const meta = [archive.printer, archive.filament_name, archive.completed_at ? new Date(archive.completed_at).toLocaleDateString() : '', archive.duration_minutes ? `${archive.duration_minutes} min` : ''].filter(Boolean).join(' | ');
       const sectionKey = `archive-${id}`;
+      const thumb = archive.preview_image_url || archive.thumbnail_url || '';
       return `
         <article class="collapsible-group" data-slot="actions:per-archive">
           <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
-            <div><strong>${title}</strong><div class="detail">${this._escapeHtml(meta || 'Archive metadata')}</div></div>
-            <div><span class="state">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;">` : ''}
+              <div><strong>${title}</strong><div class="detail">${this._escapeHtml(meta || 'Archive metadata')}</div></div>
+            </div>
+            <div><span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
           </button>
           <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
-            ${isCandidate ? '<button class="action-button">Link</button> <button class="action-button ghost">Skip</button>' : '<button class="action-button ghost">Open archive</button>'}
+            ${isCandidate
+              ? `<button class="action-button" data-archive-link="${id}">Link</button> <button class="action-button ghost" data-archive-skip="${id}">Skip</button>`
+              : `<button class="action-button ghost">Open archive</button>`}
             ${this._renderExtensionSlot('actions:per-archive', '')}
           </div>
         </article>
       `;
     };
+
+    // Candidate banner if any candidates
+    const candidateBanner = candidates.length
+      ? `<div class="candidate-banner visible" style="border:1px solid #f0be62;background:rgba(240,190,98,0.13);color:#ffe5ba;border-radius:8px;padding:7px 9px;font-size:11px;margin-bottom:8px;">
+          ${candidates.length} potential history matches need review to confirm linkage.
+        </div>`
+      : '';
+
+    // Attach event listeners after render
+    setTimeout(() => {
+      if (!this.shadowRoot) return;
+      candidates.forEach(archive => {
+        const id = String(archive.archive_id || archive.id || 'archive');
+        const linkBtn = this.shadowRoot.querySelector(`button[data-archive-link="${id}"]`);
+        const skipBtn = this.shadowRoot.querySelector(`button[data-archive-skip="${id}"]`);
+        if (linkBtn) linkBtn.onclick = () => this._handleArchiveCandidateAction(id, 'link');
+        if (skipBtn) skipBtn.onclick = () => this._handleArchiveCandidateAction(id, 'skip');
+      });
+    }, 0);
 
     return `
       <section class="card" data-slot="sections:archive-linkage">
@@ -1703,11 +1746,9 @@ class ModelDetailPopupCard extends HTMLElement {
           <span class="slot-chip">sections:archive-linkage</span>
         </div>
         <div class="files">
-          <div>
-            <button class="action-button">Recover Print History</button>
-          </div>
-          ${linked.slice(0, 4).map(item => renderArchive(item, false)).join('')}
-          ${candidates.slice(0, 4).map(item => renderArchive(item, true)).join('')}
+          ${candidateBanner}
+          ${linked.map(item => renderArchive(item, false)).join('')}
+          ${candidates.map(item => renderArchive(item, true)).join('')}
           ${this._renderExtensionSlot('sections:archive-linkage', '')}
           ${!linked.length && !candidates.length ? '<article class="queue-row"><strong>No linked or candidate archives</strong><div class="detail">Archive linkage review appears here.</div></article>' : ''}
         </div>
@@ -3238,7 +3279,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     const model = this._modelDetail.model;
-    const model_ref = model.model_url || model.model_id;
+    const model_ref = this._modelRef || model.public_id || model.model_url || model.model_id;
 
     if (!model_ref) {
       console.warn('No model reference available');
@@ -3284,7 +3325,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     const model = this._modelDetail.model;
-    const metadata = model.structured_metadata || {};
+    const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const publishing = metadata.publishing || {};
     const published_urls = publishing.published_urls || {};
     const publication_source = publishing.publication_source;

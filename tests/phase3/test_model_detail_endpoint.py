@@ -226,6 +226,10 @@ class TestModelDetailEndpoint:
             assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld", "printables"]
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_rating"] == 5
+            assert data["model"]["structured_metadata"]["provenance"]["source_platform"] == "makerworld"
+            assert data["model"]["structured_metadata"]["publishing"]["published_urls"] == {
+                "makerworld": "https://makerworld.example/published/bin",
+            }
 
     def test_model_detail_normalizes_structured_metadata(self, client, sample_model_summary):
         """Detail response normalizes stored structured metadata to canonical platform IDs and rating bounds."""
@@ -267,6 +271,7 @@ class TestModelDetailEndpoint:
                 "printables": "https://printables.example/model/123",
             }
             assert structured["catalog_signals"]["model_rating"] is None
+            assert data["model"]["structured_metadata"] == structured
     
     def test_model_detail_includes_linked_archives(self, client, sample_model_summary):
         """Test that linked archives are included in response."""
