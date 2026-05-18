@@ -16,7 +16,7 @@ cards:
           display: none !important;
         }
         {% endif %}
-        {% if notice_state == 'truncated' %}
+        {% if notice_state == 'at_limit' %}
         .bubble-sub-button.cache-limit {
           background: rgba(198, 40, 40, 0.16) !important;
           box-shadow: inset 0 0 0 1px rgba(198, 40, 40, 0.32) !important;
@@ -26,28 +26,6 @@ cards:
         }
         .bubble-sub-button.cache-limit ha-icon {
           color: #c62828 !important;
-        }
-        {% elif notice_state == 'incomplete' %}
-        .bubble-sub-button.cache-limit {
-          background: rgba(198, 40, 40, 0.12) !important;
-          box-shadow: inset 0 0 0 1px rgba(198, 40, 40, 0.28) !important;
-        }
-        .bubble-sub-button.cache-limit .bubble-sub-button-name-container {
-          color: var(--primary-text-color) !important;
-        }
-        .bubble-sub-button.cache-limit ha-icon {
-          color: #c62828 !important;
-        }
-        {% elif notice_state == 'at_limit' %}
-        .bubble-sub-button.cache-limit {
-          background: rgba(239, 108, 0, 0.16) !important;
-          box-shadow: inset 0 0 0 1px rgba(239, 108, 0, 0.32) !important;
-        }
-        .bubble-sub-button.cache-limit .bubble-sub-button-name-container {
-          color: var(--primary-text-color) !important;
-        }
-        .bubble-sub-button.cache-limit ha-icon {
-          color: #ef6c00 !important;
         }
         {% elif notice_state == 'near_limit' %}
         .bubble-sub-button.cache-limit {

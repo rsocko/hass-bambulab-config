@@ -3939,11 +3939,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         manager.archives = await hass.async_add_executor_job(manager.store.load_archives)
         deleted_count = max(0, int(delete_result.get("deleted", 0)))
         manager.last_refresh_store_total_count = max(0, len(manager.archives))
-        if isinstance(manager.last_refresh_archive_total_count, int):
-            manager.last_refresh_archive_total_count = max(
-                0,
-                manager.last_refresh_archive_total_count - deleted_count,
-            )
         query_changed = manager._recompute_query("delete_print_history_archive")
         if query_changed or deleted_count > 0:
             manager.browser_revision += 1

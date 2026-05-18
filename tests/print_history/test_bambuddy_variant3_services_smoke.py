@@ -3180,15 +3180,13 @@ def test_variant3_manager_limit_notice_reports_truncated_history(tmp_path: Path)
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(manager_module.project_archive))
     manager.archives = manager.store.load_archives()
-    manager.last_refresh_archive_total_count = 5
 
     notice = manager.limit_notice
 
     assert notice["show"] is True
-    assert notice["state"] == "truncated"
-    assert notice["chip_label"] == "2 of 5"
-    assert notice["missing_count"] == 3
-    assert "not included in the local browser cache" in notice["popup_markdown"]
+    assert notice["state"] == "at_limit"
+    assert notice["chip_label"] == "2 / 2+"
+    assert "additional prints on Bambuddy" in notice["popup_markdown"]
 
 
 def test_variant3_manager_limit_notice_reports_incomplete_history(tmp_path: Path) -> None:
@@ -3206,21 +3204,19 @@ def test_variant3_manager_limit_notice_reports_incomplete_history(tmp_path: Path
     manager.store.initialize()
     template_archives = _projected_archives(manager_module.project_archive)
     archives: list[dict[str, object]] = []
-    for index in range(10):
+    for index in range(18):
         source = dict(template_archives[index % len(template_archives)])
         source["id"] = 2000 + index
         archives.append(source)
     manager.store.replace_archives(archives)
     manager.archives = manager.store.load_archives()
-    manager.last_refresh_archive_total_count = 12
 
     notice = manager.limit_notice
 
     assert notice["show"] is True
-    assert notice["state"] == "incomplete"
-    assert notice["chip_label"] == "10 of 12"
-    assert notice["expected_cached_count"] == 12
-    assert "expected cache entries are missing" in notice["popup_markdown"]
+    assert notice["state"] == "near_limit"
+    assert notice["chip_label"] == "18 / 20"
+    assert "Only **2** cache slots remain" in notice["popup_markdown"]
 
 
 def test_variant3_manager_limit_notice_reports_near_limit(tmp_path: Path) -> None:
@@ -3244,13 +3240,12 @@ def test_variant3_manager_limit_notice_reports_near_limit(tmp_path: Path) -> Non
         archives.append(source)
     manager.store.replace_archives(archives)
     manager.archives = manager.store.load_archives()
-    manager.last_refresh_archive_total_count = 18
 
     notice = manager.limit_notice
 
     assert notice["show"] is True
     assert notice["state"] == "near_limit"
-    assert notice["chip_label"] == "18 of 20"
+    assert notice["chip_label"] == "18 / 20"
     assert "Only **2** cache slots remain" in notice["popup_markdown"]
 
 
