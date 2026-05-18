@@ -621,8 +621,8 @@
 
 <!-- 6. Recover history -->
 <section class="mock" id="m6">
-  <h2>6. Popup — Recover Print History wizard (NEW)</h2>
-  <p class="desc">Operator-facing entry into the existing forensics flow described in <code>historical-print-backfill-via-model-catalog.md</code>. Reachable from popup overflow.</p>
+  <h2>6. Popup — Add Historical Print wizard (Operator-Driven, Server-Side)</h2>
+  <p class="desc">Direct, operator-driven, server-side workflow for adding historical print records. No CLI/manifest tools required. Reachable from popup overflow. See <code>historical-print-backfill-via-model-catalog.md</code> for full flow.</p>
   <div class="wizard">
     <div class="wizard-head">
       <span>Recover Print History — <b>Echo Show 5 Minimal Case</b></span>
@@ -630,13 +630,13 @@
       <button class="btn ghost">Cancel</button>
     </div>
     <div class="wizard-steps">
-      <span class="step done">1 · Scan</span>
-      <span class="step on">2 · Review candidates</span>
+      <span class="step done">1 · Scan for candidates</span>
+      <span class="step on">2 · Review & select</span>
       <span class="step">3 · Timestamps</span>
       <span class="step">4 · Commit</span>
     </div>
     <div class="wizard-body">
-      <div class="legend" style="margin-bottom:10px">Found 4 candidate archives across forensics indexes. Confidence is hash + filename + dimension match.</div>
+      <div class="legend" style="margin-bottom:10px">Found 4 candidate archives (hash, filename, dimension match). Operator reviews, selects, or creates new record. All actions are explicit and server-side.</div>
       <div class="candidate"><div class="conf high">96%</div><div><b>plate_2_2025-11-18_19-22.gcode.3mf</b><br><span class="meta" style="color:var(--muted)">SD card backup · matches hash + plate count</span></div><div class="meta">est. 3h 04m</div><div><button class="btn primary">Accept</button> <button class="btn ghost">Skip</button></div></div>
       <div class="candidate"><div class="conf high">91%</div><div><b>echoshow5_v3.3mf</b><br><span class="meta" style="color:var(--muted)">Downloads forensics · matches filename stem</span></div><div class="meta">est. 4h 11m</div><div><button class="btn primary">Accept</button> <button class="btn ghost">Skip</button></div></div>
       <div class="candidate"><div class="conf med">74%</div><div><b>case_thin.3mf</b><br><span class="meta" style="color:var(--muted)">name fuzz match · dimensions in range</span></div><div class="meta">est. 3h 50m</div><div><button class="btn">Accept</button> <button class="btn ghost">Skip</button></div></div>

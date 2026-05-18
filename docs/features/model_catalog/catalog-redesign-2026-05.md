@@ -302,16 +302,23 @@ This **rolls up [#1373](https://github.com/rsocko/hass-bambulab-config/issues/13
 
 ### US-4: Historical print backfill from the popup
 
-Add a **"Recover Print History"** action in the popup overflow, which opens a wizard:
+**US-4: Add Historical Print Wizard (Operator-Driven Print History Backfill)**
 
-1. **Scan** — sidecar searches forensics indexes (existing tools) for archive candidates matching this model's hash / filename / dimensions.
-2. **Review** — operator sees candidates with confidence score, source path, slicer-derived metadata; can accept/reject each.
-3. **Timestamps** — for accepted candidates without a captured `started_at`, operator may enter `requested_print_started_at` and `requested_print_completed_at` manually (or accept derived defaults).
-4. **Commit** — sidecar creates print history records (flagged `source: backfill`) and links them to the model.
+Replace the legacy forensics/manifest-based print history recovery with a direct, server-side, operator-driven "Add Historical Print" wizard, accessible from the Model Catalog popup. This enables operators to push a model-linked print history record with custom timestamps and status, without relying on CLI tools or manifest orchestration.
 
-Backfill records render in the popup's history list with a `Backfilled` badge and a tooltip showing how the timestamps were obtained. Per the layering contract, the badge label is computed in Layer 2, not stored in Layer 1.
+**Acceptance Criteria:**
+- A new "Recover Print History" (or "Add Historical Print") action is available in the Catalog model popup.
+- The wizard allows the operator to:
+  1. Scan for archive/print candidates (using filename/hash/metadata).
+  2. Review and select candidates, or create a new historical record.
+  3. Enter or confirm print start/completion timestamps (with timezone/note).
+  4. Commit the record, which is flagged as a backfill and linked to the model.
+- Backfilled records are clearly labeled in the UI and excluded from frequents calculations by default.
+- No dependency on legacy forensics CLI or manifest tools.
+- All flows are operator-driven, review-heavy, and server-side (no client scripting).
+- The workflow is documented in the Catalog redesign and historical backfill design docs, and mockups are updated to match.
 
-This **converts the existing [historical-print-backfill-via-model-catalog.md](historical-print-backfill-via-model-catalog.md) design into an operator-discoverable surface.**
+This replaces the previous forensics/manifest orchestration with a modern, operator-facing, server-side workflow.
 
 ### US-5: Add-to-Queue, Backlog state, and consistent UX
 
