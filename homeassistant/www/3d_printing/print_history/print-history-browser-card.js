@@ -455,7 +455,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._refreshTimer = null;
       this._debugStats.executedRefreshes += 1;
       this._refreshData();
-    }.bind(this), 180);
+    }.bind(this), 50);
   }
 
   async _refreshData() {
@@ -482,6 +482,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return;
       }
       this._loading = false;
+      this._querySignature = this._buildQuerySignature(this._hass);
       this._viewSignature = this._buildViewSignature(this._hass);
       this._renderBody();
       this._syncRefreshIndicator(true);
