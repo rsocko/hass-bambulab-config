@@ -2887,53 +2887,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
 
-    // Show loading popup immediately
     var archiveId = archive.id;
     var archiveName = archive.print_name || ("Archive " + archiveId);
     var popupTitle = archiveName + " · #" + archiveId;
-    this._fireBrowserModEvent("browser_mod.popup", {
-      title: popupTitle,
-      size: "normal",
-      content: {
-        type: "vertical-stack",
-        cards: [
-          {
-            type: "custom:button-card",
-            name: "Loading archive details...",
-            icon: "mdi:loading",
-            show_icon: true,
-            show_name: true,
-            tap_action: { action: "none" },
-            hold_action: { action: "none" },
-            styles: {
-              card: [
-                { padding: "32px 0" },
-                { background: "rgba(21,101,192,0.04)" },
-                { border: "none" },
-                { 'font-size': '18px' },
-                { 'font-weight': '600' },
-                { color: 'var(--primary-color)' },
-                { 'justify-content': 'center' },
-                { 'align-items': 'center' },
-              ],
-              icon: [
-                { animation: 'spin 1.2s linear infinite' },
-                { color: 'var(--primary-color)' },
-                { width: '38px' },
-                { height: '38px' },
-              ],
-              name: [
-                { 'margin-top': '18px' },
-                { 'font-size': '18px' },
-                { color: 'var(--primary-color)' },
-              ],
-            },
-          },
-        ],
-      },
-    });
-
-    // Now run the real sequence as before
     var archiveInfo = this._splitArchiveNotes(archive.notes);
     var archiveUserTags = this._userTags(archive.tags);
     var archiveStatus = this._normalizeStatus(archive.status || "completed");
@@ -3121,6 +3077,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
       },
     ];
 
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: popupTitle,
+      size: "normal",
+      content: {
+        type: "vertical-stack",
+        cards: cards,
+      },
+    });
+
     this._fireBrowserModEvent("browser_mod.sequence", {
       sequence: [
         {
@@ -3197,17 +3162,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
           data: {
             entity_id: "input_select.print_history_popup_failure_reason",
             option: archiveFailureReason || "Unspecified",
-          },
-        },
-        {
-          service: "browser_mod.popup",
-          data: {
-            title: popupTitle,
-            size: "normal",
-            content: {
-              type: "vertical-stack",
-              cards: cards,
-            },
           },
         },
       ],
