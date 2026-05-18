@@ -80,9 +80,7 @@ cards:
           browser_mod:
             service: browser_mod.popup
             data:
-              title: >-
-                {{ state_attr('sensor.bambuddy_print_history_browser_status',
-                'limit_notice_popup_title') or 'Print History Cache' }}
+              title: Print History Cache
               size: normal
               content:
                 type: markdown

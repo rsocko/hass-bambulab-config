@@ -588,7 +588,20 @@ class PrintHistoryBrowserManager:
                 self.last_refresh_store_replace_ms = round((perf_counter() - store_replace_started) * 1000, 1)
                 self.last_refresh_store_load_ms = 0.0
                 self.last_refresh_store_total_count = int(store_replace_result.get("total_count", 0))
-                self.last_refresh_archive_total_count = self.last_refresh_store_total_count
+                # Prefer Bambuddy's reported total from the stats endpoint; the
+                # store count is capped at max_archives, so it equals the limit
+                # rather than the real total when the cache is full.
+                _bambuddy_total = (
+                    int(stats_result.get("total_prints"))
+                    if not isinstance(stats_result, Exception)
+                    and isinstance(stats_result.get("total_prints"), int)
+                    else None
+                )
+                self.last_refresh_archive_total_count = (
+                    _bambuddy_total
+                    if _bambuddy_total is not None and _bambuddy_total >= 0
+                    else self.last_refresh_store_total_count
+                )
                 self.last_refresh_store_inserted_count = int(store_replace_result.get("inserted_count", 0))
                 self.last_refresh_store_updated_count = int(store_replace_result.get("updated_count", 0))
                 self.last_refresh_store_unchanged_count = int(store_replace_result.get("unchanged_count", 0))
