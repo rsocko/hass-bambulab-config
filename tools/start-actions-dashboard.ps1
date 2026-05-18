@@ -11,7 +11,7 @@ $url  = "http://localhost:$port/gh-actions-dashboard.html"
 # Check if port is already in use
 $inUse = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
 if ($inUse) {
-    Write-Host "Port $port already in use — opening browser to existing server" -ForegroundColor Yellow
+    Write-Host "Port $port already in use - opening browser to existing server" -ForegroundColor Yellow
     Start-Process $url
     exit
 }
@@ -27,7 +27,7 @@ Start-Job -ScriptBlock {
     Start-Process $u
 } -ArgumentList $url | Out-Null
 
-# Start Python HTTP server (blocking — Ctrl+C to stop)
+# Start Python HTTP server (blocking - Ctrl+C to stop)
 try {
     python -m http.server $port --directory $dir 2>&1
 } catch {
