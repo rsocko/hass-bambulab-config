@@ -20,7 +20,7 @@ from .._helpers import (
     _is_path_within_roots,
     _model_photo_storage_root,
 )
-from ..db import delete_model_field, read_model_field, read_model_fields, set_model_field
+from ..db import delete_model_field, migrate_links_for_graduation, read_model_field, read_model_fields, set_model_field
 from ..local_models import (
     create_local_model,
     delete_local_model,
@@ -899,6 +899,12 @@ def publish_working_group_to_local_service(*, settings: Settings, group_id: int,
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="published_from_group_id", field_value=group_id)
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="publish_outcome", field_value=publish_outcome)
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="lineage", field_value=lineage_payload)
+    # ADR-001: migrate any archive links from WG identity to catalog identity
+    migrated_link_count = migrate_links_for_graduation(
+        db_path=settings.db_path,
+        group_id=group_id,
+        new_local_model_id=target_model_ref,
+    )
     publish_history = _append_intake_publish_history(
         db_path=settings.db_path,
         model_ref=target_model_ref,
@@ -928,6 +934,7 @@ def publish_working_group_to_local_service(*, settings: Settings, group_id: int,
         "imported_assets": imported_assets,
         "duplicate_skipped": duplicate_skipped,
         "failed_files": failed_files,
+        "migrated_archive_link_count": migrated_link_count,
         "publish_history": publish_history,
     }
 

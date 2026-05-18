@@ -1,7 +1,8 @@
 # ADR-001: Archive Linkage Target & Graduation-Stable Identity
 
-> Status: **Proposed** — awaiting review  
-> Date: 2026-05-18  
+> Status: **Accepted**  
+> Proposed: 2026-05-18  
+> Accepted: 2026-05-18  
 > Resolves: #1314, #1375  
 > Scope: Local catalog ONLY — no external service dependency
 
@@ -35,8 +36,8 @@ The model catalog operates as a **self-contained local system**. All model ident
 | Asset ID column | Column exists but is **never populated by automated discovery** — only via manual input |
 | Local models | `model_catalog_entries` table, identified by `local_model_id` (UUID) |
 | Model assets | `model_catalog_assets` table, each with `asset_id` (unique per model entry), `file_hash`, `storage_path` |
-| Working groups | Separate system (`working_group_model_links.model_ref`) — not propagated during graduation |
-| Graduation | Creates a `model_catalog_entries` record with a new `local_model_id`; does NOT transfer existing links |
+| Working groups | Separate system (`working_group_model_links.model_ref`) — can now also be archive link targets via `local://working-group/{id}` |
+| Graduation | Creates a `model_catalog_entries` record with a new `local_model_id`; MUST rewrite any `local://working-group/` links |
 
 ### Why This Matters Now
 
@@ -64,11 +65,24 @@ The link always identifies the parent model. When the specific .3mf (or other so
 
 | Scenario | Model URL | Asset ID | `relationship_type` |
 |----------|-----------|----------|---------------------|
-| Archive matched to a model by name/time heuristic | ✅ `local://model/{id}` | ❌ null | `model_printed_in_archive` |
+| Archive matched to a catalog model by name/time heuristic | ✅ `local://model/{id}` | ❌ null | `model_printed_in_archive` |
 | Archive matched to a specific .3mf by hash | ✅ `local://model/{id}` | ✅ asset_id | `model_file_printed_in_archive` |
+| Archive matched to a working group by name/file heuristic | ✅ `local://working-group/{id}` | ❌ null | `model_printed_in_archive` |
 | Slicer creates archive from known source file | ✅ `local://model/{id}` | ✅ asset_id | `model_file_printed_in_archive` |
 | Operator manually links to model (no file picked) | ✅ `local://model/{id}` | ❌ null | `model_printed_in_archive` |
+| Operator manually links to working group | ✅ `local://working-group/{id}` | ❌ null | `model_printed_in_archive` |
 | Operator manually links to specific asset via picker | ✅ `local://model/{id}` | ✅ asset_id | `model_file_printed_in_archive` |
+
+### Relationship Type Convention
+
+Existing candidate-refresh code uses `printed_from` as the default `relationship_type`. Going forward, new and updated links SHOULD use the values defined in this ADR:
+
+| Value | Meaning |
+|-------|--------|
+| `model_printed_in_archive` | Link targets the model (asset ID is null) |
+| `model_file_printed_in_archive` | Link targets a specific asset within the model |
+
+Existing `printed_from` rows are treated as equivalent to `model_printed_in_archive` (model-level, no asset specificity). A one-time repair pass MAY normalize legacy values, but consumers SHOULD accept both forms.
 
 ### Behavior
 
@@ -120,20 +134,33 @@ Working File (folder scan)  →  Working Group (tracked/staged)  →  Local Cata
 
 At each stage, the model's identity changes:
 - Working File: path-based (`source_path_compare_key`)
-- Working Group: `working_groups.id` + `slug`
-- Local Catalog Model: `local://model/{local_model_id}` (UUID, stable)
+- Working Group: `local://working-group/{id}` (integer PK, stable until graduation)
+- Local Catalog Model: `local://model/{local_model_id}` (UUID, permanent)
 
-The local catalog model identity (`local_model_id`) is the **terminal stable identity**. Once a model reaches this stage, its ID never changes regardless of renames, re-categorization, or tag edits.
+The local catalog model identity (`local_model_id`) is the **terminal stable identity**. Working group identity (`local://working-group/{id}`) is stable within its lifecycle, but upon graduation it is rewritten to the catalog form. Both forms are valid link targets; graduation guarantees convergence.
 
-If an archive were linked to a Working Group identity and that group graduates to a catalog model, the link would become orphaned unless we explicitly handle the transition.
+### Proposal: Two Identity Forms with Graduation Migration
 
-### Proposal: Graduation Writes a Link Migration
+The model URL column in `model_catalog_links` accepts two identity forms:
+
+| Identity Form | Applies To | Stability |
+|---------------|------------|----------|
+| `local://model/{local_model_id}` | Catalog models | Permanent (UUID-based) |
+| `local://working-group/{id}` | Working groups | Stable until graduation, then rewritten |
+
+Working groups use their `id` (integer primary key) — NOT the mutable `slug` — as the stable component of the synthetic URL.
+
+Candidate discovery SHOULD search both catalog models and working groups when scoring archive matches. This reflects the real-world workflow: many prints happen from WIP models before they are curated into the catalog.
+
+### Graduation Migration (Mandatory)
 
 When a working group is published to the local catalog (via `publish_working_group_to_local_service`), the graduation logic MUST:
 
-1. **Query** `model_catalog_links` for any rows where the model URL column matches a working-group-derived synthetic URL (if one exists) or where the public ID column matches the working group slug
-2. **Rewrite** those rows' model URL to the new `local://model/{local_model_id}`
+1. **Query** `model_catalog_links` for rows where `manyfold_model_url = 'local://working-group/{group_id}'`
+2. **Rewrite** those rows' model URL to `local://model/{new_local_model_id}`
 3. **Log** the rewrite as a `model_catalog_events` entry with `event_type=link_url_migrated`
+
+The graduation function already records `source_origin_url=f"working-group://{group_id}"` and stores `published_from_group_id`, so the old→new mapping is always known.
 
 ### Identity Stability Contract
 
@@ -144,21 +171,20 @@ When a working group is published to the local catalog (via `publish_working_gro
 | Links survive asset rename within model | `asset_id` is UUID-based, not filename-based — no change needed |
 | Links survive model re-categorization (tags/collections) | Identity is not derived from metadata — no change needed |
 | Links survive Catalog → Working demotion | Reverse URL rewrite (preserve the original `local_model_id` in a memo field) |
+| WG links are never orphaned by graduation | Mandatory rewrite step in graduation path |
 
-### Pre-Condition: Working Groups Don't Have Archive Links Today
+### Display Behavior for WG Links
 
-Currently, the model URL column in `model_catalog_links` only contains `local://model/{id}` URLs. Working groups are managed via the separate `working_group_model_links` table, which is a different system and does NOT flow into `model_catalog_links`.
-
-**Design choice**: We will NOT introduce archive-linking for working groups directly. Instead:
-- A working group must graduate to a local catalog model before it can be an archive link target
-- This keeps the identity space to exactly ONE form: `local://model/{local_model_id}`
-- The graduation step is lightweight; the catalog model is the stable anchor
+When a link's model URL is `local://working-group/{id}`, UIs SHOULD:
+- Resolve the working group title from `working_groups` and display it with a "Working Files" badge
+- Navigate to the working group detail view (not the catalog model view)
+- After graduation, the link URL becomes `local://model/...` and normal catalog display applies
 
 ### Schema Impact
 
-**No new columns needed.** The existing `canonical_model_url_repair` function already handles URL rewrites. We extend this pattern:
+**No new columns needed.** The `manyfold_model_url TEXT` column already accepts any string. The existing `canonical_model_url_repair` function already handles URL rewrites. We extend this pattern:
 
-- Add a `migrate_links_for_graduation(old_url: str, new_local_model_id: str)` helper to `db_archive_links.py`
+- Add a `migrate_links_for_graduation(group_id: int, new_local_model_id: str)` helper to `db_archive_links.py`
 - Call it from the graduation service
 - Log via the existing `model_catalog_events` table
 
@@ -166,25 +192,31 @@ Currently, the model URL column in `model_catalog_links` only contains `local://
 
 | Pro | Con |
 |-----|-----|
-| Single identity form (`local://model/{uuid}`) — minimal ambiguity | Graduation must be URL-aware (small code addition) |
-| Only catalog-level models can be link targets — reduces ambiguity | Working groups cannot be linked until graduated (acceptable — they are WIP) |
-| Existing `canonical_model_url_repair` pattern proves the migration is safe | If graduation is skipped (direct file use), no link exists until manual creation |
-| Event log preserves audit trail of migrations | Adds ~10 LOC to the graduation path |
+| Archives can be linked to WIP models immediately — matches real workflow | Two identity forms in the URL column (mitigated by graduation rewrite) |
+| Graduation automatically migrates links — no orphans | Candidate discovery must search both tables (~5 LOC) |
+| Existing `canonical_model_url_repair` pattern proves the migration is safe | Display must handle WG badge (minor UI addition) |
+| WG `id` (integer PK) is genuinely stable — not slug-dependent | — |
+| Event log preserves audit trail of migrations | — |
 | Zero external dependencies — fully local | — |
 
 ---
 
 ## Implementation Checklist
 
-### Immediate (unblocks Tier 1+)
+### Tier 0 — Design Acceptance (this ADR)
 
-- [ ] **Accept this ADR** — no schema migration required; behavioral only
-- [ ] Update `candidate-discovery-strategy.md` to note that asset-level resolution is preferred when a hash match is found against `model_catalog_assets.file_hash`
-- [ ] Add `migrate_links_for_graduation(old_url, new_local_model_id)` to `db_archive_links.py`
-- [ ] Wire the migration call into `publish_working_group_to_local_service`
-- [ ] Ensure candidate refresh scorer populates the asset ID column when `file_hash_exact` or `content_hash_exact` is the match method
+- [x] **Accept this ADR** — no schema migration required; behavioral only
 
-### Later (Tier 5 / Slicer)
+### Tier 1 — Discovery Engine (implement alongside #1114 / #1118)
+
+- [x] Update `candidate-discovery-strategy.md` to note that asset-level resolution is preferred when a hash match is found against `model_catalog_assets.file_hash`
+- [x] Add `migrate_links_for_graduation(group_id, new_local_model_id)` to `db_archive_links.py`
+- [x] Wire the migration call into `publish_working_group_to_local_service` (after model creation, before response)
+- [x] Extend candidate discovery to search `working_groups` + `working_items` in addition to `model_catalog_entries` + `model_catalog_assets`
+- [x] Ensure candidate refresh scorer populates the asset ID column when `file_hash_exact` or `content_hash_exact` is the match method
+- [x] Normalize `relationship_type` values in new link creation to use `model_printed_in_archive` / `model_file_printed_in_archive`
+
+### Tier 5 — Slicer Integration
 
 - [ ] Slicer commit path (#1454) MUST pass the asset ID for the source .3mf asset used
 - [ ] Archive detail popup shows asset-level specificity when present (resolves filename from `model_catalog_assets`)
@@ -195,8 +227,10 @@ Currently, the model URL column in `model_catalog_links` only contains `local://
 - [ ] Run candidate discovery against an archive whose `source_hash` matches one asset — verify asset ID is populated
 - [ ] Link an archive to the model (model-level only) — verify display
 - [ ] Narrow the link to a specific asset — verify display shows filename
-- [ ] Graduate a working group that has existing links — verify links survive with new `local://model/` URL
+- [ ] Link an archive to a working group — verify `local://working-group/{id}` URL stored and display shows "Working Files" badge
+- [ ] Graduate that working group — verify links rewrite to `local://model/{new_uuid}` and display switches to catalog model view
 - [ ] Confirm `canonical_model_url_repair` after graduation leaves no orphaned links
+- [ ] Verify candidate discovery returns working group matches alongside catalog model matches
 
 ---
 
@@ -216,12 +250,12 @@ Rejected because:
 - A separate table introduces join complexity for a single nullable field
 - The design anticipated this as a single-row dual-target pattern
 
-### C: Indirect Linkage Through Working Groups
+### C: Prohibit Linkage to Working Groups Entirely
 
-Rejected because:
-- Working groups are transient by design (WIP staging area)
-- Their identity is slug-based and mutable
-- Adding them as link targets would introduce a second identity form in the link table
+Considered but rejected in favor of the current approach because:
+- Many prints happen from WIP models before graduation — prohibiting WG linkage creates a gap in provenance
+- Working groups have a stable integer PK (`id`); the slug mutability concern is moot for the synthetic URL `local://working-group/{id}`
+- The graduation migration (mandatory URL rewrite) ensures WG links converge to the single `local://model/{uuid}` form — the second identity form is transient, not permanent
 
 ### D: Content-Addressable Identity (hash-only, no URL)
 

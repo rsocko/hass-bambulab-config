@@ -38,6 +38,7 @@ class CandidateMatch:
     rationale: tuple[str, ...]
     match_method: str
     match_confidence: str
+    matched_asset_id: str | None = None
 
 
 def _summary_map(db_path: Any) -> dict[str, CatalogModelSummary]:
@@ -46,12 +47,20 @@ def _summary_map(db_path: Any) -> dict[str, CatalogModelSummary]:
     # Also include local catalog entries so links using local:// URLs resolve
     for entry_summary in _read_local_catalog_summaries(db_path):
         result.setdefault(entry_summary.model_url, entry_summary)
+    # Include working group entries so links using local://working-group/ URLs resolve
+    for wg_summary in _read_working_group_summaries(db_path):
+        result.setdefault(wg_summary.model_url, wg_summary)
     return result
 
 
 def _local_model_url(local_model_id: str) -> str:
     """Construct a synthetic URL for a local catalog model."""
     return f"local://model/{local_model_id}"
+
+
+def _working_group_url(group_id: int) -> str:
+    """Construct a synthetic URL for a working group."""
+    return f"local://working-group/{group_id}"
 
 
 def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
@@ -160,6 +169,98 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedCatalogModel]:
     return models
 
 
+def _read_working_groups_for_matching(db_path: Any) -> list[CachedCatalogModel]:
+    """Read working groups + items as CachedCatalogModel for candidate scoring.
+
+    Returns working groups in the same shape so the existing scoring logic works.
+    Uses ``local://working-group/{id}`` as the model URL per ADR-001.
+    """
+    connection = connect(db_path)
+    try:
+        group_rows = connection.execute(
+            """
+            SELECT id, title, primary_file_path, created_at, updated_at
+            FROM working_groups
+            WHERE stage NOT IN ('archived', 'published')
+            ORDER BY title COLLATE NOCASE
+            """
+        ).fetchall()
+
+        item_rows = connection.execute(
+            """
+            SELECT wi.working_group_id, wi.file_path, wi.file_hash, wi.created_at
+            FROM working_items wi
+            JOIN working_groups wg ON wi.working_group_id = wg.id
+            WHERE wg.stage NOT IN ('archived', 'published')
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    items_by_group: dict[int, list[dict[str, Any]]] = {}
+    for item_row in item_rows:
+        gid = int(item_row["working_group_id"])
+        items_by_group.setdefault(gid, []).append({
+            "filename": str(item_row["file_path"] or "").rsplit("/", 1)[-1].rsplit("\\", 1)[-1],
+            "content_hash": str(item_row["file_hash"] or ""),
+            "created_at": str(item_row["created_at"] or ""),
+        })
+
+    models: list[CachedCatalogModel] = []
+    for row in group_rows:
+        gid = int(row["id"])
+        title = str(row["title"])
+        items = items_by_group.get(gid, [])
+        raw_payload: dict[str, Any] = {
+            "name": title,
+            "created_at": str(row["created_at"] or ""),
+            "updated_at": str(row["updated_at"] or ""),
+            "files": items,
+        }
+        summary = CatalogModelSummary(
+            model_url=_working_group_url(gid),
+            public_id=str(gid),
+            model_id=str(gid),
+            name=title,
+            preview_url=None,
+            creator_name=None,
+            collection_names=(),
+            keyword_names=(),
+            entity_type="working_group",
+        )
+        models.append(CachedCatalogModel(summary=summary, raw_payload=raw_payload))
+    return models
+
+
+def _read_working_group_summaries(db_path: Any) -> list[CatalogModelSummary]:
+    """Read working group entries as CatalogModelSummary for link display."""
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT id, title
+            FROM working_groups
+            ORDER BY title COLLATE NOCASE
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+    return [
+        CatalogModelSummary(
+            model_url=_working_group_url(int(row["id"])),
+            public_id=str(row["id"]),
+            model_id=str(row["id"]),
+            name=str(row["title"]),
+            preview_url=None,
+            creator_name=None,
+            collection_names=(),
+            keyword_names=(),
+            entity_type="working_group",
+        )
+        for row in rows
+    ]
+
+
 def _resolve_model_summary(summary_by_url: dict[str, CatalogModelSummary], model_ref: str) -> CatalogModelSummary | None:
     normalized_ref = str(model_ref or "").strip()
     if not normalized_ref:
@@ -257,6 +358,29 @@ def _extract_model_hashes(payload: dict[str, Any]) -> set[str]:
     }
 
 
+def _extract_asset_hash_map(payload: dict[str, Any]) -> dict[str, str]:
+    """Return a mapping of ``{lowercase_hash: asset_identifier}`` from payload files.
+
+    When a source hash matches one of these, the link can be narrowed to the
+    specific asset (file-level resolution per ADR-001).
+    """
+    result: dict[str, str] = {}
+    files = payload.get("files")
+    if not isinstance(files, list):
+        return result
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        hash_value = str(item.get("content_hash") or item.get("file_hash") or "").strip().lower()
+        if not hash_value:
+            continue
+        # Use filename as a stable identifier; fall back to hash itself
+        asset_id = str(item.get("asset_id") or item.get("filename") or hash_value).strip()
+        if asset_id:
+            result[hash_value] = asset_id
+    return result
+
+
 def _extract_model_filenames(summary: CatalogModelSummary, payload: dict[str, Any]) -> set[str]:
     names = {summary.name}
     names.update(_extract_string_values(payload, {"source_file_name", "filename", "original_filename", "name", "title"}))
@@ -313,6 +437,7 @@ def _build_candidate_match(
     rationale: list[str] = []
     score = 0.0
     deterministic = False
+    matched_asset_id: str | None = None
 
     normalized_source_hash = str(source_hash or "").strip().lower()
     model_hashes = _extract_model_hashes(payload)
@@ -320,6 +445,9 @@ def _build_candidate_match(
         deterministic = True
         score += 10.0
         rationale.append("exact source hash match")
+        # Resolve to specific asset when possible (ADR-001 asset-level resolution)
+        asset_hash_map = _extract_asset_hash_map(payload)
+        matched_asset_id = asset_hash_map.get(normalized_source_hash)
 
     name_score = _score_candidate(archive_name, summary.name)
     if name_score > 0:
@@ -372,6 +500,7 @@ def _build_candidate_match(
         rationale=tuple(rationale),
         match_method=match_method,
         match_confidence=_confidence_for_score(min(score, 1.0) if not deterministic else 1.0),
+        matched_asset_id=matched_asset_id,
     )
 
 
@@ -475,12 +604,15 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
     allow_time_proximity = _coerce_bool(payload.get("allow_time_proximity", True))
     prefer_recent_uploads = _coerce_bool(payload.get("prefer_recent_uploads", True))
     recent_upload_window_days = int(payload.get("recent_upload_window_days") or 14)
+    force_refresh_model_cache = _coerce_bool(payload.get("force_refresh_model_cache", False))
     state: AppState = request.app.state.model_catalog
     if not archive_name:
         return _error_response(archive_id=archive_id, error="invalid_payload", message="archive_name is required for candidate refresh.")
 
     # Use local catalog entries as the candidate source (local catalog source)
     cached_models = _read_local_catalog_for_matching(db_path=state.settings.db_path)
+    # Also search working groups (ADR-001 allows WG ↔ Archive linkage)
+    cached_models.extend(_read_working_groups_for_matching(db_path=state.settings.db_path))
     archive_times = [value for value in (archive_completed_at, archive_started_at) if value is not None]
     candidate_matches_by_url: dict[str, CandidateMatch] = {}
     for cached_model in cached_models:
@@ -506,6 +638,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
             creator_name=match.summary.creator_name,
             collection_names=match.summary.collection_names,
             keyword_names=match.summary.keyword_names,
+            entity_type=match.summary.entity_type,
         )
         canonical_match = CandidateMatch(
             summary=canonical_summary,
@@ -514,6 +647,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
             rationale=match.rationale,
             match_method=match.match_method,
             match_confidence=match.match_confidence,
+            matched_asset_id=match.matched_asset_id,
         )
         existing_match = candidate_matches_by_url.get(canonical_url)
         if existing_match is None or (canonical_match.deterministic, canonical_match.score) > (existing_match.deterministic, existing_match.score):
@@ -537,10 +671,14 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
     selected_candidates = []
     for match in candidate_matches[:max_candidates]:
         auto_accept = match.deterministic and len(deterministic_matches) == 1 and not active_confirmed_link
+        # ADR-001: use asset-level relationship when a specific asset matched
+        rel_type = "model_file_printed_in_archive" if match.matched_asset_id else "model_printed_in_archive"
         selected_candidates.append(
             {
                 "model_url": match.summary.model_url,
                 "model_public_id": match.summary.public_id or "",
+                "model_asset_id": match.matched_asset_id,
+                "relationship_type": rel_type,
                 "match_method": match.match_method,
                 "match_confidence": match.match_confidence,
                 "review_state": "accepted" if auto_accept else "new",

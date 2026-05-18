@@ -194,3 +194,20 @@ Example reasoning strings:
 
 - [phase-6-search-ranking-and-discovery-design.md](phase-6-search-ranking-and-discovery-design.md)
 - [integration/archive-model-link-ha-service-and-popup-contract.md](integration/archive-model-link-ha-service-and-popup-contract.md)
+- [ADR-001-archive-linkage-target-and-graduation-identity.md](ADR-001-archive-linkage-target-and-graduation-identity.md)
+
+## Implementation Status — Issue #1114 Broadening
+
+The following Phase 6 broadening items are now implemented (see ADR-001 for design rationale):
+
+### Working Group Discovery
+
+Candidate refresh now includes active working groups (stage not `archived`/`published`) as candidates alongside local catalog models and remote cached models. Working groups use `local://working-group/{id}` identity URLs and participate in the same scoring pipeline.
+
+### Asset-Level Resolution
+
+When a deterministic hash match resolves to a specific catalog asset (file), the candidate records `model_asset_id` and uses `relationship_type = "model_file_printed_in_archive"` instead of the model-level `"model_printed_in_archive"`. This enables finer-grained provenance.
+
+### Graduation Migration
+
+When a working group is published to the local catalog, all archive links referencing the old `local://working-group/{id}` URL are automatically migrated to the new `local://model/{uuid}` identity. This is handled by `migrate_links_for_graduation()` in `db_archive_links.py`, called during the publish workflow in `working_catalog_service.py`.
