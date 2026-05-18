@@ -138,23 +138,15 @@
 
     .btn:hover { opacity: 0.85; }
 
-    /* ── Refresh progress bar ────────────── */
-    .refresh-bar {
-      height: 2px;
-      background: var(--bg-tertiary);
-    }
-
-    .refresh-bar-fill {
-      height: 100%;
-      background: var(--accent);
-      transition: width 1s linear;
-    }
+    /* ── Refresh progress bar (hidden – not needed) ── */
+    .refresh-bar { display: none; }
 
     /* ── Main scrollable content ─────────── */
     main {
       flex: 1;
       overflow-y: auto;
       padding: 6px 8px 12px;
+      contain: content;
     }
 
     main::-webkit-scrollbar { width: 5px; }
@@ -245,10 +237,12 @@
     .s-dot.in_progress {
       background: var(--running);
       animation: pulse 2s ease-in-out infinite;
+      will-change: transform, opacity;
     }
     .s-dot.queued, .s-dot.waiting, .s-dot.pending {
       background: var(--pending);
       animation: pulse 3s ease-in-out infinite;
+      will-change: transform, opacity;
     }
     .s-dot.cancelled, .s-dot.skipped { background: var(--cancelled); }
 
@@ -407,6 +401,7 @@
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin-anim 0.7s linear infinite;
+      will-change: transform;
       vertical-align: middle;
     }
 
@@ -822,6 +817,7 @@
 
     .beacon-running .beacon-dot {
       animation: pulse 2s ease-in-out infinite;
+      will-change: transform, opacity;
     }
 
   </style>
@@ -999,16 +995,41 @@ const S = {
 };
 
 let tickId = null;
+let _renderRAF = 0;       // coalesce multiple render() calls per frame
+let _lastRunsJSON = '';   // skip render when data unchanged
 
-// ── DOM refs ────────────────────────────────────────────────────
-const $content   = () => document.getElementById('content');
-const $hdr       = () => document.getElementById('hdr');
+// ── DOM refs (resolved once after DOM ready) ────────────────────
+let $content, $hdr, $cdText, $barFill, $demoBnr, $errBar, $toast;
+let $kpiRunning, $kpiRunningSub, $kpiRunningVal;
+let $kpiQueued,  $kpiQueuedSub,  $kpiQueuedVal;
+let $kpiFailed,  $kpiFailedSub,  $kpiFailedVal;
+let $kpiLast,    $kpiLastSub,    $kpiLastVal;
+let $beacon, $beaconText;
 
-const $cdText    = () => document.getElementById('countdown-text');
-const $barFill   = () => document.getElementById('bar-fill');
-const $demoBnr   = () => document.getElementById('demo-banner');
-const $errBar    = () => document.getElementById('error-bar');
-const $toast     = () => document.getElementById('toast');
+function cacheDOMRefs() {
+  $content = document.getElementById('content');
+  $hdr     = document.getElementById('hdr');
+  $cdText  = document.getElementById('countdown-text');
+  $barFill = document.getElementById('bar-fill');
+  $demoBnr = document.getElementById('demo-banner');
+  $errBar  = document.getElementById('error-bar');
+  $toast   = document.getElementById('toast');
+  // KPI cards
+  $kpiRunning    = document.getElementById('kpi-running');
+  $kpiRunningVal = $kpiRunning.querySelector('.kpi-value');
+  $kpiRunningSub = document.getElementById('kpi-running-sub');
+  $kpiQueued     = document.getElementById('kpi-queued');
+  $kpiQueuedVal  = $kpiQueued.querySelector('.kpi-value');
+  $kpiQueuedSub  = document.getElementById('kpi-queued-sub');
+  $kpiFailed     = document.getElementById('kpi-failed');
+  $kpiFailedVal  = $kpiFailed.querySelector('.kpi-value');
+  $kpiFailedSub  = document.getElementById('kpi-failed-sub');
+  $kpiLast       = document.getElementById('kpi-last');
+  $kpiLastVal    = $kpiLast.querySelector('.kpi-value');
+  $kpiLastSub    = document.getElementById('kpi-last-sub');
+  $beacon        = document.getElementById('status-beacon');
+  $beaconText    = document.getElementById('beacon-text');
+}
 
 // ── Helpers: time formatting ────────────────────────────────────
 function ago(iso) {
@@ -1131,24 +1152,35 @@ async function loadJobs(id) {
 }
 
 // ── Rendering ───────────────────────────────────────────────────
-function render() {
-  const gs      = group(S.runs);
-  const active  = gs.filter(grpActive);
-  const recent  = gs.filter(g => !grpActive(g));
+function scheduleRender() {
+  if (!_renderRAF) _renderRAF = requestAnimationFrame(() => { _renderRAF = 0; render(); });
+}
 
-  // Header glow
-  const hdr = $hdr();
+function render() {
+  _renderRAF = 0;
+
+  // Skip full rebuild if runs + expanded set + jobs cache haven't changed
+  const snap = JSON.stringify([S.runs, [...S.expanded], Object.keys(S.jobs)]);
+  const changed = snap !== _lastRunsJSON;
+  _lastRunsJSON = snap;
+
+  // Header glow (always update — cheap)
   const anyRunning = S.runs.some(r => r.status === 'in_progress');
   const anyFailed  = S.runs.slice(0, 8).some(r => r.conclusion === 'failure');
-  hdr.className = anyRunning ? 'glow-running' : anyFailed ? 'glow-failure' : '';
+  $hdr.className = anyRunning ? 'glow-running' : anyFailed ? 'glow-failure' : '';
 
-  // KPI stats
+  // KPI stats (always update — cheap)
   const nRun = S.runs.filter(r => r.status === 'in_progress').length;
   const nQ   = S.runs.filter(r => r.status === 'queued' || r.status === 'waiting').length;
   const nF   = S.runs.filter(r => r.conclusion === 'failure').length;
   renderKPI(nRun, nQ, nF);
 
+  if (!changed) return;   // skip expensive innerHTML rebuild
+
   // Content
+  const gs      = group(S.runs);
+  const active  = gs.filter(grpActive);
+  const recent  = gs.filter(g => !grpActive(g));
   let h = '';
   if (active.length) {
     h += '<div class="section-header">Active</div>';
@@ -1159,59 +1191,49 @@ function render() {
     recent.forEach(g => h += renderGrp(g));
   }
   if (!gs.length) h = '<div class="empty-state">No workflow runs found</div>';
-  $content().innerHTML = h;
+  $content.innerHTML = h;
 }
 
 function renderKPI(nRun, nQ, nF) {
   // Running
-  const kpiRunning = document.getElementById('kpi-running');
-  kpiRunning.querySelector('.kpi-value').textContent = nRun;
-  kpiRunning.className = nRun > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
-  kpiRunning.style.setProperty('--kpi-color', 'var(--running)');
+  $kpiRunningVal.textContent = nRun;
+  $kpiRunning.className = nRun > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
   const runningRuns = S.runs.filter(r => r.status === 'in_progress');
-  document.getElementById('kpi-running-sub').textContent =
+  $kpiRunningSub.textContent =
     runningRuns.length > 0 ? (SHORT[runningRuns[0].name] || runningRuns[0].name) : '\u00A0';
 
   // Queued
-  const kpiQueued = document.getElementById('kpi-queued');
-  kpiQueued.querySelector('.kpi-value').textContent = nQ;
-  kpiQueued.className = nQ > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
-  kpiQueued.style.setProperty('--kpi-color', 'var(--pending)');
+  $kpiQueuedVal.textContent = nQ;
+  $kpiQueued.className = nQ > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
   const queuedRuns = S.runs.filter(r => r.status === 'queued' || r.status === 'waiting');
-  document.getElementById('kpi-queued-sub').textContent =
+  $kpiQueuedSub.textContent =
     queuedRuns.length > 0 ? (SHORT[queuedRuns[0].name] || queuedRuns[0].name) : '\u00A0';
 
   // Failed (recent)
-  const kpiFailed = document.getElementById('kpi-failed');
-  kpiFailed.querySelector('.kpi-value').textContent = nF;
-  kpiFailed.className = nF > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
-  kpiFailed.style.setProperty('--kpi-color', 'var(--failure)');
+  $kpiFailedVal.textContent = nF;
+  $kpiFailed.className = nF > 0 ? 'kpi-card kpi-highlight' : 'kpi-card';
   const failedRuns = S.runs.filter(r => r.conclusion === 'failure');
-  document.getElementById('kpi-failed-sub').textContent =
+  $kpiFailedSub.textContent =
     failedRuns.length > 0 ? ago(failedRuns[0].updated_at) : '\u00A0';
 
   // Last OK
-  const kpiLast = document.getElementById('kpi-last');
   const lastOK = S.runs.find(r => r.conclusion === 'success');
-  kpiLast.querySelector('.kpi-value').textContent = lastOK ? agoShort(lastOK.updated_at) : '—';
-  kpiLast.style.setProperty('--kpi-color', 'var(--success)');
-  document.getElementById('kpi-last-sub').textContent =
+  $kpiLastVal.textContent = lastOK ? agoShort(lastOK.updated_at) : '—';
+  $kpiLastSub.textContent =
     lastOK ? (SHORT[lastOK.name] || lastOK.name) : '\u00A0';
 
   // Status beacon
-  const beacon = document.getElementById('status-beacon');
-  const beaconText = document.getElementById('beacon-text');
   if (nRun > 0) {
-    beacon.className = 'status-beacon beacon-running';
+    $beacon.className = 'status-beacon beacon-running';
     const names = runningRuns.map(r => SHORT[r.name] || r.name).join(', ');
-    beaconText.textContent = `Running: ${names}`;
+    $beaconText.textContent = `Running: ${names}`;
   } else if (nF > 0) {
-    beacon.className = 'status-beacon beacon-failed';
+    $beacon.className = 'status-beacon beacon-failed';
     const names = failedRuns.slice(0, 2).map(r => SHORT[r.name] || r.name).join(', ');
-    beaconText.textContent = `Failed: ${names}`;
+    $beaconText.textContent = `Failed: ${names}`;
   } else {
-    beacon.className = 'status-beacon beacon-ok';
-    beaconText.textContent = 'All Clear';
+    $beacon.className = 'status-beacon beacon-ok';
+    $beaconText.textContent = 'All Clear';
   }
 }
 
@@ -1283,7 +1305,7 @@ function runDetail(r, child) {
 
   if (!cached) {
     h += `<div style="color:var(--text-tertiary)"><span class="spin"></span>&ensp;Loading…</div>`;
-    loadJobs(id).then(d => { S.jobs[id] = d; render(); })
+    loadJobs(id).then(d => { S.jobs[id] = d; scheduleRender(); })
                 .catch(() => {
                   const el = document.getElementById('det-' + id);
                   if (el) el.innerHTML = '<div style="color:var(--failure)">Failed to load jobs</div>';
@@ -1314,11 +1336,11 @@ function runDetail(r, child) {
   return h;
 }
 
+const _escEl = document.createElement('div');
 function esc(s) {
   if (!s) return '';
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+  _escEl.textContent = s;
+  return _escEl.innerHTML;
 }
 
 // ── Interactions ────────────────────────────────────────────────
@@ -1340,8 +1362,8 @@ function saveToken() {
   S.token = v;
   S.demo  = false;
   S.jobs  = {};
-  $demoBnr().classList.add('hidden');
-  $errBar().classList.add('hidden');
+  $demoBnr.classList.add('hidden');
+  $errBar.classList.add('hidden');
   closeSetup();
   refresh();
   toast('Connected to GitHub');
@@ -1530,10 +1552,9 @@ function resetAll() {
 }
 
 function toast(msg) {
-  const t = $toast();
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+  $toast.textContent = msg;
+  $toast.classList.add('show');
+  setTimeout(() => $toast.classList.remove('show'), 2500);
 }
 
 function manualRefresh() { S.countdown = 0; refresh(); }
@@ -1546,7 +1567,7 @@ async function refresh() {
 
   try {
     S.runs = await loadRuns();
-    $errBar().classList.add('hidden');
+    $errBar.classList.add('hidden');
 
     // Auto-expand newly in-progress runs
     S.runs.filter(r => r.status === 'in_progress' && !prev.has(r.id))
@@ -1573,28 +1594,41 @@ async function refresh() {
     } else {
       showError(e.message);
     }
+    // If hidden when error occurs, don't keep retrying
+    if (document.hidden) stopTick();
   }
   S.fetching = false;
   S.countdown = cfg.interval;
 }
 
 function showError(msg) {
-  const el = $errBar();
-  el.textContent = msg;
-  el.classList.remove('hidden');
+  $errBar.textContent = msg;
+  $errBar.classList.remove('hidden');
+}
+
+function stopTick() {
+  if (tickId) { clearInterval(tickId); tickId = null; }
 }
 
 function startTick() {
-  if (tickId) clearInterval(tickId);
+  stopTick();
   S.countdown = cfg.interval;
   tickId = setInterval(() => {
     S.countdown--;
-    const pct = Math.max(0, (S.countdown / cfg.interval) * 100);
-    $barFill().style.width = pct + '%';
-    $cdText().textContent  = S.countdown + 's';
+    $cdText.textContent = S.countdown + 's';
     if (S.countdown <= 0) refresh();
   }, 1000);
 }
+
+// ── Pause when tab is hidden (biggest perf win) ─────────────────
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopTick();
+  } else {
+    refresh();
+    startTick();
+  }
+});
 
 // ── Keyboard shortcuts ──────────────────────────────────────────
 document.addEventListener('keydown', e => {
@@ -1697,11 +1731,12 @@ function ts(ms) { return new Date(ms).toISOString(); }
 
 // ── Init ────────────────────────────────────────────────────────
 function init() {
+  cacheDOMRefs();
   if (!S.token) {
     S.demo = true;
-    $demoBnr().classList.remove('hidden');
+    $demoBnr.classList.remove('hidden');
   } else {
-    $demoBnr().classList.add('hidden');
+    $demoBnr.classList.add('hidden');
   }
   refresh();
   startTick();
