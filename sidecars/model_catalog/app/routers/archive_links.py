@@ -39,6 +39,7 @@ class CandidateMatch:
     match_method: str
     match_confidence: str
     matched_asset_id: str | None = None
+    signals: tuple[dict[str, Any], ...] = ()
 
 
 def _summary_map(db_path: Any) -> dict[str, CatalogModelSummary]:
@@ -406,9 +407,9 @@ def _extract_candidate_timestamps(payload: dict[str, Any]) -> list[datetime]:
     return timestamps
 
 
-def _time_proximity_boost(*, archive_times: list[datetime], candidate_times: list[datetime], recent_upload_window_days: int) -> tuple[float, str | None]:
+def _time_proximity_boost(*, archive_times: list[datetime], candidate_times: list[datetime], recent_upload_window_days: int) -> tuple[float, str | None, float | None]:
     if not archive_times or not candidate_times or recent_upload_window_days <= 0:
-        return 0.0, None
+        return 0.0, None, None
     closest_days: float | None = None
     for archive_time in archive_times:
         for candidate_time in candidate_times:
@@ -416,9 +417,40 @@ def _time_proximity_boost(*, archive_times: list[datetime], candidate_times: lis
             if closest_days is None or delta_days < closest_days:
                 closest_days = delta_days
     if closest_days is None or closest_days > recent_upload_window_days:
-        return 0.0, None
+        return 0.0, None, None
     boost = 0.15 + (0.35 * (1.0 - (closest_days / recent_upload_window_days)))
-    return boost, f"upload within {closest_days:.1f} days of archive"
+    return boost, f"upload within {closest_days:.1f} days of archive", closest_days
+
+
+def _signal_strength(score: float) -> str:
+    """Map a 0-1 score to a human-readable strength label."""
+    if score >= 0.8:
+        return "strong"
+    if score >= 0.5:
+        return "moderate"
+    return "weak"
+
+
+def _existing_accepted_link_counts(*, db_path: Any, exclude_archive_id: int | None = None) -> dict[str, int]:
+    """Return {model_url: count} for all accepted+active links, optionally excluding one archive."""
+    conn = connect(db_path)
+    try:
+        if exclude_archive_id is not None:
+            rows = conn.execute(
+                "SELECT model_url, COUNT(*) as cnt FROM model_catalog_links "
+                "WHERE review_state = 'accepted' AND is_active = 1 AND bambuddy_archive_id != ? "
+                "GROUP BY model_url",
+                (exclude_archive_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT model_url, COUNT(*) as cnt FROM model_catalog_links "
+                "WHERE review_state = 'accepted' AND is_active = 1 "
+                "GROUP BY model_url",
+            ).fetchall()
+        return {row["model_url"]: row["cnt"] for row in rows}
+    finally:
+        conn.close()
 
 
 def _build_candidate_match(
@@ -431,10 +463,12 @@ def _build_candidate_match(
     allow_filename_fallback: bool,
     allow_time_proximity: bool,
     recent_upload_window_days: int,
+    existing_link_count: int = 0,
 ) -> CandidateMatch | None:
     summary = cached_model.summary
     payload = cached_model.raw_payload
     rationale: list[str] = []
+    signals: list[dict[str, Any]] = []
     score = 0.0
     deterministic = False
     matched_asset_id: str | None = None
@@ -445,6 +479,7 @@ def _build_candidate_match(
         deterministic = True
         score += 10.0
         rationale.append("exact source hash match")
+        signals.append({"type": "source_hash_exact", "strength": "deterministic"})
         # Resolve to specific asset when possible (ADR-001 asset-level resolution)
         asset_hash_map = _extract_asset_hash_map(payload)
         matched_asset_id = asset_hash_map.get(normalized_source_hash)
@@ -453,6 +488,7 @@ def _build_candidate_match(
     if name_score > 0:
         score += name_score
         rationale.append(f"name overlap {name_score:.2f}")
+        signals.append({"type": "name_overlap", "strength": _signal_strength(name_score), "score": round(name_score, 2)})
 
     normalized_source_filename = _normalized_filename_stem(source_file_name)
     filename_score = 0.0
@@ -470,9 +506,10 @@ def _build_candidate_match(
         if filename_score > 0:
             score += 1.5 * filename_score
             rationale.append(f"normalized filename overlap {filename_score:.2f}")
+            signals.append({"type": "filename_overlap", "strength": _signal_strength(filename_score), "score": round(filename_score, 2)})
 
     if allow_time_proximity and (deterministic or name_score > 0 or filename_score > 0):
-        time_boost, time_reason = _time_proximity_boost(
+        time_boost, time_reason, closest_days = _time_proximity_boost(
             archive_times=archive_times,
             candidate_times=_extract_candidate_timestamps(payload),
             recent_upload_window_days=recent_upload_window_days,
@@ -480,6 +517,19 @@ def _build_candidate_match(
         if time_boost > 0 and time_reason:
             score += time_boost
             rationale.append(time_reason)
+            signals.append({
+                "type": "time_proximity",
+                "strength": "strong" if time_boost >= 0.35 else "moderate" if time_boost >= 0.2 else "weak",
+                "days": round(closest_days, 1) if closest_days is not None else None,
+            })
+
+    # Linked-archive count boost: models already accepted for other archives
+    # get a small score increase (simplified "linked plate family neighbor" signal).
+    if existing_link_count > 0 and score > 0:
+        link_boost = 0.1 * min(existing_link_count, 5)
+        score += link_boost
+        rationale.append(f"linked to {existing_link_count} other archive(s)")
+        signals.append({"type": "linked_archive_count", "strength": "weak", "count": existing_link_count})
 
     if score <= 0 or not rationale:
         return None
@@ -501,6 +551,7 @@ def _build_candidate_match(
         match_method=match_method,
         match_confidence=_confidence_for_score(min(score, 1.0) if not deterministic else 1.0),
         matched_asset_id=matched_asset_id,
+        signals=tuple(signals),
     )
 
 
@@ -614,8 +665,11 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
     # Also search working groups (ADR-001 allows WG ↔ Archive linkage)
     cached_models.extend(_read_working_groups_for_matching(db_path=state.settings.db_path))
     archive_times = [value for value in (archive_completed_at, archive_started_at) if value is not None]
+    # Pre-fetch accepted link counts for linked-archive boost signal
+    accepted_link_counts = _existing_accepted_link_counts(db_path=state.settings.db_path, exclude_archive_id=archive_id)
     candidate_matches_by_url: dict[str, CandidateMatch] = {}
     for cached_model in cached_models:
+        model_url = cached_model.summary.model_url
         match = _build_candidate_match(
             cached_model=cached_model,
             archive_name=archive_name,
@@ -625,6 +679,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
             allow_filename_fallback=allow_filename_fallback,
             allow_time_proximity=allow_time_proximity and prefer_recent_uploads,
             recent_upload_window_days=recent_upload_window_days,
+            existing_link_count=accepted_link_counts.get(model_url, 0),
         )
         if match is None or match.score < min_score:
             continue
@@ -648,6 +703,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
             match_method=match.match_method,
             match_confidence=match.match_confidence,
             matched_asset_id=match.matched_asset_id,
+            signals=match.signals,
         )
         existing_match = candidate_matches_by_url.get(canonical_url)
         if existing_match is None or (canonical_match.deterministic, canonical_match.score) > (existing_match.deterministic, existing_match.score):
@@ -673,6 +729,11 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
         auto_accept = match.deterministic and len(deterministic_matches) == 1 and not active_confirmed_link
         # ADR-001: use asset-level relationship when a specific asset matched
         rel_type = "model_file_printed_in_archive" if match.matched_asset_id else "model_printed_in_archive"
+        # Structured rationale: JSON with human-readable summary + typed signals
+        rationale_data = {
+            "summary": "; ".join(match.rationale),
+            "signals": [dict(s) for s in match.signals],
+        }
         selected_candidates.append(
             {
                 "model_url": match.summary.model_url,
@@ -683,7 +744,7 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
                 "match_confidence": match.match_confidence,
                 "review_state": "accepted" if auto_accept else "new",
                 "is_active": auto_accept,
-                "review_note": f"candidate refresh: {'; '.join(match.rationale)}",
+                "review_note": json.dumps(rationale_data),
             }
         )
 

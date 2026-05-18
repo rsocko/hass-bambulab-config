@@ -25,6 +25,7 @@ from app.routers.archive_links import (
     CandidateMatch,
     _build_candidate_match,
     _extract_asset_hash_map,
+    _signal_strength,
     _working_group_url,
 )
 from app.db_archive_links import migrate_links_for_graduation, refresh_archive_link_candidates
@@ -724,3 +725,122 @@ class TestRefreshCandidatesRelationshipType:
             conn.close()
         assert row["relationship_type"] == "model_printed_in_archive"
         assert row["model_asset_id"] is None
+
+
+# ── #1118 — structured signals, linked-archive boost, signal_strength ────
+
+class TestSignalStrength:
+    """Tests for the _signal_strength helper."""
+
+    def test_strong(self):
+        assert _signal_strength(0.8) == "strong"
+        assert _signal_strength(1.0) == "strong"
+
+    def test_moderate(self):
+        assert _signal_strength(0.5) == "moderate"
+        assert _signal_strength(0.79) == "moderate"
+
+    def test_weak(self):
+        assert _signal_strength(0.1) == "weak"
+        assert _signal_strength(0.49) == "weak"
+
+
+class TestBuildCandidateMatchSignals:
+    """Tests for structured signals in _build_candidate_match (#1118)."""
+
+    _DEFAULTS = dict(archive_times=[], allow_filename_fallback=True, allow_time_proximity=False, recent_upload_window_days=14)
+
+    def test_hash_match_has_deterministic_signal(self):
+        cached = _make_cached_model(
+            name="Widget",
+            files=[{"filename": "widget.3mf", "source_hash": "abc123"}],
+        )
+        match = _build_candidate_match(
+            cached_model=cached,
+            archive_name="widget v1",
+            source_file_name="widget.3mf",
+            source_hash="abc123",
+            **self._DEFAULTS,
+        )
+        assert match is not None
+        assert match.deterministic
+        signal_types = [s["type"] for s in match.signals]
+        assert "source_hash_exact" in signal_types
+        assert any(s["strength"] == "deterministic" for s in match.signals if s["type"] == "source_hash_exact")
+
+    def test_name_overlap_has_signal(self):
+        cached = _make_cached_model(name="Widget Holder")
+        match = _build_candidate_match(
+            cached_model=cached,
+            archive_name="Widget Holder v2",
+            source_file_name=None,
+            source_hash=None,
+            **self._DEFAULTS,
+        )
+        assert match is not None
+        signal_types = [s["type"] for s in match.signals]
+        assert "name_overlap" in signal_types
+
+    def test_filename_overlap_has_signal(self):
+        cached = _make_cached_model(
+            name="Unrelated Name",
+            files=[{"filename": "phone_stand.3mf"}],
+        )
+        match = _build_candidate_match(
+            cached_model=cached,
+            archive_name="phone stand print",
+            source_file_name="phone_stand.3mf",
+            source_hash=None,
+            **self._DEFAULTS,
+        )
+        assert match is not None
+        signal_types = [s["type"] for s in match.signals]
+        assert "filename_overlap" in signal_types
+
+    def test_linked_archive_boost_applied_when_score_positive(self):
+        cached = _make_cached_model(name="Widget Holder")
+        match_without = _build_candidate_match(
+            cached_model=cached,
+            archive_name="Widget Holder v2",
+            source_file_name=None,
+            source_hash=None,
+            existing_link_count=0,
+            **self._DEFAULTS,
+        )
+        match_with = _build_candidate_match(
+            cached_model=cached,
+            archive_name="Widget Holder v2",
+            source_file_name=None,
+            source_hash=None,
+            existing_link_count=3,
+            **self._DEFAULTS,
+        )
+        assert match_without is not None
+        assert match_with is not None
+        assert match_with.score > match_without.score
+        signal_types = [s["type"] for s in match_with.signals]
+        assert "linked_archive_count" in signal_types
+
+    def test_linked_archive_boost_not_applied_when_score_zero(self):
+        cached = _make_cached_model(name="Completely Different")
+        match = _build_candidate_match(
+            cached_model=cached,
+            archive_name="No overlap whatsoever xyz",
+            source_file_name=None,
+            source_hash=None,
+            existing_link_count=5,
+            **self._DEFAULTS,
+        )
+        assert match is None
+
+    def test_signals_tuple_is_immutable(self):
+        cached = _make_cached_model(name="Widget Holder")
+        match = _build_candidate_match(
+            cached_model=cached,
+            archive_name="Widget Holder",
+            source_file_name=None,
+            source_hash=None,
+            **self._DEFAULTS,
+        )
+        assert match is not None
+        assert isinstance(match.signals, tuple)

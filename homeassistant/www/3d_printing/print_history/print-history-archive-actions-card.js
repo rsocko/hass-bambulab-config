@@ -3850,9 +3850,29 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         ? '<span class="model-link-badge badge-candidate">candidate' + (confidence ? " · " + this._escapeHtml(confidence) : "") + '</span>'
         : '<span class="model-link-badge badge-manual">manual</span>';
 
-    var noteHtml = link.review_note
-      ? '<div class="model-link-note">' + this._escapeHtml(String(link.review_note)) + '</div>'
-      : "";
+    var noteHtml = "";
+    if (link.review_note) {
+      try {
+        var parsed = JSON.parse(link.review_note);
+        if (parsed && parsed.summary) {
+          noteHtml = '<div class="model-link-note">' + this._escapeHtml(parsed.summary) + '</div>';
+          if (parsed.signals && parsed.signals.length > 0) {
+            noteHtml += '<div class="model-link-signals">';
+            for (var si = 0; si < parsed.signals.length; si++) {
+              var sig = parsed.signals[si];
+              var label = String(sig.type || "").replace(/_/g, " ");
+              var strength = String(sig.strength || "");
+              noteHtml += '<span class="signal-pill signal-' + this._escapeHtml(strength) + '">' + this._escapeHtml(label) + '</span>';
+            }
+            noteHtml += '</div>';
+          }
+        } else {
+          noteHtml = '<div class="model-link-note">' + this._escapeHtml(String(link.review_note)) + '</div>';
+        }
+      } catch (e) {
+        noteHtml = '<div class="model-link-note">' + this._escapeHtml(String(link.review_note)) + '</div>';
+      }
+    }
 
     var acceptBtn = !isAccepted
       ? '<button class="model-link-action-btn btn-accept" type="button" data-action="model-accept-link" data-link-id="' + String(link.id) + '" data-model-url="' + this._escapeHtml(modelUrl) + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>Accept</button>'
@@ -4091,6 +4111,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-link-url:hover{text-decoration:underline;}' +
       '.model-link-url-empty{font-size:12px;color:var(--secondary-text-color);}' +
       '.model-link-note{font-size:11px;color:var(--secondary-text-color);font-style:italic;}' +
+      '.model-link-signals{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;}' +
+      '.signal-pill{display:inline-flex;align-items:center;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.03em;background:rgba(148,163,184,0.14);color:var(--secondary-text-color);}' +
+      '.signal-deterministic{background:rgba(34,197,94,0.18);color:#4ade80;}' +
+      '.signal-strong{background:rgba(96,165,250,0.18);color:#60a5fa;}' +
+      '.signal-moderate{background:rgba(234,179,8,0.18);color:#facc15;}' +
+      '.signal-weak{background:rgba(148,163,184,0.14);color:var(--secondary-text-color);}' +
       '.model-link-row-actions{display:flex;gap:6px;flex-wrap:wrap;}' +
       '.model-link-action-btn{appearance:none;-webkit-appearance:none;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.92);color:var(--primary-text-color);border-radius:999px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}' +
       '.model-link-action-btn:hover:not(:disabled){background:rgba(30,41,59,0.96);border-color:rgba(96,165,250,0.36);}' +

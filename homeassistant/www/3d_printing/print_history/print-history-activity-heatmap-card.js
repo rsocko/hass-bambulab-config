@@ -3780,17 +3780,26 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return window.ApexCharts;
     }
 
-    await this._waitForApexRuntime();
-    if (window.ApexCharts) {
-      return window.ApexCharts;
-    }
-
     if (!printHistoryActivityImportTried) {
       printHistoryActivityImportTried = true;
+
+      // Primary: self-hosted local copy (loaded as classic script so the UMD
+      // bundle sets window.ApexCharts synchronously on execution).
+      try {
+        await this._loadScript("/local/3d_printing/vendor/apexcharts.min.js");
+      } catch (_err) {
+        // Local load failed; fall through to HACS fallback.
+      }
+
+      if (window.ApexCharts) {
+        return window.ApexCharts;
+      }
+
+      // Fallback: HACS apexcharts-card bundle (may also expose the global).
       try {
         await import("/hacsfiles/apexcharts-card/apexcharts-card.js");
       } catch (_err) {
-        // Ignore import errors and allow fallback checks below.
+        // Ignore import errors.
       }
     }
 
@@ -3798,23 +3807,27 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return window.ApexCharts || null;
   }
 
+  _loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var existing = document.querySelector('script[src="' + src + '"]');
+      if (existing) {
+        resolve();
+        return;
+      }
+      var script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
   async _waitForApexRuntime() {
     if (window.ApexCharts) {
       return;
     }
 
-    if (typeof customElements !== "undefined" && customElements.whenDefined) {
-      try {
-        await Promise.race([
-          customElements.whenDefined("apexcharts-card"),
-          new Promise(function (resolve) { setTimeout(resolve, 800); }),
-        ]);
-      } catch (_err) {
-        // Ignore and continue polling for the runtime.
-      }
-    }
-
-    for (var attempt = 0; attempt < 8; attempt += 1) {
+    for (var attempt = 0; attempt < 6; attempt += 1) {
       if (window.ApexCharts) {
         return;
       }
