@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
 import re
 from typing import Any
 
@@ -9,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .._helpers import _coerce_bool
 from ..db import (
     ArchiveModelLink,
+    connect,
     create_archive_link,
     deactivate_archive_link,
     delete_archive_links,
@@ -19,11 +21,8 @@ from ..db import (
 )
 from ..manyfold import (
     CachedManyfoldModel,
-    ManyfoldClient,
     canonicalize_model_url,
-    read_cached_manyfold_models,
     read_cached_manyfold_summaries,
-    refresh_manyfold_cache,
 )
 from ..models import ManyfoldModelSummary
 from ..state import AppState
@@ -43,7 +42,122 @@ class CandidateMatch:
 
 def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
     summaries = read_cached_manyfold_summaries(db_path=db_path)
-    return {summary.model_url: summary for summary in summaries}
+    result = {summary.model_url: summary for summary in summaries}
+    # Also include local catalog entries so links using local:// URLs resolve
+    for entry_summary in _read_local_catalog_summaries(db_path):
+        result.setdefault(entry_summary.model_url, entry_summary)
+    return result
+
+
+def _local_model_url(local_model_id: str) -> str:
+    """Construct a synthetic URL for a local catalog model."""
+    return f"local://model/{local_model_id}"
+
+
+def _read_local_catalog_summaries(db_path: Any) -> list[ManyfoldModelSummary]:
+    """Read local catalog entries and return as ManyfoldModelSummary for compatibility."""
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT local_model_id, model_name, preview_image_url, creator_name,
+                   collection_names_json, keyword_names_json, entity_type
+            FROM model_catalog_entries
+            WHERE archived_at IS NULL
+            ORDER BY model_name COLLATE NOCASE
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+    summaries: list[ManyfoldModelSummary] = []
+    for row in rows:
+        local_model_id = str(row["local_model_id"])
+        summaries.append(
+            ManyfoldModelSummary(
+                model_url=_local_model_url(local_model_id),
+                public_id=local_model_id,
+                model_id=local_model_id,
+                name=str(row["model_name"]),
+                preview_url=str(row["preview_image_url"] or "").strip() or None,
+                creator_name=str(row["creator_name"] or "").strip() or None,
+                collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
+                keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
+                entity_type=str(row["entity_type"] or "model"),
+            )
+        )
+    return summaries
+
+
+def _read_local_catalog_for_matching(db_path: Any) -> list[CachedManyfoldModel]:
+    """Read local catalog entries + assets as CachedManyfoldModel for scoring compatibility.
+
+    Returns models in the same shape as read_cached_manyfold_models() so the
+    existing scoring logic (_build_candidate_match) works without modification.
+    """
+    connection = connect(db_path)
+    try:
+        entry_rows = connection.execute(
+            """
+            SELECT id, local_model_id, model_name, preview_image_url, creator_name,
+                   collection_names_json, keyword_names_json, entity_type,
+                   created_at, updated_at
+            FROM model_catalog_entries
+            WHERE archived_at IS NULL
+            ORDER BY model_name COLLATE NOCASE
+            """
+        ).fetchall()
+
+        # Batch-read all assets for non-archived entries
+        asset_rows = connection.execute(
+            """
+            SELECT a.model_catalog_entry_id, a.asset_filename, a.file_hash, a.created_at
+            FROM model_catalog_assets a
+            JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
+            WHERE e.archived_at IS NULL
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    # Group assets by entry ID
+    assets_by_entry_id: dict[int, list[dict[str, Any]]] = {}
+    for asset_row in asset_rows:
+        entry_id = int(asset_row["model_catalog_entry_id"])
+        assets_by_entry_id.setdefault(entry_id, []).append({
+            "filename": str(asset_row["asset_filename"] or ""),
+            "content_hash": str(asset_row["file_hash"] or ""),
+            "created_at": str(asset_row["created_at"] or ""),
+        })
+
+    models: list[CachedManyfoldModel] = []
+    for row in entry_rows:
+        entry_id = int(row["id"])
+        local_model_id = str(row["local_model_id"])
+        model_name = str(row["model_name"])
+        assets = assets_by_entry_id.get(entry_id, [])
+
+        # Build a raw_payload dict that _extract_model_hashes, _extract_model_filenames,
+        # and _extract_candidate_timestamps can parse
+        raw_payload: dict[str, Any] = {
+            "name": model_name,
+            "created_at": str(row["created_at"] or ""),
+            "updated_at": str(row["updated_at"] or ""),
+            "files": assets,
+        }
+
+        summary = ManyfoldModelSummary(
+            model_url=_local_model_url(local_model_id),
+            public_id=local_model_id,
+            model_id=local_model_id,
+            name=model_name,
+            preview_url=str(row["preview_image_url"] or "").strip() or None,
+            creator_name=str(row["creator_name"] or "").strip() or None,
+            collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
+            keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
+            entity_type=str(row["entity_type"] or "model"),
+        )
+        models.append(CachedManyfoldModel(summary=summary, raw_payload=raw_payload))
+    return models
 
 
 def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
@@ -361,20 +475,12 @@ def refresh_archive_candidates_endpoint(request: Request, archive_id: int, paylo
     allow_time_proximity = _coerce_bool(payload.get("allow_time_proximity", True))
     prefer_recent_uploads = _coerce_bool(payload.get("prefer_recent_uploads", True))
     recent_upload_window_days = int(payload.get("recent_upload_window_days") or 14)
-    force_refresh_model_cache = _coerce_bool(payload.get("force_refresh_model_cache"))
     state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
     if not archive_name:
         return _error_response(archive_id=archive_id, error="invalid_payload", message="archive_name is required for candidate refresh.")
 
-    if force_refresh_model_cache:
-        refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
-    else:
-        summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
-        if not summaries:
-            refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
-
-    cached_models = read_cached_manyfold_models(db_path=state.settings.db_path)
+    # Use local catalog entries as the candidate source (replaces Manyfold cache)
+    cached_models = _read_local_catalog_for_matching(db_path=state.settings.db_path)
     archive_times = [value for value in (archive_completed_at, archive_started_at) if value is not None]
     candidate_matches_by_url: dict[str, CandidateMatch] = {}
     for cached_model in cached_models:

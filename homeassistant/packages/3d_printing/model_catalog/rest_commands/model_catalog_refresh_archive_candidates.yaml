@@ -1,4 +1,4 @@
-# Run name-similarity scoring against all cached Manyfold models and store
+# Run name/filename/hash scoring against local model catalog entries and store
 # top candidates as archive-link rows with review_state=new.
 # Docs: docs/features/model_catalog/implementation-plan.md
 model_catalog_refresh_archive_candidates:
@@ -10,6 +10,15 @@ model_catalog_refresh_archive_candidates:
   payload: >-
     {% set ns = namespace(body={}) %}
     {% set ns.body = dict(ns.body, archive_name=(archive_name | default('', true))) %}
+    {% if source_file_name is defined and source_file_name %}
+      {% set ns.body = dict(ns.body, source_file_name=source_file_name) %}
+    {% endif %}
+    {% if source_hash is defined and source_hash %}
+      {% set ns.body = dict(ns.body, source_hash=source_hash) %}
+    {% endif %}
+    {% if archive_completed_at is defined and archive_completed_at %}
+      {% set ns.body = dict(ns.body, archive_completed_at=archive_completed_at) %}
+    {% endif %}
     {% if min_score is defined %}
       {% set ns.body = dict(ns.body, min_score=min_score) %}
     {% endif %}

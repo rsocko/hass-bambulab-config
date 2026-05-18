@@ -626,6 +626,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       var currentArchive = this._resolveArchive();
       this._modelCatalogAction("refresh-candidates", this._resolveCurrentArchiveId(), null, {
         archive_name: currentArchive && currentArchive.print_name ? String(currentArchive.print_name) : "",
+        source_file_name: currentArchive && currentArchive.filename ? String(currentArchive.filename) : "",
+        source_hash: currentArchive && currentArchive.content_hash ? String(currentArchive.content_hash) : "",
+        archive_completed_at: currentArchive && currentArchive.completed_at ? String(currentArchive.completed_at) : "",
       });
       return;
     }
@@ -3762,6 +3765,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         var refreshResult = await this._callServiceWithResponse("rest_command", "model_catalog_refresh_archive_candidates", {
           archive_id: String(archiveId),
           archive_name: extra && extra.archive_name ? String(extra.archive_name) : "",
+          source_file_name: extra && extra.source_file_name ? String(extra.source_file_name) : "",
+          source_hash: extra && extra.source_hash ? String(extra.source_hash) : "",
+          archive_completed_at: extra && extra.archive_completed_at ? String(extra.archive_completed_at) : "",
           force_refresh_model_cache: true,
         });
         var candidateCount = Array.isArray(refreshResult && refreshResult.candidates) ? refreshResult.candidates.length : 0;
