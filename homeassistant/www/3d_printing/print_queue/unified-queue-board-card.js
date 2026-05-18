@@ -3330,6 +3330,13 @@ class UnifiedQueueBoardCard extends HTMLElement {
         --shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
       }
 
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -3681,7 +3688,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
         gap: 18px;
         flex: 1;
         min-height: 0;
-        overflow: hidden;
       }
 
       .filter-bar {
@@ -3871,6 +3877,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         gap: 16px;
+        flex: 1;
+        min-height: 0;
       }
 
       .state-group {
@@ -5662,6 +5670,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         gap: 8px;
+        flex: 1;
+        min-height: 0;
       }
       .flat-list-hint {
         font-size: 11px;
