@@ -1374,7 +1374,7 @@ class ModelDetailPopupCard extends HTMLElement {
           <button data-panel-tab="panel-queue" class="${this._panelActiveTab === 'panel-queue' ? 'active' : ''}">Queue / Prints <span class="count">${queueCount}</span></button>
           <button data-panel-tab="panel-related" class="${this._panelActiveTab === 'panel-related' ? 'active' : ''}">Related Models <span class="count">${relatedCount}</span></button>
           <button data-panel-tab="panel-support" class="${this._panelActiveTab === 'panel-support' ? 'active' : ''}">Supporting Files <span class="count">${supportCount}</span></button>
-          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Contribution <span class="count">#1494</span></button>
+          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Contribution</button>
           <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication <span class="count">#1495</span></button>
         </div>
         ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
@@ -3287,7 +3287,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     try {
-      const response = await fetch(`/api/models/${encodeURIComponent(model_ref)}/contribution/${action}`, {
+      const response = await fetch(this._resolveModelSidecarUrl() + `/api/models/${encodeURIComponent(model_ref)}/contribution/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
