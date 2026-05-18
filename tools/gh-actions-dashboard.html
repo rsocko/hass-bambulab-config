@@ -211,6 +211,20 @@
 
     .run-row:hover { background: var(--bg-tertiary); }
 
+    .expand-arrow {
+      flex-shrink: 0;
+      width: 24px;
+      font-size: 24px;
+      color: var(--text-secondary);
+      transition: color 0.15s;
+      text-align: center;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .expand-arrow.expanded { color: var(--accent); }
+
     .run-row.child-row {
       padding-left: 26px;
       min-height: 38px;
@@ -965,7 +979,7 @@ const SHORT = {
   'Runner Smoke Test':                            'Smoke Test',
 };
 
-const TRIGGER = { push: '⬆', pull_request: '⤴', workflow_dispatch: '▶', schedule: '⏰' };
+const TRIGGER = { push: '⬆', pull_request: '⤴', workflow_dispatch: '⚡', schedule: '⏰' };
 
 // ── State ───────────────────────────────────────────────────────
 const cfg = {
@@ -1238,8 +1252,11 @@ function runRow(r, child) {
   const cls = child ? 'run-row child-row' : 'run-row';
   const trg = TRIGGER[r.event] || '?';
 
+  const arrow = S.expanded.has(r.id) ? '▾' : '▸';
+
   return `
     <div class="${cls}" onclick="toggle(${r.id})">
+      <span class="expand-arrow${S.expanded.has(r.id) ? ' expanded' : ''}">${arrow}</span>
       <div class="s-dot ${sc}"></div>
       <div class="run-info">
         <div class="run-name">${SHORT[r.name] || r.name} <span class="run-num">#${r.run_number}</span></div>
