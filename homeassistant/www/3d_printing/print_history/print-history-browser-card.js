@@ -952,7 +952,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? '<span class="selection-badge' + (isSelected ? ' active' : '') + '" aria-hidden="true"><ha-icon icon="' + (isSelected ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline') + '"></ha-icon>' + this._escapeHtml(isSelected ? 'Selected' : 'Select') + '</span>'
       : '';
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
-    var favoriteButton = this._renderFavoriteButton(normalized, archiveJson);
+    var favoriteButton = this._renderFavoriteButton(normalized, archiveId);
     var listHeaderActions = '<div class="action-buttons">'
       + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveId, favoriteButton, photoAction))
       + '</div>';
