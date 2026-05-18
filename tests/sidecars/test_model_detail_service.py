@@ -57,6 +57,7 @@ def test_build_model_detail_response_local_success(monkeypatch) -> None:
         revision_hash=None,
         created_at="2026-05-01T00:00:00Z",
         updated_at="2026-05-01T00:00:00Z",
+        entity_type="model",
     )
 
     monkeypatch.setattr(models_router, "_summary_map", lambda _db_path: {summary.model_url: summary})
