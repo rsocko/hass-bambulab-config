@@ -396,6 +396,21 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Contribution lifecycle actions (#1494)
+    const contributionActionBtn = target.closest('.action-mark[data-action], .action-open[data-action]');
+    if (contributionActionBtn) {
+      event.preventDefault();
+      const action = contributionActionBtn.getAttribute("data-action");
+      if (action === "rated" || action === "boosted" || action === "photos_shared") {
+        this._markContributionAction(action);
+      } else if (action === "open-source") {
+        this._openSourcePlatform();
+      } else if (action === "open-gallery") {
+        this._openPhotoGallery();
+      }
+      return;
+    }
+
     // 3D viewer button
     if (target.closest("#btn-viewer")) {
       event.preventDefault();
@@ -1365,7 +1380,7 @@ class ModelDetailPopupCard extends HTMLElement {
         ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
         ${panel('panel-related', 'Related Models', this._renderExtensionSlot('sections:related-models', this._renderRelatedModelsPanel(model)))}
         ${panel('panel-support', 'Supporting Files', this._renderExtensionSlot('sections:supporting-files', this._renderSupportingFilesPanel(model)))}
-        ${panel('panel-contribution', 'Contribution Lifecycle', '<div class="queue-row"><strong>Extension host for #1494</strong><div class="detail">Mount contribution lifecycle workflow here.</div></div>')}
+        ${panel('panel-contribution', 'Contribution Lifecycle', this._renderExtensionSlot('sections:contribution-lifecycle', this._renderContributionPanel(model)))}
         ${panel('panel-publication', 'Publication Pipeline', '<div class="queue-row"><strong>Extension host for #1495</strong><div class="detail">Mount publication pipeline workflow here.</div></div>')}
       </section>
     `;
@@ -1418,6 +1433,183 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="detail">${this._escapeHtml(String(file.description || file.category || ''))}</div>
       </article>
     `).join('')}</div>`;
+  }
+
+  _renderContributionPanel(model) {
+    // Check if model is downloaded (not original)
+    const metadata = model.structured_metadata || {};
+    const publishing = metadata.publishing || {};
+    const publication_source = publishing.publication_source;
+    const contribution = publishing.contribution || {};
+    
+    if (!publication_source || publication_source === 'original') {
+      return '<div class="contribution-message"><strong>Local Model</strong><div class="detail">Contribution tracking is only available for downloaded models. This model was created locally.</div></div>';
+    }
+
+    const ratedAt = contribution.rated_at;
+    const boostedAt = contribution.boosted_at;
+    const photosSharedAt = contribution.photos_shared_at;
+    const photoCaptureCount = model.photo_capture_count || 0;
+    
+    // Platform info
+    const platformName = {
+      'makerworld': 'MakerWorld',
+      'printables': 'Printables',
+      'thingiverse': 'Thingiverse',
+      'cults3d': 'Cults3D',
+      'manyfold': 'Manyfold',
+      'other': 'Community Source'
+    }[publication_source] || publication_source;
+
+    const checklist = `
+      <div class="contribution-checklist">
+        <div class="checklist-item">
+          <div class="status-badge complete">✓</div>
+          <div class="item-content">
+            <strong>Downloaded</strong>
+            <div class="detail">from ${this._escapeHtml(platformName)}</div>
+          </div>
+        </div>
+        
+        <div class="checklist-item">
+          <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
+            ${photoCaptureCount > 0 ? '✓' : '○'}
+          </div>
+          <div class="item-content">
+            <strong>Printed</strong>
+            <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} print(s) captured` : 'No prints captured yet'}</div>
+          </div>
+        </div>
+
+        <div class="checklist-item">
+          <div class="status-badge ${ratedAt ? 'complete' : 'pending'}">
+            ${ratedAt ? '✓' : '○'}
+          </div>
+          <div class="item-content">
+            <strong>Rated on ${this._escapeHtml(platformName)}</strong>
+            ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ''}
+          </div>
+          ${!ratedAt ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button>` : ''}
+          <button class="action-button action-open" data-action="open-source">Open ↗</button>
+        </div>
+
+        <div class="checklist-item">
+          <div class="status-badge ${boostedAt ? 'complete' : 'pending'}">
+            ${boostedAt ? '✓' : '○'}
+          </div>
+          <div class="item-content">
+            <strong>Boosted</strong>
+            ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : ''}
+          </div>
+          ${!boostedAt ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button>` : ''}
+        </div>
+
+        <div class="checklist-item">
+          <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
+            ${photoCaptureCount > 0 ? '✓' : '○'}
+          </div>
+          <div class="item-content">
+            <strong>Photos Captured</strong>
+            <div class="detail">${photoCaptureCount} photo(s) available</div>
+          </div>
+        </div>
+
+        <div class="checklist-item">
+          <div class="status-badge ${photosSharedAt ? 'complete' : 'pending'}">
+            ${photosSharedAt ? '✓' : '○'}
+          </div>
+          <div class="item-content">
+            <strong>Photos Shared on ${this._escapeHtml(platformName)}</strong>
+            ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : ''}
+          </div>
+          ${!photosSharedAt ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button>` : ''}
+          ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos ↗</button>` : ''}
+        </div>
+      </div>
+
+      <style>
+        .contribution-message {
+          padding: 12px;
+          border-radius: 8px;
+          background: rgba(96, 165, 250, 0.08);
+          border: 1px solid rgba(96, 165, 250, 0.2);
+        }
+        .contribution-message strong {
+          display: block;
+          font-size: 14px;
+          margin-bottom: 4px;
+        }
+        .contribution-message .detail {
+          font-size: 12px;
+          color: var(--secondary-text-color);
+        }
+        .contribution-checklist {
+          display: grid;
+          gap: 12px;
+        }
+        .checklist-item {
+          display: grid;
+          grid-template-columns: 32px 1fr auto;
+          align-items: center;
+          gap: 12px;
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+        }
+        .status-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          font-weight: bold;
+          font-size: 14px;
+        }
+        .status-badge.complete {
+          background: rgba(74, 222, 128, 0.2);
+          border: 1px solid rgba(74, 222, 128, 0.4);
+          color: #4ade80;
+        }
+        .status-badge.pending {
+          background: rgba(156, 163, 175, 0.1);
+          border: 1px solid rgba(156, 163, 175, 0.2);
+          color: var(--secondary-text-color);
+        }
+        .item-content {
+          display: grid;
+          gap: 2px;
+        }
+        .item-content strong {
+          font-size: 13px;
+          display: block;
+        }
+        .item-content .detail {
+          font-size: 11px;
+          color: var(--secondary-text-color);
+        }
+        .action-button {
+          background: var(--primary-color);
+          color: var(--text-primary-color);
+          border: none;
+          border-radius: 6px;
+          padding: 5px 10px;
+          font-size: 11px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .action-button:hover {
+          opacity: 0.9;
+        }
+        .action-button.action-open {
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+        }
+      </style>
+    `;
+
+    return checklist;
   }
 
   _renderSummaryCard(model) {
@@ -3037,6 +3229,85 @@ class ModelDetailPopupCard extends HTMLElement {
       size: 'wide',
       content: this._buildModelViewerPopupContent(),
     });
+  }
+
+  async _markContributionAction(action) {
+    if (!this._modelDetail || !this._modelDetail.model) {
+      console.warn('No model detail available');
+      return;
+    }
+
+    const model = this._modelDetail.model;
+    const model_ref = model.model_url || model.model_id;
+
+    if (!model_ref) {
+      console.warn('No model reference available');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/models/${encodeURIComponent(model_ref)}/contribution/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to mark ${action}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (this._hass) {
+        this._hass.callService('persistent_notification', 'create', {
+          title: 'Contribution Updated',
+          message: `Marked as ${action}. Great job contributing back to the community!`,
+        }).catch(err => console.error('Notification failed:', err));
+      }
+
+      // Refresh model detail to update contribution status
+      this._loadModelDetail();
+    } catch (error) {
+      console.error('Error marking contribution action:', error);
+      if (this._hass) {
+        this._hass.callService('persistent_notification', 'create', {
+          title: 'Error',
+          message: `Failed to update contribution status: ${error.message}`,
+        }).catch(err => console.error('Notification failed:', err));
+      }
+    }
+  }
+
+  _openSourcePlatform() {
+    if (!this._modelDetail || !this._modelDetail.model) {
+      return;
+    }
+
+    const model = this._modelDetail.model;
+    const metadata = model.structured_metadata || {};
+    const publishing = metadata.publishing || {};
+    const published_urls = publishing.published_urls || {};
+    const publication_source = publishing.publication_source;
+
+    if (!publication_source || !published_urls[publication_source]) {
+      console.warn('No source platform URL available');
+      return;
+    }
+
+    const url = published_urls[publication_source];
+    if (typeof url === 'string' && url.startsWith('http')) {
+      window.open(url, '_blank');
+    }
+  }
+
+  _openPhotoGallery() {
+    if (!this._modelDetail) {
+      return;
+    }
+
+    // Switch to gallery tab to show photos
+    this._activeTab = 'gallery';
+    this._render();
   }
 
   getCardSize() {

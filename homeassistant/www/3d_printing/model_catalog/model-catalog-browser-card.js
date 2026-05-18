@@ -749,9 +749,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
       this._refreshUnifiedQueueIndex().then(function () {
-        if (!this._loading && this._viewMode === "media") {
-          this._scheduleDeferredRender(70);
+        if (this._loading) {
+          return;
         }
+        if (this._viewMode === "media") {
+          this._scheduleDeferredRender(70);
+          return;
+        }
+        this._render();
       }.bind(this));
     } catch (error) {
       this._results = [];

@@ -1193,6 +1193,7 @@ _PUBLISHABLE_PLATFORM_IDS = _CANONICAL_PLATFORM_IDS - {"original_local"}
 
 _ALLOWED_ORIGIN_TYPES = {"custom_unique", "remix", "derivative"}
 _ALLOWED_CATALOG_VISIBILITY = {"active", "archived"}
+_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other", "original"}
 
 
 def _normalize_platform_id(value: object | None, *, allow_original_local: bool = True) -> str | None:
@@ -1294,6 +1295,30 @@ def _normalize_remix_source(value: object | None) -> dict[str, str] | None:
     return normalized or None
 
 
+def _normalize_publication_source(value: object | None) -> str | None:
+    """Normalize publication source (where model was downloaded from)."""
+    normalized = str(value or "").strip().lower()
+    if normalized in _ALLOWED_PUBLICATION_SOURCES:
+        return normalized
+    return None
+
+
+def _normalize_iso_datetime(value: object | None) -> str | None:
+    """Normalize and validate ISO 8601 datetime string."""
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    # Basic validation: should look like ISO 8601 format
+    try:
+        # Try to parse to ensure it's a valid ISO format
+        datetime.fromisoformat(text.replace('Z', '+00:00'))
+        return text
+    except (ValueError, TypeError):
+        return None
+
+
 def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict[str, Any]:
     fields = custom_fields or {}
     model_rating = _coerce_int(fields.get("model_rating"))
@@ -1306,6 +1331,18 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     catalog_visibility = _normalize_catalog_visibility(fields.get("catalog_visibility")) or "active"
     published_to = _normalize_published_to(fields.get("published_to"))
     published_urls = _normalize_published_urls(fields.get("published_urls"), allowed_platforms=set(published_to) or None)
+    publication_source = _normalize_publication_source(fields.get("publication_source"))
+
+    contribution: dict[str, str | None] = {}
+    rated_at = _normalize_iso_datetime(fields.get("publication_contribution_rated_at"))
+    if rated_at:
+        contribution["rated_at"] = rated_at
+    boosted_at = _normalize_iso_datetime(fields.get("publication_contribution_boosted_at"))
+    if boosted_at:
+        contribution["boosted_at"] = boosted_at
+    photos_shared_at = _normalize_iso_datetime(fields.get("publication_contribution_photos_shared_at"))
+    if photos_shared_at:
+        contribution["photos_shared_at"] = photos_shared_at
 
     return {
         "provenance": {
@@ -1318,6 +1355,8 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
         "publishing": {
             "published_to": published_to,
             "published_urls": published_urls,
+            "publication_source": publication_source,
+            "contribution": contribution if contribution else None,
         },
         "catalog_signals": {
             "model_favorite": _coerce_boolish(fields.get("model_favorite")),
@@ -3157,6 +3196,90 @@ def remove_model_field(request: Request, model_ref: str, field_key: str) -> dict
         return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
     return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
 
+
+def mark_model_contribution_action(
+    request: Request, model_ref: str, action: str, payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """
+    Mark a contribution action as completed for a downloaded model.
+    
+    Actions: rated, boosted, photos_shared
+    
+    Call with empty payload to set action timestamp to current UTC time.
+    Call with {\"clear\": true} to clear the timestamp (mark as not done).
+    """
+    state: AppState = request.app.state.model_catalog
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+    
+    if action not in {"rated", "boosted", "photos_shared"}:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "invalid_action", "allowed": ["rated", "boosted", "photos_shared"]},
+        )
+    
+    resolved_ref = summary.public_id or summary.model_id or summary.model_url
+    field_key = f"publication_contribution_{action}_at"
+    data = payload or {}
+    
+    if data.get("clear", False):
+        # Clear the timestamp (mark as not done)
+        delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key)
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "action": action,
+            "cleared": True,
+        }
+    else:
+        # Set to current UTC timestamp
+        now = datetime.now(timezone.utc).isoformat()
+        set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key, field_value=now)
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "action": action,
+            "timestamp": now,
+        }
+
+
+def get_model_contribution_status(request: Request, model_ref: str) -> dict[str, Any]:
+    """Get the current contribution lifecycle status for a downloaded model."""
+    state: AppState = request.app.state.model_catalog
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+    
+    resolved_ref = summary.public_id or summary.model_id or summary.model_url
+    fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref))
+    
+    publication_source = fields.get("publication_source")
+    if not publication_source or publication_source == "original":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "not_downloaded_model",
+                "message": "Contribution status is only available for downloaded models",
+            },
+        )
+    
+    return {
+        "success": True,
+        "model_ref": model_ref,
+        "manyfold_model_url": summary.model_url,
+        "publication_source": publication_source,
+        "contribution": {
+            "rated_at": fields.get("publication_contribution_rated_at"),
+            "boosted_at": fields.get("publication_contribution_boosted_at"),
+            "photos_shared_at": fields.get("publication_contribution_photos_shared_at"),
+        },
+    }
+
+
 def get_model_ranking_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -3260,6 +3383,17 @@ def put_model_ranking_endpoint(request: Request, model_ref: str, payload: dict[s
         "manyfold_model_url": summary.model_url,
         "ranking": _ranking_payload(ranking),
     }
+
+
+@router.get("/api/models/{model_ref:path}/contribution")
+def get_model_contribution_status_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    return get_model_contribution_status(request, model_ref)
+
+
+@router.post("/api/models/{model_ref:path}/contribution/{action}")
+def post_model_contribution_action_endpoint(request: Request, model_ref: str, action: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    return mark_model_contribution_action(request, model_ref, action, payload)
+
 
 # Archive-link CRUD and candidate workflow endpoints are registered via
 # routers/archive_links.py.

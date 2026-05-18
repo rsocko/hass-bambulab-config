@@ -77,6 +77,10 @@ Using a key/value row model rather than wide columns makes it straightforward to
 | `colors_used` | array<object> | Phase 3 baseline is hex-first; later phases may add optional `filament_id` linkage | #187 |
 | `3mf_parsed_at` | string | ISO 8601 datetime of last 3MF parse | #173 |
 | `preview_last_refreshed_at` | string | ISO 8601 datetime of last preview refresh | #175 |
+| `publication_source` | string | `makerworld`, `printables`, `thingiverse`, `cults3d`, `manyfold`, `other`, `original` | #1494 |
+| `publication_contribution_rated_at` | string | ISO 8601 datetime when operator marked as rated on source platform | #1494 |
+| `publication_contribution_boosted_at` | string | ISO 8601 datetime when operator marked as boosted on source platform | #1494 |
+| `publication_contribution_photos_shared_at` | string | ISO 8601 datetime when operator marked photos as shared on source platform | #1494 |
 
 ## Field Notes
 
@@ -334,7 +338,50 @@ Timestamp of the last time the sidecar ran 3MF asset extraction for this model. 
 
 Timestamp of the last time the sidecar refreshed or uploaded a preview image for this model. Used alongside Manyfold `file.updated_at` to detect stale previews.
 
+### Contribution Lifecycle Fields (US-2a, #1494)
+
+These fields track the operator's "give back to community" workflow for downloaded models. They are only relevant when `publication_source ≠ original`.
+
+#### `publication_source` (enum)
+
+Denotes where the model was originally sourced from before entering the local catalog. Used to show the correct "Contribution" panel in the detail popup.
+
+- `makerworld` — Downloaded from MakerWorld
+- `printables` — Downloaded from Printables
+- `thingiverse` — Downloaded from Thingiverse
+- `cults3d` — Downloaded from Cults3D
+- `manyfold` — Downloaded from another operator's Manyfold library
+- `other` — Downloaded from another source
+- `original` — Locally created; no contribution panel should appear
+
+**Notes:**
+- This is distinct from `source_platform` (the technical channel identifier). `publication_source` is display-facing and friendly.
+- Maps 1:1 to `publication_source` for UI rendering.
+- Immutable once set; changing requires re-intake from the new source URL.
+
+#### `publication_contribution_rated_at`, `publication_contribution_boosted_at`, `publication_contribution_photos_shared_at` (timestamps)
+
+Nullable ISO 8601 timestamps recording when the operator completed each step of the contribution lifecycle:
+
+- `rated_at`: When the operator marked the model as "Rated on [source platform]"
+- `boosted_at`: When the operator marked the model as "Boosted"
+- `photos_shared_at`: When the operator marked photos as "Shared on [source platform]"
+
+**Derivation and auto-completion:**
+- `publication_contribution_photos_captured` is **derived** (NOT stored) from the presence of print-history media. It's computed in Layer 2 when displaying the panel.
+- "Downloaded" and "Printed" are auto-completed based on intake timestamp and archive link count; they do not have corresponding stored fields.
+
+**Catalog filters:**
+These fields power the Contribution status filters:
+- `Needs rating` — `publication_source ≠ original` AND `rated_at IS NULL`
+- `Needs photos shared` — `publication_source ≠ original` AND `photos_shared_at IS NULL` AND (photo_count > 0)
+- `Needs boost` — `publication_source ≠ original` AND `boosted_at IS NULL`
+
+**Bumper banner (future):**
+Per US-2a design, "Needs photos shared" may trigger a suggestion banner in Catalog to nudge the operator when they've printed a downloaded model but haven't shared photos back to the source.
+
 ## Archive Linkage Fields
+
 
 Archive linkage is NOT stored in `model_catalog_model_fields`. It uses the dedicated `model_catalog_links` table defined in [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md).
 
