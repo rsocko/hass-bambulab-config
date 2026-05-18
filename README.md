@@ -100,12 +100,6 @@ WLED controller/device artifacts stay in the root `wled/` folder, while future H
 
 The repo now exposes a root pytest layout so local runs, CI, and agent sessions can use the same entrypoint.
 
-## Documentation Notes
-
-- Repository-level reference docs are organized under `docs/repo/reference/`.
-- Historical root markdown reports/plans are archived under `docs/repo/reference/archive/root/`.
-- Root markdown is intentionally lightweight (`README.md`, `CHANGELOG.md`).
-
 Create and activate a virtual environment from the repo root, then install the shared dev dependencies:
 
 ```powershell
