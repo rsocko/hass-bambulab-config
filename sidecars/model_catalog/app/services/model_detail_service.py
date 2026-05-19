@@ -115,8 +115,7 @@ def build_model_detail_response(
             ),
             "preview_photo_id": preview_photo_id,
             "ranking": None if ranking is None else models_router._ranking_payload(ranking),
-            "linked_archives": [],
-            "link_count": 0,
+            **_linked_archives_payload(models_router, state, summary),
             "degraded": False,
         }
         if include_debug:
@@ -140,3 +139,22 @@ def build_model_detail_response(
                 "error": str(exc),
             }
         return error_response
+
+
+def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> dict[str, Any]:
+    """Fetch linked archives for a model and return the payload fragment."""
+    try:
+        summary_by_url = models_router._summary_map(state.settings.db_path)
+        links = models_router.read_archive_links_for_model(
+            db_path=state.settings.db_path,
+            model_url=summary.model_url,
+            active_only=True,
+        )
+        accepted = [link for link in links if link.review_state == "accepted"]
+        serialized = [
+            models_router._archive_link_to_response(link, summary_by_url=summary_by_url)
+            for link in accepted
+        ]
+        return {"linked_archives": serialized, "link_count": len(serialized)}
+    except Exception:
+        return {"linked_archives": [], "link_count": 0}
