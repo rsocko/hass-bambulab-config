@@ -30,6 +30,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       coalescedRefreshes: 0,
     };
     this._pendingBodyRaf = 0;
+    this._batchRafId = 0;
+    this._batchToken = 0;
     this._initialRenderDone = false;
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundKeydownHandler = this._handleKeydown.bind(this);
@@ -889,6 +891,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
 
+    // Cancel any in-flight batched render from a previous cycle.
+    if (this._batchRafId) {
+      cancelAnimationFrame(this._batchRafId);
+      this._batchRafId = 0;
+    }
+
     var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
 
     if (this._loading && !archives.length) {
@@ -922,12 +930,49 @@ class PrintHistoryBrowserCard extends HTMLElement {
     body.className = "grid " + variantClass + (this._loading ? " refreshing" : "");
     var _perf = typeof performance !== "undefined" && typeof performance.now === "function" ? performance : null;
     var htmlStart = _perf ? _perf.now() : 0;
-    var html = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
-    var htmlMs = _perf ? (_perf.now() - htmlStart) : 0;
-    var domStart = _perf ? _perf.now() : 0;
-    body.innerHTML = html;
-    var domMs = _perf ? (_perf.now() - domStart) : 0;
-    this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length };
+
+    var BATCH_SIZE = 5;
+    if (archives.length <= BATCH_SIZE) {
+      // Small batch — render in a single shot.
+      var html = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
+      var htmlMs = _perf ? (_perf.now() - htmlStart) : 0;
+      var domStart = _perf ? _perf.now() : 0;
+      body.innerHTML = html;
+      var domMs = _perf ? (_perf.now() - domStart) : 0;
+      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length };
+    } else {
+      // Render first batch immediately (above the fold), defer the rest.
+      var firstBatch = archives.slice(0, BATCH_SIZE);
+      var html = firstBatch.map(this._renderArchiveCard.bind(this, variant)).join("");
+      var htmlMs = _perf ? (_perf.now() - htmlStart) : 0;
+      var domStart = _perf ? _perf.now() : 0;
+      body.innerHTML = html;
+      var domMs = _perf ? (_perf.now() - domStart) : 0;
+      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length };
+
+      var batchToken = ++this._batchToken;
+      var offset = BATCH_SIZE;
+      var self = this;
+      var scheduleBatch = function () {
+        self._batchRafId = requestAnimationFrame(function () {
+          self._batchRafId = 0;
+          if (batchToken !== self._batchToken) { return; }
+          var end = Math.min(offset + BATCH_SIZE, archives.length);
+          var batchHtml = "";
+          for (var i = offset; i < end; i++) {
+            batchHtml += self._renderArchiveCard(variant, archives[i]);
+          }
+          body.insertAdjacentHTML("beforeend", batchHtml);
+          self._lastRenderTiming.htmlBytes += batchHtml.length;
+          offset = end;
+          if (offset < archives.length) {
+            scheduleBatch();
+          }
+        });
+      };
+      scheduleBatch();
+    }
+
     this._renderBulkDialog();
     this._syncRefreshIndicator(true);
   }
