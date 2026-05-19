@@ -997,6 +997,8 @@ const S = {
 let tickId = null;
 let _renderRAF = 0;       // coalesce multiple render() calls per frame
 let _lastRunsJSON = '';   // skip render when data unchanged
+const _etags = {};        // path → { etag, data } for conditional requests
+const ACTIVE_INTERVAL = 3; // seconds between polls when jobs are running
 
 // ── DOM refs (resolved once after DOM ready) ────────────────────
 let $content, $hdr, $cdText, $barFill, $demoBnr, $errBar, $toast;
@@ -1128,14 +1130,21 @@ function grpActive(g) {
 
 // ── API ─────────────────────────────────────────────────────────
 async function api(path) {
-  const res = await fetch(API + path, {
-    headers: {
-      Authorization: 'token ' + S.token,
-      Accept: 'application/vnd.github+json',
-    },
-  });
+  const hdrs = {
+    Authorization: 'token ' + S.token,
+    Accept: 'application/vnd.github+json',
+  };
+  // Use conditional request if we have a cached ETag
+  const cached = _etags[path];
+  if (cached) hdrs['If-None-Match'] = cached.etag;
+
+  const res = await fetch(API + path, { headers: hdrs });
+  if (res.status === 304 && cached) return cached.data; // unchanged — free (no rate-limit cost)
   if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
-  return res.json();
+  const data = await res.json();
+  const etag = res.headers.get('ETag');
+  if (etag) _etags[path] = { etag, data };
+  return data;
 }
 
 async function loadRuns() {
@@ -1538,7 +1547,7 @@ function mdToHtml(md) {
 function updateSetting(k, v) {
   cfg[k] = +v;
   localStorage.setItem('ghd_' + k, v);
-  if (k === 'interval') { S.countdown = cfg.interval; startTick(); }
+  if (k === 'interval') { S.countdown = effectiveInterval(); startTick(); }
   if (k === 'maxruns')  refresh();
 }
 
@@ -1593,7 +1602,7 @@ async function refresh() {
     if (document.hidden) stopTick();
   }
   S.fetching = false;
-  S.countdown = cfg.interval;
+  S.countdown = effectiveInterval();
 }
 
 function showError(msg) {
@@ -1605,12 +1614,23 @@ function stopTick() {
   if (tickId) { clearInterval(tickId); tickId = null; }
 }
 
+function effectiveInterval() {
+  const active = S.runs.some(r => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting');
+  return active ? ACTIVE_INTERVAL : cfg.interval;
+}
+
 function startTick() {
   stopTick();
-  S.countdown = cfg.interval;
+  S.countdown = effectiveInterval();
   tickId = setInterval(() => {
     S.countdown--;
+    const ei = effectiveInterval();
+    // If the effective interval changed (job started/finished), snap the countdown
+    if (S.countdown > ei) S.countdown = ei;
+    const fast = ei < cfg.interval;
     $cdText.textContent = S.countdown + 's';
+    $cdText.style.color = fast ? 'var(--running)' : '';
+    $cdText.title = fast ? 'Fast polling (' + ACTIVE_INTERVAL + 's) — jobs active' : 'Polling every ' + cfg.interval + 's';
     if (S.countdown <= 0) refresh();
   }, 1000);
 }
