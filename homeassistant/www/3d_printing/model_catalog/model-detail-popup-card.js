@@ -2576,8 +2576,50 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!item || !item.can_delete) {
       return;
     }
-    if (item.type === 'photo') {
+    if (item.media_id && item.media_id.startsWith('photo:')) {
       this._handleDeletePhoto(String(item.id || '').trim());
+    } else if (item.media_id && item.media_id.startsWith('asset:')) {
+      this._handleDeleteAsset(String(item.asset_id || item.id || '').trim());
+    }
+  }
+
+  _handleDeleteAsset(assetId) {
+    if (confirm('Are you sure you want to delete this image?')) {
+      this._performDeleteAsset(assetId);
+    }
+  }
+
+  async _performDeleteAsset(assetId) {
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!localModelId || !base || !assetId) return;
+
+    try {
+      const response = await fetch(
+        `${base}/api/local/models/${encodeURIComponent(localModelId)}/assets/${encodeURIComponent(assetId)}`,
+        { method: 'DELETE' }
+      );
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage = payload && payload.error
+          ? String(payload.error)
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      this._error = '';
+      await this._loadModelDetail({ silent: true });
+    } catch (error) {
+      console.error('Error deleting asset:', error);
+      this._error = `Failed to delete asset: ${error}`;
+      this._render();
     }
   }
 
