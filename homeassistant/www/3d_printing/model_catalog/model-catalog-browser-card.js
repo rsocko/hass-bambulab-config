@@ -3360,14 +3360,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + queueCountBadge
       + '</button>';
 
-    var compactMainHtml = ''
-      + '<div class="body compact-main">'
-      + '  <div class="compact-top-actions">'
-      + '    <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+    var compactActionsHtml = ''
+      + '<div class="compact-top-actions">'
+      + '  <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
       + queueButton
       + advancedActions
-      + '  </div>'
+      + '</div>';
+
+    var compactMainHtml = ''
+      + '<div class="body compact-main">'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '  <div class="chip-row provenance-row">'
       + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip')
@@ -3497,6 +3499,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
+      + compactActionsHtml
       + compactFullHtml
       + '</article>';
   }
@@ -4186,8 +4189,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
       + '.compact-main,.compact-full{gap:8px;}'
       + '.view-compact .body,.view-list .body{padding:0;}'
-      + '.view-compact .compact-main{padding-top:42px;}'
-      + '.compact-top-actions{position:absolute;top:14px;right:14px;display:flex;justify-content:flex-end;align-items:center;gap:8px;z-index:2;}'
+      + '.model-card.view-compact{grid-template-rows:auto auto auto;grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "thumb actions" "full full";row-gap:8px;}'
+      + '.compact-top-actions{grid-area:actions;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0 14px;align-self:start;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
       + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;}'
       + '.compact-last-printed{font-size:11px;font-weight:700;color:var(--secondary-text-color);padding-top:2px;}'
