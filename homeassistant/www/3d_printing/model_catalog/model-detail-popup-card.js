@@ -751,7 +751,6 @@ class ModelDetailPopupCard extends HTMLElement {
     const model = this._modelDetail.model || {};
     const mediaItems = this._heroFilteredMediaItems(this._galleryItems());
     const activeMedia = this._heroCurrentMedia(mediaItems);
-    const modelName = this._escapeHtml(String(model.name || 'Untitled Model'));
     const creator = this._escapeHtml(String(model.creator_name || 'Unknown'));
     const collections = Array.isArray(model.collection_names) ? model.collection_names : [];
     const collectionText = this._escapeHtml(collections.length ? collections.join(' / ') : 'Uncategorized');
@@ -772,13 +771,13 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
           border-bottom: 1px solid var(--divider-color);
-          padding: 12px 14px;
+          padding: 8px 12px;
         }
-        .title strong { font-size: 18px; display: block; }
-        .title span { color: var(--secondary-text-color); font-size: 12px; }
+        .title { display: flex; align-items: center; }
+        .title span { color: var(--secondary-text-color); font-size: 11px; }
         .entity-type-badge {
           display: inline-flex;
           align-items: center;
@@ -796,13 +795,6 @@ class ModelDetailPopupCard extends HTMLElement {
           color: #ffc107;
         }
         .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .slot-chip {
-          border: 1px solid var(--divider-color);
-          border-radius: 999px;
-          padding: 2px 8px;
-          font-size: 10px;
-          color: var(--secondary-text-color);
-        }
         .action-button {
           background: var(--primary-color);
           color: var(--text-primary-color);
@@ -935,17 +927,63 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           gap: 6px;
         }
-        .icon-btn {
-          width: 34px;
-          height: 34px;
+        .icon-action {
+          position: static;
+          width: 32px;
+          height: 32px;
+          border: 1px solid rgba(148,163,184,0.28);
           border-radius: 999px;
-          border: 1px solid var(--divider-color);
-          background: rgba(0, 0, 0, 0.55);
-          color: #fff;
-          padding: 0;
-          font-size: 11px;
+          background: rgba(15,23,42,0.78);
+          color: var(--primary-text-color);
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          flex: 0 0 auto;
+          transition: background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;
         }
+        .icon-action:hover,
+        .icon-action:focus-visible {
+          background: rgba(30,41,59,0.96);
+          color: var(--primary-text-color);
+          border-color: rgba(148,163,184,0.54);
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .icon-action:active { transform: translateY(0); }
+        .icon-action.viewer {
+          background: rgba(20,83,45,0.22);
+          border-color: rgba(34,197,94,0.28);
+          color: var(--primary-text-color);
+        }
+        .icon-action.viewer:hover,
+        .icon-action.viewer:focus-visible {
+          background: rgba(20,83,45,0.34);
+          color: var(--primary-text-color);
+          border-color: rgba(34,197,94,0.46);
+          box-shadow: 0 0 0 1px rgba(34,197,94,0.18),0 8px 20px rgba(20,83,45,0.22);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .icon-action.viewer:active { transform: translateY(0); }
+        .icon-action.expand {
+          background: rgba(30,64,175,0.24);
+          border-color: rgba(96,165,250,0.3);
+          color: var(--primary-text-color);
+        }
+        .icon-action.expand:hover,
+        .icon-action.expand:focus-visible {
+          background: rgba(30,64,175,0.36);
+          color: var(--primary-text-color);
+          border-color: rgba(96,165,250,0.48);
+          box-shadow: 0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .icon-action.expand:active { transform: translateY(0); }
+        .icon-action ha-icon { --mdc-icon-size: 18px; }
         .main-nav-btn {
           position: absolute;
           top: 50%;
@@ -1167,12 +1205,10 @@ class ModelDetailPopupCard extends HTMLElement {
       <div class="popup-shell">
         <div class="topbar">
           <div class="title">
-            <strong>${modelName}</strong>
             <span>Creator ${creator} | Collection ${collectionText}</span>
           </div>
           <div class="top-actions">
             ${isIdea ? `<span class="entity-type-badge idea">💡 Idea</span>` : ''}
-            <span class="slot-chip">actions:top-bar</span>
             ${this._renderExtensionSlot('actions:top-bar', '')}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
@@ -1203,7 +1239,6 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="left">
             ${this._renderExtensionSlot('hero-left:media', `
               <div class="media-filters">
-                <span class="slot-chip">hero-left:media</span>
                 <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All</button>
                 <button class="chip ${this._heroMediaFilter === 'photo' ? 'active' : ''}" data-media-filter="photo">Uploaded</button>
                 <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets</button>
@@ -1212,8 +1247,8 @@ class ModelDetailPopupCard extends HTMLElement {
                 ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
                 <span class="badge">${this._escapeHtml(activeMedia && activeMedia.type ? activeMedia.type : 'image')}</span>
                 <div class="main-overlay-tools">
-                  <button class="icon-btn" id="btn-viewer" title="3D View">3D</button>
-                  <button class="icon-btn" title="Full screen">FS</button>
+                  <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
+                  <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
                 </div>
                 <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous">‹</button>
                 <button class="main-nav-btn next" id="btn-hero-next" title="Next">›</button>
@@ -1376,7 +1411,7 @@ class ModelDetailPopupCard extends HTMLElement {
           <button data-panel-tab="panel-related" class="${this._panelActiveTab === 'panel-related' ? 'active' : ''}">Related Models <span class="count">${relatedCount}</span></button>
           <button data-panel-tab="panel-support" class="${this._panelActiveTab === 'panel-support' ? 'active' : ''}">Supporting Files <span class="count">${supportCount}</span></button>
           <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Contribution</button>
-          <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication <span class="count">#1495</span></button>
+          <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication</button>
         </div>
         ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
         ${panel('panel-related', 'Related Models', this._renderExtensionSlot('sections:related-models', this._renderRelatedModelsPanel(model)))}
@@ -1671,7 +1706,6 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="hero-right:summary">
         <div class="h">
           <span>Summary</span>
-          <span class="slot-chip">hero-right:summary</span>
         </div>
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
@@ -1714,7 +1748,6 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="panel:files-core">
         <div class="h">
           <span>Model Files</span>
-          <span class="slot-chip">panel:files-core</span>
         </div>
         <div class="files">${rows}</div>
       </section>
@@ -1791,7 +1824,6 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="sections:archive-linkage">
         <div class="h">
           <span>Related Archives</span>
-          <span class="slot-chip">sections:archive-linkage</span>
         </div>
         <div class="files">
           ${candidateBanner}
