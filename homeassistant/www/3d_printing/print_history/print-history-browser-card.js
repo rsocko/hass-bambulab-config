@@ -32,6 +32,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._pendingBodyRaf = 0;
     this._batchRafId = 0;
     this._batchToken = 0;
+    this._lastBodyFingerprint = "";
     this._initialRenderDone = false;
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundKeydownHandler = this._handleKeydown.bind(this);
@@ -630,6 +631,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       innerHtmlMs: this._lastRenderTiming ? this._lastRenderTiming.domMs : null,
       cardCount: this._lastRenderTiming ? this._lastRenderTiming.cardCount : 0,
       htmlBytes: this._lastRenderTiming ? this._lastRenderTiming.htmlBytes : 0,
+      batched: this._lastRenderTiming ? this._lastRenderTiming.batched : false,
+      noOp: this._lastRenderTiming ? this._lastRenderTiming.noOp : false,
+      batchCompleteMs: this._lastRenderTiming ? this._lastRenderTiming.batchCompleteMs : null,
     };
     var self = this;
     requestAnimationFrame(function () {
@@ -928,6 +932,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var variant = this._variant();
     var variantClass = variant.toLowerCase();
     body.className = "grid " + variantClass + (this._loading ? " refreshing" : "");
+
+    // Build a content fingerprint to detect no-op renders.
+    var fp = "";
+    for (var fi = 0; fi < archives.length; fi++) {
+      fp += this._normalizeArchiveCacheKey(archives[fi]) + "|";
+    }
+    var isNoOp = fp === this._lastBodyFingerprint;
+    this._lastBodyFingerprint = fp;
+
     var _perf = typeof performance !== "undefined" && typeof performance.now === "function" ? performance : null;
     var htmlStart = _perf ? _perf.now() : 0;
 
@@ -939,7 +952,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       var domStart = _perf ? _perf.now() : 0;
       body.innerHTML = html;
       var domMs = _perf ? (_perf.now() - domStart) : 0;
-      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length };
+      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length, batched: false, noOp: isNoOp };
     } else {
       // Render first batch immediately (above the fold), defer the rest.
       var firstBatch = archives.slice(0, BATCH_SIZE);
@@ -948,9 +961,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       var domStart = _perf ? _perf.now() : 0;
       body.innerHTML = html;
       var domMs = _perf ? (_perf.now() - domStart) : 0;
-      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length };
+      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length, batched: true, noOp: isNoOp, batchCompleteMs: null };
 
       var batchToken = ++this._batchToken;
+      var batchStart = _perf ? _perf.now() : Date.now();
       var offset = BATCH_SIZE;
       var self = this;
       var scheduleBatch = function () {
@@ -967,6 +981,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
           offset = end;
           if (offset < archives.length) {
             scheduleBatch();
+          } else {
+            self._lastRenderTiming.batchCompleteMs = Math.round(((_perf ? _perf.now() : Date.now()) - batchStart) * 10) / 10;
           }
         });
       };
