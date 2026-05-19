@@ -60,6 +60,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._boundKeyDown = this._handleKeyDown.bind(this);
     this._boundWheel = this._handleWheel.bind(this);
     this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
+    this._boundDetailChanged = this._handleDetailChanged.bind(this);
     this._didInitialRender = false;
     this._hasAttemptedLoad = false;
     this._lastAppliedScopeStamp = 0;
@@ -426,6 +427,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.addEventListener("wheel", this._boundWheel);
     }
     window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
+    window.addEventListener("model-catalog-detail-changed", this._boundDetailChanged);
     addShimmerAnimation();
     if (this._hass && this._hasAttemptedLoad && !this._loading) {
       if (this._isScopeStale()) {
@@ -467,6 +469,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.removeEventListener("wheel", this._boundWheel);
     }
     window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
+    window.removeEventListener("model-catalog-detail-changed", this._boundDetailChanged);
     this._cancelScheduledApply();
     if (this._renderRAFId) {
       cancelAnimationFrame(this._renderRAFId);
@@ -652,6 +655,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     this._loadPage(targetPage, refresh);
+  }
+
+  _handleDetailChanged(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
+    var modelRef = String(detail.modelRef || "").trim();
+    if (!modelRef) {
+      return;
+    }
+    delete this._modelDetailCache[modelRef];
+    delete this._loadingModelMedia[modelRef];
+    this._loadModelMedia({ public_id: modelRef });
   }
 
   _handleCatalogDataChanged(event) {

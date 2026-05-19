@@ -622,12 +622,15 @@ class ModelDetailPopupCard extends HTMLElement {
     this._handlePhotoFileSelect(Array.from(files));
   }
 
-  async _loadModelDetail() {
+  async _loadModelDetail({ silent = false } = {}) {
     if (this._loading) return;
     
     this._loading = true;
     this._error = "";
-    this._render();
+    // Only show loading spinner on initial load, not background refreshes
+    if (!silent) {
+      this._render();
+    }
     
     try {
       const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/detail`;
@@ -1930,7 +1933,7 @@ class ModelDetailPopupCard extends HTMLElement {
         body: JSON.stringify({ archive_id: archiveId, action })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await this._loadModelDetail();
+      await this._loadModelDetail({ silent: true });
     } catch (e) {
       // Optionally show error
       alert('Failed to update archive linkage: ' + e);
@@ -2235,7 +2238,7 @@ class ModelDetailPopupCard extends HTMLElement {
       }
       const next = Array.from(hidden.values());
       await this._persistHiddenMediaIds(next);
-      await this._loadModelDetail();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       this._error = `Failed to update hidden image: ${error}`;
       this._render();
@@ -2293,11 +2296,13 @@ class ModelDetailPopupCard extends HTMLElement {
     try {
       if (item.media_id && item.media_id.startsWith('photo:')) {
         await this._handleSetPhotoPreview(String(item.id || '').trim());
+        this._notifyBrowserDetailChanged();
         return;
       }
       if (item.asset_id) {
         await this._handleSetAssetPreview(item.asset_id);
-        await this._loadModelDetail();
+        await this._loadModelDetail({ silent: true });
+        this._notifyBrowserDetailChanged();
         return;
       }
     } catch (error) {
@@ -3062,7 +3067,7 @@ class ModelDetailPopupCard extends HTMLElement {
         
         // Reload model detail
         console.log('Reloading model detail after save...');
-        await this._loadModelDetail();
+        await this._loadModelDetail({ silent: true });
         
         // Exit edit mode and close popup
         this._isEditMode = false;
@@ -3178,8 +3183,7 @@ class ModelDetailPopupCard extends HTMLElement {
       
       // Reload model detail
       this._error = '';
-      await this._loadModelDetail();
-      this._render();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       console.error('Error setting preview photo:', error);
       this._error = `Failed to set preview: ${error}`;
@@ -3220,8 +3224,7 @@ class ModelDetailPopupCard extends HTMLElement {
       
       // Reload model detail
       this._error = '';
-      await this._loadModelDetail();
-      this._render();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       console.error('Error deleting photo:', error);
       this._error = `Failed to delete photo: ${error}`;
@@ -3293,8 +3296,7 @@ class ModelDetailPopupCard extends HTMLElement {
       }
 
       this._error = '';
-      await this._loadModelDetail();
-      this._render();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       console.error('Error reading file:', error);
       this._error = `Failed to upload ${file.name}: ${error}`;
@@ -3566,7 +3568,7 @@ class ModelDetailPopupCard extends HTMLElement {
       });
       this._closeQueueDialog();
       // Reload model detail to refresh queued_items count
-      await this._loadModelDetail();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       this._queueDialogSubmitting = false;
       this._queueDialogError = error && error.message ? String(error.message) : "Could not add to queue.";
@@ -3646,6 +3648,18 @@ class ModelDetailPopupCard extends HTMLElement {
       type: 'vertical-stack',
       cards: [this._buildModelViewerCardConfig()],
     };
+  }
+
+  _notifyBrowserDetailChanged() {
+    var modelRef = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    if (!modelRef) {
+      return;
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('model-catalog-detail-changed', {
+        detail: { modelRef: modelRef },
+      }));
+    } catch (_e) { /* ignore */ }
   }
 
   _fireBrowserModEvent(service, data) {
