@@ -116,3 +116,97 @@ sub_button:
     fill_width: false
     tap_action:
       action: more-info
+styles: |
+  .bubble-container {
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    overflow: visible !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .bubble-icon {
+    opacity: 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .bubble-name {
+    display: block !important;
+    width: 92px !important;
+    min-width: 92px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+    background: left center / 92px 34px no-repeat url('/local/3d_printing/common/bambu-lab-header-logo-light.svg') !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .bubble-name {
+      background: left center / 92px 34px no-repeat url('/local/3d_printing/common/bambu-lab-header-logo-dark.svg') !important;
+    }
+  }
+  .bubble-line {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    flex: 0 0 0 !important;
+  }
+  .bubble-sub-button-container,
+  .bubble-sub-buttons-container {
+    right: 0 !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-right: 0 !important;
+    gap: 6px !important;
+  }
+  .bubble-sub-button-container::-webkit-scrollbar,
+  .bubble-sub-buttons-container::-webkit-scrollbar {
+    display: none !important;
+  }
+  .bubble-sub-button {
+    min-height: 28px !important;
+    flex: 0 0 auto !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: none !important;
+  }
+  .bubble-sub-button.background-on,
+  .bubble-sub-button.background-off {
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+  .bubble-sub-button-icon {
+    --mdc-icon-size: 14px !important;
+    color: var(--primary-color) !important;
+  }
+  .bubble-sub-button-state,
+  .bubble-sub-button-name {
+    white-space: nowrap !important;
+  }
+  .bubble-sub-button-name {
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    opacity: 0.78 !important;
+  }
+  .bubble-sub-button-state {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
