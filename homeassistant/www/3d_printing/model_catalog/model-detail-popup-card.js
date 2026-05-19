@@ -213,6 +213,13 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // "+ Add Image" button — always available on the gallery tab (no edit mode required).
+    if (this._activeTab === 'gallery' && target.closest('#btn-add-image')) {
+      event.preventDefault();
+      this._openPhotoFilePicker();
+      return;
+    }
+
     // Mark as interacting to prevent DOM re-renders during click handling
     this._isInteracting = true;
 
@@ -2273,6 +2280,11 @@ class ModelDetailPopupCard extends HTMLElement {
             ${this._activeTab === 'gallery' && !this._isEditMode ? `
               <button class="action-button" id="btn-manage-photos">📸 Manage Photos</button>
             ` : ''}
+            ${this._activeTab === 'gallery' ? `
+              <button class="action-button" id="btn-add-image" style="background: var(--primary-color);">
+                <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add Image
+              </button>
+            ` : ''}
             ${this._activeTab === 'details' && this._isEditMode ? `
               <button class="action-button" id="btn-save" style="background: #4CAF50;" ${this._isSaving ? 'disabled' : ''}>
                 ${this._isSaving ? '⏳ Saving...' : '💾 Save'}
@@ -2621,7 +2633,7 @@ class ModelDetailPopupCard extends HTMLElement {
         color: var(--secondary-text-color);
         font-size: 13px;
       ">
-        Use <strong>Manage Photos</strong> in the header to upload or delete photos.
+        Use <strong>+ Add Image</strong> to upload photos, or <strong>Manage Photos</strong> to set preview / delete.
       </div>
     ` : '';
     
@@ -2632,7 +2644,7 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="empty-state">
             <p>📸 No Images</p>
             <p>No photos or images available.</p>
-            ${this._isEditMode ? `<p><strong>Use the upload section below to add photos.</strong></p>` : ''}
+            <p><strong>Use the + Add Image button above to upload photos.</strong></p>
           </div>
           ${this._isEditMode ? `
             <div style="padding: 20px; text-align: center;">
@@ -2647,9 +2659,9 @@ class ModelDetailPopupCard extends HTMLElement {
                 <p style="margin: 8px 0; color: var(--primary-text-color); font-weight: 500;">Click to upload photos</p>
                 <p style="margin: 0; color: var(--secondary-text-color); font-size: 12px;">or drag and drop (JPG, PNG, WebP)</p>
               </div>
-              <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
             </div>
           ` : ''}
+          <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
         </div>
       `;
     }
@@ -2784,9 +2796,9 @@ class ModelDetailPopupCard extends HTMLElement {
               <p style="margin: 8px 0; color: var(--primary-text-color); font-weight: 500;">Click to upload more photos</p>
               <p style="margin: 0; color: var(--secondary-text-color); font-size: 12px;">or drag and drop (JPG, PNG, WebP)</p>
             </div>
-            <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
           </div>
         ` : ''}
+        <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
       </div>
     `;
   }
