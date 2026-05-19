@@ -409,10 +409,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (!hadHass && !this._hasAttemptedLoad && !this._loading && !this._error) {
       this._hasAttemptedLoad = true;
+      this._didInitialRender = true;
       this._requestLoad(1, this._isScopeStale());
-    }
-
-    if (!hadHass || !this._didInitialRender) {
+    } else if (!hadHass || !this._didInitialRender) {
       this._didInitialRender = true;
       this._doRender();
     }
@@ -4013,7 +4012,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._persistentStyle = document.createElement('style');
       this._persistentStyle.textContent = ''
       + ':host{--surface-1:rgba(15,23,42,0.12);--surface-2:rgba(15,23,42,0.22);--line:rgba(148,163,184,0.18);--line-strong:rgba(148,163,184,0.28);--accent:rgba(96,165,250,0.22);--accent-strong:rgba(96,165,250,0.38);--chip-bg:rgba(148,163,184,0.12);--chip-line:rgba(148,163,184,0.24);}'
-      + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}'
+      + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;contain:content;}'
       + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
       + '.shell-header{display:grid;gap:10px;}'
       + '.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-1);}'
@@ -4147,7 +4146,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.thumb-empty ha-icon{--mdc-icon-size:28px;}'
       + '.thumb-empty-text{font-size:10px;margin-top:4px;}'
       + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
-      + '.compact-main,.compact-full{gap:8px;animation:compact-enter .24s ease-out;}'
+      + '.compact-main,.compact-full{gap:8px;}'
       + '.view-compact .body,.view-list .body{padding:0;}'
       + '.compact-top-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
