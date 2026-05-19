@@ -1474,7 +1474,6 @@ class ModelDetailPopupCard extends HTMLElement {
                 </div>
               </div>
               <input type="file" id="hero-photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
-              </div>
             `)}
 
             ${this._renderPanelWorkspace(model)}
