@@ -1266,6 +1266,10 @@ class ModelDetailPopupCard extends HTMLElement {
           background: var(--card-background-color);
         }
         .files { padding: 8px; display: grid; gap: 7px; }
+        .file-preview { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--divider-color); object-fit: cover; flex-shrink: 0; }
+        .file-ext-badge { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.25); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--secondary-text-color); background: rgba(255,255,255,0.04); flex-shrink: 0; }
+        .file-ext-badge.x-3mf { color: #5eead4; border-color: rgba(94,234,212,0.3); background: rgba(94,234,212,0.12); }
+        .file-ext-badge.x-stl, .file-ext-badge.x-step, .file-ext-badge.x-stp, .file-ext-badge.x-obj { color: #93c5fd; border-color: rgba(96,165,250,0.32); background: rgba(96,165,250,0.12); }
         .collapsible-group {
           border: 1px solid var(--divider-color);
           border-radius: 9px;
@@ -1358,7 +1362,7 @@ class ModelDetailPopupCard extends HTMLElement {
                   <button class="chip ${this._heroMediaFilter === 'embedded' ? 'active' : ''}" data-media-filter="embedded">Embedded (${mediaCounts.embedded})</button>
                 </div>
                 <div class="media-actions">
-                  <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview ? '' : 'disabled'}>Set Preview</button>
+                  <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview && !activeMedia.is_preview ? '' : 'disabled'}>${activeMedia && activeMedia.is_preview ? 'Current Preview' : 'Set Preview'}</button>
                   <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
                   <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
                 </div>
@@ -1852,14 +1856,23 @@ class ModelDetailPopupCard extends HTMLElement {
     const files = Array.isArray(model.files) ? model.files : [];
     const rows = files.length ? files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
+      const rawName = String(file.filename || file.asset_filename || file.id || '');
+      const extIdx = rawName.lastIndexOf('.');
+      const ext = extIdx >= 0 ? rawName.slice(extIdx + 1).toLowerCase() : '';
+      const extUpper = ext.toUpperCase() || 'FILE';
+      const extClass = ext ? `x-${this._escapeHtml(ext)}` : '';
+      const thumbUrl = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
       const meta = [
         file.asset_type ? String(file.asset_type) : '',
         file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / (1024 * 1024))} MB` : '',
       ].filter(Boolean).join(' | ');
+      const previewHtml = thumbUrl
+        ? `<img class="file-preview" src="${this._escapeHtml(thumbUrl)}" alt="${filename}" loading="lazy">`
+        : `<span class="file-ext-badge ${extClass}">${this._escapeHtml(extUpper)}</span>`;
       return `
         <article class="collapsible-group">
           <button class="collapse-toggle" data-collapse-toggle="file-${this._escapeHtml(String(file.id || filename))}">
-            <div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div>
+            <div style="display:flex;align-items:center;gap:10px;">${previewHtml}<div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div></div>
             <div>▾</div>
           </button>
           <div class="collapse-body ${this._collapsedSections[`file-${String(file.id || filename)}`] ? 'hidden' : ''}">
@@ -2131,7 +2144,7 @@ class ModelDetailPopupCard extends HTMLElement {
           filename: file.filename || file.asset_filename || file.id,
           type: 'embedded',
           type_label: 'Embedded',
-          can_set_preview: false,
+          can_set_preview: true,
           can_hide: true,
           can_delete: false,
           is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
@@ -2247,11 +2260,11 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _handleSetHeroMediaPreview(item) {
-    if (!item || !item.can_set_preview) {
+    if (!item || !item.can_set_preview || item.is_preview) {
       return;
     }
     try {
-      if (item.type === 'photo') {
+      if (item.media_id && item.media_id.startsWith('photo:')) {
         await this._handleSetPhotoPreview(String(item.id || '').trim());
         return;
       }
