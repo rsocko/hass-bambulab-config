@@ -66,6 +66,10 @@ def search_models_service(
     per_page: int = 10,
     include_supplements: bool = False,
     debug_collection_lookup: bool = False,
+    context: str | None = None,
+    archive_name: str | None = None,
+    source_file_name: str | None = None,
+    source_hash: str | None = None,
 ) -> dict[str, Any]:
     from ..routers import models as models_router
 
@@ -92,6 +96,10 @@ def search_models_service(
         per_page=per_page,
         include_supplements=include_supplements,
         debug_collection_lookup=debug_collection_lookup,
+        context=context,
+        archive_name=archive_name,
+        source_file_name=source_file_name,
+        source_hash=source_hash,
     )
 
 

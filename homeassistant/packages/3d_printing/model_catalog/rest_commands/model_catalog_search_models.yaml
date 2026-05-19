@@ -51,6 +51,18 @@ model_catalog_search_models:
     {%- if include_supplements is defined -%}
       {%- set ns.params = ns.params + ['include_supplements=' ~ ((include_supplements | bool) | string | lower)] -%}
     {%- endif -%}
+    {%- if context is defined and (context | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['context=' ~ ((context | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if archive_name is defined and (archive_name | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['archive_name=' ~ ((archive_name | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if source_file_name is defined and (source_file_name | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['source_file_name=' ~ ((source_file_name | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if source_hash is defined and (source_hash | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['source_hash=' ~ ((source_hash | string) | urlencode)] -%}
+    {%- endif -%}
     {%- set ns.params = ns.params + ['page=' ~ ((page | default(1)) | int(1) | string)] -%}
     {%- set ns.params = ns.params + ['per_page=' ~ ((per_page | default(10)) | int(10) | string)] -%}
     {{- (

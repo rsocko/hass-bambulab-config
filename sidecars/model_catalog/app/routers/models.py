@@ -2488,8 +2488,17 @@ def search_models(
     per_page: int = 10,
     include_supplements: bool = False,
     debug_collection_lookup: bool = False,
+    context: str | None = None,
+    archive_name: str | None = None,
+    source_file_name: str | None = None,
+    source_hash: str | None = None,
 ) -> dict[str, Any]:
-    """Search catalog with pagination and filtering support."""
+    """Search catalog with pagination and filtering support.
+
+    When ``context=archive_picker`` and archive context fields are supplied,
+    results receive an additional archive-context relevance boost so models
+    that match the archive by name, filename, or source hash sort higher.
+    """
     state: AppState = request.app.state.model_catalog
     client: object = request.app.state.catalog_client
     
@@ -2505,6 +2514,13 @@ def search_models(
 
     # Parse search query into tokens
     query_tokens = _normalize_tokens(q or "")
+
+    # Archive-context boost preparation
+    _archive_picker = str(context or "").strip().lower() == "archive_picker"
+    _archive_name_tokens = _normalize_tokens(archive_name or "") if _archive_picker and archive_name else set()
+    _archive_source_stem = _normalized_filename_stem(source_file_name) if _archive_picker and source_file_name else ""
+    _archive_source_tokens = _normalize_tokens(_archive_source_stem) if _archive_source_stem else set()
+    _archive_source_hash_lower = str(source_hash or "").strip().lower() if _archive_picker and source_hash else ""
     
     # Get ranking and link count data
     ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
@@ -2553,6 +2569,45 @@ def search_models(
         # Skip if query was provided but no match
         if q and score <= 0:
             continue
+
+        # Archive-context boost: when the caller is the archive picker, apply
+        # additional relevance signals from archive name, source filename, and
+        # source hash so that likely matches surface first.
+        archive_context_signals: list[str] = []
+        if _archive_picker:
+            if _archive_name_tokens:
+                name_overlap = _score_candidate(archive_name or "", summary.name)
+                if name_overlap > 0:
+                    score += name_overlap
+                    archive_context_signals.append(f"archive_name_overlap:{name_overlap:.2f}")
+            if _archive_source_tokens:
+                model_filenames = _extract_model_filenames(summary, {})
+                best_fn_score = 0.0
+                for mf in model_filenames:
+                    mf_tokens = _normalize_tokens(mf)
+                    if not mf_tokens:
+                        continue
+                    overlap = _archive_source_tokens.intersection(mf_tokens)
+                    if overlap:
+                        best_fn_score = max(best_fn_score, len(overlap) / max(len(_archive_source_tokens), len(mf_tokens)))
+                if best_fn_score > 0:
+                    score += 1.5 * best_fn_score
+                    archive_context_signals.append(f"source_filename_overlap:{best_fn_score:.2f}")
+            if _archive_source_hash_lower:
+                model_hashes = _extract_model_hashes({"source_hash": summary.name})
+                local_entry_hash = ""
+                if hasattr(summary, "public_id") and summary.public_id:
+                    local_entry_hash = str(getattr(summary, "revision_hash", "") or "").strip().lower()
+                if local_entry_hash and local_entry_hash == _archive_source_hash_lower:
+                    score += 10.0
+                    archive_context_signals.append("source_hash_match")
+            linked_count = 0
+            model_url = summary.model_url or ""
+            if model_url and model_url in link_counts_by_url:
+                linked_count = int(link_counts_by_url[model_url] or 0)
+            if linked_count > 0:
+                score += min(linked_count * 0.1, 1.0)
+                archive_context_signals.append(f"linked_archives:{linked_count}")
         
         # Build model payload
         model_payload = _serialize_model_summary(
@@ -2564,6 +2619,13 @@ def search_models(
             request=request,
             settings=state.settings,
         )
+
+        # Attach archive context boost signals to the payload when present
+        if _archive_picker and archive_context_signals:
+            model_payload["archive_context"] = {
+                "signals": archive_context_signals,
+                "boost": round(score - (_search_score(query_tokens, summary) if query_tokens else 1.0), 3),
+            }
 
         stats = frequency_stats_by_url.get(summary.model_url)
         _apply_frequents_layer2_derivation(
@@ -2601,9 +2663,10 @@ def search_models(
 
     normalized_sort = str(sort or "best").strip().lower()
     if normalized_sort == "best":
-        # Keep score-first relevance ordering for explicit text search queries.
+        # Keep score-first relevance ordering for explicit text search queries
+        # or when archive-context boosting is active (archive_picker).
         # Fall back to name ordering when no query is provided.
-        if query_tokens:
+        if query_tokens or _archive_picker:
             scored_models.sort(key=lambda item: (-item[0], item[1]["name"].lower()))
         else:
             scored_models.sort(key=lambda item: _sort_value(item[1], "name"))
@@ -2650,6 +2713,14 @@ def search_models(
         },
         "results": [model for _, model in paginated],
     }
+
+    if _archive_picker:
+        response_payload["context"] = "archive_picker"
+        response_payload["archive_context"] = {
+            "archive_name": archive_name or "",
+            "source_file_name": source_file_name or "",
+            "source_hash_provided": bool(_archive_source_hash_lower),
+        }
 
     if collection_diagnostics is not None:
         response_payload["collection_lookup_diagnostics"] = collection_diagnostics

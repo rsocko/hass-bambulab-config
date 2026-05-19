@@ -3644,11 +3644,25 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         var resultCreator = result.creator_name || "Unknown Creator";
         var linkedCount = result.linked_archive_count || 0;
         var collectionsList = (result.collection_names || []).join(", ") || "No Collection";
+        var contextBadges = "";
+        if (result.archive_context && Array.isArray(result.archive_context.signals) && result.archive_context.signals.length) {
+          contextBadges = '<div class="model-search-context-badges">'
+            + result.archive_context.signals.map(function (sig) {
+              var label = sig;
+              if (sig === "source_hash_match") label = "Hash Match";
+              else if (sig.indexOf("archive_name_overlap") === 0) label = "Name Match";
+              else if (sig.indexOf("source_filename_overlap") === 0) label = "File Match";
+              else if (sig.indexOf("linked_archives") === 0) label = "Linked";
+              return '<span class="model-search-context-badge">' + self._escapeHtml(label) + '</span>';
+            }).join("")
+            + '</div>';
+        }
         return '<div class="model-search-result-card">'
           + '<div class="model-search-result-header">'
           + '<div>'
           + '<h3 class="model-search-result-name">' + self._escapeHtml(resultName) + '</h3>'
           + '<p class="model-search-result-meta">' + self._escapeHtml(resultCreator) + ' / ' + self._escapeHtml(collectionsList) + '</p>'
+          + contextBadges
           + '</div>'
           + '<button class="model-search-result-link" type="button" data-action="model-search-link-result" data-result-url="' + self._escapeHtml(resultUrl) + '"><ha-icon icon="mdi:link-variant"></ha-icon> Link</button>'
           + '</div>'
@@ -3724,7 +3738,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._render();
     
     try {
-      var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", {
+      // Resolve the archive so we can pass context for ranking boosts
+      var currentArchive = this._resolveArchive();
+      var serviceData = {
         q: this._modelSearchQuery,
         collection: this._modelSearchCollection,
         creator: this._modelSearchCreator,
@@ -3732,7 +3748,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         refresh: true,
         page: this._modelSearchPage,
         per_page: 10,
-      });
+        context: "archive_picker",
+      };
+      if (currentArchive && currentArchive.print_name) {
+        serviceData.archive_name = String(currentArchive.print_name);
+      }
+      if (currentArchive && currentArchive.filename) {
+        serviceData.source_file_name = String(currentArchive.filename);
+      }
+      if (currentArchive && currentArchive.content_hash) {
+        serviceData.source_hash = String(currentArchive.content_hash);
+      }
+      var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", serviceData);
       this._modelSearchResults = Array.isArray(data && data.results) ? data.results : [];
       var paginationInfo = data && data.pagination ? data.pagination : {};
       this._modelSearchTotalPages = paginationInfo.total_pages || 0;
@@ -4160,6 +4187,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-search-result-link:hover{background:rgba(59,130,246,0.20);}' +
       '.model-search-result-link ha-icon{--mdc-icon-size:14px;}' +
       '.model-search-result-linked{font-size:11px;color:var(--secondary-text-color);margin:0;}' +
+      '.model-search-context-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}' +
+      '.model-search-context-badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;background:rgba(34,197,94,0.18);color:rgba(34,197,94,0.9);border:1px solid rgba(34,197,94,0.3);}' +
       '.model-search-pagination{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;}' +
       '.model-search-page-info{font-size:12px;color:var(--secondary-text-color);}' +
       '.model-search-page-btn{appearance:none;-webkit-appearance:none;border:1px solid rgba(96,165,250,0.36);background:rgba(59,130,246,0.12);border-radius:999px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}' +

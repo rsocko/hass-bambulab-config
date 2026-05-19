@@ -934,11 +934,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
     body.className = "grid " + variantClass + (this._loading ? " refreshing" : "");
 
     // Build a content fingerprint to detect no-op renders.
-    var fp = "";
+    // Include variant + showImages so layout/image-toggle changes are not skipped.
+    var fp = variant + ":" + (this._showImages() ? "1" : "0") + ":";
     for (var fi = 0; fi < archives.length; fi++) {
       fp += this._normalizeArchiveCacheKey(archives[fi]) + "|";
     }
-    var isNoOp = fp === this._lastBodyFingerprint;
+    if (fp === this._lastBodyFingerprint) {
+      this._lastRenderTiming = { htmlMs: 0, domMs: 0, cardCount: archives.length, htmlBytes: 0, batched: false, noOp: true, batchCompleteMs: null };
+      this._renderBulkDialog();
+      this._syncRefreshIndicator(true);
+      return;
+    }
     this._lastBodyFingerprint = fp;
 
     var _perf = typeof performance !== "undefined" && typeof performance.now === "function" ? performance : null;
@@ -952,7 +958,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       var domStart = _perf ? _perf.now() : 0;
       body.innerHTML = html;
       var domMs = _perf ? (_perf.now() - domStart) : 0;
-      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length, batched: false, noOp: isNoOp };
+      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length, batched: false, noOp: false };
     } else {
       // Render first batch immediately (above the fold), defer the rest.
       var firstBatch = archives.slice(0, BATCH_SIZE);
@@ -961,7 +967,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       var domStart = _perf ? _perf.now() : 0;
       body.innerHTML = html;
       var domMs = _perf ? (_perf.now() - domStart) : 0;
-      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length, batched: true, noOp: isNoOp, batchCompleteMs: null };
+      this._lastRenderTiming = { htmlMs: Math.round(htmlMs * 10) / 10, domMs: Math.round(domMs * 10) / 10, cardCount: archives.length, htmlBytes: html.length, batched: true, noOp: false, batchCompleteMs: null };
 
       var batchToken = ++this._batchToken;
       var batchStart = _perf ? _perf.now() : Date.now();
