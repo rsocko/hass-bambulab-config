@@ -317,6 +317,13 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // "+ Add Image" button in the hero media toolbar
+    if (target.closest('#btn-hero-add-image')) {
+      event.preventDefault();
+      this._openHeroPhotoFilePicker();
+      return;
+    }
+
     const panelTab = target.closest('[data-panel-tab]');
     if (panelTab) {
       event.preventDefault();
@@ -553,6 +560,24 @@ class ModelDetailPopupCard extends HTMLElement {
     fileInput.click();
   }
 
+  _openHeroPhotoFilePicker() {
+    const fileInput = this.shadowRoot.getElementById('hero-photo-file-input');
+    if (!fileInput) {
+      return;
+    }
+
+    if (typeof fileInput.showPicker === 'function') {
+      try {
+        fileInput.showPicker();
+        return;
+      } catch (_error) {
+        // Fall through to click() for browsers that block showPicker here.
+      }
+    }
+
+    fileInput.click();
+  }
+
   _handleChange(event) {
     const target = event.target;
     // Queue dialog: target-state select
@@ -584,7 +609,7 @@ class ModelDetailPopupCard extends HTMLElement {
       this._saveSourceField("source_platform_label", target.value);
       return;
     }
-    if (target.id !== 'photo-file-input') {
+    if (target.id !== 'photo-file-input' && target.id !== 'hero-photo-file-input') {
       return;
     }
 
@@ -1442,10 +1467,13 @@ class ModelDetailPopupCard extends HTMLElement {
                   <button class="chip ${this._heroMediaFilter === 'embedded' ? 'active' : ''}" data-media-filter="embedded">Embedded (${mediaCounts.embedded})</button>
                 </div>
                 <div class="media-actions">
+                  <button id="btn-hero-add-image" class="action-button" type="button" style="background: var(--primary-color);"><ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add Image</button>
                   <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview && !activeMedia.is_preview ? '' : 'disabled'}>${activeMedia && activeMedia.is_preview ? 'Current Preview' : 'Set Preview'}</button>
                   <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
                   <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
                 </div>
+              </div>
+              <input type="file" id="hero-photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
               </div>
             `)}
 
