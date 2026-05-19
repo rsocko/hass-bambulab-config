@@ -17,6 +17,7 @@ from sidecars.model_catalog.app.db import bootstrap_database
 from sidecars.model_catalog.app.services import (
     get_all_indexed_file_hashes,
     get_all_intake_queue_hashes,
+    get_catalog_asset_hashes,
     get_working_items_hashes,
     detect_duplicate_files,
     build_dedup_collision_warning,
@@ -90,8 +91,8 @@ def test_get_working_items_hashes_reads_from_working_items_table(tmp_path: Path)
     assert len(hashes) == 2
 
 
-def test_get_all_intake_queue_hashes_reads_from_intake_table(tmp_path: Path) -> None:
-    """Test that get_all_intake_queue_hashes correctly reads hashes from intake_queue_uploads."""
+def test_get_all_intake_queue_hashes_reads_inflight_only(tmp_path: Path) -> None:
+    """Test that get_all_intake_queue_hashes only reads hashes from in-flight uploads."""
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     
@@ -149,8 +150,102 @@ def test_get_all_intake_queue_hashes_reads_from_intake_table(tmp_path: Path) -> 
     assert len(hashes) == 2
 
 
-def test_get_all_indexed_file_hashes_combines_working_and_queue_hashes(tmp_path: Path) -> None:
-    """Test that get_all_indexed_file_hashes combines both working items and queue hashes."""
+def test_get_all_intake_queue_hashes_excludes_terminal_statuses(tmp_path: Path) -> None:
+    """Terminal-status uploads are excluded — their files live in inventory tables."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-04-30T00:00:00Z"
+        inflight_hash = "inflight_hash_aaa"
+        committed_hash = "committed_hash_bbb"
+        cleanup_hash = "cleanup_hash_ccc"
+
+        for upload_id, status, file_hash in [
+            ("upload-inflight", "queued", inflight_hash),
+            ("upload-committed", "committed", committed_hash),
+            ("upload-cleanup", "cleanup_done", cleanup_hash),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, file_hashes_json,
+                    verification_status, cleanup_policy, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (upload_id, status, "{}", json.dumps([file_hash]), "unverified", "keep", now, now),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    hashes = get_all_intake_queue_hashes(settings.db_path)
+    assert inflight_hash.lower() in hashes
+    assert committed_hash.lower() not in hashes
+    assert cleanup_hash.lower() not in hashes
+    assert len(hashes) == 1
+
+
+def test_get_catalog_asset_hashes_reads_published_assets(tmp_path: Path) -> None:
+    """Test that get_catalog_asset_hashes reads hashes from non-archived catalog entries."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-04-30T00:00:00Z"
+        live_hash = "catalog_hash_live"
+        archived_hash = "catalog_hash_archived"
+
+        # Create a live catalog entry
+        connection.execute(
+            """
+            INSERT INTO model_catalog_entries (
+                local_model_id, model_name, source_origin, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            ("model-live", "Live Model", "local", now, now),
+        )
+        live_entry_id = int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+        # Create an archived catalog entry
+        connection.execute(
+            """
+            INSERT INTO model_catalog_entries (
+                local_model_id, model_name, source_origin, created_at, updated_at, archived_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            ("model-archived", "Archived Model", "local", now, now, now),
+        )
+        archived_entry_id = int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+        # Add assets to both entries
+        for entry_id, asset_id, file_hash in [
+            (live_entry_id, "asset-live", live_hash),
+            (archived_entry_id, "asset-archived", archived_hash),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_assets (
+                    model_catalog_entry_id, asset_id, asset_filename, asset_type, asset_role,
+                    file_hash, storage_path, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (entry_id, asset_id, "model.3mf", "model", "primary", file_hash, "/tmp/model.3mf", now, now),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    hashes = get_catalog_asset_hashes(settings.db_path)
+    assert live_hash.lower() in hashes
+    assert archived_hash.lower() not in hashes
+    assert len(hashes) == 1
+
+
+def test_get_all_indexed_file_hashes_combines_inventory_and_inflight(tmp_path: Path) -> None:
+    """Test that get_all_indexed_file_hashes combines working items, catalog assets, and in-flight queue hashes."""
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     
@@ -346,7 +441,7 @@ def test_build_dedup_collision_warning_formats_correctly(tmp_path: Path) -> None
     assert warning["path"] == "/tmp/model.3mf"
     assert warning["sha256"] == "abc123def456"
     assert warning["collision_type"] == "indexed"
-    assert "working items or intake queue" in warning["message"]
+    assert "catalog or working inventory" in warning["message"]
     
     # Test batch-local collision
     warning2 = build_dedup_collision_warning(file_item, collision_type="batch_local")

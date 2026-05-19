@@ -169,7 +169,7 @@ Compatibility aliases:
 `bulk-import` behavior:
 
 - supports proposal actions: `import`, `merge`, `skip`
-- deduplicates by hash against existing `working_items.file_hash` and within the same import batch
+- deduplicates by hash against existing inventory (`working_items.file_hash`, `model_catalog_assets.file_hash`, in-flight intake queue) and within the same import batch
 - persists discovery metadata on each created `working_group`
 - returns created groups/items plus skipped duplicate and failed-file details
 

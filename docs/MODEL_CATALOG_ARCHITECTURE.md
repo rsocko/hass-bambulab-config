@@ -127,7 +127,7 @@ Router Handler
 ### Service Organization
 
 **Current** (Phase 1):
-- `intake_service.py` — Dedup detection, hash collection
+- `intake_service.py` — Dedup detection, hash collection from inventory (working items, catalog assets, in-flight intake queue)
 
 **Planned** (Phase 2):
 - `intake_queue_service.py` — Queue CRUD, status transitions, audit

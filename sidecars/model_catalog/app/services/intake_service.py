@@ -14,23 +14,45 @@ from sqlite3 import connect
 from typing import Any
 
 
+# Intake queue statuses considered "in-flight" — the upload has been submitted
+# but its files have NOT yet landed in a destination table (working_items or
+# model_catalog_assets).  Terminal statuses like 'committed', 'cleanup_done',
+# etc. are excluded because their files are already represented in inventory.
+_INFLIGHT_INTAKE_STATUSES = (
+    "queued",
+    "verified",
+    "uploaded_unverified",
+    "uploaded_verified",
+)
+
+
 def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
     """
-    Read all file hashes from intake queue uploads.
-    
-    Scans the intake_queue_uploads table for all file_hashes_json entries
-    (which is a JSON array of file hashes) and returns a flattened set.
-    
+    Read file hashes from **in-flight** intake queue uploads only.
+
+    Only uploads whose status indicates they have NOT yet been committed to a
+    destination (working group or catalog) are included.  Terminal-status
+    uploads (committed, published, cleanup_done, …) are excluded because their
+    files are already represented in the inventory tables (working_items /
+    model_catalog_assets).
+
     Args:
         db_path: Path to SQLite database
-        
+
     Returns:
-        Set of SHA256 hex strings (lowercase) from queue uploads
+        Set of SHA256 hex strings (lowercase) from in-flight queue uploads
     """
     connection = connect(db_path)
     try:
+        placeholders = ", ".join("?" for _ in _INFLIGHT_INTAKE_STATUSES)
         rows = connection.execute(
-            "SELECT file_hashes_json FROM intake_queue_uploads WHERE file_hashes_json IS NOT NULL"
+            f"""
+            SELECT file_hashes_json
+            FROM intake_queue_uploads
+            WHERE file_hashes_json IS NOT NULL
+              AND status IN ({placeholders})
+            """,
+            _INFLIGHT_INTAKE_STATUSES,
         ).fetchall()
         all_hashes: set[str] = set()
         for row in rows:
@@ -70,23 +92,65 @@ def get_working_items_hashes(db_path: Path | str) -> set[str]:
         connection.close()
 
 
-def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
+def get_catalog_asset_hashes(db_path: Path | str) -> set[str]:
     """
-    Get all indexed file hashes (working items + intake queue).
-    
-    Combines hashes from:
-    1. working_items (already grouped and imported)
-    2. intake_queue_uploads (files in intake pipeline)
-    
+    Read all file hashes from published catalog assets.
+
+    Scans the model_catalog_assets table for non-archived entries and returns
+    a set of their SHA256 hashes.  This represents files that have been
+    committed to the local catalog.
+
     Args:
         db_path: Path to SQLite database
-        
+
     Returns:
-        Set of SHA256 hex strings (lowercase) from all indexed files
+        Set of SHA256 hex strings (lowercase) from catalog assets
+    """
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT a.file_hash
+            FROM model_catalog_assets a
+            JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
+            WHERE a.file_hash IS NOT NULL
+              AND TRIM(a.file_hash) != ''
+              AND e.archived_at IS NULL
+            """
+        ).fetchall()
+        return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
+    except sqlite3.OperationalError:
+        # Table may not exist in older databases
+        return set()
+    finally:
+        connection.close()
+
+
+def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
+    """
+    Get all indexed file hashes from actual inventory + in-flight imports.
+
+    Combines hashes from three sources:
+    1. working_items — files currently in working groups (inventory)
+    2. model_catalog_assets — files published to the catalog (inventory)
+    3. intake_queue_uploads — files in the intake pipeline that have NOT
+       yet been committed to a destination (in-flight only)
+
+    Terminal-status intake records (committed, published, cleanup_done) are
+    excluded because their files are already represented in sources 1 or 2.
+    This prevents ghost hashes from blocking re-import after a working group
+    or catalog entry is deleted.
+
+    Args:
+        db_path: Path to SQLite database
+
+    Returns:
+        Set of SHA256 hex strings (lowercase) from inventory + in-flight
     """
     working_hashes = get_working_items_hashes(db_path)
-    queue_hashes = get_all_intake_queue_hashes(db_path)
-    return working_hashes | queue_hashes
+    catalog_hashes = get_catalog_asset_hashes(db_path)
+    inflight_hashes = get_all_intake_queue_hashes(db_path)
+    return working_hashes | catalog_hashes | inflight_hashes
 
 
 def detect_duplicate_files(
@@ -159,7 +223,7 @@ def build_dedup_collision_warning(
         "type": "duplicate_hash",
         "path": str(file_item.get("path") or "").strip(),
         "sha256": str(file_item.get("sha256") or "").strip().lower(),
-        "message": f"File hash already exists ({'in working items or intake queue' if collision_type == 'indexed' else 'in current batch'})",
+        "message": f"File hash already exists ({'in catalog or working inventory' if collision_type == 'indexed' else 'in current batch'})",
         "collision_type": collision_type,
     }
 
