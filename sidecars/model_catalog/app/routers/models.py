@@ -3971,6 +3971,17 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
         field_value=photo_id,
     )
 
+    # Demote any file assets currently marked as preview so that only the
+    # photo is treated as the active preview (prevents dual-preview state).
+    for asset in list_model_assets(db_path=state.settings.db_path, local_model_id=resolved_ref):
+        if str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview":
+            update_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=resolved_ref,
+                asset_id=str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+                asset_role="supporting",
+            )
+
     return {"success": True, "photo_id": photo_id, "preview_photo_id": photo_id}
 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
