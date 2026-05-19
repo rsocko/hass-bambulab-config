@@ -9,7 +9,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=113
   type: module
-- url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=4
+- url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=5
   type: module
 - url: /hacsfiles/apexcharts-card/apexcharts-card.js?hacstag=331701152223
   type: module

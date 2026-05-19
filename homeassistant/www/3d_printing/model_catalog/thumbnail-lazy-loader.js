@@ -176,38 +176,42 @@ export function setupThumbnailLazyObserver(config = {}) {
     ? rootElement.querySelectorAll(selector)
     : document.querySelectorAll(selector);
   const observer = new IntersectionObserver(
-    async (entries) => {
+    (entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
 
         const img = entry.target;
         const url = img.getAttribute(attrName);
         if (!url || img.src) {
+          observer.unobserve(img);
           continue; // Already loaded
         }
 
-        // Use cached object URL if available to avoid re-creating one per render.
-        let objectUrl = thumbnailObjectUrlCache.get(url) || null;
-        if (!objectUrl) {
-          const blob = await fetchThumbnailImage(url);
-          if (blob) {
-            objectUrl = getBlobUrl(blob);
-            thumbnailObjectUrlCache.set(url, objectUrl);
-          }
-        }
-        if (objectUrl) {
-          img.src = objectUrl;
-          // Remove the data attribute to prevent re-fetching
+        // Stop observing immediately to prevent duplicate loads.
+        observer.unobserve(img);
+
+        // Use cached URL if available.
+        const cachedUrl = thumbnailObjectUrlCache.get(url) || null;
+        if (cachedUrl) {
+          img.src = cachedUrl;
           img.removeAttribute(attrName);
-        } else {
-          // Fetch failed — clear the lazy attribute to stop shimmer animation
-          // and mark the image so the card can show a fallback placeholder.
-          img.removeAttribute(attrName);
-          img.setAttribute('data-thumbnail-failed', 'true');
+          continue;
         }
 
-        // Stop observing after load attempt
-        observer.unobserve(img);
+        // Use Image() preload instead of fetch() to bypass CORS restrictions.
+        // The data-thumbnail-lazy-url attribute is kept during loading so the
+        // shimmer CSS animation continues until the image is ready.
+        const preload = new Image();
+        preload.onload = function () {
+          thumbnailObjectUrlCache.set(url, url);
+          img.removeAttribute(attrName);
+          img.src = url;
+        };
+        preload.onerror = function () {
+          img.removeAttribute(attrName);
+          img.setAttribute('data-thumbnail-failed', 'true');
+        };
+        preload.src = url;
       }
     },
     { root: observerRoot, rootMargin, threshold },

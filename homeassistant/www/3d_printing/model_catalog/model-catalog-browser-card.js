@@ -1,4 +1,4 @@
-import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=4';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=5';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
 
@@ -2915,18 +2915,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
           img.removeAttribute('data-thumbnail-lazy-url');
           img.src = String(cachedObjectUrl);
         } else {
-          // Set src directly via preload (like the media card) instead of
-          // relying on the IntersectionObserver which can miss already-visible
-          // images after a Set-Preview change.
-          img.removeAttribute('data-thumbnail-lazy-url');
-          var preload = new Image();
-          preload.decoding = 'async';
-          (function (targetImg, url) {
-            preload.onload = function () {
-              targetImg.src = url;
-            };
-          })(img, mediaUrl);
-          preload.src = mediaUrl;
+          // Set the lazy-url attribute so the observer picks it up and the
+          // shimmer CSS animation plays while the image loads.  The observer
+          // now uses Image() preload (not fetch) so CORS is not an issue.
+          img.removeAttribute('src');
+          img.setAttribute('data-thumbnail-lazy-url', mediaUrl);
         }
       } else {
         img.removeAttribute('data-thumbnail-lazy-url');
