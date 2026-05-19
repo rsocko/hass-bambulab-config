@@ -4485,9 +4485,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderQueueDialog()
       + '  </div>';
 
-    setTimeout(function () {
-      this._setupThumbnailLazyLoading();
-    }.bind(this), 0);
+    this._scheduleThumbnailObserverSetup(0);
   }
 }
 
