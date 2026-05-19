@@ -65,6 +65,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._lastAppliedScopeStamp = 0;
     this._catalogScope = "curated";
     this._thumbnailObserver = null;
+    this._renderRAFId = null;
+    this._persistentStyle = null;
+    this._contentRoot = null;
 
     // Multi-select primitive (#1401 Phase 0 Foundations)
     this._selectedModelRefs = new Set();
@@ -395,7 +398,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       model_sidecar_url: config && config.model_sidecar_url ? String(config.model_sidecar_url) : "",
     };
     this._pagination.per_page = this._config.per_page;
-    this._render();
+    this._doRender();
   }
 
   set hass(hass) {
@@ -411,7 +414,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (!hadHass || !this._didInitialRender) {
       this._didInitialRender = true;
-      this._render();
+      this._doRender();
     }
   }
 
@@ -466,6 +469,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     this._cancelScheduledApply();
+    if (this._renderRAFId) {
+      cancelAnimationFrame(this._renderRAFId);
+      this._renderRAFId = null;
+    }
     if (this._deferredRenderHandle) {
       window.clearTimeout(this._deferredRenderHandle);
       this._deferredRenderHandle = null;
@@ -677,7 +684,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._loading = true;
     this._error = "";
-    this._render();
+    this._doRender();
 
     var shared = window.ModelCatalogIntakeShared;
     var stampSnapshot = shared && typeof shared.getModelCatalogScopeStamp === "function"
@@ -3971,6 +3978,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _render() {
+    if (this._renderRAFId) return;
+    this._renderRAFId = requestAnimationFrame(function () {
+      this._renderRAFId = null;
+      this._doRender();
+    }.bind(this));
+  }
+
+  _doRender() {
     if (!this.shadowRoot || !this._config) {
       return;
     }
@@ -3990,8 +4005,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       resultsHtml = visibleResults.map(this._renderModelCard.bind(this)).join("");
     }
 
-    this.shadowRoot.innerHTML = ''
-      + '<style>'
+    // Inject the <style> element once so the browser never re-parses ~300
+    // lines of static CSS on every render.  Only the <ha-card> content is
+    // replaced on subsequent renders, which avoids the full-screen
+    // compositor flash caused by stylesheet teardown/rebuild.
+    if (!this._persistentStyle) {
+      this._persistentStyle = document.createElement('style');
+      this._persistentStyle.textContent = ''
       + ':host{--surface-1:rgba(15,23,42,0.12);--surface-2:rgba(15,23,42,0.22);--line:rgba(148,163,184,0.18);--line-strong:rgba(148,163,184,0.28);--accent:rgba(96,165,250,0.22);--accent-strong:rgba(96,165,250,0.38);--chip-bg:rgba(148,163,184,0.12);--chip-line:rgba(148,163,184,0.24);}'
       + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}'
       + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
@@ -4281,9 +4301,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-btn.exit{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit:hover{background:rgba(239,68,68,0.1);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'
-      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
-      + '</style>'
-      + '<ha-card>'
+      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
+      this._contentRoot = document.createElement('ha-card');
+      this.shadowRoot.textContent = '';
+      this.shadowRoot.appendChild(this._persistentStyle);
+      this.shadowRoot.appendChild(this._contentRoot);
+    }
+
+    this._contentRoot.innerHTML = ''
       + '  <div class="shell">'
       + '    <div class="shell-header">'
       + this._renderHeaderTitleRow()
@@ -4294,8 +4319,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + this._renderQueueDialog()
-      + '  </div>'
-      + '</ha-card>';
+      + '  </div>';
 
     setTimeout(function () {
       this._setupThumbnailLazyLoading();
