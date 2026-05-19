@@ -3623,8 +3623,29 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!this._modelSidecarUrl || !this._modelRef) return;
     
     try {
+      // Demote any file assets currently marked as preview
+      const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+      const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+      const files = (this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files))
+        ? this._modelDetail.model.files
+        : [];
+      const previewAssetIds = files
+        .filter(file => file && (file.is_preview || file.asset_role === 'preview'))
+        .map(file => String(file.asset_id || file.id || '').trim())
+        .filter(Boolean);
+      for (const assetId of previewAssetIds) {
+        await fetch(
+          `${base}/api/local/models/${encodeURIComponent(localModelId)}/assets/${encodeURIComponent(assetId)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ asset_role: 'supporting' }),
+          }
+        );
+      }
+
       const response = await fetch(
-        `${this._modelSidecarUrl.replace(/\/$/, '')}/api/models/${encodeURIComponent(this._modelRef)}/photos/${encodeURIComponent(photoId)}/preview`,
+        `${base}/api/models/${encodeURIComponent(this._modelRef)}/photos/${encodeURIComponent(photoId)}/preview`,
         {
           method: 'POST',
         }
