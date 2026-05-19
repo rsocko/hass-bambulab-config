@@ -780,7 +780,6 @@ class ModelDetailPopupCard extends HTMLElement {
     const allGalleryItems = this._galleryItems();
     const mediaCounts = {
       all: allGalleryItems.length,
-      photo: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'photo').length,
       asset: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'asset').length,
       embedded: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'embedded').length,
     };
@@ -908,15 +907,21 @@ class ModelDetailPopupCard extends HTMLElement {
         .left {
           border-right: 1px solid var(--divider-color);
           display: grid;
-          grid-template-rows: auto 1fr auto auto auto;
+          grid-template-rows: 1fr auto auto;
+        }
+        .media-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 6px 12px;
+          flex-wrap: wrap;
         }
         .media-filters {
           display: flex;
           gap: 6px;
           flex-wrap: wrap;
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--divider-color);
-          background: var(--secondary-background-color);
+          align-items: center;
         }
         .chip {
           border: 1px solid var(--divider-color);
@@ -1055,7 +1060,7 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
-          padding: 0 12px 10px;
+          align-items: center;
         }
         .media-actions .action-button {
           appearance: none;
@@ -1336,12 +1341,6 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="hero">
           <div class="left">
             ${this._renderExtensionSlot('hero-left:media', `
-              <div class="media-filters">
-                <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All (${mediaCounts.all})</button>
-                <button class="chip ${this._heroMediaFilter === 'photo' ? 'active' : ''}" data-media-filter="photo">Uploaded (${mediaCounts.photo})</button>
-                <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets (${mediaCounts.asset})</button>
-                <button class="chip ${this._heroMediaFilter === 'embedded' ? 'active' : ''}" data-media-filter="embedded">Embedded (${mediaCounts.embedded})</button>
-              </div>
               <div class="main-media">
                 ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
                 ${activeMedia && activeMedia.type_label ? `<span class="badge">${this._escapeHtml(activeMedia.type_label)}</span>` : ''}
@@ -1352,10 +1351,17 @@ class ModelDetailPopupCard extends HTMLElement {
                 <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.length > 1 ? '' : 'disabled'}>&#8249;</button>
                 <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.length > 1 ? '' : 'disabled'}>&#8250;</button>
               </div>
-              <div class="media-actions">
-                <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview ? '' : 'disabled'}>Set Preview</button>
-                <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
-                <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
+              <div class="media-toolbar">
+                <div class="media-filters">
+                  <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All (${mediaCounts.all})</button>
+                  <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets (${mediaCounts.asset})</button>
+                  <button class="chip ${this._heroMediaFilter === 'embedded' ? 'active' : ''}" data-media-filter="embedded">Embedded (${mediaCounts.embedded})</button>
+                </div>
+                <div class="media-actions">
+                  <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview ? '' : 'disabled'}>Set Preview</button>
+                  <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
+                  <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
+                </div>
               </div>
               <div class="thumbs">
                 ${mediaItems.map((item, idx) => `
@@ -1457,9 +1463,6 @@ class ModelDetailPopupCard extends HTMLElement {
     }
     return list.filter(item => {
       const type = String(item && item.type || '').toLowerCase();
-      if (this._heroMediaFilter === 'photo') {
-        return type === 'photo' || type === 'uploaded';
-      }
       return type === this._heroMediaFilter;
     });
   }
@@ -2076,10 +2079,10 @@ class ModelDetailPopupCard extends HTMLElement {
           url: imageUrl || thumbnailUrl,
           thumbnail_url: thumbnailUrl || imageUrl,
           filename: photo.filename || `Photo ${idx + 1}`,
-          type: 'photo',
-          type_label: 'Uploaded',
+          type: 'asset',
+          type_label: 'Asset',
           can_set_preview: true,
-          can_hide: false,
+          can_hide: true,
           can_delete: true,
           is_preview: Boolean(photo.is_preview),
         });
@@ -2102,7 +2105,7 @@ class ModelDetailPopupCard extends HTMLElement {
           type_label: 'Asset',
           can_set_preview: true,
           can_hide: true,
-          can_delete: false,
+          can_delete: true,
           is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
         });
       });
