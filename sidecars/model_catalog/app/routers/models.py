@@ -51,6 +51,7 @@ from ..db import (
     derive_model_key,
     read_all_model_ranking,
     read_archive_links,
+    read_archive_links_for_model,
     read_model_field,
     read_model_fields,
     read_model_link_counts,
@@ -4695,11 +4696,12 @@ def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id:
 # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
 
 def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:
-    """Get related models by similarity score (Phase 3.3)."""
+    """Get related models by similarity score (Phase 6 — archive-enhanced)."""
     state: AppState = request.app.state.model_catalog
     
     # Resolve base model reference
-    base_summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    summary_by_url = _summary_map(state.settings.db_path)
+    base_summary = _resolve_model_summary(summary_by_url, model_ref)
     if base_summary is None:
         return JSONResponse(status_code=404, content={"error": "Model not found"})
     
@@ -4709,6 +4711,13 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
     except Exception:
         all_summaries = []
     
+    # Load archive-derived ranking snapshots for boosting
+    all_rankings = read_all_model_ranking(db_path=state.settings.db_path)
+    base_ranking = all_rankings.get(base_summary.model_url)
+
+    # Load link counts for co-printed archive overlap
+    link_counts = read_model_link_counts(db_path=state.settings.db_path)
+
     # Score and sort similar models
     related_models = []
     for summary in all_summaries:
@@ -4716,8 +4725,8 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
             continue
         
         # Calculate similarity score
-        score = 0
-        reasons = []
+        score = 0.0
+        reasons: list[str] = []
         
         # Collection match (+30)
         if base_summary.collection_names and summary.collection_names:
@@ -4730,14 +4739,36 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
             score += 25
             reasons.append("Same creator")
         
-        # Keyword matches (+5 each)
+        # Keyword/tag matches (+5 each, capped at 20)
         base_keywords = set(base_summary.keyword_names or [])
         summary_keywords = set(summary.keyword_names or [])
         keyword_matches = len(base_keywords & summary_keywords)
         if keyword_matches > 0:
-            score += keyword_matches * 5
-            reasons.append(f"{keyword_matches} matching keywords")
+            keyword_score = min(keyword_matches * 5, 20)
+            score += keyword_score
+            reasons.append(f"{keyword_matches} shared tags")
         
+        # Normalized name-token overlap (+10 when >=2 tokens match)
+        base_name_tokens = _normalize_tokens(base_summary.name or "")
+        summary_name_tokens = _normalize_tokens(summary.name or "")
+        name_overlap = len(base_name_tokens & summary_name_tokens)
+        if name_overlap >= 2:
+            score += 10
+            reasons.append(f"{name_overlap} name tokens in common")
+
+        # Archive-derived signals: linked archive count boost (+5..15)
+        candidate_ranking = all_rankings.get(summary.model_url)
+        candidate_link_count = link_counts.get(summary.model_url, 0)
+        if candidate_link_count > 0:
+            archive_boost = min(candidate_link_count * 5, 15)
+            score += archive_boost
+            reasons.append(f"Printed {candidate_link_count}x")
+
+        # Archive-derived signals: recently printed boost (+10)
+        if candidate_ranking and candidate_ranking.recent_score is not None and candidate_ranking.recent_score > 0:
+            score += 10
+            reasons.append("Recently printed")
+
         if score > 0:
             related_models.append({
                 "model_id": summary.model_id,
@@ -4747,6 +4778,7 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
                 "preview_url": summary.preview_url,
                 "similarity_score": min(100, score),
                 "reasons": reasons,
+                "ranking": _ranking_payload(candidate_ranking) if candidate_ranking else None,
             })
     
     # Sort by score and limit
@@ -4756,19 +4788,87 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
     return {
         "success": True,
         "model_ref": model_ref,
+        "base_ranking": _ranking_payload(base_ranking) if base_ranking else None,
         "related_models": related_models,
         "count": len(related_models),
     }
 
 @router.get("/api/archives/{archive_id}/model")
-def get_archive_model_endpoint(archive_id: int) -> dict[str, Any]:
-    """Get the source model for an archive (Phase 3.3)."""
-    # This endpoint would connect archives to their source models
-    # Implementation requires print_history integration
+def get_archive_model_endpoint(request: Request, archive_id: int) -> dict[str, Any]:
+    """Get accepted model links for an archive (archive→model navigation)."""
+    state: AppState = request.app.state.model_catalog
+    links = read_archive_links(db_path=state.settings.db_path, archive_id=archive_id, active_only=True)
+    accepted = [link for link in links if link.review_state == "accepted"]
+    summary_by_url = _summary_map(state.settings.db_path)
+    all_rankings = read_all_model_ranking(db_path=state.settings.db_path)
+    serialized = []
+    for link in accepted:
+        entry = _archive_link_to_response(link, summary_by_url=summary_by_url)
+        ranking = all_rankings.get(link.model_url)
+        entry["ranking"] = _ranking_payload(ranking) if ranking else None
+        serialized.append(entry)
     return {
         "success": True,
         "archive_id": archive_id,
-        "model_ref": None,  # Would be populated by print_history module
-        "message": "Archive model linking in development"
+        "accepted_links": serialized,
+        "count": len(serialized),
+    }
+
+
+@router.get("/api/models/{model_ref}/archives")
+def get_model_archives_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    """Get archives linked to a model (model→archives reverse navigation)."""
+    state: AppState = request.app.state.model_catalog
+    summary_by_url = _summary_map(state.settings.db_path)
+    base_summary = _resolve_model_summary(summary_by_url, model_ref)
+    if base_summary is None:
+        return JSONResponse(status_code=404, content={"error": "Model not found"})
+    links = read_archive_links_for_model(db_path=state.settings.db_path, model_url=base_summary.model_url, active_only=True)
+    accepted = [link for link in links if link.review_state == "accepted"]
+    ranking = read_model_ranking(db_path=state.settings.db_path, model_url=base_summary.model_url)
+    serialized = [_archive_link_to_response(link, summary_by_url=summary_by_url) for link in accepted]
+    return {
+        "success": True,
+        "model_ref": model_ref,
+        "model_url": base_summary.model_url,
+        "model_name": base_summary.name,
+        "ranking": _ranking_payload(ranking) if ranking else None,
+        "linked_archives": serialized,
+        "count": len(serialized),
+    }
+
+
+@router.get("/api/models/{model_ref}/print-timeline")
+def get_model_print_timeline_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    """Get chronological print timeline for a model from its archive links."""
+    state: AppState = request.app.state.model_catalog
+    summary_by_url = _summary_map(state.settings.db_path)
+    base_summary = _resolve_model_summary(summary_by_url, model_ref)
+    if base_summary is None:
+        return JSONResponse(status_code=404, content={"error": "Model not found"})
+    links = read_archive_links_for_model(db_path=state.settings.db_path, model_url=base_summary.model_url, active_only=True)
+    accepted = [link for link in links if link.review_state == "accepted"]
+    # Sort chronologically (oldest first) for timeline view
+    accepted.sort(key=lambda link: link.created_at or "")
+    timeline = []
+    for link in accepted:
+        timeline.append({
+            "link_id": link.id,
+            "archive_id": link.bambuddy_archive_id,
+            "relationship_type": link.relationship_type,
+            "model_asset_id": link.model_asset_id,
+            "match_method": link.match_method,
+            "match_confidence": link.match_confidence,
+            "linked_at": link.created_at,
+        })
+    ranking = read_model_ranking(db_path=state.settings.db_path, model_url=base_summary.model_url)
+    return {
+        "success": True,
+        "model_ref": model_ref,
+        "model_url": base_summary.model_url,
+        "model_name": base_summary.name,
+        "ranking": _ranking_payload(ranking) if ranking else None,
+        "timeline": timeline,
+        "count": len(timeline),
     }
 

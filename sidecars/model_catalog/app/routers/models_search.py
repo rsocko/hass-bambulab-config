@@ -110,6 +110,16 @@ def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5
     return get_related_models_service(request, model_ref=model_ref, limit=limit)
 
 
+@router.get("/api/models/{model_ref:path}/archives")
+def get_model_archives_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    return models_router.get_model_archives_endpoint(request, model_ref=model_ref)
+
+
+@router.get("/api/models/{model_ref:path}/print-timeline")
+def get_model_print_timeline_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    return models_router.get_model_print_timeline_endpoint(request, model_ref=model_ref)
+
+
 @router.get("/api/models/{model_ref:path}/ranking")
 def get_model_ranking_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     return get_model_ranking_service(request, model_ref=model_ref)

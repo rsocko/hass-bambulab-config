@@ -1141,3 +1141,54 @@ def read_model_frequency_window_stats(
         )
         for row in rows
     }
+
+
+def read_archive_links_for_model(*, db_path: Path, model_url: str, active_only: bool = True) -> list[ArchiveModelLink]:
+    """Return all archive links targeting a given model URL (reverse lookup)."""
+    connection = connect(db_path)
+    try:
+        query = """
+            SELECT
+                id,
+                model_url,
+                model_public_id,
+                model_asset_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                review_note,
+                is_active,
+                created_at,
+                updated_at
+            FROM model_catalog_links
+            WHERE model_url = ?
+        """
+        params: list[object] = [model_url]
+        if active_only:
+            query += " AND is_active = 1"
+        query += " ORDER BY updated_at DESC, id DESC"
+        rows = connection.execute(query, params).fetchall()
+    finally:
+        connection.close()
+    return [
+        ArchiveModelLink(
+            id=int(row["id"]),
+            model_url=str(row["model_url"]),
+            model_public_id=str(row["model_public_id"] or "").strip() or None,
+            model_asset_id=str(row["model_asset_id"] or "").strip() or None,
+            bambuddy_archive_id=int(row["bambuddy_archive_id"]),
+            relationship_type=str(row["relationship_type"]),
+            link_role=str(row["link_role"]),
+            match_method=str(row["match_method"]),
+            match_confidence=str(row["match_confidence"]),
+            review_state=str(row["review_state"]),
+            review_note=str(row["review_note"] or "").strip() or None,
+            is_active=bool(row["is_active"]),
+            created_at=str(row["created_at"]),
+            updated_at=str(row["updated_at"]),
+        )
+        for row in rows
+    ]
