@@ -1192,7 +1192,7 @@ _PUBLISHABLE_PLATFORM_IDS = _CANONICAL_PLATFORM_IDS - {"original_local"}
 
 _ALLOWED_ORIGIN_TYPES = {"custom_unique", "remix", "derivative"}
 _ALLOWED_CATALOG_VISIBILITY = {"active", "archived"}
-_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "thangs", "myminifactory", "catalog", "online", "other", "original"}
+_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "thangs", "myminifactory", "catalog", "online", "other", "original", "local"}
 
 
 def _normalize_platform_id(value: object | None, *, allow_original_local: bool = True) -> str | None:

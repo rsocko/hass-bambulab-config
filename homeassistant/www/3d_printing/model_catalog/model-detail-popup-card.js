@@ -1671,11 +1671,12 @@ class ModelDetailPopupCard extends HTMLElement {
     const contribution = publishing.contribution || {};
     const source_platform_label = publishing.source_platform_label || '';
     const source_urls = Array.isArray(provenance.source_urls) ? provenance.source_urls : [];
-    const isLocal = !publication_source || publication_source === 'original';
+    const isLocal = !publication_source || publication_source === 'local' || publication_source === 'original';
 
     // Known source platforms for dropdown
     const knownSources = [
-      { id: 'original', label: 'Local (Original)' },
+      { id: 'local', label: 'Local' },
+      { id: 'original', label: 'Original (My Design)' },
       { id: 'makerworld', label: 'MakerWorld' },
       { id: 'printables', label: 'Printables' },
       { id: 'thingiverse', label: 'Thingiverse' },
@@ -1686,7 +1687,7 @@ class ModelDetailPopupCard extends HTMLElement {
       { id: 'other', label: 'Other…' },
     ];
 
-    const currentSource = publication_source || 'original';
+    const currentSource = publication_source || 'local';
     const platformName = (knownSources.find(s => s.id === currentSource) || {}).label || currentSource;
 
     // --- Source picker ---
