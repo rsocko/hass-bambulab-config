@@ -688,6 +688,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     delete this._modelDetailCache[modelRef];
     delete this._loadingModelMedia[modelRef];
     this._loadModelMedia({ public_id: modelRef });
+    // Schedule a delayed retry in case the first thumbnail fetch fails due to a
+    // transient CORS / network error right after the server-side change.
+    window.setTimeout(function () {
+      this._retryFailedCardThumb(modelRef);
+    }.bind(this), 3000);
   }
 
   _handleCatalogDataChanged(event) {
@@ -952,6 +957,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
   async _handleChange(event) {
     var target = event && event.target;
     if (!target) {
+      return;
+    }
+    if (target.classList && target.classList.contains("bulk-source-select")) {
+      var sourceValue = String(target.value || "").trim();
+      if (sourceValue) {
+        target.value = "";
+        await this._bulkSetSource(sourceValue);
+      }
       return;
     }
     if (target.classList && target.classList.contains("queue-dialog-target-state")) {
@@ -2363,6 +2376,65 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._render();
   }
 
+  async _bulkSetSource(sourceId) {
+    var selectedRefs = this.getSelectedModelRefs();
+    if (!selectedRefs.length || this._loading) {
+      return;
+    }
+
+    var customLabel = "";
+    if (sourceId === "other") {
+      customLabel = (window.prompt("Enter custom source name for selected models:") || "").trim();
+      if (!customLabel) {
+        return;
+      }
+    }
+
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      this._error = "Model sidecar URL not configured.";
+      this._render();
+      return;
+    }
+
+    var failedRefs = [];
+    this._error = "";
+
+    for (var i = 0; i < selectedRefs.length; i++) {
+      var modelRef = selectedRefs[i];
+      try {
+        var resp = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef) + "/fields/publication_source", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: sourceId }),
+        });
+        if (!resp.ok) {
+          failedRefs.push(modelRef);
+          continue;
+        }
+        if (customLabel) {
+          var labelResp = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef) + "/fields/source_platform_label", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ value: customLabel }),
+          });
+          if (!labelResp.ok) {
+            failedRefs.push(modelRef);
+          }
+        }
+      } catch (_error) {
+        failedRefs.push(modelRef);
+      }
+    }
+
+    if (failedRefs.length) {
+      this._error = "Set source with partial failure (" + String(failedRefs.length) + " of " + String(selectedRefs.length) + " failed).";
+    }
+
+    this._requestLoad(this._currentPage(), true);
+    this._render();
+  }
+
   async _deleteModel(modelRef, modelName) {
     if (!this._hass || !modelRef) {
       return;
@@ -2775,7 +2847,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
           this._scheduleDeferredRender(90);
           return;
         }
-        if (!this._updateModelCardThumb(modelRef)) {
+        var thumbResult = this._updateModelCardThumb(modelRef);
+        if (!thumbResult) {
           window.setTimeout(function () {
             this._updateModelCardThumb(modelRef);
           }.bind(this), 120);
@@ -2832,6 +2905,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (!img) {
         continue;
       }
+      // Clear any prior failure flag so the observer will re-attempt the fetch.
+      // Without this, a transient CORS/network error after Set-Preview leaves
+      // the thumbnail permanently broken.
+      img.removeAttribute('data-thumbnail-failed');
       if (this._isThumbnailLazyEndpoint(mediaUrl)) {
         var cachedObjectUrl = getCachedThumbnailObjectUrl(mediaUrl);
         if (cachedObjectUrl) {
@@ -2852,6 +2929,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._scheduleThumbnailObserverSetup();
     }
     return updated;
+  }
+
+  /**
+   * Delayed retry for a single model's card thumbnail.  Called a few seconds
+   * after a detail-change to recover from transient CORS / network errors
+   * that can occur immediately after a server-side preview change.
+   */
+  _retryFailedCardThumb(modelRef) {
+    if (!this.shadowRoot) return;
+    var key = String(modelRef || "").trim();
+    if (!key) return;
+    var cards = this.shadowRoot.querySelectorAll('.model-card[data-model-ref="' + CSS.escape(key) + '"]');
+    for (var c = 0; c < cards.length; c++) {
+      var img = cards[c].querySelector('.thumb img');
+      if (!img) continue;
+      // Only retry if the thumbnail is still broken (failed flag or no src and
+      // no pending lazy-url).
+      var isFailed = img.getAttribute('data-thumbnail-failed') === 'true';
+      var isEmpty = !img.src && !img.getAttribute('data-thumbnail-lazy-url');
+      if (isFailed || isEmpty) {
+        this._updateModelCardThumb(key);
+        return;
+      }
+    }
   }
 
   _renderModelTagChip(label, className) {
@@ -3112,12 +3213,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var count = this._selectedModelRefs.size;
     var visible = this._getVisibleModelRefs().length;
     var selectAllLabel = count > 0 && count === visible ? 'Deselect All' : 'Select All' + (visible > 0 ? ' (' + String(visible) + ')' : '');
+    var sourceOptions = [
+      { id: 'local', label: 'Local' },
+      { id: 'original', label: 'Original (My Design)' },
+      { id: 'makerworld', label: 'MakerWorld' },
+      { id: 'printables', label: 'Printables' },
+      { id: 'thingiverse', label: 'Thingiverse' },
+      { id: 'cults3d', label: 'Cults3D' },
+      { id: 'thangs', label: 'Thangs' },
+      { id: 'myminifactory', label: 'MyMiniFactory' },
+      { id: 'other', label: 'Other…' },
+    ];
+    var sourceOptionsHtml = '<option value="" selected disabled>Set Source…</option>';
+    for (var s = 0; s < sourceOptions.length; s++) {
+      sourceOptionsHtml += '<option value="' + this._escapeHtml(sourceOptions[s].id) + '">' + this._escapeHtml(sourceOptions[s].label) + '</option>';
+    }
     return ''
       + '<div class="page-control-strip multi-select-active' + extraClass + '">'
       + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
+      + '  <select class="bulk-source-select" title="Set source for selected models">' + sourceOptionsHtml + '</select>'
       + '  <div class="ms-spacer"></div>'
       + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
       + '</div>';
@@ -4342,6 +4459,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-btn.exit{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit:hover{background:rgba(239,68,68,0.1);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'
+      + '.page-control-strip.multi-select-active .bulk-source-select{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;appearance:auto;-webkit-appearance:auto;color-scheme:dark;}'
+      + '.page-control-strip.multi-select-active .bulk-source-select:hover{background:var(--surface-3);border-color:var(--accent);}'
+      + '.page-control-strip.multi-select-active .bulk-source-select:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
       this._contentRoot = document.createElement('ha-card');
       this.shadowRoot.textContent = '';

@@ -182,7 +182,9 @@ export function setupThumbnailLazyObserver(config = {}) {
 
         const img = entry.target;
         const url = img.getAttribute(attrName);
-        if (!url || img.src) continue; // Already loaded
+        if (!url || img.src) {
+          continue; // Already loaded
+        }
 
         // Use cached object URL if available to avoid re-creating one per render.
         let objectUrl = thumbnailObjectUrlCache.get(url) || null;

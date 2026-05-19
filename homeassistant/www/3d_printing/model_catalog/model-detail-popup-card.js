@@ -1727,7 +1727,6 @@ class ModelDetailPopupCard extends HTMLElement {
       { id: 'cults3d', label: 'Cults3D' },
       { id: 'thangs', label: 'Thangs' },
       { id: 'myminifactory', label: 'MyMiniFactory' },
-      { id: 'online', label: 'Online (Generic)' },
       { id: 'other', label: 'Other…' },
     ];
 
@@ -1739,7 +1738,7 @@ class ModelDetailPopupCard extends HTMLElement {
       `<option value="${this._escapeHtml(s.id)}" ${currentSource === s.id ? 'selected' : ''}>${this._escapeHtml(s.label)}</option>`
     ).join('');
 
-    const customLabelRow = (currentSource === 'other' || currentSource === 'online')
+    const customLabelRow = (currentSource === 'other')
       ? `<div class="source-custom-label">
           <label>Custom source name</label>
           <input type="text" class="source-label-input" data-source-field="source_platform_label"
@@ -1788,7 +1787,7 @@ class ModelDetailPopupCard extends HTMLElement {
       const photosSharedSkipped = contribution.photos_shared_skipped_at;
       const photoCaptureCount = model.photo_capture_count || 0;
 
-      const displayName = (currentSource === 'other' || currentSource === 'online')
+      const displayName = (currentSource === 'other')
         ? (source_platform_label || platformName)
         : platformName;
 
@@ -2616,10 +2615,31 @@ class ModelDetailPopupCard extends HTMLElement {
 
       this._error = '';
       await this._loadModelDetail({ silent: true });
+      await this._autoPromotePreviewAfterDelete();
     } catch (error) {
       console.error('Error deleting asset:', error);
       this._error = `Failed to delete asset: ${error}`;
       this._render();
+    }
+  }
+
+  /**
+   * After deleting a media item, if no remaining item is marked as preview,
+   * auto-promote the first visible candidate (non-hidden, can_set_preview).
+   * Gallery order gives natural priority: photos → image assets → embedded.
+   */
+  async _autoPromotePreviewAfterDelete() {
+    const items = this._galleryItems();
+    const hasPreview = items.some(i => i.is_preview);
+    if (hasPreview) return;
+
+    const candidate = items.find(i => !i.is_hidden && i.can_set_preview);
+    if (!candidate) return;
+
+    try {
+      await this._handleSetHeroMediaPreview(candidate);
+    } catch (err) {
+      console.warn('Auto-promote preview failed:', err);
     }
   }
 
@@ -3667,6 +3687,7 @@ class ModelDetailPopupCard extends HTMLElement {
       // Reload model detail
       this._error = '';
       await this._loadModelDetail({ silent: true });
+      await this._autoPromotePreviewAfterDelete();
     } catch (error) {
       console.error('Error deleting photo:', error);
       this._error = `Failed to delete photo: ${error}`;
