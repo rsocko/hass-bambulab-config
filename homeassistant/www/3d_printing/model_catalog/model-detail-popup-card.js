@@ -762,7 +762,7 @@ class ModelDetailPopupCard extends HTMLElement {
         * { box-sizing: border-box; }
         .popup-shell {
           display: grid;
-          gap: 10px;
+          gap: 4px;
           color: var(--primary-text-color);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
@@ -774,10 +774,10 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 8px;
           flex-wrap: wrap;
           border-bottom: 1px solid var(--divider-color);
-          padding: 8px 12px;
+          padding: 4px 10px;
         }
         .title { display: flex; align-items: center; }
-        .title span { color: var(--secondary-text-color); font-size: 11px; }
+        .title span { color: var(--secondary-text-color); font-size: 11px; line-height: 1.2; }
         .entity-type-badge {
           display: inline-flex;
           align-items: center;
@@ -794,7 +794,12 @@ class ModelDetailPopupCard extends HTMLElement {
           border-color: #ffc107;
           color: #ffc107;
         }
-        .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .top-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .top-actions .action-button {
+          padding: 6px 10px;
+          border-radius: 7px;
+          font-size: 11px;
+        }
         .action-button {
           background: var(--primary-color);
           color: var(--text-primary-color);
