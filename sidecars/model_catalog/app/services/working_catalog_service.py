@@ -221,7 +221,7 @@ def _archive_working_group_projection(*, settings: Settings, group_id: int) -> N
     delete_local_model(
         db_path=settings.db_path,
         local_model_id=local_model_id,
-        hard_delete=False,
+        hard_delete=True,
     )
 
 
@@ -494,6 +494,7 @@ def delete_working_group_service(*, settings: Settings, group_id: int) -> Any:
         row = connection.execute("SELECT id FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         if row is None:
             return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
+        connection.execute("UPDATE model_catalog_print_history_jobs SET working_group_id = NULL WHERE working_group_id = ?", (group_id,))
         connection.execute("DELETE FROM working_group_model_links WHERE working_group_id = ?", (group_id,))
         connection.execute("DELETE FROM working_items WHERE working_group_id = ?", (group_id,))
         connection.execute("DELETE FROM working_groups WHERE id = ?", (group_id,))
