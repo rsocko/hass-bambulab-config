@@ -4105,7 +4105,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.collection-name{font-size:15px;font-weight:800;}'
       + '.collection-meta{font-size:12px;color:var(--secondary-text-color);}'
       + '.collection-models{font-size:12px;line-height:1.4;opacity:.9;}'
-      + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease;contain:layout paint style;content-visibility:auto;contain-intrinsic-size:260px 240px;}'
+      + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease;contain:layout paint style;}'
       + '.model-card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 transparent;opacity:0;transition:opacity .16s ease,box-shadow .16s ease;pointer-events:none;}'
       + '.model-card:hover{border-color:var(--accent-strong);box-shadow:0 6px 16px rgba(15,23,42,0.18);}'
       + '.model-card:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(96,165,250,0.34);border-color:var(--accent-strong);}'
