@@ -1563,15 +1563,10 @@ function manualRefresh() { S.countdown = 0; refresh(); }
 async function refresh() {
   if (S.fetching) return;
   S.fetching = true;
-  const prev = new Set(S.runs.filter(r => r.status === 'in_progress').map(r => r.id));
 
   try {
     S.runs = await loadRuns();
     $errBar.classList.add('hidden');
-
-    // Auto-expand newly in-progress runs
-    S.runs.filter(r => r.status === 'in_progress' && !prev.has(r.id))
-          .forEach(r => S.expanded.add(r.id));
 
     // Invalidate jobs cache for still-active runs
     S.runs.filter(r => r.status !== 'completed').forEach(r => delete S.jobs[r.id]);
