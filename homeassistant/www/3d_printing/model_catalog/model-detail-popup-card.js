@@ -1348,8 +1348,8 @@ class ModelDetailPopupCard extends HTMLElement {
                   <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
                   <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
                 </div>
-                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.length > 1 ? '' : 'disabled'}>&#8249;</button>
-                <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.length > 1 ? '' : 'disabled'}>&#8250;</button>
+                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8249;</button>
+                <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8250;</button>
               </div>
               <div class="media-toolbar">
                 <div class="media-filters">
@@ -1495,7 +1495,13 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!items.length) {
       return;
     }
-    const nextIndex = (this._heroActiveMediaIndex + direction + items.length) % items.length;
+    let nextIndex = this._heroActiveMediaIndex;
+    for (let i = 0; i < items.length; i++) {
+      nextIndex = (nextIndex + direction + items.length) % items.length;
+      if (!items[nextIndex] || !items[nextIndex].is_hidden) {
+        break;
+      }
+    }
     this._heroActiveMediaIndex = nextIndex;
     this._render();
   }
