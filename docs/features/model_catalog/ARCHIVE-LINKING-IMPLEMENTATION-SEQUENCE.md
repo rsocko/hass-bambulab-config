@@ -22,10 +22,10 @@ This plan sequences all open issues into implementation tiers based on:
 
 These are design-level issues that must be resolved first because they determine the shape of the linkage data model. They have no code dependencies but every downstream issue implicitly depends on their conclusions.
 
-| # | Issue | Status | Description |
-|---|-------|--------|-------------|
-| 1 | [#1314](https://github.com/rsocko/hass-bambulab-config/issues/1314) | Todo | **Linking Model ↔ Archive: link to the ACTUAL .3mf file, not just the 'model' record** — Decide whether linkage targets the model record, the specific .3mf file, or both. |
-| 2 | [#1375](https://github.com/rsocko/hass-bambulab-config/issues/1375) | Todo | **Maintain Archive ↔ Model linkage across Working Files → Catalog graduation** — Define linkage identity scheme that survives model lifecycle transitions. |
+| #   | Issue                                                               | Status | Description                                                                                                                                                                |
+| --- | ------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | [#1314](https://github.com/rsocko/hass-bambulab-config/issues/1314) | Done   | **Linking Model ↔ Archive: link to the ACTUAL .3mf file, not just the 'model' record** — Decide whether linkage targets the model record, the specific .3mf file, or both. |
+| 2   | [#1375](https://github.com/rsocko/hass-bambulab-config/issues/1375) | Done   | **Maintain Archive ↔ Model linkage across Working Files → Catalog graduation** — Define linkage identity scheme that survives model lifecycle transitions.                 |
 
 ### Deliverables
 - ADR or design note specifying the linkage target (model-level vs. file-level vs. dual)
@@ -41,11 +41,11 @@ Every matching engine, search endpoint, and UI component assumes a specific shap
 
 Build on the existing `archive_linking.py` (Phase 3.3 Tasks 1–2 complete). Broaden and harden the candidate matching engine against the local model authority.
 
-| # | Issue | Status | Phase | Description |
-|---|-------|--------|-------|-------------|
-| 3 | [#1114](https://github.com/rsocko/hass-bambulab-config/issues/1114) | **In Progress** | 6 | **Broaden model-catalog candidate discovery beyond name overlap** — Add richer signals (filename, source hash, time proximity) and persist rationale. |
-| 4 | [#1118](https://github.com/rsocko/hass-bambulab-config/issues/1118) | **In Progress** | 6 | **Broaden archive candidate discovery and rationale** — Extend scoring with normalized filename overlap, identity hints, time-proximity boosts; keep heuristics review-only. |
-| 5 | [#1142](https://github.com/rsocko/hass-bambulab-config/issues/1142) | Partial | 6 | **Archive-model search, related models, and navigation** — Finish Phase 3.3 Task 3 (Recommendation Engine), wire navigation services. Tasks 1–2 (linking engine + related-models algorithm) already complete. |
+| #   | Issue                                                               | Status | Phase | Description                                                                                                                                                                                                   |
+| --- | ------------------------------------------------------------------- | ------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3   | [#1114](https://github.com/rsocko/hass-bambulab-config/issues/1114) | Done   | 6     | **Broaden model-catalog candidate discovery beyond name overlap** — Add richer signals (filename, source hash, time proximity) and persist rationale.                                                         |
+| 4   | [#1118](https://github.com/rsocko/hass-bambulab-config/issues/1118) | Done   | 6     | **Broaden archive candidate discovery and rationale** — Extend scoring with normalized filename overlap, identity hints, time-proximity boosts; keep heuristics review-only.                                  |
+| 5   | [#1142](https://github.com/rsocko/hass-bambulab-config/issues/1142) | Done   | 6     | **Archive-model search, related models, and navigation** — Finish Phase 3.3 Task 3 (Recommendation Engine), wire navigation services. Tasks 1–2 (linking engine + related-models algorithm) already complete. |
 
 ### Dependencies
 - **Tier 0** conclusions feed the target shape of new linkage records
@@ -84,10 +84,10 @@ Define the query model and implement the similarity/related-items endpoint that 
 
 Surface the discovery infrastructure in HA dashboards.
 
-| # | Issue | Status | Phase | Blocked By | Description |
-|---|-------|--------|-------|------------|-------------|
-| 9 | [#1115](https://github.com/rsocko/hass-bambulab-config/issues/1115) | Todo | 6 | — | **Archive-initiated model picker and curated catalog search** — Searchable endpoint + archive popup action to find and link a model. |
-| 10 | [#1097](https://github.com/rsocko/hass-bambulab-config/issues/1097) | Todo | 6 | #1093 | **HA UI — search and related panels** — Search view with facets/sorts, mixed results, related-items toggle panel. |
+| #   | Issue                                                               | Status      | Phase | Blocked By | Description                                                                                                                          |
+| --- | ------------------------------------------------------------------- | ----------- | ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 9   | [#1115](https://github.com/rsocko/hass-bambulab-config/issues/1115) | In Progress | 6     | —          | **Archive-initiated model picker and curated catalog search** — Searchable endpoint + archive popup action to find and link a model. |
+| 10  | [#1097](https://github.com/rsocko/hass-bambulab-config/issues/1097) | Todo        | 6     | #1093      | **HA UI — search and related panels** — Search view with facets/sorts, mixed results, related-items toggle panel.                    |
 
 ### Dependencies
 - #1094 (facets/query model design) informs #1097 and #1115 UI contracts
