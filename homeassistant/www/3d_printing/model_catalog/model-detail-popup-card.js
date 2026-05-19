@@ -1122,7 +1122,7 @@ class ModelDetailPopupCard extends HTMLElement {
           background: rgba(0,0,0,0.62);
           color: #fff;
         }
-        .thumb.hidden {
+        .thumb.media-hidden {
           opacity: 0.72;
           order: 999;
         }
@@ -1365,7 +1365,7 @@ class ModelDetailPopupCard extends HTMLElement {
               </div>
               <div class="thumbs">
                 ${mediaItems.map((item, idx) => `
-                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''} ${item.is_hidden ? 'hidden' : ''}" data-media-index="${idx}" title="${this._escapeHtml(item.filename || item.type_label || 'Media item')}">
+                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''} ${item.is_hidden ? 'media-hidden' : ''}" data-media-index="${idx}" title="${this._escapeHtml(item.filename || item.type_label || 'Media item')}">
                     ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
                     <span class="src">${this._escapeHtml(item.type_label || item.type || 'Media')}${item.is_hidden ? ' · Hidden' : ''}</span>
                     ${item.is_hidden ? '<span class="hidden-mark">✕</span>' : ''}
