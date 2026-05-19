@@ -907,7 +907,16 @@ class ModelDetailPopupCard extends HTMLElement {
         .left {
           border-right: 1px solid var(--divider-color);
           display: grid;
-          grid-template-rows: 1fr auto auto;
+          grid-template-rows: auto auto auto;
+        }
+        .media-with-thumbs {
+          display: flex;
+          gap: 0;
+          min-height: 0;
+        }
+        .media-with-thumbs .main-media {
+          flex: 1 1 0%;
+          min-width: 0;
         }
         .media-toolbar {
           display: flex;
@@ -1092,17 +1101,21 @@ class ModelDetailPopupCard extends HTMLElement {
           box-shadow: none;
         }
         .thumbs {
-          padding: 0 12px 12px;
+          flex: 0 0 88px;
+          padding: 12px 6px;
           display: flex;
+          flex-direction: column;
           gap: 7px;
-          overflow-x: auto;
-          overflow-y: hidden;
+          overflow-y: auto;
+          overflow-x: hidden;
           scrollbar-width: thin;
+          max-height: 400px;
+          border-left: 1px solid var(--divider-color);
         }
         .thumb {
-          flex: 0 0 74px;
-          width: 74px;
-          height: 74px;
+          flex: 0 0 72px;
+          width: 72px;
+          height: 72px;
           border: 1px solid var(--divider-color);
           border-radius: 9px;
           overflow: hidden;
@@ -1305,6 +1318,18 @@ class ModelDetailPopupCard extends HTMLElement {
         @media (max-width: 980px) {
           .hero { grid-template-columns: 1fr; }
           .left { border-right: 0; border-bottom: 1px solid var(--divider-color); }
+          .media-with-thumbs { flex-direction: column; }
+          .thumbs {
+            flex: 0 0 auto;
+            flex-direction: row;
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border-left: 0;
+            border-top: 1px solid var(--divider-color);
+            padding: 6px 12px;
+          }
+          .thumb { flex: 0 0 72px; }
           .panel-shell { margin-bottom: 0; }
         }
       </style>
@@ -1345,15 +1370,26 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="hero">
           <div class="left">
             ${this._renderExtensionSlot('hero-left:media', `
-              <div class="main-media">
-                ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
-                ${activeMedia && activeMedia.type_label ? `<span class="badge">${this._escapeHtml(activeMedia.type_label)}</span>` : ''}
-                <div class="main-overlay-tools">
-                  <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
-                  <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
+              <div class="media-with-thumbs">
+                <div class="main-media">
+                  ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
+                  ${activeMedia && activeMedia.type_label ? `<span class="badge">${this._escapeHtml(activeMedia.type_label)}</span>` : ''}
+                  <div class="main-overlay-tools">
+                    <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
+                    <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
+                  </div>
+                  <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8249;</button>
+                  <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8250;</button>
                 </div>
-                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8249;</button>
-                <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8250;</button>
+                <div class="thumbs">
+                  ${mediaItems.map((item, idx) => `
+                    <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''} ${item.is_hidden ? 'media-hidden' : ''}" data-media-index="${idx}" title="${this._escapeHtml(item.filename || item.type_label || 'Media item')}">
+                      ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
+                      <span class="src">${this._escapeHtml(item.type_label || item.type || 'Media')}${item.is_hidden ? ' · Hidden' : ''}</span>
+                      ${item.is_hidden ? '<span class="hidden-mark">✕</span>' : ''}
+                    </button>
+                  `).join('')}
+                </div>
               </div>
               <div class="media-toolbar">
                 <div class="media-filters">
@@ -1366,15 +1402,6 @@ class ModelDetailPopupCard extends HTMLElement {
                   <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
                   <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
                 </div>
-              </div>
-              <div class="thumbs">
-                ${mediaItems.map((item, idx) => `
-                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''} ${item.is_hidden ? 'media-hidden' : ''}" data-media-index="${idx}" title="${this._escapeHtml(item.filename || item.type_label || 'Media item')}">
-                    ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
-                    <span class="src">${this._escapeHtml(item.type_label || item.type || 'Media')}${item.is_hidden ? ' · Hidden' : ''}</span>
-                    ${item.is_hidden ? '<span class="hidden-mark">✕</span>' : ''}
-                  </button>
-                `).join('')}
               </div>
             `)}
 
