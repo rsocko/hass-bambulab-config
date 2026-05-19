@@ -1180,7 +1180,10 @@ _CANONICAL_PLATFORM_IDS = {
     "printables",
     "thingiverse",
     "cults3d",
+    "thangs",
+    "myminifactory",
     "catalog",
+    "online",
     "other",
     "original_local",
 }
@@ -1189,7 +1192,7 @@ _PUBLISHABLE_PLATFORM_IDS = _CANONICAL_PLATFORM_IDS - {"original_local"}
 
 _ALLOWED_ORIGIN_TYPES = {"custom_unique", "remix", "derivative"}
 _ALLOWED_CATALOG_VISIBILITY = {"active", "archived"}
-_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "catalog", "other", "original"}
+_ALLOWED_PUBLICATION_SOURCES = {"makerworld", "printables", "thingiverse", "cults3d", "thangs", "myminifactory", "catalog", "online", "other", "original"}
 
 
 def _normalize_platform_id(value: object | None, *, allow_original_local: bool = True) -> str | None:
@@ -1349,18 +1352,34 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     if photos_shared_skipped_at:
         contribution["photos_shared_skipped_at"] = photos_shared_skipped_at
 
+    # source_urls: list of URLs where the model was downloaded/sourced from
+    raw_source_urls = fields.get("source_urls")
+    source_urls: list[str] = []
+    if isinstance(raw_source_urls, list):
+        for u in raw_source_urls:
+            url_str = str(u or "").strip()
+            if url_str:
+                source_urls.append(url_str)
+    elif isinstance(raw_source_urls, str) and raw_source_urls.strip():
+        source_urls = [raw_source_urls.strip()]
+
+    # source_platform_label: custom label when publication_source is 'other' or 'online'
+    source_platform_label = str(fields.get("source_platform_label") or "").strip() or None
+
     return {
         "provenance": {
             "origin_type": origin_type,
             "remix_source": remix_source,
             "source_platform": source_platform,
             "source_download_url": str(fields.get("source_download_url") or "").strip() or None,
+            "source_urls": source_urls if source_urls else None,
             "internal_notes": str(fields.get("internal_notes") or "").strip() or None,
         },
         "publishing": {
             "published_to": published_to,
             "published_urls": published_urls,
             "publication_source": publication_source,
+            "source_platform_label": source_platform_label,
             "contribution": contribution if contribution else None,
         },
         "catalog_signals": {
@@ -1522,6 +1541,18 @@ def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, 
                     clears.add("published_urls")
                 else:
                     normalized["published_urls"] = normalized_published_urls
+            if "publication_source" in publishing:
+                normalized_pub_source = _normalize_publication_source(publishing.get("publication_source"))
+                if normalized_pub_source is None:
+                    clears.add("publication_source")
+                else:
+                    normalized["publication_source"] = normalized_pub_source
+            if "source_platform_label" in publishing:
+                label_val = str(publishing.get("source_platform_label") or "").strip()
+                if not label_val:
+                    clears.add("source_platform_label")
+                else:
+                    normalized["source_platform_label"] = label_val
 
         catalog_signals = structured_metadata.get("catalog_signals")
         if isinstance(catalog_signals, dict):

@@ -197,6 +197,11 @@ export function setupThumbnailLazyObserver(config = {}) {
           img.src = objectUrl;
           // Remove the data attribute to prevent re-fetching
           img.removeAttribute(attrName);
+        } else {
+          // Fetch failed — clear the lazy attribute to stop shimmer animation
+          // and mark the image so the card can show a fallback placeholder.
+          img.removeAttribute(attrName);
+          img.setAttribute('data-thumbnail-failed', 'true');
         }
 
         // Stop observing after load attempt

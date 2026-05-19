@@ -66,6 +66,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._lastAppliedScopeStamp = 0;
     this._catalogScope = "curated";
     this._thumbnailObserver = null;
+    this._thumbnailObserverSetupHandle = null;
     this._renderRAFId = null;
     this._persistentStyle = null;
     this._contentRoot = null;
@@ -460,6 +461,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }) || null;
   }
 
+  _scheduleThumbnailObserverSetup(delayMs) {
+    // Debounced observer setup — prevents cascading observer disconnects when
+    // multiple model detail loads resolve in rapid succession.  Each disconnect
+    // drops pending IntersectionObserver callbacks, which can leave images in
+    // permanent shimmer.  By coalescing, we create a single observer after the
+    // burst of updates settles.
+    if (this._thumbnailObserverSetupHandle) {
+      window.clearTimeout(this._thumbnailObserverSetupHandle);
+      this._thumbnailObserverSetupHandle = null;
+    }
+    var delay = Number.isFinite(Number(delayMs)) ? Math.max(0, Number(delayMs)) : 60;
+    this._thumbnailObserverSetupHandle = window.setTimeout(function () {
+      this._thumbnailObserverSetupHandle = null;
+      this._setupThumbnailLazyLoading();
+    }.bind(this), delay);
+  }
+
   disconnectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundClick);
@@ -478,6 +496,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._deferredRenderHandle) {
       window.clearTimeout(this._deferredRenderHandle);
       this._deferredRenderHandle = null;
+    }
+    if (this._thumbnailObserverSetupHandle) {
+      window.clearTimeout(this._thumbnailObserverSetupHandle);
+      this._thumbnailObserverSetupHandle = null;
     }
     if (this._thumbnailObserver && typeof this._thumbnailObserver.disconnect === "function") {
       try { this._thumbnailObserver.disconnect(); } catch (_e) { /* ignore */ }
@@ -2827,7 +2849,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (updated) {
-      this._setupThumbnailLazyLoading();
+      this._scheduleThumbnailObserverSetup();
     }
     return updated;
   }
@@ -4144,6 +4166,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));}'
       + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;}'
       + '.thumb img[data-thumbnail-lazy-url]:not([src])::before,.media-preview img[data-thumbnail-lazy-url]:not([src])::before{content:"";display:block;width:100%;height:100%;}'
+      // Failed lazy thumbnail: show neutral placeholder instead of permanent shimmer
+      + '.thumb img[data-thumbnail-failed]:not([src]),.media-preview img[data-thumbnail-failed]:not([src]){font-size:0;color:transparent;animation:none;background:var(--card-background-color,rgba(148,163,184,0.08));}'
       + '.model-card.skeleton{cursor:default;pointer-events:none;}'
       + '.skeleton-block{position:relative;overflow:hidden;background:linear-gradient(120deg,rgba(148,163,184,0.14),rgba(148,163,184,0.05),rgba(148,163,184,0.14));background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;border-radius:10px;}'
       + '.skeleton-line{height:12px;}'
@@ -4162,7 +4186,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
       + '.compact-main,.compact-full{gap:8px;}'
       + '.view-compact .body,.view-list .body{padding:0;}'
-      + '.compact-top-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;}'
+      + '.compact-top-actions{position:absolute;top:14px;right:14px;display:flex;justify-content:flex-end;align-items:center;gap:8px;z-index:2;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
       + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;}'
       + '.compact-last-printed{font-size:11px;font-weight:700;color:var(--secondary-text-color);padding-top:2px;}'
@@ -4219,7 +4243,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.list-top-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.list-title-block{display:grid;gap:6px;min-width:0;}'
       + '.list-action-stack{display:grid;gap:6px;justify-items:end;}'
-      + '.list-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
+      + '.list-top-actions{position:absolute;top:10px;right:12px;display:flex;align-items:center;justify-content:flex-end;gap:8px;z-index:2;}'
       + '.list-top-actions .advanced-menu-shell{margin-left:0;}'
       + '.list-metrics-shell{padding:8px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.09);}'
       + '.list-metrics{gap:6px;}'
@@ -4291,7 +4315,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto auto auto auto;}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds{justify-content:flex-start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
       + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'
       + '.model-card.is-selected{border-color:var(--accent-strong);background:linear-gradient(180deg,rgba(96,165,250,0.12),rgba(96,165,250,0.06));}'

@@ -90,6 +90,10 @@ class ModelDetailPopupCard extends HTMLElement {
     this._isInteracting = false;
     this._renderScheduled = false;
     this._lastRenderedModelUrl = null;
+
+    // Fullscreen overlay state
+    this._overlayRoot = null;
+    this._savedBodyOverflow = null;
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -98,6 +102,9 @@ class ModelDetailPopupCard extends HTMLElement {
     this._boundDragOverHandler = this._handleDragOver.bind(this);
     this._boundDragLeaveHandler = this._handleDragLeave.bind(this);
     this._boundDropHandler = this._handleDrop.bind(this);
+    this._boundOverlayClickHandler = this._handleOverlayClick.bind(this);
+    this._boundOverlayCancelHandler = this._handleOverlayCancel.bind(this);
+    this._boundKeydownHandler = this._handleKeydown.bind(this);
   }
 
   setConfig(config) {
@@ -165,6 +172,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
+    this._destroyOverlayRoot();
   }
 
   _resolveModelSidecarUrl() {
@@ -424,6 +432,27 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Source panel: URL action buttons (add, remove, open)
+    const urlActionBtn = target.closest('.url-action-btn[data-action]');
+    if (urlActionBtn) {
+      event.preventDefault();
+      const urlAction = urlActionBtn.getAttribute("data-action");
+      const urlIndex = parseInt(urlActionBtn.getAttribute("data-url-index") || "0", 10);
+      if (urlAction === "add-source-url") {
+        this._addSourceUrl();
+      } else if (urlAction === "remove-source-url") {
+        this._removeSourceUrl(urlIndex);
+      } else if (urlAction === "open-source-url") {
+        this._openSourceUrl(urlIndex);
+      }
+      return;
+    }
+
+    // Source panel: custom label blur save
+    if (target.classList.contains('source-label-input')) {
+      // blur is not a click, but let's capture it in case user tabs away
+    }
+
     // Contribution lifecycle actions (#1494)
     const contributionActionBtn = target.closest('.action-mark[data-action], .action-skip[data-action], .action-open[data-action]');
     if (contributionActionBtn) {
@@ -432,8 +461,6 @@ class ModelDetailPopupCard extends HTMLElement {
       const isSkip = contributionActionBtn.classList.contains('action-skip');
       if (action === "rated" || action === "boosted" || action === "photos_shared") {
         this._markContributionAction(action, isSkip ? { skip: true } : undefined);
-      } else if (action === "open-source") {
-        this._openSourcePlatform();
       } else if (action === "open-gallery") {
         this._openPhotoGallery();
       }
@@ -444,6 +471,17 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-viewer")) {
       event.preventDefault();
       this._openViewerPopup();
+      return;
+    }
+
+    // Fullscreen expand button (hero media)
+    if (target.closest('.icon-action.expand')) {
+      event.preventDefault();
+      const items = this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems()));
+      if (items.length) {
+        this._activePhotoIndex = this._heroActiveMediaIndex;
+        this._openPhotoOverlay();
+      }
       return;
     }
 
@@ -463,30 +501,6 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-conflict-overwrite")) {
       event.preventDefault();
       this._handleConflictResolution('overwrite');
-      return;
-    }
-
-    if (target.closest('#btn-photo-lightbox-close')) {
-      event.preventDefault();
-      this._closePhotoPreview();
-      return;
-    }
-
-    if (target.closest('#btn-photo-lightbox-prev')) {
-      event.preventDefault();
-      this._stepPhotoPreview(-1);
-      return;
-    }
-
-    if (target.closest('#btn-photo-lightbox-next')) {
-      event.preventDefault();
-      this._stepPhotoPreview(1);
-      return;
-    }
-
-    if (target.classList && target.classList.contains('photo-lightbox')) {
-      event.preventDefault();
-      this._closePhotoPreview();
       return;
     }
 
@@ -539,12 +553,28 @@ class ModelDetailPopupCard extends HTMLElement {
       this._queueDialogTargetState = this._normalizeQueueDialogTargetState(String(target.value || "up_next"));
       return;
     }
+    // Source panel: publication source dropdown
+    if (target instanceof HTMLSelectElement && target.classList.contains("source-select")) {
+      this._saveSourceField("publication_source", target.value);
+      return;
+    }
     // Queue dialog: notes textarea (also handle input event via _handleInput if present)
     if (target instanceof HTMLTextAreaElement && target.getAttribute("data-queue-dialog-notes")) {
       this._queueDialogNotes = String(target.value || "");
       return;
     }
     if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    // Source panel: source URL edit (on blur/change)
+    if (target.classList.contains("source-url-input")) {
+      const idx = parseInt(target.getAttribute("data-source-url-index") || "0", 10);
+      this._updateSourceUrl(idx, target.value);
+      return;
+    }
+    // Source panel: custom label (on blur/change)
+    if (target.classList.contains("source-label-input")) {
+      this._saveSourceField("source_platform_label", target.value);
       return;
     }
     if (target.id !== 'photo-file-input') {
@@ -560,6 +590,10 @@ class ModelDetailPopupCard extends HTMLElement {
     const target = event.target;
     if (target instanceof HTMLTextAreaElement && target.getAttribute("data-queue-dialog-notes")) {
       this._queueDialogNotes = String(target.value || "");
+    }
+    // Source panel: custom label live update (save on blur via change)
+    if (target instanceof HTMLInputElement && target.classList.contains("source-label-input")) {
+      // Debounce save — we'll save on change/blur handled above
     }
   }
 
@@ -1435,7 +1469,6 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
       ` : ''}
 
-      ${this._renderPhotoLightbox()}
     `;
   }
 
@@ -1569,13 +1602,13 @@ class ModelDetailPopupCard extends HTMLElement {
           <button data-panel-tab="panel-queue" class="${this._panelActiveTab === 'panel-queue' ? 'active' : ''}">Queue / Prints <span class="count">${queueCount}</span></button>
           <button data-panel-tab="panel-related" class="${this._panelActiveTab === 'panel-related' ? 'active' : ''}">Related Models <span class="count">${relatedCount}</span></button>
           <button data-panel-tab="panel-support" class="${this._panelActiveTab === 'panel-support' ? 'active' : ''}">Supporting Files <span class="count">${supportCount}</span></button>
-          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Contribution</button>
+          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Source</button>
           <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication</button>
         </div>
         ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
         ${panel('panel-related', 'Related Models', this._renderExtensionSlot('sections:related-models', this._renderRelatedModelsPanel(model)))}
         ${panel('panel-support', 'Supporting Files', this._renderExtensionSlot('sections:supporting-files', this._renderSupportingFilesPanel(model)))}
-        ${panel('panel-contribution', 'Contribution Lifecycle', this._renderExtensionSlot('sections:contribution-lifecycle', this._renderContributionPanel(model)))}
+        ${panel('panel-contribution', 'Source & Contribution', this._renderExtensionSlot('sections:contribution-lifecycle', this._renderContributionPanel(model)))}
         ${panel('panel-publication', 'Publication Pipeline', '<div class="queue-row"><strong>Extension host for #1495</strong><div class="detail">Mount publication pipeline workflow here.</div></div>')}
       </section>
     `;
@@ -1631,107 +1664,291 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderContributionPanel(model) {
-    // Check if model is downloaded (not original)
     const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const publishing = metadata.publishing || {};
+    const provenance = metadata.provenance || {};
     const publication_source = publishing.publication_source;
     const contribution = publishing.contribution || {};
-    
-    if (!publication_source || publication_source === 'original') {
-      return '<div class="contribution-message"><strong>Local Model</strong><div class="detail">Contribution tracking is only available for downloaded models. This model was created locally.</div></div>';
+    const source_platform_label = publishing.source_platform_label || '';
+    const source_urls = Array.isArray(provenance.source_urls) ? provenance.source_urls : [];
+    const isLocal = !publication_source || publication_source === 'original';
+
+    // Known source platforms for dropdown
+    const knownSources = [
+      { id: 'original', label: 'Local (Original)' },
+      { id: 'makerworld', label: 'MakerWorld' },
+      { id: 'printables', label: 'Printables' },
+      { id: 'thingiverse', label: 'Thingiverse' },
+      { id: 'cults3d', label: 'Cults3D' },
+      { id: 'thangs', label: 'Thangs' },
+      { id: 'myminifactory', label: 'MyMiniFactory' },
+      { id: 'online', label: 'Online (Generic)' },
+      { id: 'other', label: 'Other…' },
+    ];
+
+    const currentSource = publication_source || 'original';
+    const platformName = (knownSources.find(s => s.id === currentSource) || {}).label || currentSource;
+
+    // --- Source picker ---
+    const sourceOptions = knownSources.map(s =>
+      `<option value="${this._escapeHtml(s.id)}" ${currentSource === s.id ? 'selected' : ''}>${this._escapeHtml(s.label)}</option>`
+    ).join('');
+
+    const customLabelRow = (currentSource === 'other' || currentSource === 'online')
+      ? `<div class="source-custom-label">
+          <label>Custom source name</label>
+          <input type="text" class="source-label-input" data-source-field="source_platform_label"
+            value="${this._escapeHtml(source_platform_label)}" placeholder="e.g. MyMiniFactory, GitHub…" />
+        </div>`
+      : '';
+
+    const sourcePicker = `
+      <div class="source-section">
+        <div class="source-picker">
+          <label>Source</label>
+          <select class="source-select" data-source-field="publication_source">${sourceOptions}</select>
+        </div>
+        ${customLabelRow}
+      </div>`;
+
+    // --- Source URLs editor ---
+    const urlRows = source_urls.map((url, idx) => `
+      <div class="source-url-row" data-url-index="${idx}">
+        <input type="text" class="source-url-input" data-source-url-index="${idx}"
+          value="${this._escapeHtml(url)}" placeholder="https://…" />
+        <button class="url-action-btn url-open" data-action="open-source-url" data-url-index="${idx}" title="Open URL"
+          ${url && url.startsWith('http') ? '' : 'disabled'}>🔗</button>
+        <button class="url-action-btn url-remove" data-action="remove-source-url" data-url-index="${idx}" title="Remove URL">✕</button>
+      </div>
+    `).join('');
+
+    const sourceUrlsEditor = `
+      <div class="source-urls-section">
+        <div class="source-urls-header">
+          <label>Source URLs</label>
+          <button class="url-action-btn url-add" data-action="add-source-url" title="Add URL">＋</button>
+        </div>
+        ${source_urls.length === 0 ? '<div class="source-urls-empty">No source URLs. Click ＋ to add one.</div>' : ''}
+        <div class="source-urls-list">${urlRows}</div>
+      </div>`;
+
+    // --- Contribution checklist (only for non-local) ---
+    let checklistHtml = '';
+    if (!isLocal) {
+      const ratedAt = contribution.rated_at;
+      const boostedAt = contribution.boosted_at;
+      const photosSharedAt = contribution.photos_shared_at;
+      const ratedSkipped = contribution.rated_skipped_at;
+      const boostedSkipped = contribution.boosted_skipped_at;
+      const photosSharedSkipped = contribution.photos_shared_skipped_at;
+      const photoCaptureCount = model.photo_capture_count || 0;
+
+      const displayName = (currentSource === 'other' || currentSource === 'online')
+        ? (source_platform_label || platformName)
+        : platformName;
+
+      checklistHtml = `
+        <div class="source-divider"></div>
+        <div class="contribution-heading">Contribution Checklist</div>
+        <div class="contribution-checklist">
+          <div class="checklist-item">
+            <div class="status-badge complete">✓</div>
+            <div class="item-content">
+              <strong>Downloaded</strong>
+              <div class="detail">from ${this._escapeHtml(displayName)}</div>
+            </div>
+          </div>
+
+          <div class="checklist-item">
+            <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
+              ${photoCaptureCount > 0 ? '✓' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Printed</strong>
+              <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} print(s) captured` : 'No prints captured yet'}</div>
+            </div>
+          </div>
+
+          <div class="checklist-item step-row">
+            <div class="status-badge ${ratedAt ? 'complete' : ratedSkipped ? 'skipped' : 'pending'}">
+              ${ratedAt ? '✓' : ratedSkipped ? '⊗' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Rated on ${this._escapeHtml(displayName)}</strong>
+              ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
+            </div>
+            <div class="step-actions">
+              ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
+            </div>
+          </div>
+
+          <div class="checklist-item step-row">
+            <div class="status-badge ${boostedAt ? 'complete' : boostedSkipped ? 'skipped' : 'pending'}">
+              ${boostedAt ? '✓' : boostedSkipped ? '⊗' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Boosted</strong>
+              ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
+            </div>
+            <div class="step-actions">
+              ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
+            </div>
+          </div>
+
+          <div class="checklist-item">
+            <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
+              ${photoCaptureCount > 0 ? '✓' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Photos Captured</strong>
+              <div class="detail">${photoCaptureCount} photo(s) available</div>
+            </div>
+          </div>
+
+          <div class="checklist-item step-row">
+            <div class="status-badge ${photosSharedAt ? 'complete' : photosSharedSkipped ? 'skipped' : 'pending'}">
+              ${photosSharedAt ? '✓' : photosSharedSkipped ? '⊗' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Photos Shared on ${this._escapeHtml(displayName)}</strong>
+              ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
+            </div>
+            <div class="step-actions">
+              ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
+              ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos</button>` : ''}
+            </div>
+          </div>
+        </div>`;
     }
 
-    const ratedAt = contribution.rated_at;
-    const boostedAt = contribution.boosted_at;
-    const photosSharedAt = contribution.photos_shared_at;
-    const ratedSkipped = contribution.rated_skipped_at;
-    const boostedSkipped = contribution.boosted_skipped_at;
-    const photosSharedSkipped = contribution.photos_shared_skipped_at;
-    const photoCaptureCount = model.photo_capture_count || 0;
-    
-    // Platform info
-    const platformName = {
-      'makerworld': 'MakerWorld',
-      'printables': 'Printables',
-      'thingiverse': 'Thingiverse',
-      'cults3d': 'Cults3D',
-      'manyfold': 'Manyfold',
-      'other': 'Community Source'
-    }[publication_source] || publication_source;
-
-    const checklist = `
-      <div class="contribution-checklist">
-        <div class="checklist-item">
-          <div class="status-badge complete">✓</div>
-          <div class="item-content">
-            <strong>Downloaded</strong>
-            <div class="detail">from ${this._escapeHtml(platformName)}</div>
-          </div>
-        </div>
-        
-        <div class="checklist-item">
-          <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-            ${photoCaptureCount > 0 ? '✓' : '☐'}
-          </div>
-          <div class="item-content">
-            <strong>Printed</strong>
-            <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} print(s) captured` : 'No prints captured yet'}</div>
-          </div>
-        </div>
-
-        <div class="checklist-item step-row">
-          <div class="status-badge ${ratedAt ? 'complete' : ratedSkipped ? 'skipped' : 'pending'}">
-            ${ratedAt ? '✓' : ratedSkipped ? '⊗' : '☐'}
-          </div>
-          <div class="item-content">
-            <strong>Rated on ${this._escapeHtml(platformName)}</strong>
-            ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
-          </div>
-          <div class="step-actions">
-            ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
-            <button class="action-button action-open" data-action="open-source">Open</button>
-          </div>
-        </div>
-
-        <div class="checklist-item step-row">
-          <div class="status-badge ${boostedAt ? 'complete' : boostedSkipped ? 'skipped' : 'pending'}">
-            ${boostedAt ? '✓' : boostedSkipped ? '⊗' : '☐'}
-          </div>
-          <div class="item-content">
-            <strong>Boosted</strong>
-            ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
-          </div>
-          <div class="step-actions">
-            ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
-          </div>
-        </div>
-
-        <div class="checklist-item">
-          <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-            ${photoCaptureCount > 0 ? '✓' : '☐'}
-          </div>
-          <div class="item-content">
-            <strong>Photos Captured</strong>
-            <div class="detail">${photoCaptureCount} photo(s) available</div>
-          </div>
-        </div>
-
-        <div class="checklist-item step-row">
-          <div class="status-badge ${photosSharedAt ? 'complete' : photosSharedSkipped ? 'skipped' : 'pending'}">
-            ${photosSharedAt ? '✓' : photosSharedSkipped ? '⊗' : '☐'}
-          </div>
-          <div class="item-content">
-            <strong>Photos Shared on ${this._escapeHtml(platformName)}</strong>
-            ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
-          </div>
-          <div class="step-actions">
-            ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
-            ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos</button>` : ''}
-          </div>
-        </div>
-      </div>
+    return `
+      ${sourcePicker}
+      ${sourceUrlsEditor}
+      ${checklistHtml}
 
       <style>
+        .source-section {
+          display: grid;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        .source-picker {
+          display: grid;
+          grid-template-columns: 80px 1fr;
+          align-items: center;
+          gap: 8px;
+        }
+        .source-picker label,
+        .source-custom-label label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--secondary-text-color);
+        }
+        .source-select {
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .source-custom-label {
+          display: grid;
+          grid-template-columns: 80px 1fr;
+          align-items: center;
+          gap: 8px;
+        }
+        .source-label-input {
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 13px;
+        }
+        .source-urls-section {
+          margin-bottom: 16px;
+        }
+        .source-urls-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+        .source-urls-header label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--secondary-text-color);
+        }
+        .source-urls-empty {
+          font-size: 12px;
+          color: var(--secondary-text-color);
+          padding: 8px 0;
+        }
+        .source-urls-list {
+          display: grid;
+          gap: 6px;
+        }
+        .source-url-row {
+          display: grid;
+          grid-template-columns: 1fr auto auto;
+          gap: 4px;
+          align-items: center;
+        }
+        .source-url-input {
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 13px;
+          min-width: 0;
+        }
+        .url-action-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border: 1px solid var(--divider-color);
+          border-radius: 6px;
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          cursor: pointer;
+          font-size: 14px;
+          padding: 0;
+          transition: all 0.15s ease;
+        }
+        .url-action-btn:hover {
+          background: rgba(96, 165, 250, 0.1);
+          border-color: var(--primary-color);
+        }
+        .url-action-btn[disabled] {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+        .url-action-btn.url-remove:hover {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: rgb(239, 68, 68);
+          color: rgb(239, 68, 68);
+        }
+        .url-action-btn.url-add {
+          width: auto;
+          padding: 0 8px;
+          font-size: 16px;
+          font-weight: bold;
+        }
+        .source-divider {
+          border-top: 1px solid var(--divider-color);
+          margin: 8px 0;
+        }
+        .contribution-heading {
+          font-size: 13px;
+          font-weight: 600;
+          margin-bottom: 10px;
+          color: var(--primary-text-color);
+        }
         .contribution-message {
           padding: 12px;
           border-radius: 8px;
@@ -1810,10 +2027,6 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: center;
           justify-content: flex-end;
         }
-        .step-actions .action-open {
-          order: -1;
-          margin-right: auto;
-        }
         .action-button {
           background: var(--primary-color);
           color: var(--text-primary-color);
@@ -1850,8 +2063,6 @@ class ModelDetailPopupCard extends HTMLElement {
         }
       </style>
     `;
-
-    return checklist;
   }
 
   _renderSummaryCard(model) {
@@ -3095,7 +3306,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (photoIdx < 0 || photoIdx >= galleryItems.length) return;
 
     this._activePhotoIndex = photoIdx;
-    this._render();
+    this._openPhotoOverlay();
   }
 
   _closePhotoPreview() {
@@ -3103,7 +3314,7 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
     this._activePhotoIndex = null;
-    this._render();
+    this._closePhotoOverlay();
   }
 
   _stepPhotoPreview(direction) {
@@ -3115,45 +3326,184 @@ class ModelDetailPopupCard extends HTMLElement {
 
     const nextIndex = (this._activePhotoIndex + direction + galleryItems.length) % galleryItems.length;
     this._activePhotoIndex = nextIndex;
-    this._render();
+    this._renderPhotoOverlay();
   }
 
-  _renderPhotoLightbox() {
+  // ── Fullscreen photo overlay (dialog on document.body) ──
+
+  _openPhotoOverlay() {
+    this._ensureOverlayRoot();
+    this._renderPhotoOverlay();
+    if (this._overlayRoot && !this._overlayRoot.open) {
+      this._overlayRoot.showModal();
+    }
+    this._applyBodyScrollLock();
+    document.addEventListener('keydown', this._boundKeydownHandler);
+  }
+
+  _closePhotoOverlay() {
+    document.removeEventListener('keydown', this._boundKeydownHandler);
+    this._restoreBodyScrollLock();
+    if (this._overlayRoot && this._overlayRoot.open) {
+      this._overlayRoot.close();
+    }
+    this._activePhotoIndex = null;
+  }
+
+  _ensureOverlayRoot() {
+    if (this._overlayRoot) return;
+    const dialog = document.createElement('dialog');
+    dialog.setAttribute('aria-label', 'Full-screen gallery');
+    dialog.style.cssText = 'border:none;padding:0;margin:0;width:100vw;height:100vh;max-width:100vw;max-height:100vh;background:transparent;overflow:hidden;';
+    dialog.addEventListener('click', this._boundOverlayClickHandler);
+    dialog.addEventListener('cancel', this._boundOverlayCancelHandler);
+    document.body.appendChild(dialog);
+    this._overlayRoot = dialog;
+  }
+
+  _destroyOverlayRoot() {
+    if (!this._overlayRoot) return;
+    document.removeEventListener('keydown', this._boundKeydownHandler);
+    this._restoreBodyScrollLock();
+    this._overlayRoot.removeEventListener('click', this._boundOverlayClickHandler);
+    this._overlayRoot.removeEventListener('cancel', this._boundOverlayCancelHandler);
+    if (this._overlayRoot.open) this._overlayRoot.close();
+    this._overlayRoot.remove();
+    this._overlayRoot = null;
+  }
+
+  _applyBodyScrollLock() {
+    if (this._savedBodyOverflow == null) {
+      this._savedBodyOverflow = document.body.style.overflow || '';
+    }
+    document.body.style.overflow = 'hidden';
+  }
+
+  _restoreBodyScrollLock() {
+    if (this._savedBodyOverflow != null) {
+      document.body.style.overflow = this._savedBodyOverflow;
+      this._savedBodyOverflow = null;
+    }
+  }
+
+  _handleOverlayClick(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    if (target.closest('[data-action="collapse"]')) {
+      event.preventDefault();
+      this._closePhotoPreview();
+      return;
+    }
+    if (target.closest('[data-action="prev"]')) {
+      event.preventDefault();
+      this._stepPhotoPreview(-1);
+      return;
+    }
+    if (target.closest('[data-action="next"]')) {
+      event.preventDefault();
+      this._stepPhotoPreview(1);
+      return;
+    }
+    const thumb = target.closest('[data-index]');
+    if (thumb) {
+      event.preventDefault();
+      const idx = parseInt(thumb.dataset.index, 10);
+      if (Number.isFinite(idx)) {
+        this._activePhotoIndex = idx;
+        this._renderPhotoOverlay();
+      }
+      return;
+    }
+  }
+
+  _handleOverlayCancel(event) {
+    event.preventDefault();
+    this._closePhotoPreview();
+  }
+
+  _handleKeydown(event) {
+    if (this._activePhotoIndex == null) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closePhotoPreview();
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this._stepPhotoPreview(-1);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this._stepPhotoPreview(1);
+    }
+  }
+
+  _renderPhotoOverlay() {
+    if (!this._overlayRoot) return;
+
     const galleryItems = this._galleryItems();
-    
     if (!galleryItems.length || this._activePhotoIndex == null) {
-      return '';
+      this._overlayRoot.innerHTML = '';
+      return;
     }
 
     const index = Math.max(0, Math.min(this._activePhotoIndex, galleryItems.length - 1));
     const item = galleryItems[index] || {};
     const imageUrl = String(item.url || '').trim();
     if (!imageUrl) {
-      return '';
+      this._overlayRoot.innerHTML = '';
+      return;
     }
 
     const itemName = String(item.filename || `Item ${index + 1}`).trim() || `Item ${index + 1}`;
-    const escapedName = this._escapeHtml(itemName);
-    const escapedImageUrl = this._escapeHtml(imageUrl);
+    const modelName = (this._modelDetail && this._modelDetail.model && this._modelDetail.model.name) || this._modelRef || 'Model';
 
-    return `
-      <div class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo preview">
-        <div class="photo-lightbox-content">
-          <div class="photo-lightbox-stage">
-            <button class="photo-lightbox-close" id="btn-photo-lightbox-close" type="button" aria-label="Close photo preview">✕</button>
-            ${galleryItems.length > 1 ? `
-              <button class="photo-lightbox-nav prev" id="btn-photo-lightbox-prev" type="button" aria-label="Previous photo">‹</button>
-              <button class="photo-lightbox-nav next" id="btn-photo-lightbox-next" type="button" aria-label="Next photo">›</button>
-            ` : ''}
-            <img class="photo-lightbox-image" src="${escapedImageUrl}" alt="${escapedName}">
-          </div>
-          <div class="photo-lightbox-meta">
-            <div class="photo-lightbox-title">${escapedName}</div>
-            <div class="photo-lightbox-counter">${index + 1} / ${galleryItems.length}</div>
-          </div>
-        </div>
-      </div>
-    `;
+    this._overlayRoot.innerHTML =
+      '<style>' +
+      '.mdp-frame,.mdp-frame *{box-sizing:border-box;}' +
+      '.frame{position:fixed;inset:0;}' +
+      '.backdrop{appearance:none;border:none;position:absolute;inset:0;background:rgba(4,8,15,0.94);padding:0;cursor:pointer;}' +
+      '.shell{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;height:100%;box-sizing:border-box;padding:clamp(16px,2.2vw,28px);padding-top:max(clamp(16px,2.2vw,28px), env(safe-area-inset-top));padding-right:max(clamp(16px,2.2vw,28px), env(safe-area-inset-right));padding-bottom:max(clamp(16px,2.2vw,28px), env(safe-area-inset-bottom));padding-left:max(clamp(16px,2.2vw,28px), env(safe-area-inset-left));}' +
+      '.header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;color:#fff;}' +
+      '.title{font:700 clamp(18px,2.2vw,28px)/1.2 system-ui,sans-serif;letter-spacing:0.01em;}' +
+      '.subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}' +
+      '.actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;}' +
+      '.button{appearance:none;border:1px solid rgba(255,255,255,0.24);border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.10);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;transition:background .16s ease,border-color .16s ease,transform .16s ease;}' +
+      '.button:hover,.button:focus-visible{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.42);box-shadow:0 0 0 1px rgba(255,255,255,0.12),0 10px 24px rgba(0,0,0,0.2);transform:translateY(-1px);outline:none;}' +
+      '.button:active{transform:translateY(0);}' +
+      '.stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;border-radius:24px;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.98));box-shadow:0 24px 60px rgba(0,0,0,0.42);}' +
+      '.image-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:0;padding:clamp(10px,1.6vw,22px);box-sizing:border-box;}' +
+      '.image{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;border-radius:18px;background:rgba(15,23,42,0.32);}' +
+      '.nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:56px;height:56px;border-radius:999px;background:rgba(255,255,255,0.14);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);}' +
+      '.nav.prev{left:16px;}' +
+      '.nav.next{right:16px;}' +
+      '.filmstrip{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 6px;}' +
+      '.thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease,transform 120ms ease;}' +
+      '.thumb.active{border-color:#90caf9;opacity:1;transform:translateY(-1px);}' +
+      '.thumb img{display:block;width:108px;height:108px;object-fit:cover;background:rgba(15,23,42,0.35);}' +
+      "dialog[aria-label='Full-screen gallery']::backdrop{background:transparent;}" +
+      '@media (max-width: 900px){.shell{gap:12px;}.thumb img{width:84px;height:84px;}.nav{width:48px;height:48px;font-size:26px;}}' +
+      '@media (max-width: 640px){.header{gap:12px;}.title{font-size:18px;}.subtitle{font-size:13px;}.button{padding:10px 14px;}.stage{border-radius:20px;}.image-wrap{padding:10px;}.nav.prev{left:10px;}.nav.next{right:10px;}.thumb img{width:72px;height:72px;}}' +
+      '</style>' +
+      '<div class="frame mdp-frame">' +
+      '<button class="backdrop" type="button" data-action="collapse" aria-label="Close full-screen gallery"></button>' +
+      '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(modelName) + '">' +
+      '<div class="header">' +
+      '<div><div class="title">' + this._escapeHtml(modelName) + '</div><div class="subtitle">' + this._escapeHtml(itemName) + ' \u00b7 ' + (index + 1) + ' / ' + galleryItems.length + '</div></div>' +
+      '<div class="actions"><button class="button" type="button" data-action="collapse">Close</button></div>' +
+      '</div>' +
+      '<div class="stage">' +
+      '<div class="image-wrap"><img class="image" src="' + this._escapeHtml(imageUrl) + '" alt="' + this._escapeHtml(itemName) + '" loading="eager" decoding="async"></div>' +
+      (galleryItems.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : '') +
+      '</div>' +
+      '<div class="filmstrip">' + galleryItems.map(function (gi, idx) {
+        var thumbUrl = gi.thumbnail_url || gi.url || '';
+        var thumbAlt = gi.filename || 'Item ' + (idx + 1);
+        return '<button class="thumb' + (idx === index ? ' active' : '') + '" type="button" data-index="' + idx + '" aria-label="' + this._escapeHtml(thumbAlt) + '">' +
+          (thumbUrl ? '<img src="' + this._escapeHtml(thumbUrl) + '" alt="' + this._escapeHtml(thumbAlt) + '" loading="lazy" decoding="async">' : '') +
+          '</button>';
+      }.bind(this)).join('') + '</div>' +
+      '</div>' +
+      '</div>';
   }
 
   async _handleSetPhotoPreview(photoId) {
@@ -3770,6 +4120,86 @@ class ModelDetailPopupCard extends HTMLElement {
         }).catch(err => console.error('Notification failed:', err));
       }
     }
+  }
+
+  // --- Source panel save/action methods ---
+
+  async _saveSourceField(fieldKey, value) {
+    if (!this._modelRef) return;
+    const baseUrl = this._resolveModelSidecarUrl();
+    const url = `${baseUrl}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent(fieldKey)}`;
+    try {
+      const resp = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      });
+      if (!resp.ok) {
+        console.error(`Failed to save source field ${fieldKey}: ${resp.status}`);
+        return;
+      }
+      // Optimistically update local model state
+      this._applySourceFieldLocally(fieldKey, value);
+      this._render();
+    } catch (err) {
+      console.error(`Error saving source field ${fieldKey}:`, err);
+    }
+  }
+
+  _applySourceFieldLocally(fieldKey, value) {
+    if (!this._modelDetail?.model) return;
+    const model = this._modelDetail.model;
+    if (!model.structured_metadata) model.structured_metadata = {};
+    const sm = model.structured_metadata;
+    if (!sm.publishing) sm.publishing = {};
+    if (!sm.provenance) sm.provenance = {};
+
+    if (fieldKey === 'publication_source') {
+      sm.publishing.publication_source = value;
+    } else if (fieldKey === 'source_platform_label') {
+      sm.publishing.source_platform_label = value;
+    } else if (fieldKey === 'source_urls') {
+      sm.provenance.source_urls = value;
+    }
+  }
+
+  _getSourceUrls() {
+    const model = this._modelDetail?.model;
+    if (!model) return [];
+    const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
+    const provenance = metadata.provenance || {};
+    return Array.isArray(provenance.source_urls) ? [...provenance.source_urls] : [];
+  }
+
+  async _addSourceUrl() {
+    const urls = this._getSourceUrls();
+    urls.push('');
+    await this._saveSourceField('source_urls', urls);
+  }
+
+  async _removeSourceUrl(index) {
+    const urls = this._getSourceUrls();
+    if (index < 0 || index >= urls.length) return;
+    const url = urls[index];
+    const confirmMsg = url ? `Remove URL "${url}"?` : 'Remove this empty URL entry?';
+    if (!confirm(confirmMsg)) return;
+    urls.splice(index, 1);
+    await this._saveSourceField('source_urls', urls);
+  }
+
+  _openSourceUrl(index) {
+    const urls = this._getSourceUrls();
+    const url = urls[index];
+    if (url && typeof url === 'string' && url.startsWith('http')) {
+      window.open(url, '_blank');
+    }
+  }
+
+  async _updateSourceUrl(index, newValue) {
+    const urls = this._getSourceUrls();
+    if (index < 0 || index >= urls.length) return;
+    urls[index] = newValue;
+    await this._saveSourceField('source_urls', urls);
   }
 
   _openSourcePlatform() {
