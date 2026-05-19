@@ -148,13 +148,15 @@ def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> di
         links = models_router.read_archive_links_for_model(
             db_path=state.settings.db_path,
             model_url=summary.model_url,
-            active_only=True,
+            active_only=False,
         )
-        accepted = [link for link in links if link.review_state == "accepted"]
-        serialized = [
-            models_router._archive_link_to_response(link, summary_by_url=summary_by_url)
-            for link in accepted
-        ]
-        return {"linked_archives": serialized, "link_count": len(serialized)}
+        accepted = [link for link in links if link.review_state == "accepted" and link.is_active]
+        candidates = [link for link in links if link.review_state == "new"]
+        serialize = lambda link: models_router._archive_link_to_response(link, summary_by_url=summary_by_url)
+        return {
+            "linked_archives": [serialize(l) for l in accepted],
+            "candidate_archives": [serialize(l) for l in candidates],
+            "link_count": len(accepted),
+        }
     except Exception:
-        return {"linked_archives": [], "link_count": 0}
+        return {"linked_archives": [], "candidate_archives": [], "link_count": 0}
