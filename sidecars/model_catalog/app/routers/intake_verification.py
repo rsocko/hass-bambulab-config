@@ -37,6 +37,7 @@ from .._helpers import (
     _normalize_path_compare_key,
 )
 from ..services import get_all_indexed_file_hashes
+from ..services.intake_service import _INFLIGHT_INTAKE_STATUSES
 from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
 from ..services.intake_consolidation import _consolidate_overlapping_selections
 from ..services.intake_eligibility_service import ActionEligibility
@@ -521,17 +522,24 @@ def _read_indexed_filename_maps(
 
         if exclude_upload_id:
             queue_rows = connection.execute(
-                """
+                f"""
                 SELECT source_entries_json
                 FROM intake_queue_uploads
                 WHERE source_entries_json IS NOT NULL
                   AND upload_id != ?
+                  AND status IN ({', '.join('?' for _ in _INFLIGHT_INTAKE_STATUSES)})
                 """,
-                (exclude_upload_id,),
+                (exclude_upload_id, *_INFLIGHT_INTAKE_STATUSES),
             ).fetchall()
         else:
             queue_rows = connection.execute(
-                "SELECT source_entries_json FROM intake_queue_uploads WHERE source_entries_json IS NOT NULL"
+                f"""
+                SELECT source_entries_json
+                FROM intake_queue_uploads
+                WHERE source_entries_json IS NOT NULL
+                  AND status IN ({', '.join('?' for _ in _INFLIGHT_INTAKE_STATUSES)})
+                """,
+                _INFLIGHT_INTAKE_STATUSES,
             ).fetchall()
 
         for row in queue_rows:
