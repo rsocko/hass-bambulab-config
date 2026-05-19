@@ -1670,7 +1670,17 @@ class ModelDetailPopupCard extends HTMLElement {
     const publication_source = publishing.publication_source;
     const contribution = publishing.contribution || {};
     const source_platform_label = publishing.source_platform_label || '';
-    const source_urls = Array.isArray(provenance.source_urls) ? provenance.source_urls : [];
+    // Merge source_urls (user-managed list) with legacy published_urls values and source_download_url
+    const explicitUrls = Array.isArray(provenance.source_urls) ? provenance.source_urls : [];
+    const published_urls = publishing.published_urls || {};
+    const legacyUrls = Object.values(published_urls).filter(u => typeof u === 'string' && u.startsWith('http'));
+    const downloadUrl = typeof provenance.source_download_url === 'string' && provenance.source_download_url.startsWith('http') ? provenance.source_download_url : null;
+    // Build deduplicated combined list: explicit first, then legacy/download that aren't already present
+    const seenUrls = new Set(explicitUrls);
+    const mergedUrls = [...explicitUrls];
+    if (downloadUrl && !seenUrls.has(downloadUrl)) { mergedUrls.push(downloadUrl); seenUrls.add(downloadUrl); }
+    for (const u of legacyUrls) { if (!seenUrls.has(u)) { mergedUrls.push(u); seenUrls.add(u); } }
+    const source_urls = mergedUrls;
     const isLocal = !publication_source || publication_source === 'local' || publication_source === 'original';
 
     // Known source platforms for dropdown
@@ -4169,7 +4179,16 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!model) return [];
     const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const provenance = metadata.provenance || {};
-    return Array.isArray(provenance.source_urls) ? [...provenance.source_urls] : [];
+    const publishing = metadata.publishing || {};
+    const explicitUrls = Array.isArray(provenance.source_urls) ? [...provenance.source_urls] : [];
+    const published_urls = publishing.published_urls || {};
+    const legacyUrls = Object.values(published_urls).filter(u => typeof u === 'string' && u.startsWith('http'));
+    const downloadUrl = typeof provenance.source_download_url === 'string' && provenance.source_download_url.startsWith('http') ? provenance.source_download_url : null;
+    const seen = new Set(explicitUrls);
+    const merged = [...explicitUrls];
+    if (downloadUrl && !seen.has(downloadUrl)) { merged.push(downloadUrl); seen.add(downloadUrl); }
+    for (const u of legacyUrls) { if (!seen.has(u)) { merged.push(u); seen.add(u); } }
+    return merged;
   }
 
   async _addSourceUrl() {
