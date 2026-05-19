@@ -81,6 +81,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Cross-Feature Data Contracts](cross-feature-data-contracts.md) — Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
 - [Historical Print Backfill Via Model Catalog](historical-print-backfill-via-model-catalog.md) — Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
 - [3MF Resource Extraction And Online Provenance Design](3mf-resource-extraction-and-online-provenance-design.md) — Resource taxonomy, parser/cache contract, STLShelf capability review, and issue-#173 phase mapping for `.3mf` images, support files, and public-source enrichment
+- [3MF Source Extraction (Source Tab + Intake)](3mf-source-extraction-source-tab-and-intake-design.md) — Operator-triggered extraction of source metadata from attached 3MF files, conflict policy for mixed-source models, and shared intake reuse contract
 - [Phase Delivery And Validation Tracker](phase-delivery-and-validation.md) — Concrete deliverables, validation steps, and milestone gating for phased implementation
 - [Working-File Indexing And Grouping Feasibility](working-file-indexing-feasibility.md) — Wave 1 feasibility decision and implementation guardrails for issue #1059
 - [Working File Inventory And Normalization Spec](working-file-spec.md) — Canonical path/name normalization, type scope, and dedupe identity rules for issue #1074

@@ -54,6 +54,13 @@ def build_model_detail_response(
             }
 
         custom_fields = models_router.read_model_fields(db_path=state.settings.db_path, model_ref=local_model_id) or {}
+        hidden_media_ids_raw = custom_fields.get("media_hidden_ids")
+        if isinstance(hidden_media_ids_raw, list):
+            hidden_media_ids = [str(item).strip() for item in hidden_media_ids_raw if str(item).strip()]
+        elif isinstance(hidden_media_ids_raw, str):
+            hidden_media_ids = [token.strip() for token in hidden_media_ids_raw.split(",") if token.strip()]
+        else:
+            hidden_media_ids = []
         structured_metadata = models_router._structured_detail_metadata(custom_fields)
         ranking = models_router.read_model_ranking(db_path=state.settings.db_path, model_url=summary.model_url)
         assets = models_router.list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
@@ -113,6 +120,7 @@ def build_model_detail_response(
                 preview_photo_id=preview_photo_id,
                 uploaded_rows=models_router._read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=local_model_id),
             ),
+            "hidden_media_ids": hidden_media_ids,
             "preview_photo_id": preview_photo_id,
             "ranking": None if ranking is None else models_router._ranking_payload(ranking),
             **_linked_archives_payload(models_router, state, summary),

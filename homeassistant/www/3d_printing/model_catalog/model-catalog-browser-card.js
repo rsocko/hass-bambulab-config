@@ -1,4 +1,4 @@
-import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=5';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
 
@@ -60,11 +60,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._boundKeyDown = this._handleKeyDown.bind(this);
     this._boundWheel = this._handleWheel.bind(this);
     this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
+    this._boundDetailChanged = this._handleDetailChanged.bind(this);
     this._didInitialRender = false;
     this._hasAttemptedLoad = false;
     this._lastAppliedScopeStamp = 0;
     this._catalogScope = "curated";
     this._thumbnailObserver = null;
+    this._thumbnailObserverSetupHandle = null;
     this._renderRAFId = null;
     this._persistentStyle = null;
     this._contentRoot = null;
@@ -426,6 +428,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.addEventListener("wheel", this._boundWheel);
     }
     window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
+    window.addEventListener("model-catalog-detail-changed", this._boundDetailChanged);
     addShimmerAnimation();
     if (this._hass && this._hasAttemptedLoad && !this._loading) {
       if (this._isScopeStale()) {
@@ -458,6 +461,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }) || null;
   }
 
+  _scheduleThumbnailObserverSetup(delayMs) {
+    // Debounced observer setup — prevents cascading observer disconnects when
+    // multiple model detail loads resolve in rapid succession.  Each disconnect
+    // drops pending IntersectionObserver callbacks, which can leave images in
+    // permanent shimmer.  By coalescing, we create a single observer after the
+    // burst of updates settles.
+    if (this._thumbnailObserverSetupHandle) {
+      window.clearTimeout(this._thumbnailObserverSetupHandle);
+      this._thumbnailObserverSetupHandle = null;
+    }
+    var delay = Number.isFinite(Number(delayMs)) ? Math.max(0, Number(delayMs)) : 60;
+    this._thumbnailObserverSetupHandle = window.setTimeout(function () {
+      this._thumbnailObserverSetupHandle = null;
+      this._setupThumbnailLazyLoading();
+    }.bind(this), delay);
+  }
+
   disconnectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundClick);
@@ -467,6 +487,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.removeEventListener("wheel", this._boundWheel);
     }
     window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
+    window.removeEventListener("model-catalog-detail-changed", this._boundDetailChanged);
     this._cancelScheduledApply();
     if (this._renderRAFId) {
       cancelAnimationFrame(this._renderRAFId);
@@ -475,6 +496,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._deferredRenderHandle) {
       window.clearTimeout(this._deferredRenderHandle);
       this._deferredRenderHandle = null;
+    }
+    if (this._thumbnailObserverSetupHandle) {
+      window.clearTimeout(this._thumbnailObserverSetupHandle);
+      this._thumbnailObserverSetupHandle = null;
     }
     if (this._thumbnailObserver && typeof this._thumbnailObserver.disconnect === "function") {
       try { this._thumbnailObserver.disconnect(); } catch (_e) { /* ignore */ }
@@ -652,6 +677,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     this._loadPage(targetPage, refresh);
+  }
+
+  _handleDetailChanged(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
+    var modelRef = String(detail.modelRef || "").trim();
+    if (!modelRef) {
+      return;
+    }
+    delete this._modelDetailCache[modelRef];
+    delete this._loadingModelMedia[modelRef];
+    this._loadModelMedia({ public_id: modelRef });
+    // Schedule a delayed retry in case the first thumbnail fetch fails due to a
+    // transient CORS / network error right after the server-side change.
+    window.setTimeout(function () {
+      this._retryFailedCardThumb(modelRef);
+    }.bind(this), 3000);
   }
 
   _handleCatalogDataChanged(event) {
@@ -916,6 +957,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
   async _handleChange(event) {
     var target = event && event.target;
     if (!target) {
+      return;
+    }
+    if (target.classList && target.classList.contains("bulk-source-select")) {
+      var sourceValue = String(target.value || "").trim();
+      if (sourceValue) {
+        target.value = "";
+        await this._bulkSetSource(sourceValue);
+      }
       return;
     }
     if (target.classList && target.classList.contains("queue-dialog-target-state")) {
@@ -2327,6 +2376,65 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._render();
   }
 
+  async _bulkSetSource(sourceId) {
+    var selectedRefs = this.getSelectedModelRefs();
+    if (!selectedRefs.length || this._loading) {
+      return;
+    }
+
+    var customLabel = "";
+    if (sourceId === "other") {
+      customLabel = (window.prompt("Enter custom source name for selected models:") || "").trim();
+      if (!customLabel) {
+        return;
+      }
+    }
+
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      this._error = "Model sidecar URL not configured.";
+      this._render();
+      return;
+    }
+
+    var failedRefs = [];
+    this._error = "";
+
+    for (var i = 0; i < selectedRefs.length; i++) {
+      var modelRef = selectedRefs[i];
+      try {
+        var resp = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef) + "/fields/publication_source", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: sourceId }),
+        });
+        if (!resp.ok) {
+          failedRefs.push(modelRef);
+          continue;
+        }
+        if (customLabel) {
+          var labelResp = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef) + "/fields/source_platform_label", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ value: customLabel }),
+          });
+          if (!labelResp.ok) {
+            failedRefs.push(modelRef);
+          }
+        }
+      } catch (_error) {
+        failedRefs.push(modelRef);
+      }
+    }
+
+    if (failedRefs.length) {
+      this._error = "Set source with partial failure (" + String(failedRefs.length) + " of " + String(selectedRefs.length) + " failed).";
+    }
+
+    this._requestLoad(this._currentPage(), true);
+    this._render();
+  }
+
   async _deleteModel(modelRef, modelName) {
     if (!this._hass || !modelRef) {
       return;
@@ -2739,7 +2847,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
           this._scheduleDeferredRender(90);
           return;
         }
-        if (!this._updateModelCardThumb(modelRef)) {
+        var thumbResult = this._updateModelCardThumb(modelRef);
+        if (!thumbResult) {
           window.setTimeout(function () {
             this._updateModelCardThumb(modelRef);
           }.bind(this), 120);
@@ -2796,12 +2905,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (!img) {
         continue;
       }
+      // Clear any prior failure flag so the observer will re-attempt the fetch.
+      // Without this, a transient CORS/network error after Set-Preview leaves
+      // the thumbnail permanently broken.
+      img.removeAttribute('data-thumbnail-failed');
       if (this._isThumbnailLazyEndpoint(mediaUrl)) {
         var cachedObjectUrl = getCachedThumbnailObjectUrl(mediaUrl);
         if (cachedObjectUrl) {
           img.removeAttribute('data-thumbnail-lazy-url');
           img.src = String(cachedObjectUrl);
         } else {
+          // Set the lazy-url attribute so the observer picks it up and the
+          // shimmer CSS animation plays while the image loads.  The observer
+          // now uses Image() preload (not fetch) so CORS is not an issue.
           img.removeAttribute('src');
           img.setAttribute('data-thumbnail-lazy-url', mediaUrl);
         }
@@ -2813,9 +2929,33 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (updated) {
-      this._setupThumbnailLazyLoading();
+      this._scheduleThumbnailObserverSetup();
     }
     return updated;
+  }
+
+  /**
+   * Delayed retry for a single model's card thumbnail.  Called a few seconds
+   * after a detail-change to recover from transient CORS / network errors
+   * that can occur immediately after a server-side preview change.
+   */
+  _retryFailedCardThumb(modelRef) {
+    if (!this.shadowRoot) return;
+    var key = String(modelRef || "").trim();
+    if (!key) return;
+    var cards = this.shadowRoot.querySelectorAll('.model-card[data-model-ref="' + CSS.escape(key) + '"]');
+    for (var c = 0; c < cards.length; c++) {
+      var img = cards[c].querySelector('.thumb img');
+      if (!img) continue;
+      // Only retry if the thumbnail is still broken (failed flag or no src and
+      // no pending lazy-url).
+      var isFailed = img.getAttribute('data-thumbnail-failed') === 'true';
+      var isEmpty = !img.src && !img.getAttribute('data-thumbnail-lazy-url');
+      if (isFailed || isEmpty) {
+        this._updateModelCardThumb(key);
+        return;
+      }
+    }
   }
 
   _renderModelTagChip(label, className) {
@@ -3076,12 +3216,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var count = this._selectedModelRefs.size;
     var visible = this._getVisibleModelRefs().length;
     var selectAllLabel = count > 0 && count === visible ? 'Deselect All' : 'Select All' + (visible > 0 ? ' (' + String(visible) + ')' : '');
+    var sourceOptions = [
+      { id: 'local', label: 'Local' },
+      { id: 'original', label: 'Original (My Design)' },
+      { id: 'makerworld', label: 'MakerWorld' },
+      { id: 'printables', label: 'Printables' },
+      { id: 'thingiverse', label: 'Thingiverse' },
+      { id: 'cults3d', label: 'Cults3D' },
+      { id: 'thangs', label: 'Thangs' },
+      { id: 'myminifactory', label: 'MyMiniFactory' },
+      { id: 'other', label: 'Other…' },
+    ];
+    var sourceOptionsHtml = '<option value="" selected disabled>Set Source…</option>';
+    for (var s = 0; s < sourceOptions.length; s++) {
+      sourceOptionsHtml += '<option value="' + this._escapeHtml(sourceOptions[s].id) + '">' + this._escapeHtml(sourceOptions[s].label) + '</option>';
+    }
     return ''
       + '<div class="page-control-strip multi-select-active' + extraClass + '">'
       + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
+      + '  <select class="bulk-source-select" title="Set source for selected models">' + sourceOptionsHtml + '</select>'
       + '  <div class="ms-spacer"></div>'
       + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
       + '</div>';
@@ -3324,14 +3480,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + queueCountBadge
       + '</button>';
 
-    var compactMainHtml = ''
-      + '<div class="body compact-main">'
-      + '  <div class="compact-top-actions">'
-      + '    <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+    var compactActionsHtml = ''
+      + '<div class="compact-top-actions">'
+      + '  <button class="icon-action viewer" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
       + queueButton
       + advancedActions
-      + '  </div>'
+      + '</div>';
+
+    var compactMainHtml = ''
+      + '<div class="body compact-main">'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '  <div class="chip-row provenance-row">'
       + this._renderModelTagChip(this._originTypeLabel(originType), 'origin-chip')
@@ -3461,6 +3619,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
+      + compactActionsHtml
       + compactFullHtml
       + '</article>';
   }
@@ -4130,6 +4289,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));}'
       + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;}'
       + '.thumb img[data-thumbnail-lazy-url]:not([src])::before,.media-preview img[data-thumbnail-lazy-url]:not([src])::before{content:"";display:block;width:100%;height:100%;}'
+      // Failed lazy thumbnail: show neutral placeholder instead of permanent shimmer
+      + '.thumb img[data-thumbnail-failed]:not([src]),.media-preview img[data-thumbnail-failed]:not([src]){font-size:0;color:transparent;animation:none;background:var(--card-background-color,rgba(148,163,184,0.08));}'
       + '.model-card.skeleton{cursor:default;pointer-events:none;}'
       + '.skeleton-block{position:relative;overflow:hidden;background:linear-gradient(120deg,rgba(148,163,184,0.14),rgba(148,163,184,0.05),rgba(148,163,184,0.14));background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;border-radius:10px;}'
       + '.skeleton-line{height:12px;}'
@@ -4148,7 +4309,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
       + '.compact-main,.compact-full{gap:8px;}'
       + '.view-compact .body,.view-list .body{padding:0;}'
-      + '.compact-top-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;}'
+      + '.view-compact .compact-main{padding-top:46px;}'
+      + '.compact-top-actions{position:absolute;top:14px;right:14px;display:flex;justify-content:flex-end;align-items:center;gap:8px;z-index:2;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
       + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;}'
       + '.compact-last-printed{font-size:11px;font-weight:700;color:var(--secondary-text-color);padding-top:2px;}'
@@ -4277,7 +4439,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto auto auto auto;}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-top-actions{justify-content:flex-end;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
       + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'
       + '.model-card.is-selected{border-color:var(--accent-strong);background:linear-gradient(180deg,rgba(96,165,250,0.12),rgba(96,165,250,0.06));}'
@@ -4300,6 +4462,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-btn.exit{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit:hover{background:rgba(239,68,68,0.1);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'
+      + '.page-control-strip.multi-select-active .bulk-source-select{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;appearance:auto;-webkit-appearance:auto;color-scheme:dark;}'
+      + '.page-control-strip.multi-select-active .bulk-source-select:hover{background:var(--surface-3);border-color:var(--accent);}'
+      + '.page-control-strip.multi-select-active .bulk-source-select:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
       this._contentRoot = document.createElement('ha-card');
       this.shadowRoot.textContent = '';

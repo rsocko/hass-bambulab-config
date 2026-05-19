@@ -250,10 +250,17 @@ def _move_file_to_working_directory(
     source_path: Path,
     relative_path: str | None = None,
     preserve_folder_structure: bool = True,
+    cleanup_policy: str = "keep",
 ) -> str:
-    """Move a file from intake staging to the Working Files directory structure.
+    """Copy or move a file from intake source to the Working Files directory structure.
     
-    Returns the ABSOLUTE path to the moved file so it can be found by the inventory system.
+    When *cleanup_policy* is ``"keep"`` the source file is **copied** so the
+    original inbox location remains untouched.  For destructive policies
+    (``"delete_on_verified"``, ``"replace_with_stub"``) the file is **moved**
+    so the downstream cleanup step does not need to delete it separately.
+
+    Returns the ABSOLUTE path to the destination file so it can be found by
+    the inventory system.
     """
     import shutil
     from ..services.working_groups_service import _working_files_destination_root, _unique_destination_path
@@ -282,10 +289,14 @@ def _move_file_to_working_directory(
     # Find unique destination path
     destination = _unique_destination_path(destination_directory, destination_filename)
     
-    # Move file to destination
-    shutil.move(str(source_path), str(destination))
+    # Copy when policy is "keep" so source inbox stays untouched;
+    # move for destructive policies so cleanup doesn't double-delete.
+    if cleanup_policy == "keep":
+        shutil.copy2(str(source_path), str(destination))
+    else:
+        shutil.move(str(source_path), str(destination))
     
-    # Return ABSOLUTE path so the inventory system can find it
+    # Return ABSOLUTE path so the destination file can be found by the inventory system
     return str(destination.resolve())
 
 
@@ -674,6 +685,7 @@ def _publish_group_to_working_destination(
     source_entries: list[dict[str, Any]],
     group: dict[str, Any],
     destination_plan: dict[str, Any],
+    cleanup_policy: str = "keep",
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]]:
     group_files = list(group.get("files") or [])
     if not group_files:
@@ -715,7 +727,7 @@ def _publish_group_to_working_destination(
                 """
                 INSERT INTO working_groups (
                     slug, title, stage, notes, primary_file_path, folder_hint,
-                    related_catalog_model_id, created_at, updated_at,
+                    related_model_id, created_at, updated_at,
                     discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -772,6 +784,7 @@ def _publish_group_to_working_destination(
                 source_path=source_file_path,
                 relative_path=str(file_item.get("relative_path") or "").strip() or source_file_path.name,
                 preserve_folder_structure=preserve_folder_structure,
+                cleanup_policy=cleanup_policy,
             )
             file_path = str(moved_path)
             item_role = "primary" if primary_file_path is None and requested_group_id <= 0 else "supporting"
@@ -1003,6 +1016,7 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
                     source_entries=group_source_entries,
                     group=group,
                     destination_plan=destination_plan,
+                    cleanup_policy=str(upload_row["cleanup_policy"] or "keep").strip().lower(),
                 )
                 if group_result is not None and group_result.get("working_group_id"):
                     working_group_ids.append(int(group_result["working_group_id"]))
@@ -2083,7 +2097,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                 """
                 INSERT INTO working_groups (
                     slug, title, stage, notes, primary_file_path, folder_hint,
-                    related_catalog_model_id, created_at, updated_at,
+                    related_model_id, created_at, updated_at,
                     discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -2149,6 +2163,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                     source_path=source_file_path,
                     relative_path=str(file_item.get("relative_path") or "").strip() or source_file_path.name,
                     preserve_folder_structure=group_preserve_folder_structure,
+                    cleanup_policy=str(upload_row["cleanup_policy"] or "keep").strip().lower(),
                 )
                 file_path = str(moved_path)
                 item_role = "primary" if primary_file_path is None else "supporting"

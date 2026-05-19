@@ -12,7 +12,7 @@
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 
 const QUEUE_STATE_FILTER_ORDER = ['backlog', 'up_next', 'preparing', 'ready', 'in_progress', 'blocked', 'done'];
-const QUEUE_DEFAULT_VISIBLE_STATES = ['preparing', 'ready', 'in_progress', 'blocked'];
+const QUEUE_DEFAULT_VISIBLE_STATES = ['up_next', 'preparing', 'ready', 'in_progress', 'blocked'];
 const QUEUE_STATE_GROUP_ORDER = ['in_progress', 'ready', 'preparing', 'up_next', 'backlog', 'blocked', 'done'];
 const QUEUE_STATE_TRANSITIONS = {
   backlog: ['up_next', 'preparing', 'ready', 'in_progress'],

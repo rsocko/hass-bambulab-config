@@ -301,3 +301,49 @@ def test_browser_upload_preserves_original_last_modified_metadata(tmp_path: Path
         assert not staged_upload_dir.exists(), "Browser intake staging directory should be removed after publish"
     finally:
         client.__exit__(None, None, None)
+
+
+def test_publish_to_working_keep_policy_preserves_source_files(tmp_path: Path) -> None:
+    """When cleanup_policy is 'keep', source files must remain in the inbox after publish."""
+    client, source_root = _create_client(tmp_path)
+    working_root = tmp_path / "working"
+    try:
+        folder = source_root / "pennants"
+        folder.mkdir()
+        (folder / "model.3mf").write_bytes(b"model-data")
+        (folder / "plate.stl").write_bytes(b"plate-data")
+        sub = folder / "images"
+        sub.mkdir()
+        (sub / "preview.png").write_bytes(b"png-data")
+
+        enqueue = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "folder", "path": str(folder)}],
+            },
+        )
+        assert enqueue.status_code == 200
+        upload_id = enqueue.json()["upload_id"]
+
+        publish = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-working",
+            json={"title": "Pennants"},
+        )
+        assert publish.status_code == 200
+
+        # Source files must still exist (policy=keep)
+        assert (folder / "model.3mf").exists(), "source model.3mf should remain with keep policy"
+        assert (folder / "plate.stl").exists(), "source plate.stl should remain with keep policy"
+        assert (sub / "preview.png").exists(), "source preview.png should remain with keep policy"
+
+        # Destination files must also exist
+        working_groups = list(working_root.iterdir())
+        assert len(working_groups) >= 1
+        dest_files = list(working_groups[0].rglob("*"))
+        dest_file_names = {f.name for f in dest_files if f.is_file()}
+        assert "model.3mf" in dest_file_names
+        assert "plate.stl" in dest_file_names
+        assert "preview.png" in dest_file_names
+    finally:
+        client.__exit__(None, None, None)

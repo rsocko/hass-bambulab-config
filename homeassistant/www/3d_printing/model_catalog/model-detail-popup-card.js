@@ -23,7 +23,7 @@
  * ```
  */
 
-import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=5';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
 
@@ -51,6 +51,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._activePhotoIndex = null;
     this._heroMediaFilter = 'all';
     this._heroActiveMediaIndex = 0;
+    this._heroHiddenMediaFieldKey = 'media_hidden_ids';
     this._overflowOpen = false;
     this._panelMode = 'tabs';
     this._panelActiveTab = 'panel-queue';
@@ -89,6 +90,10 @@ class ModelDetailPopupCard extends HTMLElement {
     this._isInteracting = false;
     this._renderScheduled = false;
     this._lastRenderedModelUrl = null;
+
+    // Fullscreen overlay state
+    this._overlayRoot = null;
+    this._savedBodyOverflow = null;
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -97,6 +102,9 @@ class ModelDetailPopupCard extends HTMLElement {
     this._boundDragOverHandler = this._handleDragOver.bind(this);
     this._boundDragLeaveHandler = this._handleDragLeave.bind(this);
     this._boundDropHandler = this._handleDrop.bind(this);
+    this._boundOverlayClickHandler = this._handleOverlayClick.bind(this);
+    this._boundOverlayCancelHandler = this._handleOverlayCancel.bind(this);
+    this._boundKeydownHandler = this._handleKeydown.bind(this);
   }
 
   setConfig(config) {
@@ -164,6 +172,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
+    this._destroyOverlayRoot();
   }
 
   _resolveModelSidecarUrl() {
@@ -199,6 +208,13 @@ class ModelDetailPopupCard extends HTMLElement {
     // Fast path: open the file picker immediately for upload clicks.
     // Keep this before other delegated selector checks to minimize click latency.
     if (this._isEditMode && this._activeTab === 'gallery' && this._getPhotoUploadArea(target)) {
+      event.preventDefault();
+      this._openPhotoFilePicker();
+      return;
+    }
+
+    // "+ Add Image" button — always available on the gallery tab (no edit mode required).
+    if (this._activeTab === 'gallery' && target.closest('#btn-add-image')) {
       event.preventDefault();
       this._openPhotoFilePicker();
       return;
@@ -271,6 +287,40 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('#btn-hero-next')) {
       event.preventDefault();
       this._stepHeroMedia(1);
+      return;
+    }
+
+    if (target.closest('#btn-hero-set-preview')) {
+      event.preventDefault();
+      const active = this._heroCurrentMedia(this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems())));
+      if (active) {
+        this._handleSetHeroMediaPreview(active);
+      }
+      return;
+    }
+
+    if (target.closest('#btn-hero-hide-image')) {
+      event.preventDefault();
+      const active = this._heroCurrentMedia(this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems())));
+      if (active) {
+        this._toggleHeroMediaHidden(active);
+      }
+      return;
+    }
+
+    if (target.closest('#btn-hero-delete-image')) {
+      event.preventDefault();
+      const active = this._heroCurrentMedia(this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems())));
+      if (active) {
+        this._handleDeleteHeroMedia(active);
+      }
+      return;
+    }
+
+    // "+ Add Image" button in the hero media toolbar
+    if (target.closest('#btn-hero-add-image')) {
+      event.preventDefault();
+      this._openHeroPhotoFilePicker();
       return;
     }
 
@@ -396,6 +446,27 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Source panel: URL action buttons (add, remove, open)
+    const urlActionBtn = target.closest('.url-action-btn[data-action]');
+    if (urlActionBtn) {
+      event.preventDefault();
+      const urlAction = urlActionBtn.getAttribute("data-action");
+      const urlIndex = parseInt(urlActionBtn.getAttribute("data-url-index") || "0", 10);
+      if (urlAction === "add-source-url") {
+        this._addSourceUrl();
+      } else if (urlAction === "remove-source-url") {
+        this._removeSourceUrl(urlIndex);
+      } else if (urlAction === "open-source-url") {
+        this._openSourceUrl(urlIndex);
+      }
+      return;
+    }
+
+    // Source panel: custom label blur save
+    if (target.classList.contains('source-label-input')) {
+      // blur is not a click, but let's capture it in case user tabs away
+    }
+
     // Contribution lifecycle actions (#1494)
     const contributionActionBtn = target.closest('.action-mark[data-action], .action-skip[data-action], .action-open[data-action]');
     if (contributionActionBtn) {
@@ -404,8 +475,6 @@ class ModelDetailPopupCard extends HTMLElement {
       const isSkip = contributionActionBtn.classList.contains('action-skip');
       if (action === "rated" || action === "boosted" || action === "photos_shared") {
         this._markContributionAction(action, isSkip ? { skip: true } : undefined);
-      } else if (action === "open-source") {
-        this._openSourcePlatform();
       } else if (action === "open-gallery") {
         this._openPhotoGallery();
       }
@@ -416,6 +485,17 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-viewer")) {
       event.preventDefault();
       this._openViewerPopup();
+      return;
+    }
+
+    // Fullscreen expand button (hero media)
+    if (target.closest('.icon-action.expand')) {
+      event.preventDefault();
+      const items = this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems()));
+      if (items.length) {
+        this._activePhotoIndex = this._heroActiveMediaIndex;
+        this._openPhotoOverlay();
+      }
       return;
     }
 
@@ -435,30 +515,6 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-conflict-overwrite")) {
       event.preventDefault();
       this._handleConflictResolution('overwrite');
-      return;
-    }
-
-    if (target.closest('#btn-photo-lightbox-close')) {
-      event.preventDefault();
-      this._closePhotoPreview();
-      return;
-    }
-
-    if (target.closest('#btn-photo-lightbox-prev')) {
-      event.preventDefault();
-      this._stepPhotoPreview(-1);
-      return;
-    }
-
-    if (target.closest('#btn-photo-lightbox-next')) {
-      event.preventDefault();
-      this._stepPhotoPreview(1);
-      return;
-    }
-
-    if (target.classList && target.classList.contains('photo-lightbox')) {
-      event.preventDefault();
-      this._closePhotoPreview();
       return;
     }
 
@@ -504,11 +560,34 @@ class ModelDetailPopupCard extends HTMLElement {
     fileInput.click();
   }
 
+  _openHeroPhotoFilePicker() {
+    const fileInput = this.shadowRoot.getElementById('hero-photo-file-input');
+    if (!fileInput) {
+      return;
+    }
+
+    if (typeof fileInput.showPicker === 'function') {
+      try {
+        fileInput.showPicker();
+        return;
+      } catch (_error) {
+        // Fall through to click() for browsers that block showPicker here.
+      }
+    }
+
+    fileInput.click();
+  }
+
   _handleChange(event) {
     const target = event.target;
     // Queue dialog: target-state select
     if (target instanceof HTMLSelectElement && target.classList.contains("queue-dialog-target-state")) {
       this._queueDialogTargetState = this._normalizeQueueDialogTargetState(String(target.value || "up_next"));
+      return;
+    }
+    // Source panel: publication source dropdown
+    if (target instanceof HTMLSelectElement && target.classList.contains("source-select")) {
+      this._saveSourceField("publication_source", target.value);
       return;
     }
     // Queue dialog: notes textarea (also handle input event via _handleInput if present)
@@ -519,7 +598,18 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
-    if (target.id !== 'photo-file-input') {
+    // Source panel: source URL edit (on blur/change)
+    if (target.classList.contains("source-url-input")) {
+      const idx = parseInt(target.getAttribute("data-source-url-index") || "0", 10);
+      this._updateSourceUrl(idx, target.value);
+      return;
+    }
+    // Source panel: custom label (on blur/change)
+    if (target.classList.contains("source-label-input")) {
+      this._saveSourceField("source_platform_label", target.value);
+      return;
+    }
+    if (target.id !== 'photo-file-input' && target.id !== 'hero-photo-file-input') {
       return;
     }
 
@@ -532,6 +622,10 @@ class ModelDetailPopupCard extends HTMLElement {
     const target = event.target;
     if (target instanceof HTMLTextAreaElement && target.getAttribute("data-queue-dialog-notes")) {
       this._queueDialogNotes = String(target.value || "");
+    }
+    // Source panel: custom label live update (save on blur via change)
+    if (target instanceof HTMLInputElement && target.classList.contains("source-label-input")) {
+      // Debounce save — we'll save on change/blur handled above
     }
   }
 
@@ -594,12 +688,15 @@ class ModelDetailPopupCard extends HTMLElement {
     this._handlePhotoFileSelect(Array.from(files));
   }
 
-  async _loadModelDetail() {
+  async _loadModelDetail({ silent = false } = {}) {
     if (this._loading) return;
     
     this._loading = true;
     this._error = "";
-    this._render();
+    // Only show loading spinner on initial load, not background refreshes
+    if (!silent) {
+      this._render();
+    }
     
     try {
       const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/detail`;
@@ -749,9 +846,14 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderPopup() {
     const model = this._modelDetail.model || {};
-    const mediaItems = this._heroFilteredMediaItems(this._galleryItems());
+    const allGalleryItems = this._galleryItems();
+    const mediaCounts = {
+      all: allGalleryItems.length,
+      asset: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'asset').length,
+      embedded: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'embedded').length,
+    };
+    const mediaItems = this._heroOrderMediaItems(this._heroFilteredMediaItems(allGalleryItems));
     const activeMedia = this._heroCurrentMedia(mediaItems);
-    const modelName = this._escapeHtml(String(model.name || 'Untitled Model'));
     const creator = this._escapeHtml(String(model.creator_name || 'Unknown'));
     const collections = Array.isArray(model.collection_names) ? model.collection_names : [];
     const collectionText = this._escapeHtml(collections.length ? collections.join(' / ') : 'Uncategorized');
@@ -763,7 +865,8 @@ class ModelDetailPopupCard extends HTMLElement {
         * { box-sizing: border-box; }
         .popup-shell {
           display: grid;
-          gap: 10px;
+          gap: 4px;
+          margin-top: -12px;
           color: var(--primary-text-color);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
@@ -772,13 +875,13 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
           border-bottom: 1px solid var(--divider-color);
-          padding: 12px 14px;
+          padding: 0 10px 4px;
         }
-        .title strong { font-size: 18px; display: block; }
-        .title span { color: var(--secondary-text-color); font-size: 12px; }
+        .title { display: flex; align-items: center; }
+        .title span { color: var(--secondary-text-color); font-size: 11px; line-height: 1.2; }
         .entity-type-badge {
           display: inline-flex;
           align-items: center;
@@ -795,13 +898,11 @@ class ModelDetailPopupCard extends HTMLElement {
           border-color: #ffc107;
           color: #ffc107;
         }
-        .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .slot-chip {
-          border: 1px solid var(--divider-color);
-          border-radius: 999px;
-          padding: 2px 8px;
-          font-size: 10px;
-          color: var(--secondary-text-color);
+        .top-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .top-actions .action-button {
+          padding: 6px 10px;
+          border-radius: 7px;
+          font-size: 11px;
         }
         .action-button {
           background: var(--primary-color);
@@ -875,15 +976,30 @@ class ModelDetailPopupCard extends HTMLElement {
         .left {
           border-right: 1px solid var(--divider-color);
           display: grid;
-          grid-template-rows: auto 1fr auto auto auto;
+          grid-template-rows: auto auto auto;
+        }
+        .media-with-thumbs {
+          display: flex;
+          gap: 0;
+          min-height: 0;
+        }
+        .media-with-thumbs .main-media {
+          flex: 1 1 0%;
+          min-width: 0;
+        }
+        .media-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 6px 12px;
+          flex-wrap: wrap;
         }
         .media-filters {
           display: flex;
           gap: 6px;
           flex-wrap: wrap;
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--divider-color);
-          background: var(--secondary-background-color);
+          align-items: center;
         }
         .chip {
           border: 1px solid var(--divider-color);
@@ -905,6 +1021,7 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow: hidden;
           position: relative;
           min-height: 280px;
+          aspect-ratio: 4 / 3;
           background: var(--secondary-background-color);
           display: flex;
           align-items: center;
@@ -912,7 +1029,7 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .main-media img {
           width: 100%;
-          max-height: 420px;
+          height: 100%;
           object-fit: contain;
           display: block;
         }
@@ -935,17 +1052,63 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           gap: 6px;
         }
-        .icon-btn {
-          width: 34px;
-          height: 34px;
+        .icon-action {
+          position: static;
+          width: 32px;
+          height: 32px;
+          border: 1px solid rgba(148,163,184,0.28);
           border-radius: 999px;
-          border: 1px solid var(--divider-color);
-          background: rgba(0, 0, 0, 0.55);
-          color: #fff;
-          padding: 0;
-          font-size: 11px;
+          background: rgba(15,23,42,0.78);
+          color: var(--primary-text-color);
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          flex: 0 0 auto;
+          transition: background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;
         }
+        .icon-action:hover,
+        .icon-action:focus-visible {
+          background: rgba(30,41,59,0.96);
+          color: var(--primary-text-color);
+          border-color: rgba(148,163,184,0.54);
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .icon-action:active { transform: translateY(0); }
+        .icon-action.viewer {
+          background: rgba(20,83,45,0.22);
+          border-color: rgba(34,197,94,0.28);
+          color: var(--primary-text-color);
+        }
+        .icon-action.viewer:hover,
+        .icon-action.viewer:focus-visible {
+          background: rgba(20,83,45,0.34);
+          color: var(--primary-text-color);
+          border-color: rgba(34,197,94,0.46);
+          box-shadow: 0 0 0 1px rgba(34,197,94,0.18),0 8px 20px rgba(20,83,45,0.22);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .icon-action.viewer:active { transform: translateY(0); }
+        .icon-action.expand {
+          background: rgba(30,64,175,0.24);
+          border-color: rgba(96,165,250,0.3);
+          color: var(--primary-text-color);
+        }
+        .icon-action.expand:hover,
+        .icon-action.expand:focus-visible {
+          background: rgba(30,64,175,0.36);
+          color: var(--primary-text-color);
+          border-color: rgba(96,165,250,0.48);
+          box-shadow: 0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .icon-action.expand:active { transform: translateY(0); }
+        .icon-action ha-icon { --mdc-icon-size: 18px; }
         .main-nav-btn {
           position: absolute;
           top: 50%;
@@ -957,8 +1120,17 @@ class ModelDetailPopupCard extends HTMLElement {
           background: rgba(0, 0, 0, 0.55);
           color: #fff;
           font-size: 22px;
+          line-height: 1;
           padding: 0;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(10px);
+        }
+        .main-nav-btn[disabled] {
+          opacity: 0.45;
+          cursor: default;
         }
         .main-nav-btn.prev { left: 10px; }
         .main-nav-btn.next { right: 10px; }
@@ -966,20 +1138,53 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
-          padding: 0 12px 10px;
+          align-items: center;
+        }
+        .media-actions .action-button {
+          appearance: none;
+          border: 1px solid rgba(148,163,184,0.32);
+          border-radius: 999px;
+          padding: 8px 12px;
+          background: rgba(255,255,255,0.04);
+          color: var(--primary-text-color);
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease;
+        }
+        .media-actions .action-button:hover,
+        .media-actions .action-button:focus-visible {
+          background: rgba(255,255,255,0.10);
+          border-color: rgba(148,163,184,0.6);
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.14),0 4px 10px rgba(15,23,42,0.12);
+          outline: none;
+        }
+        .media-actions .action-button.danger {
+          background: rgba(239,68,68,0.08);
+          border-color: rgba(239,68,68,0.28);
+        }
+        .media-actions .action-button[disabled] {
+          opacity: 0.55;
+          cursor: not-allowed;
+          box-shadow: none;
         }
         .thumbs {
-          padding: 0 12px 12px;
+          flex: 0 0 88px;
+          padding: 12px 6px;
           display: flex;
+          flex-direction: column;
           gap: 7px;
-          overflow-x: auto;
-          overflow-y: hidden;
+          overflow-y: auto;
+          overflow-x: hidden;
           scrollbar-width: thin;
+          max-height: 400px;
+          border-left: 1px solid var(--divider-color);
         }
         .thumb {
-          flex: 0 0 74px;
-          width: 74px;
-          height: 74px;
+          flex: 0 0 72px;
+          width: 72px;
+          height: 72px;
           border: 1px solid var(--divider-color);
           border-radius: 9px;
           overflow: hidden;
@@ -998,6 +1203,24 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 999px;
           background: rgba(0,0,0,0.62);
           color: #fff;
+        }
+        .thumb.media-hidden {
+          opacity: 0.72;
+          order: 999;
+        }
+        .thumb .hidden-mark {
+          position: absolute;
+          top: 3px;
+          right: 3px;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          background: rgba(127,29,29,0.92);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 16px;
+          text-align: center;
         }
 
         .panel-shell {
@@ -1125,6 +1348,10 @@ class ModelDetailPopupCard extends HTMLElement {
           background: var(--card-background-color);
         }
         .files { padding: 8px; display: grid; gap: 7px; }
+        .file-preview { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--divider-color); object-fit: cover; flex-shrink: 0; }
+        .file-ext-badge { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.25); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--secondary-text-color); background: rgba(255,255,255,0.04); flex-shrink: 0; }
+        .file-ext-badge.x-3mf { color: #5eead4; border-color: rgba(94,234,212,0.3); background: rgba(94,234,212,0.12); }
+        .file-ext-badge.x-stl, .file-ext-badge.x-step, .file-ext-badge.x-stp, .file-ext-badge.x-obj { color: #93c5fd; border-color: rgba(96,165,250,0.32); background: rgba(96,165,250,0.12); }
         .collapsible-group {
           border: 1px solid var(--divider-color);
           border-radius: 9px;
@@ -1160,6 +1387,18 @@ class ModelDetailPopupCard extends HTMLElement {
         @media (max-width: 980px) {
           .hero { grid-template-columns: 1fr; }
           .left { border-right: 0; border-bottom: 1px solid var(--divider-color); }
+          .media-with-thumbs { flex-direction: column; }
+          .thumbs {
+            flex: 0 0 auto;
+            flex-direction: row;
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border-left: 0;
+            border-top: 1px solid var(--divider-color);
+            padding: 6px 12px;
+          }
+          .thumb { flex: 0 0 72px; }
           .panel-shell { margin-bottom: 0; }
         }
       </style>
@@ -1167,12 +1406,10 @@ class ModelDetailPopupCard extends HTMLElement {
       <div class="popup-shell">
         <div class="topbar">
           <div class="title">
-            <strong>${modelName}</strong>
             <span>Creator ${creator} | Collection ${collectionText}</span>
           </div>
           <div class="top-actions">
             ${isIdea ? `<span class="entity-type-badge idea">💡 Idea</span>` : ''}
-            <span class="slot-chip">actions:top-bar</span>
             ${this._renderExtensionSlot('actions:top-bar', '')}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
@@ -1202,34 +1439,41 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="hero">
           <div class="left">
             ${this._renderExtensionSlot('hero-left:media', `
-              <div class="media-filters">
-                <span class="slot-chip">hero-left:media</span>
-                <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All</button>
-                <button class="chip ${this._heroMediaFilter === 'photo' ? 'active' : ''}" data-media-filter="photo">Uploaded</button>
-                <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets</button>
-              </div>
-              <div class="main-media">
-                ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
-                <span class="badge">${this._escapeHtml(activeMedia && activeMedia.type ? activeMedia.type : 'image')}</span>
-                <div class="main-overlay-tools">
-                  <button class="icon-btn" id="btn-viewer" title="3D View">3D</button>
-                  <button class="icon-btn" title="Full screen">FS</button>
+              <div class="media-with-thumbs">
+                <div class="main-media">
+                  ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
+                  ${activeMedia && activeMedia.type_label ? `<span class="badge">${this._escapeHtml(activeMedia.type_label)}</span>` : ''}
+                  <div class="main-overlay-tools">
+                    <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
+                    <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
+                  </div>
+                  <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8249;</button>
+                  <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8250;</button>
                 </div>
-                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous">‹</button>
-                <button class="main-nav-btn next" id="btn-hero-next" title="Next">›</button>
+                <div class="thumbs">
+                  ${mediaItems.map((item, idx) => `
+                    <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''} ${item.is_hidden ? 'media-hidden' : ''}" data-media-index="${idx}" title="${this._escapeHtml(item.filename || item.type_label || 'Media item')}">
+                      ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
+                      <span class="src">${this._escapeHtml(item.type_label || item.type || 'Media')}${item.is_hidden ? ' · Hidden' : ''}</span>
+                      ${item.is_hidden ? '<span class="hidden-mark">✕</span>' : ''}
+                    </button>
+                  `).join('')}
+                </div>
               </div>
-              <div class="media-actions">
-                <button class="action-button ghost">Set preview</button>
-                <button class="action-button ghost">Hide image</button>
-                <button class="action-button ghost">Delete image</button>
+              <div class="media-toolbar">
+                <div class="media-filters">
+                  <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All (${mediaCounts.all})</button>
+                  <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets (${mediaCounts.asset})</button>
+                  <button class="chip ${this._heroMediaFilter === 'embedded' ? 'active' : ''}" data-media-filter="embedded">Embedded (${mediaCounts.embedded})</button>
+                </div>
+                <div class="media-actions">
+                  <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview && !activeMedia.is_preview && mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>${activeMedia && activeMedia.is_preview ? 'Current Preview' : 'Set Preview'}</button>
+                  <button id="btn-hero-add-image" class="action-button" type="button" style="background: var(--primary-color);"><ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add Image</button>
+                  <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
+                  <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
+                </div>
               </div>
-              <div class="thumbs">
-                ${mediaItems.map((item, idx) => `
-                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''}" data-media-index="${idx}">
-                    ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
-                    <span class="src">${this._escapeHtml(item.type || 'media')}</span>
-                  </button>
-                `).join('')}
+              <input type="file" id="hero-photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
               </div>
             `)}
 
@@ -1260,7 +1504,6 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
       ` : ''}
 
-      ${this._renderPhotoLightbox()}
     `;
   }
 
@@ -1320,7 +1563,20 @@ class ModelDetailPopupCard extends HTMLElement {
     if (this._heroMediaFilter === 'all') {
       return list;
     }
-    return list.filter(item => String(item.type || '').toLowerCase() === this._heroMediaFilter);
+    return list.filter(item => {
+      const type = String(item && item.type || '').toLowerCase();
+      return type === this._heroMediaFilter;
+    });
+  }
+
+  _heroOrderMediaItems(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      return [];
+    }
+    const visible = list.filter(item => !item || !item.is_hidden);
+    const hidden = list.filter(item => item && item.is_hidden);
+    return [...visible, ...hidden];
   }
 
   _heroCurrentMedia(items) {
@@ -1337,11 +1593,17 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _stepHeroMedia(direction) {
-    const items = this._heroFilteredMediaItems(this._galleryItems());
+    const items = this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems()));
     if (!items.length) {
       return;
     }
-    const nextIndex = (this._heroActiveMediaIndex + direction + items.length) % items.length;
+    let nextIndex = this._heroActiveMediaIndex;
+    for (let i = 0; i < items.length; i++) {
+      nextIndex = (nextIndex + direction + items.length) % items.length;
+      if (!items[nextIndex] || !items[nextIndex].is_hidden) {
+        break;
+      }
+    }
     this._heroActiveMediaIndex = nextIndex;
     this._render();
   }
@@ -1375,13 +1637,13 @@ class ModelDetailPopupCard extends HTMLElement {
           <button data-panel-tab="panel-queue" class="${this._panelActiveTab === 'panel-queue' ? 'active' : ''}">Queue / Prints <span class="count">${queueCount}</span></button>
           <button data-panel-tab="panel-related" class="${this._panelActiveTab === 'panel-related' ? 'active' : ''}">Related Models <span class="count">${relatedCount}</span></button>
           <button data-panel-tab="panel-support" class="${this._panelActiveTab === 'panel-support' ? 'active' : ''}">Supporting Files <span class="count">${supportCount}</span></button>
-          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Contribution</button>
-          <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication <span class="count">#1495</span></button>
+          <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Source</button>
+          <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication</button>
         </div>
         ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
         ${panel('panel-related', 'Related Models', this._renderExtensionSlot('sections:related-models', this._renderRelatedModelsPanel(model)))}
         ${panel('panel-support', 'Supporting Files', this._renderExtensionSlot('sections:supporting-files', this._renderSupportingFilesPanel(model)))}
-        ${panel('panel-contribution', 'Contribution Lifecycle', this._renderExtensionSlot('sections:contribution-lifecycle', this._renderContributionPanel(model)))}
+        ${panel('panel-contribution', 'Source & Contribution', this._renderExtensionSlot('sections:contribution-lifecycle', this._renderContributionPanel(model)))}
         ${panel('panel-publication', 'Publication Pipeline', '<div class="queue-row"><strong>Extension host for #1495</strong><div class="detail">Mount publication pipeline workflow here.</div></div>')}
       </section>
     `;
@@ -1437,101 +1699,301 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderContributionPanel(model) {
-    // Check if model is downloaded (not original)
     const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const publishing = metadata.publishing || {};
+    const provenance = metadata.provenance || {};
     const publication_source = publishing.publication_source;
     const contribution = publishing.contribution || {};
-    
-    if (!publication_source || publication_source === 'original') {
-      return '<div class="contribution-message"><strong>Local Model</strong><div class="detail">Contribution tracking is only available for downloaded models. This model was created locally.</div></div>';
+    const source_platform_label = publishing.source_platform_label || '';
+    // Merge source_urls (user-managed list) with legacy published_urls values and source_download_url
+    const explicitUrls = Array.isArray(provenance.source_urls) ? provenance.source_urls : [];
+    const published_urls = publishing.published_urls || {};
+    const legacyUrls = Object.values(published_urls).filter(u => typeof u === 'string' && u.startsWith('http'));
+    const downloadUrl = typeof provenance.source_download_url === 'string' && provenance.source_download_url.startsWith('http') ? provenance.source_download_url : null;
+    // Build deduplicated combined list: explicit first, then legacy/download that aren't already present
+    const seenUrls = new Set(explicitUrls);
+    const mergedUrls = [...explicitUrls];
+    if (downloadUrl && !seenUrls.has(downloadUrl)) { mergedUrls.push(downloadUrl); seenUrls.add(downloadUrl); }
+    for (const u of legacyUrls) { if (!seenUrls.has(u)) { mergedUrls.push(u); seenUrls.add(u); } }
+    const source_urls = mergedUrls;
+    const isLocal = !publication_source || publication_source === 'local' || publication_source === 'original';
+
+    // Known source platforms for dropdown
+    const knownSources = [
+      { id: 'local', label: 'Local' },
+      { id: 'original', label: 'Original (My Design)' },
+      { id: 'makerworld', label: 'MakerWorld' },
+      { id: 'printables', label: 'Printables' },
+      { id: 'thingiverse', label: 'Thingiverse' },
+      { id: 'cults3d', label: 'Cults3D' },
+      { id: 'thangs', label: 'Thangs' },
+      { id: 'myminifactory', label: 'MyMiniFactory' },
+      { id: 'other', label: 'Other…' },
+    ];
+
+    const currentSource = publication_source || 'local';
+    const platformName = (knownSources.find(s => s.id === currentSource) || {}).label || currentSource;
+
+    // --- Source picker ---
+    const sourceOptions = knownSources.map(s =>
+      `<option value="${this._escapeHtml(s.id)}" ${currentSource === s.id ? 'selected' : ''}>${this._escapeHtml(s.label)}</option>`
+    ).join('');
+
+    const customLabelRow = (currentSource === 'other')
+      ? `<div class="source-custom-label">
+          <label>Custom source name</label>
+          <input type="text" class="source-label-input" data-source-field="source_platform_label"
+            value="${this._escapeHtml(source_platform_label)}" placeholder="e.g. MyMiniFactory, GitHub…" />
+        </div>`
+      : '';
+
+    const sourcePicker = `
+      <div class="source-section">
+        <div class="source-picker">
+          <label>Source</label>
+          <select class="source-select" data-source-field="publication_source">${sourceOptions}</select>
+        </div>
+        ${customLabelRow}
+      </div>`;
+
+    // --- Source URLs editor ---
+    const urlRows = source_urls.map((url, idx) => `
+      <div class="source-url-row" data-url-index="${idx}">
+        <input type="text" class="source-url-input" data-source-url-index="${idx}"
+          value="${this._escapeHtml(url)}" placeholder="https://…" />
+        <button class="url-action-btn url-open" data-action="open-source-url" data-url-index="${idx}" title="Open URL"
+          ${url && url.startsWith('http') ? '' : 'disabled'}>🔗</button>
+        <button class="url-action-btn url-remove" data-action="remove-source-url" data-url-index="${idx}" title="Remove URL">✕</button>
+      </div>
+    `).join('');
+
+    const sourceUrlsEditor = `
+      <div class="source-urls-section">
+        <div class="source-urls-header">
+          <label>Source URLs</label>
+          <button class="url-action-btn url-add" data-action="add-source-url" title="Add URL">＋</button>
+        </div>
+        ${source_urls.length === 0 ? '<div class="source-urls-empty">No source URLs. Click ＋ to add one.</div>' : ''}
+        <div class="source-urls-list">${urlRows}</div>
+      </div>`;
+
+    // --- Contribution checklist (only for non-local) ---
+    let checklistHtml = '';
+    if (!isLocal) {
+      const ratedAt = contribution.rated_at;
+      const boostedAt = contribution.boosted_at;
+      const photosSharedAt = contribution.photos_shared_at;
+      const ratedSkipped = contribution.rated_skipped_at;
+      const boostedSkipped = contribution.boosted_skipped_at;
+      const photosSharedSkipped = contribution.photos_shared_skipped_at;
+      const photoCaptureCount = model.photo_capture_count || 0;
+
+      const displayName = (currentSource === 'other')
+        ? (source_platform_label || platformName)
+        : platformName;
+
+      checklistHtml = `
+        <div class="source-divider"></div>
+        <div class="contribution-heading">Contribution Checklist</div>
+        <div class="contribution-checklist">
+          <div class="checklist-item">
+            <div class="status-badge complete">✓</div>
+            <div class="item-content">
+              <strong>Downloaded</strong>
+              <div class="detail">from ${this._escapeHtml(displayName)}</div>
+            </div>
+          </div>
+
+          <div class="checklist-item">
+            <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
+              ${photoCaptureCount > 0 ? '✓' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Printed</strong>
+              <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} print(s) captured` : 'No prints captured yet'}</div>
+            </div>
+          </div>
+
+          <div class="checklist-item step-row">
+            <div class="status-badge ${ratedAt ? 'complete' : ratedSkipped ? 'skipped' : 'pending'}">
+              ${ratedAt ? '✓' : ratedSkipped ? '⊗' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Rated on ${this._escapeHtml(displayName)}</strong>
+              ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
+            </div>
+            <div class="step-actions">
+              ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
+            </div>
+          </div>
+
+          <div class="checklist-item step-row">
+            <div class="status-badge ${boostedAt ? 'complete' : boostedSkipped ? 'skipped' : 'pending'}">
+              ${boostedAt ? '✓' : boostedSkipped ? '⊗' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Boosted</strong>
+              ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
+            </div>
+            <div class="step-actions">
+              ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
+            </div>
+          </div>
+
+          <div class="checklist-item">
+            <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
+              ${photoCaptureCount > 0 ? '✓' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Photos Captured</strong>
+              <div class="detail">${photoCaptureCount} photo(s) available</div>
+            </div>
+          </div>
+
+          <div class="checklist-item step-row">
+            <div class="status-badge ${photosSharedAt ? 'complete' : photosSharedSkipped ? 'skipped' : 'pending'}">
+              ${photosSharedAt ? '✓' : photosSharedSkipped ? '⊗' : '☐'}
+            </div>
+            <div class="item-content">
+              <strong>Photos Shared on ${this._escapeHtml(displayName)}</strong>
+              ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
+            </div>
+            <div class="step-actions">
+              ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
+              ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos</button>` : ''}
+            </div>
+          </div>
+        </div>`;
     }
 
-    const ratedAt = contribution.rated_at;
-    const boostedAt = contribution.boosted_at;
-    const photosSharedAt = contribution.photos_shared_at;
-    const ratedSkipped = contribution.rated_skipped_at;
-    const boostedSkipped = contribution.boosted_skipped_at;
-    const photosSharedSkipped = contribution.photos_shared_skipped_at;
-    const photoCaptureCount = model.photo_capture_count || 0;
-    
-    // Platform info
-    const platformName = {
-      'makerworld': 'MakerWorld',
-      'printables': 'Printables',
-      'thingiverse': 'Thingiverse',
-      'cults3d': 'Cults3D',
-      'manyfold': 'Manyfold',
-      'other': 'Community Source'
-    }[publication_source] || publication_source;
-
-    const checklist = `
-      <div class="contribution-checklist">
-        <div class="checklist-item">
-          <div class="status-badge complete">✓</div>
-          <div class="item-content">
-            <strong>Downloaded</strong>
-            <div class="detail">from ${this._escapeHtml(platformName)}</div>
-          </div>
-        </div>
-        
-        <div class="checklist-item">
-          <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-            ${photoCaptureCount > 0 ? '✓' : '○'}
-          </div>
-          <div class="item-content">
-            <strong>Printed</strong>
-            <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} print(s) captured` : 'No prints captured yet'}</div>
-          </div>
-        </div>
-
-        <div class="checklist-item">
-          <div class="status-badge ${ratedAt ? 'complete' : ratedSkipped ? 'skipped' : 'pending'}">
-            ${ratedAt ? '✓' : ratedSkipped ? '—' : '○'}
-          </div>
-          <div class="item-content">
-            <strong${ratedSkipped ? ' class="skipped-text"' : ''}>Rated on ${this._escapeHtml(platformName)}</strong>
-            ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
-          </div>
-          ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
-          <button class="action-button action-open" data-action="open-source">Open ↗</button>
-        </div>
-
-        <div class="checklist-item">
-          <div class="status-badge ${boostedAt ? 'complete' : boostedSkipped ? 'skipped' : 'pending'}">
-            ${boostedAt ? '✓' : boostedSkipped ? '—' : '○'}
-          </div>
-          <div class="item-content">
-            <strong${boostedSkipped ? ' class="skipped-text"' : ''}>Boosted</strong>
-            ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
-          </div>
-          ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
-        </div>
-
-        <div class="checklist-item">
-          <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-            ${photoCaptureCount > 0 ? '✓' : '○'}
-          </div>
-          <div class="item-content">
-            <strong>Photos Captured</strong>
-            <div class="detail">${photoCaptureCount} photo(s) available</div>
-          </div>
-        </div>
-
-        <div class="checklist-item">
-          <div class="status-badge ${photosSharedAt ? 'complete' : photosSharedSkipped ? 'skipped' : 'pending'}">
-            ${photosSharedAt ? '✓' : photosSharedSkipped ? '—' : '○'}
-          </div>
-          <div class="item-content">
-            <strong${photosSharedSkipped ? ' class="skipped-text"' : ''}>Photos Shared on ${this._escapeHtml(platformName)}</strong>
-            ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
-          </div>
-          ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
-          ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos ↗</button>` : ''}
-        </div>
-      </div>
+    return `
+      ${sourcePicker}
+      ${sourceUrlsEditor}
+      ${checklistHtml}
 
       <style>
+        .source-section {
+          display: grid;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        .source-picker {
+          display: grid;
+          grid-template-columns: 80px 1fr;
+          align-items: center;
+          gap: 8px;
+        }
+        .source-picker label,
+        .source-custom-label label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--secondary-text-color);
+        }
+        .source-select {
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .source-custom-label {
+          display: grid;
+          grid-template-columns: 80px 1fr;
+          align-items: center;
+          gap: 8px;
+        }
+        .source-label-input {
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 13px;
+        }
+        .source-urls-section {
+          margin-bottom: 16px;
+        }
+        .source-urls-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+        .source-urls-header label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--secondary-text-color);
+        }
+        .source-urls-empty {
+          font-size: 12px;
+          color: var(--secondary-text-color);
+          padding: 8px 0;
+        }
+        .source-urls-list {
+          display: grid;
+          gap: 6px;
+        }
+        .source-url-row {
+          display: grid;
+          grid-template-columns: 1fr auto auto;
+          gap: 4px;
+          align-items: center;
+        }
+        .source-url-input {
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 13px;
+          min-width: 0;
+        }
+        .url-action-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border: 1px solid var(--divider-color);
+          border-radius: 6px;
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          cursor: pointer;
+          font-size: 14px;
+          padding: 0;
+          transition: all 0.15s ease;
+        }
+        .url-action-btn:hover {
+          background: rgba(96, 165, 250, 0.1);
+          border-color: var(--primary-color);
+        }
+        .url-action-btn[disabled] {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+        .url-action-btn.url-remove:hover {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: rgb(239, 68, 68);
+          color: rgb(239, 68, 68);
+        }
+        .url-action-btn.url-add {
+          width: auto;
+          padding: 0 8px;
+          font-size: 16px;
+          font-weight: bold;
+        }
+        .source-divider {
+          border-top: 1px solid var(--divider-color);
+          margin: 8px 0;
+        }
+        .contribution-heading {
+          font-size: 13px;
+          font-weight: 600;
+          margin-bottom: 10px;
+          color: var(--primary-text-color);
+        }
         .contribution-message {
           padding: 12px;
           border-radius: 8px;
@@ -1561,6 +2023,10 @@ class ModelDetailPopupCard extends HTMLElement {
           border: 1px solid var(--divider-color);
           background: var(--secondary-background-color);
         }
+        .checklist-item.step-row {
+          grid-template-columns: 32px 1fr auto;
+          align-items: center;
+        }
         .status-badge {
           display: flex;
           align-items: center;
@@ -1580,16 +2046,13 @@ class ModelDetailPopupCard extends HTMLElement {
           background: rgba(156, 163, 175, 0.1);
           border: 1px solid rgba(156, 163, 175, 0.2);
           color: var(--secondary-text-color);
-        }
-        .status-badge.skipped {
-          background: rgba(156, 163, 175, 0.08);
-          border: 1px solid rgba(156, 163, 175, 0.15);
-          color: var(--secondary-text-color);
           font-size: 16px;
         }
-        .skipped-text {
-          text-decoration: line-through;
-          opacity: 0.6;
+        .status-badge.skipped {
+          background: rgba(251, 191, 36, 0.15);
+          border: 1px solid rgba(251, 191, 36, 0.3);
+          color: #fbbf24;
+          font-size: 16px;
         }
         .item-content {
           display: grid;
@@ -1603,36 +2066,48 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 11px;
           color: var(--secondary-text-color);
         }
+        .step-actions {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          justify-content: flex-end;
+        }
         .action-button {
           background: var(--primary-color);
           color: var(--text-primary-color);
           border: none;
           border-radius: 6px;
-          padding: 5px 10px;
-          font-size: 11px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
+          transition: all 0.2s ease;
         }
         .action-button:hover {
-          opacity: 0.9;
+          opacity: 0.85;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .action-button.action-open {
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          background: transparent;
+          color: var(--primary-color);
+          border: 1px solid var(--primary-color);
+          padding: 5px 11px;
+        }
+        .action-button.action-open:hover {
+          background: rgba(96, 165, 250, 0.1);
+          box-shadow: none;
         }
         .action-button.action-skip {
-          background: transparent;
-          color: var(--secondary-text-color);
-          border: 1px solid var(--divider-color);
-          font-size: 11px;
+          background: rgba(239, 68, 68, 0.1);
+          color: rgb(239, 68, 68);
+          border: 1px solid rgb(239, 68, 68);
         }
         .action-button.action-skip:hover {
-          background: rgba(156, 163, 175, 0.1);
+          background: rgba(239, 68, 68, 0.2);
         }
       </style>
     `;
-
-    return checklist;
   }
 
   _renderSummaryCard(model) {
@@ -1646,7 +2121,6 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="hero-right:summary">
         <div class="h">
           <span>Summary</span>
-          <span class="slot-chip">hero-right:summary</span>
         </div>
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
@@ -1668,14 +2142,23 @@ class ModelDetailPopupCard extends HTMLElement {
     const files = Array.isArray(model.files) ? model.files : [];
     const rows = files.length ? files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
+      const rawName = String(file.filename || file.asset_filename || file.id || '');
+      const extIdx = rawName.lastIndexOf('.');
+      const ext = extIdx >= 0 ? rawName.slice(extIdx + 1).toLowerCase() : '';
+      const extUpper = ext.toUpperCase() || 'FILE';
+      const extClass = ext ? `x-${this._escapeHtml(ext)}` : '';
+      const thumbUrl = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
       const meta = [
         file.asset_type ? String(file.asset_type) : '',
         file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / (1024 * 1024))} MB` : '',
       ].filter(Boolean).join(' | ');
+      const previewHtml = thumbUrl
+        ? `<img class="file-preview" src="${this._escapeHtml(thumbUrl)}" alt="${filename}" loading="lazy">`
+        : `<span class="file-ext-badge ${extClass}">${this._escapeHtml(extUpper)}</span>`;
       return `
         <article class="collapsible-group">
           <button class="collapse-toggle" data-collapse-toggle="file-${this._escapeHtml(String(file.id || filename))}">
-            <div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div>
+            <div style="display:flex;align-items:center;gap:10px;">${previewHtml}<div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div></div>
             <div>▾</div>
           </button>
           <div class="collapse-body ${this._collapsedSections[`file-${String(file.id || filename)}`] ? 'hidden' : ''}">
@@ -1689,7 +2172,6 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="panel:files-core">
         <div class="h">
           <span>Model Files</span>
-          <span class="slot-chip">panel:files-core</span>
         </div>
         <div class="files">${rows}</div>
       </section>
@@ -1707,7 +2189,7 @@ class ModelDetailPopupCard extends HTMLElement {
         body: JSON.stringify({ archive_id: archiveId, action })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await this._loadModelDetail();
+      await this._loadModelDetail({ silent: true });
     } catch (e) {
       // Optionally show error
       alert('Failed to update archive linkage: ' + e);
@@ -1766,7 +2248,6 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="sections:archive-linkage">
         <div class="h">
           <span>Related Archives</span>
-          <span class="slot-chip">sections:archive-linkage</span>
         </div>
         <div class="files">
           ${candidateBanner}
@@ -1826,6 +2307,11 @@ class ModelDetailPopupCard extends HTMLElement {
             ${this._activeTab === 'gallery' && !this._isEditMode ? `
               <button class="action-button" id="btn-manage-photos">📸 Manage Photos</button>
             ` : ''}
+            ${this._activeTab === 'gallery' ? `
+              <button class="action-button" id="btn-add-image" style="background: var(--primary-color);">
+                <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add Image
+              </button>
+            ` : ''}
             ${this._activeTab === 'details' && this._isEditMode ? `
               <button class="action-button" id="btn-save" style="background: #4CAF50;" ${this._isSaving ? 'disabled' : ''}>
                 ${this._isSaving ? '⏳ Saving...' : '💾 Save'}
@@ -1872,40 +2358,290 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _galleryItems() {
+    const hiddenIds = this._hiddenMediaIdSet();
     const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
     const files = (this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files))
       ? this._modelDetail.model.files
       : [];
 
-    return [
-      ...photos.map((photo, idx) => {
+    const items = [];
+    const seenMediaIds = new Set();
+
+    const addItem = (item) => {
+      if (!item || !item.media_id || !item.url) {
+        return;
+      }
+      if (seenMediaIds.has(item.media_id)) {
+        return;
+      }
+      seenMediaIds.add(item.media_id);
+      item.is_hidden = hiddenIds.has(item.media_id);
+      items.push(item);
+    };
+
+    photos.forEach((photo, idx) => {
         const imageUrl = this._normalizeModelApiUrl(String(photo.image_url || photo.thumbnail_url || photo.preview_url || photo.url || '').trim());
         const thumbnailUrl = this._normalizeModelApiUrl(String(photo.thumbnail_url || photo.image_url || photo.preview_url || photo.url || '').trim());
-        return {
+        const photoId = String(photo.id || `photo-${idx + 1}`).trim();
+        addItem({
+          media_id: `photo:${photoId}`,
           id: photo.id,
           url: imageUrl || thumbnailUrl,
           thumbnail_url: thumbnailUrl || imageUrl,
           filename: photo.filename || `Photo ${idx + 1}`,
-          type: 'photo',
+          type: 'asset',
+          type_label: 'Asset',
+          can_set_preview: true,
+          can_hide: true,
+          can_delete: true,
           is_preview: Boolean(photo.is_preview),
-        };
-      }),
-      ...files
-        .filter(file => file && file.asset_type === 'image')
-        .map(file => {
-          const imageUrl = this._normalizeModelApiUrl(String(file.image_url || file.thumbnail_url || file.preview_url || file.download_url || '').trim());
-          const thumbnailUrl = this._normalizeModelApiUrl(String(file.thumbnail_url || file.image_url || file.preview_url || file.download_url || '').trim());
-          return {
-            id: file.id,
-            url: imageUrl || thumbnailUrl,
-            thumbnail_url: thumbnailUrl || imageUrl,
-            filename: file.filename || file.asset_filename || file.id,
-            type: 'asset',
-            asset_id: file.id,
-            is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
-          };
-        }),
-    ];
+        });
+      });
+
+    files
+      .filter(file => file && file.asset_type === 'image')
+      .forEach(file => {
+        const imageUrl = this._normalizeModelApiUrl(String(file.image_url || file.thumbnail_url || file.preview_url || file.download_url || '').trim());
+        const thumbnailUrl = this._normalizeModelApiUrl(String(file.thumbnail_url || file.image_url || file.preview_url || file.download_url || '').trim());
+        const assetId = String(file.asset_id || file.id || '').trim();
+        addItem({
+          media_id: `asset:${assetId}`,
+          id: file.id,
+          asset_id: assetId,
+          url: imageUrl || thumbnailUrl,
+          thumbnail_url: thumbnailUrl || imageUrl,
+          filename: file.filename || file.asset_filename || file.id,
+          type: 'asset',
+          type_label: 'Asset',
+          can_set_preview: true,
+          can_hide: true,
+          can_delete: true,
+          is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
+        });
+      });
+
+    files
+      .filter(file => file && file.asset_type !== 'image')
+      .forEach(file => {
+        const embeddedUrl = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
+        const embeddedThumb = this._normalizeModelApiUrl(String(file.thumbnail_url || file.thumbnail_lazy_url || file.preview_url || '').trim());
+        const assetId = String(file.asset_id || file.id || '').trim();
+        addItem({
+          media_id: `embedded:${assetId}`,
+          id: file.id,
+          asset_id: assetId,
+          url: embeddedUrl || embeddedThumb,
+          thumbnail_url: embeddedThumb || embeddedUrl,
+          filename: file.filename || file.asset_filename || file.id,
+          type: 'embedded',
+          type_label: 'Embedded',
+          can_set_preview: true,
+          can_hide: true,
+          can_delete: false,
+          is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
+        });
+      });
+
+    return items;
+  }
+
+  _hiddenMediaIdSet() {
+    const customFields = this._modelDetail && this._modelDetail.enrichment && this._modelDetail.enrichment.custom_fields
+      ? this._modelDetail.enrichment.custom_fields
+      : {};
+    const raw = customFields ? customFields[this._heroHiddenMediaFieldKey] : null;
+    const values = Array.isArray(raw)
+      ? raw
+      : (typeof raw === 'string' ? raw.split(',') : []);
+    const normalized = values
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    return new Set(normalized);
+  }
+
+  async _persistHiddenMediaIds(hiddenIds) {
+    const ids = Array.isArray(hiddenIds)
+      ? hiddenIds
+      : [];
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!base || !this._modelRef) {
+      return;
+    }
+    const response = await fetch(
+      `${base}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent(this._heroHiddenMediaFieldKey)}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ value: ids }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  }
+
+  async _toggleHeroMediaHidden(item) {
+    if (!item || !item.can_hide) {
+      return;
+    }
+    const mediaId = String(item.media_id || '').trim();
+    if (!mediaId) {
+      return;
+    }
+    try {
+      const hidden = this._hiddenMediaIdSet();
+      if (hidden.has(mediaId)) {
+        hidden.delete(mediaId);
+      } else {
+        hidden.add(mediaId);
+      }
+      const next = Array.from(hidden.values());
+      await this._persistHiddenMediaIds(next);
+      await this._loadModelDetail({ silent: true });
+    } catch (error) {
+      this._error = `Failed to update hidden image: ${error}`;
+      this._render();
+    }
+  }
+
+  async _handleSetAssetPreview(assetId) {
+    const normalizedAssetId = String(assetId || '').trim();
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!normalizedAssetId || !localModelId || !base) {
+      return;
+    }
+
+    const patchAssetRole = async (targetAssetId, role) => {
+      const response = await fetch(
+        `${base}/api/local/models/${encodeURIComponent(localModelId)}/assets/${encodeURIComponent(String(targetAssetId))}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ asset_role: role }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    };
+
+    const files = this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files)
+      ? this._modelDetail.model.files
+      : [];
+    const currentPreviewAssetIds = files
+      .filter(file => file && file.is_preview && String(file.asset_id || file.id || '').trim() && String(file.asset_id || file.id || '').trim() !== normalizedAssetId)
+      .map(file => String(file.asset_id || file.id || '').trim());
+
+    for (const currentId of currentPreviewAssetIds) {
+      await patchAssetRole(currentId, 'supporting');
+    }
+    await patchAssetRole(normalizedAssetId, 'preview');
+
+    await fetch(
+      `${base}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent('preview_photo_id')}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  async _handleSetHeroMediaPreview(item) {
+    if (!item || !item.can_set_preview || item.is_preview) {
+      return;
+    }
+    try {
+      if (item.media_id && item.media_id.startsWith('photo:')) {
+        await this._handleSetPhotoPreview(String(item.id || '').trim());
+        this._notifyBrowserDetailChanged();
+        return;
+      }
+      if (item.asset_id) {
+        await this._handleSetAssetPreview(item.asset_id);
+        await this._loadModelDetail({ silent: true });
+        this._notifyBrowserDetailChanged();
+        return;
+      }
+    } catch (error) {
+      this._error = `Failed to set preview: ${error}`;
+      this._render();
+    }
+  }
+
+  _handleDeleteHeroMedia(item) {
+    if (!item || !item.can_delete) {
+      return;
+    }
+    if (item.media_id && item.media_id.startsWith('photo:')) {
+      this._handleDeletePhoto(String(item.id || '').trim());
+    } else if (item.media_id && item.media_id.startsWith('asset:')) {
+      this._handleDeleteAsset(String(item.asset_id || item.id || '').trim());
+    }
+  }
+
+  _handleDeleteAsset(assetId) {
+    if (confirm('Are you sure you want to delete this image?')) {
+      this._performDeleteAsset(assetId);
+    }
+  }
+
+  async _performDeleteAsset(assetId) {
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!localModelId || !base || !assetId) return;
+
+    try {
+      const response = await fetch(
+        `${base}/api/local/models/${encodeURIComponent(localModelId)}/assets/${encodeURIComponent(assetId)}`,
+        { method: 'DELETE' }
+      );
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage = payload && payload.error
+          ? String(payload.error)
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      this._error = '';
+      await this._loadModelDetail({ silent: true });
+      await this._autoPromotePreviewAfterDelete();
+    } catch (error) {
+      console.error('Error deleting asset:', error);
+      this._error = `Failed to delete asset: ${error}`;
+      this._render();
+    }
+  }
+
+  /**
+   * After deleting a media item, if no remaining item is marked as preview,
+   * auto-promote the first visible candidate (non-hidden, can_set_preview).
+   * Gallery order gives natural priority: photos → image assets → embedded.
+   */
+  async _autoPromotePreviewAfterDelete() {
+    const items = this._galleryItems();
+    const hasPreview = items.some(i => i.is_preview);
+    if (hasPreview) return;
+
+    const candidate = items.find(i => !i.is_hidden && i.can_set_preview);
+    if (!candidate) return;
+
+    try {
+      await this._handleSetHeroMediaPreview(candidate);
+    } catch (err) {
+      console.warn('Auto-promote preview failed:', err);
+    }
   }
 
   _renderDetailsTab(model) {
@@ -1987,7 +2723,7 @@ class ModelDetailPopupCard extends HTMLElement {
         color: var(--secondary-text-color);
         font-size: 13px;
       ">
-        Use <strong>Manage Photos</strong> in the header to upload or delete photos.
+        Use <strong>+ Add Image</strong> to upload photos, or <strong>Manage Photos</strong> to set preview / delete.
       </div>
     ` : '';
     
@@ -1998,7 +2734,7 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="empty-state">
             <p>📸 No Images</p>
             <p>No photos or images available.</p>
-            ${this._isEditMode ? `<p><strong>Use the upload section below to add photos.</strong></p>` : ''}
+            <p><strong>Use the + Add Image button above to upload photos.</strong></p>
           </div>
           ${this._isEditMode ? `
             <div style="padding: 20px; text-align: center;">
@@ -2013,9 +2749,9 @@ class ModelDetailPopupCard extends HTMLElement {
                 <p style="margin: 8px 0; color: var(--primary-text-color); font-weight: 500;">Click to upload photos</p>
                 <p style="margin: 0; color: var(--secondary-text-color); font-size: 12px;">or drag and drop (JPG, PNG, WebP)</p>
               </div>
-              <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
             </div>
           ` : ''}
+          <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
         </div>
       `;
     }
@@ -2150,9 +2886,9 @@ class ModelDetailPopupCard extends HTMLElement {
               <p style="margin: 8px 0; color: var(--primary-text-color); font-weight: 500;">Click to upload more photos</p>
               <p style="margin: 0; color: var(--secondary-text-color); font-size: 12px;">or drag and drop (JPG, PNG, WebP)</p>
             </div>
-            <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
           </div>
         ` : ''}
+        <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
       </div>
     `;
   }
@@ -2655,7 +3391,7 @@ class ModelDetailPopupCard extends HTMLElement {
         
         // Reload model detail
         console.log('Reloading model detail after save...');
-        await this._loadModelDetail();
+        await this._loadModelDetail({ silent: true });
         
         // Exit edit mode and close popup
         this._isEditMode = false;
@@ -2683,7 +3419,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (photoIdx < 0 || photoIdx >= galleryItems.length) return;
 
     this._activePhotoIndex = photoIdx;
-    this._render();
+    this._openPhotoOverlay();
   }
 
   _closePhotoPreview() {
@@ -2691,7 +3427,7 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
     this._activePhotoIndex = null;
-    this._render();
+    this._closePhotoOverlay();
   }
 
   _stepPhotoPreview(direction) {
@@ -2703,45 +3439,184 @@ class ModelDetailPopupCard extends HTMLElement {
 
     const nextIndex = (this._activePhotoIndex + direction + galleryItems.length) % galleryItems.length;
     this._activePhotoIndex = nextIndex;
-    this._render();
+    this._renderPhotoOverlay();
   }
 
-  _renderPhotoLightbox() {
+  // ── Fullscreen photo overlay (dialog on document.body) ──
+
+  _openPhotoOverlay() {
+    this._ensureOverlayRoot();
+    this._renderPhotoOverlay();
+    if (this._overlayRoot && !this._overlayRoot.open) {
+      this._overlayRoot.showModal();
+    }
+    this._applyBodyScrollLock();
+    document.addEventListener('keydown', this._boundKeydownHandler);
+  }
+
+  _closePhotoOverlay() {
+    document.removeEventListener('keydown', this._boundKeydownHandler);
+    this._restoreBodyScrollLock();
+    if (this._overlayRoot && this._overlayRoot.open) {
+      this._overlayRoot.close();
+    }
+    this._activePhotoIndex = null;
+  }
+
+  _ensureOverlayRoot() {
+    if (this._overlayRoot) return;
+    const dialog = document.createElement('dialog');
+    dialog.setAttribute('aria-label', 'Full-screen gallery');
+    dialog.style.cssText = 'border:none;padding:0;margin:0;width:100vw;height:100vh;max-width:100vw;max-height:100vh;background:transparent;overflow:hidden;';
+    dialog.addEventListener('click', this._boundOverlayClickHandler);
+    dialog.addEventListener('cancel', this._boundOverlayCancelHandler);
+    document.body.appendChild(dialog);
+    this._overlayRoot = dialog;
+  }
+
+  _destroyOverlayRoot() {
+    if (!this._overlayRoot) return;
+    document.removeEventListener('keydown', this._boundKeydownHandler);
+    this._restoreBodyScrollLock();
+    this._overlayRoot.removeEventListener('click', this._boundOverlayClickHandler);
+    this._overlayRoot.removeEventListener('cancel', this._boundOverlayCancelHandler);
+    if (this._overlayRoot.open) this._overlayRoot.close();
+    this._overlayRoot.remove();
+    this._overlayRoot = null;
+  }
+
+  _applyBodyScrollLock() {
+    if (this._savedBodyOverflow == null) {
+      this._savedBodyOverflow = document.body.style.overflow || '';
+    }
+    document.body.style.overflow = 'hidden';
+  }
+
+  _restoreBodyScrollLock() {
+    if (this._savedBodyOverflow != null) {
+      document.body.style.overflow = this._savedBodyOverflow;
+      this._savedBodyOverflow = null;
+    }
+  }
+
+  _handleOverlayClick(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    if (target.closest('[data-action="collapse"]')) {
+      event.preventDefault();
+      this._closePhotoPreview();
+      return;
+    }
+    if (target.closest('[data-action="prev"]')) {
+      event.preventDefault();
+      this._stepPhotoPreview(-1);
+      return;
+    }
+    if (target.closest('[data-action="next"]')) {
+      event.preventDefault();
+      this._stepPhotoPreview(1);
+      return;
+    }
+    const thumb = target.closest('[data-index]');
+    if (thumb) {
+      event.preventDefault();
+      const idx = parseInt(thumb.dataset.index, 10);
+      if (Number.isFinite(idx)) {
+        this._activePhotoIndex = idx;
+        this._renderPhotoOverlay();
+      }
+      return;
+    }
+  }
+
+  _handleOverlayCancel(event) {
+    event.preventDefault();
+    this._closePhotoPreview();
+  }
+
+  _handleKeydown(event) {
+    if (this._activePhotoIndex == null) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closePhotoPreview();
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this._stepPhotoPreview(-1);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this._stepPhotoPreview(1);
+    }
+  }
+
+  _renderPhotoOverlay() {
+    if (!this._overlayRoot) return;
+
     const galleryItems = this._galleryItems();
-    
     if (!galleryItems.length || this._activePhotoIndex == null) {
-      return '';
+      this._overlayRoot.innerHTML = '';
+      return;
     }
 
     const index = Math.max(0, Math.min(this._activePhotoIndex, galleryItems.length - 1));
     const item = galleryItems[index] || {};
     const imageUrl = String(item.url || '').trim();
     if (!imageUrl) {
-      return '';
+      this._overlayRoot.innerHTML = '';
+      return;
     }
 
     const itemName = String(item.filename || `Item ${index + 1}`).trim() || `Item ${index + 1}`;
-    const escapedName = this._escapeHtml(itemName);
-    const escapedImageUrl = this._escapeHtml(imageUrl);
+    const modelName = (this._modelDetail && this._modelDetail.model && this._modelDetail.model.name) || this._modelRef || 'Model';
 
-    return `
-      <div class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo preview">
-        <div class="photo-lightbox-content">
-          <div class="photo-lightbox-stage">
-            <button class="photo-lightbox-close" id="btn-photo-lightbox-close" type="button" aria-label="Close photo preview">✕</button>
-            ${galleryItems.length > 1 ? `
-              <button class="photo-lightbox-nav prev" id="btn-photo-lightbox-prev" type="button" aria-label="Previous photo">‹</button>
-              <button class="photo-lightbox-nav next" id="btn-photo-lightbox-next" type="button" aria-label="Next photo">›</button>
-            ` : ''}
-            <img class="photo-lightbox-image" src="${escapedImageUrl}" alt="${escapedName}">
-          </div>
-          <div class="photo-lightbox-meta">
-            <div class="photo-lightbox-title">${escapedName}</div>
-            <div class="photo-lightbox-counter">${index + 1} / ${galleryItems.length}</div>
-          </div>
-        </div>
-      </div>
-    `;
+    this._overlayRoot.innerHTML =
+      '<style>' +
+      '.mdp-frame,.mdp-frame *{box-sizing:border-box;}' +
+      '.frame{position:fixed;inset:0;}' +
+      '.backdrop{appearance:none;border:none;position:absolute;inset:0;background:rgba(4,8,15,0.94);padding:0;cursor:pointer;}' +
+      '.shell{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;height:100%;box-sizing:border-box;padding:clamp(16px,2.2vw,28px);padding-top:max(clamp(16px,2.2vw,28px), env(safe-area-inset-top));padding-right:max(clamp(16px,2.2vw,28px), env(safe-area-inset-right));padding-bottom:max(clamp(16px,2.2vw,28px), env(safe-area-inset-bottom));padding-left:max(clamp(16px,2.2vw,28px), env(safe-area-inset-left));}' +
+      '.header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;color:#fff;}' +
+      '.title{font:700 clamp(18px,2.2vw,28px)/1.2 system-ui,sans-serif;letter-spacing:0.01em;}' +
+      '.subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}' +
+      '.actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;}' +
+      '.button{appearance:none;border:1px solid rgba(255,255,255,0.24);border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.10);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;transition:background .16s ease,border-color .16s ease,transform .16s ease;}' +
+      '.button:hover,.button:focus-visible{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.42);box-shadow:0 0 0 1px rgba(255,255,255,0.12),0 10px 24px rgba(0,0,0,0.2);transform:translateY(-1px);outline:none;}' +
+      '.button:active{transform:translateY(0);}' +
+      '.stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;border-radius:24px;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.98));box-shadow:0 24px 60px rgba(0,0,0,0.42);}' +
+      '.image-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:0;padding:clamp(10px,1.6vw,22px);box-sizing:border-box;}' +
+      '.image{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;border-radius:18px;background:rgba(15,23,42,0.32);}' +
+      '.nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:56px;height:56px;border-radius:999px;background:rgba(255,255,255,0.14);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);}' +
+      '.nav.prev{left:16px;}' +
+      '.nav.next{right:16px;}' +
+      '.filmstrip{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 6px;}' +
+      '.thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease,transform 120ms ease;}' +
+      '.thumb.active{border-color:#90caf9;opacity:1;transform:translateY(-1px);}' +
+      '.thumb img{display:block;width:108px;height:108px;object-fit:cover;background:rgba(15,23,42,0.35);}' +
+      "dialog[aria-label='Full-screen gallery']::backdrop{background:transparent;}" +
+      '@media (max-width: 900px){.shell{gap:12px;}.thumb img{width:84px;height:84px;}.nav{width:48px;height:48px;font-size:26px;}}' +
+      '@media (max-width: 640px){.header{gap:12px;}.title{font-size:18px;}.subtitle{font-size:13px;}.button{padding:10px 14px;}.stage{border-radius:20px;}.image-wrap{padding:10px;}.nav.prev{left:10px;}.nav.next{right:10px;}.thumb img{width:72px;height:72px;}}' +
+      '</style>' +
+      '<div class="frame mdp-frame">' +
+      '<button class="backdrop" type="button" data-action="collapse" aria-label="Close full-screen gallery"></button>' +
+      '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(modelName) + '">' +
+      '<div class="header">' +
+      '<div><div class="title">' + this._escapeHtml(modelName) + '</div><div class="subtitle">' + this._escapeHtml(itemName) + ' \u00b7 ' + (index + 1) + ' / ' + galleryItems.length + '</div></div>' +
+      '<div class="actions"><button class="button" type="button" data-action="collapse">Close</button></div>' +
+      '</div>' +
+      '<div class="stage">' +
+      '<div class="image-wrap"><img class="image" src="' + this._escapeHtml(imageUrl) + '" alt="' + this._escapeHtml(itemName) + '" loading="eager" decoding="async"></div>' +
+      (galleryItems.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : '') +
+      '</div>' +
+      '<div class="filmstrip">' + galleryItems.map(function (gi, idx) {
+        var thumbUrl = gi.thumbnail_url || gi.url || '';
+        var thumbAlt = gi.filename || 'Item ' + (idx + 1);
+        return '<button class="thumb' + (idx === index ? ' active' : '') + '" type="button" data-index="' + idx + '" aria-label="' + this._escapeHtml(thumbAlt) + '">' +
+          (thumbUrl ? '<img src="' + this._escapeHtml(thumbUrl) + '" alt="' + this._escapeHtml(thumbAlt) + '" loading="lazy" decoding="async">' : '') +
+          '</button>';
+      }.bind(this)).join('') + '</div>' +
+      '</div>' +
+      '</div>';
   }
 
   async _handleSetPhotoPreview(photoId) {
@@ -2771,8 +3646,7 @@ class ModelDetailPopupCard extends HTMLElement {
       
       // Reload model detail
       this._error = '';
-      await this._loadModelDetail();
-      this._render();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       console.error('Error setting preview photo:', error);
       this._error = `Failed to set preview: ${error}`;
@@ -2813,8 +3687,8 @@ class ModelDetailPopupCard extends HTMLElement {
       
       // Reload model detail
       this._error = '';
-      await this._loadModelDetail();
-      this._render();
+      await this._loadModelDetail({ silent: true });
+      await this._autoPromotePreviewAfterDelete();
     } catch (error) {
       console.error('Error deleting photo:', error);
       this._error = `Failed to delete photo: ${error}`;
@@ -2886,8 +3760,7 @@ class ModelDetailPopupCard extends HTMLElement {
       }
 
       this._error = '';
-      await this._loadModelDetail();
-      this._render();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       console.error('Error reading file:', error);
       this._error = `Failed to upload ${file.name}: ${error}`;
@@ -3159,7 +4032,7 @@ class ModelDetailPopupCard extends HTMLElement {
       });
       this._closeQueueDialog();
       // Reload model detail to refresh queued_items count
-      await this._loadModelDetail();
+      await this._loadModelDetail({ silent: true });
     } catch (error) {
       this._queueDialogSubmitting = false;
       this._queueDialogError = error && error.message ? String(error.message) : "Could not add to queue.";
@@ -3239,6 +4112,18 @@ class ModelDetailPopupCard extends HTMLElement {
       type: 'vertical-stack',
       cards: [this._buildModelViewerCardConfig()],
     };
+  }
+
+  _notifyBrowserDetailChanged() {
+    var modelRef = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    if (!modelRef) {
+      return;
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('model-catalog-detail-changed', {
+        detail: { modelRef: modelRef },
+      }));
+    } catch (_e) { /* ignore */ }
   }
 
   _fireBrowserModEvent(service, data) {
@@ -3349,6 +4234,95 @@ class ModelDetailPopupCard extends HTMLElement {
         }).catch(err => console.error('Notification failed:', err));
       }
     }
+  }
+
+  // --- Source panel save/action methods ---
+
+  async _saveSourceField(fieldKey, value) {
+    if (!this._modelRef) return;
+    const baseUrl = this._resolveModelSidecarUrl();
+    const url = `${baseUrl}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent(fieldKey)}`;
+    try {
+      const resp = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      });
+      if (!resp.ok) {
+        console.error(`Failed to save source field ${fieldKey}: ${resp.status}`);
+        return;
+      }
+      // Optimistically update local model state
+      this._applySourceFieldLocally(fieldKey, value);
+      this._render();
+    } catch (err) {
+      console.error(`Error saving source field ${fieldKey}:`, err);
+    }
+  }
+
+  _applySourceFieldLocally(fieldKey, value) {
+    if (!this._modelDetail?.model) return;
+    const model = this._modelDetail.model;
+    if (!model.structured_metadata) model.structured_metadata = {};
+    const sm = model.structured_metadata;
+    if (!sm.publishing) sm.publishing = {};
+    if (!sm.provenance) sm.provenance = {};
+
+    if (fieldKey === 'publication_source') {
+      sm.publishing.publication_source = value;
+    } else if (fieldKey === 'source_platform_label') {
+      sm.publishing.source_platform_label = value;
+    } else if (fieldKey === 'source_urls') {
+      sm.provenance.source_urls = value;
+    }
+  }
+
+  _getSourceUrls() {
+    const model = this._modelDetail?.model;
+    if (!model) return [];
+    const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
+    const provenance = metadata.provenance || {};
+    const publishing = metadata.publishing || {};
+    const explicitUrls = Array.isArray(provenance.source_urls) ? [...provenance.source_urls] : [];
+    const published_urls = publishing.published_urls || {};
+    const legacyUrls = Object.values(published_urls).filter(u => typeof u === 'string' && u.startsWith('http'));
+    const downloadUrl = typeof provenance.source_download_url === 'string' && provenance.source_download_url.startsWith('http') ? provenance.source_download_url : null;
+    const seen = new Set(explicitUrls);
+    const merged = [...explicitUrls];
+    if (downloadUrl && !seen.has(downloadUrl)) { merged.push(downloadUrl); seen.add(downloadUrl); }
+    for (const u of legacyUrls) { if (!seen.has(u)) { merged.push(u); seen.add(u); } }
+    return merged;
+  }
+
+  async _addSourceUrl() {
+    const urls = this._getSourceUrls();
+    urls.push('');
+    await this._saveSourceField('source_urls', urls);
+  }
+
+  async _removeSourceUrl(index) {
+    const urls = this._getSourceUrls();
+    if (index < 0 || index >= urls.length) return;
+    const url = urls[index];
+    const confirmMsg = url ? `Remove URL "${url}"?` : 'Remove this empty URL entry?';
+    if (!confirm(confirmMsg)) return;
+    urls.splice(index, 1);
+    await this._saveSourceField('source_urls', urls);
+  }
+
+  _openSourceUrl(index) {
+    const urls = this._getSourceUrls();
+    const url = urls[index];
+    if (url && typeof url === 'string' && url.startsWith('http')) {
+      window.open(url, '_blank');
+    }
+  }
+
+  async _updateSourceUrl(index, newValue) {
+    const urls = this._getSourceUrls();
+    if (index < 0 || index >= urls.length) return;
+    urls[index] = newValue;
+    await this._saveSourceField('source_urls', urls);
   }
 
   _openSourcePlatform() {
