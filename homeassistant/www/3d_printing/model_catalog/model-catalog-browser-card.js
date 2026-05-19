@@ -1,4 +1,4 @@
-import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=2';
+import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=4';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
 
