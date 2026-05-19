@@ -2915,8 +2915,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
           img.removeAttribute('data-thumbnail-lazy-url');
           img.src = String(cachedObjectUrl);
         } else {
-          img.removeAttribute('src');
-          img.setAttribute('data-thumbnail-lazy-url', mediaUrl);
+          // Set src directly via preload (like the media card) instead of
+          // relying on the IntersectionObserver which can miss already-visible
+          // images after a Set-Preview change.
+          img.removeAttribute('data-thumbnail-lazy-url');
+          var preload = new Image();
+          preload.decoding = 'async';
+          (function (targetImg, url) {
+            preload.onload = function () {
+              targetImg.src = url;
+            };
+          })(img, mediaUrl);
+          preload.src = mediaUrl;
         }
       } else {
         img.removeAttribute('data-thumbnail-lazy-url');
