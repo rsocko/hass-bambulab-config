@@ -1490,7 +1490,7 @@ class ModelDetailPopupCard extends HTMLElement {
             ${ratedAt ? '✓' : ratedSkipped ? '⊗' : '☐'}
           </div>
           <div class="item-content">
-            <strong${ratedSkipped ? ' class="skipped-text"' : ''}>Rated on ${this._escapeHtml(platformName)}</strong>
+            <strong>Rated on ${this._escapeHtml(platformName)}</strong>
             ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
           <div class="step-actions">
@@ -1504,7 +1504,7 @@ class ModelDetailPopupCard extends HTMLElement {
             ${boostedAt ? '✓' : boostedSkipped ? '⊗' : '☐'}
           </div>
           <div class="item-content">
-            <strong${boostedSkipped ? ' class="skipped-text"' : ''}>Boosted</strong>
+            <strong>Boosted</strong>
             ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
           <div class="step-actions">
@@ -1527,7 +1527,7 @@ class ModelDetailPopupCard extends HTMLElement {
             ${photosSharedAt ? '✓' : photosSharedSkipped ? '⊗' : '☐'}
           </div>
           <div class="item-content">
-            <strong${photosSharedSkipped ? ' class="skipped-text"' : ''}>Photos Shared on ${this._escapeHtml(platformName)}</strong>
+            <strong>Photos Shared on ${this._escapeHtml(platformName)}</strong>
             ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
           <div class="step-actions">
@@ -1597,10 +1597,6 @@ class ModelDetailPopupCard extends HTMLElement {
           border: 1px solid rgba(251, 191, 36, 0.3);
           color: #fbbf24;
           font-size: 16px;
-        }
-        .skipped-text {
-          text-decoration: line-through;
-          opacity: 0.6;
         }
         .item-content {
           display: grid;
