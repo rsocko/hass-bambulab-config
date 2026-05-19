@@ -358,7 +358,8 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
 
   _canDeleteStatus(status) {
     var normalized = String(status || '').trim().toLowerCase();
-    return normalized === 'queued' || normalized === 'failed';
+    var deletable = { queued: true, failed: true, submitted: true, validated_ready: true, validated_warning: true, deferred: true };
+    return deletable[normalized] === true;
   }
 
   _canDeleteItem(item) {
@@ -413,7 +414,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
 
   async _deleteItem(itemId, status) {
     if (!this._canDeleteStatus(status)) {
-      this._error = 'Delete is only allowed for queued or failed items.';
+      this._error = 'Delete is only allowed for non-terminal intake items.';
       this._render();
       return;
     }
@@ -579,7 +580,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       }
     }
     if (action === 'delete') {
-      var deleteMessage = 'Delete ' + String(selectedItems.length) + ' selected intake item(s) from the queue? This cannot be undone.\n\nOnly queued/failed items can be deleted; others will be reported as skipped.';
+      var deleteMessage = 'Delete ' + String(selectedItems.length) + ' selected intake item(s) from the queue? This cannot be undone.\n\nOnly non-terminal items can be deleted; others will be reported as skipped.';
       var confirmedBatchDelete = await this._showConfirmDialog({
         title: 'Delete Selected Intake Items?',
         message: deleteMessage,

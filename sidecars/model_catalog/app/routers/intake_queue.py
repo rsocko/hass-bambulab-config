@@ -1841,13 +1841,14 @@ def intake_queue_delete_upload(request: Request, upload_id: str) -> Any:
             )
         
         current_status = row["status"]
-        if current_status not in {"queued", "failed"}:
+        deletable_statuses = {"queued", "failed", "submitted", "validated_ready", "validated_warning", "deferred"}
+        if current_status not in deletable_statuses:
             return JSONResponse(
                 status_code=409,
                 content={
                     "success": False,
                     "error": "cannot_delete_status",
-                    "message": f"Cannot delete upload with status '{current_status}'. Only 'queued' and 'failed' uploads can be deleted.",
+                    "message": f"Cannot delete upload with status '{current_status}'. Only non-terminal uploads can be deleted.",
                 },
             )
         
