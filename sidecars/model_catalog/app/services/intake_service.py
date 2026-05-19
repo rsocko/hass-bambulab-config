@@ -8,33 +8,33 @@ and working group creation from ingested items.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from sqlite3 import connect
 from typing import Any
 
+from .intake_eligibility_service import ACTIVE_QUEUE_STATES, TERMINAL_STATES
 
-# Intake queue statuses considered "in-flight" — the upload has been submitted
-# but its files have NOT yet landed in a destination table (working_items or
-# model_catalog_assets).  Terminal statuses like 'committed', 'cleanup_done',
-# etc. are excluded because their files are already represented in inventory.
-_INFLIGHT_INTAKE_STATUSES = (
-    "queued",
-    "verified",
-    "uploaded_unverified",
-    "uploaded_verified",
-)
+logger = logging.getLogger(__name__)
+
+# Intake uploads in a terminal inbox_state have already landed their files in
+# a destination table (working_items or model_catalog_assets).  Exclude them
+# from dedup so that deleting a working group or catalog entry lets you
+# re-import the same files without ghost hash collisions.
+_TERMINAL_INBOX_STATES = tuple(sorted(TERMINAL_STATES))
 
 
 def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
     """
     Read file hashes from **in-flight** intake queue uploads only.
 
-    Only uploads whose status indicates they have NOT yet been committed to a
-    destination (working group or catalog) are included.  Terminal-status
-    uploads (committed, published, cleanup_done, …) are excluded because their
-    files are already represented in the inventory tables (working_items /
-    model_catalog_assets).
+    Only uploads whose inbox_state indicates they have NOT yet reached a
+    terminal workflow state are included.  Terminal-state uploads
+    (grouped_new, published_by_destination, rejected, …) are excluded
+    because their files are already represented in the inventory tables
+    (working_items / model_catalog_assets).
 
     Args:
         db_path: Path to SQLite database
@@ -44,15 +44,15 @@ def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
     """
     connection = connect(db_path)
     try:
-        placeholders = ", ".join("?" for _ in _INFLIGHT_INTAKE_STATUSES)
+        placeholders = ", ".join("?" for _ in _TERMINAL_INBOX_STATES)
         rows = connection.execute(
             f"""
             SELECT file_hashes_json
             FROM intake_queue_uploads
             WHERE file_hashes_json IS NOT NULL
-              AND status IN ({placeholders})
+              AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
             """,
-            _INFLIGHT_INTAKE_STATUSES,
+            _TERMINAL_INBOX_STATES,
         ).fetchall()
         all_hashes: set[str] = set()
         for row in rows:
@@ -226,6 +226,47 @@ def build_dedup_collision_warning(
         "message": f"File hash already exists ({'in catalog or working inventory' if collision_type == 'indexed' else 'in current batch'})",
         "collision_type": collision_type,
     }
+
+
+def reject_orphaned_uploads(db_path: Path | str) -> int:
+    """Reject intake uploads left in active states from a previous process.
+
+    On startup, any upload still in an ``ACTIVE_QUEUE_STATES`` inbox_state
+    is definitionally orphaned — the wizard session that created it no longer
+    exists.  This function transitions those rows to ``rejected`` so they
+    don't block future imports via hash/filename dedup collisions.
+
+    Returns the number of uploads rejected.
+    """
+    active_states = tuple(sorted(ACTIVE_QUEUE_STATES))
+    placeholders = ", ".join("?" for _ in active_states)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    conn = connect(db_path)
+    try:
+        cursor = conn.execute(
+            f"""
+            UPDATE intake_queue_uploads
+            SET inbox_state = 'rejected',
+                terminal_action = 'auto_rejected_startup',
+                terminal_at = ?,
+                decision_note = 'Auto-rejected: orphaned upload from service restart',
+                updated_at = ?
+            WHERE inbox_state IN ({placeholders})
+            """,
+            (now_iso, now_iso, *active_states),
+        )
+        count = cursor.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+
+    if count:
+        logger.warning("Startup cleanup: rejected %d orphaned intake upload(s)", count)
+    else:
+        logger.info("Startup cleanup: no orphaned intake uploads found")
+
+    return count
 
 
 if __name__ == "__main__":

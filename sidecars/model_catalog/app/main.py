@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -20,10 +21,13 @@ from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
 from .routers.unified_queue import router as unified_queue_router
 from .routers.working import router as working_router
+from .services.intake_service import reject_orphaned_uploads
 from .services.shared_helpers import _sha256_file as _shared_sha256_file
 from .services.shared_helpers import _resolve_local_asset_storage_path as _shared_resolve_local_asset_storage_path
 from .settings import Settings, load_settings
 from .state import AppState
+
+logger = logging.getLogger(__name__)
 
 # Backward-compatible helper exports used by tests and monkeypatches.
 _sha256_file = _shared_sha256_file
@@ -46,6 +50,11 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         resolved_settings = settings if settings is not None else load_settings()
         app.state.model_catalog = AppState(resolved_settings)
         app.state.catalog_client = None  # Legacy stub — no longer used
+
+        # Reject any intake uploads left in active states from a previous
+        # process — they are definitionally orphaned on startup.
+        reject_orphaned_uploads(resolved_settings.db_path)
+
         try:
             yield
         finally:

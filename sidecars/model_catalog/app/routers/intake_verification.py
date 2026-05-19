@@ -37,7 +37,7 @@ from .._helpers import (
     _normalize_path_compare_key,
 )
 from ..services import get_all_indexed_file_hashes
-from ..services.intake_service import _INFLIGHT_INTAKE_STATUSES
+from ..services.intake_service import _TERMINAL_INBOX_STATES
 from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
 from ..services.intake_consolidation import _consolidate_overlapping_selections
 from ..services.intake_eligibility_service import ActionEligibility
@@ -527,9 +527,9 @@ def _read_indexed_filename_maps(
                 FROM intake_queue_uploads
                 WHERE source_entries_json IS NOT NULL
                   AND upload_id != ?
-                  AND status IN ({', '.join('?' for _ in _INFLIGHT_INTAKE_STATUSES)})
+                  AND COALESCE(inbox_state, 'submitted') NOT IN ({', '.join('?' for _ in _TERMINAL_INBOX_STATES)})
                 """,
-                (exclude_upload_id, *_INFLIGHT_INTAKE_STATUSES),
+                (exclude_upload_id, *_TERMINAL_INBOX_STATES),
             ).fetchall()
         else:
             queue_rows = connection.execute(
@@ -537,9 +537,9 @@ def _read_indexed_filename_maps(
                 SELECT source_entries_json
                 FROM intake_queue_uploads
                 WHERE source_entries_json IS NOT NULL
-                  AND status IN ({', '.join('?' for _ in _INFLIGHT_INTAKE_STATUSES)})
+                  AND COALESCE(inbox_state, 'submitted') NOT IN ({', '.join('?' for _ in _TERMINAL_INBOX_STATES)})
                 """,
-                _INFLIGHT_INTAKE_STATUSES,
+                _TERMINAL_INBOX_STATES,
             ).fetchall()
 
         for row in queue_rows:

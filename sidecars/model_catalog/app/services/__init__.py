@@ -7,6 +7,7 @@ from .intake_service import (
     get_working_items_hashes,
     detect_duplicate_files,
     build_dedup_collision_warning,
+    reject_orphaned_uploads,
 )
 from .model_detail_service import build_model_detail_response
 from .model_media_service import (
@@ -58,6 +59,7 @@ __all__ = [
     "get_working_items_hashes",
     "detect_duplicate_files",
     "build_dedup_collision_warning",
+    "reject_orphaned_uploads",
     "build_model_detail_response",
     "list_models_service",
     "search_models_service",

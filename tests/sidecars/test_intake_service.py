@@ -21,6 +21,7 @@ from sidecars.model_catalog.app.services import (
     get_working_items_hashes,
     detect_duplicate_files,
     build_dedup_collision_warning,
+    reject_orphaned_uploads,
 )
 from sidecars.model_catalog.app.settings import Settings
 
@@ -150,40 +151,43 @@ def test_get_all_intake_queue_hashes_reads_inflight_only(tmp_path: Path) -> None
     assert len(hashes) == 2
 
 
-def test_get_all_intake_queue_hashes_excludes_terminal_statuses(tmp_path: Path) -> None:
-    """Terminal-status uploads are excluded — their files live in inventory tables."""
+def test_get_all_intake_queue_hashes_excludes_terminal_inbox_states(tmp_path: Path) -> None:
+    """Terminal inbox_state uploads are excluded — their files live in inventory tables."""
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
 
     connection = sqlite3.connect(settings.db_path)
     try:
         now = "2026-04-30T00:00:00Z"
-        inflight_hash = "inflight_hash_aaa"
-        committed_hash = "committed_hash_bbb"
-        cleanup_hash = "cleanup_hash_ccc"
+        active_hash = "active_hash_aaa"
+        published_hash = "published_hash_bbb"
+        rejected_hash = "rejected_hash_ccc"
+        grouped_hash = "grouped_hash_ddd"
 
-        for upload_id, status, file_hash in [
-            ("upload-inflight", "queued", inflight_hash),
-            ("upload-committed", "committed", committed_hash),
-            ("upload-cleanup", "cleanup_done", cleanup_hash),
+        for upload_id, status, inbox_state, file_hash in [
+            ("upload-active", "queued", "submitted", active_hash),
+            ("upload-published", "verified", "published_by_destination", published_hash),
+            ("upload-rejected", "verified", "rejected", rejected_hash),
+            ("upload-grouped", "verified", "grouped_new", grouped_hash),
         ]:
             connection.execute(
                 """
                 INSERT INTO intake_queue_uploads (
-                    upload_id, status, source_entries_json, file_hashes_json,
+                    upload_id, status, inbox_state, source_entries_json, file_hashes_json,
                     verification_status, cleanup_policy, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (upload_id, status, "{}", json.dumps([file_hash]), "unverified", "keep", now, now),
+                (upload_id, status, inbox_state, "{}", json.dumps([file_hash]), "unverified", "keep", now, now),
             )
         connection.commit()
     finally:
         connection.close()
 
     hashes = get_all_intake_queue_hashes(settings.db_path)
-    assert inflight_hash.lower() in hashes
-    assert committed_hash.lower() not in hashes
-    assert cleanup_hash.lower() not in hashes
+    assert active_hash.lower() in hashes
+    assert published_hash.lower() not in hashes
+    assert rejected_hash.lower() not in hashes
+    assert grouped_hash.lower() not in hashes
     assert len(hashes) == 1
 
 
@@ -457,34 +461,9 @@ def test_bulk_discover_detects_queue_duplicates(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     
-    # Create a file in intake queue
-    connection = sqlite3.connect(settings.db_path)
-    try:
-        now = "2026-04-30T00:00:00Z"
-        queue_file_content = b"queue file content"
-        queue_file_hash = hashlib.sha256(queue_file_content).hexdigest()
-        
-        connection.execute(
-            """
-            INSERT INTO intake_queue_uploads (
-                upload_id, status, source_entries_json, file_hashes_json,
-                verification_status, cleanup_policy, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                "upload-1",
-                "queued",
-                "{}",
-                json.dumps([queue_file_hash]),
-                "unverified",
-                "keep",
-                now,
-                now,
-            ),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    now = "2026-04-30T00:00:00Z"
+    queue_file_content = b"queue file content"
+    queue_file_hash = hashlib.sha256(queue_file_content).hexdigest()
     
     # Create a file to discover with same hash
     discover_root = tmp_path / "discover"
@@ -494,6 +473,32 @@ def test_bulk_discover_detects_queue_duplicates(tmp_path: Path) -> None:
     
     app = create_app(settings=settings)
     with TestClient(app) as test_client:
+        # Insert the queue upload AFTER the app lifespan starts so the startup
+        # cleanup does not reject it before the test exercises dedup logic.
+        connection = sqlite3.connect(settings.db_path)
+        try:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, file_hashes_json,
+                    verification_status, cleanup_policy, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "upload-1",
+                    "queued",
+                    "{}",
+                    json.dumps([queue_file_hash]),
+                    "unverified",
+                    "keep",
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
         response = test_client.post(
             "/working-groups/bulk-discover",
             json={
@@ -520,34 +525,9 @@ def test_bulk_import_deduplicates_against_queue(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     
-    # Create a file in intake queue
-    connection = sqlite3.connect(settings.db_path)
-    try:
-        now = "2026-04-30T00:00:00Z"
-        queue_file_content = b"queue file content"
-        queue_file_hash = hashlib.sha256(queue_file_content).hexdigest()
-        
-        connection.execute(
-            """
-            INSERT INTO intake_queue_uploads (
-                upload_id, status, source_entries_json, file_hashes_json,
-                verification_status, cleanup_policy, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                "upload-1",
-                "queued",
-                "{}",
-                json.dumps([queue_file_hash]),
-                "unverified",
-                "keep",
-                now,
-                now,
-            ),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    now = "2026-04-30T00:00:00Z"
+    queue_file_content = b"queue file content"
+    queue_file_hash = hashlib.sha256(queue_file_content).hexdigest()
     
     # Create files to import
     import_root = tmp_path / "import"
@@ -559,6 +539,32 @@ def test_bulk_import_deduplicates_against_queue(tmp_path: Path) -> None:
     
     app = create_app(settings=settings)
     with TestClient(app) as test_client:
+        # Insert the queue upload AFTER the app lifespan starts so the startup
+        # cleanup does not reject it before the test exercises dedup logic.
+        connection = sqlite3.connect(settings.db_path)
+        try:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, file_hashes_json,
+                    verification_status, cleanup_policy, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "upload-1",
+                    "queued",
+                    "{}",
+                    json.dumps([queue_file_hash]),
+                    "unverified",
+                    "keep",
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
         response = test_client.post(
             "/working-groups/bulk-import",
             json={
@@ -585,3 +591,106 @@ def test_bulk_import_deduplicates_against_queue(tmp_path: Path) -> None:
     assert payload["duplicate_skipped_count"] >= 1
     # But the unique file should be imported
     assert payload["created_item_count"] >= 1
+
+
+def test_reject_orphaned_uploads_cleans_active_states(tmp_path: Path) -> None:
+    """Startup cleanup should reject uploads in any active inbox_state."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    now = "2026-05-01T00:00:00Z"
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for uid, inbox_state in [
+            ("orphan-submitted", "submitted"),
+            ("orphan-validated", "validated_ready"),
+            ("orphan-warning", "validated_warning"),
+            ("orphan-deferred", "deferred"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, file_hashes_json,
+                    verification_status, cleanup_policy, inbox_state,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (uid, "queued", "{}", "[]", "unverified", "keep", inbox_state, now, now),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    count = reject_orphaned_uploads(settings.db_path)
+    assert count == 4
+
+    # Verify all rows are now rejected
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        rows = connection.execute(
+            "SELECT upload_id, inbox_state, terminal_action, decision_note FROM intake_queue_uploads ORDER BY upload_id"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    for row in rows:
+        assert row[1] == "rejected"
+        assert row[2] == "auto_rejected_startup"
+        assert "orphaned" in row[3].lower()
+
+
+def test_reject_orphaned_uploads_leaves_terminal_states(tmp_path: Path) -> None:
+    """Uploads already in terminal states must not be touched."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    now = "2026-05-01T00:00:00Z"
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for uid, inbox_state in [
+            ("terminal-grouped", "grouped_new"),
+            ("terminal-published", "published_to_catalog"),
+            ("terminal-rejected", "rejected"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, file_hashes_json,
+                    verification_status, cleanup_policy, inbox_state,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (uid, "queued", "{}", "[]", "unverified", "keep", inbox_state, now, now),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    count = reject_orphaned_uploads(settings.db_path)
+    assert count == 0
+
+
+def test_reject_orphaned_uploads_handles_default_inbox_state(tmp_path: Path) -> None:
+    """Uploads with default inbox_state ('submitted') get rejected on startup."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    now = "2026-05-01T00:00:00Z"
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, file_hashes_json,
+                verification_status, cleanup_policy,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("default-state", "queued", "{}", "[]", "unverified", "keep", now, now),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    count = reject_orphaned_uploads(settings.db_path)
+    assert count == 1
