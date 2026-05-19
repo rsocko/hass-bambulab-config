@@ -1477,7 +1477,7 @@ class ModelDetailPopupCard extends HTMLElement {
         
         <div class="checklist-item">
           <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-            ${photoCaptureCount > 0 ? '✓' : '○'}
+            ${photoCaptureCount > 0 ? '✓' : '☐'}
           </div>
           <div class="item-content">
             <strong>Printed</strong>
@@ -1485,32 +1485,36 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
 
-        <div class="checklist-item">
+        <div class="checklist-item step-row">
           <div class="status-badge ${ratedAt ? 'complete' : ratedSkipped ? 'skipped' : 'pending'}">
-            ${ratedAt ? '✓' : ratedSkipped ? '—' : '○'}
+            ${ratedAt ? '✓' : ratedSkipped ? '⊗' : '☐'}
           </div>
           <div class="item-content">
             <strong${ratedSkipped ? ' class="skipped-text"' : ''}>Rated on ${this._escapeHtml(platformName)}</strong>
             ${ratedAt ? `<div class="detail">Rated at ${new Date(ratedAt).toLocaleDateString()}</div>` : ratedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
-          ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
-          <button class="action-button action-open" data-action="open-source">Open ↗</button>
+          <div class="step-actions">
+            ${!ratedAt && !ratedSkipped ? `<button class="action-button action-mark" data-action="rated">Mark Rated</button><button class="action-button action-skip" data-action="rated">Skip</button>` : ''}
+            <button class="action-button action-open" data-action="open-source">Open</button>
+          </div>
         </div>
 
-        <div class="checklist-item">
+        <div class="checklist-item step-row">
           <div class="status-badge ${boostedAt ? 'complete' : boostedSkipped ? 'skipped' : 'pending'}">
-            ${boostedAt ? '✓' : boostedSkipped ? '—' : '○'}
+            ${boostedAt ? '✓' : boostedSkipped ? '⊗' : '☐'}
           </div>
           <div class="item-content">
             <strong${boostedSkipped ? ' class="skipped-text"' : ''}>Boosted</strong>
             ${boostedAt ? `<div class="detail">Boosted at ${new Date(boostedAt).toLocaleDateString()}</div>` : boostedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
-          ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
+          <div class="step-actions">
+            ${!boostedAt && !boostedSkipped ? `<button class="action-button action-mark" data-action="boosted">Mark Boosted</button><button class="action-button action-skip" data-action="boosted">Skip</button>` : ''}
+          </div>
         </div>
 
         <div class="checklist-item">
           <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-            ${photoCaptureCount > 0 ? '✓' : '○'}
+            ${photoCaptureCount > 0 ? '✓' : '☐'}
           </div>
           <div class="item-content">
             <strong>Photos Captured</strong>
@@ -1518,16 +1522,18 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
 
-        <div class="checklist-item">
+        <div class="checklist-item step-row">
           <div class="status-badge ${photosSharedAt ? 'complete' : photosSharedSkipped ? 'skipped' : 'pending'}">
-            ${photosSharedAt ? '✓' : photosSharedSkipped ? '—' : '○'}
+            ${photosSharedAt ? '✓' : photosSharedSkipped ? '⊗' : '☐'}
           </div>
           <div class="item-content">
             <strong${photosSharedSkipped ? ' class="skipped-text"' : ''}>Photos Shared on ${this._escapeHtml(platformName)}</strong>
             ${photosSharedAt ? `<div class="detail">Shared at ${new Date(photosSharedAt).toLocaleDateString()}</div>` : photosSharedSkipped ? '<div class="detail">Skipped</div>' : ''}
           </div>
-          ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
-          ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos ↗</button>` : ''}
+          <div class="step-actions">
+            ${!photosSharedAt && !photosSharedSkipped ? `<button class="action-button action-mark" data-action="photos_shared">Mark Shared</button><button class="action-button action-skip" data-action="photos_shared">Skip</button>` : ''}
+            ${photoCaptureCount > 0 ? `<button class="action-button action-open" data-action="open-gallery">View Photos</button>` : ''}
+          </div>
         </div>
       </div>
 
@@ -1561,6 +1567,10 @@ class ModelDetailPopupCard extends HTMLElement {
           border: 1px solid var(--divider-color);
           background: var(--secondary-background-color);
         }
+        .checklist-item.step-row {
+          grid-template-columns: 32px 1fr auto;
+          align-items: center;
+        }
         .status-badge {
           display: flex;
           align-items: center;
@@ -1580,11 +1590,12 @@ class ModelDetailPopupCard extends HTMLElement {
           background: rgba(156, 163, 175, 0.1);
           border: 1px solid rgba(156, 163, 175, 0.2);
           color: var(--secondary-text-color);
+          font-size: 16px;
         }
         .status-badge.skipped {
-          background: rgba(156, 163, 175, 0.08);
-          border: 1px solid rgba(156, 163, 175, 0.15);
-          color: var(--secondary-text-color);
+          background: rgba(251, 191, 36, 0.15);
+          border: 1px solid rgba(251, 191, 36, 0.3);
+          color: #fbbf24;
           font-size: 16px;
         }
         .skipped-text {
@@ -1603,31 +1614,49 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 11px;
           color: var(--secondary-text-color);
         }
+        .step-actions {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          justify-content: flex-end;
+        }
+        .step-actions .action-open {
+          order: -1;
+          margin-right: auto;
+        }
         .action-button {
           background: var(--primary-color);
           color: var(--text-primary-color);
           border: none;
           border-radius: 6px;
-          padding: 5px 10px;
-          font-size: 11px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
+          transition: all 0.2s ease;
         }
         .action-button:hover {
-          opacity: 0.9;
+          opacity: 0.85;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .action-button.action-open {
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          background: transparent;
+          color: var(--primary-color);
+          border: 1px solid var(--primary-color);
+          padding: 5px 11px;
+        }
+        .action-button.action-open:hover {
+          background: rgba(96, 165, 250, 0.1);
+          box-shadow: none;
         }
         .action-button.action-skip {
-          background: transparent;
-          color: var(--secondary-text-color);
-          border: 1px solid var(--divider-color);
-          font-size: 11px;
+          background: rgba(239, 68, 68, 0.1);
+          color: rgb(239, 68, 68);
+          border: 1px solid rgb(239, 68, 68);
         }
         .action-button.action-skip:hover {
-          background: rgba(156, 163, 175, 0.1);
+          background: rgba(239, 68, 68, 0.2);
         }
       </style>
     `;
