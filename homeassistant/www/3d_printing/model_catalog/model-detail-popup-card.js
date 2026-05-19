@@ -51,6 +51,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._activePhotoIndex = null;
     this._heroMediaFilter = 'all';
     this._heroActiveMediaIndex = 0;
+    this._heroHiddenMediaFieldKey = 'media_hidden_ids';
     this._overflowOpen = false;
     this._panelMode = 'tabs';
     this._panelActiveTab = 'panel-queue';
@@ -271,6 +272,33 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('#btn-hero-next')) {
       event.preventDefault();
       this._stepHeroMedia(1);
+      return;
+    }
+
+    if (target.closest('#btn-hero-set-preview')) {
+      event.preventDefault();
+      const active = this._heroCurrentMedia(this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems())));
+      if (active) {
+        this._handleSetHeroMediaPreview(active);
+      }
+      return;
+    }
+
+    if (target.closest('#btn-hero-hide-image')) {
+      event.preventDefault();
+      const active = this._heroCurrentMedia(this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems())));
+      if (active) {
+        this._toggleHeroMediaHidden(active);
+      }
+      return;
+    }
+
+    if (target.closest('#btn-hero-delete-image')) {
+      event.preventDefault();
+      const active = this._heroCurrentMedia(this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems())));
+      if (active) {
+        this._handleDeleteHeroMedia(active);
+      }
       return;
     }
 
@@ -749,7 +777,14 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderPopup() {
     const model = this._modelDetail.model || {};
-    const mediaItems = this._heroFilteredMediaItems(this._galleryItems());
+    const allGalleryItems = this._galleryItems();
+    const mediaCounts = {
+      all: allGalleryItems.length,
+      photo: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'photo').length,
+      asset: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'asset').length,
+      embedded: allGalleryItems.filter(item => String(item && item.type || '').toLowerCase() === 'embedded').length,
+    };
+    const mediaItems = this._heroOrderMediaItems(this._heroFilteredMediaItems(allGalleryItems));
     const activeMedia = this._heroCurrentMedia(mediaItems);
     const creator = this._escapeHtml(String(model.creator_name || 'Unknown'));
     const collections = Array.isArray(model.collection_names) ? model.collection_names : [];
@@ -763,6 +798,7 @@ class ModelDetailPopupCard extends HTMLElement {
         .popup-shell {
           display: grid;
           gap: 4px;
+          margin-top: -12px;
           color: var(--primary-text-color);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
@@ -774,7 +810,7 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 8px;
           flex-wrap: wrap;
           border-bottom: 1px solid var(--divider-color);
-          padding: 4px 10px;
+          padding: 0 10px 4px;
         }
         .title { display: flex; align-items: center; }
         .title span { color: var(--secondary-text-color); font-size: 11px; line-height: 1.2; }
@@ -902,6 +938,7 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow: hidden;
           position: relative;
           min-height: 280px;
+          aspect-ratio: 4 / 3;
           background: var(--secondary-background-color);
           display: flex;
           align-items: center;
@@ -909,7 +946,7 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .main-media img {
           width: 100%;
-          max-height: 420px;
+          height: 100%;
           object-fit: contain;
           display: block;
         }
@@ -1000,8 +1037,17 @@ class ModelDetailPopupCard extends HTMLElement {
           background: rgba(0, 0, 0, 0.55);
           color: #fff;
           font-size: 22px;
+          line-height: 1;
           padding: 0;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(10px);
+        }
+        .main-nav-btn[disabled] {
+          opacity: 0.45;
+          cursor: default;
         }
         .main-nav-btn.prev { left: 10px; }
         .main-nav-btn.next { right: 10px; }
@@ -1010,6 +1056,35 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 8px;
           flex-wrap: wrap;
           padding: 0 12px 10px;
+        }
+        .media-actions .action-button {
+          appearance: none;
+          border: 1px solid rgba(148,163,184,0.32);
+          border-radius: 999px;
+          padding: 8px 12px;
+          background: rgba(255,255,255,0.04);
+          color: var(--primary-text-color);
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease;
+        }
+        .media-actions .action-button:hover,
+        .media-actions .action-button:focus-visible {
+          background: rgba(255,255,255,0.10);
+          border-color: rgba(148,163,184,0.6);
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.14),0 4px 10px rgba(15,23,42,0.12);
+          outline: none;
+        }
+        .media-actions .action-button.danger {
+          background: rgba(239,68,68,0.08);
+          border-color: rgba(239,68,68,0.28);
+        }
+        .media-actions .action-button[disabled] {
+          opacity: 0.55;
+          cursor: not-allowed;
+          box-shadow: none;
         }
         .thumbs {
           padding: 0 12px 12px;
@@ -1041,6 +1116,24 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 999px;
           background: rgba(0,0,0,0.62);
           color: #fff;
+        }
+        .thumb.hidden {
+          opacity: 0.72;
+          order: 999;
+        }
+        .thumb .hidden-mark {
+          position: absolute;
+          top: 3px;
+          right: 3px;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          background: rgba(127,29,29,0.92);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 16px;
+          text-align: center;
         }
 
         .panel-shell {
@@ -1244,30 +1337,32 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="left">
             ${this._renderExtensionSlot('hero-left:media', `
               <div class="media-filters">
-                <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All</button>
-                <button class="chip ${this._heroMediaFilter === 'photo' ? 'active' : ''}" data-media-filter="photo">Uploaded</button>
-                <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets</button>
+                <button class="chip ${this._heroMediaFilter === 'all' ? 'active' : ''}" data-media-filter="all">All (${mediaCounts.all})</button>
+                <button class="chip ${this._heroMediaFilter === 'photo' ? 'active' : ''}" data-media-filter="photo">Uploaded (${mediaCounts.photo})</button>
+                <button class="chip ${this._heroMediaFilter === 'asset' ? 'active' : ''}" data-media-filter="asset">Assets (${mediaCounts.asset})</button>
+                <button class="chip ${this._heroMediaFilter === 'embedded' ? 'active' : ''}" data-media-filter="embedded">Embedded (${mediaCounts.embedded})</button>
               </div>
               <div class="main-media">
                 ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
-                <span class="badge">${this._escapeHtml(activeMedia && activeMedia.type ? activeMedia.type : 'image')}</span>
+                ${activeMedia && activeMedia.type_label ? `<span class="badge">${this._escapeHtml(activeMedia.type_label)}</span>` : ''}
                 <div class="main-overlay-tools">
                   <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
                   <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
                 </div>
-                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous">‹</button>
-                <button class="main-nav-btn next" id="btn-hero-next" title="Next">›</button>
+                <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.length > 1 ? '' : 'disabled'}>&#8249;</button>
+                <button class="main-nav-btn next" id="btn-hero-next" title="Next" ${mediaItems.length > 1 ? '' : 'disabled'}>&#8250;</button>
               </div>
               <div class="media-actions">
-                <button class="action-button ghost">Set preview</button>
-                <button class="action-button ghost">Hide image</button>
-                <button class="action-button ghost">Delete image</button>
+                <button id="btn-hero-set-preview" class="action-button" type="button" ${activeMedia && activeMedia.can_set_preview ? '' : 'disabled'}>Set Preview</button>
+                <button id="btn-hero-hide-image" class="action-button" type="button" ${activeMedia && activeMedia.can_hide ? '' : 'disabled'}>${activeMedia && activeMedia.is_hidden ? 'Unhide Image' : 'Hide Image'}</button>
+                <button id="btn-hero-delete-image" class="action-button danger" type="button" ${activeMedia && activeMedia.can_delete ? '' : 'disabled'}>Delete Image</button>
               </div>
               <div class="thumbs">
                 ${mediaItems.map((item, idx) => `
-                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''}" data-media-index="${idx}">
+                  <button class="thumb ${idx === this._heroActiveMediaIndex ? 'active' : ''} ${item.is_hidden ? 'hidden' : ''}" data-media-index="${idx}" title="${this._escapeHtml(item.filename || item.type_label || 'Media item')}">
                     ${item.thumbnail_url || item.url ? `<img src="${this._escapeHtml(item.thumbnail_url || item.url)}" alt="${this._escapeHtml(item.filename || 'thumb')}" loading="lazy">` : ''}
-                    <span class="src">${this._escapeHtml(item.type || 'media')}</span>
+                    <span class="src">${this._escapeHtml(item.type_label || item.type || 'Media')}${item.is_hidden ? ' · Hidden' : ''}</span>
+                    ${item.is_hidden ? '<span class="hidden-mark">✕</span>' : ''}
                   </button>
                 `).join('')}
               </div>
@@ -1360,7 +1455,23 @@ class ModelDetailPopupCard extends HTMLElement {
     if (this._heroMediaFilter === 'all') {
       return list;
     }
-    return list.filter(item => String(item.type || '').toLowerCase() === this._heroMediaFilter);
+    return list.filter(item => {
+      const type = String(item && item.type || '').toLowerCase();
+      if (this._heroMediaFilter === 'photo') {
+        return type === 'photo' || type === 'uploaded';
+      }
+      return type === this._heroMediaFilter;
+    });
+  }
+
+  _heroOrderMediaItems(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      return [];
+    }
+    const visible = list.filter(item => !item || !item.is_hidden);
+    const hidden = list.filter(item => item && item.is_hidden);
+    return [...visible, ...hidden];
   }
 
   _heroCurrentMedia(items) {
@@ -1377,7 +1488,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _stepHeroMedia(direction) {
-    const items = this._heroFilteredMediaItems(this._galleryItems());
+    const items = this._heroOrderMediaItems(this._heroFilteredMediaItems(this._galleryItems()));
     if (!items.length) {
       return;
     }
@@ -1934,40 +2045,225 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _galleryItems() {
+    const hiddenIds = this._hiddenMediaIdSet();
     const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
     const files = (this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files))
       ? this._modelDetail.model.files
       : [];
 
-    return [
-      ...photos.map((photo, idx) => {
+    const items = [];
+    const seenMediaIds = new Set();
+
+    const addItem = (item) => {
+      if (!item || !item.media_id || !item.url) {
+        return;
+      }
+      if (seenMediaIds.has(item.media_id)) {
+        return;
+      }
+      seenMediaIds.add(item.media_id);
+      item.is_hidden = hiddenIds.has(item.media_id);
+      items.push(item);
+    };
+
+    photos.forEach((photo, idx) => {
         const imageUrl = this._normalizeModelApiUrl(String(photo.image_url || photo.thumbnail_url || photo.preview_url || photo.url || '').trim());
         const thumbnailUrl = this._normalizeModelApiUrl(String(photo.thumbnail_url || photo.image_url || photo.preview_url || photo.url || '').trim());
-        return {
+        const photoId = String(photo.id || `photo-${idx + 1}`).trim();
+        addItem({
+          media_id: `photo:${photoId}`,
           id: photo.id,
           url: imageUrl || thumbnailUrl,
           thumbnail_url: thumbnailUrl || imageUrl,
           filename: photo.filename || `Photo ${idx + 1}`,
           type: 'photo',
+          type_label: 'Uploaded',
+          can_set_preview: true,
+          can_hide: false,
+          can_delete: true,
           is_preview: Boolean(photo.is_preview),
-        };
-      }),
-      ...files
-        .filter(file => file && file.asset_type === 'image')
-        .map(file => {
-          const imageUrl = this._normalizeModelApiUrl(String(file.image_url || file.thumbnail_url || file.preview_url || file.download_url || '').trim());
-          const thumbnailUrl = this._normalizeModelApiUrl(String(file.thumbnail_url || file.image_url || file.preview_url || file.download_url || '').trim());
-          return {
-            id: file.id,
-            url: imageUrl || thumbnailUrl,
-            thumbnail_url: thumbnailUrl || imageUrl,
-            filename: file.filename || file.asset_filename || file.id,
-            type: 'asset',
-            asset_id: file.id,
-            is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
-          };
-        }),
-    ];
+        });
+      });
+
+    files
+      .filter(file => file && file.asset_type === 'image')
+      .forEach(file => {
+        const imageUrl = this._normalizeModelApiUrl(String(file.image_url || file.thumbnail_url || file.preview_url || file.download_url || '').trim());
+        const thumbnailUrl = this._normalizeModelApiUrl(String(file.thumbnail_url || file.image_url || file.preview_url || file.download_url || '').trim());
+        const assetId = String(file.asset_id || file.id || '').trim();
+        addItem({
+          media_id: `asset:${assetId}`,
+          id: file.id,
+          asset_id: assetId,
+          url: imageUrl || thumbnailUrl,
+          thumbnail_url: thumbnailUrl || imageUrl,
+          filename: file.filename || file.asset_filename || file.id,
+          type: 'asset',
+          type_label: 'Asset',
+          can_set_preview: true,
+          can_hide: true,
+          can_delete: false,
+          is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
+        });
+      });
+
+    files
+      .filter(file => file && file.asset_type !== 'image')
+      .forEach(file => {
+        const embeddedUrl = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
+        const embeddedThumb = this._normalizeModelApiUrl(String(file.thumbnail_url || file.thumbnail_lazy_url || file.preview_url || '').trim());
+        const assetId = String(file.asset_id || file.id || '').trim();
+        addItem({
+          media_id: `embedded:${assetId}`,
+          id: file.id,
+          asset_id: assetId,
+          url: embeddedUrl || embeddedThumb,
+          thumbnail_url: embeddedThumb || embeddedUrl,
+          filename: file.filename || file.asset_filename || file.id,
+          type: 'embedded',
+          type_label: 'Embedded',
+          can_set_preview: false,
+          can_hide: true,
+          can_delete: false,
+          is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
+        });
+      });
+
+    return items;
+  }
+
+  _hiddenMediaIdSet() {
+    const customFields = this._modelDetail && this._modelDetail.enrichment && this._modelDetail.enrichment.custom_fields
+      ? this._modelDetail.enrichment.custom_fields
+      : {};
+    const raw = customFields ? customFields[this._heroHiddenMediaFieldKey] : null;
+    const values = Array.isArray(raw)
+      ? raw
+      : (typeof raw === 'string' ? raw.split(',') : []);
+    const normalized = values
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    return new Set(normalized);
+  }
+
+  async _persistHiddenMediaIds(hiddenIds) {
+    const ids = Array.isArray(hiddenIds)
+      ? hiddenIds
+      : [];
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!base || !this._modelRef) {
+      return;
+    }
+    const response = await fetch(
+      `${base}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent(this._heroHiddenMediaFieldKey)}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ value: ids }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  }
+
+  async _toggleHeroMediaHidden(item) {
+    if (!item || !item.can_hide) {
+      return;
+    }
+    const mediaId = String(item.media_id || '').trim();
+    if (!mediaId) {
+      return;
+    }
+    try {
+      const hidden = this._hiddenMediaIdSet();
+      if (hidden.has(mediaId)) {
+        hidden.delete(mediaId);
+      } else {
+        hidden.add(mediaId);
+      }
+      const next = Array.from(hidden.values());
+      await this._persistHiddenMediaIds(next);
+      await this._loadModelDetail();
+    } catch (error) {
+      this._error = `Failed to update hidden image: ${error}`;
+      this._render();
+    }
+  }
+
+  async _handleSetAssetPreview(assetId) {
+    const normalizedAssetId = String(assetId || '').trim();
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!normalizedAssetId || !localModelId || !base) {
+      return;
+    }
+
+    const patchAssetRole = async (targetAssetId, role) => {
+      const response = await fetch(
+        `${base}/api/local/models/${encodeURIComponent(localModelId)}/assets/${encodeURIComponent(String(targetAssetId))}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ asset_role: role }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    };
+
+    const files = this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files)
+      ? this._modelDetail.model.files
+      : [];
+    const currentPreviewAssetIds = files
+      .filter(file => file && file.is_preview && String(file.asset_id || file.id || '').trim() && String(file.asset_id || file.id || '').trim() !== normalizedAssetId)
+      .map(file => String(file.asset_id || file.id || '').trim());
+
+    for (const currentId of currentPreviewAssetIds) {
+      await patchAssetRole(currentId, 'supporting');
+    }
+    await patchAssetRole(normalizedAssetId, 'preview');
+
+    await fetch(
+      `${base}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent('preview_photo_id')}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  async _handleSetHeroMediaPreview(item) {
+    if (!item || !item.can_set_preview) {
+      return;
+    }
+    try {
+      if (item.type === 'photo') {
+        await this._handleSetPhotoPreview(String(item.id || '').trim());
+        return;
+      }
+      if (item.asset_id) {
+        await this._handleSetAssetPreview(item.asset_id);
+        await this._loadModelDetail();
+        return;
+      }
+    } catch (error) {
+      this._error = `Failed to set preview: ${error}`;
+      this._render();
+    }
+  }
+
+  _handleDeleteHeroMedia(item) {
+    if (!item || !item.can_delete) {
+      return;
+    }
+    if (item.type === 'photo') {
+      this._handleDeletePhoto(String(item.id || '').trim());
+    }
   }
 
   _renderDetailsTab(model) {
