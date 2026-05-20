@@ -1,0 +1,73 @@
+# Refresh Model-Catalog Candidate Links on Print Complete
+# Runs scored name/filename/hash matching against the local model catalog
+# and persists top candidates as archive-link rows (review_state=new).
+#
+# Complementary to link_archive_on_print_complete.yaml which does direct
+# deterministic linking; this automation generates scored candidates for
+# manual review in the model-detail popup.
+#
+# Trigger: bambuddy_webhook_event with event=print_complete
+# Action: Fetch archive details, then POST candidate refresh to model catalog
+
+- alias: "Model Catalog - Refresh Archive Candidates on Print Complete"
+  id: refresh_archive_candidates_on_print_complete
+  description: >
+    When a print completes, fetch the archive's filename and hash from Bambuddy,
+    then call the model catalog candidate-refresh endpoint to score and store
+    candidate model matches for review.
+
+  triggers:
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_complete"
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ trigger.event.data.archive_id is defined
+           and trigger.event.data.archive_id | int(0) > 0 }}
+
+  actions:
+    - variables:
+        archive_id: "{{ trigger.event.data.archive_id | int }}"
+        print_name: "{{ trigger.event.data.print_name | default('', true) }}"
+
+    # Fetch full archive details to get filename and content_hash
+    - alias: "Fetch archive details from Bambuddy"
+      action: rest_command.bambuddy_get_archive_detail
+      data:
+        archive_id: "{{ archive_id }}"
+      response_variable: archive_response
+
+    - variables:
+        archive_ok: "{{ archive_response is defined and archive_response.status == 200 }}"
+        archive_data: "{{ archive_response.content | default({}, true) if archive_ok else {} }}"
+        source_file_name: "{{ archive_data.filename | default('', true) }}"
+        source_hash: "{{ archive_data.content_hash | default('', true) }}"
+        completed_at: "{{ archive_data.completed_at | default('', true) }}"
+
+    # Call candidate refresh with all available signals
+    - alias: "Refresh archive candidates in model catalog"
+      action: rest_command.model_catalog_refresh_archive_candidates
+      data:
+        archive_id: "{{ archive_id }}"
+        archive_name: "{{ print_name }}"
+        source_file_name: "{{ source_file_name }}"
+        source_hash: "{{ source_hash }}"
+        archive_completed_at: "{{ completed_at }}"
+
+    - alias: "Log candidate refresh"
+      action: logbook.log
+      data:
+        name: Model Catalog
+        message: >-
+          Refreshed archive candidates for #{{ archive_id }}
+          ('{{ print_name }}'){% if source_file_name %},
+          file={{ source_file_name }}{% endif %}
+
+  mode: parallel
+  max: 5
