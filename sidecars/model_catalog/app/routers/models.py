@@ -540,7 +540,7 @@ def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = No
             compatibility_keywords.append(keyword)
 
     return CatalogModelSummary(
-        model_url=f"local://{entry.local_model_id}",
+        model_url=f"local://model/{entry.local_model_id}",
         public_id=entry.local_model_id,
         model_id=str(entry.id),
         name=entry.model_name,

@@ -2866,7 +2866,43 @@ class ModelCatalogBrowserCard extends HTMLElement {
             this._updateModelCardThumb(modelRef);
           }.bind(this), 120);
         }
+        this._updateModelCardFileKinds(modelRef);
       }.bind(this));
+  }
+
+  _updateModelCardFileKinds(modelRef) {
+    if (!this.shadowRoot) {
+      return;
+    }
+    var key = String(modelRef || "").trim();
+    if (!key) {
+      return;
+    }
+    var model = null;
+    for (var i = 0; i < this._results.length; i++) {
+      if (this._modelRef(this._results[i]) === key) {
+        model = this._results[i];
+        break;
+      }
+    }
+    if (!model) {
+      return;
+    }
+    var detail = this._modelDetailCache[key] || null;
+    if (!detail) {
+      return;
+    }
+    var fields = model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    var structured = model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
+    var counts = this._deriveFileKindCounts(model, structured, fields, detail);
+    var chipHtml = this._renderFileKindChipRow(counts);
+    var cards = this.shadowRoot.querySelectorAll('.model-card[data-model-ref="' + CSS.escape(key) + '"]');
+    for (var c = 0; c < cards.length; c++) {
+      var chipContainer = cards[c].querySelector('.compact-file-kinds');
+      if (chipContainer) {
+        chipContainer.innerHTML = chipHtml;
+      }
+    }
   }
 
   _updateModelCardThumb(modelRef) {
@@ -3393,8 +3429,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var successLabel = Number.isFinite(successRatePct) ? (String(Math.round(Math.max(0, Math.min(100, successRatePct)))) + "%") : "--";
 
     // Hydrate missing preview media in compact view, but patch cards in place to
-    // avoid whole-grid repaint churn.
-    if (this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) {
+    // avoid whole-grid repaint churn.  Also load detail when file-kind counts
+    // are empty so uploaded-photo and embedded-image chips can be patched in.
+    var fileKindTotal = fileKindCounts.model_files + fileKindCounts.images + fileKindCounts.other;
+    if ((this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) || fileKindTotal === 0) {
       this._loadModelMedia(model);
     }
 
