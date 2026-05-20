@@ -2322,6 +2322,176 @@ class ModelDetailPopupCard extends HTMLElement {
     document.addEventListener('keydown', this._boundKeydownHandler);
   }
 
+  async _openArchivePopup(archiveId) {
+    const id = String(archiveId);
+    if (!this._hass || !id) return;
+
+    // Ensure archive metadata is loaded
+    let meta = this._archiveMetaCache[id];
+    if (!meta) {
+      meta = await this._fetchArchiveMeta(id);
+    }
+    if (!meta) return;
+
+    const archive = meta.archive || meta;
+    const archiveName = String(archive.print_name || `Archive ${id}`);
+    const popupTitle = `${archiveName} · #${id}`;
+
+    // --- Tag parsing (matches YAML template logic) ---
+    const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];
+    const systemTagValues = ['ha_enriched:true'];
+    const isSystemTag = (tag) => {
+      const n = String(tag || '').trim().toLowerCase();
+      return systemTagValues.includes(n) || systemTagPrefixes.some(p => n.startsWith(p));
+    };
+    const allTags = String(archive.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    const userTags = allTags.filter(t => !isSystemTag(t));
+
+    // --- Notes parsing ---
+    const ENRICHMENT_MARKER = '+>';
+    const rawNotes = String(archive.notes || '');
+    const markerIndex = rawNotes.indexOf(ENRICHMENT_MARKER);
+    const userNotes = markerIndex >= 0 ? rawNotes.slice(0, markerIndex).replace(/\n+$/, '') : rawNotes.trimEnd();
+
+    // --- Status ---
+    const normalizeStatus = (s) => {
+      const r = String(s || '').toLowerCase().trim();
+      if (r === 'success') return 'completed';
+      if (r === 'cancelled' || r === 'aborted' || r === 'stopped') return 'cancelled';
+      return r;
+    };
+    const formatStatus = (s) => { const n = normalizeStatus(s); return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''; };
+    const archiveStatus = normalizeStatus(archive.status);
+    const statusOptions = ['completed', 'failed', 'cancelled', 'printing'].map(formatStatus);
+    const archiveStatusOption = formatStatus(archiveStatus || 'completed');
+    if (archiveStatusOption && !statusOptions.includes(archiveStatusOption)) statusOptions.push(archiveStatusOption);
+
+    // --- Failure reason ---
+    const archiveFailureReason = String(archive.failure_reason || '').trim();
+    const failureReasonOptions = ['Unspecified', 'Adhesion failure', 'Spaghetti / Detached', 'Layer shift', 'Clogged nozzle', 'Filament runout', 'Warping', 'Stringing', 'Under-extrusion', 'Power failure', 'User cancelled', 'Other'];
+    if (archiveFailureReason && !failureReasonOptions.includes(archiveFailureReason)) failureReasonOptions.push(archiveFailureReason);
+
+    // --- Project picker ---
+    const statusEntity = this._hass.states['sensor.bambuddy_print_history_browser_status'];
+    const projectCatalog = Array.isArray(statusEntity?.attributes?.project_options) ? statusEntity.attributes.project_options : [];
+    const popupProjectLabel = (pid, pname) => {
+      const pidText = String(pid || '').trim();
+      const pnameText = String(pname || '').trim();
+      for (const opt of projectCatalog) {
+        if (pidText && String(opt?.id || '').trim() === pidText && String(opt?.label || '').trim()) return String(opt.label).trim();
+      }
+      if (pnameText) return pidText ? `${pnameText} [${pidText}]` : pnameText;
+      if (pidText) return `Project [${pidText}]`;
+      return 'No Project';
+    };
+    const projectLabels = ['No Project'];
+    for (const opt of projectCatalog) {
+      const label = String(opt?.label || '').trim();
+      if (label && !projectLabels.includes(label)) projectLabels.push(label);
+    }
+    const currentProjectLabel = popupProjectLabel(archive.project_id, archive.project_name);
+    if (currentProjectLabel !== 'No Project' && !projectLabels.includes(currentProjectLabel)) projectLabels.push(currentProjectLabel);
+
+    // --- Editable field values ---
+    const LIMIT = 255;
+    const editablePrintName = String(archive.print_name || '').slice(0, LIMIT);
+    const editableTags = userTags.join(', ').slice(0, LIMIT);
+    const editableNotes = String(userNotes || '').slice(0, LIMIT);
+    const isFavorite = !!archive.is_favorite;
+    const archiveJson = JSON.stringify(archive);
+
+    // --- Button-card helper ---
+    const buttonCard = (name, icon, background, tapAction) => ({
+      type: 'custom:button-card',
+      name, icon,
+      show_name: true, show_icon: true, show_state: false,
+      tap_action: tapAction,
+      hold_action: { action: 'none' },
+      styles: {
+        card: [{ padding: '12px 10px' }, { 'border-radius': '16px' }, { 'box-shadow': 'none' }, { border: '1px solid rgba(255,255,255,0.08)' }, { background }],
+        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-columns': '1fr' }, { 'justify-items': 'center' }, { gap: '6px' }],
+        icon: [{ width: '22px' }, { height: '22px' }, { color: 'var(--primary-text-color)' }],
+        name: [{ 'font-size': '12px' }, { 'font-weight': '600' }, { color: 'var(--primary-text-color)' }],
+      },
+    });
+
+    // --- Build card stack (matches YAML template) ---
+    const cards = [
+      {
+        type: 'custom:print-history-photo-gallery-card',
+        archive_json: archiveJson,
+        detail_entity: 'sensor.print_history_popup_archive_detail',
+        api_base_entity: 'input_text.bambuddy_api_base_url',
+        visibility_entity: 'input_boolean.print_history_show_images',
+        include_thumbnail: true,
+      },
+      {
+        type: 'custom:button-card',
+        template: 'print_history_archive_popup_content',
+        entity: 'sensor.print_history_popup_archive_detail',
+        triggers_update: ['sensor.print_history_popup_archive_detail', 'input_boolean.print_history_popup_is_favorite'],
+        variables: { archive_json: archiveJson },
+        tap_action: { action: 'none' },
+        hold_action: { action: 'none' },
+      },
+      {
+        type: 'custom:print-history-tag-editor-card',
+        entity: 'input_text.print_history_popup_tags',
+        suggestions_entity: 'input_select.print_history_filter_tag',
+        title: 'Tags',
+        placeholder: 'Add a tag and press Enter',
+        helper: 'Reuse an existing tag or create a new one. Press Enter or comma to add.',
+      },
+      {
+        type: 'entities',
+        show_header_toggle: false,
+        entities: [
+          { entity: 'input_text.print_history_popup_print_name', name: 'Print Name', icon: 'mdi:printer-3d' },
+          { entity: 'input_select.print_history_popup_project', name: 'Project', icon: 'mdi:folder-outline' },
+          { entity: 'input_select.print_history_popup_status', name: 'Status', icon: 'mdi:list-status' },
+          {
+            type: 'conditional',
+            conditions: [{ condition: 'or', conditions: [
+              { condition: 'state', entity: 'input_select.print_history_popup_status', state: 'Failed' },
+              { condition: 'state', entity: 'input_select.print_history_popup_status', state: 'Cancelled' },
+            ]}],
+            row: { entity: 'input_select.print_history_popup_failure_reason', name: 'Failure Reason', icon: 'mdi:alert-circle-outline' },
+          },
+          { entity: 'input_text.print_history_popup_notes', name: 'Notes', icon: 'mdi:text-box-outline' },
+        ],
+      },
+      {
+        type: 'grid',
+        columns: archiveStatus === 'printing' ? 2 : 3,
+        square: false,
+        cards: [
+          ...(archiveStatus === 'printing' ? [] : [buttonCard('Re-Enrich', 'mdi:refresh-circle', 'rgba(46,125,50,0.18)', { action: 'call-service', service: 'script.reenrich_print_history_archive', data: { archive_id: id } })]),
+          buttonCard('Save', 'mdi:content-save-outline', 'rgba(21,101,192,0.18)', { action: 'call-service', service: 'script.save_print_history_archive_popup_edits' }),
+          buttonCard('Close', 'mdi:close', 'rgba(255,255,255,0.04)', { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }),
+        ],
+      },
+    ];
+
+    // --- Fire sequence: close current popup → hydrate helpers → open archive popup ---
+    this._fireBrowserModEvent('browser_mod.sequence', {
+      sequence: [
+        { service: 'browser_mod.close_popup' },
+        { service: 'input_text.set_value', data: { entity_id: 'input_text.print_history_popup_archive_id', value: id } },
+        { service: isFavorite ? 'input_boolean.turn_on' : 'input_boolean.turn_off', data: { entity_id: 'input_boolean.print_history_popup_is_favorite' } },
+        { service: 'input_text.set_value', data: { entity_id: 'input_text.print_history_popup_print_name', value: editablePrintName } },
+        { service: 'input_text.set_value', data: { entity_id: 'input_text.print_history_popup_tags', value: editableTags } },
+        { service: 'input_text.set_value', data: { entity_id: 'input_text.print_history_popup_notes', value: editableNotes } },
+        { service: 'input_select.set_options', data: { entity_id: 'input_select.print_history_popup_project', options: projectLabels } },
+        { service: 'input_select.select_option', data: { entity_id: 'input_select.print_history_popup_project', option: currentProjectLabel } },
+        { service: 'input_select.set_options', data: { entity_id: 'input_select.print_history_popup_status', options: statusOptions } },
+        { service: 'input_select.select_option', data: { entity_id: 'input_select.print_history_popup_status', option: archiveStatusOption } },
+        { service: 'input_select.set_options', data: { entity_id: 'input_select.print_history_popup_failure_reason', options: failureReasonOptions } },
+        { service: 'input_select.select_option', data: { entity_id: 'input_select.print_history_popup_failure_reason', option: archiveFailureReason || 'Unspecified' } },
+        { service: 'browser_mod.popup', data: { title: popupTitle, size: 'normal', content: { type: 'vertical-stack', cards } } },
+      ],
+    });
+  }
+
   _closeArchiveImagePreview() {
     document.removeEventListener('keydown', this._boundKeydownHandler);
     this._restoreBodyScrollLock();
@@ -2522,13 +2692,11 @@ class ModelDetailPopupCard extends HTMLElement {
         if (linkBtn) linkBtn.onclick = () => this._handleArchiveCandidateAction(archiveId, linkId, 'link');
         if (skipBtn) skipBtn.onclick = () => this._handleArchiveCandidateAction(archiveId, linkId, 'skip');
       });
-      // Open archive buttons (linked)
+      // Open archive buttons (linked) → open HA archive popup
       this.shadowRoot.querySelectorAll('button[data-archive-open]').forEach(btn => {
         btn.onclick = () => {
           const aid = btn.dataset.archiveOpen;
-          if (bambuddyUrl && aid) {
-            window.open(`${bambuddyUrl}/archives/${encodeURIComponent(aid)}`, '_blank');
-          }
+          if (aid) this._openArchivePopup(aid);
         };
       });
       // Thumbnail click → image preview
