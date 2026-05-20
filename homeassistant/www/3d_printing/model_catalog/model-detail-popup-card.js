@@ -2678,7 +2678,10 @@ class ModelDetailPopupCard extends HTMLElement {
         : (archive.name || archive.archive_name || `Archive ${archiveId || linkId}`)
       );
       const sectionKey = `archive-${archiveId || linkId}`;
-      const thumb = archive.preview_image_url || archive.thumbnail_url || (bambuddyUrl && archiveId ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/thumbnail` : '');
+      const primaryPhotoPath = archiveData && archiveData.primary_photo_path ? String(archiveData.primary_photo_path).trim() : '';
+      const thumb = (primaryPhotoPath && bambuddyUrl && archiveId)
+        ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/photos/${encodeURIComponent(primaryPhotoPath)}`
+        : archive.preview_image_url || archive.thumbnail_url || (bambuddyUrl && archiveId ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/thumbnail` : '');
 
       // Build metadata line from enriched archive data
       const metaParts = [];
