@@ -2704,7 +2704,7 @@ class ModelDetailPopupCard extends HTMLElement {
       if (archiveId) metaParts.push(archiveId);
       // Show outcome badge for non-successful outcomes
       const status = archiveData && archiveData.status ? String(archiveData.status).toLowerCase() : '';
-      const showOutcome = status && status !== 'completed' && status !== 'printing';
+      const showOutcome = status && status !== 'completed' && status !== 'printing' && status !== 'archived';
       const outcomeBadge = showOutcome
         ? ` <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:${status === 'cancelled' ? 'rgba(255,180,60,0.22);color:#ffcc66' : 'rgba(255,80,80,0.22);color:#ff8a8a'};">${this._escapeHtml(status.charAt(0).toUpperCase() + status.slice(1))}</span>`
         : '';
@@ -2804,7 +2804,12 @@ class ModelDetailPopupCard extends HTMLElement {
             const tB = (dataB && dataB.started_at) || b.created_at || '';
             return tA < tB ? 1 : tA > tB ? -1 : 0;
           }).map(item => renderArchive(item, false)).join('')}
-          ${candidates.map(item => renderArchive(item, true)).join('')}
+          ${[...candidates].sort((a, b) => {
+            const rank = { high: 0, medium: 1, low: 2 };
+            const rA = rank[a.match_confidence] ?? 3;
+            const rB = rank[b.match_confidence] ?? 3;
+            return rA - rB;
+          }).map(item => renderArchive(item, true)).join('')}
           ${this._renderExtensionSlot('sections:archive-linkage', '')}
           ${!linked.length && !candidates.length ? '<article class="queue-row"><strong>No linked or candidate archives</strong><div class="detail">Archive linkage review appears here.</div></article>' : ''}
         </div>
