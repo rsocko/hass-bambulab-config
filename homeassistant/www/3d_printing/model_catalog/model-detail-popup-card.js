@@ -1838,6 +1838,8 @@ class ModelDetailPopupCard extends HTMLElement {
       const ratedSkipped = contribution.rated_skipped_at;
       const boostedSkipped = contribution.boosted_skipped_at;
       const photosSharedSkipped = contribution.photos_shared_skipped_at;
+      const linkedArchives = Array.isArray(this._modelDetail?.linked_archives) ? this._modelDetail.linked_archives : [];
+      const linkedCount = linkedArchives.length || Number(this._modelDetail?.link_count || 0);
       const photoCaptureCount = model.photo_capture_count || 0;
 
       const displayName = (currentSource === 'other')
@@ -1857,12 +1859,12 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
 
           <div class="checklist-item">
-            <div class="status-badge ${photoCaptureCount > 0 ? 'complete' : 'pending'}">
-              ${photoCaptureCount > 0 ? '✓' : '☐'}
+            <div class="status-badge ${linkedCount > 0 ? 'complete' : 'pending'}">
+              ${linkedCount > 0 ? '✓' : '☐'}
             </div>
             <div class="item-content">
               <strong>Printed</strong>
-              <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} print(s) captured` : 'No prints captured yet'}</div>
+              <div class="detail">${linkedCount > 0 ? `${linkedCount} linked archive${linkedCount !== 1 ? 's' : ''}` : 'No linked prints yet'}</div>
             </div>
           </div>
 
@@ -1898,7 +1900,7 @@ class ModelDetailPopupCard extends HTMLElement {
             </div>
             <div class="item-content">
               <strong>Photos Captured</strong>
-              <div class="detail">${photoCaptureCount} photo(s) available</div>
+              <div class="detail">${photoCaptureCount > 0 ? `${photoCaptureCount} photo(s) available` : 'No photos captured yet'}</div>
             </div>
           </div>
 
