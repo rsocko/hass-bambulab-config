@@ -469,6 +469,7 @@ class TestBackwardCompatibility:
             source_origin="test",
             source_origin_url="http://test.com",
             revision_hash="rev-001",
+            entity_type="model",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )
@@ -501,6 +502,7 @@ class TestBackwardCompatibility:
             source_origin=None,
             source_origin_url=None,
             revision_hash=None,
+            entity_type="model",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )

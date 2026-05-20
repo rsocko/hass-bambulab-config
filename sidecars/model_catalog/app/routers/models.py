@@ -2578,6 +2578,7 @@ def search_models(
     candidate_models: list[tuple[float, dict[str, Any]]] = []
     scored_models: list[tuple[float, dict[str, Any]]] = []
     visibility_counts = {"active": 0, "archived": 0}
+    entity_type_counts = {"model": 0, "idea": 0, "working_group": 0}
     for summary in summaries:
         # Apply filters
         if not _matches_filters(summary, collection, creator, tag):
@@ -2685,6 +2686,9 @@ def search_models(
 
         candidate_models.append((score, model_payload))
 
+        entity_type = str(summary.entity_type or "model")
+        entity_type_counts[entity_type] = int(entity_type_counts.get(entity_type, 0)) + 1
+
         catalog_visibility = _model_catalog_visibility(model_payload)
         visibility_counts[catalog_visibility] = int(visibility_counts.get(catalog_visibility, 0)) + 1
         if not show_archived and catalog_visibility == "archived":
@@ -2735,6 +2739,7 @@ def search_models(
             "show_archived": bool(show_archived),
             "counts": visibility_counts,
         },
+        "entity_type_counts": entity_type_counts,
         "sort": normalized_sort,
         "pagination": {
             "page": page,

@@ -33,6 +33,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       initialized: false,
     };
     this._visibilityCounts = { active: 0, archived: 0 };
+    this._serverEntityTypeCounts = { model: 0, idea: 0, working_group: 0 };
     this._entityTypeFilters = {
       showIdeas: false,
       showWorkingGroups: false,
@@ -126,6 +127,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _entityTypeCounts() {
+    if (this._serverEntityTypeCounts) {
+      return this._serverEntityTypeCounts;
+    }
     var counts = { model: 0, idea: 0, working_group: 0 };
     for (var i = 0; i < this._results.length; i++) {
       var entityType = this._entityTypeForModel(this._results[i]);
@@ -765,6 +769,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var responseVisibilityCounts = responseVisibility && responseVisibility.counts && typeof responseVisibility.counts === "object"
         ? responseVisibility.counts
         : {};
+      var responseEntityTypeCounts = data && data.entity_type_counts && typeof data.entity_type_counts === "object"
+        ? data.entity_type_counts
+        : {};
+      this._serverEntityTypeCounts = {
+        model: Math.max(0, Number(responseEntityTypeCounts.model || 0) || 0),
+        idea: Math.max(0, Number(responseEntityTypeCounts.idea || 0) || 0),
+        working_group: Math.max(0, Number(responseEntityTypeCounts.working_group || 0) || 0),
+      };
       this._visibilityCounts = {
         active: Math.max(0, Number(responseVisibilityCounts.active || 0) || 0),
         archived: Math.max(0, Number(responseVisibilityCounts.archived || 0) || 0),
@@ -814,6 +826,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.total_pages = 0;
       this._unifiedQueueByModelRef = {};
       this._visibilityCounts = { active: 0, archived: 0 };
+      this._serverEntityTypeCounts = { model: 0, idea: 0, working_group: 0 };
       this._error = error && error.message ? String(error.message) : "Could not load model catalog.";
     } finally {
       this._loading = false;
@@ -3791,9 +3804,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
             inferredOther += 1;
           }
         }
-        if (inferredImages === 0 && detailPhotos.length) {
-          inferredImages = detailPhotos.length;
-        }
+        inferredImages += detailPhotos.length;
         if (modelFilesCount === null) {
           modelFilesCount = inferredModel;
         }
@@ -3803,6 +3814,55 @@ class ModelCatalogBrowserCard extends HTMLElement {
         if (otherFilesCount === null) {
           otherFilesCount = inferredOther;
         }
+      }
+    }
+
+    // When detail data is available, recompute the image count from the
+    // authoritative source: uploaded photos + image-type assets + embedded
+    // thumbnails, minus any items the user marked as hidden.
+    if (detail) {
+      var adjPhotos = Array.isArray(detail.photos) ? detail.photos : [];
+      var adjFiles = (detail.model && Array.isArray(detail.model.files))
+        ? detail.model.files
+        : (Array.isArray(detail.files) ? detail.files : []);
+      if (adjPhotos.length || adjFiles.length) {
+        var hmRaw = detail.enrichment && detail.enrichment.custom_fields
+          ? detail.enrichment.custom_fields.media_hidden_ids : null;
+        var hmSet = {};
+        if (Array.isArray(hmRaw)) {
+          for (var hi = 0; hi < hmRaw.length; hi++) {
+            var hid = String(hmRaw[hi] || "").trim();
+            if (hid) { hmSet[hid] = true; }
+          }
+        } else if (typeof hmRaw === "string" && hmRaw.trim()) {
+          var hParts = hmRaw.split(",");
+          for (var hi = 0; hi < hParts.length; hi++) {
+            var hid = hParts[hi].trim();
+            if (hid) { hmSet[hid] = true; }
+          }
+        }
+        var visibleImageCount = 0;
+        for (var pi = 0; pi < adjPhotos.length; pi++) {
+          var pId = String(adjPhotos[pi].id || ("photo-" + (pi + 1))).trim();
+          if (!hmSet["photo:" + pId]) {
+            visibleImageCount += 1;
+          }
+        }
+        for (var fi2 = 0; fi2 < adjFiles.length; fi2++) {
+          var af = adjFiles[fi2] || {};
+          var aId = String(af.asset_id || af.id || "").trim();
+          if (String(af.asset_type || "").toLowerCase() === "image") {
+            if (!hmSet["asset:" + aId]) {
+              visibleImageCount += 1;
+            }
+          } else {
+            var hasThumb = String(af.thumbnail_lazy_url || af.thumbnail_url || af.preview_url || "").trim();
+            if (hasThumb && !hmSet["embedded:" + aId]) {
+              visibleImageCount += 1;
+            }
+          }
+        }
+        imageFilesCount = visibleImageCount;
       }
     }
 
