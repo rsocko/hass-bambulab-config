@@ -1686,13 +1686,13 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
         <div class="tabs">
-          <button data-panel-tab="panel-queue" class="${this._panelActiveTab === 'panel-queue' ? 'active' : ''}">Queue / Prints <span class="count">${queueCount}</span></button>
+          <button data-panel-tab="panel-queue" class="${this._panelActiveTab === 'panel-queue' ? 'active' : ''}">Queued Prints <span class="count">${queueCount}</span></button>
           <button data-panel-tab="panel-related" class="${this._panelActiveTab === 'panel-related' ? 'active' : ''}">Related Models <span class="count">${relatedCount}</span></button>
           <button data-panel-tab="panel-support" class="${this._panelActiveTab === 'panel-support' ? 'active' : ''}">Supporting Files <span class="count">${supportCount}</span></button>
           <button data-panel-tab="panel-contribution" class="${this._panelActiveTab === 'panel-contribution' ? 'active' : ''}">Source</button>
           <button data-panel-tab="panel-publication" class="${this._panelActiveTab === 'panel-publication' ? 'active' : ''}">Publication</button>
         </div>
-        ${panel('panel-queue', 'Queue / Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
+        ${panel('panel-queue', 'Queued Prints', this._renderExtensionSlot('sections:queue-status', this._renderQueueStatusPanel()))}
         ${panel('panel-related', 'Related Models', this._renderExtensionSlot('sections:related-models', this._renderRelatedModelsPanel(model)))}
         ${panel('panel-support', 'Supporting Files', this._renderExtensionSlot('sections:supporting-files', this._renderSupportingFilesPanel(model)))}
         ${panel('panel-contribution', 'Source & Contribution', this._renderExtensionSlot('sections:contribution-lifecycle', this._renderContributionPanel(model)))}
@@ -1703,24 +1703,62 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderQueueStatusPanel() {
     const queued = Array.isArray(this._modelDetail.queued_items) ? this._modelDetail.queued_items : [];
-    const drafts = Array.isArray(this._modelDetail.draft_intents) ? this._modelDetail.draft_intents : [];
-    const rows = [
-      ...queued.map(item => `
-        <article class="queue-row">
-          <strong>${this._escapeHtml(String(item.file_name || 'Queued item'))}</strong>
-          <div class="detail">State: ${this._escapeHtml(String(item.state || 'ready'))}${item.plate_index != null ? ` | Plate ${this._escapeHtml(String(item.plate_index))}` : ''}</div>
-        </article>
-      `),
-      ...drafts.map(item => `
-        <article class="queue-row">
-          <strong>${this._escapeHtml(String(item.file_name || 'Draft intent'))}</strong>
-          <div class="detail">Tray assignment: ${this._escapeHtml(String(item.tray_assignment_status || 'pending'))}</div>
-        </article>
-      `),
-    ];
-    if (!rows.length) {
-      rows.push('<article class="queue-row"><strong>No queue activity</strong><div class="detail">Queue items and draft intents appear here.</div></article>');
+    if (!queued.length) {
+      return '<div class="queue-list"><article class="queue-row"><strong>No queued prints</strong><div class="detail">When this model is added to the print queue, its entries will appear here.</div></article></div>';
     }
+    const stateLabel = (s) => {
+      const labels = { backlog: 'Backlog', up_next: 'Up Next', preparing: 'Preparing', ready: 'Ready', in_progress: 'In Progress', blocked: 'Blocked', done: 'Done' };
+      return labels[s] || s;
+    };
+    const stateBadge = (s) => {
+      const colors = { done: '#4caf50', in_progress: '#2196f3', ready: '#ff9800', up_next: '#9c27b0', preparing: '#00bcd4', blocked: '#f44336', backlog: '#9e9e9e' };
+      const bg = colors[s] || '#9e9e9e';
+      return `<span style="display:inline-block;padding:1px 7px;border-radius:6px;background:${bg};color:#fff;font-size:10px;font-weight:600;vertical-align:middle;">${this._escapeHtml(stateLabel(s))}</span>`;
+    };
+    const rows = queued.map(entry => {
+      const summary = entry.summary || {};
+      const files = Array.isArray(entry.files) ? entry.files : [];
+      const progressParts = [];
+      if (summary.done_plate_count != null && summary.plate_count != null) {
+        progressParts.push(`${summary.done_plate_count}/${summary.plate_count} plates done`);
+      }
+      if (entry.copies_requested > 1) {
+        progressParts.push(`${entry.copies_completed || 0}/${entry.copies_requested} copies`);
+      }
+      if (entry.duration_bucket && entry.duration_bucket !== 'unknown') {
+        progressParts.push(entry.duration_bucket);
+      }
+      const progressLine = progressParts.length ? `<div class="detail">${this._escapeHtml(progressParts.join(' · '))}</div>` : '';
+      const notesLine = entry.queue_notes ? `<div class="detail" style="font-style:italic;">${this._escapeHtml(entry.queue_notes)}</div>` : '';
+      const blockedLine = entry.state === 'blocked' && entry.blocked_reason ? `<div class="detail" style="color:#f44336;">Blocked: ${this._escapeHtml(entry.blocked_reason)}</div>` : '';
+
+      const fileRows = files.map(f => {
+        const plates = Array.isArray(f.plates) ? f.plates : [];
+        const plateItems = plates.map(p => {
+          const name = p.plate_name || p.plate_key || 'Plate';
+          return `<div style="display:flex;align-items:center;gap:5px;">${stateBadge(p.state)} <span style="font-size:11px;">${this._escapeHtml(name)}</span></div>`;
+        }).join('');
+        return `
+          <div style="margin-top:6px;padding:6px 8px;background:var(--primary-background-color);border-radius:7px;">
+            <div style="font-size:11px;font-weight:600;margin-bottom:4px;">${this._escapeHtml(f.file_name || 'File')}</div>
+            ${plates.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${plateItems}</div>` : '<div class="detail">No plates</div>'}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <article class="queue-row">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this._escapeHtml(entry.title || 'Queue Entry')}</strong>
+            ${stateBadge(entry.state)}
+          </div>
+          ${progressLine}
+          ${blockedLine}
+          ${notesLine}
+          ${fileRows}
+        </article>
+      `;
+    });
     return `<div class="queue-list">${rows.join('')}</div>`;
   }
 

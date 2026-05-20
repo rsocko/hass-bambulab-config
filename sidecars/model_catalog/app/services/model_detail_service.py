@@ -7,10 +7,17 @@ reused by other routes and tested directly without a TestClient.
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict
 from types import SimpleNamespace
 from typing import Any
 
 from fastapi import Request
+
+from ..db_unified_queue import (
+    list_unified_queue_entries,
+    list_unified_queue_file_units,
+    list_unified_queue_plate_units,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +134,7 @@ def build_model_detail_response(
             "preview_photo_id": preview_photo_id,
             "ranking": None if ranking is None else models_router._ranking_payload(ranking),
             **_linked_archives_payload(models_router, state, summary),
+            "queued_items": _queued_items_payload(state, local_model_id, summary.model_url),
             "degraded": False,
         }
         if include_debug:
@@ -172,3 +180,75 @@ def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> di
     except Exception:
         logger.exception("Failed to build linked-archives payload for model_url=%s", summary.model_url)
         return {"linked_archives": [], "candidate_archives": [], "link_count": 0}
+
+
+def _queued_items_payload(state: Any, local_model_id: str, model_url: str) -> list[dict[str, Any]]:
+    """Fetch unified queue entries whose source_ref matches this model."""
+    try:
+        entries = list_unified_queue_entries(db_path=state.settings.db_path)
+        ref_lower = (local_model_id or "").strip().lower()
+        url_lower = (model_url or "").strip().lower()
+        matched = [
+            e for e in entries
+            if (e.source_ref or "").lower() in (ref_lower, url_lower)
+            and e.source_kind == "catalog_model"
+        ]
+        results: list[dict[str, Any]] = []
+        for entry in matched:
+            file_units = list_unified_queue_file_units(
+                db_path=state.settings.db_path,
+                queue_entry_id=entry.queue_entry_id,
+            )
+            files: list[dict[str, Any]] = []
+            for fu in file_units:
+                plate_units = list_unified_queue_plate_units(
+                    db_path=state.settings.db_path,
+                    queue_entry_id=entry.queue_entry_id,
+                    file_unit_id=fu.file_unit_id,
+                )
+                plates = [
+                    {
+                        "plate_unit_id": pu.plate_unit_id,
+                        "plate_key": pu.plate_key,
+                        "plate_name": pu.plate_name,
+                        "selected": pu.selected,
+                        "state": pu.state,
+                        "completed_by_archive_id": pu.completed_by_archive_id,
+                        "estimated_minutes": pu.estimated_minutes,
+                    }
+                    for pu in plate_units
+                ]
+                files.append({
+                    "file_unit_id": fu.file_unit_id,
+                    "file_name": fu.file_name,
+                    "selected": fu.selected,
+                    "estimated_minutes": fu.estimated_minutes,
+                    "plates": plates,
+                })
+            total_plates = sum(len(f["plates"]) for f in files)
+            done_plates = sum(
+                1 for f in files for p in f["plates"] if p["state"] == "done"
+            )
+            results.append({
+                "queue_entry_id": entry.queue_entry_id,
+                "title": entry.title,
+                "state": entry.state,
+                "rank": entry.rank,
+                "copies_requested": entry.copies_requested,
+                "copies_completed": entry.copies_completed,
+                "duration_bucket": entry.duration_bucket,
+                "blocked_reason": entry.blocked_reason,
+                "queue_notes": entry.queue_notes,
+                "created_at": entry.created_at,
+                "updated_at": entry.updated_at,
+                "files": files,
+                "summary": {
+                    "file_count": len(files),
+                    "plate_count": total_plates,
+                    "done_plate_count": done_plates,
+                },
+            })
+        return results
+    except Exception:
+        logger.exception("Failed to build queued-items payload for model %s", local_model_id)
+        return []
