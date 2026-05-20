@@ -1622,7 +1622,13 @@ class ModelDetailPopupCard extends HTMLElement {
     }
     const visible = list.filter(item => !item || !item.is_hidden);
     const hidden = list.filter(item => item && item.is_hidden);
-    return [...visible, ...hidden];
+    // Preview image always first within each group
+    const sortPreviewFirst = (arr) => {
+      const preview = arr.filter(item => item && item.is_preview);
+      const rest = arr.filter(item => !item || !item.is_preview);
+      return [...preview, ...rest];
+    };
+    return [...sortPreviewFirst(visible), ...sortPreviewFirst(hidden)];
   }
 
   _heroCurrentMedia(items) {
@@ -3079,12 +3085,14 @@ class ModelDetailPopupCard extends HTMLElement {
     try {
       if (item.media_id && item.media_id.startsWith('photo:')) {
         await this._handleSetPhotoPreview(String(item.id || '').trim());
+        this._heroActiveMediaIndex = 0;
         this._notifyBrowserDetailChanged();
         return;
       }
       if (item.asset_id) {
         await this._handleSetAssetPreview(item.asset_id);
         await this._loadModelDetail({ silent: true });
+        this._heroActiveMediaIndex = 0;
         this._notifyBrowserDetailChanged();
         return;
       }
