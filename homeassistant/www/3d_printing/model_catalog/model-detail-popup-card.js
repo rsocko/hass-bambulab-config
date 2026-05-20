@@ -868,13 +868,12 @@ class ModelDetailPopupCard extends HTMLElement {
         * { box-sizing: border-box; }
         .popup-shell {
           display: grid;
-          grid-template-rows: auto minmax(0, 1fr);
           gap: 4px;
           margin-top: -12px;
           color: var(--primary-text-color);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
-          overflow: hidden;
+          overflow-y: auto;
           max-height: calc(100vh - 120px);
         }
         .topbar {
@@ -977,15 +976,13 @@ class ModelDetailPopupCard extends HTMLElement {
         .hero {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          min-height: 0;
-          overflow: hidden;
+          align-items: start;
         }
         .left {
           border-right: 1px solid var(--divider-color);
           display: grid;
           grid-template-rows: auto auto auto;
           overflow-y: auto;
-          min-height: 0;
         }
         .media-with-thumbs {
           display: flex;
@@ -1323,8 +1320,7 @@ class ModelDetailPopupCard extends HTMLElement {
           display: grid;
           grid-template-rows: auto auto 1fr;
           gap: 10px;
-          overflow-y: auto;
-          min-height: 0;
+          overflow: visible;
         }
         .card {
           border: 1px solid var(--divider-color);
@@ -1392,6 +1388,11 @@ class ModelDetailPopupCard extends HTMLElement {
           background: var(--card-background-color);
         }
         .files { padding: 8px; display: grid; gap: 7px; }
+        .card[data-slot="sections:archive-linkage"] > .files {
+          max-height: 420px;
+          overflow-y: auto;
+          scrollbar-width: thin;
+        }
         .file-preview { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--divider-color); object-fit: cover; flex-shrink: 0; }
         .file-ext-badge { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.25); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--secondary-text-color); background: rgba(255,255,255,0.04); flex-shrink: 0; }
         .file-ext-badge.x-3mf { color: #5eead4; border-color: rgba(94,234,212,0.3); background: rgba(94,234,212,0.12); }
@@ -1429,8 +1430,8 @@ class ModelDetailPopupCard extends HTMLElement {
         }
 
         @media (max-width: 980px) {
-          .popup-shell { overflow-y: auto; }
-          .hero { grid-template-columns: 1fr; overflow: visible; }
+          .hero { grid-template-columns: 1fr; align-items: stretch; }
+          .card[data-slot="sections:archive-linkage"] > .files { max-height: none; }
           .left { border-right: 0; border-bottom: 1px solid var(--divider-color); }
           .media-with-thumbs { flex-direction: column; }
           .thumbs {
