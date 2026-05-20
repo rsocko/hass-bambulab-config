@@ -868,12 +868,13 @@ class ModelDetailPopupCard extends HTMLElement {
         * { box-sizing: border-box; }
         .popup-shell {
           display: grid;
+          grid-template-rows: auto minmax(0, 1fr);
           gap: 4px;
           margin-top: -12px;
           color: var(--primary-text-color);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
-          overflow-y: auto;
+          overflow: hidden;
           max-height: calc(100vh - 120px);
         }
         .topbar {
@@ -976,12 +977,15 @@ class ModelDetailPopupCard extends HTMLElement {
         .hero {
           display: grid;
           grid-template-columns: 1fr 1fr;
+          min-height: 0;
+          overflow: hidden;
         }
         .left {
           border-right: 1px solid var(--divider-color);
           display: grid;
           grid-template-rows: auto auto auto;
           overflow-y: auto;
+          min-height: 0;
         }
         .media-with-thumbs {
           display: flex;
@@ -1319,7 +1323,8 @@ class ModelDetailPopupCard extends HTMLElement {
           display: grid;
           grid-template-rows: auto auto 1fr;
           gap: 10px;
-          overflow: auto;
+          overflow-y: auto;
+          min-height: 0;
         }
         .card {
           border: 1px solid var(--divider-color);
@@ -1339,6 +1344,40 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           justify-content: space-between;
           align-items: center;
+        }
+        .refresh-candidates-btn {
+          background: none;
+          border: 1px solid transparent;
+          border-radius: 6px;
+          cursor: pointer;
+          padding: 4px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--secondary-text-color);
+          transition: background 0.2s, border-color 0.2s, color 0.2s;
+          --mdc-icon-size: 20px;
+        }
+        .refresh-candidates-btn:hover:not([disabled]) {
+          background: var(--secondary-background-color, rgba(255,255,255,0.08));
+          border-color: var(--divider-color);
+          color: var(--primary-text-color);
+        }
+        .refresh-candidates-btn:active:not([disabled]) {
+          background: var(--divider-color);
+        }
+        .refresh-candidates-btn[disabled] {
+          cursor: default;
+          opacity: 0.7;
+        }
+        .refresh-candidates-btn ha-icon {
+          display: block;
+        }
+        .refresh-candidates-btn.spinning ha-icon {
+          animation: spin 1s linear infinite;
+        }
+        .refresh-candidates-btn.done ha-icon {
+          color: var(--success-color, #4CAF50);
         }
         .summary { padding: 10px; display: grid; gap: 8px; }
         .summary .name { font-size: 15px; font-weight: 700; }
@@ -1390,7 +1429,8 @@ class ModelDetailPopupCard extends HTMLElement {
         }
 
         @media (max-width: 980px) {
-          .hero { grid-template-columns: 1fr; }
+          .popup-shell { overflow-y: auto; }
+          .hero { grid-template-columns: 1fr; overflow: visible; }
           .left { border-right: 0; border-bottom: 1px solid var(--divider-color); }
           .media-with-thumbs { flex-direction: column; }
           .thumbs {
@@ -2595,10 +2635,17 @@ class ModelDetailPopupCard extends HTMLElement {
       }
       const result = await res.json();
       await this._loadModelDetail({ silent: true });
+      // Show brief success state
+      this._refreshingCandidates = false;
+      this._refreshCandidatesDone = true;
+      this._renderDetail();
+      setTimeout(() => { this._refreshCandidatesDone = false; this._renderDetail(); }, 2000);
+      return;
     } catch (e) {
       alert('Failed to refresh candidates: ' + e);
     } finally {
       this._refreshingCandidates = false;
+      this._refreshCandidatesDone = false;
       this._renderDetail();
     }
   }
@@ -2716,8 +2763,8 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="sections:archive-linkage">
         <div class="h">
           <span>Related Archives</span>
-          <button class="refresh-candidates-btn" title="Refresh candidate matches" style="background:none;border:none;cursor:pointer;padding:2px 6px;font-size:1.1em;opacity:0.7;vertical-align:middle;" ${this._refreshingCandidates ? 'disabled' : ''}>
-            ${this._refreshingCandidates ? '⏳' : '🔄'}
+          <button class="refresh-candidates-btn${this._refreshingCandidates ? ' spinning' : ''}${this._refreshCandidatesDone ? ' done' : ''}" title="${this._refreshingCandidates ? 'Refreshing candidates…' : this._refreshCandidatesDone ? 'Refresh complete' : 'Refresh candidate matches'}" ${this._refreshingCandidates ? 'disabled' : ''}>
+            <ha-icon icon="${this._refreshCandidatesDone ? 'mdi:check-circle' : 'mdi:refresh'}"></ha-icon>
           </button>
         </div>
         <div class="files">
