@@ -3855,6 +3855,39 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
     }
 
+    // When detail has NOT loaded yet, supplement the image count with
+    // uploaded photos from fields (custom_fields.uploaded_photos) so
+    // chips render correctly before lazy-detail arrives.
+    if (!detail && fields) {
+      var upRaw = fields.uploaded_photos;
+      if (typeof upRaw === "string") {
+        try { upRaw = JSON.parse(upRaw); } catch (_e) { upRaw = null; }
+      }
+      if (Array.isArray(upRaw) && upRaw.length) {
+        var hiRaw = fields.media_hidden_ids;
+        if (typeof hiRaw === "string") {
+          try { hiRaw = JSON.parse(hiRaw); } catch (_e) { hiRaw = []; }
+        }
+        var hiSet = {};
+        if (Array.isArray(hiRaw)) {
+          for (var hx = 0; hx < hiRaw.length; hx++) {
+            var hv = String(hiRaw[hx] || "").trim();
+            if (hv) { hiSet[hv] = true; }
+          }
+        }
+        var upVisible = 0;
+        for (var ux = 0; ux < upRaw.length; ux++) {
+          var upId = String(upRaw[ux].id || "").trim();
+          if (upId && !hiSet["photo:" + upId]) {
+            upVisible += 1;
+          }
+        }
+        if (upVisible > 0) {
+          imageFilesCount = (imageFilesCount || 0) + upVisible;
+        }
+      }
+    }
+
     // When detail data is available, recompute the image count from the
     // authoritative source: uploaded photos + image-type assets + embedded
     // thumbnails, minus any items the user marked as hidden.
