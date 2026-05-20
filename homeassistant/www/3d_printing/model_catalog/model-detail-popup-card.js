@@ -870,6 +870,8 @@ class ModelDetailPopupCard extends HTMLElement {
           color: var(--primary-text-color);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
           background: var(--card-background-color);
+          overflow-y: auto;
+          max-height: calc(100vh - 120px);
         }
         .topbar {
           display: flex;
@@ -971,12 +973,12 @@ class ModelDetailPopupCard extends HTMLElement {
         .hero {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          min-height: 520px;
         }
         .left {
           border-right: 1px solid var(--divider-color);
           display: grid;
           grid-template-rows: auto auto auto;
+          overflow-y: auto;
         }
         .media-with-thumbs {
           display: flex;
@@ -1020,7 +1022,8 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 12px;
           overflow: hidden;
           position: relative;
-          min-height: 280px;
+          min-height: 180px;
+          max-height: 320px;
           aspect-ratio: 4 / 3;
           background: var(--secondary-background-color);
           display: flex;
@@ -1400,6 +1403,7 @@ class ModelDetailPopupCard extends HTMLElement {
           }
           .thumb { flex: 0 0 72px; }
           .panel-shell { margin-bottom: 0; }
+          .main-media { max-height: 260px; }
         }
       </style>
 
