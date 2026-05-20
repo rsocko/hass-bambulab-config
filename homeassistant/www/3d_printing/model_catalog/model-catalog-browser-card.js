@@ -3431,8 +3431,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
     // Hydrate missing preview media in compact view, but patch cards in place to
     // avoid whole-grid repaint churn.  Also load detail when file-kind counts
     // are empty so uploaded-photo and embedded-image chips can be patched in.
+    // When uploaded_photos exist but detail is not cached, also load detail so
+    // the post-processing block can produce an accurate count that includes
+    // embedded thumbnails alongside the uploaded photos.
     var fileKindTotal = fileKindCounts.model_files + fileKindCounts.images + fileKindCounts.other;
-    if ((this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) || fileKindTotal === 0) {
+    var hasUploadedPhotosNoDetail = !detail && fields && Array.isArray(fields.uploaded_photos) && fields.uploaded_photos.length > 0;
+    if ((this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) || fileKindTotal === 0 || hasUploadedPhotosNoDetail) {
       this._loadModelMedia(model);
     }
 

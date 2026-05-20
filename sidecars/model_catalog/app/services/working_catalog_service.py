@@ -216,6 +216,25 @@ def _sync_working_group_projection(*, settings: Settings, group_row: Any) -> Non
         delete_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="project_id")
 
 
+def sync_all_working_group_projections(*, settings: Settings) -> int:
+    """Re-sync projections for every existing working group.
+
+    Called at startup to ensure projections exist with the correct
+    ``entity_type='working_group'`` value, even for groups created before
+    the entity_type column or projection code was in place.
+
+    Returns the number of groups synced.
+    """
+    connection = connect(settings.db_path)
+    try:
+        rows = connection.execute("SELECT * FROM working_groups").fetchall()
+    finally:
+        connection.close()
+    for row in rows:
+        _sync_working_group_projection(settings=settings, group_row=row)
+    return len(rows)
+
+
 def _archive_working_group_projection(*, settings: Settings, group_id: int) -> None:
     local_model_id = _working_group_projection_local_model_id(group_id)
     delete_local_model(
