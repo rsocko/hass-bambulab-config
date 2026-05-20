@@ -2711,12 +2711,28 @@ class ModelDetailPopupCard extends HTMLElement {
 
       const metaLine = this._escapeHtml(metaParts.join(' · '));
 
+      // Build match rationale line for candidates
+      let matchInfoHtml = '';
+      if (isCandidate) {
+        const conf = archive.match_confidence || '';
+        const method = (archive.match_method || '').replace(/_/g, ' ');
+        let reviewNote = null;
+        if (archive.review_note) {
+          try { reviewNote = typeof archive.review_note === 'string' ? JSON.parse(archive.review_note) : archive.review_note; } catch { /* skip */ }
+        }
+        const confColors = { high: 'rgba(76,175,80,0.25);color:#8dda8d', medium: 'rgba(255,180,60,0.22);color:#ffcc66', low: 'rgba(255,80,80,0.22);color:#ff8a8a' };
+        const confStyle = confColors[conf] || confColors.low;
+        const confLabel = conf ? conf.charAt(0).toUpperCase() + conf.slice(1) : 'Unknown';
+        const reasonSummary = reviewNote && reviewNote.summary ? reviewNote.summary : method;
+        matchInfoHtml = `<div class="detail" style="margin-top:2px;"><span style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;background:${confStyle};margin-right:4px;">${this._escapeHtml(confLabel)}</span><span style="opacity:0.7;font-size:10px;">${this._escapeHtml(reasonSummary)}</span></div>`;
+      }
+
       return `
         <article class="collapsible-group" data-slot="actions:per-archive">
           <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
             <div style="display:flex;align-items:center;gap:10px;">
               ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-archive-thumb-click="${archiveId}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
-              <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style="opacity:0.5">Loading metadata…</span>')}</div></div>
+              <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style="opacity:0.5">Loading metadata…</span>')}</div>${matchInfoHtml}</div>
             </div>
             <div><span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
           </button>
@@ -2779,7 +2795,15 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
         <div class="files">
           ${candidateBanner}
-          ${linked.map(item => renderArchive(item, false)).join('')}
+          ${[...linked].sort((a, b) => {
+            const metaA = this._archiveMetaCache[String(a.archive_id || '')];
+            const metaB = this._archiveMetaCache[String(b.archive_id || '')];
+            const dataA = metaA && metaA.archive ? metaA.archive : metaA;
+            const dataB = metaB && metaB.archive ? metaB.archive : metaB;
+            const tA = (dataA && dataA.started_at) || a.created_at || '';
+            const tB = (dataB && dataB.started_at) || b.created_at || '';
+            return tA < tB ? 1 : tA > tB ? -1 : 0;
+          }).map(item => renderArchive(item, false)).join('')}
           ${candidates.map(item => renderArchive(item, true)).join('')}
           ${this._renderExtensionSlot('sections:archive-linkage', '')}
           ${!linked.length && !candidates.length ? '<article class="queue-row"><strong>No linked or candidate archives</strong><div class="detail">Archive linkage review appears here.</div></article>' : ''}
