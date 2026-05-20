@@ -1147,6 +1147,13 @@ def read_archive_links_for_model(*, db_path: Path, model_url: str, active_only: 
     """Return all archive links targeting a given model URL (reverse lookup)."""
     connection = connect(db_path)
     try:
+        # Build alternate URL form so we match both legacy (local://{id})
+        # and canonical (local://model/{id}) records.
+        alt_url: str | None = None
+        if model_url.startswith("local://model/"):
+            alt_url = "local://" + model_url[len("local://model/"):]
+        elif model_url.startswith("local://") and not model_url.startswith("local://working-group/"):
+            alt_url = "local://model/" + model_url[len("local://"):]
         query = """
             SELECT
                 id,
@@ -1164,9 +1171,9 @@ def read_archive_links_for_model(*, db_path: Path, model_url: str, active_only: 
                 created_at,
                 updated_at
             FROM model_catalog_links
-            WHERE model_url = ?
+            WHERE model_url IN (?, ?)
         """
-        params: list[object] = [model_url]
+        params: list[object] = [model_url, alt_url or model_url]
         if active_only:
             query += " AND is_active = 1"
         query += " ORDER BY updated_at DESC, id DESC"

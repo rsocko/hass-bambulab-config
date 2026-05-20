@@ -57,12 +57,19 @@ def _model_ref_from_payload(payload: dict[str, Any]) -> str | None:
 def canonicalize_model_url(base_url: str, model_url: str, *, fallback_model_id: Any | None = None) -> str:
     """Normalize a model URL to a canonical form.
 
-    For local:// URLs this is a pass-through. For relative or HTTP URLs,
-    resolves against base_url to produce a canonical absolute URL.
+    For local:// URLs, ensures the ``model/`` path segment is present
+    (``local://model/{id}``).  For relative or HTTP URLs, resolves
+    against *base_url* to produce a canonical absolute URL.
     """
     normalized = str(model_url or "").strip()
     if not normalized and fallback_model_id is not None:
         return f"{base_url.rstrip('/')}/models/{fallback_model_id}"
+    # Normalize local:// URLs — ensure the model/ path segment is present.
+    if normalized.startswith("local://"):
+        suffix = normalized[len("local://"):]
+        if not suffix.startswith("model/") and not suffix.startswith("working-group/"):
+            return f"local://model/{suffix}"
+        return normalized
     if normalized.startswith("/"):
         return f"{base_url.rstrip('/')}{normalized}"
     if normalized.startswith("http://") or normalized.startswith("https://"):
