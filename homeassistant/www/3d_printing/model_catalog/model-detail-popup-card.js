@@ -43,6 +43,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._error = "";
     this._activeTab = "details";
     this._isEditMode = false;
+    this._refreshingCandidates = false;
     this._editAdvancedSectionOpen = false;
     this._lastModifiedTimestamp = null;
     this._conflictDialog = null;
@@ -2199,16 +2200,58 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  _resolveBambuddyUrl() {
+    if (this._config && this._config.bambuddy_url) {
+      return String(this._config.bambuddy_url).trim();
+    }
+    if (this._hass && this._hass.states) {
+      const entity = this._hass.states["input_text.bambuddy_api_base_url"];
+      if (entity && entity.state) return String(entity.state).trim();
+    }
+    return "";
+  }
+
+  async _handleRefreshModelCandidates() {
+    if (!this._modelRef || !this._modelSidecarUrl) return;
+    const bambuddyUrl = this._resolveBambuddyUrl();
+    if (!bambuddyUrl) {
+      alert('Bambuddy API URL not configured. Set input_text.bambuddy_api_base_url or add bambuddy_url to card config.');
+      return;
+    }
+    this._refreshingCandidates = true;
+    this._renderDetail();
+    try {
+      const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/candidates/refresh`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bambuddy_url: bambuddyUrl })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `HTTP ${res.status}`);
+      }
+      const result = await res.json();
+      await this._loadModelDetail({ silent: true });
+    } catch (e) {
+      alert('Failed to refresh candidates: ' + e);
+    } finally {
+      this._refreshingCandidates = false;
+      this._renderDetail();
+    }
+  }
+
   _renderArchiveLinkageCard() {
     const linked = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives : [];
     const candidates = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
+    const bambuddyUrl = this._resolveBambuddyUrl();
 
     const renderArchive = (archive, isCandidate) => {
       const id = String(archive.archive_id || archive.id || 'archive');
       const title = this._escapeHtml(String(archive.name || archive.archive_name || `Archive ${id}`));
       const meta = [archive.printer, archive.filament_name, archive.completed_at ? new Date(archive.completed_at).toLocaleDateString() : '', archive.duration_minutes ? `${archive.duration_minutes} min` : ''].filter(Boolean).join(' | ');
       const sectionKey = `archive-${id}`;
-      const thumb = archive.preview_image_url || archive.thumbnail_url || '';
+      const thumb = archive.preview_image_url || archive.thumbnail_url || (bambuddyUrl && id !== 'archive' ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/thumbnail` : '');
       return `
         <article class="collapsible-group" data-slot="actions:per-archive">
           <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
@@ -2245,12 +2288,17 @@ class ModelDetailPopupCard extends HTMLElement {
         if (linkBtn) linkBtn.onclick = () => this._handleArchiveCandidateAction(id, 'link');
         if (skipBtn) skipBtn.onclick = () => this._handleArchiveCandidateAction(id, 'skip');
       });
+      const refreshBtn = this.shadowRoot.querySelector('.refresh-candidates-btn');
+      if (refreshBtn) refreshBtn.onclick = () => this._handleRefreshModelCandidates();
     }, 0);
 
     return `
       <section class="card" data-slot="sections:archive-linkage">
         <div class="h">
           <span>Related Archives</span>
+          <button class="refresh-candidates-btn" title="Refresh candidate matches" style="background:none;border:none;cursor:pointer;padding:2px 6px;font-size:1.1em;opacity:0.7;vertical-align:middle;" ${this._refreshingCandidates ? 'disabled' : ''}>
+            ${this._refreshingCandidates ? '⏳' : '🔄'}
+          </button>
         </div>
         <div class="files">
           ${candidateBanner}
@@ -2898,6 +2946,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderPrintsTab() {
     const links = this._modelDetail.linked_archives || [];
+    const bambuddyUrl = this._resolveBambuddyUrl();
     
     if (links.length === 0) {
       return `
@@ -3098,10 +3147,12 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
         
         <div class="archive-grid">
-          ${links.map(link => `
+          ${links.map(link => {
+            const thumbUrl = link.thumbnail_url || (bambuddyUrl && link.archive_id ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(String(link.archive_id))}/thumbnail` : '');
+            return `
             <div class="archive-card" data-archive-id="${link.archive_id}">
-              ${link.thumbnail_url ? `
-                <img class="archive-thumbnail" src="${link.thumbnail_url}" alt="Archive #${link.archive_id}" loading="lazy">
+              ${thumbUrl ? `
+                <img class="archive-thumbnail" src="${thumbUrl}" alt="Archive #${link.archive_id}" loading="lazy">
               ` : `
                 <div class="archive-thumbnail" style="display: flex; align-items: center; justify-content: center;">
                   <span style="font-size: 32px;">🖨️</span>
@@ -3120,7 +3171,7 @@ class ModelDetailPopupCard extends HTMLElement {
                 </div>
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       </div>
     `;

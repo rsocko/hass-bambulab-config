@@ -14,15 +14,12 @@ from ..db import read_archive_links, refresh_archive_link_candidates
 from ..services.model_detail_service import build_model_detail_response
 from . import models as models_router
 from .archive_links import (
-    CandidateMatch,
     _build_candidate_match,
     _existing_accepted_link_counts,
-    _local_model_url,
     _normalized_model_url,
     _parse_iso_datetime,
     _read_local_catalog_for_matching,
     _read_working_groups_for_matching,
-    _summary_map,
 )
 
 log = logging.getLogger(__name__)
