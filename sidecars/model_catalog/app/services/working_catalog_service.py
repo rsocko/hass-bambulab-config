@@ -225,7 +225,9 @@ def sync_all_working_group_projections(*, settings: Settings) -> int:
 
     Returns the number of groups synced.
     """
+    import sqlite3
     connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
     try:
         rows = connection.execute("SELECT * FROM working_groups").fetchall()
     finally:
