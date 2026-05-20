@@ -2630,7 +2630,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderPageStatusWithCount() {
     var total = Math.max(0, Number(this._pagination.total || 0));
-    var noun = total === 1 ? "model" : "models";
+    var noun = total === 1 ? "item" : "items";
     return ''
       + '<span class="page-value">' + this._escapeHtml(this._pageStatusText()) + '</span>'
       + '<span class="page-dot">·</span>'
@@ -3225,7 +3225,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="page-control-strip">'
       + this._renderNavigationControls()
       + '<div class="toolbar-group density-group">'
-      + '  <label for="mc-per-page">Models / Page</label>'
+      + '  <label for="mc-per-page">Items / Page</label>'
       + '  <select id="mc-per-page" class="control-input compact-select">'
       + '    <option value="12"' + (Number(this._pagination.per_page) === 12 ? ' selected' : '') + '>12</option>'
       + '    <option value="24"' + (Number(this._pagination.per_page) === 24 ? ' selected' : '') + '>24</option>'
@@ -3250,7 +3250,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="page-control-strip bottom-mirror">'
       + this._renderNavigationControls()
       + '<div class="toolbar-group density-group">'
-      + '  <label for="mc-per-page-bottom">Models / Page</label>'
+      + '  <label for="mc-per-page-bottom">Items / Page</label>'
       + '  <select id="mc-per-page-bottom" class="control-input compact-select">'
       + '    <option value="12"' + (Number(this._pagination.per_page) === 12 ? ' selected' : '') + '>12</option>'
       + '    <option value="24"' + (Number(this._pagination.per_page) === 24 ? ' selected' : '') + '>24</option>'
@@ -3717,7 +3717,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return ''
         + '<article class="collection-card">'
         + '  <div class="collection-name">' + this._escapeHtml(entry.name) + '</div>'
-        + '  <div class="collection-meta">' + this._escapeHtml(String(entry.total) + (entry.total === 1 ? " model" : " models")) + '</div>'
+        + '  <div class="collection-meta">' + this._escapeHtml(String(entry.total) + (entry.total === 1 ? " item" : " items")) + '</div>'
         + '  <div class="collection-meta">Top creators: ' + this._escapeHtml(creatorSummary || "Unknown") + '</div>'
         + '  <div class="collection-models">' + this._escapeHtml(entry.modelNames.join(" · ")) + '</div>'
         + '  <button class="toolbar-btn" type="button" data-action="set-collection-filter" data-collection="' + this._escapeHtml(entry.name) + '">Open collection</button>'
