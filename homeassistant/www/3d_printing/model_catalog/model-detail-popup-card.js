@@ -2212,32 +2212,76 @@ class ModelDetailPopupCard extends HTMLElement {
     return "";
   }
 
+  async _authHeaders(forceRefresh) {
+    const auth = this._hass && this._hass.auth ? this._hass.auth : null;
+    if (!auth) return {};
+    if (forceRefresh && typeof auth.refreshAccessToken === 'function') {
+      try { await auth.refreshAccessToken(); } catch { /* use last known token */ }
+    }
+    const accessToken = auth.accessToken || (auth.data ? auth.data.accessToken : '');
+    return accessToken ? { Authorization: 'Bearer ' + accessToken } : {};
+  }
+
+  _normalizeServiceResponse(payload) {
+    if (Array.isArray(payload) && payload.length) {
+      const firstItem = payload[0];
+      if (firstItem && typeof firstItem === 'object') return this._normalizeServiceResponse(firstItem);
+    }
+    if (payload && typeof payload === 'object') {
+      if (payload.service_response && typeof payload.service_response === 'object') return this._normalizeServiceResponse(payload.service_response);
+      if (payload.response && typeof payload.response === 'object') return this._normalizeServiceResponse(payload.response);
+      if (payload.content && typeof payload.content === 'object' && (Object.prototype.hasOwnProperty.call(payload, 'status') || Object.prototype.hasOwnProperty.call(payload, 'headers'))) {
+        return Object.assign({}, payload.content, { content: payload.content, status: payload.status, headers: payload.headers });
+      }
+    }
+    return payload && typeof payload === 'object' ? payload : {};
+  }
+
+  async _callServiceWithResponse(domain, service, data) {
+    if (!this._hass) throw new Error('Home Assistant context is unavailable');
+    const endpoint = '/api/services/' + encodeURIComponent(String(domain || '')) + '/' + encodeURIComponent(String(service || '')) + '?return_response';
+    const requestBody = JSON.stringify(data && typeof data === 'object' ? data : {});
+    let response = await fetch(endpoint, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, await this._authHeaders(false)),
+      credentials: 'same-origin',
+      body: requestBody,
+    });
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, await this._authHeaders(true)),
+        credentials: 'same-origin',
+        body: requestBody,
+      });
+    }
+    let payload = {};
+    try { payload = await response.json(); } catch { payload = {}; }
+    if (!response.ok) {
+      throw payload && typeof payload === 'object'
+        ? { message: String(payload.message || payload.error || ('Service call failed (HTTP ' + String(response.status) + ')')), body: payload, status: response.status }
+        : new Error('Service call failed (HTTP ' + String(response.status) + ')');
+    }
+    const normalized = this._normalizeServiceResponse(payload);
+    if (normalized && typeof normalized === 'object' && Number(normalized.status || 0) >= 400) {
+      throw { message: String(normalized.message || normalized.error || ('Service call failed (embedded HTTP ' + String(normalized.status) + ')')), body: normalized, status: Number(normalized.status || 0) };
+    }
+    return normalized;
+  }
+
   async _fetchArchiveMeta(archiveId) {
     const id = String(archiveId);
     if (this._archiveMetaCache[id]) return this._archiveMetaCache[id];
-    const bambuddyUrl = this._resolveBambuddyUrl();
-    if (!bambuddyUrl) return null;
+    if (!this._hass) return null;
     try {
-      const res = await fetch(`${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      this._archiveMetaCache[id] = data;
-      return data;
+      const result = await this._callServiceWithResponse('bambuddy', 'get_print_history_archive_detail', { archive_id: Number(archiveId) });
+      this._archiveMetaCache[id] = result;
+      return result;
     } catch { return null; }
   }
 
-  async _fetchArchivePhotos(archiveId) {
-    const bambuddyUrl = this._resolveBambuddyUrl();
-    if (!bambuddyUrl) return [];
-    try {
-      const res = await fetch(`${bambuddyUrl}/api/v1/archives/${encodeURIComponent(String(archiveId))}/photos`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
-    } catch { return []; }
-  }
-
   async _loadArchiveMetaForLinks() {
+    if (!this._hass) return;
     const linked = Array.isArray(this._modelDetail && this._modelDetail.linked_archives) ? this._modelDetail.linked_archives : [];
     const candidates = Array.isArray(this._modelDetail && this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
     const allLinks = [...linked, ...candidates];
@@ -2253,9 +2297,23 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!bambuddyUrl) return;
     const id = String(archiveId);
     const meta = this._archiveMetaCache[id];
+    const archive = meta && meta.archive ? meta.archive : meta;
     const thumbUrl = `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/thumbnail`;
-    // Start with thumbnail, then load photos async
-    this._archiveImagePreview = { archiveId: id, images: [{ url: thumbUrl, filename: 'Thumbnail' }], index: 0, loading: true };
+
+    // Build images from cached photo data
+    const images = [{ url: thumbUrl, filename: 'Thumbnail' }];
+    const photos = archive && Array.isArray(archive.photos) ? archive.photos : [];
+    for (const photo of photos) {
+      const photoPath = typeof photo === 'string' ? photo : (photo.path || photo.filename || '');
+      if (photoPath) {
+        images.push({
+          url: `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoPath)}`,
+          filename: photoPath,
+        });
+      }
+    }
+
+    this._archiveImagePreview = { archiveId: id, images, index: 0, loading: false };
     this._ensureOverlayRoot();
     this._renderArchiveImageOverlay();
     if (this._overlayRoot && !this._overlayRoot.open) {
@@ -2263,20 +2321,6 @@ class ModelDetailPopupCard extends HTMLElement {
     }
     this._applyBodyScrollLock();
     document.addEventListener('keydown', this._boundKeydownHandler);
-    // Fetch photos
-    this._fetchArchivePhotos(id).then(photos => {
-      if (!this._archiveImagePreview || this._archiveImagePreview.archiveId !== id) return;
-      const images = [{ url: thumbUrl, filename: 'Thumbnail' }];
-      for (const photo of photos) {
-        const photoUrl = typeof photo === 'string'
-          ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/photos/${encodeURIComponent(photo)}`
-          : photo.url || (photo.filename ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/photos/${encodeURIComponent(photo.filename)}` : '');
-        if (photoUrl) images.push({ url: photoUrl, filename: typeof photo === 'string' ? photo : (photo.filename || photo.name || 'Photo') });
-      }
-      this._archiveImagePreview.images = images;
-      this._archiveImagePreview.loading = false;
-      this._renderArchiveImageOverlay();
-    });
   }
 
   _closeArchiveImagePreview() {
@@ -2296,7 +2340,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const imageUrl = String(item.url || '').trim();
     if (!imageUrl) { this._overlayRoot.innerHTML = ''; return; }
     const meta = this._archiveMetaCache[preview.archiveId];
-    const title = (meta && meta.print_name) || `Archive #${preview.archiveId}`;
+    const archiveData = meta && meta.archive ? meta.archive : meta;
+    const title = (archiveData && archiveData.print_name) || `Archive #${preview.archiveId}`;
     const itemName = String(item.filename || `Image ${index + 1}`);
 
     this._overlayRoot.innerHTML =
@@ -2394,8 +2439,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const candidates = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
     const bambuddyUrl = this._resolveBambuddyUrl();
 
-    // Trigger background fetch of archive metadata
-    if (bambuddyUrl && (linked.length || candidates.length)) {
+    // Trigger background fetch of archive metadata via HA service
+    if (this._hass && (linked.length || candidates.length)) {
       this._loadArchiveMetaForLinks();
     }
 
@@ -2410,28 +2455,29 @@ class ModelDetailPopupCard extends HTMLElement {
       const archiveId = String(archive.archive_id || '');
       const linkId = String(archive.id || '');
       const meta = this._archiveMetaCache[archiveId];
+      const archiveData = meta && meta.archive ? meta.archive : meta;
       const title = this._escapeHtml(
-        (meta && meta.print_name) ? meta.print_name
+        (archiveData && archiveData.print_name) ? archiveData.print_name
         : (archive.name || archive.archive_name || `Archive ${archiveId || linkId}`)
       );
       const sectionKey = `archive-${archiveId || linkId}`;
       const thumb = archive.preview_image_url || archive.thumbnail_url || (bambuddyUrl && archiveId ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/thumbnail` : '');
 
-      // Build metadata line from Bambuddy archive data
+      // Build metadata line from enriched archive data
       const metaParts = [];
-      if (meta && meta.started_at) {
+      if (archiveData && archiveData.started_at) {
         try {
-          const d = new Date(meta.started_at);
+          const d = new Date(archiveData.started_at);
           metaParts.push(d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
         } catch { /* skip */ }
       }
-      if (meta && (meta.print_time_seconds || meta.actual_time_seconds)) {
-        const dur = formatDuration(meta.actual_time_seconds || meta.print_time_seconds);
+      if (archiveData && (archiveData.print_time_seconds || archiveData.actual_time_seconds)) {
+        const dur = formatDuration(archiveData.actual_time_seconds || archiveData.print_time_seconds);
         if (dur) metaParts.push(dur);
       }
       if (archiveId) metaParts.push(archiveId);
       // Show outcome badge for non-successful outcomes
-      const status = meta && meta.status ? String(meta.status).toLowerCase() : '';
+      const status = archiveData && archiveData.status ? String(archiveData.status).toLowerCase() : '';
       const showOutcome = status && status !== 'completed' && status !== 'printing';
       const outcomeBadge = showOutcome
         ? ` <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:${status === 'cancelled' ? 'rgba(255,180,60,0.22);color:#ffcc66' : 'rgba(255,80,80,0.22);color:#ff8a8a'};">${this._escapeHtml(status.charAt(0).toUpperCase() + status.slice(1))}</span>`
