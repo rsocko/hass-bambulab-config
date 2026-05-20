@@ -6,10 +6,13 @@ reused by other routes and tested directly without a TestClient.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from typing import Any
 
 from fastapi import Request
+
+logger = logging.getLogger(__name__)
 
 
 def build_model_detail_response(
@@ -167,4 +170,5 @@ def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> di
             "link_count": len(accepted),
         }
     except Exception:
+        logger.exception("Failed to build linked-archives payload for model_url=%s", summary.model_url)
         return {"linked_archives": [], "candidate_archives": [], "link_count": 0}
