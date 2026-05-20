@@ -3688,6 +3688,7 @@ def _model_detail_service_helpers() -> dict[str, Any]:
         "_read_uploaded_photo_rows": _read_uploaded_photo_rows,
         "_ranking_payload": _ranking_payload,
         "read_archive_links": read_archive_links,
+        "read_archive_links_for_model": read_archive_links_for_model,
         "_archive_link_to_response": _archive_link_to_response,
         "_map_catalog_model_files": _map_catalog_model_files,
         "_normalize_photo_urls": _normalize_photo_urls,

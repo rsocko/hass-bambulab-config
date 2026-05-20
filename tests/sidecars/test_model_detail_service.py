@@ -173,3 +173,4 @@ def test_model_detail_helpers_include_idea_metadata_dependency() -> None:
 
     helpers = models_router._model_detail_service_helpers()
     assert "_read_idea_metadata" in helpers
+    assert "read_archive_links_for_model" in helpers
