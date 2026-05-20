@@ -3948,7 +3948,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _handlePhotoPreview(photoIdx) {
-    const galleryItems = this._galleryItems();
+    const galleryItems = this._heroOrderMediaItems(this._galleryItems());
     if (photoIdx < 0 || photoIdx >= galleryItems.length) return;
 
     this._activePhotoIndex = photoIdx;
@@ -3964,7 +3964,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _stepPhotoPreview(direction) {
-    const galleryItems = this._galleryItems();
+    const galleryItems = this._heroOrderMediaItems(this._galleryItems());
     
     if (!galleryItems.length || this._activePhotoIndex == null) {
       return;
@@ -4107,7 +4107,7 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderPhotoOverlay() {
     if (!this._overlayRoot) return;
 
-    const galleryItems = this._galleryItems();
+    const galleryItems = this._heroOrderMediaItems(this._galleryItems());
     if (!galleryItems.length || this._activePhotoIndex == null) {
       this._overlayRoot.innerHTML = '';
       return;
