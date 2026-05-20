@@ -49,7 +49,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=9
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=85
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=86
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=40
   type: module

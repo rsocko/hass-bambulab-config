@@ -4880,6 +4880,10 @@ class ModelDetailPopupCard extends HTMLElement {
       sm.publishing.source_platform_label = value;
     } else if (fieldKey === 'source_urls') {
       sm.provenance.source_urls = value;
+    } else if (fieldKey === 'source_download_url') {
+      sm.provenance.source_download_url = value;
+    } else if (fieldKey === 'published_urls') {
+      sm.publishing.published_urls = value;
     }
   }
 
@@ -4912,6 +4916,28 @@ class ModelDetailPopupCard extends HTMLElement {
     const url = urls[index];
     const confirmMsg = url ? `Remove URL "${url}"?` : 'Remove this empty URL entry?';
     if (!confirm(confirmMsg)) return;
+
+    // Check if the removed URL matches source_download_url or published_urls
+    // so we clear the origin field — otherwise _getSourceUrls() re-merges it back.
+    const model = this._modelDetail?.model;
+    const metadata = model?.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
+    const provenance = metadata.provenance || {};
+    const publishing = metadata.publishing || {};
+    const downloadUrl = provenance.source_download_url;
+    const published_urls = publishing.published_urls || {};
+
+    if (url && url === downloadUrl) {
+      await this._saveSourceField('source_download_url', null);
+    }
+    const matchingKeys = Object.entries(published_urls)
+      .filter(([, v]) => v === url)
+      .map(([k]) => k);
+    if (matchingKeys.length > 0) {
+      const updated = { ...published_urls };
+      for (const k of matchingKeys) delete updated[k];
+      await this._saveSourceField('published_urls', updated);
+    }
+
     urls.splice(index, 1);
     await this._saveSourceField('source_urls', urls);
   }
