@@ -44,6 +44,8 @@ class ModelDetailPopupCard extends HTMLElement {
     this._activeTab = "details";
     this._isEditMode = false;
     this._refreshingCandidates = false;
+    this._archiveMetaCache = {};
+    this._archiveImagePreview = null; // { archiveId, images[], index }
     this._editAdvancedSectionOpen = false;
     this._lastModifiedTimestamp = null;
     this._conflictDialog = null;
@@ -2183,19 +2185,18 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
 
-  async _handleArchiveCandidateAction(archiveId, action) {
+  async _handleArchiveCandidateAction(archiveId, linkId, action) {
     if (!this._modelRef || !this._modelSidecarUrl) return;
     try {
-      const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/archives/link`;
+      const endpoint = action === 'link' ? 'accept' : 'reject';
+      const url = `${this._modelSidecarUrl}/api/archive-links/${encodeURIComponent(archiveId)}/${encodeURIComponent(linkId)}/${endpoint}`;
       const res = await fetch(url, {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archive_id: archiveId, action })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await this._loadModelDetail({ silent: true });
     } catch (e) {
-      // Optionally show error
       alert('Failed to update archive linkage: ' + e);
     }
   }
@@ -2209,6 +2210,153 @@ class ModelDetailPopupCard extends HTMLElement {
       if (entity && entity.state) return String(entity.state).trim();
     }
     return "";
+  }
+
+  async _fetchArchiveMeta(archiveId) {
+    const id = String(archiveId);
+    if (this._archiveMetaCache[id]) return this._archiveMetaCache[id];
+    const bambuddyUrl = this._resolveBambuddyUrl();
+    if (!bambuddyUrl) return null;
+    try {
+      const res = await fetch(`${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      this._archiveMetaCache[id] = data;
+      return data;
+    } catch { return null; }
+  }
+
+  async _fetchArchivePhotos(archiveId) {
+    const bambuddyUrl = this._resolveBambuddyUrl();
+    if (!bambuddyUrl) return [];
+    try {
+      const res = await fetch(`${bambuddyUrl}/api/v1/archives/${encodeURIComponent(String(archiveId))}/photos`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch { return []; }
+  }
+
+  async _loadArchiveMetaForLinks() {
+    const linked = Array.isArray(this._modelDetail && this._modelDetail.linked_archives) ? this._modelDetail.linked_archives : [];
+    const candidates = Array.isArray(this._modelDetail && this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
+    const allLinks = [...linked, ...candidates];
+    const ids = [...new Set(allLinks.map(l => String(l.archive_id || l.id || '')).filter(Boolean))];
+    const uncached = ids.filter(id => !this._archiveMetaCache[id]);
+    if (!uncached.length) return;
+    await Promise.all(uncached.map(id => this._fetchArchiveMeta(id)));
+    this._render();
+  }
+
+  _openArchiveImagePreview(archiveId) {
+    const bambuddyUrl = this._resolveBambuddyUrl();
+    if (!bambuddyUrl) return;
+    const id = String(archiveId);
+    const meta = this._archiveMetaCache[id];
+    const thumbUrl = `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/thumbnail`;
+    // Start with thumbnail, then load photos async
+    this._archiveImagePreview = { archiveId: id, images: [{ url: thumbUrl, filename: 'Thumbnail' }], index: 0, loading: true };
+    this._ensureOverlayRoot();
+    this._renderArchiveImageOverlay();
+    if (this._overlayRoot && !this._overlayRoot.open) {
+      this._overlayRoot.showModal();
+    }
+    this._applyBodyScrollLock();
+    document.addEventListener('keydown', this._boundKeydownHandler);
+    // Fetch photos
+    this._fetchArchivePhotos(id).then(photos => {
+      if (!this._archiveImagePreview || this._archiveImagePreview.archiveId !== id) return;
+      const images = [{ url: thumbUrl, filename: 'Thumbnail' }];
+      for (const photo of photos) {
+        const photoUrl = typeof photo === 'string'
+          ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/photos/${encodeURIComponent(photo)}`
+          : photo.url || (photo.filename ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/photos/${encodeURIComponent(photo.filename)}` : '');
+        if (photoUrl) images.push({ url: photoUrl, filename: typeof photo === 'string' ? photo : (photo.filename || photo.name || 'Photo') });
+      }
+      this._archiveImagePreview.images = images;
+      this._archiveImagePreview.loading = false;
+      this._renderArchiveImageOverlay();
+    });
+  }
+
+  _closeArchiveImagePreview() {
+    document.removeEventListener('keydown', this._boundKeydownHandler);
+    this._restoreBodyScrollLock();
+    if (this._overlayRoot && this._overlayRoot.open) {
+      this._overlayRoot.close();
+    }
+    this._archiveImagePreview = null;
+  }
+
+  _renderArchiveImageOverlay() {
+    if (!this._overlayRoot || !this._archiveImagePreview) return;
+    const preview = this._archiveImagePreview;
+    const index = Math.max(0, Math.min(preview.index, preview.images.length - 1));
+    const item = preview.images[index] || {};
+    const imageUrl = String(item.url || '').trim();
+    if (!imageUrl) { this._overlayRoot.innerHTML = ''; return; }
+    const meta = this._archiveMetaCache[preview.archiveId];
+    const title = (meta && meta.print_name) || `Archive #${preview.archiveId}`;
+    const itemName = String(item.filename || `Image ${index + 1}`);
+
+    this._overlayRoot.innerHTML =
+      '<style>' +
+      '.mdp-frame,.mdp-frame *{box-sizing:border-box;}' +
+      '.frame{position:fixed;inset:0;}' +
+      '.backdrop{appearance:none;border:none;position:absolute;inset:0;background:rgba(4,8,15,0.94);padding:0;cursor:pointer;}' +
+      '.shell{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;height:100%;box-sizing:border-box;padding:clamp(16px,2.2vw,28px);}' +
+      '.header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;color:#fff;}' +
+      '.title{font:700 clamp(18px,2.2vw,24px)/1.2 system-ui,sans-serif;}' +
+      '.subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}' +
+      '.button{appearance:none;border:1px solid rgba(255,255,255,0.24);border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.10);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;transition:background .16s ease;}' +
+      '.button:hover{background:rgba(255,255,255,0.18);}' +
+      '.stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;border-radius:24px;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.98));box-shadow:0 24px 60px rgba(0,0,0,0.42);}' +
+      '.image-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:0;padding:clamp(10px,1.6vw,22px);box-sizing:border-box;}' +
+      '.image{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;border-radius:18px;}' +
+      '.nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:56px;height:56px;border-radius:999px;background:rgba(255,255,255,0.14);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);}' +
+      '.nav.prev{left:16px;}' +
+      '.nav.next{right:16px;}' +
+      '.filmstrip{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 6px;}' +
+      '.thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease;}' +
+      '.thumb.active{border-color:#90caf9;opacity:1;}' +
+      '.thumb img{display:block;width:108px;height:108px;object-fit:cover;}' +
+      "dialog[aria-label='Full-screen gallery']::backdrop{background:transparent;}" +
+      '</style>' +
+      '<div class="frame mdp-frame">' +
+      '<button class="backdrop" type="button" data-action="close-archive-preview" aria-label="Close"></button>' +
+      '<div class="shell" role="dialog" aria-modal="true">' +
+      '<div class="header">' +
+      '<div><div class="title">' + this._escapeHtml(title) + '</div><div class="subtitle">' + this._escapeHtml(itemName) + ' \u00b7 ' + (index + 1) + ' / ' + preview.images.length + (preview.loading ? ' (loading…)' : '') + '</div></div>' +
+      '<div><button class="button" type="button" data-action="close-archive-preview">Close</button></div>' +
+      '</div>' +
+      '<div class="stage">' +
+      '<div class="image-wrap"><img class="image" src="' + this._escapeHtml(imageUrl) + '" alt="' + this._escapeHtml(itemName) + '" loading="eager"></div>' +
+      (preview.images.length > 1 ? '<button class="nav prev" type="button" data-action="archive-prev" aria-label="Previous">&#8249;</button><button class="nav next" type="button" data-action="archive-next" aria-label="Next">&#8250;</button>' : '') +
+      '</div>' +
+      (preview.images.length > 1 ? '<div class="filmstrip">' + preview.images.map(function (gi, idx) {
+        var thumbUrl = gi.url || '';
+        var thumbAlt = gi.filename || 'Image ' + (idx + 1);
+        return '<button class="thumb' + (idx === index ? ' active' : '') + '" type="button" data-archive-thumb-index="' + idx + '" aria-label="' + this._escapeHtml(thumbAlt) + '">' +
+          (thumbUrl ? '<img src="' + this._escapeHtml(thumbUrl) + '" alt="' + this._escapeHtml(thumbAlt) + '" loading="lazy">' : '') +
+          '</button>';
+      }.bind(this)).join('') + '</div>' : '') +
+      '</div>' +
+      '</div>';
+
+    // Wire overlay event handlers
+    const self = this;
+    this._overlayRoot.querySelectorAll('[data-action="close-archive-preview"]').forEach(btn => {
+      btn.onclick = (e) => { e.preventDefault(); self._closeArchiveImagePreview(); };
+    });
+    this._overlayRoot.querySelectorAll('[data-action="archive-prev"]').forEach(btn => {
+      btn.onclick = (e) => { e.preventDefault(); self._archiveImagePreview.index = Math.max(0, self._archiveImagePreview.index - 1); self._renderArchiveImageOverlay(); };
+    });
+    this._overlayRoot.querySelectorAll('[data-action="archive-next"]').forEach(btn => {
+      btn.onclick = (e) => { e.preventDefault(); self._archiveImagePreview.index = Math.min(self._archiveImagePreview.images.length - 1, self._archiveImagePreview.index + 1); self._renderArchiveImageOverlay(); };
+    });
+    this._overlayRoot.querySelectorAll('[data-archive-thumb-index]').forEach(btn => {
+      btn.onclick = (e) => { e.preventDefault(); self._archiveImagePreview.index = parseInt(btn.dataset.archiveThumbIndex, 10); self._renderArchiveImageOverlay(); };
+    });
   }
 
   async _handleRefreshModelCandidates() {
@@ -2246,25 +2394,64 @@ class ModelDetailPopupCard extends HTMLElement {
     const candidates = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
     const bambuddyUrl = this._resolveBambuddyUrl();
 
+    // Trigger background fetch of archive metadata
+    if (bambuddyUrl && (linked.length || candidates.length)) {
+      this._loadArchiveMetaForLinks();
+    }
+
+    const formatDuration = (seconds) => {
+      if (!seconds || seconds <= 0) return '';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    };
+
     const renderArchive = (archive, isCandidate) => {
-      const id = String(archive.archive_id || archive.id || 'archive');
-      const title = this._escapeHtml(String(archive.name || archive.archive_name || `Archive ${id}`));
-      const meta = [archive.printer, archive.filament_name, archive.completed_at ? new Date(archive.completed_at).toLocaleDateString() : '', archive.duration_minutes ? `${archive.duration_minutes} min` : ''].filter(Boolean).join(' | ');
-      const sectionKey = `archive-${id}`;
-      const thumb = archive.preview_image_url || archive.thumbnail_url || (bambuddyUrl && id !== 'archive' ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(id)}/thumbnail` : '');
+      const archiveId = String(archive.archive_id || '');
+      const linkId = String(archive.id || '');
+      const meta = this._archiveMetaCache[archiveId];
+      const title = this._escapeHtml(
+        (meta && meta.print_name) ? meta.print_name
+        : (archive.name || archive.archive_name || `Archive ${archiveId || linkId}`)
+      );
+      const sectionKey = `archive-${archiveId || linkId}`;
+      const thumb = archive.preview_image_url || archive.thumbnail_url || (bambuddyUrl && archiveId ? `${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/thumbnail` : '');
+
+      // Build metadata line from Bambuddy archive data
+      const metaParts = [];
+      if (meta && meta.started_at) {
+        try {
+          const d = new Date(meta.started_at);
+          metaParts.push(d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
+        } catch { /* skip */ }
+      }
+      if (meta && (meta.print_time_seconds || meta.actual_time_seconds)) {
+        const dur = formatDuration(meta.actual_time_seconds || meta.print_time_seconds);
+        if (dur) metaParts.push(dur);
+      }
+      if (archiveId) metaParts.push(archiveId);
+      // Show outcome badge for non-successful outcomes
+      const status = meta && meta.status ? String(meta.status).toLowerCase() : '';
+      const showOutcome = status && status !== 'completed' && status !== 'printing';
+      const outcomeBadge = showOutcome
+        ? ` <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:${status === 'cancelled' ? 'rgba(255,180,60,0.22);color:#ffcc66' : 'rgba(255,80,80,0.22);color:#ff8a8a'};">${this._escapeHtml(status.charAt(0).toUpperCase() + status.slice(1))}</span>`
+        : '';
+
+      const metaLine = this._escapeHtml(metaParts.join(' · '));
+
       return `
         <article class="collapsible-group" data-slot="actions:per-archive">
           <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
             <div style="display:flex;align-items:center;gap:10px;">
-              ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;">` : ''}
-              <div><strong>${title}</strong><div class="detail">${this._escapeHtml(meta || 'Archive metadata')}</div></div>
+              ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-archive-thumb-click="${archiveId}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
+              <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style="opacity:0.5">Loading metadata…</span>')}</div></div>
             </div>
             <div><span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
           </button>
           <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
             ${isCandidate
-              ? `<button class="action-button" data-archive-link="${id}">Link</button> <button class="action-button ghost" data-archive-skip="${id}">Skip</button>`
-              : `<button class="action-button ghost">Open archive</button>`}
+              ? `<button class="action-button" data-archive-link="${archiveId}" data-link-id="${linkId}">Link</button> <button class="action-button ghost" data-archive-skip="${archiveId}" data-link-id="${linkId}">Skip</button>`
+              : `<button class="action-button ghost" data-archive-open="${archiveId}">Open archive</button>`}
             ${this._renderExtensionSlot('actions:per-archive', '')}
           </div>
         </article>
@@ -2281,12 +2468,32 @@ class ModelDetailPopupCard extends HTMLElement {
     // Attach event listeners after render
     setTimeout(() => {
       if (!this.shadowRoot) return;
+      // Link/Skip buttons (candidates)
       candidates.forEach(archive => {
-        const id = String(archive.archive_id || archive.id || 'archive');
-        const linkBtn = this.shadowRoot.querySelector(`button[data-archive-link="${id}"]`);
-        const skipBtn = this.shadowRoot.querySelector(`button[data-archive-skip="${id}"]`);
-        if (linkBtn) linkBtn.onclick = () => this._handleArchiveCandidateAction(id, 'link');
-        if (skipBtn) skipBtn.onclick = () => this._handleArchiveCandidateAction(id, 'skip');
+        const archiveId = String(archive.archive_id || '');
+        const linkId = String(archive.id || '');
+        const linkBtn = this.shadowRoot.querySelector(`button[data-archive-link="${archiveId}"]`);
+        const skipBtn = this.shadowRoot.querySelector(`button[data-archive-skip="${archiveId}"]`);
+        if (linkBtn) linkBtn.onclick = () => this._handleArchiveCandidateAction(archiveId, linkId, 'link');
+        if (skipBtn) skipBtn.onclick = () => this._handleArchiveCandidateAction(archiveId, linkId, 'skip');
+      });
+      // Open archive buttons (linked)
+      this.shadowRoot.querySelectorAll('button[data-archive-open]').forEach(btn => {
+        btn.onclick = () => {
+          const aid = btn.dataset.archiveOpen;
+          if (bambuddyUrl && aid) {
+            window.open(`${bambuddyUrl}/archives/${encodeURIComponent(aid)}`, '_blank');
+          }
+        };
+      });
+      // Thumbnail click → image preview
+      this.shadowRoot.querySelectorAll('img[data-archive-thumb-click]').forEach(img => {
+        img.onclick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const aid = img.dataset.archiveThumbClick;
+          if (aid) this._openArchiveImagePreview(aid);
+        };
       });
       const refreshBtn = this.shadowRoot.querySelector('.refresh-candidates-btn');
       if (refreshBtn) refreshBtn.onclick = () => this._handleRefreshModelCandidates();
@@ -3586,10 +3793,31 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _handleOverlayCancel(event) {
     event.preventDefault();
-    this._closePhotoPreview();
+    if (this._archiveImagePreview) {
+      this._closeArchiveImagePreview();
+    } else {
+      this._closePhotoPreview();
+    }
   }
 
   _handleKeydown(event) {
+    // Archive image preview takes precedence when open
+    if (this._archiveImagePreview) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        this._closeArchiveImagePreview();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this._archiveImagePreview.index = Math.max(0, this._archiveImagePreview.index - 1);
+        this._renderArchiveImageOverlay();
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        this._archiveImagePreview.index = Math.min(this._archiveImagePreview.images.length - 1, this._archiveImagePreview.index + 1);
+        this._renderArchiveImageOverlay();
+      }
+      return;
+    }
     if (this._activePhotoIndex == null) return;
     if (event.key === 'Escape') {
       event.preventDefault();
