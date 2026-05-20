@@ -1027,7 +1027,6 @@ class ModelDetailPopupCard extends HTMLElement {
           position: relative;
           min-height: 180px;
           max-height: 320px;
-          aspect-ratio: 4 / 3;
           background: var(--secondary-background-color);
           display: flex;
           align-items: center;
@@ -1035,7 +1034,7 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .main-media img {
           width: 100%;
-          height: 100%;
+          max-height: 420px;
           object-fit: contain;
           display: block;
         }
