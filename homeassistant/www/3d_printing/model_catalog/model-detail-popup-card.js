@@ -533,6 +533,17 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const pinArchiveCoverBtn = target.closest('[data-action="pin-archive-cover"]');
+    if (pinArchiveCoverBtn) {
+      event.preventDefault();
+      const archiveId = String(pinArchiveCoverBtn.dataset.archiveId || '').trim();
+      const imageUrl = String(pinArchiveCoverBtn.dataset.imageUrl || '').trim();
+      if (archiveId) {
+        this._handlePinArchiveCover(archiveId, imageUrl);
+      }
+      return;
+    }
+
     const archivePreviewBtn = target.closest('[data-action="open-archive-preview"]');
     if (archivePreviewBtn) {
       event.preventDefault();
@@ -1097,10 +1108,49 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _headerThumbnailUrl(model) {
-    const previewUrl = this._normalizeModelApiUrl(String(model && model.preview_url ? model.preview_url : '').trim());
-    if (previewUrl) {
-      return previewUrl;
+    const sources = this._headerThumbnailSources(model);
+    return sources.length ? sources[0] : '';
+  }
+
+  _headerThumbnailSources(model) {
+    const normalizedSources = [];
+    const seen = new Set();
+    const addSource = (rawUrl) => {
+      const candidate = this._normalizeModelApiUrl(String(rawUrl || '').trim());
+      if (!candidate || seen.has(candidate)) {
+        return;
+      }
+      seen.add(candidate);
+      normalizedSources.push(candidate);
+    };
+
+    const photos = Array.isArray(this._modelDetail && this._modelDetail.photos) ? this._modelDetail.photos : [];
+    const pinnedPhoto = photos.find(photo => photo && photo.is_preview);
+    if (pinnedPhoto) {
+      addSource(pinnedPhoto.image_url || pinnedPhoto.thumbnail_url || pinnedPhoto.preview_url || pinnedPhoto.url);
     }
+
+    const linkedArchives = Array.isArray(this._modelDetail && this._modelDetail.linked_archives)
+      ? this._modelDetail.linked_archives
+      : [];
+    const bambuddyUrl = this._resolveBambuddyUrl();
+    if (linkedArchives.length) {
+      const firstLinked = linkedArchives[0] || {};
+      const archiveId = String(firstLinked.archive_id || '').trim();
+      const meta = archiveId ? this._archiveMetaCache[archiveId] : null;
+      const archiveData = meta && meta.archive ? meta.archive : meta;
+      const primaryPhotoPath = archiveData && archiveData.primary_photo_path ? String(archiveData.primary_photo_path).trim() : '';
+      if (primaryPhotoPath && bambuddyUrl && archiveId) {
+        addSource(`${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/photos/${encodeURIComponent(primaryPhotoPath)}`);
+      }
+      addSource(firstLinked.preview_image_url || firstLinked.thumbnail_url);
+      if (bambuddyUrl && archiveId) {
+        addSource(`${bambuddyUrl}/api/v1/archives/${encodeURIComponent(archiveId)}/thumbnail`);
+      }
+    }
+
+    addSource(model && model.preview_url ? model.preview_url : '');
+
     const files = Array.isArray(model && model.files)
       ? model.files
       : (Array.isArray(this._modelDetail && this._modelDetail.files) ? this._modelDetail.files : []);
@@ -1108,12 +1158,10 @@ class ModelDetailPopupCard extends HTMLElement {
       if (!file || typeof file !== 'object') {
         continue;
       }
-      const candidate = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
-      if (candidate) {
-        return candidate;
-      }
+      addSource(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '');
     }
-    return '';
+
+    return normalizedSources;
   }
 
   _renderLoading() {
@@ -1926,15 +1974,32 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 3px 7px;
           margin-right: 4px;
         }
-        .collapsible-group.is-linked .state {
           border-color: rgba(94, 234, 212, 0.45);
           background: rgba(94, 234, 212, 0.14);
           color: #b8fff3;
         }
+
         .collapsible-group.is-candidate .state {
           border-color: rgba(245, 158, 11, 0.45);
           background: rgba(245, 158, 11, 0.14);
           color: #ffe0ae;
+        }
+
+        .icon-action-btn {
+          background: none;
+          border: none;
+          padding: 3px 5px;
+          margin: 0 0 0 2px;
+          border-radius: 6px;
+          color: var(--secondary-text-color);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          transition: background 0.15s, color 0.15s;
+        }
+        .icon-action-btn:hover {
+          background: rgba(255,255,255,0.08);
+          color: var(--primary-color);
         }
 
         @media (max-width: 980px) {
@@ -3428,14 +3493,23 @@ class ModelDetailPopupCard extends HTMLElement {
             <div style="display:flex;align-items:center;gap:10px;">
               ${isCandidate ? `<input type="checkbox" class="candidate-checkbox" data-action="toggle-archive-candidate-select" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}" ${candidateSelected ? 'checked' : ''} ${this._archiveBulkBusy ? 'disabled' : ''} aria-label="Select candidate ${title}">` : ''}
               ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-action="open-archive-preview" data-archive-id="${this._escapeHtml(archiveId)}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
-              <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style="opacity:0.5">Loading metadata…</span>')}</div>${matchInfoHtml}</div>
+              <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style=\"opacity:0.5\">Loading metadata…</span>')}</div>${matchInfoHtml}</div>
             </div>
-            <div><span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${isCandidate ? `
+                <button class="icon-action-btn" title="Skip" data-action="archive-candidate-skip" data-archive-id="${archiveId}" data-link-id="${linkId}">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+                </button>
+                <button class="icon-action-btn" title="Link" data-action="archive-candidate-link" data-archive-id="${archiveId}" data-link-id="${linkId}">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 11 9 15 15 7"/></svg>
+                </button>
+              ` : ''}
+              <span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾
+            </div>
           </button>
           <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
-            ${isCandidate
-              ? `<button class="action-button" data-action="archive-candidate-link" data-archive-id="${archiveId}" data-link-id="${linkId}">Link</button> <button class="action-button ghost" data-action="archive-candidate-skip" data-archive-id="${archiveId}" data-link-id="${linkId}">Skip</button>`
-              : `<button class="action-button ghost" data-action="open-archive-popup" data-archive-id="${archiveId}">Open archive</button>`}
+            ${!isCandidate ? `<button class="action-button ghost" data-action="open-archive-popup" data-archive-id="${archiveId}">Open archive</button>
+            <button class="action-button ghost" data-action="pin-archive-cover" data-archive-id="${archiveId}" data-image-url="${this._escapeHtml(thumb || '')}">Pin cover</button>` : ''}
             ${this._renderExtensionSlot('actions:per-archive', '')}
           </div>
         </article>
@@ -3497,27 +3571,31 @@ class ModelDetailPopupCard extends HTMLElement {
       ? model.collection_names.join(" / ") 
       : "Uncategorized";
     const keywords = model.keywords || [];
-    const headerThumbnailUrl = this._headerThumbnailUrl(model);
+    const headerThumbnailSources = this._headerThumbnailSources(model);
+    const headerThumbnailUrl = headerThumbnailSources.length ? headerThumbnailSources[0] : '';
+    const headerThumbnailFallbacks = headerThumbnailSources.length > 1
+      ? this._escapeHtml(headerThumbnailSources.slice(1).join('||'))
+      : '';
     let thumbnailHtml;
     if (headerThumbnailUrl) {
       if (this._isThumbnailLazyEndpoint(headerThumbnailUrl)) {
         // Reuse a previously resolved object URL when available so re-renders do not flash.
         const cachedObjectUrl = getCachedThumbnailObjectUrl(headerThumbnailUrl);
         if (cachedObjectUrl) {
-          thumbnailHtml = `<img src="${this._escapeHtml(cachedObjectUrl)}" alt="Model preview" loading="lazy">`;
+          thumbnailHtml = `<img src="${this._escapeHtml(cachedObjectUrl)}" data-fallback-sources="${headerThumbnailFallbacks}" alt="Model preview" loading="lazy" onerror='const next=(this.dataset.fallbackSources||"").split("||").filter(Boolean);if(next.length){this.dataset.fallbackSources=next.slice(1).join("||");this.src=next[0];return;}this.onerror=null;this.style.display="none";const icon=this.parentElement&&this.parentElement.querySelector(".header-thumb-fallback-icon");if(icon){icon.style.display="flex";}'>`;
         } else {
-          thumbnailHtml = `<img data-thumbnail-lazy-url="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`;
+          thumbnailHtml = `<img data-thumbnail-lazy-url="${this._escapeHtml(headerThumbnailUrl)}" data-fallback-sources="${headerThumbnailFallbacks}" alt="Model preview" loading="lazy" onerror='const next=(this.dataset.fallbackSources||"").split("||").filter(Boolean);if(next.length){this.dataset.fallbackSources=next.slice(1).join("||");this.src=next[0];return;}this.onerror=null;this.style.display="none";const icon=this.parentElement&&this.parentElement.querySelector(".header-thumb-fallback-icon");if(icon){icon.style.display="flex";}'>`;
         }
       } else {
-        thumbnailHtml = `<img src="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`;
+        thumbnailHtml = `<img src="${this._escapeHtml(headerThumbnailUrl)}" data-fallback-sources="${headerThumbnailFallbacks}" alt="Model preview" loading="lazy" onerror='const next=(this.dataset.fallbackSources||"").split("||").filter(Boolean);if(next.length){this.dataset.fallbackSources=next.slice(1).join("||");this.src=next[0];return;}this.onerror=null;this.style.display="none";const icon=this.parentElement&&this.parentElement.querySelector(".header-thumb-fallback-icon");if(icon){icon.style.display="flex";}'>`;
       }
     } else {
-      thumbnailHtml = '<ha-icon icon="mdi:cube-outline"></ha-icon>';
+      thumbnailHtml = '';
     }
     
     return `
       <div class="popup-header">
-        <div class="header-thumbnail">${thumbnailHtml}</div>
+        <div class="header-thumbnail">${thumbnailHtml}<ha-icon class="header-thumb-fallback-icon" icon="mdi:cube-outline" style="display:${headerThumbnailUrl ? 'none' : 'flex'}"></ha-icon></div>
         <div class="header-content">
           <div class="header-title">${this._escapeHtml(model.name || "Untitled Model")}</div>
           <div class="header-subtitle">by ${this._escapeHtml(creator)}</div>
@@ -3813,6 +3891,39 @@ class ModelDetailPopupCard extends HTMLElement {
       this._handleDeletePhoto(String(item.id || '').trim());
     } else if (item.media_id && item.media_id.startsWith('asset:')) {
       this._handleDeleteAsset(String(item.asset_id || item.id || '').trim());
+    }
+  }
+
+  async _handlePinArchiveCover(archiveId, imageUrl) {
+    if (!this._modelRef || !this._modelSidecarUrl) {
+      return;
+    }
+    const bambuddyUrl = this._resolveBambuddyUrl();
+    if (!bambuddyUrl && !imageUrl) {
+      alert('Bambuddy API URL not configured. Set input_text.bambuddy_api_base_url or add bambuddy_url to card config.');
+      return;
+    }
+
+    try {
+      const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/preview/pin-from-archive`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          archive_id: Number(archiveId),
+          bambuddy_url: bambuddyUrl,
+          image_url: imageUrl || undefined,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success === false) {
+        const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+      await this._loadModelDetail({ silent: true });
+      this._notifyBrowserDetailChanged();
+    } catch (error) {
+      alert(`Failed to pin archive preview: ${error}`);
     }
   }
 

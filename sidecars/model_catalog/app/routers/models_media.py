@@ -13,6 +13,7 @@ from ..services.model_media_service import (
     get_geometry_service,
     get_model_file_thumbnail_service,
     get_uploaded_model_photo_service,
+    pin_archive_preview_photo_service,
     set_uploaded_model_photo_preview_service,
     upload_photo_service,
 )
@@ -39,6 +40,11 @@ def delete_uploaded_model_photo_endpoint(request: Request, model_ref: str, photo
 @router.post("/api/models/{model_ref:path}/photos/{photo_id}/preview")
 def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, photo_id: str) -> dict[str, Any]:
     return set_uploaded_model_photo_preview_service(request, model_ref=model_ref, photo_id=photo_id)
+
+
+@router.post("/api/models/{model_ref:path}/preview/pin-from-archive")
+async def pin_archive_preview_photo_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    return await pin_archive_preview_photo_service(request, model_ref=model_ref)
 
 
 @router.get("/api/models/{model_ref:path}/geometry/{file_id}", response_model=None)

@@ -252,3 +252,83 @@ def test_set_preview_and_delete_uploaded_photo(tmp_path: Path) -> None:
     remaining_photo_ids = {photo["id"] for photo in detail_after_delete_payload["photos"]}
     assert first_payload["photo_id"] in remaining_photo_ids
     assert second_payload["photo_id"] not in remaining_photo_ids
+
+
+def test_pin_archive_preview_rejects_unlinked_archive(tmp_path: Path) -> None:
+    client = _create_client(tmp_path)
+    try:
+        response = client.post(
+            "/api/models/test-model/preview/pin-from-archive",
+            json={
+                "archive_id": 777,
+                "bambuddy_url": "http://bambuddy.example",
+            },
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "success": False,
+        "error": "archive_id is not linked to this model",
+    }
+
+
+def test_pin_archive_preview_copies_image_and_sets_preview(tmp_path: Path, monkeypatch) -> None:
+    class _FakeLink:
+        bambuddy_archive_id = 123
+        is_active = True
+        review_state = "accepted"
+
+    monkeypatch.setattr("app.routers.models.read_archive_links_for_model", lambda **_kwargs: [_FakeLink()])
+
+    class _FakeResponse:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class _FakeHttpxClient:
+        def __init__(self, *args, **kwargs) -> None:
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def get(self, _url: str) -> _FakeResponse:
+            return _FakeResponse(ONE_PIXEL_PNG_BYTES)
+
+    monkeypatch.setattr("app.routers.models.httpx.Client", _FakeHttpxClient)
+
+    client = _create_client(tmp_path)
+    try:
+        response = client.post(
+            "/api/models/test-model/preview/pin-from-archive",
+            json={
+                "archive_id": 123,
+                "bambuddy_url": "http://bambuddy.example",
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["archive_id"] == 123
+        assert payload["preview_photo_id"] == payload["photo_id"]
+        assert payload["photo_id"].startswith("photo-")
+        assert payload["photo_url"].endswith(f"/api/models/test-model/photos/{payload['photo_id']}/content")
+
+        photo_response = client.get(payload["photo_url"])
+        assert photo_response.status_code == 200
+        assert photo_response.headers["content-type"].startswith("image/png")
+        assert photo_response.content == ONE_PIXEL_PNG_BYTES
+
+        preview_field_response = client.get("/api/models/test-model/fields/preview_photo_id")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert preview_field_response.status_code == 200
+    assert preview_field_response.json()["field_value"] == payload["photo_id"]

@@ -36,6 +36,12 @@ def set_uploaded_model_photo_preview_service(request: Request, model_ref: str, p
     return models_router.set_uploaded_model_photo_preview_endpoint(request, model_ref=model_ref, photo_id=photo_id)
 
 
+async def pin_archive_preview_photo_service(request: Request, model_ref: str) -> dict[str, Any]:
+    from ..routers import models as models_router
+
+    return await models_router.pin_archive_preview_photo_endpoint(request, model_ref=model_ref)
+
+
 def get_geometry_service(
     request: Request,
     model_ref: str,

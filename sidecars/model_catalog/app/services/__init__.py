@@ -15,6 +15,7 @@ from .model_media_service import (
     download_model_file_service,
     get_geometry_service,
     get_uploaded_model_photo_service,
+    pin_archive_preview_photo_service,
     set_uploaded_model_photo_preview_service,
     upload_photo_service,
 )
@@ -69,6 +70,7 @@ __all__ = [
     "get_uploaded_model_photo_service",
     "delete_uploaded_model_photo_service",
     "set_uploaded_model_photo_preview_service",
+    "pin_archive_preview_photo_service",
     "get_geometry_service",
     "download_model_file_service",
     "bulk_discover_working_groups_service",

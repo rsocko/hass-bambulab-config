@@ -24,6 +24,7 @@ import base64
 import binascii
 import gc
 import hashlib
+import httpx
 import json
 import logging
 import mimetypes
@@ -887,6 +888,25 @@ def _serialize_uploaded_photo_rows(
             }
         )
     return normalized
+
+
+def _set_preview_photo_and_demote_asset_previews(*, db_path: Path, model_ref: str, photo_id: str) -> None:
+    """Set uploaded photo as preview and demote file assets marked as preview."""
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key=MODEL_PREVIEW_PHOTO_FIELD,
+        field_value=photo_id,
+    )
+
+    for asset in list_model_assets(db_path=db_path, local_model_id=model_ref):
+        if str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview":
+            update_model_asset(
+                db_path=db_path,
+                local_model_id=model_ref,
+                asset_id=str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+                asset_role="supporting",
+            )
 
 
 def _matches_priority_filters(
@@ -3988,25 +4008,147 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
     if not any(str(row.get("id") or "") == str(photo_id) for row in uploaded_rows):
         return JSONResponse(status_code=404, content={"error": "Photo not found"})
 
-    set_model_field(
+    _set_preview_photo_and_demote_asset_previews(
         db_path=state.settings.db_path,
         model_ref=resolved_ref,
-        field_key=MODEL_PREVIEW_PHOTO_FIELD,
-        field_value=photo_id,
+        photo_id=str(photo_id),
     )
 
-    # Demote any file assets currently marked as preview so that only the
-    # photo is treated as the active preview (prevents dual-preview state).
-    for asset in list_model_assets(db_path=state.settings.db_path, local_model_id=resolved_ref):
-        if str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview":
-            update_model_asset(
-                db_path=state.settings.db_path,
-                local_model_id=resolved_ref,
-                asset_id=str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
-                asset_role="supporting",
-            )
-
     return {"success": True, "photo_id": photo_id, "preview_photo_id": photo_id}
+
+
+async def pin_archive_preview_photo_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    """Copy an archive image into local uploaded photos and mark it as preview.
+
+    The endpoint is intentionally user-driven (Model Detail action) and does not
+    modify archive-link/delete semantics.
+    """
+    state: AppState = request.app.state.model_catalog
+
+    payload: dict[str, Any] = {}
+    try:
+        parsed_payload = await request.json()
+        if isinstance(parsed_payload, dict):
+            payload = parsed_payload
+    except Exception:
+        payload = {}
+
+    archive_id_raw = payload.get("archive_id")
+    image_url = str(payload.get("image_url") or "").strip()
+    bambuddy_url = str(payload.get("bambuddy_url") or "").strip().rstrip("/")
+
+    archive_id = _coerce_int(archive_id_raw)
+    if archive_id is None or archive_id <= 0:
+        return JSONResponse(status_code=400, content={"success": False, "error": "archive_id is required"})
+
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Model not found"})
+
+    resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+    linked_archives = read_archive_links_for_model(
+        db_path=state.settings.db_path,
+        model_url=summary.model_url,
+        active_only=False,
+    )
+    is_linked_archive = any(
+        int(link.bambuddy_archive_id) == int(archive_id)
+        and bool(link.is_active)
+        and str(link.review_state or "") == "accepted"
+        for link in linked_archives
+    )
+    if not is_linked_archive:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "archive_id is not linked to this model"},
+        )
+
+    source_url = image_url
+    if not source_url:
+        if not bambuddy_url:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "bambuddy_url is required when image_url is omitted"},
+            )
+        source_url = f"{bambuddy_url}/api/v1/archives/{archive_id}/thumbnail"
+
+    try:
+        with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+            response = client.get(source_url)
+        response.raise_for_status()
+        photo_bytes = response.content
+    except Exception as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"success": False, "error": f"Failed to fetch archive preview: {exc}"},
+        )
+
+    if not photo_bytes:
+        return JSONResponse(status_code=400, content={"success": False, "error": "Archive preview image is empty"})
+    if len(photo_bytes) > MAX_UPLOAD_PHOTO_BYTES:
+        return JSONResponse(status_code=400, content={"success": False, "error": "File too large (max 10MB)"})
+
+    mime_type = _detect_upload_photo_mime(photo_bytes)
+    if not mime_type or mime_type not in ALLOWED_UPLOAD_PHOTO_TYPES:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Invalid file type (must be JPG, PNG, or WebP)"},
+        )
+
+    file_extension = ALLOWED_UPLOAD_PHOTO_TYPES[mime_type]
+    photo_digest = hashlib.sha256(photo_bytes).hexdigest()
+    photo_id = f"photo-{photo_digest[:16]}"
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    storage_root = _model_photo_storage_root(state.settings)
+    model_folder = storage_root / hashlib.sha256(resolved_ref.encode("utf-8")).hexdigest()[:16]
+    model_folder.mkdir(parents=True, exist_ok=True)
+    storage_path = model_folder / f"{photo_id}{file_extension}"
+    storage_path.write_bytes(photo_bytes)
+
+    try:
+        relative_path = str(storage_path.relative_to(storage_root)).replace("\\", "/")
+    except ValueError:
+        relative_path = storage_path.name
+
+    uploaded_rows = _read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=resolved_ref)
+    uploaded_rows = [row for row in uploaded_rows if str(row.get("id") or "") != photo_id]
+    uploaded_rows.append(
+        {
+            "id": photo_id,
+            "relative_path": relative_path,
+            "filename": storage_path.name,
+            "mime_type": mime_type,
+            "created_at": now_iso,
+        }
+    )
+    _write_uploaded_photo_rows(
+        db_path=state.settings.db_path,
+        model_ref=resolved_ref,
+        photo_rows=uploaded_rows,
+    )
+    _set_preview_photo_and_demote_asset_previews(
+        db_path=state.settings.db_path,
+        model_ref=resolved_ref,
+        photo_id=photo_id,
+    )
+
+    photo_url = str(
+        request.url_for(
+            "get_uploaded_model_photo_endpoint",
+            model_ref=resolved_ref,
+            photo_id=photo_id,
+        )
+    )
+    return {
+        "success": True,
+        "photo_id": photo_id,
+        "photo_url": photo_url,
+        "preview_photo_id": photo_id,
+        "archive_id": archive_id,
+        "source_url": source_url,
+        "message": "Archive preview pinned as model cover image",
+    }
 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
