@@ -392,6 +392,20 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Archive toggle
+    if (target.closest("#btn-toggle-archive")) {
+      event.preventDefault();
+      this._handleToggleArchive();
+      return;
+    }
+
+    // Un-archive link in banner
+    if (target.closest("#btn-unarchive")) {
+      event.preventDefault();
+      this._handleToggleArchive();
+      return;
+    }
+
     // Download button
     if (target.closest("#btn-download")) {
       event.preventDefault();
@@ -862,6 +876,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const collectionText = this._escapeHtml(collections.length ? collections.join(' / ') : 'Uncategorized');
     const entityType = this._getEntityType(model);
     const isIdea = entityType === 'idea';
+    const isArchived = String(model.catalog_visibility || '').toLowerCase() === 'archived';
+    const isFrequent = !!(model.ranking && model.ranking.is_frequent);
 
     return `
       <style>
@@ -921,6 +937,35 @@ class ModelDetailPopupCard extends HTMLElement {
         .action-button.ghost {
           background: var(--secondary-background-color);
           color: var(--primary-text-color);
+        }
+        .action-button.toggle-active {
+          border: 1px solid var(--accent-color, #6edacb);
+          background: rgba(110,218,203,0.12);
+          color: var(--accent-color, #6edacb);
+        }
+        .action-button.toggle-active-warn {
+          border: 1px solid var(--warning-color, #f0be62);
+          background: rgba(240,190,98,0.12);
+          color: var(--warning-color, #f0be62);
+        }
+        .archived-banner {
+          padding: 8px 18px;
+          background: rgba(240,190,98,0.08);
+          border-bottom: 1px solid rgba(240,190,98,0.24);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          color: var(--warning-color, #f0be62);
+        }
+        .archived-banner button {
+          background: none;
+          border: none;
+          color: var(--accent-color, #6edacb);
+          cursor: pointer;
+          font-size: 12px;
+          text-decoration: underline;
+          padding: 0;
         }
         .queue-dialog-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
         .queue-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}
@@ -1458,6 +1503,8 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="top-actions">
             ${isIdea ? `<span class="entity-type-badge idea">💡 Idea</span>` : ''}
             ${this._renderExtensionSlot('actions:top-bar', '')}
+            ${isIdea ? '' : `<button class="action-button ghost ${isFrequent ? 'toggle-active' : ''}" id="btn-toggle-frequent" title="${isFrequent ? 'This model is marked as Frequent (auto-derived from ≥3 prints in 90d window).' : 'Not marked as frequent.'}">⚡ Frequent</button>`}
+            ${isIdea ? '' : `<button class="action-button ghost ${isArchived ? 'toggle-active-warn' : ''}" id="btn-toggle-archive" title="${isArchived ? 'This model is archived — hidden from default Catalog views. Click to un-archive.' : 'Archive this model — hides from default Catalog views while preserving all data.'}">${isArchived ? '📦 Archived' : '📦 Archive'}</button>`}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
             ${isIdea ? '' : '<button class="action-button" id="btn-print">Print</button>'}
@@ -1482,6 +1529,13 @@ class ModelDetailPopupCard extends HTMLElement {
             </div>
           </div>
         </div>
+
+        ${isArchived ? `
+        <div class="archived-banner">
+          <span>📦</span>
+          <span><strong>Archived</strong> — this model is hidden from default Catalog views. <button id="btn-unarchive">Un-archive</button></span>
+        </div>
+        ` : ''}
 
         <div class="hero">
           <div class="left">
@@ -4012,6 +4066,53 @@ class ModelDetailPopupCard extends HTMLElement {
     } else {
       this._isSaving = false;
       this._error = 'Home Assistant service context unavailable.';
+      this._render();
+    }
+  }
+
+  async _handleToggleArchive() {
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const modelRef = model.model_ref || this._modelRef;
+    if (!modelRef) return;
+
+    const currentVisibility = String(model.catalog_visibility || 'active').toLowerCase();
+    const newVisibility = currentVisibility === 'archived' ? 'active' : 'archived';
+
+    // Optimistic update
+    if (this._modelDetail && this._modelDetail.model) {
+      this._modelDetail.model.catalog_visibility = newVisibility;
+    }
+    this._render();
+
+    try {
+      const response = await fetch(this._resolveModelSidecarUrl() + '/api/models/' + encodeURIComponent(modelRef), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrichment: {
+            structured_metadata: {
+              catalog_signals: {
+                catalog_visibility: newVisibility,
+              },
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update catalog visibility: ' + response.statusText);
+      }
+
+      // Reload to get fresh state
+      await this._loadModelDetail({ silent: true });
+      this._render();
+    } catch (error) {
+      console.error('Error toggling archive:', error);
+      // Revert optimistic update
+      if (this._modelDetail && this._modelDetail.model) {
+        this._modelDetail.model.catalog_visibility = currentVisibility;
+      }
+      this._error = 'Failed to update archive status.';
       this._render();
     }
   }
