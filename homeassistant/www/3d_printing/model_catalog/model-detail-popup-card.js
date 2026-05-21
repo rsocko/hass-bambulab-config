@@ -2287,7 +2287,15 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderPanelWorkspace(model) {
     const queueCount = Array.isArray(this._modelDetail.queued_items) ? this._modelDetail.queued_items.length : 0;
     const relatedCount = Array.isArray(model.related_models) ? model.related_models.length : 0;
-    const supportCount = Array.isArray(model.support_files) ? model.support_files.length : 0;
+    const supportCount = (() => {
+      const NON_SUPPORT_ROLES = new Set(['primary']);
+      const MODEL_TYPES = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
+      return (Array.isArray(model.files) ? model.files : []).filter(f => {
+        const role = String(f.asset_role || '').toLowerCase();
+        const type = String(f.asset_type || '').toLowerCase();
+        return !NON_SUPPORT_ROLES.has(role) && !MODEL_TYPES.has(type);
+      }).length;
+    })();
     const isNarrow = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       ? window.matchMedia('(max-width: 980px)').matches
       : false;
@@ -2400,16 +2408,29 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderSupportingFilesPanel(model) {
-    const files = Array.isArray(model.support_files) ? model.support_files : [];
+    const NON_SUPPORT_ROLES = new Set(['primary']);
+    const MODEL_TYPES = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
+    const files = (Array.isArray(model.files) ? model.files : []).filter(f => {
+      const role = String(f.asset_role || '').toLowerCase();
+      const type = String(f.asset_type || '').toLowerCase();
+      return !NON_SUPPORT_ROLES.has(role) && !MODEL_TYPES.has(type);
+    });
     if (!files.length) {
       return '<div class="support-list"><article class="support"><strong>No supporting files</strong><div class="detail">Documentation and references appear here.</div></article></div>';
     }
-    return `<div class="support-list">${files.map(file => `
+    return `<div class="support-list">${files.map(file => {
+      const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.name || 'Support file'));
+      const role = this._escapeHtml(String(file.asset_role || ''));
+      const type = this._escapeHtml(String(file.asset_type || ''));
+      const size = file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / 1024)} KB` : '';
+      const meta = [role, type, size].filter(Boolean).join(' | ');
+      return `
       <article class="support">
-        <strong>${this._escapeHtml(String(file.name || 'Support file'))}</strong>
-        <div class="detail">${this._escapeHtml(String(file.description || file.category || ''))}</div>
+        <strong>${filename}</strong>
+        <div class="detail">${meta}</div>
       </article>
-    `).join('')}</div>`;
+    `;
+    }).join('')}</div>`;
   }
 
   _renderContributionPanel(model) {
@@ -2856,7 +2877,13 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderModelFilesCard(model) {
-    const files = Array.isArray(model.files) ? model.files : [];
+    const MODEL_ROLES = new Set(['primary']);
+    const MODEL_TYPES = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
+    const files = (Array.isArray(model.files) ? model.files : []).filter(f => {
+      const role = String(f.asset_role || '').toLowerCase();
+      const type = String(f.asset_type || '').toLowerCase();
+      return MODEL_ROLES.has(role) || MODEL_TYPES.has(type);
+    });
     this._ensureModelFilePlateCounts(files);
     const rows = files.length ? files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
