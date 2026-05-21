@@ -6042,7 +6042,7 @@ class ModelDetailPopupCard extends HTMLElement {
         return;
       }
       // Refresh model detail to pick up new fields
-      await this._refreshModelDetail();
+      await this._loadModelDetail({ silent: true });
     } catch (err) {
       alert('Error extracting 3MF metadata: ' + err.message);
     } finally {
