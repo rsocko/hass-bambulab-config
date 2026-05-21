@@ -44,8 +44,12 @@ class ModelDetailPopupCard extends HTMLElement {
     this._activeTab = "details";
     this._isEditMode = false;
     this._refreshingCandidates = false;
+    this._refreshCandidatesDone = false;
     this._archiveMetaCache = {};
     this._archiveImagePreview = null; // { archiveId, images[], index }
+    this._archiveLinkageFilter = 'all';
+    this._linkedArchiveSortOrder = 'desc';
+    this._selectedArchiveCandidates = {};
     this._editAdvancedSectionOpen = false;
     this._lastModifiedTimestamp = null;
     this._conflictDialog = null;
@@ -126,6 +130,10 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelSidecarUrl = String(this._config.model_sidecar_url || "").trim();
     if (this._modelRef !== previousModelRef) {
       this._resetModelFilePlateCounts();
+      this._archiveMetaCache = {};
+      this._archiveLinkageFilter = 'all';
+      this._linkedArchiveSortOrder = 'desc';
+      this._selectedArchiveCandidates = {};
     }
     var requestedInitialTab = String(this._config.initial_tab || "details").trim().toLowerCase();
     if (requestedInitialTab !== "details" && requestedInitialTab !== "gallery" && requestedInitialTab !== "prints") {
@@ -245,6 +253,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
       // If a render was scheduled during interaction, do it now
       if (this._renderScheduled) {
+        console.log('[RAF] deferred render firing | _renderScheduled was true');
         this._renderScheduled = false;
         this._render();
       }
@@ -416,12 +425,120 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     const collapseToggle = target.closest('[data-collapse-toggle]');
-    if (collapseToggle) {
+    if (collapseToggle && !target.closest('[data-action="toggle-archive-candidate-select"], [data-action="open-archive-preview"]')) {
       event.preventDefault();
       const sectionId = String(collapseToggle.dataset.collapseToggle || '').trim();
       if (sectionId) {
         this._collapsedSections[sectionId] = !this._collapsedSections[sectionId];
         this._render();
+      }
+      return;
+    }
+
+    const refreshCandidatesBtn = target.closest('[data-action="refresh-model-candidates"]');
+    if (refreshCandidatesBtn) {
+      event.preventDefault();
+      this._handleRefreshModelCandidates();
+      return;
+    }
+
+    const archiveFilterBtn = target.closest('[data-action="set-archive-filter"]');
+    if (archiveFilterBtn) {
+      event.preventDefault();
+      this._archiveLinkageFilter = String(archiveFilterBtn.dataset.archiveFilter || 'all').toLowerCase();
+      this._render();
+      return;
+    }
+
+    const archiveSortBtn = target.closest('[data-action="toggle-linked-sort"]');
+    if (archiveSortBtn) {
+      event.preventDefault();
+      this._linkedArchiveSortOrder = this._linkedArchiveSortOrder === 'asc' ? 'desc' : 'asc';
+      this._render();
+      return;
+    }
+
+    const candidateSelectToggle = target.closest('[data-action="toggle-archive-candidate-select"]');
+    if (candidateSelectToggle) {
+      event.preventDefault();
+      this._toggleArchiveCandidateSelection(
+        candidateSelectToggle.dataset.archiveId,
+        candidateSelectToggle.dataset.linkId
+      );
+      return;
+    }
+
+    const selectVisibleCandidatesBtn = target.closest('[data-action="select-visible-candidates"]');
+    if (selectVisibleCandidatesBtn) {
+      event.preventDefault();
+      const visible = this._visibleCandidateEntries();
+      for (let i = 0; i < visible.length; i += 1) {
+        this._setArchiveCandidateSelection(visible[i].archive_id, visible[i].id, true);
+      }
+      this._render();
+      return;
+    }
+
+    const clearCandidateSelectionBtn = target.closest('[data-action="clear-candidate-selection"]');
+    if (clearCandidateSelectionBtn) {
+      event.preventDefault();
+      this._selectedArchiveCandidates = {};
+      this._render();
+      return;
+    }
+
+    const bulkArchiveLinkBtn = target.closest('[data-action="bulk-link-candidates"]');
+    if (bulkArchiveLinkBtn) {
+      event.preventDefault();
+      this._handleBulkArchiveCandidateAction('link');
+      return;
+    }
+
+    const bulkArchiveSkipBtn = target.closest('[data-action="bulk-skip-candidates"]');
+    if (bulkArchiveSkipBtn) {
+      event.preventDefault();
+      this._handleBulkArchiveCandidateAction('skip');
+      return;
+    }
+
+    const archiveCandidateLinkBtn = target.closest('[data-action="archive-candidate-link"]');
+    if (archiveCandidateLinkBtn) {
+      event.preventDefault();
+      this._handleArchiveCandidateAction(
+        archiveCandidateLinkBtn.dataset.archiveId,
+        archiveCandidateLinkBtn.dataset.linkId,
+        'link'
+      );
+      return;
+    }
+
+    const archiveCandidateSkipBtn = target.closest('[data-action="archive-candidate-skip"]');
+    if (archiveCandidateSkipBtn) {
+      event.preventDefault();
+      this._handleArchiveCandidateAction(
+        archiveCandidateSkipBtn.dataset.archiveId,
+        archiveCandidateSkipBtn.dataset.linkId,
+        'skip'
+      );
+      return;
+    }
+
+    const archiveOpenPopupBtn = target.closest('[data-action="open-archive-popup"]');
+    if (archiveOpenPopupBtn) {
+      event.preventDefault();
+      const archiveId = String(archiveOpenPopupBtn.dataset.archiveId || '').trim();
+      if (archiveId) {
+        this._openArchivePopup(archiveId);
+      }
+      return;
+    }
+
+    const archivePreviewBtn = target.closest('[data-action="open-archive-preview"]');
+    if (archivePreviewBtn) {
+      event.preventDefault();
+      const archiveId = String(archivePreviewBtn.dataset.archiveId || '').trim();
+      if (archiveId) {
+        this._openArchiveImagePreview(archiveId);
       }
       return;
     }
@@ -821,6 +938,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
       const modelFiles = Array.isArray(this._modelDetail?.model?.files) ? this._modelDetail.model.files : [];
       this._ensureModelFilePlateCounts(modelFiles);
+      this._pruneArchiveCandidateSelection(Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : []);
     } catch (error) {
       this._error = String(error || "Unknown error");
       this._modelDetail = null;
@@ -831,6 +949,8 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _render() {
+    const renderPath = this._loading ? 'loading' : this._error ? 'error' : this._modelDetail ? 'popup' : 'empty';
+    console.log('[RENDER]', renderPath, '| _loading:', this._loading, '| keywords:', JSON.stringify(this._modelDetail?.model?.keywords));
     const html = this._loading
       ? this._renderLoading()
       : this._error
@@ -1609,6 +1729,75 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .refresh-candidates-btn.done ha-icon {
           color: var(--success-color, #4CAF50);
+        }
+        .archive-header-tools {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .linked-sort-btn {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          background: var(--secondary-background-color);
+          color: var(--secondary-text-color);
+          padding: 4px 10px;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .linked-sort-btn:hover {
+          color: var(--primary-text-color);
+          border-color: var(--primary-color);
+        }
+        .archive-filter-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 2px;
+        }
+        .archive-filter-btn {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          background: var(--card-background-color);
+          color: var(--secondary-text-color);
+          padding: 4px 9px;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .archive-filter-btn.active {
+          color: var(--primary-text-color);
+          border-color: var(--primary-color);
+          background: rgba(96, 165, 250, 0.12);
+        }
+        .archive-filter-btn span {
+          color: var(--primary-text-color);
+          opacity: 0.86;
+        }
+        .archive-bulk-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          margin: 2px 0 4px;
+        }
+        .archive-bulk-count {
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          margin-right: 4px;
+        }
+        .candidate-checkbox {
+          width: 14px;
+          height: 14px;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .collapsible-group.candidate-selected {
+          border-color: rgba(96, 165, 250, 0.42);
+          box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.24);
         }
         .summary { padding: 10px; display: grid; gap: 8px; }
         .summary .name { font-size: 15px; font-weight: 700; }
@@ -2492,8 +2681,6 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderSummaryCard(model) {
     const linkedCount = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives.length : Number(this._modelDetail.link_count || 0);
     const candidateCount = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives.length : 0;
-    const relatedCount = Array.isArray(model.related_models) ? model.related_models.length : 0;
-    const supportCount = Array.isArray(model.support_files) ? model.support_files.length : 0;
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
 
     return `
@@ -2513,12 +2700,7 @@ class ModelDetailPopupCard extends HTMLElement {
               </div>
             </div>
             <div class="meta">Collections: ${this._escapeHtml((model.collection_names || []).join(', ') || 'none')}</div>
-            <div class="status">
-              <span>Linked archives: ${linkedCount}</span>
-              <span>Candidates: ${candidateCount}</span>
-              <span>Related: ${relatedCount}</span>
-              <span>Supporting: ${supportCount}</span>
-            </div>
+            <div class="meta">Print history links: ${linkedCount} linked, ${candidateCount} candidates</div>
           </div>
         `)}
       </section>
@@ -2580,9 +2762,107 @@ class ModelDetailPopupCard extends HTMLElement {
         headers: { 'Content-Type': 'application/json' },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this._setArchiveCandidateSelection(archiveId, linkId, false);
       await this._loadModelDetail({ silent: true });
     } catch (e) {
       alert('Failed to update archive linkage: ' + e);
+    }
+  }
+
+  _archiveCandidateSelectionKey(archiveId, linkId) {
+    return String(archiveId || '').trim() + '|' + String(linkId || '').trim();
+  }
+
+  _setArchiveCandidateSelection(archiveId, linkId, selected) {
+    const key = this._archiveCandidateSelectionKey(archiveId, linkId);
+    if (!key || key === '|') {
+      return;
+    }
+    if (selected) {
+      this._selectedArchiveCandidates[key] = true;
+    } else {
+      delete this._selectedArchiveCandidates[key];
+    }
+  }
+
+  _isArchiveCandidateSelected(archiveId, linkId) {
+    const key = this._archiveCandidateSelectionKey(archiveId, linkId);
+    return !!(key && this._selectedArchiveCandidates[key]);
+  }
+
+  _toggleArchiveCandidateSelection(archiveId, linkId) {
+    this._setArchiveCandidateSelection(archiveId, linkId, !this._isArchiveCandidateSelected(archiveId, linkId));
+    this._render();
+  }
+
+  _selectedArchiveCandidateCount() {
+    return Object.keys(this._selectedArchiveCandidates).length;
+  }
+
+  _pruneArchiveCandidateSelection(candidates) {
+    const allowed = {};
+    const list = Array.isArray(candidates) ? candidates : [];
+    for (let i = 0; i < list.length; i += 1) {
+      const candidate = list[i] || {};
+      const key = this._archiveCandidateSelectionKey(candidate.archive_id, candidate.id);
+      if (key && key !== '|') {
+        allowed[key] = true;
+      }
+    }
+    const next = {};
+    const keys = Object.keys(this._selectedArchiveCandidates);
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      if (allowed[key]) {
+        next[key] = true;
+      }
+    }
+    this._selectedArchiveCandidates = next;
+  }
+
+  _visibleCandidateEntries() {
+    const allCandidates = Array.isArray(this._modelDetail && this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
+    if (this._archiveLinkageFilter === 'linked') {
+      return [];
+    }
+    return allCandidates.slice();
+  }
+
+  async _handleBulkArchiveCandidateAction(action) {
+    const candidates = this._visibleCandidateEntries();
+    const selected = candidates.filter(candidate => this._isArchiveCandidateSelected(candidate.archive_id, candidate.id));
+    if (!selected.length) {
+      return;
+    }
+    const endpoint = action === 'link' ? 'accept' : 'reject';
+    let successCount = 0;
+    let failureCount = 0;
+    for (let i = 0; i < selected.length; i += 1) {
+      const candidate = selected[i] || {};
+      const archiveId = String(candidate.archive_id || '').trim();
+      const linkId = String(candidate.id || '').trim();
+      if (!archiveId || !linkId) {
+        failureCount += 1;
+        continue;
+      }
+      try {
+        const url = `${this._modelSidecarUrl}/api/archive-links/${encodeURIComponent(archiveId)}/${encodeURIComponent(linkId)}/${endpoint}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        this._setArchiveCandidateSelection(archiveId, linkId, false);
+        successCount += 1;
+      } catch (_error) {
+        failureCount += 1;
+      }
+    }
+    await this._loadModelDetail({ silent: true });
+    if (failureCount) {
+      alert(`Updated ${successCount} archive links, ${failureCount} failed.`);
     }
   }
 
@@ -2999,7 +3279,40 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderArchiveLinkageCard() {
     const linked = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives : [];
     const candidates = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
+    this._pruneArchiveCandidateSelection(candidates);
     const bambuddyUrl = this._resolveBambuddyUrl();
+    const linkedCount = linked.length;
+    const candidateCount = candidates.length;
+    const allCount = linkedCount + candidateCount;
+
+    const sortLinkedByDate = (items) => {
+      return [...items].sort((a, b) => {
+        const metaA = this._archiveMetaCache[String(a.archive_id || '')];
+        const metaB = this._archiveMetaCache[String(b.archive_id || '')];
+        const dataA = metaA && metaA.archive ? metaA.archive : metaA;
+        const dataB = metaB && metaB.archive ? metaB.archive : metaB;
+        const tA = String((dataA && dataA.started_at) || a.created_at || '');
+        const tB = String((dataB && dataB.started_at) || b.created_at || '');
+        if (tA === tB) return 0;
+        if (this._linkedArchiveSortOrder === 'asc') {
+          return tA < tB ? -1 : 1;
+        }
+        return tA > tB ? -1 : 1;
+      });
+    };
+
+    const sortedLinked = sortLinkedByDate(linked);
+    const sortedCandidates = [...candidates].sort((a, b) => {
+      const rank = { high: 0, medium: 1, low: 2 };
+      const rA = rank[a.match_confidence] ?? 3;
+      const rB = rank[b.match_confidence] ?? 3;
+      return rA - rB;
+    });
+
+    const showLinked = this._archiveLinkageFilter === 'all' || this._archiveLinkageFilter === 'linked';
+    const showCandidates = this._archiveLinkageFilter === 'all' || this._archiveLinkageFilter === 'candidates';
+    const visibleCandidates = showCandidates ? sortedCandidates : [];
+    const selectedCandidateCount = this._selectedArchiveCandidateCount();
 
     // Trigger background fetch of archive metadata via HA service
     if (this._hass && (linked.length || candidates.length)) {
@@ -3065,20 +3378,22 @@ class ModelDetailPopupCard extends HTMLElement {
         const reasonSummary = reviewNote && reviewNote.summary ? reviewNote.summary : method;
         matchInfoHtml = `<div class="detail" style="margin-top:2px;"><span style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;background:${confStyle};margin-right:4px;">${this._escapeHtml(confLabel)}</span><span style="opacity:0.7;font-size:10px;">${this._escapeHtml(reasonSummary)}</span></div>`;
       }
+      const candidateSelected = isCandidate && this._isArchiveCandidateSelected(archiveId, linkId);
 
       return `
-        <article class="collapsible-group" data-slot="actions:per-archive">
+        <article class="collapsible-group ${candidateSelected ? 'candidate-selected' : ''}" data-slot="actions:per-archive">
           <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
             <div style="display:flex;align-items:center;gap:10px;">
-              ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-archive-thumb-click="${archiveId}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
+              ${isCandidate ? `<input type="checkbox" class="candidate-checkbox" data-action="toggle-archive-candidate-select" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}" ${candidateSelected ? 'checked' : ''} ${this._archiveBulkBusy ? 'disabled' : ''} aria-label="Select candidate ${title}">` : ''}
+              ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-action="open-archive-preview" data-archive-id="${this._escapeHtml(archiveId)}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
               <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style="opacity:0.5">Loading metadata…</span>')}</div>${matchInfoHtml}</div>
             </div>
             <div><span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾</div>
           </button>
           <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
             ${isCandidate
-              ? `<button class="action-button" data-archive-link="${archiveId}" data-link-id="${linkId}">Link</button> <button class="action-button ghost" data-archive-skip="${archiveId}" data-link-id="${linkId}">Skip</button>`
-              : `<button class="action-button ghost" data-archive-open="${archiveId}">Open archive</button>`}
+              ? `<button class="action-button" data-action="archive-candidate-link" data-archive-id="${archiveId}" data-link-id="${linkId}">Link</button> <button class="action-button ghost" data-action="archive-candidate-skip" data-archive-id="${archiveId}" data-link-id="${linkId}">Skip</button>`
+              : `<button class="action-button ghost" data-action="open-archive-popup" data-archive-id="${archiveId}">Open archive</button>`}
             ${this._renderExtensionSlot('actions:per-archive', '')}
           </div>
         </article>
@@ -3086,71 +3401,55 @@ class ModelDetailPopupCard extends HTMLElement {
     };
 
     // Candidate banner if any candidates
-    const candidateBanner = candidates.length
+    const candidateBanner = showCandidates && candidates.length
       ? `<div class="candidate-banner visible" style="border:1px solid #f0be62;background:rgba(240,190,98,0.13);color:#ffe5ba;border-radius:8px;padding:7px 9px;font-size:11px;margin-bottom:8px;">
           ${candidates.length} potential history matches need review to confirm linkage.
         </div>`
       : '';
 
-    // Attach event listeners after render
-    setTimeout(() => {
-      if (!this.shadowRoot) return;
-      // Link/Skip buttons (candidates)
-      candidates.forEach(archive => {
-        const archiveId = String(archive.archive_id || '');
-        const linkId = String(archive.id || '');
-        const linkBtn = this.shadowRoot.querySelector(`button[data-archive-link="${archiveId}"]`);
-        const skipBtn = this.shadowRoot.querySelector(`button[data-archive-skip="${archiveId}"]`);
-        if (linkBtn) linkBtn.onclick = () => this._handleArchiveCandidateAction(archiveId, linkId, 'link');
-        if (skipBtn) skipBtn.onclick = () => this._handleArchiveCandidateAction(archiveId, linkId, 'skip');
-      });
-      // Open archive buttons (linked) → open HA archive popup
-      this.shadowRoot.querySelectorAll('button[data-archive-open]').forEach(btn => {
-        btn.onclick = () => {
-          const aid = btn.dataset.archiveOpen;
-          if (aid) this._openArchivePopup(aid);
-        };
-      });
-      // Thumbnail click → image preview
-      this.shadowRoot.querySelectorAll('img[data-archive-thumb-click]').forEach(img => {
-        img.onclick = (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          const aid = img.dataset.archiveThumbClick;
-          if (aid) this._openArchiveImagePreview(aid);
-        };
-      });
-      const refreshBtn = this.shadowRoot.querySelector('.refresh-candidates-btn');
-      if (refreshBtn) refreshBtn.onclick = () => this._handleRefreshModelCandidates();
-    }, 0);
+    const renderFilterButton = (filter, label, count) => {
+      const active = this._archiveLinkageFilter === filter;
+      return `<button class="archive-filter-btn${active ? ' active' : ''}" type="button" data-action="set-archive-filter" data-archive-filter="${this._escapeHtml(filter)}">${this._escapeHtml(label)} <span>${this._escapeHtml(String(count))}</span></button>`;
+    };
+
+    const bulkToolbar = visibleCandidates.length
+      ? `<div class="archive-bulk-toolbar">
+          <button class="action-button ghost" type="button" data-action="select-visible-candidates" ${this._archiveBulkBusy ? 'disabled' : ''}>Select visible</button>
+          <button class="action-button ghost" type="button" data-action="clear-candidate-selection" ${(selectedCandidateCount && !this._archiveBulkBusy) ? '' : 'disabled'}>Clear selection</button>
+          <span class="archive-bulk-count">${selectedCandidateCount} selected</span>
+          <button class="action-button" type="button" data-action="bulk-link-candidates" ${(selectedCandidateCount && !this._archiveBulkBusy) ? '' : 'disabled'}>${this._archiveBulkBusy ? 'Linking...' : 'Link selected'}</button>
+          <button class="action-button ghost" type="button" data-action="bulk-skip-candidates" ${(selectedCandidateCount && !this._archiveBulkBusy) ? '' : 'disabled'}>${this._archiveBulkBusy ? 'Skipping...' : 'Skip selected'}</button>
+        </div>`
+      : '';
 
     return `
       <section class="card" data-slot="sections:archive-linkage">
         <div class="h">
-          <span>Related Archives</span>
-          <button class="refresh-candidates-btn${this._refreshingCandidates ? ' spinning' : ''}${this._refreshCandidatesDone ? ' done' : ''}" title="${this._refreshingCandidates ? 'Refreshing candidates…' : this._refreshCandidatesDone ? 'Refresh complete' : 'Refresh candidate matches'}" ${this._refreshingCandidates ? 'disabled' : ''}>
+          <span>Print History</span>
+          <div class="archive-header-tools">
+            <button class="linked-sort-btn" type="button" data-action="toggle-linked-sort" title="Sort linked prints by date">
+              Linked date: ${this._linkedArchiveSortOrder === 'asc' ? 'Oldest' : 'Newest'}
+            </button>
+            <button class="refresh-candidates-btn${this._refreshingCandidates ? ' spinning' : ''}${this._refreshCandidatesDone ? ' done' : ''}" data-action="refresh-model-candidates" title="${this._refreshingCandidates ? 'Refreshing candidates…' : this._refreshCandidatesDone ? 'Refresh complete' : 'Refresh candidate matches'}" ${this._refreshingCandidates ? 'disabled' : ''}>
             <ha-icon icon="${this._refreshCandidatesDone ? 'mdi:check-circle' : 'mdi:refresh'}"></ha-icon>
-          </button>
+            </button>
+          </div>
         </div>
         <div class="files">
+          <div class="archive-filter-row">
+            ${renderFilterButton('all', 'All', allCount)}
+            ${renderFilterButton('linked', 'Linked', linkedCount)}
+            ${renderFilterButton('candidates', 'Candidates', candidateCount)}
+          </div>
           ${candidateBanner}
-          ${[...linked].sort((a, b) => {
-            const metaA = this._archiveMetaCache[String(a.archive_id || '')];
-            const metaB = this._archiveMetaCache[String(b.archive_id || '')];
-            const dataA = metaA && metaA.archive ? metaA.archive : metaA;
-            const dataB = metaB && metaB.archive ? metaB.archive : metaB;
-            const tA = (dataA && dataA.started_at) || a.created_at || '';
-            const tB = (dataB && dataB.started_at) || b.created_at || '';
-            return tA < tB ? 1 : tA > tB ? -1 : 0;
-          }).map(item => renderArchive(item, false)).join('')}
-          ${[...candidates].sort((a, b) => {
-            const rank = { high: 0, medium: 1, low: 2 };
-            const rA = rank[a.match_confidence] ?? 3;
-            const rB = rank[b.match_confidence] ?? 3;
-            return rA - rB;
-          }).map(item => renderArchive(item, true)).join('')}
+          ${bulkToolbar}
+          ${showLinked ? sortedLinked.map(item => renderArchive(item, false)).join('') : ''}
+          ${showCandidates ? sortedCandidates.map(item => renderArchive(item, true)).join('') : ''}
           ${this._renderExtensionSlot('sections:archive-linkage', '')}
-          ${!linked.length && !candidates.length ? '<article class="queue-row"><strong>No linked or candidate archives</strong><div class="detail">Archive linkage review appears here.</div></article>' : ''}
+          ${!showLinked && !showCandidates ? '<article class="queue-row"><strong>No print history filter selected</strong><div class="detail">Choose All, Linked, or Candidates.</div></article>' : ''}
+          ${(showLinked && !sortedLinked.length && !showCandidates) ? '<article class="queue-row"><strong>No linked archives</strong><div class="detail">Accepted print history links appear here.</div></article>' : ''}
+          ${(showCandidates && !sortedCandidates.length && !showLinked) ? '<article class="queue-row"><strong>No candidate archives</strong><div class="detail">Potential matches appear here for review.</div></article>' : ''}
+          ${(!linked.length && !candidates.length) ? '<article class="queue-row"><strong>No linked or candidate archives</strong><div class="detail">Archive linkage review appears here.</div></article>' : ''}
         </div>
       </section>
     `;
@@ -4389,6 +4688,8 @@ class ModelDetailPopupCard extends HTMLElement {
     if (tags.includes(tagName)) return;
     const updated = [...tags, tagName];
 
+    console.log('[TAG-ADD] starting add of', tagName, '| current keywords:', JSON.stringify(tags), '| updated:', JSON.stringify(updated));
+
     // Close picker and optimistic update
     this._tagPickerOpen = false;
     this._tagSearchQuery = "";
@@ -4399,7 +4700,9 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!this._knownTags.includes(tagName)) {
       this._knownTags.push(tagName);
     }
+    console.log('[TAG-ADD] before optimistic render | _loading:', this._loading, '| model.keywords:', JSON.stringify(this._modelDetail?.model?.keywords));
     this._render();
+    console.log('[TAG-ADD] after optimistic render | chips in DOM:', this.shadowRoot.querySelectorAll('.tag-chip').length);
 
     try {
       const modelRef = model.model_ref || this._modelRef;
@@ -4409,7 +4712,9 @@ class ModelDetailPopupCard extends HTMLElement {
         body: JSON.stringify({ tags: updated }),
       });
       if (!response.ok) throw new Error('Failed to add tag: ' + response.statusText);
+      console.log('[TAG-ADD] PATCH succeeded, loading detail silently');
       await this._loadModelDetail({ silent: true });
+      console.log('[TAG-ADD] detail reloaded | model.keywords:', JSON.stringify(this._modelDetail?.model?.keywords), '| chips:', this.shadowRoot.querySelectorAll('.tag-chip').length);
     } catch (error) {
       console.error('Error adding tag:', error);
       // Revert
