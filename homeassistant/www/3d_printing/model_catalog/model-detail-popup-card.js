@@ -3115,7 +3115,7 @@ class ModelDetailPopupCard extends HTMLElement {
     const candidates = Array.isArray(this._modelDetail && this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : [];
     const allLinks = [...linked, ...candidates];
     const ids = [...new Set(allLinks.map(l => String(l.archive_id || l.id || '')).filter(Boolean))];
-    const uncached = ids.filter(id => !this._archiveMetaCache[id]);
+    const uncached = ids.filter(id => !(id in this._archiveMetaCache));
     if (!uncached.length) return;
     await Promise.all(uncached.map(id => this._fetchArchiveMeta(id)));
     this._render();
