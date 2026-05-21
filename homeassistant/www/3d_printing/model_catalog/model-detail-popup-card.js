@@ -102,6 +102,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._tagPickerOpen = false;
     this._tagSearchQuery = "";
     this._knownTags = []; // populated on first picker open
+    this._allTagsFetched = false;
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -288,6 +289,9 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       this._tagPickerOpen = !this._tagPickerOpen;
       this._tagSearchQuery = "";
+      if (this._tagPickerOpen && !this._allTagsFetched) {
+        this._loadAllTags().then(() => { this._render(); });
+      }
       this._render();
       if (this._tagPickerOpen) {
         requestAnimationFrame(() => {
@@ -4202,6 +4206,26 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   // ── Tag chip helpers ──
+
+  async _loadAllTags() {
+    if (this._allTagsFetched) return;
+    try {
+      const response = await fetch(this._resolveModelSidecarUrl() + '/api/models');
+      if (!response.ok) return;
+      const data = await response.json();
+      const models = Array.isArray(data.models) ? data.models : [];
+      for (const m of models) {
+        const kw = Array.isArray(m.keyword_names) ? m.keyword_names : (Array.isArray(m.keywords) ? m.keywords : []);
+        for (const t of kw) {
+          if (t && !this._knownTags.includes(t)) this._knownTags.push(t);
+        }
+      }
+      this._knownTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      this._allTagsFetched = true;
+    } catch (e) {
+      // silently fail — picker still works with locally known tags
+    }
+  }
 
   _renderTagPicker(currentTags) {
     const q = this._tagSearchQuery.toLowerCase();
