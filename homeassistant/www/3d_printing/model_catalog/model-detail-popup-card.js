@@ -683,6 +683,14 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Source panel: Extract 3MF metadata
+    const extract3mfBtn = target.closest('[data-action="extract-3mf-metadata"]');
+    if (extract3mfBtn) {
+      event.preventDefault();
+      this._extract3mfMetadata();
+      return;
+    }
+
     // Source panel: custom label blur save
     if (target.classList.contains('source-label-input')) {
       // blur is not a click, but let's capture it in case user tabs away
@@ -2608,12 +2616,42 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>`;
     }
 
+    // Check if model has any 3MF files (for extract button)
+    const modelFiles = Array.isArray(model.files) ? model.files : [];
+    const has3mf = modelFiles.some(f => {
+      const name = String(f.filename || f.name || '').toLowerCase();
+      const type = String(f.file_type || f.asset_type || '').toLowerCase();
+      return name.endsWith('.3mf') || type.includes('3mf');
+    });
+
+    const extract3mfButton = has3mf ? `
+      <div class="extract-3mf-section">
+        <button class="action-button extract-3mf-btn" data-action="extract-3mf-metadata" title="Extract source metadata from 3MF file">
+          📦 Extract from 3MF
+        </button>
+      </div>` : '';
+
     return `
       ${sourcePicker}
+      ${extract3mfButton}
       ${sourceUrlsEditor}
       ${checklistHtml}
 
       <style>
+        .extract-3mf-section {
+          margin-bottom: 12px;
+        }
+        .extract-3mf-btn {
+          font-size: 12px;
+          padding: 6px 12px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          cursor: pointer;
+        }
+        .extract-3mf-btn:hover { background: var(--primary-color); color: #fff; }
+        .extract-3mf-btn:disabled { opacity: 0.5; cursor: default; }
         .source-section {
           display: grid;
           gap: 8px;
@@ -5985,6 +6023,31 @@ class ModelDetailPopupCard extends HTMLElement {
     const urls = this._getSourceUrls();
     urls.push('');
     await this._saveSourceField('source_urls', urls);
+  }
+
+  async _extract3mfMetadata() {
+    const localModelId = this._modelDetail?.local_model_id || this._modelDetail?.model_ref;
+    if (!localModelId) return;
+    const base = this._resolveModelSidecarUrl();
+    const btn = this.shadowRoot?.querySelector('.extract-3mf-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Extracting…'; }
+    try {
+      const resp = await fetch(
+        `${base}/api/local/models/${encodeURIComponent(localModelId)}/extract-3mf-metadata`,
+        { method: 'POST' }
+      );
+      const result = await resp.json();
+      if (!resp.ok) {
+        alert(result.error || 'Failed to extract 3MF metadata');
+        return;
+      }
+      // Refresh model detail to pick up new fields
+      await this._refreshModelDetail();
+    } catch (err) {
+      alert('Error extracting 3MF metadata: ' + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📦 Extract from 3MF'; }
+    }
   }
 
   async _removeSourceUrl(index) {

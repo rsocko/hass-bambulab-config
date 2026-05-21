@@ -53,6 +53,7 @@ from ..db import (
     read_model_fields,
     set_model_field,
 )
+from ..geometry_3mf import extract_3mf_source_metadata
 from ..services.model_detail_service import build_model_detail_response
 from ..services.intake_eligibility_service import ActionEligibility
 from ..services.shared_helpers import (
@@ -489,6 +490,106 @@ def _planned_group_source_entries(group: dict[str, Any]) -> list[dict[str, Any]]
     return []
 
 
+import logging as _logging
+
+_intake_logger = _logging.getLogger(__name__)
+
+
+def _auto_extract_3mf_metadata(
+    *,
+    state: AppState,
+    local_model_id: str,
+    imported_assets: list[dict[str, Any]],
+    user_provided_creator: str | None,
+    user_provided_source_origin: str | None,
+    user_provided_source_url: str | None,
+) -> None:
+    """Best-effort: extract source metadata from the first 3MF asset and apply as defaults."""
+    threemf_asset = None
+    for asset in imported_assets:
+        filename = str(asset.get("filename") or "").lower()
+        if filename.endswith(".3mf"):
+            threemf_asset = asset
+            break
+    if threemf_asset is None:
+        return
+
+    storage_path_str = str(threemf_asset.get("storage_path") or threemf_asset.get("local_storage_path") or "").strip()
+    if not storage_path_str:
+        return
+
+    storage_path = Path(storage_path_str)
+    if not storage_path.is_absolute():
+        data_root = state.settings.db_path.parent.resolve()
+        storage_path = (data_root / storage_path).resolve()
+
+    try:
+        file_bytes = storage_path.read_bytes()
+    except (OSError, PermissionError):
+        _intake_logger.debug("3MF auto-extract: could not read %s", storage_path)
+        return
+
+    extracted = extract_3mf_source_metadata(file_bytes)
+    if not extracted:
+        return
+
+    # Store raw extraction as a custom field for traceability
+    set_model_field(
+        db_path=state.settings.db_path,
+        model_ref=local_model_id,
+        field_key="extracted_3mf_metadata",
+        field_value=extracted,
+    )
+
+    # Apply extracted fields as defaults (only when user didn't provide them)
+    update_kwargs: dict[str, Any] = {}
+
+    if not user_provided_creator and extracted.get("designer"):
+        update_kwargs["creator_name"] = extracted["designer"]
+
+    if not user_provided_source_origin and extracted.get("source_platform"):
+        update_kwargs["source_origin"] = extracted["source_platform"]
+
+    if not user_provided_source_url and extracted.get("source_url"):
+        update_kwargs["source_origin_url"] = extracted["source_url"]
+
+    if update_kwargs:
+        update_local_model(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            **update_kwargs,
+        )
+
+    # Persist source URLs and platform into provenance custom fields
+    if extracted.get("source_urls"):
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_urls",
+            field_value=extracted["source_urls"],
+        )
+    if extracted.get("source_platform"):
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_platform",
+            field_value=extracted["source_platform"],
+        )
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="publication_source",
+            field_value=extracted["source_platform"],
+        )
+    if extracted.get("source_url"):
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_download_url",
+            field_value=extracted["source_url"],
+        )
+
+
 def _publish_group_to_local_destination(
     *,
     state: AppState,
@@ -659,6 +760,16 @@ def _publish_group_to_local_destination(
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_timestamp_summary", field_value=source_timestamp_summary)
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_imported_at", field_value=_bulk_utc_now_iso())
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="internal_notes", field_value=f"Imported from intake upload {upload_id}")
+
+    # --- Auto-extract 3MF source metadata (best-effort) ---
+    _auto_extract_3mf_metadata(
+        state=state,
+        local_model_id=local_model_id,
+        imported_assets=imported_assets,
+        user_provided_creator=requested_creator_name,
+        user_provided_source_origin=destination_plan.get("source_origin"),
+        user_provided_source_url=destination_plan.get("source_origin_url"),
+    )
 
     return {
         "destination": "curated",

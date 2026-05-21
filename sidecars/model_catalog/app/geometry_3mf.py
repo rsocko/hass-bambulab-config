@@ -2,10 +2,12 @@
 
 import array
 from dataclasses import dataclass, field
+import html as html_module
 from io import BytesIO
 import json
 import os
 import posixpath
+import re
 from typing import Any
 from xml.etree import ElementTree as ET
 import zipfile
@@ -1292,6 +1294,145 @@ def _get_mime_type_for_filename(filename: str) -> str | None:
     if normalized.endswith(".gif"):
         return "image/gif"
     return None
+
+
+_MAKERWORLD_URL_PREFIX = "https://makerworld.com/en/models/"
+
+_BAMBU_METADATA_KEYS = frozenset({
+    "Title", "Designer", "Description", "Copyright", "License",
+    "CreationDate", "ModificationDate", "Application",
+    "DesignModelId", "DesignProfileId", "DesignRegion",
+    "DesignerUserId", "DesignerCover",
+    "ProfileTitle", "ProfileDescription", "ProfileUserName",
+    "ProfileUserId", "ProfileCover", "Origin",
+    "BambuStudio:3mfVersion",
+})
+
+
+def _infer_source_platform(metadata: dict[str, str]) -> str | None:
+    app = metadata.get("Application", "")
+    design_model_id = metadata.get("DesignModelId", "").strip()
+    if app.startswith("BambuStudio") and design_model_id:
+        return "makerworld"
+    if app.startswith("BambuStudio"):
+        return "bambu_studio"
+    if "PrusaSlicer" in app:
+        return "printables"
+    if "OrcaSlicer" in app:
+        return "orca_slicer"
+    return None
+
+
+def _construct_makerworld_url(metadata: dict[str, str]) -> str | None:
+    design_model_id = metadata.get("DesignModelId", "").strip()
+    if not design_model_id:
+        return None
+    return f"{_MAKERWORLD_URL_PREFIX}{design_model_id}"
+
+
+def _extract_urls_from_description(description: str) -> list[str]:
+    if not description or "http" not in description:
+        return []
+    decoded = html_module.unescape(description)
+    return re.findall(r"https?://[^\s<>\"']+", decoded)
+
+
+def extract_3mf_source_metadata(package_bytes: bytes) -> dict[str, Any] | None:
+    """Extract source/provenance metadata from a 3MF package.
+
+    Parses both standard 3MF metadata elements (Title, Designer, Description,
+    License) and Bambu Studio proprietary fields (DesignModelId, DesignProfileId,
+    etc.).  When a DesignModelId is present, constructs the MakerWorld model URL.
+    URLs embedded in the HTML-encoded Description field are also extracted.
+
+    Returns a dict with keys:
+        title, designer, description, license, copyright,
+        source_platform, source_url, source_urls,
+        application, creation_date, modification_date,
+        bambu (sub-dict of Bambu-specific fields),
+        raw_metadata (all metadata key/value pairs found).
+    Returns None when *package_bytes* is empty or not a valid 3MF ZIP.
+    """
+    if not package_bytes:
+        return None
+
+    try:
+        with zipfile.ZipFile(BytesIO(package_bytes)) as package:
+            model_part = _resolve_model_part_path(package)
+            xml_bytes = package.read(model_part)
+    except (zipfile.BadZipFile, OSError, RuntimeError, ValueError):
+        return None
+
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError:
+        return None
+
+    raw: dict[str, str] = {}
+    for child in root:
+        if _local_name(child.tag) != "metadata":
+            continue
+        name = child.attrib.get("name", "").strip()
+        text = (child.text or "").strip()
+        if name:
+            raw[name] = text
+
+    if not raw:
+        return None
+
+    # Standard 3MF fields
+    title = raw.get("Title", "").strip() or None
+    designer = raw.get("Designer", "").strip() or None
+    description_raw = raw.get("Description", "").strip()
+    description = html_module.unescape(description_raw).strip() if description_raw else None
+    license_val = raw.get("License", "").strip() or None
+    copyright_val = raw.get("Copyright", "").strip() or None
+    application = raw.get("Application", "").strip() or None
+    creation_date = raw.get("CreationDate", "").strip() or None
+    modification_date = raw.get("ModificationDate", "").strip() or None
+
+    # Platform inference and URL construction
+    source_platform = _infer_source_platform(raw)
+    makerworld_url = _construct_makerworld_url(raw)
+    description_urls = _extract_urls_from_description(description_raw)
+
+    # Build deduplicated URL list (MakerWorld constructed URL first, then description URLs)
+    all_urls: list[str] = []
+    seen: set[str] = set()
+    if makerworld_url and makerworld_url not in seen:
+        all_urls.append(makerworld_url)
+        seen.add(makerworld_url)
+    for u in description_urls:
+        if u not in seen:
+            all_urls.append(u)
+            seen.add(u)
+
+    source_url = makerworld_url or (all_urls[0] if all_urls else None)
+
+    # Bambu-specific sub-dict
+    bambu: dict[str, str] = {}
+    for key in ("DesignModelId", "DesignProfileId", "DesignRegion",
+                "DesignerUserId", "ProfileTitle", "ProfileUserName",
+                "ProfileUserId", "Origin"):
+        val = raw.get(key, "").strip()
+        if val:
+            bambu[key] = val
+
+    return {
+        "title": title,
+        "designer": designer,
+        "description": description,
+        "license": license_val,
+        "copyright": copyright_val,
+        "source_platform": source_platform,
+        "source_url": source_url,
+        "source_urls": all_urls if all_urls else None,
+        "application": application,
+        "creation_date": creation_date,
+        "modification_date": modification_date,
+        "bambu": bambu if bambu else None,
+        "raw_metadata": raw,
+    }
 
 
 def extract_3mf_thumbnail(package_bytes: bytes) -> bytes | None:

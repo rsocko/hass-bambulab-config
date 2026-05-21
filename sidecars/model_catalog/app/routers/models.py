@@ -69,6 +69,7 @@ from ..geometry_3mf import (
     _compute_dimensions_mm,
     extract_3mf_geometry,
     extract_3mf_plates_metadata,
+    extract_3mf_source_metadata,
 )
 from ..geometry_binary import (
     BINARY_FORMAT_NAME as GEOMETRY_BINARY_FORMAT_NAME,
@@ -3037,6 +3038,63 @@ def update_local_model_endpoint(request: Request, local_model_id: str, payload: 
         "summary": asdict(summary),
         "entry": asdict(updated),
     }
+
+
+@router.post("/api/local/models/{local_model_id}/extract-3mf-metadata")
+def extract_3mf_metadata_endpoint(request: Request, local_model_id: str) -> dict[str, Any]:
+    """On-demand: extract source metadata from the model's 3MF asset(s)."""
+    state: AppState = request.app.state.model_catalog
+    entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id)
+    if entry is None:
+        return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+    assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+    threemf_asset = None
+    for asset in assets:
+        if str(getattr(asset, "asset_filename", "") or "").lower().endswith(".3mf"):
+            threemf_asset = asset
+            break
+
+    if threemf_asset is None:
+        return JSONResponse(status_code=404, content={"error": "No 3MF asset found for this model"})
+
+    storage_path = _resolve_local_asset_storage_path(
+        settings=state.settings,
+        asset=threemf_asset,
+    )
+    if not storage_path or not storage_path.exists():
+        return JSONResponse(status_code=404, content={"error": "3MF file not found on disk"})
+
+    extracted = extract_3mf_source_metadata(storage_path.read_bytes())
+    if not extracted:
+        return JSONResponse(status_code=422, content={"error": "Could not extract metadata from 3MF"})
+
+    # Persist extraction
+    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="extracted_3mf_metadata", field_value=extracted)
+
+    # Apply to model fields
+    update_kwargs: dict[str, Any] = {}
+    if extracted.get("designer"):
+        update_kwargs["creator_name"] = extracted["designer"]
+    if extracted.get("source_platform"):
+        update_kwargs["source_origin"] = extracted["source_platform"]
+    if extracted.get("source_url"):
+        update_kwargs["source_origin_url"] = extracted["source_url"]
+
+    if update_kwargs:
+        update_local_model(db_path=state.settings.db_path, local_model_id=local_model_id, **update_kwargs)
+
+    # Persist provenance fields
+    if extracted.get("source_urls"):
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_urls", field_value=extracted["source_urls"])
+    if extracted.get("source_platform"):
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_platform", field_value=extracted["source_platform"])
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="publication_source", field_value=extracted["source_platform"])
+    if extracted.get("source_url"):
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_download_url", field_value=extracted["source_url"])
+
+    return {"status": "ok", "local_model_id": local_model_id, "extracted": extracted}
+
 
 @router.delete("/api/local/models/{local_model_id}")
 def delete_local_model_endpoint(request: Request, local_model_id: str, hard_delete: bool = False) -> dict[str, Any]:
