@@ -2870,12 +2870,23 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   _candidateConfidenceColor(candidate) {
     var bucket = this._candidateConfidenceBucket(candidate);
     if (bucket === "high") {
-      return "rgba(46,125,50,0.18)";
+      return "rgba(76,175,80,0.25)";
     }
     if (bucket === "medium") {
-      return "rgba(239,108,0,0.16)";
+      return "rgba(255,180,60,0.22)";
     }
-    return "rgba(84,110,122,0.18)";
+    return "rgba(255,80,80,0.22)";
+  }
+
+  _candidateConfidenceTextColor(candidate) {
+    var bucket = this._candidateConfidenceBucket(candidate);
+    if (bucket === "high") {
+      return "#8dda8d";
+    }
+    if (bucket === "medium") {
+      return "#ffcc66";
+    }
+    return "#ff8a8a";
   }
 
   _statusLabel(status) {
@@ -3209,7 +3220,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         '</div>' +
         '<div class="related-candidate-badges">' +
           '<span class="candidate-status ' + this._escapeHtml(this._statusBadgeClass(candidate && candidate.status)) + '">' + this._escapeHtml(statusLabel) + '</span>' +
-          '<span class="candidate-score" style="background:' + this._escapeHtml(this._candidateConfidenceColor(candidate)) + ';">' + this._escapeHtml(confidenceLabel + ' · ' + score) + '</span>' +
+          '<span class="candidate-score" style="background:' + this._escapeHtml(this._candidateConfidenceColor(candidate)) + ';color:' + this._escapeHtml(this._candidateConfidenceTextColor(candidate)) + ';">' + this._escapeHtml(confidenceLabel + ' · ' + score) + '</span>' +
         '</div>' +
       '</div>' +
       '<div class="related-candidate-copy">' + this._escapeHtml(String(candidate && candidate.match_reason || "Related candidate")) + '</div>' +
@@ -3236,6 +3247,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       }
       grouped[bucket].push(candidate);
     }.bind(this));
+    // Sort each group by match_score descending so highest scores float to top
+    var scoreDesc = function (a, b) {
+      return (Number(b && b.match_score || 0)) - (Number(a && a.match_score || 0));
+    };
+    grouped.high.sort(scoreDesc);
+    grouped.medium.sort(scoreDesc);
+    grouped.low.sort(scoreDesc);
     return grouped;
   }
 
@@ -4064,7 +4082,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.candidate-status.warning,.compare-archive-status.warning{background:rgba(239,108,0,0.16);color:#ffe0b2;}' +
       '.candidate-status.danger,.compare-archive-status.danger{background:rgba(183,28,28,0.14);color:#ffcdd2;}' +
       '.candidate-status.neutral,.compare-archive-status.neutral{background:rgba(84,110,122,0.18);color:#cfd8dc;}' +
-      '.candidate-score{color:var(--primary-text-color);}' +
+      '.candidate-score{}' +
       '.related-candidate-copy{font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
       '.related-actions{grid-template-columns:repeat(2,minmax(0,1fr));}' +
       '.related-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}' +
