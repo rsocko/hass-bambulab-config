@@ -1973,6 +1973,9 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
           gap: 8px;
         }
+        .collapse-toggle.archive-row-static {
+          cursor: default;
+        }
         .collapse-body {
           padding: 8px;
           border-top: 1px solid var(--divider-color);
@@ -3547,7 +3550,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
       return `
         <article class="collapsible-group ${archiveTypeClass} ${candidateSelected ? 'candidate-selected' : ''}" data-slot="actions:per-archive">
-          <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
+          <div class="collapse-toggle archive-row-static">
             <div style="display:flex;align-items:center;gap:10px;">
               ${isCandidate ? `<input type="checkbox" class="candidate-checkbox" data-action="toggle-archive-candidate-select" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}" ${candidateSelected ? 'checked' : ''} ${this._archiveBulkBusy ? 'disabled' : ''} aria-label="Select candidate ${title}">` : ''}
               ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-action="open-archive-preview" data-archive-id="${this._escapeHtml(archiveId)}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
@@ -3564,13 +3567,13 @@ class ModelDetailPopupCard extends HTMLElement {
                 </span>
               </div>` : ''}
             </div>
-          </button>
-          <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
-            ${!isCandidate ? `<button class="action-button ghost" data-action="open-archive-popup" data-archive-id="${archiveId}">Open archive</button>
-            <button class="action-button ghost" data-action="pin-archive-cover" data-archive-id="${archiveId}" data-image-url="${this._escapeHtml(thumb || '')}">Pin cover</button>
-            <button class="action-button ghost danger" data-action="unlink-archive" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">Unlink</button>` : ''}
-            ${this._renderExtensionSlot('actions:per-archive', '')}
           </div>
+          ${!isCandidate ? `<div class="collapse-body">
+            <button class="action-button ghost" data-action="open-archive-popup" data-archive-id="${archiveId}">Open archive</button>
+            <button class="action-button ghost" data-action="pin-archive-cover" data-archive-id="${archiveId}" data-image-url="${this._escapeHtml(thumb || '')}">Pin cover</button>
+            <button class="action-button ghost danger" data-action="unlink-archive" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">Unlink</button>
+            ${this._renderExtensionSlot('actions:per-archive', '')}
+          </div>` : this._renderExtensionSlot('actions:per-archive', '')}
         </article>
       `;
     };
