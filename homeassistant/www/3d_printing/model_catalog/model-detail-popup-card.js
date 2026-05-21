@@ -3414,7 +3414,7 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
     this._refreshingCandidates = true;
-    this._renderDetail();
+    this._render();
     try {
       const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/candidates/refresh`;
       const res = await fetch(url, {
@@ -3431,15 +3431,15 @@ class ModelDetailPopupCard extends HTMLElement {
       // Show brief success state
       this._refreshingCandidates = false;
       this._refreshCandidatesDone = true;
-      this._renderDetail();
-      setTimeout(() => { this._refreshCandidatesDone = false; this._renderDetail(); }, 2000);
+      this._render();
+      setTimeout(() => { this._refreshCandidatesDone = false; this._render(); }, 2000);
       return;
     } catch (e) {
       alert('Failed to refresh candidates: ' + e);
     } finally {
       this._refreshingCandidates = false;
       this._refreshCandidatesDone = false;
-      this._renderDetail();
+      this._render();
     }
   }
 
