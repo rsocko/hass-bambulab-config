@@ -1442,16 +1442,15 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 12px;
           overflow: hidden;
           position: relative;
-          min-height: 180px;
-          max-height: 320px;
+          aspect-ratio: 4 / 3;
           background: var(--secondary-background-color);
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .main-media img {
-          width: 100%;
-          max-height: 420px;
+          max-width: 100%;
+          max-height: 100%;
           object-fit: contain;
           display: block;
         }
@@ -2061,7 +2060,7 @@ class ModelDetailPopupCard extends HTMLElement {
           }
           .thumb { flex: 0 0 72px; }
           .panel-shell { margin-bottom: 0; }
-          .main-media { max-height: 260px; }
+          .main-media { aspect-ratio: 4 / 3; max-height: 50vh; }
         }
       </style>
 
