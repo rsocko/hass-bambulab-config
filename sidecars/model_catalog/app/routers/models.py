@@ -103,6 +103,8 @@ from ..catalog_cache import (
 
 from ..models import CatalogModelSummary, LocalModelEntry
 
+from ..services.model_detail_service import build_model_detail_response
+
 from .._helpers import (
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_path_source_metadata,
@@ -3765,7 +3767,15 @@ async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, A
                 model_ref=str(summary.public_id or model_ref),
                 field_key=field_key,
             )
-        return get_model_detail_endpoint(request, model_ref)
+        detail_payload = build_model_detail_response(
+            state, client, model_ref,
+            request=request,
+            helpers=_model_detail_service_helpers(),
+        )
+        if detail_payload.get("success") is False:
+            sc = 404 if detail_payload.get("error") == "model_not_found" else 500
+            return JSONResponse(status_code=sc, content=detail_payload)
+        return detail_payload
     
     # Build update payload (only include fields that are provided)
     catalog_updates = {}
@@ -3809,7 +3819,15 @@ async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, A
         )
     
     # Return updated model detail
-    return get_model_detail_endpoint(request, model_ref)
+    detail_payload = build_model_detail_response(
+        state, client, model_ref,
+        request=request,
+        helpers=_model_detail_service_helpers(),
+    )
+    if detail_payload.get("success") is False:
+        sc = 404 if detail_payload.get("error") == "model_not_found" else 500
+        return JSONResponse(status_code=sc, content=detail_payload)
+    return detail_payload
 
 
 async def upload_photo_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
