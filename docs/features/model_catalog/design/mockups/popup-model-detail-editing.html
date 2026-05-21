@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Detail Popup · Editing Mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1119;
+    --shell: rgba(15, 22, 34, 0.96);
+    --pane: rgba(255, 255, 255, 0.03);
+    --pane-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(148, 166, 189, 0.24);
+    --line-strong: rgba(148, 166, 189, 0.42);
+    --text: #edf4ff;
+    --sub: #9fb3ce;
+    --muted: #6b7888;
+    --accent: #6edacb;
+    --accent-blue: #60a5fa;
+    --accent-purple: #c084fc;
+    --warn: #f0be62;
+    --danger: #f18b8b;
+    --ok: #7cd9aa;
+    --radius: 16px;
+    --pad: 12px;
+    --mockup-width: 1460px;
+    --shadow: 0 26px 60px rgba(0, 0, 0, 0.56);
+  }
+
+  html, body {
+    margin: 0; min-height: 100%; color: var(--text);
+    background:
+      radial-gradient(circle at 12% 14%, rgba(110, 218, 203, 0.18), transparent 38%),
+      radial-gradient(circle at 86% 10%, rgba(139, 174, 255, 0.16), transparent 36%),
+      var(--bg);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+  }
+  body { padding: clamp(16px, 3vw, 40px); }
+
+  /* ─── page-level ─── */
+  .page-hdr { max-width: var(--mockup-width); margin: 0 auto 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .page-hdr h1 { margin: 0; font-size: 22px; }
+  .page-hdr p { margin: 4px 0 0; color: var(--sub); font-size: 13px; max-width: 820px; line-height: 1.55; }
+  .nav-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav-bar a { font-size: 12px; color: var(--sub); text-decoration: none; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--pane); }
+  .nav-bar a.active { color: var(--text); border-color: var(--line-strong); background: var(--pane-strong); }
+
+  /* ─── variant separator ─── */
+  .variant-sep {
+    max-width: var(--mockup-width); margin: 40px auto 18px; padding: 14px 18px;
+    border: 1px dashed var(--line-strong); border-left: 3px solid var(--accent); border-radius: 10px;
+    color: var(--sub); font-size: 13px; line-height: 1.55;
+  }
+  .variant-sep strong { color: var(--text); }
+  .variant-sep code { font-size: 11px; background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); }
+
+  /* ─── popup shell ─── */
+  .popup {
+    max-width: var(--mockup-width); margin: 0 auto 20px;
+    border: 1px solid var(--line-strong); border-radius: 22px;
+    background: var(--shell); box-shadow: var(--shadow); overflow: hidden;
+  }
+
+  /* ─── top bar ─── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 18px; border-bottom: 1px solid var(--line);
+    background: rgba(15,19,26,0.55); flex-wrap: wrap;
+  }
+  .topbar .crumbs { font-size: 13px; color: var(--sub); }
+  .topbar .crumbs strong { color: var(--text); font-weight: 700; }
+  .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .entity-badge {
+    font-size: 10px; padding: 3px 9px; border-radius: 999px;
+    background: rgba(192,132,252,0.12); color: var(--accent-purple); border: 1px solid rgba(192,132,252,0.32);
+    font-weight: 700; letter-spacing: 0.04em;
+  }
+  .top-btn {
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 13px;
+    background: rgba(255,255,255,0.04); color: var(--text); font-size: 12px; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .top-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--line-strong); }
+  .top-btn.primary { background: linear-gradient(135deg, rgba(110,218,203,0.9), rgba(96,165,250,0.8)); color: #0b1117; border-color: transparent; font-weight: 800; }
+  .top-btn.toggle-active { border-color: var(--accent); background: rgba(110,218,203,0.12); color: var(--accent); }
+  .top-btn.toggle-active-warn { border-color: var(--warn); background: rgba(240,190,98,0.12); color: var(--warn); }
+  .top-btn .ico { font-size: 14px; }
+
+  /* overflow menu */
+  .overflow-wrap { position: relative; }
+  .overflow-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 90;
+    min-width: 220px; background: rgba(28,33,42,0.96); border: 1px solid var(--line-strong);
+    border-radius: 12px; box-shadow: 0 10px 36px rgba(0,0,0,0.44); padding: 6px;
+  }
+  .overflow-menu.open { display: block; }
+  .overflow-row {
+    padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text);
+  }
+  .overflow-row:hover { background: rgba(255,255,255,0.06); }
+  .overflow-row .sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 400; }
+
+  /* ─── hero grid ─── */
+  .hero {
+    display: grid; grid-template-columns: 1.1fr 1fr;
+    min-height: 540px;
+  }
+
+  /* ─── left column ─── */
+  .left {
+    border-right: 1px solid var(--line); display: flex; flex-direction: column;
+  }
+  .main-media {
+    position: relative; flex: 1 1 280px; min-height: 220px; max-height: 420px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background: linear-gradient(135deg, rgba(20,30,46,0.98), rgba(14,18,26,0.94));
+  }
+  .main-media img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .media-badge {
+    position: absolute; left: 12px; bottom: 12px; font-size: 10px; padding: 3px 8px;
+    border-radius: 999px; background: rgba(0,0,0,0.62); color: #fff; font-weight: 600;
+  }
+  .media-with-thumbs { display: flex; flex: 1 1 auto; min-height: 220px; }
+  .thumbs {
+    flex: 0 0 80px; border-left: 1px solid var(--line); padding: 6px;
+    display: flex; flex-direction: column; gap: 4px; overflow-y: auto; overflow-x: hidden;
+  }
+  .thumb {
+    position: relative; width: 68px; height: 48px; border-radius: 6px; overflow: hidden;
+    border: 2px solid transparent; cursor: pointer; flex-shrink: 0; background: rgba(255,255,255,0.04);
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb.active { border-color: var(--accent); }
+  .thumb .src { position: absolute; left: 3px; bottom: 3px; font-size: 9px; padding: 2px 5px; border-radius: 999px; background: rgba(0,0,0,0.62); color: #fff; }
+
+  .media-toolbar {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 8px 12px; border-top: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .media-filters { display: flex; gap: 4px; }
+  .filter-chip {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--sub); cursor: pointer;
+  }
+  .filter-chip.active { background: var(--pane-strong); color: var(--text); border-color: var(--line-strong); }
+  .media-actions { display: flex; gap: 4px; }
+  .media-btn {
+    font-size: 11px; padding: 4px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: transparent; color: var(--sub); cursor: pointer;
+  }
+  .media-btn:hover { color: var(--text); border-color: var(--line-strong); }
+  .media-btn.add { background: rgba(110,218,203,0.14); color: var(--accent); border-color: rgba(110,218,203,0.32); }
+  .media-btn.danger { color: var(--danger); border-color: rgba(241,139,139,0.32); }
+
+  /* panel workspace */
+  .panel-shell {
+    margin: 0 12px 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    background: var(--pane);
+  }
+  .panel-toolbar {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--line); padding: 8px 10px;
+  }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); padding: 9px 10px 0; }
+  .tabs button {
+    border: 1px solid transparent; border-bottom: 0; border-radius: 10px 10px 0 0;
+    padding: 7px 10px; background: var(--pane); color: var(--sub); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+  }
+  .tabs button.active { color: var(--text); border-color: var(--line); box-shadow: inset 0 -2px 0 var(--accent); }
+  .cnt { border: 1px solid var(--line); border-radius: 999px; padding: 1px 6px; font-size: 10px; }
+  .tab-panel { padding: 10px; font-size: 12px; }
+  .panel-row { border: 1px solid var(--line); border-radius: 9px; background: var(--pane); padding: 8px; margin-bottom: 6px; }
+  .panel-row .detail { color: var(--sub); font-size: 11px; margin-top: 3px; }
+
+  /* ─── right column ─── */
+  .right { padding: 12px; display: grid; grid-template-rows: auto auto 1fr; gap: 10px; overflow: visible; }
+  .card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--pane); }
+  .card .h {
+    border-bottom: 1px solid var(--line); background: var(--pane-strong); padding: 8px 10px;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--sub); font-weight: 700;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  /* ─── summary card ─── */
+  .summary { padding: 12px; display: grid; gap: 10px; }
+  .summary .name { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .summary .meta-line { color: var(--sub); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .summary .meta-line .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+
+  /* status pills */
+  .status-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; font-size: 10px;
+    color: var(--sub); background: var(--pane);
+  }
+
+  /* chip UX */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip-group .label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+  .tag-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: rgba(110,218,203,0.10); color: var(--accent); border: 1px solid rgba(110,218,203,0.28);
+  }
+  .tag-chip .x { cursor: pointer; opacity: 0.6; font-size: 12px; margin-left: 2px; }
+  .tag-chip .x:hover { opacity: 1; }
+  .collection-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: rgba(96,165,250,0.10); color: var(--accent-blue); border: 1px solid rgba(96,165,250,0.28);
+  }
+  .collection-chip .x { cursor: pointer; opacity: 0.6; font-size: 12px; margin-left: 2px; }
+  .collection-chip .x:hover { opacity: 1; }
+  .project-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: rgba(192,132,252,0.10); color: var(--accent-purple); border: 1px solid rgba(192,132,252,0.28);
+  }
+  .project-chip .x { cursor: pointer; opacity: 0.6; font-size: 12px; margin-left: 2px; }
+  .project-chip .x:hover { opacity: 1; }
+  .add-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    background: transparent; color: var(--muted); border: 1px dashed var(--line-strong);
+    cursor: pointer;
+  }
+  .add-chip:hover { color: var(--text); border-color: var(--accent); background: rgba(110,218,203,0.06); }
+
+  /* picker dropdown (inline add) */
+  .picker-wrap { position: relative; display: inline-block; }
+  .picker-dd {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 90;
+    min-width: 220px; max-height: 250px; overflow-y: auto;
+    background: rgba(28,33,42,0.96); border: 1px solid var(--line-strong); border-radius: 12px;
+    box-shadow: 0 10px 36px rgba(0,0,0,0.44); padding: 6px;
+  }
+  .picker-dd .search-box {
+    width: 100%; box-sizing: border-box; margin-bottom: 4px;
+    background: rgba(15,19,26,0.6); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font-size: 12px; padding: 7px 10px; outline: none;
+  }
+  .picker-dd .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,218,203,0.18); }
+  .picker-dd .opt {
+    padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--text);
+  }
+  .picker-dd .opt:hover { background: rgba(255,255,255,0.06); }
+  .picker-dd .opt.selected { color: var(--accent); }
+  .picker-dd .opt .sub { font-size: 10px; color: var(--muted); }
+  .picker-dd .create-new { color: var(--accent); font-weight: 700; font-size: 12px; padding: 7px 10px; border-top: 1px solid var(--line); cursor: pointer; }
+  .picker-dd .create-new:hover { background: rgba(110,218,203,0.08); }
+
+  /* ─── edit form (Variant B) ─── */
+  .edit-form { padding: 12px; display: grid; gap: 12px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 700;
+  }
+  .field input, .field textarea, .field select {
+    background: rgba(15,19,26,0.6); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 13px; padding: 8px 10px;
+    box-sizing: border-box;
+  }
+  .field textarea { min-height: 64px; resize: vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,218,203,0.18);
+  }
+  /* tag editor inside edit form */
+  .tag-editor {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 6px;
+    background: rgba(15,19,26,0.6); border: 1px solid var(--line); border-radius: 8px;
+    min-height: 36px; align-items: center;
+  }
+  .tag-editor:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,218,203,0.18); }
+  .tag-input-inline {
+    flex: 1 1 100px; background: transparent; border: 0; color: var(--text);
+    font-size: 12px; padding: 3px; min-width: 80px; outline: none;
+  }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }
+  .form-btn {
+    padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.04); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .form-btn:hover { background: rgba(255,255,255,0.08); }
+  .form-btn.save { background: linear-gradient(135deg, rgba(110,218,203,0.9), rgba(96,165,250,0.8)); color: #0b1117; border-color: transparent; }
+
+  /* advanced collapsible */
+  .advanced-toggle {
+    display: flex; align-items: center; gap: 6px; color: var(--sub); font-size: 12px;
+    cursor: pointer; user-select: none; padding: 4px 0;
+  }
+  .advanced-toggle .arrow { font-size: 14px; transition: transform 0.2s; }
+  .advanced-body { padding-left: 12px; }
+
+  /* ─── model files card ─── */
+  .files { padding: 8px; display: grid; gap: 7px; }
+  .file-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--pane);
+  }
+  .file-ext {
+    width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 800; flex-shrink: 0;
+  }
+  .file-ext.x-3mf { color: var(--accent); border: 1px solid rgba(110,218,203,0.3); background: rgba(110,218,203,0.12); }
+  .file-ext.x-stl { color: var(--accent-blue); border: 1px solid rgba(96,165,250,0.32); background: rgba(96,165,250,0.12); }
+  .file-info { flex: 1; min-width: 0; }
+  .file-info .fn { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-info .meta { font-size: 11px; color: var(--sub); }
+
+  /* ─── archive linkage card ─── */
+  .archive-list { padding: 8px; display: grid; gap: 6px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
+  .archive-row {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+    padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--pane);
+  }
+  .archive-thumb { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; background: rgba(255,255,255,0.04); }
+  .archive-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .archive-info .fn { font-size: 12px; font-weight: 600; }
+  .archive-info .meta { font-size: 11px; color: var(--sub); }
+  .state-pill { font-size: 10px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 7px; color: var(--sub); }
+  .state-pill.linked { color: var(--ok); border-color: rgba(124,217,170,0.32); background: rgba(124,217,170,0.08); }
+  .state-pill.candidate { color: var(--warn); border-color: rgba(240,190,98,0.32); background: rgba(240,190,98,0.08); }
+
+  /* ─── annotations ─── */
+  .callout {
+    max-width: var(--mockup-width); margin: 20px auto 0; padding: 14px 18px;
+    border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px;
+    color: var(--sub); font-size: 12px; line-height: 1.55;
+  }
+  .callout strong { color: var(--text); }
+  .callout code { font-size: 11px; background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); }
+  .callout.amber { border-left-color: var(--warn); }
+  .callout.purple { border-left-color: var(--accent-purple); }
+
+  .legend { max-width: var(--mockup-width); margin: 16px auto 0; border-collapse: collapse; width: 100%; font-size: 12px; }
+  .legend th, .legend td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .legend th { color: var(--sub); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10px; }
+  .legend code { font-size: 11px; background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); }
+  .legend .new { color: var(--warn); font-weight: 700; }
+  .legend .existing { color: var(--accent); font-weight: 700; }
+  .legend .evolve { color: var(--accent-blue); font-weight: 700; }
+
+  .footer-note {
+    max-width: var(--mockup-width); margin: 24px auto 0; padding: 14px 18px;
+    border: 1px dashed var(--line); border-radius: 10px; color: var(--sub); font-size: 12px; line-height: 1.55;
+  }
+
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; }
+    .left { border-right: 0; border-bottom: 1px solid var(--line); }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-hdr">
+  <div>
+    <h1>Model Detail Popup · Editing Mockup</h1>
+    <p>
+      Based on the <strong>current implementation</strong> of <code>model-detail-popup-card.js</code>.
+      Shows <strong>Variant A</strong> (hybrid inline editing — tags/collections/projects as interactive chips, title/description via edit mode) and <strong>Variant B</strong> (separate edit form panel).
+      Covers adding/removing Tags, Collections, Projects; toggling Frequent &amp; Archived; editing title.
+      <br/>Issues: <a href="https://github.com/rsocko/hass-bambulab-config/issues/1489" style="color:var(--accent)">#1489</a> (catalog_visibility),
+      <a href="https://github.com/rsocko/hass-bambulab-config/issues/1516" style="color:var(--accent)">#1516</a> (frequent not favorites),
+      <a href="https://github.com/rsocko/hass-bambulab-config/issues/1227" style="color:var(--accent)">#1227</a> (advanced actions),
+      <a href="https://github.com/rsocko/hass-bambulab-config/issues/1484" style="color:var(--accent)">#1484</a> (projects),
+      <a href="https://github.com/rsocko/hass-bambulab-config/issues/1401" style="color:var(--accent)">#1401</a> (multi-select updates),
+      <a href="https://github.com/rsocko/hass-bambulab-config/issues/1544" style="color:var(--accent)">#1544</a> (top-of-page UI).
+    </p>
+  </div>
+  <div class="nav-bar">
+    <a href="index.html">Index</a>
+    <a href="popup-model-detail.html">Hero layout</a>
+    <a href="catalog-advanced-actions.html">Advanced Actions</a>
+    <a href="popup-model-detail-editing.html" class="active">Editing</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     VARIANT A — Hybrid Inline Editing
+     Tags, Collections, Projects are always-interactive chips with ✕ remove
+     and + add. Title/description require edit mode. Frequent & Archived
+     are top-bar toggles.
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="variant-sep">
+  <strong>Variant A — Hybrid Inline Editing</strong><br/>
+  Tags, Collections, and Projects appear as <strong>interactive chips</strong> with ✕ to remove and + to add — no edit mode required.
+  Title and description editing requires the <code>Edit</code> button.
+  <code>⚡ Frequent</code> and <code>📦 Archived</code> are toggle buttons in the top action bar alongside 3D View / Download / Print.
+</div>
+
+<div class="popup">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="crumbs">
+      <strong>_nesmi</strong> &nbsp;›&nbsp; Gridfinity · Spool Accessories
+    </div>
+    <div class="top-actions">
+      <span class="entity-badge">Model</span>
+      <button class="top-btn toggle-active" title="This model is marked as Frequent (manual override or auto-derived from ≥3 prints in 90d window). Click to unmark.">
+        <span class="ico">⚡</span> Frequent
+      </button>
+      <button class="top-btn" title="Archive this model — hides from default Catalog views while preserving all data. Per #1489 catalog_visibility.">
+        <span class="ico">📦</span> Archive
+      </button>
+      <button class="top-btn">3D View</button>
+      <button class="top-btn">Download</button>
+      <button class="top-btn primary">Print</button>
+      <div class="overflow-wrap">
+        <button class="top-btn" onclick="this.nextElementSibling.classList.toggle('open')">More ▾</button>
+        <div class="overflow-menu">
+          <div class="overflow-row">
+            <div>Edit Title &amp; Description</div>
+            <div class="sub">Opens the inline edit form</div>
+          </div>
+          <div class="overflow-row">
+            <div>Advanced Actions…</div>
+            <div class="sub">Delete, merge, reclassify (#1227)</div>
+          </div>
+          <div class="overflow-row">
+            <div>Recover Print History…</div>
+            <div class="sub">Backfill historical prints</div>
+          </div>
+          <div class="overflow-row">
+            <div>View Metadata (JSON)</div>
+            <div class="sub">Raw model record</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hero grid -->
+  <div class="hero">
+
+    <!-- Left column: media viewer + panel workspace -->
+    <div class="left">
+      <div class="media-with-thumbs">
+        <div class="main-media">
+          <img src="https://placehold.co/600x400/1a2538/6edacb?text=Gridfinity+Holders" alt="Model preview" />
+          <span class="media-badge">Asset · Preview</span>
+        </div>
+        <div class="thumbs">
+          <button class="thumb active"><img src="https://placehold.co/68x48/1a2538/6edacb?text=1" alt="thumb 1" /><span class="src">Asset</span></button>
+          <button class="thumb"><img src="https://placehold.co/68x48/1a2538/60a5fa?text=2" alt="thumb 2" /><span class="src">Embedded</span></button>
+          <button class="thumb"><img src="https://placehold.co/68x48/1a2538/c084fc?text=3" alt="thumb 3" /><span class="src">Asset</span></button>
+        </div>
+      </div>
+      <div class="media-toolbar">
+        <div class="media-filters">
+          <button class="filter-chip active">All (3)</button>
+          <button class="filter-chip">Assets (2)</button>
+          <button class="filter-chip">Embedded (1)</button>
+        </div>
+        <div class="media-actions">
+          <button class="media-btn">Set Preview</button>
+          <button class="media-btn add">+ Add Image</button>
+          <button class="media-btn">Hide</button>
+          <button class="media-btn danger">Delete</button>
+        </div>
+      </div>
+
+      <!-- Panel Workspace -->
+      <section class="panel-shell">
+        <div class="panel-toolbar">
+          <strong style="font-size:12px;">Panel Workspace</strong>
+          <span style="font-size:11px; color: var(--sub);">Tabs · Stacked</span>
+        </div>
+        <div class="tabs">
+          <button class="active">Queued Prints <span class="cnt">2</span></button>
+          <button>Related Models <span class="cnt">3</span></button>
+          <button>Supporting Files <span class="cnt">1</span></button>
+          <button>Source</button>
+          <button>Publication</button>
+        </div>
+        <div class="tab-panel">
+          <div class="panel-row">
+            <strong>Gridfinity 1x1 Holder · P1S</strong>
+            <div class="detail">up_next · Added 2 days ago</div>
+          </div>
+          <div class="panel-row">
+            <strong>Gridfinity 2x1 Holder · X1C</strong>
+            <div class="detail">ready · Plate: auto</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right column: summary + files + archive linkage -->
+    <div class="right">
+
+      <!-- Summary card with INLINE editable chips -->
+      <section class="card">
+        <div class="h">
+          <span>Summary</span>
+        </div>
+        <div class="summary">
+          <div class="name">
+            Gridfinity Holders v3
+            <span style="font-size:11px; color:var(--muted); font-weight:400;">(click Edit to rename)</span>
+          </div>
+          <div class="meta-line">
+            Creator: _nesmi <span class="dot"></span> Source: MakerWorld <span class="dot"></span> Added: 2026-04-09
+          </div>
+
+          <!-- Tags — interactive chips, always editable -->
+          <div class="chip-group">
+            <span class="label">Tags</span>
+            <span class="tag-chip">gridfinity <span class="x" title="Remove tag">✕</span></span>
+            <span class="tag-chip">organizer <span class="x" title="Remove tag">✕</span></span>
+            <span class="tag-chip">pet-cf <span class="x" title="Remove tag">✕</span></span>
+            <div class="picker-wrap">
+              <button class="add-chip" onclick="this.nextElementSibling.classList.toggle('picker-dd'); this.nextElementSibling.classList.toggle('hidden-dd');" title="Add tag">+ Tag</button>
+              <div class="picker-dd" style="display:none;">
+                <input class="search-box" type="text" placeholder="Search or create tag…" />
+                <div class="opt">multicolor</div>
+                <div class="opt">pla-only</div>
+                <div class="opt">prototype</div>
+                <div class="opt">gift</div>
+                <div class="create-new">+ Create "new-tag"</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Collections — interactive chips -->
+          <div class="chip-group">
+            <span class="label">Collections</span>
+            <span class="collection-chip">Spool Accessories <span class="x" title="Remove from collection">✕</span></span>
+            <div class="picker-wrap">
+              <button class="add-chip" title="Add to collection">+ Collection</button>
+              <div class="picker-dd" style="display:none;">
+                <input class="search-box" type="text" placeholder="Search collections…" />
+                <div class="opt selected">Spool Accessories <span class="sub">· already added</span></div>
+                <div class="opt">Filament Tools</div>
+                <div class="opt">Office Decor</div>
+                <div class="opt">AMS Tools</div>
+                <div class="create-new">+ Create new collection</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Projects — interactive chips + project picker -->
+          <div class="chip-group">
+            <span class="label">Projects</span>
+            <span class="project-chip">Garage Reorg <span class="x" title="Remove from project">✕</span></span>
+            <span class="project-chip">Workshop Kits <span class="x" title="Remove from project">✕</span></span>
+            <div class="picker-wrap">
+              <button class="add-chip" title="Add to project">+ Project</button>
+              <div class="picker-dd" style="display:none;">
+                <input class="search-box" type="text" placeholder="Search projects…" />
+                <div class="opt selected">Garage Reorg <span class="sub">· active</span></div>
+                <div class="opt selected">Workshop Kits <span class="sub">· backlog</span></div>
+                <div class="opt">Mom's Birthday Box <span class="sub">· planning</span></div>
+                <div class="opt">Evaluating: Shelf Brackets <span class="sub">· evaluating</span></div>
+                <div class="create-new">+ Create new project</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status pills (read-only counts) -->
+          <div class="status-row">
+            <span class="pill">Linked archives: 7</span>
+            <span class="pill">Candidates: 2</span>
+            <span class="pill">Related: 3</span>
+            <span class="pill">Supporting: 1</span>
+            <span class="pill" style="color:var(--accent); border-color: rgba(110,218,203,0.28); background: rgba(110,218,203,0.08);">⚡ Frequent · 5 in 90d</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Files card (unchanged from current) -->
+      <section class="card">
+        <div class="h"><span>Model Files</span></div>
+        <div class="files">
+          <div class="file-row">
+            <span class="file-ext x-3mf">3MF</span>
+            <div class="file-info">
+              <div class="fn">gridfinity_holder_v3_final.3mf</div>
+              <div class="meta">Source 3MF · 12.4 MB</div>
+            </div>
+          </div>
+          <div class="file-row">
+            <span class="file-ext x-stl">STL</span>
+            <div class="file-info">
+              <div class="fn">gridfinity_1x1_holder.stl</div>
+              <div class="meta">Model file · 2.1 MB</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Archive Linkage card (unchanged from current) -->
+      <section class="card">
+        <div class="h">
+          <span>Archive Linkage</span>
+          <button style="background:none; border:1px solid transparent; border-radius:6px; cursor:pointer; padding:4px; color:var(--sub); font-size:13px;" title="Refresh candidates">🔄</button>
+        </div>
+        <div class="archive-list">
+          <div class="archive-row">
+            <div class="archive-thumb"><img src="https://placehold.co/40x40/1a2538/6edacb?text=A" alt="archive thumb" /></div>
+            <div class="archive-info">
+              <div class="fn">Gridfinity Holder 1x1</div>
+              <div class="meta">Archive #4892 · 2026-05-10 · P1S</div>
+            </div>
+            <span class="state-pill linked">Linked</span>
+          </div>
+          <div class="archive-row">
+            <div class="archive-thumb"><img src="https://placehold.co/40x40/1a2538/f0be62?text=C" alt="archive thumb" /></div>
+            <div class="archive-info">
+              <div class="fn">gridfinity_holder_v3_2x1</div>
+              <div class="meta">Archive #5023 · 2026-05-14 · X1C</div>
+            </div>
+            <span class="state-pill candidate">Candidate</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     VARIANT A — Archived state (toggled)
+     Shows what happens when the user clicks "Archive" in the top bar.
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="variant-sep">
+  <strong>Variant A — Archived State</strong><br/>
+  When <code>📦 Archive</code> is toggled on, the button becomes active and a muted banner appears below the top bar.
+  Per <a href="https://github.com/rsocko/hass-bambulab-config/issues/1489" style="color:var(--accent)">#1489</a>: <code>catalog_visibility = 'archived'</code>.
+  Model is hidden from default Catalog grid but all data is preserved.
+</div>
+
+<div class="popup">
+  <div class="topbar">
+    <div class="crumbs">
+      <strong>_nesmi</strong> &nbsp;›&nbsp; Gridfinity · Spool Accessories
+    </div>
+    <div class="top-actions">
+      <span class="entity-badge">Model</span>
+      <button class="top-btn" title="Not marked as frequent">
+        <span class="ico">⚡</span> Frequent
+      </button>
+      <button class="top-btn toggle-active-warn" title="This model is archived — hidden from default Catalog views. Click to un-archive.">
+        <span class="ico">📦</span> Archived
+      </button>
+      <button class="top-btn">3D View</button>
+      <button class="top-btn">Download</button>
+      <button class="top-btn primary">Print</button>
+      <button class="top-btn">More ▾</button>
+    </div>
+  </div>
+
+  <!-- Archive banner -->
+  <div style="padding: 8px 18px; background: rgba(240,190,98,0.08); border-bottom: 1px solid rgba(240,190,98,0.24); display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--warn);">
+    <span>📦</span>
+    <span><strong>Archived</strong> — this model is hidden from default Catalog views. <button style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:12px; text-decoration:underline;">Un-archive</button></span>
+  </div>
+
+  <div class="hero" style="min-height:180px;">
+    <div class="left" style="opacity: 0.7;">
+      <div class="main-media" style="max-height:180px;">
+        <img src="https://placehold.co/600x300/1a2538/6b7888?text=Archived+Model" alt="Archived" />
+        <span class="media-badge">Archived</span>
+      </div>
+    </div>
+    <div class="right">
+      <section class="card">
+        <div class="h"><span>Summary</span></div>
+        <div class="summary">
+          <div class="name" style="opacity: 0.7;">
+            Gridfinity Holders v3
+            <span style="font-size:10px; padding:3px 8px; border-radius:999px; background:rgba(240,190,98,0.12); color:var(--warn); border:1px solid rgba(240,190,98,0.28); font-weight:700;">ARCHIVED</span>
+          </div>
+          <div class="meta-line" style="opacity:0.7;">Creator: _nesmi <span class="dot"></span> Hidden from default views</div>
+          <div class="chip-group">
+            <span class="label">Tags</span>
+            <span class="tag-chip">gridfinity <span class="x">✕</span></span>
+            <span class="tag-chip">organizer <span class="x">✕</span></span>
+            <button class="add-chip">+ Tag</button>
+          </div>
+          <div class="status-row">
+            <span class="pill">Linked archives: 7</span>
+            <span class="pill" style="color:var(--warn); border-color:rgba(240,190,98,0.28); background:rgba(240,190,98,0.08);">📦 Archived</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     VARIANT B — Separate Edit Form Panel
+     Clicking "Edit" replaces the summary card content with a full form.
+     Current implementation pattern enhanced with chip-based tags,
+     collection/project pickers, and advanced section.
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="variant-sep">
+  <strong>Variant B — Separate Edit Form Panel</strong><br/>
+  Keeps the current implementation pattern: clicking <code>Edit</code> replaces the summary card body with a form.
+  Enhanced with <strong>chip-based tag editor</strong> (with autocomplete), <strong>collection multi-picker</strong>,
+  <strong>project picker</strong>, and an <strong>advanced section</strong> for print notes, support type, difficulty.
+  This is the existing <code>model-detail-edit-form.js</code> evolved.
+</div>
+
+<div class="popup">
+  <div class="topbar">
+    <div class="crumbs">
+      <strong>_nesmi</strong> &nbsp;›&nbsp; Gridfinity · Spool Accessories
+    </div>
+    <div class="top-actions">
+      <span class="entity-badge">Model</span>
+      <button class="top-btn toggle-active"><span class="ico">⚡</span> Frequent</button>
+      <button class="top-btn"><span class="ico">📦</span> Archive</button>
+      <button class="top-btn">3D View</button>
+      <button class="top-btn">Download</button>
+      <button class="top-btn primary">Print</button>
+      <button class="top-btn">More ▾</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="left">
+      <div class="media-with-thumbs">
+        <div class="main-media">
+          <img src="https://placehold.co/600x400/1a2538/6edacb?text=Gridfinity+Holders" alt="Model preview" />
+          <span class="media-badge">Asset · Preview</span>
+        </div>
+        <div class="thumbs">
+          <button class="thumb active"><img src="https://placehold.co/68x48/1a2538/6edacb?text=1" alt="thumb" /><span class="src">Asset</span></button>
+          <button class="thumb"><img src="https://placehold.co/68x48/1a2538/60a5fa?text=2" alt="thumb" /><span class="src">Embed</span></button>
+        </div>
+      </div>
+      <div class="media-toolbar">
+        <div class="media-filters">
+          <button class="filter-chip active">All (2)</button>
+          <button class="filter-chip">Assets (1)</button>
+          <button class="filter-chip">Embedded (1)</button>
+        </div>
+        <div class="media-actions">
+          <button class="media-btn">Set Preview</button>
+          <button class="media-btn add">+ Add Image</button>
+        </div>
+      </div>
+      <section class="panel-shell">
+        <div class="panel-toolbar">
+          <strong style="font-size:12px;">Panel Workspace</strong>
+        </div>
+        <div class="tabs">
+          <button class="active">Queued Prints <span class="cnt">2</span></button>
+          <button>Related Models <span class="cnt">3</span></button>
+          <button>Source</button>
+        </div>
+        <div class="tab-panel">
+          <div class="panel-row"><strong>Gridfinity 1x1 Holder · P1S</strong><div class="detail">up_next</div></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="right">
+
+      <!-- Summary card IN EDIT MODE -->
+      <section class="card" style="border-color: rgba(110,218,203,0.42);">
+        <div class="h" style="background: rgba(110,218,203,0.08); color: var(--accent);">
+          <span>✏️ Editing Model</span>
+          <span style="font-size:11px; color:var(--sub);">Changes save immediately on each field</span>
+        </div>
+        <div class="edit-form">
+          <div class="form-grid">
+            <!-- Title -->
+            <div class="field full">
+              <label>Model Name *</label>
+              <input type="text" value="Gridfinity Holders v3" maxlength="255" />
+            </div>
+
+            <!-- Description -->
+            <div class="field full">
+              <label>Description</label>
+              <textarea maxlength="5000" placeholder="Add a description…">Modular gridfinity-compatible holders for filament accessories, tools, and small parts. Designed for PETG/PLA.</textarea>
+            </div>
+
+            <!-- Tags — chip editor with inline add -->
+            <div class="field full">
+              <label>Tags</label>
+              <div class="tag-editor">
+                <span class="tag-chip">gridfinity <span class="x" title="Remove">✕</span></span>
+                <span class="tag-chip">organizer <span class="x" title="Remove">✕</span></span>
+                <span class="tag-chip">pet-cf <span class="x" title="Remove">✕</span></span>
+                <input class="tag-input-inline" type="text" placeholder="Type to add tag…" />
+              </div>
+              <span style="font-size:10px; color:var(--muted);">Press Enter or comma to add · Autocompletes from existing tags</span>
+            </div>
+
+            <!-- Collections — multi-select picker -->
+            <div class="field full">
+              <label>Collections</label>
+              <div class="chip-group" style="gap:6px;">
+                <span class="collection-chip">Spool Accessories <span class="x" title="Remove">✕</span></span>
+                <div class="picker-wrap">
+                  <button class="add-chip">+ Add to Collection</button>
+                  <div class="picker-dd" style="display:none;">
+                    <input class="search-box" type="text" placeholder="Search collections…" />
+                    <div class="opt selected">Spool Accessories</div>
+                    <div class="opt">Filament Tools</div>
+                    <div class="opt">Office Decor</div>
+                    <div class="create-new">+ Create new collection</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Projects — multi-select picker -->
+            <div class="field full">
+              <label>Projects</label>
+              <div class="chip-group" style="gap:6px;">
+                <span class="project-chip">Garage Reorg <span class="x" title="Remove">✕</span></span>
+                <span class="project-chip">Workshop Kits <span class="x" title="Remove">✕</span></span>
+                <div class="picker-wrap">
+                  <button class="add-chip">+ Add to Project</button>
+                  <div class="picker-dd" style="display:none;">
+                    <input class="search-box" type="text" placeholder="Search projects…" />
+                    <div class="opt selected">Garage Reorg <span class="sub">· active</span></div>
+                    <div class="opt selected">Workshop Kits <span class="sub">· backlog</span></div>
+                    <div class="opt">Mom's Birthday Box <span class="sub">· planning</span></div>
+                    <div class="create-new">+ Create new project</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced section (collapsible) -->
+          <div class="advanced-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▸' : '▾';">
+            <span class="arrow">▸</span> Advanced
+          </div>
+          <div class="advanced-body" style="display:none;">
+            <div class="form-grid">
+              <div class="field">
+                <label>Print Time (est.)</label>
+                <input type="text" value="2h 15m" placeholder="e.g. 2h 15m" />
+              </div>
+              <div class="field">
+                <label>Support Type</label>
+                <select>
+                  <option>None</option>
+                  <option selected>Tree support</option>
+                  <option>Normal support</option>
+                  <option>Custom</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Difficulty</label>
+                <select>
+                  <option>Easy</option>
+                  <option selected>Medium</option>
+                  <option>Hard</option>
+                  <option>Expert</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Print Notes</label>
+                <textarea placeholder="Nozzle 0.4mm recommended, 15% infill…"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form actions -->
+          <div class="form-actions">
+            <button class="form-btn">Cancel</button>
+            <button class="form-btn save">Save Changes</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Files card (unchanged) -->
+      <section class="card">
+        <div class="h"><span>Model Files</span></div>
+        <div class="files">
+          <div class="file-row">
+            <span class="file-ext x-3mf">3MF</span>
+            <div class="file-info">
+              <div class="fn">gridfinity_holder_v3_final.3mf</div>
+              <div class="meta">Source 3MF · 12.4 MB</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Archive Linkage (unchanged) -->
+      <section class="card">
+        <div class="h">
+          <span>Archive Linkage</span>
+          <button style="background:none; border:1px solid transparent; border-radius:6px; cursor:pointer; padding:4px; color:var(--sub); font-size:13px;" title="Refresh candidates">🔄</button>
+        </div>
+        <div class="archive-list">
+          <div class="archive-row">
+            <div class="archive-thumb"><img src="https://placehold.co/40x40/1a2538/6edacb?text=A" alt="" /></div>
+            <div class="archive-info">
+              <div class="fn">Gridfinity Holder 1x1</div>
+              <div class="meta">Archive #4892 · 2026-05-10</div>
+            </div>
+            <span class="state-pill linked">Linked</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ANNOTATIONS & LEGEND
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="callout" style="margin-top:36px;">
+  <strong>Design rationale.</strong> Two variants shown because the user selected "Show both options".<br/><br/>
+  <strong>Variant A (Hybrid Inline):</strong> Tags, collections, and projects are <em>always interactive</em> — no mode toggle needed for membership changes.
+  Title/description are read-only by default (click Edit from overflow or pencil icon). This is the <strong>recommended</strong> approach because
+  membership changes are the most frequent edit and should be zero-friction. Matches the Catalog redesign design doc's vision of
+  "chips at top" with click-through to Project/Collection views.<br/><br/>
+  <strong>Variant B (Separate Edit Form):</strong> Evolves the current <code>model-detail-edit-form.js</code> pattern. All editing happens in a dedicated
+  form panel that replaces the summary card when activated. Chip-based tag editor with autocomplete replaces the current comma-separated text input.
+  Collections and Projects get multi-select pickers with search. Better for bulk metadata changes where the user wants to see everything at once.
+</div>
+
+<div class="callout amber">
+  <strong>Frequent vs. Favorites.</strong> Per <a href="https://github.com/rsocko/hass-bambulab-config/issues/1516" style="color:var(--accent)">#1516</a>:
+  Only <code>Frequent</code> is shown — Favorites is removed from the top rail. The <code>⚡ Frequent</code> toggle in the top bar serves as a manual override
+  (per <code>frequents-favorites-layer2-derivation-rules.md</code>: operator can "Mark as frequent" or "Mark not frequent", overriding auto-derivation from ≥3 prints in the configurable window).
+  The status pill area shows the current frequent score (<code>⚡ Frequent · 5 in 90d</code>) for at-a-glance context.
+</div>
+
+<div class="callout purple">
+  <strong>Projects entity scope.</strong> Per <a href="https://github.com/rsocko/hass-bambulab-config/issues/1484" style="color:var(--accent)">#1484</a> and
+  <code>projects-design.md</code>: Projects are designed but not yet built in the sidecar. The mockup shows existing project memberships as purple chips
+  with ✕ to remove, and a "+ Project" picker dropdown with search + create-new. Project status (<code>active</code>, <code>backlog</code>, <code>planning</code>,
+  <code>evaluating</code>) is shown as a subtle suffix in the picker options. The picker queries <code>GET /api/projects</code> (future endpoint).
+</div>
+
+<div class="callout">
+  <strong>Archive toggle placement.</strong> The user chose "Along the topmost part of the card where there are 3D View, Download buttons."
+  <code>📦 Archive</code> and <code>⚡ Frequent</code> are positioned as toggle buttons in the top action bar, between the entity badge and the 3D View button.
+  When toggled active, they get a distinct border color and background tint. The Archive toggle also triggers a warning banner below the top bar
+  (shown in the "Archived State" variant above). Both toggles use instant API calls — no form submission needed.
+</div>
+
+<table class="legend">
+  <thead>
+    <tr>
+      <th>Control / Affordance</th>
+      <th>Variant</th>
+      <th>Backing API Call</th>
+      <th>Issue</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>⚡ Frequent</code> toggle (top bar)</td>
+      <td>A + B</td>
+      <td><code>PATCH /api/models/{id}</code> → <code>manual_frequent_override</code></td>
+      <td>#1516, #1487</td>
+      <td class="new">NEW</td>
+    </tr>
+    <tr>
+      <td><code>📦 Archive</code> toggle (top bar)</td>
+      <td>A + B</td>
+      <td><code>POST /api/models/{id}/archive</code> or <code>PATCH …catalog_visibility</code></td>
+      <td>#1489</td>
+      <td class="new">NEW</td>
+    </tr>
+    <tr>
+      <td>Archive banner (below top bar)</td>
+      <td>A + B</td>
+      <td>Client-side render from <code>model.catalog_visibility</code></td>
+      <td>#1489</td>
+      <td class="new">NEW</td>
+    </tr>
+    <tr>
+      <td>Tag chips with ✕ remove (summary card)</td>
+      <td>A</td>
+      <td><code>PATCH /api/models/{id}</code> → <code>tags[]</code> without removed tag</td>
+      <td>—</td>
+      <td class="evolve">EVOLVE</td>
+    </tr>
+    <tr>
+      <td>+ Tag picker with autocomplete</td>
+      <td>A + B</td>
+      <td><code>GET /api/tags</code> for suggestions; <code>PATCH /api/models/{id}</code> → <code>tags[]</code></td>
+      <td>—</td>
+      <td class="evolve">EVOLVE</td>
+    </tr>
+    <tr>
+      <td>Tag chip editor (form mode)</td>
+      <td>B</td>
+      <td>Same as above; rendered inside <code>model-detail-edit-form.js</code></td>
+      <td>—</td>
+      <td class="evolve">EVOLVE</td>
+    </tr>
+    <tr>
+      <td>Collection chips with ✕ remove</td>
+      <td>A + B</td>
+      <td><code>DELETE /api/models/{id}/collections/{cid}</code> or <code>PATCH</code></td>
+      <td>—</td>
+      <td class="evolve">EVOLVE</td>
+    </tr>
+    <tr>
+      <td>+ Collection picker with search + create</td>
+      <td>A + B</td>
+      <td><code>GET /api/collections</code>; <code>POST /api/models/{id}/collections</code></td>
+      <td>—</td>
+      <td class="evolve">EVOLVE</td>
+    </tr>
+    <tr>
+      <td>Project chips with ✕ remove</td>
+      <td>A + B</td>
+      <td><code>DELETE /api/projects/{pid}/members/{mid}</code></td>
+      <td>#1484</td>
+      <td class="new">NEW</td>
+    </tr>
+    <tr>
+      <td>+ Project picker with search + create</td>
+      <td>A + B</td>
+      <td><code>GET /api/projects</code>; <code>POST /api/projects/{pid}/members</code></td>
+      <td>#1484</td>
+      <td class="new">NEW</td>
+    </tr>
+    <tr>
+      <td>Title editing (input field)</td>
+      <td>B (edit mode)</td>
+      <td><code>PATCH /api/models/{id}</code> → <code>model_name</code></td>
+      <td>—</td>
+      <td class="existing">EXISTS</td>
+    </tr>
+    <tr>
+      <td>Description editing (textarea)</td>
+      <td>B (edit mode)</td>
+      <td><code>PATCH /api/models/{id}</code> → <code>description</code></td>
+      <td>—</td>
+      <td class="existing">EXISTS</td>
+    </tr>
+    <tr>
+      <td>Advanced: Print Time, Support, Difficulty</td>
+      <td>B (edit mode)</td>
+      <td><code>PATCH /api/models/{id}</code> → <code>enrichment.{…}</code></td>
+      <td>—</td>
+      <td class="existing">EXISTS</td>
+    </tr>
+    <tr>
+      <td>Advanced Actions… (overflow menu)</td>
+      <td>A + B</td>
+      <td>Opens <code>model-catalog-advanced-actions-card.js</code></td>
+      <td>#1227</td>
+      <td class="new">NEW (designed)</td>
+    </tr>
+    <tr>
+      <td>Conflict detection on save</td>
+      <td>B</td>
+      <td><code>_lastModifiedTimestamp</code> check → conflict dialog</td>
+      <td>—</td>
+      <td class="existing">EXISTS</td>
+    </tr>
+    <tr>
+      <td>Media toolbar (Set Preview, Add, Hide, Delete)</td>
+      <td>A + B</td>
+      <td>Existing hero media API calls</td>
+      <td>#1540</td>
+      <td class="existing">EXISTS</td>
+    </tr>
+    <tr>
+      <td>Panel workspace (Queue, Related, Source, Publication)</td>
+      <td>A + B</td>
+      <td>Existing tab system + extension slots</td>
+      <td>—</td>
+      <td class="existing">EXISTS</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout" style="margin-top:20px;">
+  <strong>Issues considered in this mockup design:</strong><br/>
+  <code>#1489</code> catalog_visibility + default filter + Show-archived chip ·
+  <code>#1516</code> Remove Favorites, only show Frequent ·
+  <code>#1227</code> Advanced Actions card (moved to overflow menu shortcut) ·
+  <code>#1484</code> Projects UI CRUD + project view ·
+  <code>#1401</code> Multi-select updates from catalog view (chip UX enables fast multi-tag/collection changes) ·
+  <code>#1479</code> Left-rail navigation (picker dropdowns reference project/collection hierarchy) ·
+  <code>#1544</code> Revise Catalog top-of-page UI (top bar with Frequent/Archive toggles) ·
+  <code>#1540</code> Copy image from Archive to Catalog item (media toolbar) ·
+  <code>#1217</code> Filter section formatting (media filter chips match PH pattern) ·
+  <code>#1111</code> Phase 8 UI polish (chip-based tag/collection editing replaces raw text)
+</div>
+
+<div class="footer-note">
+  <strong>Recommendation:</strong> Implement Variant A (hybrid inline editing) as the default experience. The always-interactive chips for tags/collections/projects
+  provide zero-friction membership management — the #1 editing use case. Variant B's full form is still needed for bulk title/description/advanced-field editing
+  and can be triggered from the overflow menu's "Edit Title &amp; Description" item. Both variants share the same top-bar placement of Frequent and Archive toggles.
+  <br/><br/>
+  The edit form component (<code>model-detail-edit-form.js</code>) should evolve to use the chip-based tag editor and collection/project pickers shown in Variant B,
+  replacing the current comma-separated text inputs. The inline chips in Variant A can call the same <code>PATCH</code> endpoint with individual tag/collection add/remove
+  operations for immediate feedback without a form save cycle.
+</div>
+
+</body>
+</html>
