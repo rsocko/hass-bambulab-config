@@ -1976,6 +1976,7 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 3px 7px;
           margin-right: 4px;
         }
+        .collapsible-group.is-linked .state {
           border-color: rgba(94, 234, 212, 0.45);
           background: rgba(94, 234, 212, 0.14);
           color: #b8fff3;
@@ -3499,10 +3500,10 @@ class ModelDetailPopupCard extends HTMLElement {
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               ${isCandidate ? `
-                <button class="icon-action-btn" title="Skip" data-action="archive-candidate-skip" data-archive-id="${archiveId}" data-link-id="${linkId}">
+                <button class="icon-action-btn" title="Skip" data-action="archive-candidate-skip" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
                 </button>
-                <button class="icon-action-btn" title="Link" data-action="archive-candidate-link" data-archive-id="${archiveId}" data-link-id="${linkId}">
+                <button class="icon-action-btn" title="Link" data-action="archive-candidate-link" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 11 9 15 15 7"/></svg>
                 </button>
               ` : ''}
