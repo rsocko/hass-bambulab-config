@@ -2778,10 +2778,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       urls.push(url);
     }.bind(this);
 
+    // Pinned preview photo takes highest priority (Option A precedence)
+    if (detail && Array.isArray(detail.photos)) {
+      var pinnedPhoto = detail.photos.find(function (photo) { return photo && photo.is_preview; });
+      if (pinnedPhoto) {
+        addUrl(pinnedPhoto.image_url || pinnedPhoto.thumbnail_url || pinnedPhoto.preview_url || pinnedPhoto.url);
+      }
+    }
     if (detailModel.preview_url) {
       addUrl(detailModel.preview_url);
     }
-    var files = Array.isArray(detailModel.files) ? detailModel.files : (Array.isArray(detail && detail.files) ? detail.files : []);
+    var files = Array.isArray(detailModel.files) ? detailModel.files : [];
     if (files.length) {
       files.forEach(function (file) {
         if (file && typeof file === "object") {
@@ -2791,7 +2798,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (detail && Array.isArray(detail.photos)) {
       detail.photos.forEach(function (photo) {
-        if (photo && typeof photo === "object") {
+        if (photo && typeof photo === "object" && !photo.is_preview) {
           addUrl(photo.image_url || photo.thumbnail_url || photo.preview_url || photo.url);
         }
       });
