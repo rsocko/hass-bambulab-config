@@ -1,19 +1,3 @@
-        .icon-action-btn {
-          background: none;
-          border: none;
-          padding: 3px 5px;
-          margin: 0 0 0 2px;
-          border-radius: 6px;
-          color: var(--secondary-text-color);
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          transition: background 0.15s, color 0.15s;
-        }
-        .icon-action-btn:hover {
-          background: rgba(255,255,255,0.08);
-          color: var(--primary-color);
-        }
 /**
  * Model Detail Popup Card
  * 
@@ -3936,6 +3920,8 @@ class ModelDetailPopupCard extends HTMLElement {
         const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
         throw new Error(message);
       }
+      // Reset hero active index so header shows the new pinned preview
+      this._heroActiveMediaIndex = 0;
       await this._loadModelDetail({ silent: true });
       this._notifyBrowserDetailChanged();
     } catch (error) {
