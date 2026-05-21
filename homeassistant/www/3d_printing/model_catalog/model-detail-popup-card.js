@@ -97,6 +97,11 @@ class ModelDetailPopupCard extends HTMLElement {
     // Fullscreen overlay state
     this._overlayRoot = null;
     this._savedBodyOverflow = null;
+
+    // Tag picker state
+    this._tagPickerOpen = false;
+    this._tagSearchQuery = "";
+    this._knownTags = []; // populated on first picker open
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -258,6 +263,55 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!target.closest('.overflow-wrap') && this._overflowOpen) {
       this._overflowOpen = false;
       this._render();
+      return;
+    }
+
+    // Close tag picker when clicking outside it
+    if (this._tagPickerOpen && !target.closest('.picker-wrap')) {
+      this._tagPickerOpen = false;
+      this._tagSearchQuery = "";
+      this._render();
+      return;
+    }
+
+    // Tag remove ✕ button
+    const tagRemoveBtn = target.closest('[data-action="remove-tag"]');
+    if (tagRemoveBtn) {
+      event.preventDefault();
+      const tagName = tagRemoveBtn.dataset.tag;
+      if (tagName) this._handleTagRemove(tagName);
+      return;
+    }
+
+    // Tag picker toggle
+    if (target.closest('[data-action="toggle-tag-picker"]')) {
+      event.preventDefault();
+      this._tagPickerOpen = !this._tagPickerOpen;
+      this._tagSearchQuery = "";
+      this._render();
+      if (this._tagPickerOpen) {
+        requestAnimationFrame(() => {
+          const searchBox = this.shadowRoot.querySelector('.picker-dd .search-box');
+          if (searchBox) searchBox.focus();
+        });
+      }
+      return;
+    }
+
+    // Tag picker option click (add existing tag)
+    const tagOpt = target.closest('[data-action="add-tag"]');
+    if (tagOpt) {
+      event.preventDefault();
+      const tagName = tagOpt.dataset.tag;
+      if (tagName) this._handleTagAdd(tagName);
+      return;
+    }
+
+    // Tag picker "Create new" click
+    if (target.closest('[data-action="create-tag"]')) {
+      event.preventDefault();
+      const q = this._tagSearchQuery.trim();
+      if (q) this._handleTagAdd(q);
       return;
     }
 
@@ -644,6 +698,25 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target instanceof HTMLInputElement && target.classList.contains("source-label-input")) {
       // Debounce save — we'll save on change/blur handled above
     }
+    // Tag picker search
+    if (target instanceof HTMLInputElement && target.dataset.input === 'tag-search') {
+      this._tagSearchQuery = String(target.value || "");
+      // Re-render only the picker dropdown to avoid full re-render losing focus
+      const pickerDd = this.shadowRoot.querySelector('.picker-dd');
+      if (pickerDd) {
+        const model = (this._modelDetail && this._modelDetail.model) || {};
+        const tags = Array.isArray(model.keywords) ? model.keywords : [];
+        const tmp = document.createElement('div');
+        tmp.innerHTML = this._renderTagPicker(tags);
+        const newDd = tmp.firstElementChild;
+        pickerDd.replaceWith(newDd);
+        const searchBox = newDd.querySelector('.search-box');
+        if (searchBox) {
+          searchBox.focus();
+          searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+        }
+      }
+    }
   }
 
   _getPhotoUploadArea(target) {
@@ -727,6 +800,12 @@ class ModelDetailPopupCard extends HTMLElement {
       
       if (!this._modelDetail.success) {
         throw new Error(this._modelDetail.error || "Failed to fetch model detail");
+      }
+
+      // Seed known tags for the picker from this model's keywords
+      const kw = (this._modelDetail.model && this._modelDetail.model.keywords) || [];
+      for (const t of kw) {
+        if (!this._knownTags.includes(t)) this._knownTags.push(t);
       }
     } catch (error) {
       this._error = String(error || "Unknown error");
@@ -1423,6 +1502,48 @@ class ModelDetailPopupCard extends HTMLElement {
         .summary { padding: 10px; display: grid; gap: 8px; }
         .summary .name { font-size: 15px; font-weight: 700; }
         .summary .meta { color: var(--secondary-text-color); font-size: 12px; }
+
+        /* tag / collection chip UX */
+        .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .chip-group .label { font-size: 11px; color: var(--secondary-text-color); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+        .tag-chip {
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+          background: rgba(110,218,203,0.10); color: var(--accent-color, #6edacb); border: 1px solid rgba(110,218,203,0.28);
+        }
+        .tag-chip .x { cursor: pointer; opacity: 0.6; font-size: 12px; margin-left: 2px; line-height: 1; }
+        .tag-chip .x:hover { opacity: 1; }
+        .add-chip {
+          display: inline-flex; align-items: center; gap: 3px;
+          padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+          background: transparent; color: var(--secondary-text-color); border: 1px dashed var(--divider-color);
+          cursor: pointer;
+        }
+        .add-chip:hover { color: var(--primary-text-color); border-color: var(--accent-color, #6edacb); background: rgba(110,218,203,0.06); }
+        .picker-wrap { position: relative; display: inline-block; }
+        .picker-dd {
+          position: absolute; top: calc(100% + 4px); left: 0; z-index: 90;
+          min-width: 220px; max-height: 250px; overflow-y: auto;
+          background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 12px;
+          box-shadow: 0 10px 36px rgba(0,0,0,0.44); padding: 6px;
+        }
+        .picker-dd .search-box {
+          width: 100%; box-sizing: border-box; margin-bottom: 4px;
+          background: var(--secondary-background-color); border: 1px solid var(--divider-color); border-radius: 8px;
+          color: var(--primary-text-color); font-size: 12px; padding: 7px 10px; outline: none;
+        }
+        .picker-dd .search-box:focus { border-color: var(--accent-color, #6edacb); box-shadow: 0 0 0 2px rgba(110,218,203,0.18); }
+        .picker-dd .opt {
+          padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--primary-text-color);
+        }
+        .picker-dd .opt:hover { background: rgba(255,255,255,0.06); }
+        .picker-dd .opt.already { color: var(--accent-color, #6edacb); opacity: 0.6; cursor: default; }
+        .picker-dd .create-new {
+          color: var(--accent-color, #6edacb); font-weight: 700; font-size: 12px;
+          padding: 7px 10px; border-top: 1px solid var(--divider-color); cursor: pointer;
+        }
+        .picker-dd .create-new:hover { background: rgba(110,218,203,0.08); }
+
         .status { display: flex; gap: 6px; flex-wrap: wrap; }
         .status span {
           border: 1px solid var(--divider-color);
@@ -2271,7 +2392,15 @@ class ModelDetailPopupCard extends HTMLElement {
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
             <div class="name">${this._escapeHtml(String(model.name || 'Untitled Model'))}</div>
-            <div class="meta">Tags: ${this._escapeHtml(tags.join(', ') || 'none')} | Collections: ${this._escapeHtml((model.collection_names || []).join(', ') || 'none')}</div>
+            <div class="chip-group">
+              <span class="label">Tags</span>
+              ${tags.length ? tags.map(t => `<span class="tag-chip">${this._escapeHtml(t)} <span class="x" data-action="remove-tag" data-tag="${this._escapeHtml(t)}" title="Remove tag">✕</span></span>`).join('') : ''}
+              <div class="picker-wrap">
+                <button class="add-chip" data-action="toggle-tag-picker" title="Add tag">+ Tag</button>
+                ${this._tagPickerOpen ? this._renderTagPicker(tags) : ''}
+              </div>
+            </div>
+            <div class="meta">Collections: ${this._escapeHtml((model.collection_names || []).join(', ') || 'none')}</div>
             <div class="status">
               <span>Linked archives: ${linkedCount}</span>
               <span>Candidates: ${candidateCount}</span>
@@ -4070,6 +4199,91 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  // ── Tag chip helpers ──
+
+  _renderTagPicker(currentTags) {
+    const q = this._tagSearchQuery.toLowerCase();
+    // Build suggestion list from known tags minus current tags
+    const suggestions = this._knownTags
+      .filter(t => !currentTags.includes(t))
+      .filter(t => !q || t.toLowerCase().includes(q));
+    const exactMatch = currentTags.includes(q) || suggestions.some(t => t.toLowerCase() === q);
+    return `
+      <div class="picker-dd">
+        <input class="search-box" type="text" placeholder="Search or create tag…" data-input="tag-search" value="${this._escapeHtml(this._tagSearchQuery)}" />
+        ${suggestions.map(t => `<div class="opt" data-action="add-tag" data-tag="${this._escapeHtml(t)}">${this._escapeHtml(t)}</div>`).join('')}
+        ${q && !exactMatch ? `<div class="create-new" data-action="create-tag">+ Create "${this._escapeHtml(q)}"</div>` : ''}
+      </div>
+    `;
+  }
+
+  async _handleTagRemove(tagName) {
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const tags = Array.isArray(model.keywords) ? [...model.keywords] : [];
+    const updated = tags.filter(t => t !== tagName);
+
+    // Optimistic update
+    if (this._modelDetail && this._modelDetail.model) {
+      this._modelDetail.model.keywords = updated;
+    }
+    this._render();
+
+    try {
+      const modelRef = model.model_ref || this._modelRef;
+      const response = await fetch(this._resolveModelSidecarUrl() + '/api/models/' + encodeURIComponent(modelRef), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: updated }),
+      });
+      if (!response.ok) throw new Error('Failed to remove tag: ' + response.statusText);
+      await this._loadModelDetail({ silent: true });
+    } catch (error) {
+      console.error('Error removing tag:', error);
+      // Revert
+      if (this._modelDetail && this._modelDetail.model) {
+        this._modelDetail.model.keywords = tags;
+      }
+      this._render();
+    }
+  }
+
+  async _handleTagAdd(tagName) {
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const tags = Array.isArray(model.keywords) ? [...model.keywords] : [];
+    if (tags.includes(tagName)) return;
+    const updated = [...tags, tagName];
+
+    // Close picker and optimistic update
+    this._tagPickerOpen = false;
+    this._tagSearchQuery = "";
+    if (this._modelDetail && this._modelDetail.model) {
+      this._modelDetail.model.keywords = updated;
+    }
+    // Track the new tag for future suggestions
+    if (!this._knownTags.includes(tagName)) {
+      this._knownTags.push(tagName);
+    }
+    this._render();
+
+    try {
+      const modelRef = model.model_ref || this._modelRef;
+      const response = await fetch(this._resolveModelSidecarUrl() + '/api/models/' + encodeURIComponent(modelRef), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: updated }),
+      });
+      if (!response.ok) throw new Error('Failed to add tag: ' + response.statusText);
+      await this._loadModelDetail({ silent: true });
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      // Revert
+      if (this._modelDetail && this._modelDetail.model) {
+        this._modelDetail.model.keywords = tags;
+      }
+      this._render();
+    }
+  }
+
   async _handleToggleArchive() {
     const model = (this._modelDetail && this._modelDetail.model) || {};
     const modelRef = model.model_ref || this._modelRef;
@@ -4243,6 +4457,23 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _handleKeydown(event) {
+    // Tag picker: Enter to add/create, Escape to close
+    if (this._tagPickerOpen) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this._tagPickerOpen = false;
+        this._tagSearchQuery = "";
+        this._render();
+        return;
+      }
+      if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.dataset.input === 'tag-search') {
+        event.preventDefault();
+        const q = this._tagSearchQuery.trim();
+        if (q) this._handleTagAdd(q);
+        return;
+      }
+    }
+
     // Archive image preview takes precedence when open
     if (this._archiveImagePreview) {
       if (event.key === 'Escape') {
