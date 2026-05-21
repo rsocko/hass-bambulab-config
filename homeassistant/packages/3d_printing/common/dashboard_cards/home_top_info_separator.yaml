@@ -135,6 +135,7 @@ styles: |
   }
   .bubble-name {
     display: block !important;
+    position: relative !important;
     width: 92px !important;
     min-width: 92px !important;
     height: 34px !important;
@@ -147,12 +148,24 @@ styles: |
     color: transparent !important;
     padding-left: 0 !important;
     margin: 0 !important;
-    background: left center / 92px 34px no-repeat url('/local/3d_printing/common/bambu-lab-header-logo-light.svg') !important;
+    background: left center / 92px 34px no-repeat url('/local/3d_printing/common/bambu-lab-header-icon.svg') !important;
   }
-  @media (prefers-color-scheme: dark) {
-    .bubble-name {
-      background: left center / 92px 34px no-repeat url('/local/3d_printing/common/bambu-lab-header-logo-dark.svg') !important;
-    }
+  .bubble-name::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: var(--primary-text-color, #cfcfcf) !important;
+    -webkit-mask-image: url('/local/3d_printing/common/bambu-lab-header-text-mask.svg') !important;
+    mask-image: url('/local/3d_printing/common/bambu-lab-header-text-mask.svg') !important;
+    -webkit-mask-size: 92px 34px !important;
+    mask-size: 92px 34px !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-position: left center !important;
+    mask-position: left center !important;
   }
   .bubble-line {
     display: none !important;
