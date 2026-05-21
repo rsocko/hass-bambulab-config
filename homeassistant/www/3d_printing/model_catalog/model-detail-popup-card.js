@@ -1991,8 +1991,8 @@ class ModelDetailPopupCard extends HTMLElement {
         .icon-action-btn {
           background: none;
           border: none;
-          padding: 3px 5px;
-          margin: 0 0 0 2px;
+          padding: 2px 4px;
+          margin: 0;
           border-radius: 6px;
           color: var(--secondary-text-color);
           cursor: pointer;
@@ -2003,6 +2003,31 @@ class ModelDetailPopupCard extends HTMLElement {
         .icon-action-btn:hover {
           background: rgba(255,255,255,0.08);
           color: var(--primary-color);
+        }
+        .icon-action-btn.archive-skip {
+          color: rgba(180,180,190,0.55);
+        }
+        .icon-action-btn.archive-skip:hover {
+          color: rgba(220,220,225,0.85);
+          background: rgba(255,255,255,0.06);
+        }
+        .icon-action-btn.archive-link {
+          color: rgba(94,234,212,0.7);
+        }
+        .icon-action-btn.archive-link:hover {
+          color: #5eeadc;
+          background: rgba(94,234,212,0.1);
+        }
+        .archive-actions-right {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 1px;
+        }
+        .archive-actions-right .archive-action-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
 
         @media (max-width: 980px) {
@@ -3498,16 +3523,16 @@ class ModelDetailPopupCard extends HTMLElement {
               ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-action="open-archive-preview" data-archive-id="${this._escapeHtml(archiveId)}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
               <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style=\"opacity:0.5\">Loading metadata…</span>')}</div>${matchInfoHtml}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;align-self:start;">
-              ${isCandidate ? `
-                <span class="icon-action-btn" role="button" tabindex="0" title="Skip" data-action="archive-candidate-skip" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+            <div class="archive-actions-right">
+              <span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span>
+              ${isCandidate ? `<div class="archive-action-row">
+                <span class="icon-action-btn archive-skip" role="button" tabindex="0" title="Skip" data-action="archive-candidate-skip" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
                 </span>
-                <span class="icon-action-btn" role="button" tabindex="0" title="Link" data-action="archive-candidate-link" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 11 9 15 15 7"/></svg>
+                <span class="icon-action-btn archive-link" role="button" tabindex="0" title="Link" data-action="archive-candidate-link" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 11 9 15 15 7"/></svg>
                 </span>
-              ` : ''}
-              <span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾
+              </div>` : ''}
             </div>
           </button>
           <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
