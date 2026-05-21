@@ -59,6 +59,9 @@ class ModelDetailPopupCard extends HTMLElement {
     this._panelMode = 'tabs';
     this._panelActiveTab = 'panel-queue';
     this._collapsedSections = {};
+    this._modelFilePlateCounts = {};
+    this._modelFilePlateCountPending = new Set();
+    this._modelFilePlateCountRequestToken = 0;
     this._popupExtensions = new Map();
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
@@ -117,9 +120,13 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const previousModelRef = this._modelRef;
     this._config = config || {};
     this._modelRef = String(this._config.model_ref || "").trim();
     this._modelSidecarUrl = String(this._config.model_sidecar_url || "").trim();
+    if (this._modelRef !== previousModelRef) {
+      this._resetModelFilePlateCounts();
+    }
     var requestedInitialTab = String(this._config.initial_tab || "details").trim().toLowerCase();
     if (requestedInitialTab !== "details" && requestedInitialTab !== "gallery" && requestedInitialTab !== "prints") {
       requestedInitialTab = "details";
@@ -811,6 +818,9 @@ class ModelDetailPopupCard extends HTMLElement {
       for (const t of kw) {
         if (!this._knownTags.includes(t)) this._knownTags.push(t);
       }
+
+      const modelFiles = Array.isArray(this._modelDetail?.model?.files) ? this._modelDetail.model.files : [];
+      this._ensureModelFilePlateCounts(modelFiles);
     } catch (error) {
       this._error = String(error || "Unknown error");
       this._modelDetail = null;
@@ -868,6 +878,102 @@ class ModelDetailPopupCard extends HTMLElement {
       return value;
     }
     return `${base}${value}`;
+  }
+
+  _resetModelFilePlateCounts() {
+    this._modelFilePlateCounts = {};
+    this._modelFilePlateCountPending = new Set();
+    this._modelFilePlateCountRequestToken += 1;
+  }
+
+  _extractModelFileId(file) {
+    return String(file && (file.id || file.file_id || file.asset_id || '') || '').trim();
+  }
+
+  _is3mfModelFile(file) {
+    const rawName = String(file && (file.filename || file.asset_filename || file.name || file.id || '') || '');
+    const extIdx = rawName.lastIndexOf('.');
+    const ext = extIdx >= 0 ? rawName.slice(extIdx + 1).toLowerCase() : '';
+    if (ext === '3mf') {
+      return true;
+    }
+    const typeHint = String(file && (file.asset_type || file.file_type || file.content_type || '') || '').toLowerCase();
+    return typeHint.includes('3mf');
+  }
+
+  _getModelFilePlateCount(file) {
+    const inlineCount = Number(file && file.plate_count);
+    if (Number.isFinite(inlineCount) && inlineCount >= 0) {
+      return inlineCount;
+    }
+    const inlinePlates = Array.isArray(file && file.plates) ? file.plates.length : null;
+    if (inlinePlates != null) {
+      return inlinePlates;
+    }
+    const fileId = this._extractModelFileId(file);
+    if (!fileId) {
+      return null;
+    }
+    const cached = this._modelFilePlateCounts[fileId];
+    return Number.isFinite(cached) ? cached : null;
+  }
+
+  async _ensureModelFilePlateCounts(files) {
+    const rows = Array.isArray(files) ? files : [];
+    if (!rows.length || !this._modelRef || !this._modelSidecarUrl) {
+      return;
+    }
+
+    const requestToken = this._modelFilePlateCountRequestToken;
+    const sidecarUrl = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!sidecarUrl) {
+      return;
+    }
+
+    const fetches = [];
+    for (const file of rows) {
+      if (!this._is3mfModelFile(file)) {
+        continue;
+      }
+      const fileId = this._extractModelFileId(file);
+      if (!fileId) {
+        continue;
+      }
+      if (Number.isFinite(this._modelFilePlateCounts[fileId]) || this._modelFilePlateCountPending.has(fileId)) {
+        continue;
+      }
+      this._modelFilePlateCountPending.add(fileId);
+      const url = `${sidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/files/${encodeURIComponent(fileId)}/plates`;
+      fetches.push(
+        fetch(url)
+          .then(res => (res.ok ? res.json() : null))
+          .then(payload => {
+            if (requestToken !== this._modelFilePlateCountRequestToken) {
+              return false;
+            }
+            const count = Array.isArray(payload && payload.plates) ? payload.plates.length : 0;
+            const previous = this._modelFilePlateCounts[fileId];
+            this._modelFilePlateCounts[fileId] = count;
+            return previous !== count;
+          })
+          .catch(() => false)
+          .finally(() => {
+            this._modelFilePlateCountPending.delete(fileId);
+          })
+      );
+    }
+
+    if (!fetches.length) {
+      return;
+    }
+
+    const results = await Promise.all(fetches);
+    if (requestToken !== this._modelFilePlateCountRequestToken) {
+      return;
+    }
+    if (results.some(Boolean)) {
+      this._render();
+    }
   }
 
   _headerThumbnailUrl(model) {
@@ -2421,6 +2527,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderModelFilesCard(model) {
     const files = Array.isArray(model.files) ? model.files : [];
+    this._ensureModelFilePlateCounts(files);
     const rows = files.length ? files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
       const rawName = String(file.filename || file.asset_filename || file.id || '');
@@ -2429,9 +2536,11 @@ class ModelDetailPopupCard extends HTMLElement {
       const extUpper = ext.toUpperCase() || 'FILE';
       const extClass = ext ? `x-${this._escapeHtml(ext)}` : '';
       const thumbUrl = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
+      const plateCount = this._getModelFilePlateCount(file);
       const meta = [
         file.asset_type ? String(file.asset_type) : '',
         file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / (1024 * 1024))} MB` : '',
+        this._is3mfModelFile(file) && Number.isFinite(plateCount) && plateCount > 1 ? `${plateCount} plates` : '',
       ].filter(Boolean).join(' | ');
       const previewHtml = thumbUrl
         ? `<img class="file-preview" src="${this._escapeHtml(thumbUrl)}" alt="${filename}" loading="lazy">`
@@ -2453,6 +2562,7 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="panel:files-core">
         <div class="h">
           <span>Model Files</span>
+          <span>${files.length}</span>
         </div>
         <div class="files">${rows}</div>
       </section>
