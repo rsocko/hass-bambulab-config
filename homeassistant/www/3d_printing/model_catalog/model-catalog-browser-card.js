@@ -1527,16 +1527,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _queueStateToRibbonState(state) {
     var normalized = String(state || "").trim().toLowerCase();
-    if (normalized === "in_progress") {
-      return "printing";
-    }
-    if (normalized === "done") {
-      return "done";
-    }
-    if (this._isUnifiedQueueActiveState(normalized)) {
-      return "queued";
+    if (this._isUnifiedQueueActiveState(normalized) || normalized === "done") {
+      return normalized;
     }
     return "none";
+  }
+
+  _queueStateBorderColor(state) {
+    var palette = {
+      backlog:     '#7a6a57',
+      up_next:     '#a07cff',
+      preparing:   '#ff9a3c',
+      ready:       '#e6d84a',
+      in_progress: '#3aa9ff',
+      blocked:     '#ff6b6b',
+      done:        '#4fcf75',
+    };
+    return palette[state] || '#a07cff';
   }
 
   _normalizeQueueDialogTargetState(state) {
@@ -3505,12 +3512,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</div>';
 
     var queueRibbonClass = "";
-    if (queueStatus === "queued") {
-      queueRibbonClass = " is-queued";
-    } else if (queueStatus === "printing") {
-      queueRibbonClass = " is-printing";
-    } else if (queueStatus === "done") {
-      queueRibbonClass = " is-done";
+    var queueBorderStyle = "";
+    if (queueStatus !== "none") {
+      queueRibbonClass = " is-in-queue";
+      queueBorderStyle = ' style="--queue-border-color:' + this._queueStateBorderColor(queueStatus) + '"';
     }
 
     var sourceLabel = sourcePlatform ? ("Source: " + this._platformDisplayLabel(sourcePlatform)) : "Source: Not set";
@@ -3649,7 +3654,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "media") {
       var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-media' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay">'
@@ -3668,7 +3673,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "list") {
       var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-list' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-list' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap">'
         + '    <div class="thumb list-thumb">' + previewHtml + '</div>'
         + '  </div>'
@@ -3678,7 +3683,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
     return ''
-      + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '" tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+      + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
       + compactActionsHtml
@@ -4412,9 +4417,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);grid-template-areas:"thumb main" "full full";column-gap:18px;row-gap:10px;padding:14px;align-items:start;}'
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:88px minmax(0,1fr);column-gap:10px;padding:10px 12px;align-items:start;}'
-      + '.model-card.is-queued::after{opacity:1;box-shadow:inset 5px 0 0 #3b82f6;}'
-      + '.model-card.is-printing::after{opacity:1;box-shadow:inset 5px 0 0 #1e88e5;}'
-      + '.model-card.is-done::after{opacity:1;box-shadow:inset 5px 0 0 #2e7d32;}'
+      + '.model-card.is-in-queue::after{opacity:1;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);}'
       + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
       + '.view-compact .compact-wrap{grid-area:thumb;}'
       + '.view-compact .compact-main{grid-area:main;}'
@@ -4459,11 +4462,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
       + '.favorite-action.is-active:hover,.favorite-action.is-active:focus-visible{background:rgba(245,194,66,0.26);color:#f5c242;border-color:rgba(245,194,66,0.62);box-shadow:0 0 0 1px rgba(245,194,66,0.28);transform:translateY(-1px);outline:none;}'
-      + '.queue-action{border-color:rgba(96,165,250,0.30);background:rgba(30,64,175,0.14);color:#93c5fd;position:relative;}'
-      + '.queue-action:hover,.queue-action:focus-visible{background:rgba(59,130,246,0.20);color:#dbeafe;border-color:rgba(96,165,250,0.52);box-shadow:0 0 0 1px rgba(96,165,250,0.20),0 8px 18px rgba(15,23,42,0.20);transform:translateY(-1px);outline:none;}'
-      + '.queue-action.has-queue-entries{background:rgba(59,130,246,0.24);color:#bfdbfe;border-color:rgba(96,165,250,0.50);}'
-      + '.queue-action.has-queue-entries:hover,.queue-action.has-queue-entries:focus-visible{background:rgba(59,130,246,0.30);color:#eff6ff;border-color:rgba(147,197,253,0.66);box-shadow:0 0 0 1px rgba(96,165,250,0.28),0 10px 22px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
-      + '.queue-count-badge{position:absolute;top:-8px;right:-8px;width:18px;height:18px;min-width:18px;padding:0;border-radius:50%;background:#3b82f6;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;box-sizing:border-box;pointer-events:none;border:1px solid rgba(15,23,42,0.6);}'
+      + '.queue-action{border-color:rgba(160,124,255,0.30);background:rgba(100,60,180,0.14);color:#c4b5fd;position:relative;}'
+      + '.queue-action:hover,.queue-action:focus-visible{background:rgba(160,124,255,0.20);color:#ede9fe;border-color:rgba(160,124,255,0.52);box-shadow:0 0 0 1px rgba(160,124,255,0.20),0 8px 18px rgba(15,23,42,0.20);transform:translateY(-1px);outline:none;}'
+      + '.queue-action.has-queue-entries{background:rgba(160,124,255,0.24);color:#ddd6fe;border-color:rgba(160,124,255,0.50);}'
+      + '.queue-action.has-queue-entries:hover,.queue-action.has-queue-entries:focus-visible{background:rgba(160,124,255,0.30);color:#f5f3ff;border-color:rgba(196,181,253,0.66);box-shadow:0 0 0 1px rgba(160,124,255,0.28),0 10px 22px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
+      + '.queue-count-badge{position:absolute;top:-8px;right:-8px;width:18px;height:18px;min-width:18px;padding:0;border-radius:50%;background:#a07cff;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;box-sizing:border-box;pointer-events:none;border:1px solid rgba(15,23,42,0.6);}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}'
