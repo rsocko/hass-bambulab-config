@@ -3498,14 +3498,14 @@ class ModelDetailPopupCard extends HTMLElement {
               ${thumb ? `<img src="${this._escapeHtml(thumb)}" alt="Preview" data-action="open-archive-preview" data-archive-id="${this._escapeHtml(archiveId)}" style="width:48px;height:48px;border-radius:6px;border:1px solid #334;object-fit:cover;cursor:pointer;" title="Click to enlarge">` : ''}
               <div><strong>${title}</strong>${outcomeBadge}<div class="detail">${metaLine || (meta ? '' : '<span style=\"opacity:0.5\">Loading metadata…</span>')}</div>${matchInfoHtml}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;align-self:start;">
               ${isCandidate ? `
-                <button class="icon-action-btn" title="Skip" data-action="archive-candidate-skip" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
+                <span class="icon-action-btn" role="button" tabindex="0" title="Skip" data-action="archive-candidate-skip" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
-                </button>
-                <button class="icon-action-btn" title="Link" data-action="archive-candidate-link" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
+                </span>
+                <span class="icon-action-btn" role="button" tabindex="0" title="Link" data-action="archive-candidate-link" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 11 9 15 15 7"/></svg>
-                </button>
+                </span>
               ` : ''}
               <span class="state ${isCandidate ? 'candidate' : 'success'}">${isCandidate ? 'Candidate' : 'Linked'}</span> ▾
             </div>
