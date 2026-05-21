@@ -955,8 +955,9 @@ class ModelDetailPopupCard extends HTMLElement {
     const collectionText = this._escapeHtml(collections.length ? collections.join(' / ') : 'Uncategorized');
     const entityType = this._getEntityType(model);
     const isIdea = entityType === 'idea';
-    const isArchived = String(model.catalog_visibility || '').toLowerCase() === 'archived';
-    const isFrequent = !!(model.ranking && model.ranking.is_frequent);
+    const _catalogSignals = (model.structured_metadata && model.structured_metadata.catalog_signals) || {};
+    const isArchived = String(_catalogSignals.catalog_visibility || '').toLowerCase() === 'archived';
+    const isFrequent = !!(this._modelDetail && this._modelDetail.ranking && this._modelDetail.ranking.is_frequent);
 
     return `
       <style>
@@ -4289,12 +4290,16 @@ class ModelDetailPopupCard extends HTMLElement {
     const modelRef = model.model_ref || this._modelRef;
     if (!modelRef) return;
 
-    const currentVisibility = String(model.catalog_visibility || 'active').toLowerCase();
+    const sm = (model.structured_metadata && model.structured_metadata.catalog_signals) || {};
+    const currentVisibility = String(sm.catalog_visibility || 'active').toLowerCase();
     const newVisibility = currentVisibility === 'archived' ? 'active' : 'archived';
 
     // Optimistic update
     if (this._modelDetail && this._modelDetail.model) {
-      this._modelDetail.model.catalog_visibility = newVisibility;
+      const m = this._modelDetail.model;
+      if (!m.structured_metadata) m.structured_metadata = {};
+      if (!m.structured_metadata.catalog_signals) m.structured_metadata.catalog_signals = {};
+      m.structured_metadata.catalog_signals.catalog_visibility = newVisibility;
     }
     this._render();
 
@@ -4326,7 +4331,10 @@ class ModelDetailPopupCard extends HTMLElement {
       console.error('Error toggling archive:', error);
       // Revert optimistic update
       if (this._modelDetail && this._modelDetail.model) {
-        this._modelDetail.model.catalog_visibility = currentVisibility;
+        const m = this._modelDetail.model;
+        if (!m.structured_metadata) m.structured_metadata = {};
+        if (!m.structured_metadata.catalog_signals) m.structured_metadata.catalog_signals = {};
+        m.structured_metadata.catalog_signals.catalog_visibility = currentVisibility;
       }
       this._render();
       if (this._hass) {
