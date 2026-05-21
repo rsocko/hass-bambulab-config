@@ -1127,7 +1127,10 @@ class ModelDetailPopupCard extends HTMLElement {
     const photos = Array.isArray(this._modelDetail && this._modelDetail.photos) ? this._modelDetail.photos : [];
     const pinnedPhoto = photos.find(photo => photo && photo.is_preview);
     if (pinnedPhoto) {
+      console.log('[PIN-DEBUG] Found pinned photo:', pinnedPhoto.id, 'URL:', pinnedPhoto.image_url);
       addSource(pinnedPhoto.image_url || pinnedPhoto.thumbnail_url || pinnedPhoto.preview_url || pinnedPhoto.url);
+    } else {
+      console.log('[PIN-DEBUG] No pinned photo found. Total photos:', photos.length, 'preview_photo_id:', this._modelDetail?.preview_photo_id);
     }
 
     const linkedArchives = Array.isArray(this._modelDetail && this._modelDetail.linked_archives)
@@ -1151,9 +1154,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
     addSource(model && model.preview_url ? model.preview_url : '');
 
-    const files = Array.isArray(model && model.files)
-      ? model.files
-      : (Array.isArray(this._modelDetail && this._modelDetail.files) ? this._modelDetail.files : []);
+    const files = Array.isArray(model && model.files) ? model.files : [];
     for (const file of files) {
       if (!file || typeof file !== 'object') {
         continue;
@@ -1161,6 +1162,7 @@ class ModelDetailPopupCard extends HTMLElement {
       addSource(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '');
     }
 
+    console.log('[PIN-DEBUG] Final header thumbnail sources:', normalizedSources);
     return normalizedSources;
   }
 
@@ -3905,6 +3907,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     try {
+      console.log('[PIN-DEBUG] Pinning archive', archiveId, 'with imageUrl:', imageUrl);
       const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/preview/pin-from-archive`;
       const response = await fetch(url, {
         method: 'POST',
@@ -3916,15 +3919,23 @@ class ModelDetailPopupCard extends HTMLElement {
         }),
       });
       const payload = await response.json().catch(() => ({}));
+      console.log('[PIN-DEBUG] Backend response:', payload);
       if (!response.ok || payload.success === false) {
         const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
         throw new Error(message);
       }
       // Reset hero active index so header shows the new pinned preview
       this._heroActiveMediaIndex = 0;
+      console.log('[PIN-DEBUG] Loading detail after pin...');
       await this._loadModelDetail({ silent: true });
+      console.log('[PIN-DEBUG] Detail loaded. Model detail preview_photo_id:', this._modelDetail?.preview_photo_id);
+      console.log('[PIN-DEBUG] Model detail photos:', this._modelDetail?.photos);
+      // Explicitly render to ensure UI updates with pinned preview
+      this._render();
       this._notifyBrowserDetailChanged();
+      console.log('[PIN-DEBUG] Render complete.');
     } catch (error) {
+      console.error('[PIN-DEBUG] Error pinning preview:', error);
       alert(`Failed to pin archive preview: ${error}`);
     }
   }
