@@ -425,7 +425,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     const collapseToggle = target.closest('[data-collapse-toggle]');
-    if (collapseToggle && !target.closest('[data-action="toggle-archive-candidate-select"], [data-action="open-archive-preview"]')) {
+    if (collapseToggle && !target.closest('[data-action="toggle-archive-candidate-select"], [data-action="open-archive-preview"], [data-action="archive-candidate-link"], [data-action="archive-candidate-skip"]')) {
       event.preventDefault();
       const sectionId = String(collapseToggle.dataset.collapseToggle || '').trim();
       if (sectionId) {
