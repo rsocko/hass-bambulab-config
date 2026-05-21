@@ -544,6 +544,17 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const unlinkArchiveBtn = target.closest('[data-action="unlink-archive"]');
+    if (unlinkArchiveBtn) {
+      event.preventDefault();
+      const archiveId = String(unlinkArchiveBtn.dataset.archiveId || '').trim();
+      const linkId = String(unlinkArchiveBtn.dataset.linkId || '').trim();
+      if (archiveId && linkId) {
+        this._handleUnlinkArchive(archiveId, linkId);
+      }
+      return;
+    }
+
     const archivePreviewBtn = target.closest('[data-action="open-archive-preview"]');
     if (archivePreviewBtn) {
       event.preventDefault();
@@ -2903,6 +2914,22 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  async _handleUnlinkArchive(archiveId, linkId) {
+    if (!this._modelRef || !this._modelSidecarUrl) return;
+    if (!confirm('Unlink this archive from the model?')) return;
+    try {
+      const url = `${this._modelSidecarUrl}/api/archive-links/${encodeURIComponent(archiveId)}/${encodeURIComponent(linkId)}/deactivate`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await this._loadModelDetail({ silent: true });
+    } catch (e) {
+      alert('Failed to unlink archive: ' + e);
+    }
+  }
+
   _archiveCandidateSelectionKey(archiveId, linkId) {
     return String(archiveId || '').trim() + '|' + String(linkId || '').trim();
   }
@@ -3537,7 +3564,8 @@ class ModelDetailPopupCard extends HTMLElement {
           </button>
           <div class="collapse-body ${this._collapsedSections[sectionKey] ? 'hidden' : ''}">
             ${!isCandidate ? `<button class="action-button ghost" data-action="open-archive-popup" data-archive-id="${archiveId}">Open archive</button>
-            <button class="action-button ghost" data-action="pin-archive-cover" data-archive-id="${archiveId}" data-image-url="${this._escapeHtml(thumb || '')}">Pin cover</button>` : ''}
+            <button class="action-button ghost" data-action="pin-archive-cover" data-archive-id="${archiveId}" data-image-url="${this._escapeHtml(thumb || '')}">Pin cover</button>
+            <button class="action-button ghost danger" data-action="unlink-archive" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}">Unlink</button>` : ''}
             ${this._renderExtensionSlot('actions:per-archive', '')}
           </div>
         </article>
