@@ -170,7 +170,8 @@ def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> di
             active_only=False,
         )
         accepted = [link for link in links if link.review_state == "accepted" and link.is_active]
-        candidates = [link for link in links if link.review_state == "new"]
+        accepted_archive_ids = {link.bambuddy_archive_id for link in accepted}
+        candidates = [link for link in links if link.review_state == "new" and link.bambuddy_archive_id not in accepted_archive_ids]
         serialize = lambda link: models_router._archive_link_to_response(link, summary_by_url=summary_by_url)
         return {
             "linked_archives": [serialize(l) for l in accepted],

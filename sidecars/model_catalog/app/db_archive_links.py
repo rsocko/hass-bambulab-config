@@ -16,6 +16,19 @@ from typing import Callable
 from .db_common import connect, utc_now_iso
 
 
+def _local_url_variants(model_url: str) -> tuple[str, str]:
+    """Return (model_url, alt_url) for dedup queries covering both URL forms.
+
+    Handles the ``local://{id}`` vs ``local://model/{id}`` split so that
+    dedup checks match rows regardless of which form was stored.
+    """
+    if model_url.startswith("local://model/"):
+        return model_url, "local://" + model_url[len("local://model/"):]
+    if model_url.startswith("local://") and not model_url.startswith("local://working-group/"):
+        return model_url, "local://model/" + model_url[len("local://"):]
+    return model_url, model_url
+
+
 @dataclass(frozen=True)
 class ArchiveModelLink:
     id: int
@@ -131,6 +144,7 @@ def create_archive_link(
     review_note: str | None = None,
 ) -> ArchiveModelLink:
     now = utc_now_iso()
+    url_a, url_b = _local_url_variants(model_url)
     connection = connect(db_path)
     try:
         existing = connection.execute(
@@ -138,7 +152,7 @@ def create_archive_link(
             SELECT id
             FROM model_catalog_links
             WHERE bambuddy_archive_id = ?
-              AND model_url = ?
+              AND model_url IN (?, ?)
             ORDER BY is_active DESC,
                      CASE review_state
                          WHEN 'accepted' THEN 0
@@ -148,7 +162,7 @@ def create_archive_link(
                      id DESC
             LIMIT 1
             """,
-            (archive_id, model_url),
+            (archive_id, url_a, url_b),
         ).fetchone()
 
         if is_active:
@@ -445,12 +459,13 @@ def refresh_archive_link_candidates(
             desired_review_state = str(candidate.get("review_state") or "new")
             desired_is_active = bool(candidate.get("is_active", False))
             candidate_urls.append(model_url)
+            url_a, url_b = _local_url_variants(model_url)
             existing = connection.execute(
                 """
                 SELECT id, review_state, is_active
                 FROM model_catalog_links
                 WHERE bambuddy_archive_id = ?
-                  AND model_url = ?
+                  AND model_url IN (?, ?)
                 ORDER BY is_active DESC,
                          CASE review_state
                              WHEN 'accepted' THEN 0
@@ -460,7 +475,7 @@ def refresh_archive_link_candidates(
                          id DESC
                 LIMIT 1
                 """,
-                (archive_id, model_url),
+                (archive_id, url_a, url_b),
             ).fetchone()
 
             if existing is None:
@@ -1149,11 +1164,7 @@ def read_archive_links_for_model(*, db_path: Path, model_url: str, active_only: 
     try:
         # Build alternate URL form so we match both legacy (local://{id})
         # and canonical (local://model/{id}) records.
-        alt_url: str | None = None
-        if model_url.startswith("local://model/"):
-            alt_url = "local://" + model_url[len("local://model/"):]
-        elif model_url.startswith("local://") and not model_url.startswith("local://working-group/"):
-            alt_url = "local://model/" + model_url[len("local://"):]
+        url_a, url_b = _local_url_variants(model_url)
         query = """
             SELECT
                 id,
@@ -1173,7 +1184,7 @@ def read_archive_links_for_model(*, db_path: Path, model_url: str, active_only: 
             FROM model_catalog_links
             WHERE model_url IN (?, ?)
         """
-        params: list[object] = [model_url, alt_url or model_url]
+        params: list[object] = [url_a, url_b]
         if active_only:
             query += " AND is_active = 1"
         query += " ORDER BY updated_at DESC, id DESC"

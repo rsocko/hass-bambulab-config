@@ -3892,7 +3892,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var statusBadge = isAccepted
       ? '<span class="model-link-badge badge-accepted">confirmed</span>'
       : role === "candidate"
-        ? '<span class="model-link-badge badge-candidate">candidate' + (confidence ? " · " + this._escapeHtml(confidence) : "") + '</span>'
+        ? '<span class="model-link-badge badge-candidate-' + this._escapeHtml(confidence || 'low') + '">candidate' + (confidence ? " · " + this._escapeHtml(confidence) : "") + '</span>'
         : '<span class="model-link-badge badge-manual">manual</span>';
 
     var noteHtml = "";
@@ -3971,7 +3971,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       linksHtml = '<div class="model-tab-empty"><ha-icon icon="mdi:cube-off-outline"></ha-icon><p>No model links yet.</p></div>';
     } else {
       var self = this;
-      linksHtml = this._modelLinks.map(function (link) {
+      var confRank = { high: 0, medium: 1, low: 2 };
+      var sorted = this._modelLinks.slice().sort(function (a, b) {
+        var ra = confRank[String(a.match_confidence || "low")] || 2;
+        var rb = confRank[String(b.match_confidence || "low")] || 2;
+        return ra - rb;
+      });
+      linksHtml = sorted.map(function (link) {
         return self._renderModelLinkRow(link, archiveId);
       }).join("");
     }
@@ -4150,7 +4156,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-link-row-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}' +
       '.model-link-badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:.04em;}' +
       '.badge-accepted{background:rgba(34,197,94,0.18);color:#4ade80;}' +
-      '.badge-candidate{background:rgba(234,179,8,0.18);color:#facc15;}' +
+      '.badge-candidate-high{background:rgba(76,175,80,0.25);color:#8dda8d;}' +
+      '.badge-candidate-medium{background:rgba(255,180,60,0.22);color:#ffcc66;}' +
+      '.badge-candidate-low{background:rgba(255,80,80,0.22);color:#ff8a8a;}' +
       '.badge-manual{background:rgba(96,165,250,0.18);color:#60a5fa;}' +
       '.model-link-url{font-size:12px;color:var(--primary-color,#03a9f4);word-break:break-all;text-decoration:none;}' +
       '.model-link-url:hover{text-decoration:underline;}' +
