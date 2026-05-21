@@ -1507,6 +1507,7 @@ class ModelDetailPopupCard extends HTMLElement {
         /* tag / collection chip UX */
         .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .chip-group .label { font-size: 11px; color: var(--secondary-text-color); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+        .card:has(.picker-wrap) { overflow: visible; }
         .tag-chip {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
