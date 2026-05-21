@@ -3097,13 +3097,16 @@ class ModelDetailPopupCard extends HTMLElement {
 
   async _fetchArchiveMeta(archiveId) {
     const id = String(archiveId);
-    if (this._archiveMetaCache[id]) return this._archiveMetaCache[id];
+    if (this._archiveMetaCache[id] !== undefined) return this._archiveMetaCache[id];
     if (!this._hass) return null;
     try {
       const result = await this._callServiceWithResponse('bambuddy', 'get_print_history_archive_detail', { archive_id: Number(archiveId) });
       this._archiveMetaCache[id] = result;
       return result;
-    } catch { return null; }
+    } catch {
+      this._archiveMetaCache[id] = null;
+      return null;
+    }
   }
 
   async _loadArchiveMetaForLinks() {
