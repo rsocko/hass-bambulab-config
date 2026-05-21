@@ -2342,10 +2342,16 @@ class ModelDetailPopupCard extends HTMLElement {
       const labels = { backlog: 'Backlog', up_next: 'Up Next', preparing: 'Preparing', ready: 'Ready', in_progress: 'In Progress', blocked: 'Blocked', done: 'Done' };
       return labels[s] || s;
     };
+    const STATE_PALETTE = { backlog: '#7a6a57', up_next: '#a07cff', preparing: '#ff9a3c', ready: '#e6d84a', in_progress: '#3aa9ff', blocked: '#ff6b6b', done: '#4fcf75' };
     const stateBadge = (s) => {
-      const colors = { done: '#4caf50', in_progress: '#2196f3', ready: '#ff9800', up_next: '#9c27b0', preparing: '#00bcd4', blocked: '#f44336', backlog: '#9e9e9e' };
-      const bg = colors[s] || '#9e9e9e';
-      return `<span style="display:inline-block;padding:1px 7px;border-radius:6px;background:${bg};color:#fff;font-size:10px;font-weight:600;vertical-align:middle;">${this._escapeHtml(stateLabel(s))}</span>`;
+      const c = STATE_PALETTE[s] || '#9eacba';
+      return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;background:color-mix(in srgb,${c} 14%,transparent);color:${c};border:1px solid color-mix(in srgb,${c} 50%,transparent);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;vertical-align:middle;">${this._escapeHtml(stateLabel(s))}</span>`;
+    };
+    const plateBadge = (s) => {
+      const isDone = s === 'done';
+      const c = isDone ? (STATE_PALETTE.done) : (STATE_PALETTE.in_progress);
+      const label = isDone ? 'Done' : 'Pending';
+      return `<span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:999px;border:1px solid color-mix(in srgb,${c} 38%,transparent);background:color-mix(in srgb,${c} 16%,transparent);color:${c};font-size:10px;font-weight:700;text-transform:uppercase;">${label}</span>`;
     };
     const rows = queued.map(entry => {
       const summary = entry.summary || {};
@@ -2368,7 +2374,7 @@ class ModelDetailPopupCard extends HTMLElement {
         const plates = Array.isArray(f.plates) ? f.plates : [];
         const plateItems = plates.map(p => {
           const name = p.plate_name || p.plate_key || 'Plate';
-          return `<div style="display:flex;align-items:center;gap:5px;">${stateBadge(p.state)} <span style="font-size:11px;">${this._escapeHtml(name)}</span></div>`;
+          return `<div style="display:flex;align-items:center;gap:5px;">${plateBadge(p.state)} <span style="font-size:11px;">${this._escapeHtml(name)}</span></div>`;
         }).join('');
         return `
           <div style="margin-top:6px;padding:6px 8px;background:var(--primary-background-color);border-radius:7px;">
