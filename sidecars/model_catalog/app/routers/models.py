@@ -3049,51 +3049,68 @@ def extract_3mf_metadata_endpoint(request: Request, local_model_id: str) -> dict
         return JSONResponse(status_code=404, content={"error": "Model not found"})
 
     assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
-    threemf_asset = None
+    per_file: list[dict[str, Any]] = []
+
     for asset in assets:
-        if str(getattr(asset, "asset_filename", "") or "").lower().endswith(".3mf"):
-            threemf_asset = asset
-            break
+        fname = str(getattr(asset, "asset_filename", "") or "").lower()
+        if not fname.endswith(".3mf"):
+            continue
+        storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+        if not storage_path or not storage_path.exists():
+            continue
+        extracted = extract_3mf_source_metadata(storage_path.read_bytes())
+        if extracted:
+            extracted["_source_file"] = getattr(asset, "asset_filename", "")
+            per_file.append(extracted)
 
-    if threemf_asset is None:
-        return JSONResponse(status_code=404, content={"error": "No 3MF asset found for this model"})
+    if not per_file:
+        return JSONResponse(status_code=404, content={"error": "No 3MF metadata could be extracted"})
 
-    storage_path = _resolve_local_asset_storage_path(
-        settings=state.settings,
-        asset=threemf_asset,
-    )
-    if not storage_path or not storage_path.exists():
-        return JSONResponse(status_code=404, content={"error": "3MF file not found on disk"})
+    # Merge across all files: first-writer-wins for scalars, union for URLs
+    merged_designer: str | None = None
+    merged_platform: str | None = None
+    merged_primary_url: str | None = None
+    all_urls: list[str] = []
+    seen_urls: set[str] = set()
 
-    extracted = extract_3mf_source_metadata(storage_path.read_bytes())
-    if not extracted:
-        return JSONResponse(status_code=422, content={"error": "Could not extract metadata from 3MF"})
+    for ext in per_file:
+        if not merged_designer and ext.get("designer"):
+            merged_designer = ext["designer"]
+        if not merged_platform and ext.get("source_platform"):
+            merged_platform = ext["source_platform"]
+        if not merged_primary_url and ext.get("source_url"):
+            merged_primary_url = ext["source_url"]
+        for u in ext.get("source_urls") or []:
+            if u not in seen_urls:
+                all_urls.append(u)
+                seen_urls.add(u)
 
-    # Persist extraction
-    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="extracted_3mf_metadata", field_value=extracted)
+    # Persist per-file extractions (array when >1, single dict when exactly 1)
+    stored_extraction = per_file if len(per_file) > 1 else per_file[0]
+    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="extracted_3mf_metadata", field_value=stored_extraction)
 
-    # Apply to model fields
+    # Apply merged values to model fields
     update_kwargs: dict[str, Any] = {}
-    if extracted.get("designer"):
-        update_kwargs["creator_name"] = extracted["designer"]
-    if extracted.get("source_platform"):
-        update_kwargs["source_origin"] = extracted["source_platform"]
-    if extracted.get("source_url"):
-        update_kwargs["source_origin_url"] = extracted["source_url"]
+    if merged_designer:
+        update_kwargs["creator_name"] = merged_designer
+    if merged_platform:
+        update_kwargs["source_origin"] = merged_platform
+    if merged_primary_url:
+        update_kwargs["source_origin_url"] = merged_primary_url
 
     if update_kwargs:
         update_local_model(db_path=state.settings.db_path, local_model_id=local_model_id, **update_kwargs)
 
     # Persist provenance fields
-    if extracted.get("source_urls"):
-        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_urls", field_value=extracted["source_urls"])
-    if extracted.get("source_platform"):
-        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_platform", field_value=extracted["source_platform"])
-        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="publication_source", field_value=extracted["source_platform"])
-    if extracted.get("source_url"):
-        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_download_url", field_value=extracted["source_url"])
+    if all_urls:
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_urls", field_value=all_urls)
+    if merged_platform:
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_platform", field_value=merged_platform)
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="publication_source", field_value=merged_platform)
+    if merged_primary_url:
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="source_download_url", field_value=merged_primary_url)
 
-    return {"status": "ok", "local_model_id": local_model_id, "extracted": extracted}
+    return {"status": "ok", "local_model_id": local_model_id, "extracted": stored_extraction, "files_scanned": len(per_file)}
 
 
 @router.delete("/api/local/models/{local_model_id}")

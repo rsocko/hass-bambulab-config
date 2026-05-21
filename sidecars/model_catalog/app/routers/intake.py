@@ -504,54 +504,80 @@ def _auto_extract_3mf_metadata(
     user_provided_source_origin: str | None,
     user_provided_source_url: str | None,
 ) -> None:
-    """Best-effort: extract source metadata from the first 3MF asset and apply as defaults."""
-    threemf_asset = None
+    """Best-effort: extract source metadata from all 3MF assets and merge.
+
+    URLs are unioned (deduplicated) across files.  Creator, platform, and
+    primary URL use first-writer-wins from the file that provides them.
+    Per-file extractions are stored as an array for traceability.
+    """
+    data_root = state.settings.db_path.parent.resolve()
+    per_file: list[dict[str, Any]] = []
+
     for asset in imported_assets:
         filename = str(asset.get("filename") or "").lower()
-        if filename.endswith(".3mf"):
-            threemf_asset = asset
-            break
-    if threemf_asset is None:
+        if not filename.endswith(".3mf"):
+            continue
+
+        storage_path_str = str(asset.get("storage_path") or asset.get("local_storage_path") or "").strip()
+        if not storage_path_str:
+            continue
+
+        storage_path = Path(storage_path_str)
+        if not storage_path.is_absolute():
+            storage_path = (data_root / storage_path).resolve()
+
+        try:
+            file_bytes = storage_path.read_bytes()
+        except (OSError, PermissionError):
+            _intake_logger.debug("3MF auto-extract: could not read %s", storage_path)
+            continue
+
+        extracted = extract_3mf_source_metadata(file_bytes)
+        if extracted:
+            extracted["_source_file"] = str(asset.get("filename") or "")
+            per_file.append(extracted)
+
+    if not per_file:
         return
 
-    storage_path_str = str(threemf_asset.get("storage_path") or threemf_asset.get("local_storage_path") or "").strip()
-    if not storage_path_str:
-        return
+    # Merge across all files: first-writer-wins for scalar fields, union for URLs
+    merged_designer: str | None = None
+    merged_platform: str | None = None
+    merged_primary_url: str | None = None
+    all_urls: list[str] = []
+    seen_urls: set[str] = set()
 
-    storage_path = Path(storage_path_str)
-    if not storage_path.is_absolute():
-        data_root = state.settings.db_path.parent.resolve()
-        storage_path = (data_root / storage_path).resolve()
+    for ext in per_file:
+        if not merged_designer and ext.get("designer"):
+            merged_designer = ext["designer"]
+        if not merged_platform and ext.get("source_platform"):
+            merged_platform = ext["source_platform"]
+        if not merged_primary_url and ext.get("source_url"):
+            merged_primary_url = ext["source_url"]
+        for u in ext.get("source_urls") or []:
+            if u not in seen_urls:
+                all_urls.append(u)
+                seen_urls.add(u)
 
-    try:
-        file_bytes = storage_path.read_bytes()
-    except (OSError, PermissionError):
-        _intake_logger.debug("3MF auto-extract: could not read %s", storage_path)
-        return
-
-    extracted = extract_3mf_source_metadata(file_bytes)
-    if not extracted:
-        return
-
-    # Store raw extraction as a custom field for traceability
+    # Store per-file extractions as an array for traceability
     set_model_field(
         db_path=state.settings.db_path,
         model_ref=local_model_id,
         field_key="extracted_3mf_metadata",
-        field_value=extracted,
+        field_value=per_file if len(per_file) > 1 else per_file[0],
     )
 
     # Apply extracted fields as defaults (only when user didn't provide them)
     update_kwargs: dict[str, Any] = {}
 
-    if not user_provided_creator and extracted.get("designer"):
-        update_kwargs["creator_name"] = extracted["designer"]
+    if not user_provided_creator and merged_designer:
+        update_kwargs["creator_name"] = merged_designer
 
-    if not user_provided_source_origin and extracted.get("source_platform"):
-        update_kwargs["source_origin"] = extracted["source_platform"]
+    if not user_provided_source_origin and merged_platform:
+        update_kwargs["source_origin"] = merged_platform
 
-    if not user_provided_source_url and extracted.get("source_url"):
-        update_kwargs["source_origin_url"] = extracted["source_url"]
+    if not user_provided_source_url and merged_primary_url:
+        update_kwargs["source_origin_url"] = merged_primary_url
 
     if update_kwargs:
         update_local_model(
@@ -561,32 +587,32 @@ def _auto_extract_3mf_metadata(
         )
 
     # Persist source URLs and platform into provenance custom fields
-    if extracted.get("source_urls"):
+    if all_urls:
         set_model_field(
             db_path=state.settings.db_path,
             model_ref=local_model_id,
             field_key="source_urls",
-            field_value=extracted["source_urls"],
+            field_value=all_urls,
         )
-    if extracted.get("source_platform"):
+    if merged_platform:
         set_model_field(
             db_path=state.settings.db_path,
             model_ref=local_model_id,
             field_key="source_platform",
-            field_value=extracted["source_platform"],
+            field_value=merged_platform,
         )
         set_model_field(
             db_path=state.settings.db_path,
             model_ref=local_model_id,
             field_key="publication_source",
-            field_value=extracted["source_platform"],
+            field_value=merged_platform,
         )
-    if extracted.get("source_url"):
+    if merged_primary_url:
         set_model_field(
             db_path=state.settings.db_path,
             model_ref=local_model_id,
             field_key="source_download_url",
-            field_value=extracted["source_url"],
+            field_value=merged_primary_url,
         )
 
 
