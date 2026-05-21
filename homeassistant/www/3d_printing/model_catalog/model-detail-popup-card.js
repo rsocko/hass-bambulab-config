@@ -1735,6 +1735,16 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: center;
           gap: 8px;
         }
+        .archive-header-main {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+        section[data-slot="sections:archive-linkage"] .h {
+          flex-wrap: wrap;
+          row-gap: 8px;
+        }
         .linked-sort-btn {
           border: 1px solid var(--divider-color);
           border-radius: 999px;
@@ -1754,6 +1764,9 @@ class ModelDetailPopupCard extends HTMLElement {
           flex-wrap: wrap;
           gap: 6px;
           margin-bottom: 2px;
+        }
+        .archive-filter-row.header {
+          margin-bottom: 0;
         }
         .archive-filter-btn {
           border: 1px solid var(--divider-color);
@@ -3400,13 +3413,6 @@ class ModelDetailPopupCard extends HTMLElement {
       `;
     };
 
-    // Candidate banner if any candidates
-    const candidateBanner = showCandidates && candidates.length
-      ? `<div class="candidate-banner visible" style="border:1px solid #f0be62;background:rgba(240,190,98,0.13);color:#ffe5ba;border-radius:8px;padding:7px 9px;font-size:11px;margin-bottom:8px;">
-          ${candidates.length} potential history matches need review to confirm linkage.
-        </div>`
-      : '';
-
     const renderFilterButton = (filter, label, count) => {
       const active = this._archiveLinkageFilter === filter;
       return `<button class="archive-filter-btn${active ? ' active' : ''}" type="button" data-action="set-archive-filter" data-archive-filter="${this._escapeHtml(filter)}">${this._escapeHtml(label)} <span>${this._escapeHtml(String(count))}</span></button>`;
@@ -3425,7 +3431,14 @@ class ModelDetailPopupCard extends HTMLElement {
     return `
       <section class="card" data-slot="sections:archive-linkage">
         <div class="h">
-          <span>Print History</span>
+          <div class="archive-header-main">
+            <span>Print History</span>
+            <div class="archive-filter-row header">
+              ${renderFilterButton('all', 'All', allCount)}
+              ${renderFilterButton('linked', 'Linked', linkedCount)}
+              ${renderFilterButton('candidates', 'Candidates', candidateCount)}
+            </div>
+          </div>
           <div class="archive-header-tools">
             <button class="linked-sort-btn" type="button" data-action="toggle-linked-sort" title="Sort linked prints by date">
               Linked date: ${this._linkedArchiveSortOrder === 'asc' ? 'Oldest' : 'Newest'}
@@ -3436,12 +3449,6 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
         <div class="files">
-          <div class="archive-filter-row">
-            ${renderFilterButton('all', 'All', allCount)}
-            ${renderFilterButton('linked', 'Linked', linkedCount)}
-            ${renderFilterButton('candidates', 'Candidates', candidateCount)}
-          </div>
-          ${candidateBanner}
           ${bulkToolbar}
           ${showLinked ? sortedLinked.map(item => renderArchive(item, false)).join('') : ''}
           ${showCandidates ? sortedCandidates.map(item => renderArchive(item, true)).join('') : ''}
