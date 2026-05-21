@@ -516,7 +516,7 @@ cards:
           card_type: button
           button_type: state
           entity: sensor.bambuddy_print_history_browser_filtered
-          name: Matches
+          name: Prints
           icon: mdi:counter
           show_name: true
           show_state: true

@@ -376,7 +376,7 @@ card:
               action: none
           - entity: sensor.bambuddy_print_history_browser_filtered
             sub_button_type: default
-            name: Matches
+            name: Prints
             icon: mdi:counter
             show_icon: true
             show_name: true
