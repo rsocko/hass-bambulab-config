@@ -1786,6 +1786,16 @@ class ModelDetailPopupCard extends HTMLElement {
           border-color: var(--primary-color);
           background: rgba(96, 165, 250, 0.12);
         }
+        .archive-filter-btn.active[data-archive-filter="linked"] {
+          border-color: rgba(94, 234, 212, 0.45);
+          background: rgba(94, 234, 212, 0.12);
+          color: #b8fff3;
+        }
+        .archive-filter-btn.active[data-archive-filter="candidates"] {
+          border-color: rgba(245, 158, 11, 0.45);
+          background: rgba(245, 158, 11, 0.12);
+          color: #ffe0ae;
+        }
         .archive-filter-btn span {
           color: var(--primary-text-color);
           opacity: 0.86;
@@ -1883,6 +1893,14 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow: hidden;
           background: var(--card-background-color);
         }
+        .collapsible-group.is-linked {
+          border-color: rgba(94, 234, 212, 0.2);
+          background: linear-gradient(0deg, rgba(94, 234, 212, 0.04), rgba(94, 234, 212, 0.04)), var(--card-background-color);
+        }
+        .collapsible-group.is-candidate {
+          border-color: rgba(245, 158, 11, 0.24);
+          background: linear-gradient(0deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.05)), var(--card-background-color);
+        }
         .collapse-toggle {
           width: 100%;
           border: 0;
@@ -1907,6 +1925,16 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 999px;
           padding: 3px 7px;
           margin-right: 4px;
+        }
+        .collapsible-group.is-linked .state {
+          border-color: rgba(94, 234, 212, 0.45);
+          background: rgba(94, 234, 212, 0.14);
+          color: #b8fff3;
+        }
+        .collapsible-group.is-candidate .state {
+          border-color: rgba(245, 158, 11, 0.45);
+          background: rgba(245, 158, 11, 0.14);
+          color: #ffe0ae;
         }
 
         @media (max-width: 980px) {
@@ -3392,9 +3420,10 @@ class ModelDetailPopupCard extends HTMLElement {
         matchInfoHtml = `<div class="detail" style="margin-top:2px;"><span style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;background:${confStyle};margin-right:4px;">${this._escapeHtml(confLabel)}</span><span style="opacity:0.7;font-size:10px;">${this._escapeHtml(reasonSummary)}</span></div>`;
       }
       const candidateSelected = isCandidate && this._isArchiveCandidateSelected(archiveId, linkId);
+      const archiveTypeClass = isCandidate ? 'is-candidate' : 'is-linked';
 
       return `
-        <article class="collapsible-group ${candidateSelected ? 'candidate-selected' : ''}" data-slot="actions:per-archive">
+        <article class="collapsible-group ${archiveTypeClass} ${candidateSelected ? 'candidate-selected' : ''}" data-slot="actions:per-archive">
           <button class="collapse-toggle" data-collapse-toggle="${sectionKey}">
             <div style="display:flex;align-items:center;gap:10px;">
               ${isCandidate ? `<input type="checkbox" class="candidate-checkbox" data-action="toggle-archive-candidate-select" data-archive-id="${this._escapeHtml(archiveId)}" data-link-id="${this._escapeHtml(linkId)}" ${candidateSelected ? 'checked' : ''} ${this._archiveBulkBusy ? 'disabled' : ''} aria-label="Select candidate ${title}">` : ''}
