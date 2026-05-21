@@ -4314,7 +4314,9 @@ class ModelDetailPopupCard extends HTMLElement {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update catalog visibility: ' + response.statusText);
+        let detail = response.statusText;
+        try { const body = await response.json(); detail = body.error || JSON.stringify(body); } catch (_) {}
+        throw new Error(`${response.status} ${detail}`);
       }
 
       // Reload to get fresh state
@@ -4326,8 +4328,13 @@ class ModelDetailPopupCard extends HTMLElement {
       if (this._modelDetail && this._modelDetail.model) {
         this._modelDetail.model.catalog_visibility = currentVisibility;
       }
-      this._error = 'Failed to update archive status.';
       this._render();
+      if (this._hass) {
+        this._hass.callService('persistent_notification', 'create', {
+          title: 'Archive toggle failed',
+          message: `Failed to update archive status: ${error.message}`,
+        }).catch(err => console.error('Notification failed:', err));
+      }
     }
   }
 
