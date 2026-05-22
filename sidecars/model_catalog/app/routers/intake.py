@@ -17,6 +17,7 @@ import re
 import shutil
 import time
 import uuid
+from types import SimpleNamespace
 from pathlib import Path
 from sqlite3 import connect
 from typing import Any
@@ -510,7 +511,6 @@ def _auto_extract_3mf_metadata(
     primary URL use first-writer-wins from the file that provides them.
     Per-file extractions are stored as an array for traceability.
     """
-    data_root = state.settings.db_path.parent.resolve()
     per_file: list[dict[str, Any]] = []
     files_scanned = 0
 
@@ -524,9 +524,13 @@ def _auto_extract_3mf_metadata(
         if not storage_path_str:
             continue
 
-        storage_path = Path(storage_path_str)
-        if not storage_path.is_absolute():
-            storage_path = (data_root / storage_path).resolve()
+        storage_path = _resolve_local_asset_storage_path(
+            settings=state.settings,
+            asset=SimpleNamespace(storage_path=storage_path_str),
+        )
+        if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+            _intake_logger.debug("3MF auto-extract: storage path missing for %s (%s)", asset.get("filename"), storage_path_str)
+            continue
 
         try:
             file_bytes = storage_path.read_bytes()
