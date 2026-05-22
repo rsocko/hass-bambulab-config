@@ -1033,11 +1033,45 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _capturePopupShellScroll() {
     const anchors = [];
+    const addShadowAnchor = (element) => {
+      if (!element || !(element instanceof HTMLElement)) {
+        return;
+      }
+      if (!(element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)) {
+        return;
+      }
+      const top = Number(element.scrollTop || 0);
+      const left = Number(element.scrollLeft || 0);
+      if (top <= 0 && left <= 0) {
+        return;
+      }
+      const path = this._elementPathFromShadowRoot(element);
+      if (!path) {
+        return;
+      }
+      anchors.push({
+        kind: 'shadow-path',
+        path,
+        top,
+        left,
+      });
+    };
+
+    const shadowRoot = this.shadowRoot;
+    if (shadowRoot) {
+      addShadowAnchor(shadowRoot.querySelector('.popup-shell'));
+      const scrollables = shadowRoot.querySelectorAll('*');
+      for (let i = 0; i < scrollables.length; i += 1) {
+        addShadowAnchor(scrollables[i]);
+      }
+    }
+
     const addAnchor = (element) => {
       if (!element || anchors.some(anchor => anchor.element === element)) {
         return;
       }
       anchors.push({
+        kind: 'live-element',
         element,
         top: Number(element.scrollTop || 0),
         left: Number(element.scrollLeft || 0),
@@ -1069,10 +1103,10 @@ class ModelDetailPopupCard extends HTMLElement {
     const doc = document.scrollingElement || document.documentElement;
     if (doc) {
       anchors.push({
+        kind: 'window',
         element: doc,
         top: Number(window.scrollY || doc.scrollTop || 0),
         left: Number(window.scrollX || doc.scrollLeft || 0),
-        isWindow: true,
       });
     }
 
@@ -1081,6 +1115,43 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _queuePopupShellScrollRestore() {
     this._pendingPopupShellScroll = this._capturePopupShellScroll();
+  }
+
+  _elementPathFromShadowRoot(element) {
+    if (!this.shadowRoot || !element) {
+      return null;
+    }
+    const path = [];
+    let current = element;
+    while (current && current !== this.shadowRoot) {
+      const parent = current.parentElement;
+      if (!parent) {
+        return null;
+      }
+      const siblings = Array.from(parent.children);
+      const index = siblings.indexOf(current);
+      if (index < 0) {
+        return null;
+      }
+      path.unshift(index);
+      current = parent;
+    }
+    return path;
+  }
+
+  _elementFromShadowRootPath(path) {
+    if (!this.shadowRoot || !Array.isArray(path)) {
+      return null;
+    }
+    let current = this.shadowRoot;
+    for (let i = 0; i < path.length; i += 1) {
+      const index = Number(path[i]);
+      if (!Number.isInteger(index) || index < 0 || !current.children || index >= current.children.length) {
+        return null;
+      }
+      current = current.children[index];
+    }
+    return current instanceof HTMLElement ? current : null;
   }
 
   _restorePopupShellScroll() {
@@ -1093,15 +1164,21 @@ class ModelDetailPopupCard extends HTMLElement {
 
     const apply = () => {
       pending.forEach(anchor => {
-        if (!anchor || !anchor.element) {
+        if (!anchor) {
           return;
         }
-        if (anchor.isWindow) {
+        if (anchor.kind === 'window') {
           window.scrollTo(Number(anchor.left || 0), Number(anchor.top || 0));
           return;
         }
-        anchor.element.scrollTop = Number(anchor.top || 0);
-        anchor.element.scrollLeft = Number(anchor.left || 0);
+        const target = anchor.kind === 'shadow-path'
+          ? this._elementFromShadowRootPath(anchor.path)
+          : anchor.element;
+        if (!target) {
+          return;
+        }
+        target.scrollTop = Number(anchor.top || 0);
+        target.scrollLeft = Number(anchor.left || 0);
       });
     };
 
