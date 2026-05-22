@@ -2772,6 +2772,105 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return true;
   }
 
+  _isLikelyImageUrl(url) {
+    var value = String(url || "").trim();
+    if (!/^https?:\/\//i.test(value)) { return false; }
+    try {
+      var parsed = new URL(value);
+      var path = String(parsed.pathname || "").toLowerCase();
+      if (/\.(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)$/i.test(path)) { return true; }
+      var qs = String(parsed.search || "").toLowerCase();
+      return /(format|fm|ext)=(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)\b/.test(qs);
+    } catch (_e) {
+      return /\.(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)(\?|#|$)/i.test(value);
+    }
+  }
+
+  _sourceImagePreviewUrl(model, detail) {
+    var FIELD_KEY = "source_image_preview_url";
+    if (detail) {
+      var ef = detail.enrichment && detail.enrichment.custom_fields && typeof detail.enrichment.custom_fields === "object"
+        ? detail.enrichment.custom_fields : {};
+      var fromEnrich = String(ef[FIELD_KEY] || "").trim();
+      if (fromEnrich) { return fromEnrich; }
+      var dmf = detail.model && detail.model.custom_fields && typeof detail.model.custom_fields === "object"
+        ? detail.model.custom_fields : {};
+      var fromDetailModel = String(dmf[FIELD_KEY] || "").trim();
+      if (fromDetailModel) { return fromDetailModel; }
+    }
+    var sf = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    return String(sf[FIELD_KEY] || "").trim();
+  }
+
+  _getModelSourceUrls(model, detail) {
+    if (detail && detail.model) {
+      var dm = detail.model;
+      var sm = dm.structured_metadata && typeof dm.structured_metadata === "object" ? dm.structured_metadata : {};
+      var prov = sm.provenance && typeof sm.provenance === "object" ? sm.provenance : {};
+      if (Array.isArray(prov.source_urls) && prov.source_urls.length) {
+        return prov.source_urls.map(function (u) { return String(u || "").trim(); }).filter(Boolean);
+      }
+    }
+    if (detail && detail.enrichment) {
+      var esm = detail.enrichment.structured_metadata && typeof detail.enrichment.structured_metadata === "object"
+        ? detail.enrichment.structured_metadata : {};
+      var eprov = esm.provenance && typeof esm.provenance === "object" ? esm.provenance : {};
+      if (Array.isArray(eprov.source_urls) && eprov.source_urls.length) {
+        return eprov.source_urls.map(function (u) { return String(u || "").trim(); }).filter(Boolean);
+      }
+    }
+    var structured = model && model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
+    var provenance = structured.provenance && typeof structured.provenance === "object" ? structured.provenance : {};
+    if (Array.isArray(provenance.source_urls) && provenance.source_urls.length) {
+      return provenance.source_urls.map(function (u) { return String(u || "").trim(); }).filter(Boolean);
+    }
+    return [];
+  }
+
+  _hiddenMediaIdSetForModel(model, detail) {
+    var hmRaw = null;
+    if (detail && detail.enrichment && detail.enrichment.custom_fields) {
+      hmRaw = detail.enrichment.custom_fields.media_hidden_ids;
+    } else if (detail && detail.model && detail.model.custom_fields) {
+      hmRaw = detail.model.custom_fields.media_hidden_ids;
+    } else if (model && model.custom_fields) {
+      hmRaw = model.custom_fields.media_hidden_ids;
+    }
+    var values;
+    if (Array.isArray(hmRaw)) {
+      values = hmRaw;
+    } else if (typeof hmRaw === "string" && hmRaw.trim()) {
+      try { values = JSON.parse(hmRaw); } catch (_e) { values = hmRaw.split(","); }
+    } else {
+      return {};
+    }
+    var set = {};
+    for (var i = 0; i < values.length; i++) {
+      var v = String(values[i] || "").trim();
+      if (v) { set[v] = true; }
+    }
+    return set;
+  }
+
+  _sourceUrlImageList(model, detail) {
+    var allUrls = this._getModelSourceUrls(model, detail);
+    if (!allUrls.length) { return []; }
+    var hiddenSet = this._hiddenMediaIdSetForModel(model, detail);
+    var result = [];
+    var seen = {};
+    for (var i = 0; i < allUrls.length; i++) {
+      var url = String(allUrls[i] || "").trim();
+      if (!url || !this._isLikelyImageUrl(url)) { continue; }
+      var normalized = this._normalizeModelApiUrl(url);
+      if (seen[normalized]) { continue; }
+      seen[normalized] = true;
+      var mediaId = "source_url:" + encodeURIComponent(normalized);
+      if (hiddenSet[mediaId]) { continue; }
+      result.push(normalized);
+    }
+    return result;
+  }
+
   _modelMediaUrls(model) {
     var modelRef = this._modelRef(model);
     var detail = modelRef ? this._modelDetailCache[modelRef] : null;
@@ -2787,7 +2886,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       urls.push(url);
     }.bind(this);
 
-    // Pinned preview photo takes highest priority (Option A precedence)
+    // Source image preview URL (user-selected source URL image) takes highest priority
+    var sourcePreviewUrl = this._sourceImagePreviewUrl(model, detail);
+    if (sourcePreviewUrl) {
+      addUrl(sourcePreviewUrl);
+    }
+
+    // Pinned preview photo takes next priority (Option A precedence)
     if (detail && Array.isArray(detail.photos)) {
       var pinnedPhoto = detail.photos.find(function (photo) { return photo && photo.is_preview; });
       if (pinnedPhoto) {
@@ -2813,6 +2918,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       });
     }
     addUrl(model && model.preview_url);
+
+    // Add remaining visible image-type source URLs (source_image_preview_url
+    // already added above if set; duplicates are skipped via seen set)
+    var sourceImageUrls = this._sourceUrlImageList(model, detail);
+    for (var si = 0; si < sourceImageUrls.length; si++) {
+      addUrl(sourceImageUrls[si]);
+    }
+
     return urls;
   }
 
@@ -3904,32 +4017,37 @@ class ModelCatalogBrowserCard extends HTMLElement {
           imageFilesCount = (imageFilesCount || 0) + upVisible;
         }
       }
+      // Also count visible source URL images before detail loads
+      var srcUrlsPreDetail = this._sourceUrlImageList(model, null);
+      if (srcUrlsPreDetail.length) {
+        imageFilesCount = (imageFilesCount || 0) + srcUrlsPreDetail.length;
+      }
     }
 
     // When detail data is available, recompute the image count from the
     // authoritative source: uploaded photos + image-type assets + embedded
-    // thumbnails, minus any items the user marked as hidden.
+    // thumbnails + source URL images, minus any items the user marked as hidden.
     if (detail) {
       var adjPhotos = Array.isArray(detail.photos) ? detail.photos : [];
       var adjFiles = (detail.model && Array.isArray(detail.model.files))
         ? detail.model.files
         : (Array.isArray(detail.files) ? detail.files : []);
-      if (adjPhotos.length || adjFiles.length) {
-        var hmRaw = detail.enrichment && detail.enrichment.custom_fields
-          ? detail.enrichment.custom_fields.media_hidden_ids : null;
-        var hmSet = {};
-        if (Array.isArray(hmRaw)) {
-          for (var hi = 0; hi < hmRaw.length; hi++) {
-            var hid = String(hmRaw[hi] || "").trim();
-            if (hid) { hmSet[hid] = true; }
-          }
-        } else if (typeof hmRaw === "string" && hmRaw.trim()) {
-          var hParts = hmRaw.split(",");
-          for (var hi = 0; hi < hParts.length; hi++) {
-            var hid = hParts[hi].trim();
-            if (hid) { hmSet[hid] = true; }
-          }
+      var hmRaw = detail.enrichment && detail.enrichment.custom_fields
+        ? detail.enrichment.custom_fields.media_hidden_ids : null;
+      var hmSet = {};
+      if (Array.isArray(hmRaw)) {
+        for (var hi = 0; hi < hmRaw.length; hi++) {
+          var hid = String(hmRaw[hi] || "").trim();
+          if (hid) { hmSet[hid] = true; }
         }
+      } else if (typeof hmRaw === "string" && hmRaw.trim()) {
+        var hParts = hmRaw.split(",");
+        for (var hi = 0; hi < hParts.length; hi++) {
+          var hid = hParts[hi].trim();
+          if (hid) { hmSet[hid] = true; }
+        }
+      }
+      if (adjPhotos.length || adjFiles.length) {
         var visibleImageCount = 0;
         for (var pi = 0; pi < adjPhotos.length; pi++) {
           var pId = String(adjPhotos[pi].id || ("photo-" + (pi + 1))).trim();
@@ -3952,6 +4070,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
           }
         }
         imageFilesCount = visibleImageCount;
+      }
+      // Add visible source URL images to the image count
+      var srcUrlsWithDetail = this._sourceUrlImageList(model, detail);
+      if (srcUrlsWithDetail.length) {
+        imageFilesCount = (imageFilesCount || 0) + srcUrlsWithDetail.length;
       }
     }
 
