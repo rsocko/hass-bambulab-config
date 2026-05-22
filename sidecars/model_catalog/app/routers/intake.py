@@ -503,7 +503,7 @@ def _auto_extract_3mf_metadata(
     user_provided_creator: str | None,
     user_provided_source_origin: str | None,
     user_provided_source_url: str | None,
-) -> None:
+) -> dict[str, Any]:
     """Best-effort: extract source metadata from all 3MF assets and merge.
 
     URLs are unioned (deduplicated) across files.  Creator, platform, and
@@ -512,11 +512,13 @@ def _auto_extract_3mf_metadata(
     """
     data_root = state.settings.db_path.parent.resolve()
     per_file: list[dict[str, Any]] = []
+    files_scanned = 0
 
     for asset in imported_assets:
         filename = str(asset.get("filename") or "").lower()
         if not filename.endswith(".3mf"):
             continue
+        files_scanned += 1
 
         storage_path_str = str(asset.get("storage_path") or asset.get("local_storage_path") or "").strip()
         if not storage_path_str:
@@ -538,7 +540,25 @@ def _auto_extract_3mf_metadata(
             per_file.append(extracted)
 
     if not per_file:
-        return
+        return {
+            "status": "no_metadata_extracted",
+            "files_scanned": files_scanned,
+            "files_with_metadata": 0,
+            "applied_fields": {
+                "creator_name": False,
+                "source_origin": False,
+                "source_origin_url": False,
+                "source_urls": False,
+                "source_platform": False,
+                "publication_source": False,
+                "source_download_url": False,
+            },
+            "skipped_due_to_user_values": {
+                "creator_name": bool(user_provided_creator),
+                "source_origin": bool(user_provided_source_origin),
+                "source_origin_url": bool(user_provided_source_url),
+            },
+        }
 
     # Merge across all files: first-writer-wins for scalar fields, union for URLs
     merged_designer: str | None = None
@@ -587,6 +607,11 @@ def _auto_extract_3mf_metadata(
         )
 
     # Persist source URLs and platform into provenance custom fields
+    source_urls_applied = False
+    source_platform_applied = False
+    publication_source_applied = False
+    source_download_url_applied = False
+
     if all_urls:
         set_model_field(
             db_path=state.settings.db_path,
@@ -594,6 +619,7 @@ def _auto_extract_3mf_metadata(
             field_key="source_urls",
             field_value=all_urls,
         )
+        source_urls_applied = True
     if merged_platform:
         set_model_field(
             db_path=state.settings.db_path,
@@ -601,12 +627,14 @@ def _auto_extract_3mf_metadata(
             field_key="source_platform",
             field_value=merged_platform,
         )
+        source_platform_applied = True
         set_model_field(
             db_path=state.settings.db_path,
             model_ref=local_model_id,
             field_key="publication_source",
             field_value=merged_platform,
         )
+        publication_source_applied = True
     if merged_primary_url:
         set_model_field(
             db_path=state.settings.db_path,
@@ -614,6 +642,33 @@ def _auto_extract_3mf_metadata(
             field_key="source_download_url",
             field_value=merged_primary_url,
         )
+        source_download_url_applied = True
+
+    return {
+        "status": "ok",
+        "files_scanned": files_scanned,
+        "files_with_metadata": len(per_file),
+        "applied_fields": {
+            "creator_name": bool(update_kwargs.get("creator_name")),
+            "source_origin": bool(update_kwargs.get("source_origin")),
+            "source_origin_url": bool(update_kwargs.get("source_origin_url")),
+            "source_urls": source_urls_applied,
+            "source_platform": source_platform_applied,
+            "publication_source": publication_source_applied,
+            "source_download_url": source_download_url_applied,
+        },
+        "skipped_due_to_user_values": {
+            "creator_name": bool(user_provided_creator),
+            "source_origin": bool(user_provided_source_origin),
+            "source_origin_url": bool(user_provided_source_url),
+        },
+        "merged": {
+            "designer": merged_designer,
+            "source_platform": merged_platform,
+            "source_url": merged_primary_url,
+            "source_urls_count": len(all_urls),
+        },
+    }
 
 
 def _publish_group_to_local_destination(
@@ -788,7 +843,7 @@ def _publish_group_to_local_destination(
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="internal_notes", field_value=f"Imported from intake upload {upload_id}")
 
     # --- Auto-extract 3MF source metadata (best-effort) ---
-    _auto_extract_3mf_metadata(
+    extraction_log = _auto_extract_3mf_metadata(
         state=state,
         local_model_id=local_model_id,
         imported_assets=imported_assets,
@@ -812,6 +867,7 @@ def _publish_group_to_local_destination(
         "imported_assets": imported_assets,
         "duplicate_skipped": duplicate_skipped,
         "failed_files": failed_files,
+        "source_metadata_extraction": extraction_log,
     }, imported_assets, failed_files
 
 
@@ -1399,9 +1455,12 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     requested_tags = payload.get("tags") if isinstance(payload.get("tags"), list) else None
     requested_collection_names = payload.get("collection_names") if isinstance(payload.get("collection_names"), list) else None
     requested_creator_name = str(payload.get("creator_name") or "").strip() or None
+    user_provided_creator = str(payload.get("creator_name") or "").strip() or None
     requested_created_by = str(payload.get("created_by") or "intake_queue").strip() or "intake_queue"
     requested_source_origin = str(payload.get("source_origin") or "intake_queue").strip() or "intake_queue"
     requested_source_origin_url = str(payload.get("source_origin_url") or f"intake://uploads/{upload_id}").strip()
+    user_provided_source_origin = str(payload.get("source_origin") or "").strip() or None
+    user_provided_source_url = str(payload.get("source_origin_url") or "").strip() or None
     requested_preview_source_path = str(payload.get("preview_source_path") or "").strip()
     default_model_title = requested_model_name or _default_group_title(source_entries, expanded_files) or "Working Group"
     planned_groups, plan_summary = _build_publish_groups(
@@ -1431,6 +1490,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 },
             )
         created_models: list[dict[str, Any]] = []
+        extraction_logs: list[dict[str, Any]] = []
         imported_assets: list[dict[str, Any]] = []
         duplicate_skipped: list[dict[str, Any]] = []
         failed_files: list[dict[str, Any]] = []
@@ -1473,6 +1533,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             preview_source_normalized = requested_preview_source_path.lower() if requested_preview_source_path else None
 
             group_imported_count = 0
+            group_imported_assets: list[dict[str, Any]] = []
             for file_item in group_files:
                 source_path = Path(str(file_item["path"])).resolve()
                 file_hash = str(file_item["file_hash"] or "").strip().lower()
@@ -1536,6 +1597,22 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                             "source_entry_type": file_item.get("entry_type"),
                         }
                     )
+                    group_imported_assets.append(
+                        {
+                            "local_model_id": local_model_id,
+                            "local_asset_id": asset.asset_id,
+                            "local_storage_path": asset.storage_path,
+                            "asset_id": asset.asset_id,
+                            "filename": asset.asset_filename,
+                            "asset_type": asset.asset_type,
+                            "asset_role": asset.asset_role,
+                            "sort_order": asset.sort_order,
+                            "storage_path": asset.storage_path,
+                            "file_hash": asset.file_hash,
+                            "source_path": str(source_path),
+                            "source_entry_type": file_item.get("entry_type"),
+                        }
+                    )
                     group_imported_count += 1
                 except Exception as exc:
                     failed_files.append(
@@ -1579,6 +1656,22 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 model_ref=local_model_id,
                 field_key="internal_notes",
                 field_value=f"Imported from intake upload {upload_id}",
+            )
+
+            extraction_log = _auto_extract_3mf_metadata(
+                state=state,
+                local_model_id=local_model_id,
+                imported_assets=group_imported_assets,
+                user_provided_creator=user_provided_creator,
+                user_provided_source_origin=user_provided_source_origin,
+                user_provided_source_url=user_provided_source_url,
+            )
+            extraction_logs.append(
+                {
+                    "local_model_id": local_model_id,
+                    "group_title": group_title,
+                    "extraction": extraction_log,
+                }
             )
 
             created_models.append(
@@ -1713,6 +1806,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             "imported_assets": imported_assets,
             "duplicate_skipped": duplicate_skipped,
             "failed_files": failed_files,
+            "source_metadata_extraction": extraction_logs,
             "warnings": expansion_warnings,
             "cleanup": cleanup_result,
             "plan_summary": plan_summary,
@@ -1907,6 +2001,15 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         field_value=f"Imported from intake upload {upload_id}",
     )
 
+    extraction_log = _auto_extract_3mf_metadata(
+        state=state,
+        local_model_id=local_model_id,
+        imported_assets=imported_assets,
+        user_provided_creator=user_provided_creator,
+        user_provided_source_origin=user_provided_source_origin,
+        user_provided_source_url=user_provided_source_url,
+    )
+
     if imported_assets:
         success_connection = connect(state.settings.db_path)
         try:
@@ -2033,6 +2136,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         "imported_assets": imported_assets,
         "duplicate_skipped": duplicate_skipped,
         "failed_files": failed_files,
+        "source_metadata_extraction": extraction_log,
         "warnings": expansion_warnings,
         "cleanup": cleanup_result,
         # Terminal state metadata

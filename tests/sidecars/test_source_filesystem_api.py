@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import io
 import zipfile
 import pytest
 from fastapi import FastAPI
@@ -38,6 +39,20 @@ def _make_app(tmp_path: Path, roots: list[Path]) -> FastAPI:
     settings = _build_settings(tmp_path, roots)
     bootstrap_database(settings.db_path)
     return create_app(settings=settings)
+
+
+def _create_3mf_with_source_metadata(*, design_model_id: str, designer: str) -> bytes:
+    model_xml = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<model unit=\"millimeter\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">"
+        f"<metadata name=\"Designer\">{designer}</metadata>"
+        f"<metadata name=\"DesignModelId\">{design_model_id}</metadata>"
+        "</model>"
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("3D/3dmodel.model", model_xml.encode("utf-8"))
+    return buffer.getvalue()
 
 
 # ===== GET /api/source-filesystems =====
@@ -951,3 +966,54 @@ def test_select_publish_to_local_uses_queued_group_title_when_model_name_omitted
         assert detail_response.status_code == 200
         detail_payload = detail_response.json()
         assert detail_payload["model"]["name"] == "Router Mount Family"
+
+
+def test_select_publish_to_local_auto_extracts_3mf_source_metadata(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    model_file = root / "makerworld-source.3mf"
+    model_file.write_bytes(
+        _create_3mf_with_source_metadata(
+            design_model_id="123456",
+            designer="Auto Extract Creator",
+        )
+    )
+
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {"type": "file", "path": str(model_file)},
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        upload_id = select_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={
+                "model_name": "Auto Extracted Source Model",
+            },
+        )
+        assert publish_response.status_code == 200
+        payload = publish_response.json()
+        assert payload["success"] is True
+
+        detail_response = client.get(f"/api/models/{payload['local_model_id']}/detail")
+        assert detail_response.status_code == 200
+        detail_payload = detail_response.json()
+
+        assert detail_payload["model"]["creator_name"] == "Auto Extract Creator"
+        assert detail_payload["model"]["source_origin"] == "makerworld"
+        assert detail_payload["model"]["source_origin_url"] == "https://makerworld.com/en/models/123456"
+
+        structured = detail_payload["enrichment"]["structured_metadata"]
+        assert structured["provenance"]["source_platform"] == "makerworld"
+        assert structured["provenance"]["source_download_url"] == "https://makerworld.com/en/models/123456"
+        assert structured["publishing"]["publication_source"] == "makerworld"
