@@ -2886,9 +2886,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       urls.push(url);
     }.bind(this);
 
-    // Source image preview URL (user-selected source URL image) takes highest priority
     var sourcePreviewUrl = this._sourceImagePreviewUrl(model, detail);
-    if (sourcePreviewUrl) {
+    var hasPinnedPhotoPreview = detail && Array.isArray(detail.photos)
+      ? detail.photos.some(function (photo) { return Boolean(photo && photo.is_preview); })
+      : false;
+    var hasPinnedAssetPreview = Array.isArray(detailModel.files)
+      ? detailModel.files.some(function (file) { return Boolean(file && (file.is_preview || file.asset_role === "preview")); })
+      : false;
+    var hasNonSourcePreview = Boolean(hasPinnedPhotoPreview || hasPinnedAssetPreview);
+
+    // Source preview remains primary only when there is no explicit preview
+    // marker on photos/files.
+    if (sourcePreviewUrl && !hasNonSourcePreview) {
       addUrl(sourcePreviewUrl);
     }
 

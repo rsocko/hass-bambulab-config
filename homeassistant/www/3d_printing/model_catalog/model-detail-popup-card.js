@@ -1232,6 +1232,7 @@ class ModelDetailPopupCard extends HTMLElement {
     };
 
     const photos = Array.isArray(this._modelDetail && this._modelDetail.photos) ? this._modelDetail.photos : [];
+    const files = Array.isArray(model && model.files) ? model.files : [];
     const sourcePreviewUrl = this._sourcePreviewUrl();
     const pinnedPhoto = photos.find(photo => photo && photo.is_preview);
     if (pinnedPhoto) {
@@ -1241,7 +1242,13 @@ class ModelDetailPopupCard extends HTMLElement {
       console.log('[PIN-DEBUG] No pinned photo found. Total photos:', photos.length, 'preview_photo_id:', this._modelDetail?.preview_photo_id);
     }
 
-    if (sourcePreviewUrl) {
+    const pinnedAsset = files.find(file => file && (file.is_preview || file.asset_role === 'preview'));
+    if (pinnedAsset) {
+      addSource(pinnedAsset.image_url || pinnedAsset.thumbnail_lazy_url || pinnedAsset.thumbnail_url || pinnedAsset.preview_url || pinnedAsset.download_url);
+    }
+
+    const hasNonSourcePreview = Boolean(pinnedPhoto || pinnedAsset);
+    if (sourcePreviewUrl && !hasNonSourcePreview) {
       addSource(sourcePreviewUrl);
     }
 
@@ -1266,7 +1273,6 @@ class ModelDetailPopupCard extends HTMLElement {
 
     addSource(model && model.preview_url ? model.preview_url : '');
 
-    const files = Array.isArray(model && model.files) ? model.files : [];
     for (const file of files) {
       if (!file || typeof file !== 'object') {
         continue;
@@ -3996,6 +4002,8 @@ class ModelDetailPopupCard extends HTMLElement {
       ? this._modelDetail.model.files
       : [];
     const sourceUrls = this._getSourceUrls();
+    const hasNonSourcePreview = photos.some(photo => Boolean(photo && photo.is_preview))
+      || files.some(file => Boolean(file && (file.is_preview || file.asset_role === 'preview')));
 
     const items = [];
     const seenMediaIds = new Set();
@@ -4096,7 +4104,7 @@ class ModelDetailPopupCard extends HTMLElement {
         can_set_preview: true,
         can_hide: true,
         can_delete: false,
-        is_preview: Boolean(sourcePreviewUrl && sourcePreviewUrl === normalizedUrl),
+        is_preview: Boolean(!hasNonSourcePreview && sourcePreviewUrl && sourcePreviewUrl === normalizedUrl),
       });
     });
 
