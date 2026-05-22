@@ -46,7 +46,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         await addUnifiedQueueEntry({ queueApiBase, printerId, payload });
       },
       afterSubmit: async () => {
-        await this._refreshData();
+        await this._loadPage(this._currentPage(), false);
       },
       getPrinterId: () => String(this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1"),
       getQueueApiBase: () => {
@@ -692,6 +692,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     delete this._modelDetailCache[modelRef];
     delete this._loadingModelMedia[modelRef];
     this._loadModelMedia({ public_id: modelRef });
+    // Reload page data so updated tags, metadata, and queue state are reflected.
+    this._loadPage(this._currentPage(), false);
     // Schedule a delayed retry in case the first thumbnail fetch fails due to a
     // transient CORS / network error right after the server-side change.
     window.setTimeout(function () {

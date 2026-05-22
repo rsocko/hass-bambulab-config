@@ -4962,6 +4962,7 @@ class ModelDetailPopupCard extends HTMLElement {
       });
       if (!response.ok) throw new Error('Failed to remove tag: ' + response.statusText);
       await this._loadModelDetail({ silent: true });
+      this._notifyBrowserDetailChanged();
     } catch (error) {
       console.error('Error removing tag:', error);
       // Revert
@@ -5004,6 +5005,7 @@ class ModelDetailPopupCard extends HTMLElement {
       if (!response.ok) throw new Error('Failed to add tag: ' + response.statusText);
       console.log('[TAG-ADD] PATCH succeeded, loading detail silently');
       await this._loadModelDetail({ silent: true });
+      this._notifyBrowserDetailChanged();
       console.log('[TAG-ADD] detail reloaded | model.keywords:', JSON.stringify(this._modelDetail?.model?.keywords), '| chips:', this.shadowRoot.querySelectorAll('.tag-chip').length);
     } catch (error) {
       console.error('Error adding tag:', error);
