@@ -68,6 +68,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelFilePlateCountPending = new Set();
     this._modelFilePlateCountRequestToken = 0;
     this._popupExtensions = new Map();
+    this._pendingPopupShellScroll = null;
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
       addEntry: async ({ queueApiBase, printerId, payload }) => {
@@ -1030,6 +1031,39 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  _capturePopupShellScroll() {
+    const popupShell = this.shadowRoot && this.shadowRoot.querySelector
+      ? this.shadowRoot.querySelector('.popup-shell')
+      : null;
+    if (!popupShell) {
+      return null;
+    }
+    return {
+      top: Number(popupShell.scrollTop || 0),
+      left: Number(popupShell.scrollLeft || 0),
+    };
+  }
+
+  _queuePopupShellScrollRestore() {
+    this._pendingPopupShellScroll = this._capturePopupShellScroll();
+  }
+
+  _restorePopupShellScroll() {
+    const pending = this._pendingPopupShellScroll;
+    if (!pending) {
+      return;
+    }
+    this._pendingPopupShellScroll = null;
+    const popupShell = this.shadowRoot && this.shadowRoot.querySelector
+      ? this.shadowRoot.querySelector('.popup-shell')
+      : null;
+    if (!popupShell) {
+      return;
+    }
+    popupShell.scrollTop = Number(pending.top || 0);
+    popupShell.scrollLeft = Number(pending.left || 0);
+  }
+
   _render() {
     const renderPath = this._loading ? 'loading' : this._error ? 'error' : this._modelDetail ? 'popup' : 'empty';
     console.log('[RENDER]', renderPath, '| _loading:', this._loading, '| keywords:', JSON.stringify(this._modelDetail?.model?.keywords));
@@ -1042,6 +1076,8 @@ class ModelDetailPopupCard extends HTMLElement {
       : this._renderEmpty();
     
     this.shadowRoot.innerHTML = html;
+
+    this._restorePopupShellScroll();
 
     addShimmerAnimation();
     // Re-run observer wiring on each render when lazy nodes are present.
@@ -3230,6 +3266,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
   async _handleArchiveCandidateAction(archiveId, linkId, action) {
     if (!this._modelRef || !this._modelSidecarUrl) return;
+    this._queuePopupShellScrollRestore();
     try {
       const endpoint = action === 'link' ? 'accept' : 'reject';
       const url = `${this._modelSidecarUrl}/api/archive-links/${encodeURIComponent(archiveId)}/${encodeURIComponent(linkId)}/${endpoint}`;
@@ -3284,6 +3321,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _toggleArchiveCandidateSelection(archiveId, linkId) {
     this._setArchiveCandidateSelection(archiveId, linkId, !this._isArchiveCandidateSelected(archiveId, linkId));
+    this._queuePopupShellScrollRestore();
     this._render();
   }
 
@@ -3326,6 +3364,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!selected.length) {
       return;
     }
+    this._queuePopupShellScrollRestore();
     const endpoint = action === 'link' ? 'accept' : 'reject';
     let successCount = 0;
     let failureCount = 0;
