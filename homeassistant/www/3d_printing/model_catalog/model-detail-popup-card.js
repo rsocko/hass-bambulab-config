@@ -970,12 +970,35 @@ class ModelDetailPopupCard extends HTMLElement {
       const modelFiles = Array.isArray(this._modelDetail?.model?.files) ? this._modelDetail.model.files : [];
       this._ensureModelFilePlateCounts(modelFiles);
       this._pruneArchiveCandidateSelection(Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives : []);
+      
+      await this._cleanupStaleSourcePreview();
     } catch (error) {
       this._error = String(error || "Unknown error");
       this._modelDetail = null;
     } finally {
       this._loading = false;
       this._render();
+    }
+  }
+
+  async _cleanupStaleSourcePreview() {
+    if (!this._modelDetail) return;
+    
+    const photos = Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
+    const files = Array.isArray(this._modelDetail.model?.files) ? this._modelDetail.model.files : [];
+    
+    const hasPinnedPhoto = photos.some(p => Boolean(p && p.is_preview));
+    const hasPinnedAsset = files.some(f => Boolean(f && (f.is_preview || f.asset_role === 'preview')));
+    const hasNonSourcePreview = Boolean(hasPinnedPhoto || hasPinnedAsset);
+    
+    if (!hasNonSourcePreview) {
+      return;
+    }
+    
+    const sourcePreviewUrl = this._sourcePreviewUrl();
+    if (sourcePreviewUrl) {
+      console.log('[CLEANUP] Found stale source_image_preview_url with non-source preview present. Clearing it.');
+      await this._saveSourceField(this._heroSourcePreviewFieldKey, null);
     }
   }
 
