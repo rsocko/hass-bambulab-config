@@ -1330,11 +1330,47 @@ def _construct_makerworld_url(metadata: dict[str, str]) -> str | None:
     return f"{_MAKERWORLD_URL_PREFIX}{design_model_id}"
 
 
+def _html_unescape_stable(value: str) -> str:
+    text = str(value or "")
+    for _ in range(3):
+        decoded = html_module.unescape(text)
+        if decoded == text:
+            break
+        text = decoded
+    return text
+
+
+def _sanitize_extracted_url(value: str) -> str:
+    """Normalize extracted URL text and trim common trailing quote entity artifacts."""
+    text = _html_unescape_stable(str(value or "").strip())
+    if not text:
+        return ""
+
+    # Repeatedly strip quote entities that can survive as literal suffixes
+    # after partial HTML decoding (for example: ...&amp;#34; -> ...&#34;).
+    suffix_pattern = re.compile(r"(?i)(?:&(?:quot|#34|#x22);?|#34;?|quot;)$")
+    while True:
+        next_text = suffix_pattern.sub("", text).rstrip()
+        if next_text == text:
+            break
+        text = next_text
+
+    return text
+
+
 def _extract_urls_from_description(description: str) -> list[str]:
     if not description or "http" not in description:
         return []
-    decoded = html_module.unescape(description)
-    return re.findall(r"https?://[^\s<>\"']+", decoded)
+    decoded = _html_unescape_stable(description)
+    matches = re.findall(r"https?://[^\s<>\"']+", decoded)
+    urls: list[str] = []
+    seen: set[str] = set()
+    for match in matches:
+        cleaned = _sanitize_extracted_url(match)
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            urls.append(cleaned)
+    return urls
 
 
 def extract_3mf_source_metadata(package_bytes: bytes) -> dict[str, Any] | None:
@@ -1407,7 +1443,9 @@ def extract_3mf_source_metadata(package_bytes: bytes) -> dict[str, Any] | None:
             all_urls.append(u)
             seen.add(u)
 
-    source_url = makerworld_url or (all_urls[0] if all_urls else None)
+    source_url = _sanitize_extracted_url(makerworld_url) if makerworld_url else None
+    if not source_url:
+        source_url = all_urls[0] if all_urls else None
 
     # Bambu-specific sub-dict
     bambu: dict[str, str] = {}

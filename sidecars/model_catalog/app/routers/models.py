@@ -24,6 +24,7 @@ import base64
 import binascii
 import gc
 import hashlib
+import html as html_module
 import httpx
 import json
 import logging
@@ -1267,6 +1268,27 @@ def _normalize_string_map(value: object | None) -> dict[str, str]:
     return normalized
 
 
+def _normalize_source_url_text(value: object | None) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    for _ in range(3):
+        decoded = html_module.unescape(text)
+        if decoded == text:
+            break
+        text = decoded
+
+    suffix_pattern = re.compile(r"(?i)(?:&(?:quot|#34|#x22);?|#34;?|quot;)$")
+    while True:
+        next_text = suffix_pattern.sub("", text).rstrip()
+        if next_text == text:
+            break
+        text = next_text
+
+    return text
+
+
 def _normalize_published_to(value: object | None) -> list[str]:
     normalized: list[str] = []
     seen: set[str] = set()
@@ -1290,7 +1312,7 @@ def _normalize_published_urls(
         return normalized
     for raw_key, raw_value in value.items():
         platform_id = _normalize_platform_id(raw_key, allow_original_local=False)
-        text = str(raw_value or "").strip()
+        text = _normalize_source_url_text(raw_value)
         if not platform_id or not text:
             continue
         if allowed_platforms is not None and platform_id not in allowed_platforms:
@@ -1380,11 +1402,12 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     source_urls: list[str] = []
     if isinstance(raw_source_urls, list):
         for u in raw_source_urls:
-            url_str = str(u or "").strip()
+            url_str = _normalize_source_url_text(u)
             if url_str:
                 source_urls.append(url_str)
     elif isinstance(raw_source_urls, str) and raw_source_urls.strip():
-        source_urls = [raw_source_urls.strip()]
+        cleaned_source_url = _normalize_source_url_text(raw_source_urls)
+        source_urls = [cleaned_source_url] if cleaned_source_url else []
 
     # source_platform_label: custom label when publication_source is 'other' or 'online'
     source_platform_label = str(fields.get("source_platform_label") or "").strip() or None
@@ -1394,7 +1417,7 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
             "origin_type": origin_type,
             "remix_source": remix_source,
             "source_platform": source_platform,
-            "source_download_url": str(fields.get("source_download_url") or "").strip() or None,
+            "source_download_url": _normalize_source_url_text(fields.get("source_download_url")) or None,
             "source_urls": source_urls if source_urls else None,
             "internal_notes": str(fields.get("internal_notes") or "").strip() or None,
         },
@@ -1539,7 +1562,11 @@ def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, 
             for field_key in ("source_download_url", "internal_notes"):
                 if field_key not in provenance:
                     continue
-                value = str(provenance.get(field_key) or "").strip()
+                value = (
+                    _normalize_source_url_text(provenance.get(field_key))
+                    if field_key == "source_download_url"
+                    else str(provenance.get(field_key) or "").strip()
+                )
                 if not value:
                     clears.add(field_key)
                 else:

@@ -4748,6 +4748,34 @@ class ModelDetailPopupCard extends HTMLElement {
     return div.innerHTML;
   }
 
+  _decodeHtmlEntities(text) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = String(text || '');
+    return textarea.value;
+  }
+
+  _normalizeSourceUrlValue(value) {
+    let text = String(value || '').trim();
+    if (!text) {
+      return '';
+    }
+
+    for (let i = 0; i < 3; i += 1) {
+      const decoded = this._decodeHtmlEntities(text);
+      if (decoded === text) {
+        break;
+      }
+      text = decoded;
+    }
+
+    const suffixPattern = /(?:&(?:quot|#34|#x22);?|#34;?|quot;)$/i;
+    while (suffixPattern.test(text)) {
+      text = text.replace(suffixPattern, '').trimEnd();
+    }
+
+    return text;
+  }
+
   _getEntityType(model) {
     const normalized = (value) => {
       const candidate = String(value || '').trim().toLowerCase();
@@ -6175,10 +6203,15 @@ class ModelDetailPopupCard extends HTMLElement {
     const metadata = model.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const provenance = metadata.provenance || {};
     const publishing = metadata.publishing || {};
-    const explicitUrls = Array.isArray(provenance.source_urls) ? [...provenance.source_urls] : [];
+    const explicitUrls = Array.isArray(provenance.source_urls)
+      ? provenance.source_urls.map((u) => this._normalizeSourceUrlValue(u)).filter(Boolean)
+      : [];
     const published_urls = publishing.published_urls || {};
-    const legacyUrls = Object.values(published_urls).filter(u => typeof u === 'string' && u.startsWith('http'));
-    const downloadUrl = typeof provenance.source_download_url === 'string' && provenance.source_download_url.startsWith('http') ? provenance.source_download_url : null;
+    const legacyUrls = Object.values(published_urls)
+      .map((u) => this._normalizeSourceUrlValue(u))
+      .filter((u) => typeof u === 'string' && u.startsWith('http'));
+    const normalizedDownloadUrl = this._normalizeSourceUrlValue(provenance.source_download_url);
+    const downloadUrl = normalizedDownloadUrl && normalizedDownloadUrl.startsWith('http') ? normalizedDownloadUrl : null;
     const seen = new Set(explicitUrls);
     const merged = [...explicitUrls];
     if (downloadUrl && !seen.has(downloadUrl)) { merged.push(downloadUrl); seen.add(downloadUrl); }
@@ -6231,14 +6264,14 @@ class ModelDetailPopupCard extends HTMLElement {
     const metadata = model?.structured_metadata || this._modelDetail?.enrichment?.structured_metadata || {};
     const provenance = metadata.provenance || {};
     const publishing = metadata.publishing || {};
-    const downloadUrl = provenance.source_download_url;
+    const downloadUrl = this._normalizeSourceUrlValue(provenance.source_download_url);
     const published_urls = publishing.published_urls || {};
 
     if (url && url === downloadUrl) {
       await this._saveSourceField('source_download_url', null);
     }
     const matchingKeys = Object.entries(published_urls)
-      .filter(([, v]) => v === url)
+      .filter(([, v]) => this._normalizeSourceUrlValue(v) === url)
       .map(([k]) => k);
     if (matchingKeys.length > 0) {
       const updated = { ...published_urls };
@@ -6262,7 +6295,7 @@ class ModelDetailPopupCard extends HTMLElement {
   async _updateSourceUrl(index, newValue) {
     const urls = this._getSourceUrls();
     if (index < 0 || index >= urls.length) return;
-    urls[index] = newValue;
+    urls[index] = this._normalizeSourceUrlValue(newValue);
     await this._saveSourceField('source_urls', urls);
     await this._syncSourceUrlMediaState(urls);
   }
