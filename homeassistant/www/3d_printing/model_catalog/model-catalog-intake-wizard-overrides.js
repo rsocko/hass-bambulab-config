@@ -620,9 +620,30 @@ function renderValidationSummary(card) {
       var actionHtml = hasExclusions
         ? '<button class="link-button" data-action="wizard-jump-step" data-step="1">Go to Select Step</button>'
         : '';
+      var findings = Array.isArray(check && check.findings) ? check.findings : [];
+      var findingsHtml = findings.length
+        ? ('<div class="validation-findings">' + findings.slice(0, 20).map(function (finding) {
+            var offenderName = String((finding && finding.filename) || '').trim();
+            var offenderPath = String((finding && finding.path) || '').trim();
+            if (!offenderName && offenderPath) {
+              offenderName = basename(offenderPath);
+            }
+            var violationLabel = String((finding && finding.violation_label) || (finding && finding.violation_code) || 'Match').trim();
+            var conflictTargets = Array.isArray(finding && finding.conflicts_with)
+              ? finding.conflicts_with.filter(Boolean).slice(0, 3)
+              : [];
+            var conflictText = conflictTargets.length ? (' ↔ ' + conflictTargets.join(', ')) : '';
+            var pathHtml = offenderPath ? ('<div class="entry-path muted">' + escapeHtml(offenderPath) + '</div>') : '';
+            return ''
+              + '<div class="entry-path"><strong>' + escapeHtml(offenderName || 'File') + '</strong> · ' + escapeHtml(violationLabel) + escapeHtml(conflictText) + '</div>'
+              + pathHtml;
+          }).join('')
+          + (findings.length > 20 ? '<div class="entry-path muted">... and ' + String(findings.length - 20) + ' more finding(s)</div>' : '')
+          + '</div>')
+        : '';
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div></div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '');

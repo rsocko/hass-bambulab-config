@@ -276,6 +276,76 @@ def test_folder_selection_includes_document_files_during_validate_and_group(tmp_
         client.__exit__(None, None, None)
 
 
+def test_folder_selection_validation_warns_on_duplicate_files_within_batch(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "Model Working Files"
+    folder.mkdir()
+    (folder / "mount.3mf").write_bytes(b"same-bytes")
+    (folder / "mount (2).3mf").write_bytes(b"same-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "folder", "path": str(folder), "recurse": True}]},
+        )
+        assert select_response.status_code == 200
+        assert select_response.json()["expanded_file_count"] == 2
+        item_id = select_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{item_id}/validate")
+        assert validate_response.status_code == 200
+        validate_payload = validate_response.json()
+        assert validate_payload["state"] == "validated_warning"
+        assert validate_payload["validation"]["validation_state"] == "duplicate_candidate"
+
+        warning_codes = {warning.get("code") for warning in validate_payload["validation"].get("warnings", [])}
+        assert "batch_duplicate_hash_match" in warning_codes or "batch_duplicate_name_soft_match" in warning_codes
+
+        checks = validate_payload["validation"]["checks"]
+        batch_check = next(check for check in checks if check["key"] == "batch_duplicate_scan")
+        assert batch_check["passed"] is False
+        assert "within this batch" in batch_check["detail"]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_folder_selection_validation_warns_on_similar_names_within_batch(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "Model Working Files"
+    folder.mkdir()
+    (folder / "router_mount_final.3mf").write_bytes(b"first-bytes")
+    (folder / "router_mount_custom.3mf").write_bytes(b"second-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "folder", "path": str(folder), "recurse": True}]},
+        )
+        assert select_response.status_code == 200
+        assert select_response.json()["expanded_file_count"] == 2
+        item_id = select_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{item_id}/validate")
+        assert validate_response.status_code == 200
+        validate_payload = validate_response.json()
+        assert validate_payload["state"] == "validated_warning"
+        assert validate_payload["validation"]["validation_state"] == "duplicate_candidate"
+
+        warning_codes = {warning.get("code") for warning in validate_payload["validation"].get("warnings", [])}
+        assert "batch_duplicate_name_soft_match" in warning_codes
+
+        soft_warning = next(
+            warning for warning in validate_payload["validation"]["warnings"] if warning.get("code") == "batch_duplicate_name_soft_match"
+        )
+        assert soft_warning["match_score"] >= 0.5
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_folder_selection_excluded_items_propagate_to_validation(tmp_path: Path) -> None:
     """Issue #1347: excluded_items from server folder selections must reach the
     Validation step so the wizard's exclusion summary reflects the real count
@@ -314,6 +384,84 @@ def test_folder_selection_excluded_items_propagate_to_validation(tmp_path: Path)
         summary_check = next(c for c in checks if c["key"] == "excluded_items_summary")
         assert summary_check["excluded_count"] == 1
         assert "1 items excluded" in summary_check["detail"]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_intake_submit_warns_on_duplicate_files_within_request(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    first_file = source_root / "widget.3mf"
+    second_file = source_root / "widget (2).3mf"
+    first_file.write_bytes(b"same-bytes")
+    second_file.write_bytes(b"same-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        submit_response = client.post(
+            "/api/intake/submit",
+            json={
+                "items": [
+                    {"source_path": str(first_file), "source_type": "filesystem_action"},
+                    {"source_path": str(second_file), "source_type": "filesystem_action"},
+                ],
+                "auto_validate": True,
+                "cleanup_policy": "keep",
+            },
+        )
+        assert submit_response.status_code == 200
+        submit_payload = submit_response.json()
+        assert submit_payload["success"] is True
+        assert submit_payload["created_count"] == 2
+
+        first_item, second_item = submit_payload["items"]
+        assert first_item["state"] == "validated_ready"
+        assert second_item["state"] == "validated_warning"
+        assert second_item["validation"]["validation_state"] == "duplicate_candidate"
+
+        warning_codes = {warning.get("code") for warning in second_item["validation"].get("warnings", [])}
+        assert "batch_duplicate_hash_match" in warning_codes or "batch_duplicate_name_soft_match" in warning_codes
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_intake_submit_warns_on_similar_names_within_request(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    first_file = source_root / "router_mount_final.3mf"
+    second_file = source_root / "router_mount_custom.3mf"
+    first_file.write_bytes(b"first-bytes")
+    second_file.write_bytes(b"second-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        submit_response = client.post(
+            "/api/intake/submit",
+            json={
+                "items": [
+                    {"source_path": str(first_file), "source_type": "filesystem_action"},
+                    {"source_path": str(second_file), "source_type": "filesystem_action"},
+                ],
+                "auto_validate": True,
+                "cleanup_policy": "keep",
+            },
+        )
+        assert submit_response.status_code == 200
+        submit_payload = submit_response.json()
+        assert submit_payload["success"] is True
+        assert submit_payload["created_count"] == 2
+
+        _, second_item = submit_payload["items"]
+        assert second_item["state"] == "validated_warning"
+        assert second_item["validation"]["validation_state"] == "duplicate_candidate"
+
+        warning_codes = {warning.get("code") for warning in second_item["validation"].get("warnings", [])}
+        assert "batch_duplicate_name_soft_match" in warning_codes
+
+        soft_warning = next(
+            warning for warning in second_item["validation"]["warnings"] if warning.get("code") == "batch_duplicate_name_soft_match"
+        )
+        assert soft_warning["match_score"] >= 0.5
     finally:
         client.__exit__(None, None, None)
 
