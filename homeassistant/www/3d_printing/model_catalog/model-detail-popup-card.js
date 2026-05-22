@@ -1032,16 +1032,51 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _capturePopupShellScroll() {
+    const anchors = [];
+    const addAnchor = (element) => {
+      if (!element || anchors.some(anchor => anchor.element === element)) {
+        return;
+      }
+      anchors.push({
+        element,
+        top: Number(element.scrollTop || 0),
+        left: Number(element.scrollLeft || 0),
+      });
+    };
+
     const popupShell = this.shadowRoot && this.shadowRoot.querySelector
       ? this.shadowRoot.querySelector('.popup-shell')
       : null;
-    if (!popupShell) {
-      return null;
+    if (popupShell) {
+      addAnchor(popupShell);
     }
-    return {
-      top: Number(popupShell.scrollTop || 0),
-      left: Number(popupShell.scrollLeft || 0),
-    };
+
+    let current = this;
+    while (current && current.parentElement) {
+      current = current.parentElement;
+      if (!current) {
+        break;
+      }
+      if (current.scrollHeight > current.clientHeight && current.clientHeight > 0) {
+        const style = window.getComputedStyle(current);
+        const overflowY = String(style.overflowY || '').toLowerCase();
+        if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+          addAnchor(current);
+        }
+      }
+    }
+
+    const doc = document.scrollingElement || document.documentElement;
+    if (doc) {
+      anchors.push({
+        element: doc,
+        top: Number(window.scrollY || doc.scrollTop || 0),
+        left: Number(window.scrollX || doc.scrollLeft || 0),
+        isWindow: true,
+      });
+    }
+
+    return anchors.length ? anchors : null;
   }
 
   _queuePopupShellScrollRestore() {
@@ -1050,18 +1085,28 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _restorePopupShellScroll() {
     const pending = this._pendingPopupShellScroll;
-    if (!pending) {
+    if (!Array.isArray(pending) || !pending.length) {
+      this._pendingPopupShellScroll = null;
       return;
     }
     this._pendingPopupShellScroll = null;
-    const popupShell = this.shadowRoot && this.shadowRoot.querySelector
-      ? this.shadowRoot.querySelector('.popup-shell')
-      : null;
-    if (!popupShell) {
-      return;
-    }
-    popupShell.scrollTop = Number(pending.top || 0);
-    popupShell.scrollLeft = Number(pending.left || 0);
+
+    const apply = () => {
+      pending.forEach(anchor => {
+        if (!anchor || !anchor.element) {
+          return;
+        }
+        if (anchor.isWindow) {
+          window.scrollTo(Number(anchor.left || 0), Number(anchor.top || 0));
+          return;
+        }
+        anchor.element.scrollTop = Number(anchor.top || 0);
+        anchor.element.scrollLeft = Number(anchor.left || 0);
+      });
+    };
+
+    apply();
+    requestAnimationFrame(apply);
   }
 
   _render() {
@@ -2610,8 +2655,6 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderSupportingFilesPanel(model) {
     const NON_SUPPORT_ROLES = new Set(['primary']);
     const MODEL_TYPES = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
-    const modelUrl = String(model && model.model_url || '').trim().toLowerCase();
-    const canUpload = modelUrl.startsWith('local://');
     const files = (Array.isArray(model.files) ? model.files : []).filter(f => {
       const role = String(f.asset_role || '').toLowerCase();
       const type = String(f.asset_type || '').toLowerCase();
@@ -2619,10 +2662,10 @@ class ModelDetailPopupCard extends HTMLElement {
     });
     const uploadToolbar = `
       <div class="support-toolbar">
-        <button class="action-button" id="btn-add-supporting-file" ${canUpload ? '' : 'disabled'}>
+        <button class="action-button" id="btn-add-supporting-file">
           <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add File
         </button>
-        ${canUpload ? '' : '<div class="detail">Uploads are available for local models.</div>'}
+        <div class="detail">Upload picks a file immediately. Non-local models may reject upload until server-side support is enabled.</div>
       </div>
     `;
     if (!files.length) {
