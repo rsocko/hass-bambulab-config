@@ -4104,6 +4104,7 @@ class ModelDetailPopupCard extends HTMLElement {
       this._error = '';
       await this._loadModelDetail({ silent: true });
       await this._autoPromotePreviewAfterDelete();
+      this._notifyBrowserDetailChanged();
     } catch (error) {
       console.error('Error deleting asset:', error);
       this._error = `Failed to delete asset: ${error}`;
@@ -4890,6 +4891,7 @@ class ModelDetailPopupCard extends HTMLElement {
         this._error = null;
         console.log('Model saved successfully');
         this._render();
+        this._notifyBrowserDetailChanged();
       } catch (error) {
         console.error('Error saving model:', error);
         const errorMsg = error?.message || String(error) || 'Unknown error';
@@ -5059,6 +5061,7 @@ class ModelDetailPopupCard extends HTMLElement {
       // Reload to get fresh state
       await this._loadModelDetail({ silent: true });
       this._render();
+      this._notifyBrowserDetailChanged();
     } catch (error) {
       console.error('Error toggling archive:', error);
       // Revert optimistic update
@@ -5370,6 +5373,7 @@ class ModelDetailPopupCard extends HTMLElement {
       // Reload model detail
       this._error = '';
       await this._loadModelDetail({ silent: true });
+      this._notifyBrowserDetailChanged();
     } catch (error) {
       console.error('Error setting preview photo:', error);
       this._error = `Failed to set preview: ${error}`;
@@ -5412,6 +5416,7 @@ class ModelDetailPopupCard extends HTMLElement {
       this._error = '';
       await this._loadModelDetail({ silent: true });
       await this._autoPromotePreviewAfterDelete();
+      this._notifyBrowserDetailChanged();
     } catch (error) {
       console.error('Error deleting photo:', error);
       this._error = `Failed to delete photo: ${error}`;
@@ -5484,6 +5489,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
       this._error = '';
       await this._loadModelDetail({ silent: true });
+      this._notifyBrowserDetailChanged();
     } catch (error) {
       console.error('Error reading file:', error);
       this._error = `Failed to upload ${file.name}: ${error}`;
@@ -5978,6 +5984,7 @@ class ModelDetailPopupCard extends HTMLElement {
       // Optimistically update local model state
       this._applySourceFieldLocally(fieldKey, value);
       this._render();
+      this._notifyBrowserDetailChanged();
     } catch (err) {
       console.error(`Error saving source field ${fieldKey}:`, err);
     }
