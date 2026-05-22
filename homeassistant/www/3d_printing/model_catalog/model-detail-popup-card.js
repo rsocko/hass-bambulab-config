@@ -2870,12 +2870,25 @@ class ModelDetailPopupCard extends HTMLElement {
           letter-spacing: 0.03em;
         }
         .source-url-status.hidden {
-          border-color: rgba(239, 68, 68, 0.55);
-          background: rgba(239, 68, 68, 0.16);
-          color: rgb(254, 202, 202);
+          border-color: rgba(239, 68, 68, 0.85);
+          background: rgba(239, 68, 68, 0.28);
+          color: rgb(255, 228, 228);
+          font-weight: 800;
+        }
+        .source-url-row.is-hidden-image {
+          background: rgba(239, 68, 68, 0.14);
+          border: 2px solid rgba(239, 68, 68, 0.65);
+          border-left: 5px solid rgba(239, 68, 68, 0.95);
+          border-radius: 8px;
+          padding: 4px;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
         }
         .source-url-row.is-hidden-image .source-url-input {
-          border-color: rgba(239, 68, 68, 0.35);
+          border-color: rgba(239, 68, 68, 0.75);
+          background: rgba(44, 12, 12, 0.55);
+        }
+        .source-url-row.is-hidden-image .url-action-btn {
+          border-color: rgba(239, 68, 68, 0.65);
         }
         .source-url-open-wrap {
           position: relative;
