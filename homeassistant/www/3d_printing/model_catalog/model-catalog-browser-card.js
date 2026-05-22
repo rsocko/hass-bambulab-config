@@ -3572,9 +3572,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
     // When uploaded_photos exist but detail is not cached, also load detail so
     // the post-processing block can produce an accurate count that includes
     // embedded thumbnails alongside the uploaded photos.
+    // When the model has no preview_url and detail hasn't been fetched yet,
+    // also load detail – the detail may contain file-based thumbnails (e.g.
+    // embedded 3MF previews) that should take precedence over fallback
+    // source-URL images.
     var fileKindTotal = fileKindCounts.model_files + fileKindCounts.images + fileKindCounts.other;
     var hasUploadedPhotosNoDetail = !detail && fields && Array.isArray(fields.uploaded_photos) && fields.uploaded_photos.length > 0;
-    if ((this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) || fileKindTotal === 0 || hasUploadedPhotosNoDetail) {
+    var needsDetailForPreview = this._showMedia && this._viewMode === "compact" && !detail && mediaCount > 0 && !String(model.preview_url || "").trim();
+    if ((this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) || fileKindTotal === 0 || hasUploadedPhotosNoDetail || needsDetailForPreview) {
       this._loadModelMedia(model);
     }
 
