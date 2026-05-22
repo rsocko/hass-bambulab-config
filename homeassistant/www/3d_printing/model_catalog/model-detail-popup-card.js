@@ -2598,15 +2598,35 @@ class ModelDetailPopupCard extends HTMLElement {
       </div>`;
 
     // --- Source URLs editor ---
-    const urlRows = source_urls.map((url, idx) => `
-      <div class="source-url-row" data-url-index="${idx}">
-        <input type="text" class="source-url-input" data-source-url-index="${idx}"
-          value="${this._escapeHtml(url)}" placeholder="https://…" />
+    const hiddenSourceMediaIds = this._hiddenMediaIdSet();
+    const sourcePreviewUrl = this._sourcePreviewUrl();
+    const urlRows = source_urls.map((url, idx) => {
+      const normalized = this._normalizeComparableUrl(url);
+      const isImage = this._isLikelyImageUrl(url);
+      const sourceMediaId = isImage ? this._sourceUrlMediaId(normalized) : '';
+      const isHiddenImage = Boolean(sourceMediaId && hiddenSourceMediaIds.has(sourceMediaId));
+      const isSourcePreview = Boolean(sourcePreviewUrl && normalized && sourcePreviewUrl === normalized);
+      const rowStatus = [
+        isHiddenImage ? '<span class="source-url-status hidden">Hidden</span>' : '',
+        isSourcePreview ? '<span class="source-url-status preview">Preview</span>' : '',
+      ].filter(Boolean).join('');
+      const hoverThumb = isImage && normalized
+        ? `<div class="source-url-thumb-preview" role="tooltip"><img src="${this._escapeHtml(normalized)}" alt="Source image preview" loading="lazy"></div>`
+        : '';
+      return `
+      <div class="source-url-row ${isHiddenImage ? 'is-hidden-image' : ''}" data-url-index="${idx}">
+        <div class="source-url-input-wrap">
+          <input type="text" class="source-url-input" data-source-url-index="${idx}"
+            value="${this._escapeHtml(url)}" placeholder="https://…" />
+          ${rowStatus ? `<div class="source-url-statuses">${rowStatus}</div>` : ''}
+          ${hoverThumb}
+        </div>
         <button class="url-action-btn url-open" data-action="open-source-url" data-url-index="${idx}" title="Open URL"
           ${url && url.startsWith('http') ? '' : 'disabled'}>🔗</button>
         <button class="url-action-btn url-remove" data-action="remove-source-url" data-url-index="${idx}" title="Remove URL">✕</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     const sourceUrlsEditor = `
       <div class="source-urls-section">
@@ -2813,6 +2833,10 @@ class ModelDetailPopupCard extends HTMLElement {
           grid-template-columns: 1fr auto auto;
           gap: 4px;
           align-items: center;
+          position: relative;
+        }
+        .source-url-input-wrap {
+          position: relative;
         }
         .source-url-input {
           padding: 6px 8px;
@@ -2822,6 +2846,66 @@ class ModelDetailPopupCard extends HTMLElement {
           color: var(--primary-text-color);
           font-size: 13px;
           min-width: 0;
+        }
+        .source-url-statuses {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: inline-flex;
+          gap: 4px;
+          pointer-events: none;
+        }
+        .source-url-status {
+          font-size: 10px;
+          line-height: 1;
+          padding: 3px 6px;
+          border-radius: 999px;
+          border: 1px solid var(--divider-color);
+          background: rgba(148, 163, 184, 0.15);
+          color: var(--secondary-text-color);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+        .source-url-status.hidden {
+          border-color: rgba(239, 68, 68, 0.55);
+          background: rgba(239, 68, 68, 0.16);
+          color: rgb(254, 202, 202);
+        }
+        .source-url-status.preview {
+          border-color: rgba(96, 165, 250, 0.6);
+          background: rgba(96, 165, 250, 0.16);
+          color: rgb(191, 219, 254);
+        }
+        .source-url-row.is-hidden-image .source-url-input {
+          border-color: rgba(239, 68, 68, 0.35);
+        }
+        .source-url-thumb-preview {
+          position: absolute;
+          left: 0;
+          top: calc(100% + 6px);
+          z-index: 12;
+          width: 168px;
+          height: 168px;
+          border-radius: 10px;
+          border: 1px solid rgba(148, 163, 184, 0.4);
+          background: rgba(2, 6, 23, 0.96);
+          box-shadow: 0 10px 28px rgba(2, 6, 23, 0.45);
+          padding: 4px;
+          display: none;
+          pointer-events: none;
+        }
+        .source-url-thumb-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 7px;
+          display: block;
+        }
+        .source-url-input-wrap:hover .source-url-thumb-preview,
+        .source-url-input:focus + .source-url-statuses + .source-url-thumb-preview {
+          display: block;
         }
         .url-action-btn {
           display: flex;
@@ -4111,12 +4195,71 @@ class ModelDetailPopupCard extends HTMLElement {
     );
   }
 
+  async _clearEmbeddedPreviewSelections() {
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    if (!base || !this._modelRef) {
+      return;
+    }
+
+    const files = this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files)
+      ? this._modelDetail.model.files
+      : [];
+    const previewAssetIds = files
+      .filter(file => file && (file.is_preview || file.asset_role === 'preview'))
+      .map(file => String(file.asset_id || file.id || '').trim())
+      .filter(Boolean);
+
+    if (localModelId) {
+      for (const assetId of previewAssetIds) {
+        try {
+          await fetch(
+            `${base}/api/local/models/${encodeURIComponent(localModelId)}/assets/${encodeURIComponent(assetId)}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ asset_role: 'supporting' }),
+            }
+          );
+        } catch (_e) { /* best effort */ }
+      }
+    }
+
+    try {
+      await fetch(
+        `${base}/api/models/${encodeURIComponent(this._modelRef)}/fields/${encodeURIComponent('preview_photo_id')}`,
+        {
+          method: 'DELETE',
+        }
+      );
+    } catch (_e) { /* best effort */ }
+
+    // Keep UI consistent immediately until next detail reload.
+    const photos = this._modelDetail && Array.isArray(this._modelDetail.photos)
+      ? this._modelDetail.photos
+      : [];
+    for (const photo of photos) {
+      if (photo && typeof photo === 'object') {
+        photo.is_preview = false;
+      }
+    }
+    for (const file of files) {
+      if (file && typeof file === 'object') {
+        file.is_preview = false;
+        if (String(file.asset_role || '').toLowerCase() === 'preview') {
+          file.asset_role = 'supporting';
+        }
+      }
+    }
+  }
+
   async _handleSetHeroMediaPreview(item) {
     if (!item || !item.can_set_preview || item.is_preview) {
       return;
     }
     try {
       if (item.media_id && item.media_id.startsWith('source_url:')) {
+        await this._clearEmbeddedPreviewSelections();
         await this._saveSourceField(this._heroSourcePreviewFieldKey, this._normalizeComparableUrl(item.url));
         this._heroActiveMediaIndex = 0;
         this._notifyBrowserDetailChanged();
