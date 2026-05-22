@@ -59,6 +59,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._heroMediaFilter = 'all';
     this._heroActiveMediaIndex = 0;
     this._heroHiddenMediaFieldKey = 'media_hidden_ids';
+    this._heroSourcePreviewFieldKey = 'source_image_preview_url';
     this._overflowOpen = false;
     this._panelMode = 'tabs';
     this._panelActiveTab = 'panel-queue';
@@ -1030,6 +1031,93 @@ class ModelDetailPopupCard extends HTMLElement {
     return `${base}${value}`;
   }
 
+  _normalizeComparableUrl(url) {
+    return this._normalizeModelApiUrl(String(url || '').trim());
+  }
+
+  _sourceUrlMediaId(url) {
+    const normalized = this._normalizeComparableUrl(url);
+    if (!normalized) {
+      return '';
+    }
+    return `source_url:${encodeURIComponent(normalized)}`;
+  }
+
+  _isLikelyImageUrl(url) {
+    const value = String(url || '').trim();
+    if (!/^https?:\/\//i.test(value)) {
+      return false;
+    }
+    try {
+      const parsed = new URL(value);
+      const path = String(parsed.pathname || '').toLowerCase();
+      if (/(\.avif|\.bmp|\.gif|\.ico|\.jpe?g|\.png|\.svg|\.tiff?|\.webp)$/i.test(path)) {
+        return true;
+      }
+      const queryValue = String(parsed.search || '').toLowerCase();
+      return /(format|fm|ext)=(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)\b/.test(queryValue);
+    } catch (_error) {
+      return /(\.avif|\.bmp|\.gif|\.ico|\.jpe?g|\.png|\.svg|\.tiff?|\.webp)(\?|#|$)/i.test(value);
+    }
+  }
+
+  _readCustomField(fieldKey) {
+    const key = String(fieldKey || '').trim();
+    if (!key) {
+      return null;
+    }
+    const detailEnrichment = this._modelDetail && this._modelDetail.enrichment && typeof this._modelDetail.enrichment === 'object'
+      ? this._modelDetail.enrichment
+      : {};
+    const enrichmentFields = detailEnrichment.custom_fields && typeof detailEnrichment.custom_fields === 'object'
+      ? detailEnrichment.custom_fields
+      : {};
+    if (Object.prototype.hasOwnProperty.call(enrichmentFields, key)) {
+      return enrichmentFields[key];
+    }
+    const model = this._modelDetail && this._modelDetail.model && typeof this._modelDetail.model === 'object'
+      ? this._modelDetail.model
+      : {};
+    const modelFields = model.custom_fields && typeof model.custom_fields === 'object'
+      ? model.custom_fields
+      : {};
+    if (Object.prototype.hasOwnProperty.call(modelFields, key)) {
+      return modelFields[key];
+    }
+    return null;
+  }
+
+  _setCustomFieldLocally(fieldKey, value) {
+    const key = String(fieldKey || '').trim();
+    if (!key || !this._modelDetail) {
+      return;
+    }
+    if (!this._modelDetail.enrichment || typeof this._modelDetail.enrichment !== 'object') {
+      this._modelDetail.enrichment = {};
+    }
+    if (!this._modelDetail.enrichment.custom_fields || typeof this._modelDetail.enrichment.custom_fields !== 'object') {
+      this._modelDetail.enrichment.custom_fields = {};
+    }
+    if (!this._modelDetail.model || typeof this._modelDetail.model !== 'object') {
+      this._modelDetail.model = {};
+    }
+    if (!this._modelDetail.model.custom_fields || typeof this._modelDetail.model.custom_fields !== 'object') {
+      this._modelDetail.model.custom_fields = {};
+    }
+    if (value == null || value === '') {
+      delete this._modelDetail.enrichment.custom_fields[key];
+      delete this._modelDetail.model.custom_fields[key];
+      return;
+    }
+    this._modelDetail.enrichment.custom_fields[key] = value;
+    this._modelDetail.model.custom_fields[key] = value;
+  }
+
+  _sourcePreviewUrl() {
+    const rawValue = this._readCustomField(this._heroSourcePreviewFieldKey);
+    return this._normalizeComparableUrl(rawValue);
+  }
+
   _resetModelFilePlateCounts() {
     this._modelFilePlateCounts = {};
     this._modelFilePlateCountPending = new Set();
@@ -1144,12 +1232,17 @@ class ModelDetailPopupCard extends HTMLElement {
     };
 
     const photos = Array.isArray(this._modelDetail && this._modelDetail.photos) ? this._modelDetail.photos : [];
+    const sourcePreviewUrl = this._sourcePreviewUrl();
     const pinnedPhoto = photos.find(photo => photo && photo.is_preview);
     if (pinnedPhoto) {
       console.log('[PIN-DEBUG] Found pinned photo:', pinnedPhoto.id, 'URL:', pinnedPhoto.image_url);
       addSource(pinnedPhoto.image_url || pinnedPhoto.thumbnail_url || pinnedPhoto.preview_url || pinnedPhoto.url);
     } else {
       console.log('[PIN-DEBUG] No pinned photo found. Total photos:', photos.length, 'preview_photo_id:', this._modelDetail?.preview_photo_id);
+    }
+
+    if (sourcePreviewUrl) {
+      addSource(sourcePreviewUrl);
     }
 
     const linkedArchives = Array.isArray(this._modelDetail && this._modelDetail.linked_archives)
@@ -3800,10 +3893,12 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _galleryItems() {
     const hiddenIds = this._hiddenMediaIdSet();
+    const sourcePreviewUrl = this._sourcePreviewUrl();
     const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
     const files = (this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files))
       ? this._modelDetail.model.files
       : [];
+    const sourceUrls = this._getSourceUrls();
 
     const items = [];
     const seenMediaIds = new Set();
@@ -3882,6 +3977,31 @@ class ModelDetailPopupCard extends HTMLElement {
           is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
         });
       });
+
+    sourceUrls.forEach((rawUrl, idx) => {
+      const sourceUrl = String(rawUrl || '').trim();
+      if (!sourceUrl || !this._isLikelyImageUrl(sourceUrl)) {
+        return;
+      }
+      const normalizedUrl = this._normalizeComparableUrl(sourceUrl);
+      const mediaId = this._sourceUrlMediaId(normalizedUrl);
+      if (!normalizedUrl || !mediaId) {
+        return;
+      }
+      addItem({
+        media_id: mediaId,
+        id: normalizedUrl,
+        url: normalizedUrl,
+        thumbnail_url: normalizedUrl,
+        filename: `Source URL ${idx + 1}`,
+        type: 'asset',
+        type_label: 'Source URL',
+        can_set_preview: true,
+        can_hide: true,
+        can_delete: false,
+        is_preview: Boolean(sourcePreviewUrl && sourcePreviewUrl === normalizedUrl),
+      });
+    });
 
     return items;
   }
@@ -3996,13 +4116,21 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
     try {
+      if (item.media_id && item.media_id.startsWith('source_url:')) {
+        await this._saveSourceField(this._heroSourcePreviewFieldKey, this._normalizeComparableUrl(item.url));
+        this._heroActiveMediaIndex = 0;
+        this._notifyBrowserDetailChanged();
+        return;
+      }
       if (item.media_id && item.media_id.startsWith('photo:')) {
+        await this._saveSourceField(this._heroSourcePreviewFieldKey, null);
         await this._handleSetPhotoPreview(String(item.id || '').trim());
         this._heroActiveMediaIndex = 0;
         this._notifyBrowserDetailChanged();
         return;
       }
       if (item.asset_id) {
+        await this._saveSourceField(this._heroSourcePreviewFieldKey, null);
         await this._handleSetAssetPreview(item.asset_id);
         await this._loadModelDetail({ silent: true });
         this._heroActiveMediaIndex = 0;
@@ -6008,6 +6136,36 @@ class ModelDetailPopupCard extends HTMLElement {
       sm.provenance.source_download_url = value;
     } else if (fieldKey === 'published_urls') {
       sm.publishing.published_urls = value;
+    } else {
+      this._setCustomFieldLocally(fieldKey, value);
+    }
+  }
+
+  async _syncSourceUrlMediaState(sourceUrls) {
+    const urls = Array.isArray(sourceUrls) ? sourceUrls : [];
+    const normalizedImageUrls = urls
+      .map(url => String(url || '').trim())
+      .filter(url => this._isLikelyImageUrl(url))
+      .map(url => this._normalizeComparableUrl(url))
+      .filter(Boolean);
+    const imageUrlSet = new Set(normalizedImageUrls);
+    const validSourceMediaIds = new Set(normalizedImageUrls.map(url => this._sourceUrlMediaId(url)).filter(Boolean));
+
+    const hiddenIds = this._hiddenMediaIdSet();
+    const cleanedHiddenIds = Array.from(hiddenIds).filter(mediaId => {
+      const id = String(mediaId || '').trim();
+      if (!id.startsWith('source_url:')) {
+        return true;
+      }
+      return validSourceMediaIds.has(id);
+    });
+    if (cleanedHiddenIds.length !== hiddenIds.size) {
+      await this._saveSourceField(this._heroHiddenMediaFieldKey, cleanedHiddenIds);
+    }
+
+    const previewUrl = this._sourcePreviewUrl();
+    if (previewUrl && !imageUrlSet.has(previewUrl)) {
+      await this._saveSourceField(this._heroSourcePreviewFieldKey, null);
     }
   }
 
@@ -6032,6 +6190,7 @@ class ModelDetailPopupCard extends HTMLElement {
     const urls = this._getSourceUrls();
     urls.push('');
     await this._saveSourceField('source_urls', urls);
+    await this._syncSourceUrlMediaState(urls);
   }
 
   async _extract3mfMetadata() {
@@ -6089,6 +6248,7 @@ class ModelDetailPopupCard extends HTMLElement {
 
     urls.splice(index, 1);
     await this._saveSourceField('source_urls', urls);
+    await this._syncSourceUrlMediaState(urls);
   }
 
   _openSourceUrl(index) {
@@ -6104,6 +6264,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (index < 0 || index >= urls.length) return;
     urls[index] = newValue;
     await this._saveSourceField('source_urls', urls);
+    await this._syncSourceUrlMediaState(urls);
   }
 
   _openSourcePlatform() {
