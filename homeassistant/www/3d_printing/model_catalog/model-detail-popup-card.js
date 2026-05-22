@@ -2599,17 +2599,12 @@ class ModelDetailPopupCard extends HTMLElement {
 
     // --- Source URLs editor ---
     const hiddenSourceMediaIds = this._hiddenMediaIdSet();
-    const sourcePreviewUrl = this._sourcePreviewUrl();
     const urlRows = source_urls.map((url, idx) => {
       const normalized = this._normalizeComparableUrl(url);
       const isImage = this._isLikelyImageUrl(url);
       const sourceMediaId = isImage ? this._sourceUrlMediaId(normalized) : '';
       const isHiddenImage = Boolean(sourceMediaId && hiddenSourceMediaIds.has(sourceMediaId));
-      const isSourcePreview = Boolean(sourcePreviewUrl && normalized && sourcePreviewUrl === normalized);
-      const rowStatus = [
-        isHiddenImage ? '<span class="source-url-status hidden">Hidden</span>' : '',
-        isSourcePreview ? '<span class="source-url-status preview">Preview</span>' : '',
-      ].filter(Boolean).join('');
+      const rowStatus = isHiddenImage ? '<span class="source-url-status hidden">Hidden</span>' : '';
       const hoverThumb = isImage && normalized
         ? `<div class="source-url-thumb-preview" role="tooltip"><img src="${this._escapeHtml(normalized)}" alt="Source image preview" loading="lazy"></div>`
         : '';
@@ -2619,10 +2614,12 @@ class ModelDetailPopupCard extends HTMLElement {
           <input type="text" class="source-url-input" data-source-url-index="${idx}"
             value="${this._escapeHtml(url)}" placeholder="https://…" />
           ${rowStatus ? `<div class="source-url-statuses">${rowStatus}</div>` : ''}
+        </div>
+        <div class="source-url-open-wrap">
+          <button class="url-action-btn url-open ${isImage ? 'url-open-image' : ''}" data-action="open-source-url" data-url-index="${idx}" title="${isImage ? 'Open image URL' : 'Open URL'}"
+            ${url && url.startsWith('http') ? '' : 'disabled'}>${isImage ? '🖼' : '🔗'}</button>
           ${hoverThumb}
         </div>
-        <button class="url-action-btn url-open" data-action="open-source-url" data-url-index="${idx}" title="Open URL"
-          ${url && url.startsWith('http') ? '' : 'disabled'}>🔗</button>
         <button class="url-action-btn url-remove" data-action="remove-source-url" data-url-index="${idx}" title="Remove URL">✕</button>
       </div>
     `;
@@ -2837,8 +2834,11 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .source-url-input-wrap {
           position: relative;
+          width: 100%;
+          min-width: 0;
         }
         .source-url-input {
+          width: 100%;
           padding: 6px 8px;
           border-radius: 6px;
           border: 1px solid var(--divider-color);
@@ -2846,6 +2846,7 @@ class ModelDetailPopupCard extends HTMLElement {
           color: var(--primary-text-color);
           font-size: 13px;
           min-width: 0;
+          box-sizing: border-box;
         }
         .source-url-statuses {
           position: absolute;
@@ -2873,17 +2874,16 @@ class ModelDetailPopupCard extends HTMLElement {
           background: rgba(239, 68, 68, 0.16);
           color: rgb(254, 202, 202);
         }
-        .source-url-status.preview {
-          border-color: rgba(96, 165, 250, 0.6);
-          background: rgba(96, 165, 250, 0.16);
-          color: rgb(191, 219, 254);
-        }
         .source-url-row.is-hidden-image .source-url-input {
           border-color: rgba(239, 68, 68, 0.35);
         }
+        .source-url-open-wrap {
+          position: relative;
+          display: inline-flex;
+        }
         .source-url-thumb-preview {
           position: absolute;
-          left: 0;
+          right: calc(100% + 8px);
           top: calc(100% + 6px);
           z-index: 12;
           width: 168px;
@@ -2903,8 +2903,8 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 7px;
           display: block;
         }
-        .source-url-input-wrap:hover .source-url-thumb-preview,
-        .source-url-input:focus + .source-url-statuses + .source-url-thumb-preview {
+        .source-url-open-wrap:hover .source-url-thumb-preview,
+        .source-url-open-wrap:focus-within .source-url-thumb-preview {
           display: block;
         }
         .url-action-btn {
