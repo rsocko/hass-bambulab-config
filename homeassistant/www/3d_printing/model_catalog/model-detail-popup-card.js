@@ -6364,9 +6364,21 @@ class ModelDetailPopupCard extends HTMLElement {
 
   async _addSourceUrl() {
     const urls = this._getSourceUrls();
-    urls.push('');
+    urls.push('https://');
     await this._saveSourceField('source_urls', urls);
     await this._syncSourceUrlMediaState(urls);
+    const newIndex = urls.length - 1;
+    requestAnimationFrame(() => {
+      const input = this.shadowRoot
+        ? this.shadowRoot.querySelector(`.source-url-input[data-source-url-index="${newIndex}"]`)
+        : null;
+      if (input && typeof input.focus === 'function') {
+        input.focus();
+        if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(0, String(input.value || '').length);
+        }
+      }
+    });
   }
 
   async _extract3mfMetadata() {
