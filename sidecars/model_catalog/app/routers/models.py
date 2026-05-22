@@ -2563,6 +2563,8 @@ def search_models(
     frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
     has_other_files: bool = False,
     show_archived: bool = False,
+    show_ideas: bool = True,
+    show_working_groups: bool = True,
     sort: str = "best",
     refresh: bool = False,
     page: int = 1,
@@ -2739,6 +2741,11 @@ def search_models(
         entity_type = str(summary.entity_type or "model")
         entity_type_counts[entity_type] = int(entity_type_counts.get(entity_type, 0)) + 1
 
+        if entity_type == "idea" and not show_ideas:
+            continue
+        if entity_type == "working_group" and not show_working_groups:
+            continue
+
         catalog_visibility = _model_catalog_visibility(model_payload)
         visibility_counts[catalog_visibility] = int(visibility_counts.get(catalog_visibility, 0)) + 1
         if not show_archived and catalog_visibility == "archived":
@@ -2784,6 +2791,8 @@ def search_models(
             "frequent_backfill_weight": resolved_backfill_weight,
             "has_other_files": has_other_files,
             "show_archived": bool(show_archived),
+            "show_ideas": bool(show_ideas),
+            "show_working_groups": bool(show_working_groups),
         },
         "visibility": {
             "show_archived": bool(show_archived),

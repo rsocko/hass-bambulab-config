@@ -741,6 +741,54 @@ class TestListModelsEndpointMerge:
         assert "local://local-002" in result_urls
         assert data["filters"]["show_archived"] is True
 
+    def test_search_pagination_respects_entity_type_visibility_filters(self, app_with_local_models):
+        """Search pagination totals/pages are computed from visible entity types when hide toggles are active."""
+        client, db = app_with_local_models
+
+        for index in range(1, 25):
+            create_local_model(
+                db_path=db,
+                local_model_id=f"paged-model-{index:02d}",
+                model_name=f"Paged Model {index:02d}",
+                entity_type="model",
+            )
+
+        create_local_model(
+            db_path=db,
+            local_model_id="paged-idea-01",
+            model_name="Paged Model 18 Idea",
+            entity_type="idea",
+        )
+        create_local_model(
+            db_path=db,
+            local_model_id="paged-working-group-01",
+            model_name="Paged Model 19 Working Group",
+            entity_type="working_group",
+        )
+
+        response = client.get(
+            "/api/models/search",
+            params={
+                "q": "Paged Model",
+                "sort": "name",
+                "page": 2,
+                "per_page": 12,
+                "show_ideas": "false",
+                "show_working_groups": "false",
+            },
+        )
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["filters"]["show_ideas"] is False
+        assert payload["filters"]["show_working_groups"] is False
+        assert payload["pagination"]["per_page"] == 12
+        assert payload["pagination"]["page"] == 2
+        assert payload["pagination"]["total"] == 24
+        assert payload["pagination"]["total_pages"] == 2
+        assert len(payload["results"]) == 12
+        assert all(str(result.get("entity_type") or "model") == "model" for result in payload["results"])
+
     def test_list_models_local_entries_use_local_preview_asset_url(self, app_with_local_models):
         """GET /api/models exposes local preview asset URLs without catalog proxy rewriting."""
         client, db = app_with_local_models

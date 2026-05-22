@@ -751,6 +751,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
         frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
+        show_ideas: !!this._entityTypeFilters.showIdeas,
+        show_working_groups: !!this._entityTypeFilters.showWorkingGroups,
         refresh: !!refresh,
         include_supplements: true,
         page: Math.max(1, Number(page || 1)),
@@ -800,6 +802,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       if (Object.prototype.hasOwnProperty.call(responseFilters, "show_archived")) {
         this._filters.show_archived = !!responseFilters.show_archived;
+      }
+      if (Object.prototype.hasOwnProperty.call(responseFilters, "show_ideas")) {
+        this._entityTypeFilters.showIdeas = !!responseFilters.show_ideas;
+      }
+      if (Object.prototype.hasOwnProperty.call(responseFilters, "show_working_groups")) {
+        this._entityTypeFilters.showWorkingGroups = !!responseFilters.show_working_groups;
       }
 
       var pagination = data && data.pagination ? data.pagination : {};
@@ -1182,12 +1190,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-show-ideas-filter") {
       this._entityTypeFilters.showIdeas = !this._entityTypeFilters.showIdeas;
+      this._requestLoad(1, false);
       this._render();
       return;
     }
 
     if (action === "toggle-show-working-groups-filter") {
       this._entityTypeFilters.showWorkingGroups = !this._entityTypeFilters.showWorkingGroups;
+      this._requestLoad(1, false);
       this._render();
       return;
     }
