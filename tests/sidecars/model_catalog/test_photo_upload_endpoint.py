@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.db import connect, derive_model_key
+from app.local_models import create_local_model
 from app.main import create_app
 from app.settings import Settings
 
@@ -104,6 +105,49 @@ def _create_client(tmp_path: Path) -> TestClient:
     return client
 
 
+def _insert_local_summary(db_path: Path, local_model_id: str) -> None:
+    model_url = f"local://{local_model_id}"
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO model_summary_cache (
+                model_key,
+                model_url,
+                model_public_id,
+                model_name,
+                model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                derive_model_key(
+                    model_url=model_url,
+                    model_public_id=local_model_id,
+                    model_id=local_model_id,
+                ),
+                model_url,
+                local_model_id,
+                "Local Upload Model",
+                local_model_id,
+                None,
+                "Local Tester",
+                json.dumps([]),
+                json.dumps(["local"]),
+                json.dumps({"name": "Local Upload Model"}),
+                "2026-05-22T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def test_upload_photo_rejects_invalid_mime_type(tmp_path: Path) -> None:
     client = _create_client(tmp_path)
     try:
@@ -122,6 +166,59 @@ def test_upload_photo_rejects_invalid_mime_type(tmp_path: Path) -> None:
         "success": False,
         "error": "Invalid file type (must be JPG, PNG, or WebP)",
     }
+
+
+def test_upload_supporting_file_rejects_non_local_model(tmp_path: Path) -> None:
+    client = _create_client(tmp_path)
+    try:
+        response = client.post(
+            "/api/models/test-model/supporting-files",
+            files={"file": ("notes.txt", b"hello", "text/plain")},
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "success": False,
+        "error": "Supporting file uploads are currently available for local models only",
+    }
+
+
+def test_upload_supporting_file_adds_local_supporting_asset(tmp_path: Path) -> None:
+    local_model_id = "local-supporting-upload"
+    client = _create_client(tmp_path)
+    try:
+        db_path = tmp_path / "model_catalog.db"
+        create_local_model(
+            db_path=db_path,
+            local_model_id=local_model_id,
+            model_name="Local Supporting Upload",
+            created_by="test",
+        )
+        _insert_local_summary(db_path, local_model_id)
+
+        upload_response = client.post(
+            f"/api/models/{local_model_id}/supporting-files",
+            files={"file": ("build-notes.txt", b"fixture-notes", "text/plain")},
+        )
+        assert upload_response.status_code == 200
+        upload_payload = upload_response.json()
+        assert upload_payload["success"] is True
+        assert upload_payload["asset_id"].startswith("support-")
+        assert upload_payload["stored_in"] == "supporting_files"
+
+        detail_response = client.get(f"/api/models/{local_model_id}/detail")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert detail_response.status_code == 200
+    files = detail_response.json().get("model", {}).get("files", [])
+    uploaded_file = next((row for row in files if row.get("asset_id") == upload_payload["asset_id"]), None)
+    assert uploaded_file is not None
+    assert uploaded_file["asset_role"] == "supporting"
+    assert uploaded_file["filename"] == "build-notes.txt"
+    assert "supporting_files" in str(uploaded_file.get("storage_path") or "")
 
 
 def test_chartdb_schema_export_returns_live_sqlite_ddl(tmp_path: Path) -> None:

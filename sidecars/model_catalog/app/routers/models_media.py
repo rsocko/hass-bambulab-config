@@ -16,6 +16,7 @@ from ..services.model_media_service import (
     pin_archive_preview_photo_service,
     set_uploaded_model_photo_preview_service,
     upload_photo_service,
+    upload_supporting_file_service,
 )
 
 
@@ -25,6 +26,11 @@ router = APIRouter(tags=["models"])
 @router.post("/api/models/{model_ref:path}/photos")
 async def upload_photo_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     return await upload_photo_service(request, model_ref=model_ref)
+
+
+@router.post("/api/models/{model_ref:path}/supporting-files")
+async def upload_supporting_file_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    return await upload_supporting_file_service(request, model_ref=model_ref)
 
 
 @router.get("/api/models/{model_ref:path}/photos/{photo_id}/content", name="get_uploaded_model_photo_endpoint")

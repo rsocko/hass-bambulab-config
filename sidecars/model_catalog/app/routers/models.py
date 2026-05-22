@@ -45,6 +45,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from starlette.datastructures import UploadFile
 
 from ..db import (
     ArchiveModelLink,
@@ -148,6 +149,7 @@ logger = logging.getLogger(__name__)
 MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
 MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
+MAX_UPLOAD_SUPPORTING_FILE_BYTES = 100 * 1024 * 1024
 # Keep this above common Bambu Studio 3MF sizes so viewer rendering prefers
 # server-side parsed geometry over fragile browser-side 3MF parsing.
 # Empirical guardrail: a ~169 MB / 24-plate Bambu project previously drove the
@@ -756,6 +758,25 @@ def _detect_upload_photo_mime(photo_bytes: bytes) -> str | None:
     if photo_bytes.startswith(b"RIFF") and len(photo_bytes) >= 12 and photo_bytes[8:12] == b"WEBP":
         return "image/webp"
     return None
+
+
+def _sanitize_uploaded_asset_filename(filename: str) -> str:
+    raw_name = Path(str(filename or "")).name.strip()
+    if not raw_name:
+        return "uploaded-file"
+    sanitized = re.sub(r"[<>:\\|?*\x00-\x1f]", "_", raw_name).rstrip(" .")
+    return sanitized or "uploaded-file"
+
+
+def _resolve_local_model_id_for_upload(*, db_path: Path, summary: CatalogModelSummary) -> str | None:
+    if not str(summary.model_url or "").startswith("local://"):
+        return None
+    candidate = str(summary.public_id or summary.model_id or "").strip()
+    if not candidate:
+        return None
+    if read_local_model(db_path=db_path, local_model_id=candidate) is None:
+        return None
+    return candidate
 
 
 def _decode_uploaded_photo(photo_file: str) -> tuple[str, bytes]:
@@ -4047,6 +4068,98 @@ async def upload_photo_endpoint(request: Request, model_ref: str) -> dict[str, A
             "thumbnail_url": photo_url,
             "uploaded_at": now_iso,
         },
+    }
+
+
+async def upload_supporting_file_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    """Upload a supporting file for a local model."""
+    state: AppState = request.app.state.model_catalog
+
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Model not found"})
+
+    local_model_id = _resolve_local_model_id_for_upload(db_path=state.settings.db_path, summary=summary)
+    if local_model_id is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Supporting file uploads are currently available for local models only",
+            },
+        )
+
+    form = await request.form()
+    uploaded = form.get("file")
+    if not isinstance(uploaded, UploadFile):
+        return JSONResponse(status_code=400, content={"success": False, "error": "file is required"})
+
+    source_filename = _sanitize_uploaded_asset_filename(uploaded.filename or "")
+    if not source_filename:
+        return JSONResponse(status_code=400, content={"success": False, "error": "file is required"})
+
+    try:
+        file_bytes = await uploaded.read()
+    finally:
+        await uploaded.close()
+
+    if not file_bytes:
+        return JSONResponse(status_code=400, content={"success": False, "error": "file is empty"})
+    if len(file_bytes) > MAX_UPLOAD_SUPPORTING_FILE_BYTES:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "File too large (max 100MB)"},
+        )
+
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    asset_id = f"support-{file_hash[:16]}"
+    existing_asset = read_model_asset(
+        db_path=state.settings.db_path,
+        local_model_id=local_model_id,
+        asset_id=asset_id,
+    )
+
+    extension = Path(source_filename).suffix.lower()
+    storage_root = _model_photo_storage_root(state.settings)
+    model_folder = storage_root / local_model_id / "supporting_files"
+    model_folder.mkdir(parents=True, exist_ok=True)
+    storage_filename = f"{asset_id}{extension}" if extension else asset_id
+    storage_path = model_folder / storage_filename
+    if not storage_path.exists():
+        storage_path.write_bytes(file_bytes)
+
+    try:
+        relative_path = str(storage_path.relative_to(storage_root.resolve())).replace("\\", "/")
+    except ValueError:
+        relative_path = str(storage_path).replace("\\", "/")
+
+    if existing_asset is None:
+        asset_type = extension.lstrip(".").strip().lower()
+        if not asset_type:
+            guessed_mime_type = str(uploaded.content_type or "").strip().lower()
+            asset_type = guessed_mime_type or "file"
+
+        create_model_asset(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            asset_id=asset_id,
+            asset_filename=source_filename,
+            asset_type=asset_type,
+            storage_path=relative_path,
+            asset_role="supporting",
+            file_size_bytes=len(file_bytes),
+            file_hash=file_hash,
+        )
+
+    assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+    serialized_assets = _serialize_local_model_assets(assets=assets, model_ref=local_model_id)
+    uploaded_asset = next((asset for asset in serialized_assets if str(asset.get("asset_id")) == asset_id), None)
+
+    return {
+        "success": True,
+        "asset_id": asset_id,
+        "asset": uploaded_asset,
+        "stored_in": "supporting_files",
     }
 
 def get_uploaded_model_photo_endpoint(request: Request, model_ref: str, photo_id: str) -> Response:

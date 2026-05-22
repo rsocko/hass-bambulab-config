@@ -18,6 +18,12 @@ async def upload_photo_service(request: Request, model_ref: str) -> dict[str, An
     return await models_router.upload_photo_endpoint(request, model_ref=model_ref)
 
 
+async def upload_supporting_file_service(request: Request, model_ref: str) -> dict[str, Any]:
+    from ..routers import models as models_router
+
+    return await models_router.upload_supporting_file_endpoint(request, model_ref=model_ref)
+
+
 def get_uploaded_model_photo_service(request: Request, model_ref: str, photo_id: str) -> Response:
     from ..routers import models as models_router
 

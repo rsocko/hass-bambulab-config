@@ -29,6 +29,43 @@ var normalizePath = sharedNormalizePath || function (pathValue) {
   return String(pathValue || '').replace(/\\/g, '/');
 };
 
+function compareBrowseNames(leftValue, rightValue) {
+  return String(leftValue || '').localeCompare(String(rightValue || ''), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
+function sortedBrowseEntries(entries) {
+  return (Array.isArray(entries) ? entries.slice() : []).sort(function (left, right) {
+    var leftIsFolder = left && left.type === 'folder';
+    var rightIsFolder = right && right.type === 'folder';
+    if (leftIsFolder !== rightIsFolder) {
+      return leftIsFolder ? -1 : 1;
+    }
+    var byName = compareBrowseNames(left && left.name, right && right.name);
+    if (byName !== 0) {
+      return byName;
+    }
+    return compareBrowseNames(left && left.path, right && right.path);
+  });
+}
+
+function sortedSelectedEntries(entries) {
+  return (Array.isArray(entries) ? entries.slice() : []).sort(function (left, right) {
+    var leftIsFolder = left && left.type === 'folder';
+    var rightIsFolder = right && right.type === 'folder';
+    if (leftIsFolder !== rightIsFolder) {
+      return leftIsFolder ? -1 : 1;
+    }
+    var byPath = compareBrowseNames(left && left.path, right && right.path);
+    if (byPath !== 0) {
+      return byPath;
+    }
+    return compareBrowseNames(left && left.name, right && right.name);
+  });
+}
+
 // Issue #1322: pick an MDI icon for the file type indicator shown in source-step rows.
 var fileTypeIconName = sharedFileTypeIconName || function (pathValue) {
   var normalized = normalizePath(pathValue).toLowerCase();
@@ -783,6 +820,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   var originalRenderBrowserSelectionSummary = proto._renderBrowserSelectionSummary;
   var originalRenderServerSelectionRows = proto._renderServerSelectionRows;
   var originalServerPayloadSelections = proto._serverPayloadSelections;
+  var originalSelectedList = proto._selectedList;
 
   proto._wizardStepCount = function () {
     return 5;
@@ -852,6 +890,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       fileCount: files.length,
       folderCount: folderCount,
     };
+  };
+
+  // Keep selected-entry rendering deterministic across all steps (Source,
+  // Organize, Validate, Commit) instead of depending on object insertion order.
+  proto._selectedList = function () {
+    var entries = originalSelectedList ? originalSelectedList.call(this) : [];
+    return sortedSelectedEntries(entries);
   };
 
   proto._browserTopFolderNames = function () {
@@ -2279,7 +2324,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     var selectedPaths = Object.keys(this._selected || {});
     var excludedItems = Array.isArray(this._excludedItems) ? this._excludedItems : [];
-    return '<div class="entries">' + this._browse.entries.map(function (entry) {
+    var orderedEntries = sortedBrowseEntries(this._browse.entries);
+    return '<div class="entries">' + orderedEntries.map(function (entry) {
       var selected = !!this._selected[entry.path];
       var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
       var isExcluded = excludedItems.indexOf(entry.path) !== -1;
@@ -2331,7 +2377,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Issue #1324: pre-compute sets needed for child-of-selection and exclusion checks.
     var selectedPaths = Object.keys(card._selected || {});
     var excludedItems = Array.isArray(card._excludedItems) ? card._excludedItems : [];
-    return '<div class="entries">' + this._browse.entries.map(function (entry) {
+    var orderedEntries = sortedBrowseEntries(this._browse.entries);
+    return '<div class="entries">' + orderedEntries.map(function (entry) {
       var selected = !!card._selected[entry.path];
       var displayName = String(entry.name || (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename ? window.ModelCatalogIntakeShared.basename(entry.path) : entry.path) || '');
       var isFolder = entry.type === 'folder';
@@ -3233,12 +3280,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     if (action === 'browser-open-path') {
       event.preventDefault();
+      this._skipNextWizardScrollRestore = true;
       this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
       this._render();
       return;
     }
     if (action === 'browser-parent-path') {
       event.preventDefault();
+      this._skipNextWizardScrollRestore = true;
       this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
       this._render();
       return;
@@ -3340,6 +3389,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // longer used for navigation (it only summarizes the current selection).
     if (action === 'jump-server-parent') {
       event.preventDefault();
+      this._skipNextWizardScrollRestore = true;
       var serverParent = String(target.getAttribute('data-parent') || '/') || '/';
       this._loadBrowse(serverParent);
       return;
@@ -3349,9 +3399,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Server path.
     if (action === 'jump-browser-parent') {
       event.preventDefault();
+      this._skipNextWizardScrollRestore = true;
       this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-parent') || '');
       this._render();
       return;
+    }
+    if (action === 'browse-parent' || action === 'browse-path') {
+      this._skipNextWizardScrollRestore = true;
     }
     originalHandleClick.call(this, event);
   };
@@ -3581,7 +3635,37 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   };
 
   // Issue #1328: Override _render to attach highlight listeners after DOM update
+  proto._captureWizardScrollState = function () {
+    if (!this.shadowRoot) {
+      return [];
+    }
+    var scrollers = this.shadowRoot.querySelectorAll('.wizard-panel-scroll');
+    return Array.prototype.map.call(scrollers, function (node, index) {
+      return {
+        index: index,
+        top: Number(node.scrollTop || 0),
+      };
+    });
+  };
+
+  proto._restoreWizardScrollState = function (state) {
+    if (!this.shadowRoot || !Array.isArray(state) || !state.length) {
+      return;
+    }
+    var scrollers = this.shadowRoot.querySelectorAll('.wizard-panel-scroll');
+    state.forEach(function (entry) {
+      var node = scrollers[entry.index];
+      if (!node) {
+        return;
+      }
+      node.scrollTop = Number(entry.top || 0);
+    });
+  };
+
   proto._render = function () {
+    var stepBeforeRender = Number(this._wizardStep || 0);
+    var shouldRestoreScroll = !!(this._wizardOpen && !this._skipNextWizardScrollRestore);
+    var scrollState = shouldRestoreScroll ? this._captureWizardScrollState() : null;
     // Clear highlighting when leaving step 2
     if (this._wizardStep !== 2) {
       this._highlightSelection = null;
@@ -3590,6 +3674,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Attach highlight listeners after rendering completes
     setTimeout(function () {
       this._attachHighlightListeners();
+      // Restore only on same-step rerenders; step transitions should start at
+      // the top of the new pane.
+      if (scrollState && Number(this._wizardStep || 0) === stepBeforeRender) {
+        this._restoreWizardScrollState(scrollState);
+      }
+      this._skipNextWizardScrollRestore = false;
     }.bind(this), 0);
   };
 })();

@@ -244,6 +244,12 @@ class ModelDetailPopupCard extends HTMLElement {
       this._openPhotoFilePicker();
       return;
     }
+    
+    if (target.closest('#btn-add-supporting-file')) {
+      event.preventDefault();
+      this._openSupportingFilePicker();
+      return;
+    }
 
     // Mark as interacting to prevent DOM re-renders during click handling
     this._isInteracting = true;
@@ -808,6 +814,24 @@ class ModelDetailPopupCard extends HTMLElement {
     fileInput.click();
   }
 
+  _openSupportingFilePicker() {
+    const fileInput = this.shadowRoot.getElementById('supporting-file-input');
+    if (!fileInput) {
+      return;
+    }
+
+    if (typeof fileInput.showPicker === 'function') {
+      try {
+        fileInput.showPicker();
+        return;
+      } catch (_error) {
+        // Fall through to click() for browsers that block showPicker here.
+      }
+    }
+
+    fileInput.click();
+  }
+
   _handleChange(event) {
     const target = event.target;
     // Queue dialog: target-state select
@@ -839,12 +863,16 @@ class ModelDetailPopupCard extends HTMLElement {
       this._saveSourceField("source_platform_label", target.value);
       return;
     }
-    if (target.id !== 'photo-file-input' && target.id !== 'hero-photo-file-input') {
+    if (target.id !== 'photo-file-input' && target.id !== 'hero-photo-file-input' && target.id !== 'supporting-file-input') {
       return;
     }
 
     const selectedFiles = Array.from(target.files || []);
     target.value = '';
+    if (target.id === 'supporting-file-input') {
+      this._handleSupportingFileSelect(selectedFiles);
+      return;
+    }
     this._handlePhotoFileSelect(selectedFiles);
   }
 
@@ -2288,6 +2316,7 @@ class ModelDetailPopupCard extends HTMLElement {
       </div>
 
       ${this._renderQueueDialog()}
+      <input type="file" id="supporting-file-input" multiple style="display: none;">
 
       ${this._showConflictDialog ? `
         <div class="conflict-dialog">
@@ -2545,15 +2574,25 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderSupportingFilesPanel(model) {
     const NON_SUPPORT_ROLES = new Set(['primary']);
     const MODEL_TYPES = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
+    const modelUrl = String(model && model.model_url || '').trim().toLowerCase();
+    const canUpload = modelUrl.startsWith('local://');
     const files = (Array.isArray(model.files) ? model.files : []).filter(f => {
       const role = String(f.asset_role || '').toLowerCase();
       const type = String(f.asset_type || '').toLowerCase();
       return !NON_SUPPORT_ROLES.has(role) && !MODEL_TYPES.has(type);
     });
+    const uploadToolbar = `
+      <div class="support-toolbar">
+        <button class="action-button" id="btn-add-supporting-file" ${canUpload ? '' : 'disabled'}>
+          <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add File
+        </button>
+        ${canUpload ? '' : '<div class="detail">Uploads are available for local models.</div>'}
+      </div>
+    `;
     if (!files.length) {
-      return '<div class="support-list"><article class="support"><strong>No supporting files</strong><div class="detail">Documentation and references appear here.</div></article></div>';
+      return `${uploadToolbar}<div class="support-list"><article class="support"><strong>No supporting files</strong><div class="detail">Documentation and references appear here.</div></article></div>`;
     }
-    return `<div class="support-list">${files.map(file => {
+    return `${uploadToolbar}<div class="support-list">${files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.name || 'Support file'));
       const role = this._escapeHtml(String(file.asset_role || ''));
       const type = this._escapeHtml(String(file.asset_type || ''));
@@ -5773,6 +5812,60 @@ class ModelDetailPopupCard extends HTMLElement {
     // Process each file
     for (const file of files) {
       await this._uploadPhoto(file);
+    }
+  }
+  
+  async _handleSupportingFileSelect(files) {
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      await this._uploadSupportingFile(file);
+    }
+  }
+
+  async _uploadSupportingFile(file) {
+    if (!this._modelSidecarUrl || !this._modelRef) return;
+
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      this._error = `File too large: ${file.name} (max 100MB)`;
+      this._render();
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file, file.name || 'upload.bin');
+
+      const response = await fetch(
+        `${this._modelSidecarUrl.replace(/\/$/, '')}/api/models/${encodeURIComponent(this._modelRef)}/supporting-files`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage = payload && payload.error
+          ? String(payload.error)
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      this._error = '';
+      await this._loadModelDetail({ silent: true });
+      this._notifyBrowserDetailChanged();
+    } catch (error) {
+      console.error('Error uploading supporting file:', error);
+      this._error = `Failed to upload ${file.name}: ${error}`;
+      this._render();
     }
   }
 
