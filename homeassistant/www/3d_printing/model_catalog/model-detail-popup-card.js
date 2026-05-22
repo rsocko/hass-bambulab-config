@@ -1160,15 +1160,18 @@ class ModelDetailPopupCard extends HTMLElement {
       this._pendingPopupShellScroll = null;
       return;
     }
-    this._pendingPopupShellScroll = null;
+    const hasNonWindowAnchors = pending.some(anchor => anchor && anchor.kind !== 'window');
 
     const apply = () => {
+      let restoredWindow = false;
+      let restoredNonWindow = false;
       pending.forEach(anchor => {
         if (!anchor) {
           return;
         }
         if (anchor.kind === 'window') {
           window.scrollTo(Number(anchor.left || 0), Number(anchor.top || 0));
+          restoredWindow = true;
           return;
         }
         const target = anchor.kind === 'shadow-path'
@@ -1177,13 +1180,26 @@ class ModelDetailPopupCard extends HTMLElement {
         if (!target) {
           return;
         }
+        if (anchor.kind === 'live-element' && !document.contains(target)) {
+          return;
+        }
         target.scrollTop = Number(anchor.top || 0);
         target.scrollLeft = Number(anchor.left || 0);
+        restoredNonWindow = true;
       });
+      return { restoredWindow, restoredNonWindow };
     };
 
-    apply();
-    requestAnimationFrame(apply);
+    const firstPass = apply();
+    requestAnimationFrame(() => {
+      const secondPass = apply();
+      const restoredWindow = !!(firstPass && firstPass.restoredWindow) || !!(secondPass && secondPass.restoredWindow);
+      const restoredNonWindow = !!(firstPass && firstPass.restoredNonWindow) || !!(secondPass && secondPass.restoredNonWindow);
+      const shouldClear = hasNonWindowAnchors ? restoredNonWindow : restoredWindow;
+      if (shouldClear) {
+        this._pendingPopupShellScroll = null;
+      }
+    });
   }
 
   _render() {
