@@ -4321,6 +4321,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._persistentStyle.textContent = ''
       + ':host{--surface-1:rgba(15,23,42,0.12);--surface-2:rgba(15,23,42,0.22);--line:rgba(148,163,184,0.18);--line-strong:rgba(148,163,184,0.28);--accent:rgba(96,165,250,0.22);--accent-strong:rgba(96,165,250,0.38);--chip-bg:rgba(148,163,184,0.12);--chip-line:rgba(148,163,184,0.24);}'
       + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;contain:content;}'
+      + 'ha-card.queue-dialog-host-open{contain:none;}'
       + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
       + '.shell-header{display:grid;gap:10px;}'
       + '.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-1);}'
@@ -4618,6 +4619,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._persistentStyle);
       this.shadowRoot.appendChild(this._contentRoot);
     }
+
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!this._queueDialogOpen);
 
     this._contentRoot.innerHTML = ''
       + '  <div class="shell">'
