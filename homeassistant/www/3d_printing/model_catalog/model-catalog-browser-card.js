@@ -800,15 +800,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
         this._filters.frequents_only = !!responseFilters.frequents_only;
       }
-      if (Object.prototype.hasOwnProperty.call(responseFilters, "show_archived")) {
-        this._filters.show_archived = !!responseFilters.show_archived;
-      }
-      if (Object.prototype.hasOwnProperty.call(responseFilters, "show_ideas")) {
-        this._entityTypeFilters.showIdeas = !!responseFilters.show_ideas;
-      }
-      if (Object.prototype.hasOwnProperty.call(responseFilters, "show_working_groups")) {
-        this._entityTypeFilters.showWorkingGroups = !!responseFilters.show_working_groups;
-      }
 
       var pagination = data && data.pagination ? data.pagination : {};
       this._pagination.page = Number(pagination.page || requestPayload.page) || 1;
