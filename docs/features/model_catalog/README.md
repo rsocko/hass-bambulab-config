@@ -44,10 +44,17 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ## Documentation Map
 
+Lane navigation:
+
+- [reference](reference/)
+- [design](design/)
+- [planning](planning/)
+- [archive](../../archive/model_catalog/)
+
 ### Core Design
 
-- [Architecture Overview](architecture-overview.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
-- [API Reference](api-reference.md) — Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
+- [Architecture Overview](reference/architecture.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
+- [API Reference](reference/api-reference.md) — Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
 - [Implementation Plan](implementation-plan.md) — Updated phased implementation plan aligned to the approved architecture and use-case priorities
 - [Phase 1.5 Intake Implementation Breakdown](phase-1.5-intake-implementation-breakdown.md) — Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
 - [Intake Wizard and Queue Design](intake-inbox-design.md) — Canonical wizard-first intake design with queue demoted from primary UI and Job History as the visible outcome surface
@@ -65,7 +72,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md) — Authoritative migration plan and sequential phase roadmap
 - [Legacy Router Snapshot Policy](../../../archive/model_catalog/legacy_router_snapshots/README.md) — Maintainer rule for where inactive router backups must live
 - [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Historical analysis retained for context and optional future adapter work
-- [External Storage Behavior](external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
+- [External Storage Behavior](reference/external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
 - [Implementation Strategy Options](implementation-strategy-options.md) — Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking
 - [Persistence And Backup Strategy](persistence-and-backup-strategy.md) — Phase 1.25 persistence boundary, backup/restore runbook shape, named-volume vs bind-mount tradeoffs, and backup-tool comparison
 
@@ -75,10 +82,10 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [ER Diagrams and Sidecar Datamodel](planning/model-catalog-er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
 - [3MF Analysis Cache Schema And API Draft](planning/3mf-analysis-cache-schema-and-api-draft.md) — Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
 - [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for archive-to-model links
-- [Custom Fields Schema](custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
+- [Custom Fields Schema](reference/custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
 - [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA
 - [Working Groups And Veneer](working-groups-and-veneer.md) — Logical Working-file grouping model, folder vs virtual grouping, and operator flows
-- [Cross-Feature Data Contracts](cross-feature-data-contracts.md) — Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
+- [Cross-Feature Data Contracts](reference/data-contracts.md) — Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
 - [Historical Print Backfill Via Model Catalog](historical-print-backfill-via-model-catalog.md) — Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
 - [3MF Resource Extraction And Online Provenance Design](3mf-resource-extraction-and-online-provenance-design.md) — Resource taxonomy, parser/cache contract, STLShelf capability review, and issue-#173 phase mapping for `.3mf` images, support files, and public-source enrichment
 - [3MF Source Extraction (Source Tab + Intake)](3mf-source-extraction-source-tab-and-intake-design.md) — Operator-triggered extraction of source metadata from attached 3MF files, conflict policy for mixed-source models, and shared intake reuse contract
