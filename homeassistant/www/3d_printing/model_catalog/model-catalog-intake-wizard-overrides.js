@@ -1147,7 +1147,13 @@ function renderValidationSummary(card) {
             if (matchSource) {
               fullWidthDetails.push({ key: 'Match source', value: matchSource });
             }
-            var conflictPathDisplayText = conflictPathForTable || matchSource || conflictFilename;
+            var conflictPathDisplayText = conflictPathForTable
+              || trimIntakeSourcePrefix(conflictPath)
+              || matchSource
+              || String(primaryConflict && primaryConflict.label || '').trim()
+              || String(primaryConflict && primaryConflict.parent_name || '').trim()
+              || conflictFilename
+              || String(firstConflictTarget || '').trim();
             if (finding.sha256) {
               fullWidthDetails.push({ key: 'SHA256', value: String(finding.sha256) });
             }
