@@ -2938,7 +2938,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           ? '<span class="chip warn" title="Items excluded from this folder\'s intake">⚠ ' + String(info.excluded) + ' excluded</span>'
           : '';
         return ''
-          + '<article class="entry-row selected right-pane-jump" data-action="jump-browser-parent" data-parent="' + escapeHtml(rootKey) + '" title="Jump to this folder on the left">'
+          + '<article class="entry-row selected right-pane-jump" data-browse-key="' + escapeHtml(rootKey) + '" data-action="jump-browser-parent" data-parent="' + escapeHtml(rootKey) + '" title="Jump to this folder on the left">'
           + '  <div class="entry-top">'
           + folderPreviewMarkup()
           + '    <div class="entry-main">'
@@ -2964,7 +2964,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
           : '<div class="entry-thumb placeholder">No preview</div>';
         return ''
-          + '<article class="entry-row selected right-pane-jump" data-action="jump-browser-parent" data-parent="' + escapeHtml(parentPath) + '" title="Jump to parent folder on the left">'
+          + '<article class="entry-row selected right-pane-jump" data-browse-key="' + escapeHtml(card._browserFileKey(entry)) + '" data-action="jump-browser-parent" data-parent="' + escapeHtml(parentPath) + '" title="Jump to parent folder on the left">'
           + '  <div class="entry-top">'
           + previewMarkup
           + '    <div class="entry-main">'
@@ -3063,7 +3063,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         folderActionButton = '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>';
       }
       return ''
-        + '<article class="' + folderRowClass + '">'
+        + '<article class="' + folderRowClass + '" data-browse-key="' + escapeHtml(folderPath) + '">'
         + '  <div class="entry-top">'
         + folderPreviewMarkup(isArchiveFolder)
         + '    <div class="entry-main">'
@@ -3111,7 +3111,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Select</button>'
         : '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(entryKey) + '">Remove</button>';
       return ''
-        + '<article class="' + fileRowClass + '">'
+        + '<article class="' + fileRowClass + '" data-browse-key="' + escapeHtml(entryKey) + '">'
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
@@ -3220,7 +3220,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + (containsSelection ? ' contains-selection' : '')
         + (isExcluded ? ' excluded' : '');
       return ''
-        + '<article class="' + rowClass + '">'
+        + '<article class="' + rowClass + '" data-path="' + escapeHtml(entry.path) + '">'
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
@@ -3429,6 +3429,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // entry's parent folder on the left (which now owns all navigation).
       + '.wizard-dialog .entry-row.right-pane-jump{cursor:pointer;}'
       + '.wizard-dialog .entry-row.right-pane-jump:hover{background:rgba(96,165,250,0.12);border-color:var(--primary-color,rgba(96,165,250,0.55));}'
+      // Issue #1355: Select-step cross-pane highlighting — visually link left
+      // and right entries when a right-pane jump is clicked or a left-pane row
+      // is tapped. Cyan accent distinguishes from the blue Selected / Organize
+      // highlights.
+      + '.wizard-dialog .entry-row.select-linked{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.45);box-shadow:inset 4px 0 0 0 rgba(56,189,248,0.9);}'
+      + '.wizard-dialog .entry-row.select-dimmed{opacity:0.5;}'
       + '.wizard-dialog .entry-row.loading-item{opacity:0.5;pointer-events:none;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '.intake-spinner{display:inline-block;border-radius:50%;border:2px solid rgba(148,163,184,0.45);border-top-color:rgba(96,165,250,0.95);animation:spin .9s linear infinite;flex-shrink:0;}'
@@ -3683,6 +3689,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   proto._attachFileTreeListeners = function () {
     if (!this.shadowRoot) return;
     var container = this.shadowRoot.querySelector('.wizard-body') || this.shadowRoot;
+    if (container.__fileTreeListenerAttached) return;
+    container.__fileTreeListenerAttached = true;
     container.addEventListener('click', function (event) {
       var toggleRoot = event.target.closest('[data-tree-action="toggle-root"]');
       if (toggleRoot) {
@@ -3711,6 +3719,157 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         return;
       }
     }, false);
+  };
+
+  // ---------------------------------------------------------------
+  // Issue #1355: Select-step cross-pane highlight
+  // ---------------------------------------------------------------
+  // When a right-pane entry is clicked (jump-server-parent / jump-browser-parent)
+  // _handleClick stores the target key in _selectStepHighlight. After the
+  // resulting navigation + re-render, this method auto-applies a cyan accent
+  // on the matching left & right entries and dims the rest. Left-pane rows
+  // also get click listeners so the user can tap any left entry to see which
+  // right-pane entries it relates to (bidirectional, same concept as the
+  // Organize step's _attachHighlightListeners).
+  proto._attachSelectStepHighlightListeners = function () {
+    if (!this.shadowRoot || this._wizardStep !== 1) {
+      return;
+    }
+    var self = this;
+    var panels = this.shadowRoot.querySelectorAll('.wizard-panel');
+    if (panels.length < 2) {
+      return;
+    }
+    var leftPanel = panels[0];
+    var rightPanel = panels[1];
+    var leftEntries = leftPanel.querySelectorAll('.entry-row');
+    var rightEntries = rightPanel.querySelectorAll('.entry-row');
+    if (!leftEntries.length || !rightEntries.length) {
+      return;
+    }
+    var isServer = this._wizardMode === 'server';
+    var keyAttr = isServer ? 'data-path' : 'data-browse-key';
+
+    function getKey(row) {
+      return String(row.getAttribute(keyAttr) || '').replace(/\/+$/, '');
+    }
+
+    function keysRelated(a, b) {
+      if (!a || !b) { return false; }
+      if (a === b) { return true; }
+      if (b.indexOf(a + '/') === 0) { return true; }
+      if (a.indexOf(b + '/') === 0) { return true; }
+      return false;
+    }
+
+    // Build left↔right mapping
+    var leftToRight = {};
+    var rightToLeft = {};
+    var li, ri;
+    for (li = 0; li < leftEntries.length; li += 1) {
+      leftToRight[li] = [];
+    }
+    for (ri = 0; ri < rightEntries.length; ri += 1) {
+      rightToLeft[ri] = [];
+    }
+    for (li = 0; li < leftEntries.length; li += 1) {
+      var lk = getKey(leftEntries[li]);
+      if (!lk) { continue; }
+      for (ri = 0; ri < rightEntries.length; ri += 1) {
+        var rk = getKey(rightEntries[ri]);
+        if (!rk) { continue; }
+        if (keysRelated(lk, rk)) {
+          leftToRight[li].push(ri);
+          rightToLeft[ri].push(li);
+        }
+      }
+    }
+
+    function clearHighlights() {
+      for (var i = 0; i < leftEntries.length; i += 1) {
+        leftEntries[i].classList.remove('select-linked', 'select-dimmed');
+      }
+      for (var j = 0; j < rightEntries.length; j += 1) {
+        rightEntries[j].classList.remove('select-linked', 'select-dimmed');
+      }
+    }
+
+    function applyRightHighlight(targetRi) {
+      clearHighlights();
+      if (targetRi < 0 || targetRi >= rightEntries.length) { return; }
+      rightEntries[targetRi].classList.add('select-linked');
+      var leftMatches = rightToLeft[targetRi] || [];
+      for (var i = 0; i < leftEntries.length; i += 1) {
+        leftEntries[i].classList.add(leftMatches.indexOf(i) !== -1 ? 'select-linked' : 'select-dimmed');
+      }
+      for (var j = 0; j < rightEntries.length; j += 1) {
+        if (j !== targetRi) {
+          rightEntries[j].classList.add('select-dimmed');
+        }
+      }
+    }
+
+    function applyLeftHighlight(targetLi) {
+      clearHighlights();
+      if (targetLi < 0 || targetLi >= leftEntries.length) { return; }
+      leftEntries[targetLi].classList.add('select-linked');
+      var rightMatches = leftToRight[targetLi] || [];
+      for (var i = 0; i < rightEntries.length; i += 1) {
+        rightEntries[i].classList.add(rightMatches.indexOf(i) !== -1 ? 'select-linked' : 'select-dimmed');
+      }
+      for (var j = 0; j < leftEntries.length; j += 1) {
+        if (j !== targetLi) {
+          leftEntries[j].classList.add('select-dimmed');
+        }
+      }
+    }
+
+    // Auto-apply from persisted highlight state
+    var hl = self._selectStepHighlight;
+    if (hl && hl.key) {
+      var targetKey = String(hl.key).replace(/\/+$/, '');
+      var found = false;
+      if (hl.side === 'right') {
+        for (ri = 0; ri < rightEntries.length; ri += 1) {
+          if (getKey(rightEntries[ri]) === targetKey) {
+            applyRightHighlight(ri);
+            found = true;
+            break;
+          }
+        }
+      } else {
+        for (li = 0; li < leftEntries.length; li += 1) {
+          if (getKey(leftEntries[li]) === targetKey) {
+            applyLeftHighlight(li);
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        self._selectStepHighlight = null;
+      }
+    }
+
+    // Left-pane click listeners for bidirectional highlighting.
+    // Right-pane highlighting is driven by the jump handlers (data-action on
+    // the article itself) → _selectStepHighlight → auto-apply above.
+    for (li = 0; li < leftEntries.length; li += 1) {
+      (function (leftRow, idx) {
+        leftRow.addEventListener('click', function (event) {
+          var interactive = event.target.closest('button,select,input,textarea,[data-action]');
+          if (interactive) { return; }
+          event.stopPropagation();
+          if (leftRow.classList.contains('select-linked')) {
+            clearHighlights();
+            self._selectStepHighlight = null;
+          } else {
+            applyLeftHighlight(idx);
+            self._selectStepHighlight = { side: 'left', key: getKey(leftRow) };
+          }
+        }, false);
+      })(leftEntries[li], li);
+    }
   };
 
   proto._attachHighlightListeners = function () {
@@ -4228,6 +4387,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (action === 'browser-open-path') {
       event.preventDefault();
       this._skipNextWizardScrollRestore = true;
+      this._selectStepHighlight = null;
       this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
       this._render();
       return;
@@ -4235,6 +4395,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (action === 'browser-parent-path') {
       event.preventDefault();
       this._skipNextWizardScrollRestore = true;
+      this._selectStepHighlight = null;
       this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
       this._render();
       return;
@@ -4371,6 +4532,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (action === 'jump-server-parent') {
       event.preventDefault();
       this._skipNextWizardScrollRestore = true;
+      this._selectStepHighlight = { side: 'right', key: String(target.getAttribute('data-path') || '') };
       var serverParent = String(target.getAttribute('data-parent') || '/') || '/';
       this._loadBrowse(serverParent);
       return;
@@ -4381,12 +4543,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (action === 'jump-browser-parent') {
       event.preventDefault();
       this._skipNextWizardScrollRestore = true;
+      this._selectStepHighlight = { side: 'right', key: String(target.getAttribute('data-browse-key') || '') };
       this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-parent') || '');
       this._render();
       return;
     }
     if (action === 'browse-parent' || action === 'browse-path') {
       this._skipNextWizardScrollRestore = true;
+      this._selectStepHighlight = null;
     }
     originalHandleClick.call(this, event);
   };
@@ -4712,10 +4876,15 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep !== 2) {
       this._highlightSelection = null;
     }
+    // Issue #1355: clear Select-step highlight when leaving step 1
+    if (this._wizardStep !== 1) {
+      this._selectStepHighlight = null;
+    }
     originalRender.call(this);
     // Attach highlight listeners after rendering completes
     setTimeout(function () {
       this._attachFileTreeListeners();
+      this._attachSelectStepHighlightListeners();
       this._attachHighlightListeners();
       // Restore only on same-step rerenders; step transitions should start at
       // the top of the new pane.
