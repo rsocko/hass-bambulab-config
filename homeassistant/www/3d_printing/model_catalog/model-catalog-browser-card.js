@@ -25,6 +25,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._pendingLoad = null;
     this._debounceHandle = null;
     this._deferredRenderHandle = null;
+    this._progressiveAppendHandle = null;
+    this._renderEpoch = 0;
     this._modelSidecarUrl = "";
     this._unifiedQueueByModelRef = {};
     this._unifiedQueueIndexLastFetchedAt = 0;
@@ -87,6 +89,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       links: "",
       sketchUrl: "",
     };
+    this._perfSamples = [];
+    this._lastLoadPerf = null;
+    this._lastRenderPerf = null;
   }
 
   _defaultFilters() {
@@ -753,6 +758,51 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }.bind(this), delay);
   }
 
+  _recordPerfSample(type, payload) {
+    var sample = {
+      type: String(type || "unknown"),
+      at: Date.now(),
+      payload: payload && typeof payload === "object" ? payload : {},
+    };
+    this._perfSamples.push(sample);
+    if (this._perfSamples.length > 60) {
+      this._perfSamples.splice(0, this._perfSamples.length - 60);
+    }
+  }
+
+  _shouldProgressiveResultsRender(visibleResults) {
+    if (this._loading || this._browserScope === "collections" || this._viewMode === "media") {
+      return false;
+    }
+    var count = Array.isArray(visibleResults) ? visibleResults.length : 0;
+    return count >= 24;
+  }
+
+  _scheduleProgressiveResultsAppend(remainder, renderEpoch) {
+    if (this._progressiveAppendHandle) {
+      window.clearTimeout(this._progressiveAppendHandle);
+      this._progressiveAppendHandle = null;
+    }
+    if (!Array.isArray(remainder) || !remainder.length) {
+      return;
+    }
+    this._progressiveAppendHandle = window.setTimeout(function () {
+      this._progressiveAppendHandle = null;
+      if (renderEpoch !== this._renderEpoch) {
+        return;
+      }
+      if (!this.shadowRoot || !this._contentRoot || this._loading) {
+        return;
+      }
+      var resultsNode = this._contentRoot.querySelector('.results');
+      if (!resultsNode) {
+        return;
+      }
+      resultsNode.insertAdjacentHTML('beforeend', remainder.map(this._renderModelCard.bind(this)).join(""));
+      this._scheduleThumbnailObserverSetup(0);
+    }.bind(this), 0);
+  }
+
   _requestLoad(page, refresh) {
     var targetPage = Math.max(1, Number(page || 1));
     if (!this._hass) {
@@ -810,6 +860,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    var perfStart = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+    var searchStart = perfStart;
+    var searchEnd = searchStart;
+    var queueStart = 0;
+    var queueEnd = 0;
+
     this._loading = true;
     this._error = "";
     this._doRender();
@@ -841,6 +897,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       };
 
       var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
+      searchEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
       this._results = Array.isArray(data && data.results) ? data.results : [];
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
       var responseVisibility = data && data.visibility && typeof data.visibility === "object" ? data.visibility : {};
@@ -883,7 +940,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
+      queueStart = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
       this._refreshUnifiedQueueIndex().then(function (queueIndexChanged) {
+        queueEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
         if (this._loading) {
           return;
         }
@@ -908,6 +967,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } finally {
       this._loading = false;
       this._refreshSpin = false;
+      var perfEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+      this._lastLoadPerf = {
+        page: Math.max(1, Number(page || 1)),
+        searchMs: Math.max(0, Math.round(searchEnd - searchStart)),
+        queueMs: queueEnd > queueStart ? Math.max(0, Math.round(queueEnd - queueStart)) : 0,
+        totalMs: Math.max(0, Math.round(perfEnd - perfStart)),
+        resultCount: Array.isArray(this._results) ? this._results.length : 0,
+        timestamp: Date.now(),
+      };
+      this._recordPerfSample("load", this._lastLoadPerf);
       this._render();
       if (this._pendingLoad) {
         var pendingLoad = this._pendingLoad;
@@ -3120,11 +3189,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var pages = this._pageCount();
     return ''
       + '<div class="toolbar-group nav-group">'
-      + '  <button class="toolbar-icon-btn" type="button" data-action="first-page" aria-label="First page" title="First page" ' + (this._loading || page <= 1 ? 'disabled' : '') + '><ha-icon icon="mdi:page-first"></ha-icon></button>'
-      + '  <button class="toolbar-icon-btn" type="button" data-action="prev-page" aria-label="Previous page" title="Previous page" ' + (this._loading || page <= 1 ? 'disabled' : '') + '><ha-icon icon="mdi:chevron-left"></ha-icon></button>'
+      + '  <button class="toolbar-icon-btn" type="button" data-action="first-page" aria-label="First page" title="First page" ' + (page <= 1 ? 'disabled' : '') + '><ha-icon icon="mdi:page-first"></ha-icon></button>'
+      + '  <button class="toolbar-icon-btn" type="button" data-action="prev-page" aria-label="Previous page" title="Previous page" ' + (page <= 1 ? 'disabled' : '') + '><ha-icon icon="mdi:chevron-left"></ha-icon></button>'
       + '  <div class="page-status">' + this._renderPageStatusWithCount() + '</div>'
-      + '  <button class="toolbar-icon-btn" type="button" data-action="next-page" aria-label="Next page" title="Next page" ' + (this._loading || page >= pages ? 'disabled' : '') + '><ha-icon icon="mdi:chevron-right"></ha-icon></button>'
-      + '  <button class="toolbar-icon-btn" type="button" data-action="last-page" aria-label="Last page" title="Last page" ' + (this._loading || page >= pages ? 'disabled' : '') + '><ha-icon icon="mdi:page-last"></ha-icon></button>'
+      + '  <button class="toolbar-icon-btn" type="button" data-action="next-page" aria-label="Next page" title="Next page" ' + (page >= pages ? 'disabled' : '') + '><ha-icon icon="mdi:chevron-right"></ha-icon></button>'
+      + '  <button class="toolbar-icon-btn" type="button" data-action="last-page" aria-label="Last page" title="Last page" ' + (page >= pages ? 'disabled' : '') + '><ha-icon icon="mdi:page-last"></ha-icon></button>'
       + '</div>';
   }
 
@@ -3459,11 +3528,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
               // immediately so re-renders don't show a blank flash before the observer reattaches.
               var cachedObjectUrl = getCachedThumbnailObjectUrl(String(mediaUrl));
               if (cachedObjectUrl) {
-                return '<img src="' + this._escapeHtml(String(cachedObjectUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy">';
+                return '<img src="' + this._escapeHtml(String(cachedObjectUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy" decoding="async">';
               }
-              return '<img data-thumbnail-lazy-url="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy">';
+              return '<img data-thumbnail-lazy-url="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy" decoding="async">';
             }).call(this)
-          : '<img src="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview">'
+          : '<img src="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy" decoding="async">'
       )
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
 
@@ -4292,7 +4361,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    var renderStart = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+    var renderEpoch = this._renderEpoch + 1;
+    this._renderEpoch = renderEpoch;
+    if (this._progressiveAppendHandle) {
+      window.clearTimeout(this._progressiveAppendHandle);
+      this._progressiveAppendHandle = null;
+    }
+
     var visibleResults = this._filteredResultsForScope();
+    var progressiveRemainder = null;
 
     var resultsHtml = "";
     if (this._loading) {
@@ -4304,7 +4382,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else if (this._browserScope === "collections") {
       resultsHtml = this._renderCollectionCards();
     } else {
-      resultsHtml = visibleResults.map(this._renderModelCard.bind(this)).join("");
+      if (this._shouldProgressiveResultsRender(visibleResults)) {
+        var initialCount = Math.min(18, visibleResults.length);
+        resultsHtml = visibleResults.slice(0, initialCount).map(this._renderModelCard.bind(this)).join("");
+        progressiveRemainder = visibleResults.slice(initialCount);
+      } else {
+        resultsHtml = visibleResults.map(this._renderModelCard.bind(this)).join("");
+      }
     }
 
     // Inject the <style> element once so the browser never re-parses ~300
@@ -4641,6 +4725,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>';
 
     this._scheduleThumbnailObserverSetup(0);
+    if (progressiveRemainder && progressiveRemainder.length) {
+      this._scheduleProgressiveResultsAppend(progressiveRemainder, renderEpoch);
+    }
+    var renderEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+    this._lastRenderPerf = {
+      renderMs: Math.max(0, Math.round(renderEnd - renderStart)),
+      visibleCount: Array.isArray(visibleResults) ? visibleResults.length : 0,
+      progressiveRemainder: progressiveRemainder ? progressiveRemainder.length : 0,
+      viewMode: this._viewMode,
+      browserScope: this._browserScope,
+      timestamp: Date.now(),
+    };
+    this._recordPerfSample("render", this._lastRenderPerf);
   }
 }
 
