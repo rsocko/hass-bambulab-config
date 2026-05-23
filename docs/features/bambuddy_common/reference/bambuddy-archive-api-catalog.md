@@ -4,7 +4,7 @@
 > `backend/app/api/routes/archives.py` — FastAPI/Python backend.
 > All endpoints are relative to `{base_url}/api/v1/archives`.
 
-> **⚠️ OpenAPI Cross-Reference**: This catalog was derived from Bambuddy source code. Cross-reference with [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for discrepancies found against the live OpenAPI spec. Key differences: (1) `GET /` has no `status` or `search` query params — search is at `GET /search`; (2) `POST /{id}/tags` endpoint may not exist — tags are set via `PATCH /{id}` with full comma-separated string; (3) Stats response has no `success_rate` or `avg_print_time` — must be computed. Full API domain coverage (280+ endpoints across 34 groups) documented in [api-vs-design-guidance.md](../../repo/api-vs-design-guidance.md).
+> **⚠️ OpenAPI Cross-Reference**: This catalog was derived from Bambuddy source code. Cross-reference with [openapi-correction-notes.md](../../../repo/reference/openapi-correction-notes.md) for discrepancies found against the live OpenAPI spec. Key differences: (1) `GET /` has no `status` or `search` query params — search is at `GET /search`; (2) `POST /{id}/tags` endpoint may not exist — tags are set via `PATCH /{id}` with full comma-separated string; (3) Stats response has no `success_rate` or `avg_print_time` — must be computed. Full API domain coverage (280+ endpoints across 34 groups) documented in [api-vs-design-guidance.md](../../../repo/reference/api-vs-design-guidance.md).
 
 ## Summary
 

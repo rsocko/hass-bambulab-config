@@ -1,6 +1,6 @@
 # Archive Restore Implementation Plan
 
-> Companion to [archive-runtime-restore-ha-ux-design.md](archive-runtime-restore-ha-ux-design.md) and [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md).
+> Companion to [archive-runtime-restore-ha-ux-design.md](../../design/runtime-repair/archive-runtime-restore-ha-ux-design.md) and [archive-runtime-sidecar-api-and-compose.md](../../reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md).
 
 ## Purpose
 

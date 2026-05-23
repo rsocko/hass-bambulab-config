@@ -1,6 +1,6 @@
 # Photo Capture Design — Multi-Camera, Multi-Stage
 
-> **OpenAPI Cross-Reference**: Photo upload (`POST /archives/{id}/photos`) confirmed as multipart/form-data in OpenAPI spec. Photo GET/DELETE endpoints confirmed unauthenticated. Bambuddy also offers a direct camera snapshot API (`GET /printers/{id}/camera/snapshot`) as an alternative to HA camera entities — see [api-vs-design-guidance.md](../../repo/api-vs-design-guidance.md#5-camera-endpoints--direct-snapshot-alternative). Full API corrections in [openapi-correction-notes.md](../../repo/openapi-correction-notes.md).
+> **OpenAPI Cross-Reference**: Photo upload (`POST /archives/{id}/photos`) confirmed as multipart/form-data in OpenAPI spec. Photo GET/DELETE endpoints confirmed unauthenticated. Bambuddy also offers a direct camera snapshot API (`GET /printers/{id}/camera/snapshot`) as an alternative to HA camera entities — see [api-vs-design-guidance.md](/docs/repo/reference/api-vs-design-guidance.md#5-camera-endpoints--direct-snapshot-alternative). Full API corrections in [openapi-correction-notes.md](/docs/repo/reference/openapi-correction-notes.md).
 
 ## Overview
 

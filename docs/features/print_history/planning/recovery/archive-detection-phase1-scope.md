@@ -19,9 +19,9 @@ The main remaining Phase 1 gap from this document is not the browser visibility 
 
 Related documents:
 
-- [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
+- [archive-detection-recovery-design.md](../../design/recovery/archive-detection-recovery-design.md)
 - [archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)
-- [archive-exception-ux-design.md](archive-exception-ux-design.md)
+- [archive-exception-ux-design.md](../../design/recovery/archive-exception-ux-design.md)
 - [archive-detection-execution-checklist.md](archive-detection-execution-checklist.md)
 
 ## Recommendation

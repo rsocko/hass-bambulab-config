@@ -3,7 +3,7 @@
 > **Issue**: #1127 Add Ability to Filter Heatmap (and results) by the "Legend" values
 > **Status**: Implemented
 > **Created**: 2026-04-25
-> **Depends on**: [filter-sort-design.md](filter-sort-design.md), [README.md](README.md)
+> **Depends on**: [filter-sort-design.md](filter-sort-design.md), [README.md](../../README.md)
 
 ## Problem Statement
 

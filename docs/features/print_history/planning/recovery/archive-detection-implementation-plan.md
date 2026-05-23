@@ -1,4 +1,4 @@
-﻿# Archive Detection Implementation Plan
+# Archive Detection Implementation Plan
 
 > Implementation-status note: the original Phase 1 detection and visibility slice described here is now partially shipped through the active Variant 3 browser/store path. This document should now be read as a split between shipped detection groundwork and still-pending recovery orchestration.
 
@@ -11,8 +11,8 @@ Related documents:
 - [archive-detection-recovery-design.md](../../design/recovery/archive-detection-recovery-design.md)
 - [archive-recovery-live-matrix-2026-04-04.md](../../archive/recovery/archive-recovery-live-matrix-2026-04-04.md)
 - [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
-- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
-- [archive-runtime-field-impact-matrix.md](../reference/archive-runtime-field-impact-matrix.md)
+- [archive-runtime-db-repair-guide.md](../../reference/archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](../../reference/archive-runtime-field-impact-matrix.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../../reference/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 - [archive-runtime-sidecar-api-and-compose.md](../../reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 - [bambuddy-archive-recovery-approach.md](../../design/recovery/bambuddy-archive-recovery-approach.md)
@@ -34,7 +34,7 @@ Goal: allow a user to trigger repair through an external recovery runner without
 
 This phase now includes the optional canonical-runtime repair path for recovered or manually corrected archives. See:
 
-- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
+- [archive-runtime-db-repair-guide.md](../../reference/archive-runtime-db-repair-guide.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../../reference/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 
 ### Phase 3: Automated recovery orchestration
@@ -114,7 +114,7 @@ The upload command is included in the design now so the shape is clear, even tho
 1. `check_archive_integrity`
 2. `audit_recent_archive_exceptions`
 3. `mark_archive_exception`
-4. `request_archive_recovery` â€” phase 2, operator-triggered only
+4. `request_archive_recovery` — phase 2, operator-triggered only
 
 ### Sensors
 
@@ -275,7 +275,7 @@ Recommended path:
 
 Reference files:
 
-- [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
+- [archive-recovery-live-matrix-2026-04-04.md](../../archive/recovery/archive-recovery-live-matrix-2026-04-04.md)
 - [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
 - `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1`
 

@@ -119,12 +119,10 @@ Current design guidance: do not combine that work with any upstream Bambuddy DB 
 ### Recommended Further Work
 
 1. Keep the upstream-friendly admin endpoint draft active:
-   [bambuddy/archive-runtime-admin-api-pr-draft.md](../../../bambuddy/archive-runtime-admin-api-pr-draft.md)
+   [bambuddy/archive-runtime-admin-api-pr-draft.md](../../../../bambuddy/archive-runtime-admin-api-pr-draft.md)
 
 2. Keep the sidecar as the only direct-DB fallback layer if upstream does not add the endpoint:
-   [
-docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md
-](../print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
+   [archive-runtime-sidecar-api-and-compose.md](../../print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 
 3. Add or preserve regression coverage for flattened generic webhook payloads that include event metadata but omit a reliable `archive_id`.
 

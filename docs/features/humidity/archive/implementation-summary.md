@@ -180,9 +180,9 @@ homeassistant/packages/3d_printing/humidity/
 ## Related Resources
 
 ### Internal
-- [Main Dashboard](../printer_dashboards/README.md)
+- [Main Dashboard](../../printer_dashboards/README.md)
 - [Fan Controls](../../../homeassistant/packages/3d_printing/printer_controls/dashboard_cards/fan_controls_v2.yaml)
-- [Spoolman Sync](../spoolman_sync/README.md)
+- [Spoolman Sync](../../spoolman_sync/README.md)
 
 ### External
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)

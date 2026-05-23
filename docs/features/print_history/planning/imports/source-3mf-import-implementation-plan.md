@@ -1,6 +1,6 @@
 # Source 3MF Import Implementation Plan
 
-> Companion to [source-3mf-import-design.md](source-3mf-import-design.md).
+> Companion to [source-3mf-import-design.md](../../design/imports/source-3mf-import-design.md).
 
 ## Purpose
 

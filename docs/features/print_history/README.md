@@ -1,6 +1,6 @@
 # Print History — Archive Reading, Photo Capture & Enrichment
 
-> **⚠️ OpenAPI Corrections Applied**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference against Bambuddy v0.2.2.2 OpenAPI spec. Key fixes already in code: trailing slash URLs, flat array responses (not dict wrapper), offset-based pagination (not page-based), no `sort`/`order` query params.
+> **⚠️ OpenAPI Corrections Applied**: See [openapi-correction-notes.md](../../repo/reference/openapi-correction-notes.md) for full cross-reference against Bambuddy v0.2.2.2 OpenAPI spec. Key fixes already in code: trailing slash URLs, flat array responses (not dict wrapper), offset-based pagination (not page-based), no `sort`/`order` query params.
 
 ## Overview
 

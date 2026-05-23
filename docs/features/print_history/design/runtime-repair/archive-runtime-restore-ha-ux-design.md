@@ -1,4 +1,4 @@
-﻿# Archive Restore Workflow Home Assistant UX Design
+# Archive Restore Workflow Home Assistant UX Design
 
 ## Purpose
 
@@ -13,8 +13,8 @@ This document covers:
 
 This document is intentionally separate from the sidecar API draft and the runbook.
 
-- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md) defines the sidecar HTTP surface
-- [archive-runtime-restore-from-runbook.md](archive-runtime-restore-from-runbook.md) defines the current operator-run sequence
+- [archive-runtime-sidecar-api-and-compose.md](../../reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md) defines the sidecar HTTP surface
+- [archive-runtime-restore-from-runbook.md](../../reference/runtime-repair/archive-runtime-restore-from-runbook.md) defines the current operator-run sequence
 - this document defines the Home Assistant UX and workflow contract that can sit on top of those pieces
 
 ## Current Status
@@ -25,9 +25,9 @@ The repository already contemplates Home Assistant as the UX plane for archive m
 
 Existing evidence:
 
-- [archive-runtime-ha-contract.md](archive-runtime-ha-contract.md) defines a Home Assistant contract for direct runtime repair of one archive
+- [archive-runtime-ha-contract.md](../../reference/runtime-repair/archive-runtime-ha-contract.md) defines a Home Assistant contract for direct runtime repair of one archive
 - [archive-detail-popup-design.md](../ui-media/archive-detail-popup-design.md) reserves future archive-action slots in the popup instead of on the archive card face
-- [advanced-features-design.md](../planning/advanced-features-design.md) already treats repair and archive-admin flows as advanced follow-on work rather than default browsing behavior
+- [advanced-features-design.md](../../planning/advanced-features-design.md) already treats repair and archive-admin flows as advanced follow-on work rather than default browsing behavior
 
 ### Not designed or implemented today
 
@@ -97,7 +97,7 @@ Home Assistant should not reimplement:
 
 ### 2. Restore belongs in advanced archive actions
 
-This follows the guidance already established in [archive-runtime-ha-contract.md](archive-runtime-ha-contract.md): high-risk repair flows belong in advanced archive actions, not in the default browsing surface.
+This follows the guidance already established in [archive-runtime-ha-contract.md](../../reference/runtime-repair/archive-runtime-ha-contract.md): high-risk repair flows belong in advanced archive actions, not in the default browsing surface.
 
 ### 3. Review before mutation
 
@@ -428,7 +428,7 @@ Home Assistant should pass through the sidecar contract rather than inventing a 
 
 ### Plan/apply payload
 
-Based on [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md):
+Based on [archive-runtime-sidecar-api-and-compose.md](../../reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md):
 
 ```json
 {

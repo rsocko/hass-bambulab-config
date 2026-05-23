@@ -38,7 +38,7 @@ It is adjacent to, but distinct from, the local forensic recovery workflow built
 
 - [tools/bambuddy/gcode_forensics_viewer.py](../../../tools/bambuddy/gcode_forensics_viewer.py)
 - [tools/bambuddy/run_forensics_import_queue.py](../../../tools/bambuddy/run_forensics_import_queue.py)
-- [archive-historical-backfill-from-sd-card.md](./archive-historical-backfill-from-sd-card.md)
+- [archive-historical-backfill-from-sd-card.md](../../reference/imports/archive-historical-backfill-from-sd-card.md)
 
 That distinction matters because there are now three separate operator intents:
 

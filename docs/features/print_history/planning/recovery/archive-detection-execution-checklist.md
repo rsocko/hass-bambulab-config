@@ -9,9 +9,9 @@ Provide a task-by-task checklist for moving from approved design to implementati
 Related documents:
 
 - [archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)
-- [archive-recovery-n8n-design.md](archive-recovery-n8n-design.md)
-- [archive-exception-ux-design.md](archive-exception-ux-design.md)
-- [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
+- [archive-recovery-n8n-design.md](../../design/recovery/archive-recovery-n8n-design.md)
+- [archive-exception-ux-design.md](../../design/recovery/archive-exception-ux-design.md)
+- [archive-recovery-live-matrix-2026-04-04.md](../../archive/recovery/archive-recovery-live-matrix-2026-04-04.md)
 - [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
 
 ## Phase 1: Detection Core

@@ -229,5 +229,5 @@ Stop and review before removal if any of the following are true:
 ## Related Docs
 
 - [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
-- [archive-runtime-restore-from-field-matrix.md](../reference/archive-runtime-restore-from-field-matrix.md)
-- [archive-runtime-restore-from-example-191-200.md](../reference/archive-runtime-restore-from-example-191-200.md)
+- [archive-runtime-restore-from-field-matrix.md](../archive-runtime-restore-from-field-matrix.md)
+- [archive-runtime-restore-from-example-191-200.md](../archive-runtime-restore-from-example-191-200.md)

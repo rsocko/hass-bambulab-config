@@ -303,7 +303,7 @@ automation:
 
 ## Related Resources
 
-- [AMS Header Cards](../printer_dashboards/card-templates-README.md) - Inline humidity/temperature indicators on each AMS header (uses the same threshold mappings)
+- [AMS Header Cards](../printer_dashboards/reference/card-templates-README.md) - Inline humidity/temperature indicators on each AMS header (uses the same threshold mappings)
 - [Bambu Lab Home Assistant Integration](https://github.com/greghesp/ha-bambulab)
 - [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
 - [Card-mod Documentation](https://github.com/thomasloven/lovelace-card-mod)

@@ -8,12 +8,12 @@ This document is the repo-level decision record. Feature-level detail lives in [
 
 Additional print_history design references for canonical runtime repair and deployment patterns:
 
-- [../runtime-repair/archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
-- [../runtime-repair/archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md)
-- [../runtime-repair/archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
-- [../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
-- [../runtime-repair/archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
-- [../imports/archive-historical-backfill-from-sd-card.md](../imports/archive-historical-backfill-from-sd-card.md)
+- [../runtime-repair/archive-runtime-db-repair-guide.md](../../reference/archive-runtime-db-repair-guide.md)
+- [../runtime-repair/archive-runtime-field-impact-matrix.md](../../reference/archive-runtime-field-impact-matrix.md)
+- [../runtime-repair/archive-runtime-repair-deployment-options.md](../../planning/runtime-repair/archive-runtime-repair-deployment-options.md)
+- [../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../../reference/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
+- [../runtime-repair/archive-runtime-sidecar-api-and-compose.md](../../reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
+- [../imports/archive-historical-backfill-from-sd-card.md](../../reference/imports/archive-historical-backfill-from-sd-card.md)
 - [../imports/folder-3mf-catalog-design.md](../imports/folder-3mf-catalog-design.md)
 - [../imports/source-3mf-import-design.md](../imports/source-3mf-import-design.md)
 

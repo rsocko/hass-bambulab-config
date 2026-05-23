@@ -13,8 +13,8 @@ Shared infrastructure for all Bambuddy feature packages. Provides API configurat
 ## Related Design Notes
 
 - [Archive Binding And Potential PostgreSQL Migration Guidance](planning/archive-binding-and-postgres-guidance.md)
-- [Print History Photo Capture Design](../print_history/ui-media/photo-capture-design.md)
-- [Print History Runtime Repair Sidecar API Draft](../print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
+- [Print History Photo Capture Design](../print_history/design/ui-media/photo-capture-design.md)
+- [Print History Runtime Repair Sidecar API Draft](../print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 
 ## Is Webhook Required?
 

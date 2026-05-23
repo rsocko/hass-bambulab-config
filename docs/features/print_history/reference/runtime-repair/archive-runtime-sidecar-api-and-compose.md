@@ -100,7 +100,7 @@ Yes.
 Current behavior:
 
 - loads both archive rows from the Bambuddy SQLite database
-- applies the field-policy contract documented in [archive-runtime-restore-from-field-matrix.md](../reference/archive-runtime-restore-from-field-matrix.md)
+- applies the field-policy contract documented in [archive-runtime-restore-from-field-matrix.md](../archive-runtime-restore-from-field-matrix.md)
 - preserves parser-derived target fields such as `content_hash`, `thumbnail_path`, and `print_time_seconds`
 - copies or merges selected runtime, user metadata, notes, tags, photos, and `extra_data`
 - supports dry-run planning, apply mode, and optional post-merge re-enrich
@@ -677,7 +677,7 @@ function restore_from(request):
 
 The concrete field-by-field policy table for this merge logic lives in:
 
-- [archive-runtime-restore-from-field-matrix.md](../reference/archive-runtime-restore-from-field-matrix.md)
+- [archive-runtime-restore-from-field-matrix.md](../archive-runtime-restore-from-field-matrix.md)
 
 Operator-oriented request examples and the recommended merge/verify/remove sequence live in:
 
