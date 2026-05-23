@@ -1,12 +1,12 @@
-# WLED Configuration for Bambu Lab Printer LED Setup
+﻿# WLED Configuration for Bambu Lab Printer LED Setup
 
-> **Updated 2026-03-13** — Aligned to HA State Machine architecture.
+> **Updated 2026-03-13** â€” Aligned to HA State Machine architecture.
 
 This directory contains WLED configuration, documentation, and Home Assistant integration files for controlling LED strips on a Bambu Lab X1C printer with dual AMS units.
 
 ## Dependencies & Requirements
 
-> **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it controls physical LED hardware via HA automations, not dashboard cards.
+> **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration â€” see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) â€” it controls physical LED hardware via HA automations, not dashboard cards.
 
 ### External Dependencies
 
@@ -15,59 +15,59 @@ This directory contains WLED configuration, documentation, and Home Assistant in
 | [WLED](https://kno.wled.ge/) firmware on LED controllers | **Yes** | LED control firmware on DigQuad and/or MagWLED controllers |
 | [WLED HA integration](https://www.home-assistant.io/integrations/wled/) | **Yes** | Built-in HA integration for WLED device discovery and control |
 | DigQuad LED controller | **Yes** | 5-output controller driving 711 LEDs across 5 strips |
-| MagWLED LED controller | No | Interior lid light (48 LEDs) — currently offline. System works without it. |
-| 5V power supply (15–20A recommended) | **Yes** | Powers the LED strips — see [Power Considerations](#notes-and-recommendations) |
+| MagWLED LED controller | No | Interior lid light (48 LEDs) â€” currently offline. System works without it. |
+| 5V power supply (15â€“20A recommended) | **Yes** | Powers the LED strips â€” see [Power Considerations](#notes-and-recommendations) |
 
 ### Related Features
 
 | Feature | Relationship |
 |---|---|
-| [Printer LED](../printer_led/README.md) | Dashboard controls for the WLED lights — depends on this feature |
-| [Core](../core/README.md) | Smart status values drive state machine transitions (S0–S8) |
+| [Printer LED](../printer_led/README.md) | Dashboard controls for the WLED lights â€” depends on this feature |
+| [Core](../core/README.md) | Smart status values drive state machine transitions (S0â€“S8) |
 
 ## Screenshots
 
 <!-- SCREENSHOT: id=wled-state-machine-printing | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
-<!-- Capture: Film physical DigQuad LED strips during state transition (S1 idle blue → S3 printing green with progress bar). Phone camera → convert to GIF -->
-> **🎬 Animation needed:** Physical WLED strips — state transition idle → printing *(gif)*
+<!-- Capture: Film physical DigQuad LED strips during state transition (S1 idle blue â†’ S3 printing green with progress bar). Phone camera â†’ convert to GIF -->
+> **ðŸŽ¬ Animation needed:** Physical WLED strips â€” state transition idle â†’ printing *(gif)*
 
 <!-- SCREENSHOT: id=wled-front-display-progress | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
-<!-- Capture: Film front C-shape LED strip showing print progress bar filling left-to-right. Phone camera → convert to GIF -->
-> **🎬 Animation needed:** Front display LED — print progress bar *(gif)*
+<!-- Capture: Film front C-shape LED strip showing print progress bar filling left-to-right. Phone camera â†’ convert to GIF -->
+> **ðŸŽ¬ Animation needed:** Front display LED â€” print progress bar *(gif)*
 
 <!-- SCREENSHOT: id=wled-ams-tray-lighting | format=png | version=1.0 | package=wled | added=2026-03-15 -->
 <!-- Capture: Photo of AMS lid LED strips illuminating all 4 spool positions -->
-> **📸 Screenshot needed:** AMS tray LED lighting — spool illumination *(png)*
+> **ðŸ“¸ Screenshot needed:** AMS tray LED lighting â€” spool illumination *(png)*
 
 <!-- SCREENSHOT: id=wled-error-state | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
-<!-- Capture: Film LED strips in error state S6 (flashing red). Phone camera → convert to GIF -->
-> **🎬 Animation needed:** WLED error state — flashing red LEDs *(gif)*
+<!-- Capture: Film LED strips in error state S6 (flashing red). Phone camera â†’ convert to GIF -->
+> **ðŸŽ¬ Animation needed:** WLED error state â€” flashing red LEDs *(gif)*
 
 ## Current Architecture: HA State Machine
 
-The system uses a **Home Assistant state machine** that monitors printer status, transitions through **9 core states** (S0–S8), and applies WLED presets (101–109) to the DigQuad controller automatically.
+The system uses a **Home Assistant state machine** that monitors printer status, transitions through **9 core states** (S0â€“S8), and applies WLED presets (101â€“109) to the DigQuad controller automatically.
 
-**Phase 1 (Core State Machine) is deployed and running.** Phases 2–3 (segment expansion, overlays) are future work.
+**Phase 1 (Core State Machine) is deployed and running.** Phases 2â€“3 (segment expansion, overlays) are future work.
 
 ## Architecture Documentation
 
-- [HA State Machine Package](ha-state-machine-package.md) - Canonical architecture and Mermaid `stateDiagram-v2` for S0-S8 transitions
+- [HA State Machine Package](reference/ha-state-machine-package.md) - Canonical architecture and Mermaid `stateDiagram-v2` for S0-S8 transitions
 
 ### Quick Links
 
 | Document                                                         | Purpose                                                           |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [quick-reference.md](quick-reference.md)                         | **Start here** — architecture overview, entities, phase status    |
-| [ha-state-machine-package.md](ha-state-machine-package.md)       | State diagram, event mapping, preset mapping                      |
-| [light-scenarios.md](light-scenarios.md)                         | Target vision — 33+ LED scenarios, priority tiers, overlay system |
-| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation with test procedures                       |
-| [INDEX.md](INDEX.md)                                             | Master file index with status of every document                   |
+| [quick-reference.md](reference/quick-reference.md)                         | **Start here** â€” architecture overview, entities, phase status    |
+| [ha-state-machine-package.md](reference/ha-state-machine-package.md)       | State diagram, event mapping, preset mapping                      |
+| [light-scenarios.md](design/light-scenarios.md)                         | Target vision â€” 33+ LED scenarios, priority tiers, overlay system |
+| [phased-implementation-guide.md](planning/phased-implementation-guide.md) | 3-phase implementation with test procedures                       |
+| [INDEX.md](planning/index.md)                                             | Master file index with status of every document                   |
 
 ### Key Hardware Facts
 
-- **DigQuad** — 5 GPIO pins, 711 LEDs, at **full capacity** (cannot add more strips)
-- **MagWLED** — 1 GPIO pin, 48 LEDs (interior lid light, currently offline)
-- **No hardware changes needed** — current physical setup is optimal
+- **DigQuad** â€” 5 GPIO pins, 711 LEDs, at **full capacity** (cannot add more strips)
+- **MagWLED** â€” 1 GPIO pin, 48 LEDs (interior lid light, currently offline)
+- **No hardware changes needed** â€” current physical setup is optimal
 
 ## Hardware Setup
 
@@ -78,9 +78,9 @@ The system uses a **Home Assistant state machine** that monitors printer status,
 
 ### LED Strip Layout
 
-For detailed LED segment specifications, see [digquad-led-segments.md](digquad-led-segments.md).
-For LED function details, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
-For comprehensive scenario catalog, see [light-scenarios.md](light-scenarios.md).
+For detailed LED segment specifications, see [digquad-led-segments.md](reference/digquad-led-segments.md).
+For LED function details, see [LED Function Map](design/light-scenarios.md#2-led-function-map-consolidated).
+For comprehensive scenario catalog, see [light-scenarios.md](design/light-scenarios.md).
 
 #### Strip 1 - Printer Front Display (C-Shape)
 - **GPIO Pin**: 15
@@ -171,11 +171,11 @@ For comprehensive scenario catalog, see [light-scenarios.md](light-scenarios.md)
 #### Interior Lights
 - Controlled via existing Home Assistant automation
 - Use rules to control colors based on print status & stage
-- See [light-scenarios.md](light-scenarios.md) for recommended behaviors
+- See [light-scenarios.md](design/light-scenarios.md) for recommended behaviors
 
 ## Segment Allocation
 
-The segment allocation can be organized based on functional needs. For the actual LED ranges and GPIO pin mappings, see [digquad-led-segments.md](digquad-led-segments.md).
+The segment allocation can be organized based on functional needs. For the actual LED ranges and GPIO pin mappings, see [digquad-led-segments.md](reference/digquad-led-segments.md).
 
 ### Suggested Digquad Segments
 1. Segment 0: Printer Door Bottom (0-50) - Progress bar
@@ -186,38 +186,38 @@ The segment allocation can be organized based on functional needs. For the actua
 6. Segment 11-14: AMS1 Tags (437-572) - Complex segmentation for tags and hygrometer
 7. Segment 15: Reserved for additional AMS1 segments
 
-Note: With 711 total LEDs across 5 GPIO outputs, segment planning should be based on functional zones rather than fixed allocations. Refer to [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) for specific use cases.
+Note: With 711 total LEDs across 5 GPIO outputs, segment planning should be based on functional zones rather than fixed allocations. Refer to [LED Function Map](design/light-scenarios.md#2-led-function-map-consolidated) for specific use cases.
 
 ## Wiring Diagram
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    DIGQUAD CONTROLLER                    │
-├─────────────────────────────────────────────────────────┤
-│ GPIO 15: Printer Front Door (C-shape) - 158 LEDs        │
-│ GPIO 1:  AMS 1 Lid/Spools - 140 LEDs                    │
-│ GPIO 3:  AMS 2 Lid/Spools - 139 LEDs                    │
-│ GPIO 16: AMS 1 Tags + Hygrometer - 136 LEDs             │
-│ GPIO 4:  AMS 2 Tags + Hygrometer - 138 LEDs             │
-│                                                          │
-│ Total: 711 LEDs                                          │
-└─────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                    DIGQUAD CONTROLLER                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ GPIO 15: Printer Front Door (C-shape) - 158 LEDs        â”‚
+â”‚ GPIO 1:  AMS 1 Lid/Spools - 140 LEDs                    â”‚
+â”‚ GPIO 3:  AMS 2 Lid/Spools - 139 LEDs                    â”‚
+â”‚ GPIO 16: AMS 1 Tags + Hygrometer - 136 LEDs             â”‚
+â”‚ GPIO 4:  AMS 2 Tags + Hygrometer - 138 LEDs             â”‚
+â”‚                                                          â”‚
+â”‚ Total: 711 LEDs                                          â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
-┌─────────────────────────────────────────────────────────┐
-│                 INTERIOR LIGHTING                        │
-├─────────────────────────────────────────────────────────┤
-│ Controlled via existing Home Assistant automations      │
-│ See: https://github.com/PaulBiod/HA-bambulab-wled       │
-│ and: https://github.com/jberreth/bambu-status-wled-ha-  │
-│      blueprint                                           │
-└─────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                 INTERIOR LIGHTING                        â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Controlled via existing Home Assistant automations      â”‚
+â”‚ See: https://github.com/PaulBiod/HA-bambulab-wled       â”‚
+â”‚ and: https://github.com/jberreth/bambu-status-wled-ha-  â”‚
+â”‚      blueprint                                           â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
-For detailed wiring specifications and LED ranges, see [digquad-led-segments.md](digquad-led-segments.md).
+For detailed wiring specifications and LED ranges, see [digquad-led-segments.md](reference/digquad-led-segments.md).
 
 ## Presets
 
-The system currently uses **state machine presets 101–109** on the DigQuad controller, one per core state:
+The system currently uses **state machine presets 101â€“109** on the DigQuad controller, one per core state:
 
 | Preset | State | Description |
 |--------|-------|-------------|
@@ -231,11 +231,11 @@ The system currently uses **state machine presets 101–109** on the DigQuad con
 | 108 | S7 Updating | Firmware update |
 | 109 | S8 Show | Demo / rainbow mode |
 
-These are skeleton presets (segments 0 + 1 only). Phase 2 will expand them to the full 15-segment layout. See [ha-state-machine-package.md](ha-state-machine-package.md) for the complete state and event mapping.
+These are skeleton presets (segments 0 + 1 only). Phase 2 will expand them to the full 15-segment layout. See [ha-state-machine-package.md](reference/ha-state-machine-package.md) for the complete state and event mapping.
 
-> **Note:** The original preset specification (presets 1–33) in [preset-specification.md](preset-specification.md) was a design document that was **never deployed**. It is retained as legacy reference only.
+> **Note:** The original preset specification (presets 1â€“33) in [preset-specification.md](archive/preset-specification-legacy.md) was a design document that was **never deployed**. It is retained as legacy reference only.
 
-For detailed function specifications for each zone, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
+For detailed function specifications for each zone, see [LED Function Map](design/light-scenarios.md#2-led-function-map-consolidated).
 
 ## Configuration Files
 
@@ -246,7 +246,7 @@ For detailed function specifications for each zone, see [LED Function Map](light
 - `magwled-settings/`: Configuration snapshots for MagWLED controller
 - `backups/`: Versioned controller snapshots (DigQuad and MagWLED)
   - See [wled/backups/README.md](../../../wled/backups/README.md) for folder conventions
-  - See [backup-and-restore.md](backup-and-restore.md) for backup/restore steps
+  - See [backup-and-restore.md](reference/backup-and-restore.md) for backup/restore steps
 
 ## LED Specifications
 
@@ -262,67 +262,67 @@ For detailed function specifications for each zone, see [LED Function Map](light
 
 #### AMS 1 Lid/Spools (GPIO 1)
 - **Total LEDs**: 140 (Range: 158-297)
-- See [digquad-led-segments.md](digquad-led-segments.md) for detailed breakdown
+- See [digquad-led-segments.md](reference/digquad-led-segments.md) for detailed breakdown
 
 #### AMS 2 Lid/Spools (GPIO 3)
 - **Total LEDs**: 139 (Range: 298-436)
-- See [digquad-led-segments.md](digquad-led-segments.md) for detailed breakdown
+- See [digquad-led-segments.md](reference/digquad-led-segments.md) for detailed breakdown
 
 #### AMS 1 Tags (GPIO 16)
 - **Total LEDs**: 136 (Range: 437-572)
 - Includes filament tags and hygrometer lighting
-- See [digquad-led-segments.md](digquad-led-segments.md) for detailed breakdown
+- See [digquad-led-segments.md](reference/digquad-led-segments.md) for detailed breakdown
 
 #### AMS 2 Tags (GPIO 4)
 - **Total LEDs**: 138 (Range: 573-710)
 - Includes filament tags and hygrometer lighting
-- See [digquad-led-segments.md](digquad-led-segments.md) for detailed breakdown
+- See [digquad-led-segments.md](reference/digquad-led-segments.md) for detailed breakdown
 
-For complete LED specifications with exact segment ranges, refer to [digquad-led-segments.md](digquad-led-segments.md).
+For complete LED specifications with exact segment ranges, refer to [digquad-led-segments.md](reference/digquad-led-segments.md).
 
 ## Home Assistant Integration
 
 The HA state machine package handles all WLED control automatically. The package lives at `homeassistant/packages/3d_printing/wled/` and includes:
 
-- **Orchestrator automation** — watches printer sensors, computes E_* events, transitions states
-- **Transition script** — applies the correct preset when state changes
-- **Helpers** — `input_select` for state, `input_boolean` for enable/disable, `input_text` for last event
+- **Orchestrator automation** â€” watches printer sensors, computes E_* events, transitions states
+- **Transition script** â€” applies the correct preset when state changes
+- **Helpers** â€” `input_select` for state, `input_boolean` for enable/disable, `input_text` for last event
 
-See [ha-state-machine-package.md](ha-state-machine-package.md) for the full architecture and [quick-reference.md](quick-reference.md) for entity names.
-- **Printer Idle** → Preset 2 (Idle/Standby)
-- **AMS Tray Changed** → Update active tray segments with filament color
-- **Filament Loading** → Preset 17 (Loading animation)
-- **Humidity High** → Preset 20 (Humidity warning)
-- **Door Open** → Preset 16 (Door open warning)
+See [ha-state-machine-package.md](reference/ha-state-machine-package.md) for the full architecture and [quick-reference.md](reference/quick-reference.md) for entity names.
+- **Printer Idle** â†’ Preset 2 (Idle/Standby)
+- **AMS Tray Changed** â†’ Update active tray segments with filament color
+- **Filament Loading** â†’ Preset 17 (Loading animation)
+- **Humidity High** â†’ Preset 20 (Humidity warning)
+- **Door Open** â†’ Preset 16 (Door open warning)
 
 ## Implementation Steps
 
 1. **Physical Installation**
-   - Mount LED strips according to the layout specifications in [digquad-led-segments.md](digquad-led-segments.md)
-   - Follow the detailed physical installation guide in [wiring-diagram.md](wiring-diagram.md)
+   - Mount LED strips according to the layout specifications in [digquad-led-segments.md](reference/digquad-led-segments.md)
+   - Follow the detailed physical installation guide in [wiring-diagram.md](reference/wiring-diagram.md)
    - Connect strips to Digquad controller GPIO pins (15, 1, 3, 16, 4)
    - Power up controller with adequate 5V power supply
 
 2. **WLED Configuration**
    - Upload `wled_cfg_Digquad.json` to Digquad controller
    - Configure GPIO outputs with actual LED counts (711 total)
-   - Adjust segment start/stop positions based on [digquad-led-segments.md](digquad-led-segments.md)
+   - Adjust segment start/stop positions based on [digquad-led-segments.md](reference/digquad-led-segments.md)
    - Verify all 711 LEDs are properly addressed
 
 3. **Preset Configuration**
    - Upload preset files to controller
-   - Configure presets according to [light-scenarios.md](light-scenarios.md)
+   - Configure presets according to [light-scenarios.md](design/light-scenarios.md)
    - Test each preset manually to verify behavior
    - Fine-tune colors and effects as needed
 
 4. **Home Assistant Integration**
    - Add WLED device to Home Assistant
-   - Create automations based on [home-assistant-automations.md](home-assistant-automations.md)
-   - Map printer states to appropriate presets from [light-scenarios.md](light-scenarios.md)
+   - Create automations based on [home-assistant-automations.md](archive/home-assistant-automations-legacy.md)
+   - Map printer states to appropriate presets from [light-scenarios.md](design/light-scenarios.md)
    - Test automation triggers with actual print jobs
 
 5. **Function Validation**
-  - Test each LED function from [LED Function Map](light-scenarios.md#2-led-function-map-consolidated)
+  - Test each LED function from [LED Function Map](design/light-scenarios.md#2-led-function-map-consolidated)
    - Verify progress bar display on printer door bottom
    - Confirm filament color matching on tags
    - Test hygrometer humidity indicators
@@ -333,7 +333,7 @@ See [ha-state-machine-package.md](ha-state-machine-package.md) for the full arch
 ### Power Considerations
 - Calculate total power draw: Each LED can draw up to 60mA at full white
 - Total LEDs: 711
-- Maximum draw: 711 × 0.06A = 42.66A at full white (unlikely scenario)
+- Maximum draw: 711 Ã— 0.06A = 42.66A at full white (unlikely scenario)
 - Typical usage at 30-50% brightness: ~12-21A
 - **Recommendation**: 15-20A 5V power supply with adequate headroom
 - Use power injection at multiple points for strips over 100 LEDs
@@ -345,7 +345,7 @@ See [ha-state-machine-package.md](ha-state-machine-package.md) for the full arch
 - Verify LED type compatibility (WS2812B, SK6812, etc.) in WLED configuration
 
 ### Segment Planning
-- Plan segments based on functional zones (see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated))
+- Plan segments based on functional zones (see [LED Function Map](design/light-scenarios.md#2-led-function-map-consolidated))
 - WLED supports up to 16 segments per controller (with some configurations supporting more)
 - Organize segments by function rather than strict physical layout
 - Key functional zones:
@@ -376,3 +376,7 @@ For issues or questions:
 - WLED Documentation: https://kno.wled.ge/
 - Home Assistant WLED Integration: https://www.home-assistant.io/integrations/wled/
 - Repository Issues: https://github.com/rsocko/hass-bambulab-config/issues
+
+
+
+

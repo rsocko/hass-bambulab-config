@@ -33,7 +33,7 @@ Alignment rule:
 | C1 (complete) | model_catalog | Very High | docs/features/model_catalog | Full lane split, root simplification, phase archive moves | A |
 | C1 (complete) | print_history | Very High | docs/features/print_history | Preserve subdomains, enforce lifecycle placement, trim parent README | A |
 | C1 (complete) | spoolman_sync | High | docs/features/spoolman_sync | Split mixed root docs into lifecycle lanes | A |
-| C2 | wled | High | docs/features/wled | Hardware/reference/design separation | A |
+| C2 (complete) | wled | High | docs/features/wled | Hardware/reference/design separation | A |
 | C2 | air_quality | High | docs/features/air_quality | README de-bloat, lane migration | A |
 | C2 | printer_led | High | docs/features/printer_led | Separate runbook/design/history docs | A |
 | C2 | logging | Medium | docs/features/logging | Keep integrations subtree, lane classify | A |
@@ -68,6 +68,12 @@ Format note:
 
 Batch 1 total planned row-level items: 268
 
+## Matrix C: C2 Detailed Row-Level Coverage
+
+| Feature | Row Count | Detailed Matrix File |
+|---|---:|---|
+| wled | 21 | docs/repo/planning/matrices/migration-matrix-batch2-wled.csv.md |
+
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.
 2. Update docs/README.md and affected feature README in same PR as moves.
@@ -75,6 +81,7 @@ Batch 1 total planned row-level items: 268
 4. Add metadata header to every moved/touched document.
 5. Ensure archive folder README guardrail exists before moving docs into archive.
 6. Remove temporary pointers when link audit confirms safe cleanup.
+7. Use lane-first sub-area structure when subdomains exist: place docs under `design/<sub-area>/`, `planning/<sub-area>/`, `reference/<sub-area>/`, and `archive/<sub-area>/` rather than `<sub-area>/...` at feature root.
 
 ## Verification Checklist
 1. Matrix rows exist before moves for that batch scope.

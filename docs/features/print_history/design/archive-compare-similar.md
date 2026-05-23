@@ -1,4 +1,4 @@
-# Archive Compare And Similar Workflow Design (Issue #757)
+﻿# Archive Compare And Similar Workflow Design (Issue #757)
 
 Status: Active
 Last Reviewed: 2026-05-23
@@ -401,9 +401,25 @@ Why fourth:
 When implementing issue `#757`, use these sources first:
 
 1. this document
-2. `docs/features/print_history/ui-media/archive-detail-popup-design.md`
+2. `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/archive-detail-popup-design.md
+
+
+
+`
 3. `docs/features/bambuddy_common/bambuddy-archive-api-catalog.md`
-4. `docs/features/print_history/browser/filter-sort-design.md`
+4. `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/filter-sort-design.md
+
+
+
+`
 5. Bambuddy source references:
    - `backend/app/api/routes/archives.py`
    - `backend/app/services/archive_comparison.py`
@@ -411,7 +427,13 @@ When implementing issue `#757`, use these sources first:
 
 Implementation guardrails:
 
-- preserve the three-layer browser contract from `browser/filter-sort-design.md`
+- preserve the three-layer browser contract from `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/filter-sort-design.md
+
+
+`
 - add compare and related workflows as on-demand detail queries, not as Layer 1 projection fields
 - prefer HA-native compare rendering over guessed Bambuddy deep links
 - keep selection limits aligned with Bambuddy's `2-5` archive API contract
@@ -425,3 +447,4 @@ Issue `#757` can be considered designed well enough for implementation when:
 - the design explicitly avoids relying on unsupported upstream routes
 - the data-fetch strategy keeps Layer 1 lean
 - there is a clear sequence for follow-on implementation, not just a generic feature idea
+

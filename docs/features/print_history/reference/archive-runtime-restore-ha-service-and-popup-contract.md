@@ -1,4 +1,4 @@
-# Archive Restore HA Service And Popup Contract
+﻿# Archive Restore HA Service And Popup Contract
 
 Status: Active
 Last Reviewed: 2026-05-23
@@ -6,7 +6,19 @@ Functional Owner: print_history
 Replaces: docs/features/print_history/runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md
 Replaced By: none
 
-> Concrete companion to [archive-runtime-restore-ha-ux-design.md](../runtime-repair/archive-runtime-restore-ha-ux-design.md) and [archive-runtime-restore-implementation-plan.md](../runtime-repair/archive-runtime-restore-implementation-plan.md).
+> Concrete companion to [archive-runtime-restore-ha-ux-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/runtime-repair/archive-runtime-restore-ha-ux-design.md
+
+
+) and [archive-runtime-restore-implementation-plan.md](../
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/runtime-repair/archive-runtime-restore-implementation-plan.md
+
+
+).
 
 ## Purpose
 
@@ -476,3 +488,4 @@ If an implementation instead tries to hold the full upload in helper state, webs
 - making the main popup itself host the full restore state machine inline
 - persisting restore workflow state across HA restart
 - combining source-3MF image import and replacement-file repair into one UI card
+

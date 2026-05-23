@@ -1,0 +1,22 @@
+﻿# Connections DigQuad > WLED LED Config
+
+- Status: Active
+- Last Reviewed: 2026-05-23
+- Functional Owner: wled
+- Replaces: docs/features/wled/digquad-led-segments.md
+- Replaced By: n/a
+
+
+**OVERALL TOTAL LEDS: 711**
+
+| GPIO Pin | Connected to LED       | Type / Style                     | LED Range / Count |
+|----------|------------------------|----------------------------------|-------------------|
+| 15       | Printer - Front        | COB 160 LED/m<br><br>[Amazon Product Link](https://www.amazon.com)                    | **Full:**<br>Start: 0<br>Length: 158<br><br>**Segments:**<br>Bottom: 0â€“50 (Length: 50)<br>Left: 51â€“115 (Length: 65)<br>Top: 116â€“158 (Length: 43) |
+| 1        | AMS1 - Lid/Spools      | COB 160 LED/m<br><br>[Amazon Product Link](https://www.amazon.com)                    | **Full:**<br>Start: 158<br>Length: 140<br><br>**Segments:**<br>Top: 158 (Length: 58)<br>Side wall (merge as part of top/bottom or split): Length: 25<br>Bottom: Length: 55<br><br>**Segments 2 (by Spool):**<br>Tray 1 - Top: Length: 17<br>Tray 2 - Top: Length: 12<br>Tray 3 - Top: Length: 13<br>Tray 4 - Top: Length: 13<br>**<EXTRA 3 before end of top + side wall + 3 before start of bottom>**<br>Tray 4 - Bottom: Length: 14<br>Tray 3 - Bottom: Length: 13<br>Tray 2 - Bottom: Length: 13<br>Tray 1 - Bottom: Length: 14 |
+| 3        | AMS2 - Lid/Spools      | COB 160 LED/m<br><br>[Amazon Product Link](https://www.amazon.com)                    | **Full:**<br>Start: 298<br>Length: 139<br><br>**Segments:**<br>Top: 158 (Length: 60)<br>Side wall (merge as part of top/bottom or split): Length: 25<br>Bottom: Length: 55<br><br>**Segments 2 (by Spool):**<br>Tray 1 - Top: Length: 18<br>Tray 2 - Top: Length: 13<br>Tray 3 - Top: Length: 13<br>Tray 4 - Top: Length: 14<br>**<EXTRA 2 before end of top + side wall + 3 before start of bottom>**<br>Tray 4 - Bottom: Length: 14<br>Tray 3 - Bottom: Length: 14<br>Tray 2 - Bottom: Length: 13<br>Tray 1 - Bottom: Length: 12 |
+| 16       | AMS1 - Tags            | Mini 2.7mm wide 160 LED/m<br><br>[Amazon Product Link](https://www.amazon.com)        | **Full:**<br>Start: 437<br>Length: 136<br><br>**Segments:**<br>Side (at start): Length: 5<br>Top: 158 (Length: 60)<br>Side wall (merge as part of top/bottom or split): Length: 5<br>Bottom: Length: 66<br><br>**Segments 2 (by Tray/Tag + Hygrometer):**<br>Side (at start): Length: 5<br>Tray 1 - Top: Length: 12<br>Tray 2 - Top: Length: 12<br>Tray 3 - Top: Length: 12<br>Hygrometer (bottom): Length: 12<br>Tray 4 - Top: Length: 12<br><side wall>: Length: 5<br>Tray 4 - Bottom: Length: 12<br>Tray 3 - Bottom: Length: 15<br>Tray 2 - Bottom: Length: 14<br>Hygrometer (top): Length: 13<br>Tray 1 - Bottom: Length: 12 |
+| 4        | AMS2 - Tags            | Mini 2.7mm wide 160 LED/m<br><br>[Amazon Product Link](https://www.amazon.com)        | **Full:**<br>Start: 573<br>Length: 138<br><br>**Segments:**<br>Side (at start): Length: 6<br>Top: 158 (Length: 61)<br>Side wall (merge as part of top/bottom or split): Length: 5<br>Bottom: Length: 66<br><br>**Segments 2 (by Tray/Tag + Hygrometer):**<br>Side (at start): Length: 5<br>Tray 1 - Top: Length: 13<br>Tray 2 - Top: Length: 14<br>Tray 3 - Top: Length: 14<br>Hygrometer (bottom): Length: 12<br>Tray 4 - Top: Length: 12<br><side wall>: Length: 5<br>Tray 4 - Bottom: Length: 12<br>Tray 3 - Bottom: Length: 15<br>Tray 2 - Bottom: Length: 15<br>Hygrometer (top): Length: 13<br>Tray 1 - Bottom: Length: 11 |
+
+
+
+

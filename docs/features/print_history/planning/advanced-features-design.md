@@ -1,8 +1,14 @@
-# Advanced Features Design — Leveraging Full Bambuddy API
+﻿# Advanced Features Design â€” Leveraging Full Bambuddy API
 
 > Based on full archive API catalog: [bambuddy-archive-api-catalog.md](../bambuddy_common/bambuddy-archive-api-catalog.md)
 
-> **Integration point**: Advanced features add scripts/REST commands to `print_history/scripts/` and `print_history/rest_commands/`. Dashboard additions go in `print_history/dashboard_cards/` and are included from `print_history/dashboard_views/view_print_history.yaml`. Photo review scripts and popup are tracked separately in [photo-review-design.md](../ui-media/photo-review-design.md).
+> **Integration point**: Advanced features add scripts/REST commands to `print_history/scripts/` and `print_history/rest_commands/`. Dashboard additions go in `print_history/dashboard_cards/` and are included from `print_history/dashboard_views/view_print_history.yaml`. Photo review scripts and popup are tracked separately in [photo-review-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/photo-review-design.md
+
+
+).
 >
 > **OpenAPI cross-check**: Re-validated against the live spec at `http://bambuddy.socko.us/openapi.json` on 2026-03-29. The scenarios below only use endpoints confirmed in the current API.
 
@@ -58,7 +64,7 @@ API: `POST /archives/{id}/timelapse/scan`
 
 ### Tag Audit Sensor
 
-REST sensor polling `GET /archives/tags` — state is total unique tag count, attributes contain tag→count mapping. Useful for verifying enrichment is working. Simple entity card on maintenance or diagnostic dashboard.
+REST sensor polling `GET /archives/tags` â€” state is total unique tag count, attributes contain tagâ†’count mapping. Useful for verifying enrichment is working. Simple entity card on maintenance or diagnostic dashboard.
 
 ### Phase & Dependencies
 
@@ -71,7 +77,13 @@ REST sensor polling `GET /archives/tags` — state is total unique tag count, at
 
 ## Phase 2.05: Archive Detection and Recovery
 
-Detailed design is tracked in [archive-detection-recovery-design.md](../recovery/archive-detection-recovery-design.md).
+Detailed design is tracked in [archive-detection-recovery-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/recovery/archive-detection-recovery-design.md
+
+
+).
 
 ### Summary
 
@@ -103,7 +115,7 @@ This is the best available path without changing Bambuddy itself, because curren
 - **Depends on**: print_history core, exception UX work, optional external recovery worker
 - **Package**: print_history plus external recovery integration
 - **Effort**: Medium
-- **Value**: Very High — catches and manages broken history records early in the phase 2 roadmap
+- **Value**: Very High â€” catches and manages broken history records early in the phase 2 roadmap
 
 ---
 
@@ -120,7 +132,7 @@ The toggle endpoint is simpler for button cards; the PATCH endpoint is better fo
 
 ### Feature Scope
 
-**Manual favorite** — A button on the print history dashboard card, or a dedicated HA script or service, that marks the current or last completed print as a favorite in Bambuddy.
+**Manual favorite** â€” A button on the print history dashboard card, or a dedicated HA script or service, that marks the current or last completed print as a favorite in Bambuddy.
 
 ### Implementation
 
@@ -151,18 +163,18 @@ rest_command:
       X-API-Key: !secret bambuddy_api_key
 ```
 
-**Dashboard integration** — Add a heart or star button to the print history card that calls `script.bambuddy_toggle_favorite` with the `archive_id`.
+**Dashboard integration** â€” Add a heart or star button to the print history card that calls `script.bambuddy_toggle_favorite` with the `archive_id`.
 
 ### Phase & Dependencies
 
 - **Phase**: 2.1
 - **Depends on**: bambuddy_common (REST config, API key)
 - **Package**: print_history (extends existing archive interaction)
-- **Effort**: Low — one REST command, one script, one dashboard button
+- **Effort**: Low â€” one REST command, one script, one dashboard button
 
 ---
 
-## Phase 2.2: Compare on Failure — Why Did This Print Fail?
+## Phase 2.2: Compare on Failure â€” Why Did This Print Fail?
 
 ### API
 
@@ -180,7 +192,7 @@ Returns field-by-field comparison with difference detection:
   "archives": [{"id": 1, "print_name": "Benchy", "status": "completed"}, ...],
   "comparison": [
     {"field": "layer_height", "label": "Layer Height", "unit": "mm", "values": [0.2, 0.16], "has_difference": true},
-    {"field": "nozzle_temperature", "label": "Nozzle Temperature", "unit": "°C", "values": [220, 215], "has_difference": true}
+    {"field": "nozzle_temperature", "label": "Nozzle Temperature", "unit": "Â°C", "values": [220, 215], "has_difference": true}
   ],
   "success_correlation": {
     "has_both_outcomes": true,
@@ -195,15 +207,15 @@ Compared fields: `layer_height`, `nozzle_diameter`, `bed_temperature`, `nozzle_t
 
 ### Use Case
 
-"Why did my Benchy fail this time?" — On `print_failed`, auto-find the last successful archive with the same `print_name`, then construct a comparison link. The `success_correlation.insights` field automatically surfaces which slicer settings differ between successful and failed runs.
+"Why did my Benchy fail this time?" â€” On `print_failed`, auto-find the last successful archive with the same `print_name`, then construct a comparison link. The `success_correlation.insights` field automatically surfaces which slicer settings differ between successful and failed runs.
 
 ### Implementation
 
-**Automation: `bambuddy_compare_on_failure`** — triggers on `print_failed` webhook:
+**Automation: `bambuddy_compare_on_failure`** â€” triggers on `print_failed` webhook:
 1. Call `GET /archives/{id}/similar` to find past successful prints of the same model.
 2. If a match exists, construct the compare URL: `{bambuddy_url}/compare?ids={failed_id},{success_id}`.
 3. Send actionable notification:
-   > "Print 'Benchy' failed. [Compare with last successful attempt →]({compare_url})"
+   > "Print 'Benchy' failed. [Compare with last successful attempt â†’]({compare_url})"
 
 **REST sensor (optional)**: Poll `/archives/{id}/similar` for the most recent archive and expose `similar_archives` as an attribute for dashboard display.
 
@@ -212,7 +224,7 @@ Compared fields: `layer_height`, `nozzle_diameter`, `bed_temperature`, `nozzle_t
 - **Phase**: 2.2
 - **Depends on**: bambuddy_common, print_history core (archive_id capture)
 - **Package**: print_history
-- **Effort**: Medium — one new automation, one REST command, notification integration
+- **Effort**: Medium â€” one new automation, one REST command, notification integration
 
 ---
 
@@ -221,10 +233,10 @@ Compared fields: `layer_height`, `nozzle_diameter`, `bed_temperature`, `nozzle_t
 ### Data Sources
 
 From the archive response:
-- `content_hash` — SHA-256 of the 3MF file, identical across reprints of the same file
-- `duplicate_count` — how many other archives share this hash
-- `duplicate_sequence` — this archive's position in the duplicate chain (`0` = original)
-- `original_archive_id` — links to the first archive with this hash (if duplicate)
+- `content_hash` â€” SHA-256 of the 3MF file, identical across reprints of the same file
+- `duplicate_count` â€” how many other archives share this hash
+- `duplicate_sequence` â€” this archive's position in the duplicate chain (`0` = original)
+- `original_archive_id` â€” links to the first archive with this hash (if duplicate)
 
 ### API
 
@@ -240,28 +252,34 @@ Important caveat:
 
 - This feature assumes `content_hash` reflects the intended archived file.
 - Issue `#793` showed that same-hash grouping can still be correct technically while the archive record itself points to the wrong file.
-- Suspicious same-hash, different-name cases therefore need a separate review and repair path, documented in [archive-mismatch-repair-design.md](../recovery/archive-mismatch-repair-design.md).
+- Suspicious same-hash, different-name cases therefore need a separate review and repair path, documented in [archive-mismatch-repair-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/recovery/archive-mismatch-repair-design.md
 
-1. **You've printed this before notification** — On `print_started`, if the archive has `duplicate_count > 0` or `GET /archives/{id}/similar` returns matches, send a notification:
-   > "Starting 'Benchy' — you've printed this model 3 times before. Last result: completed (94.4% time accuracy). Best attempt: archive #145."
 
-2. **Reprint history enrichment** — Tag archives with `reprint_of:{original_id}` and `print_attempt:{sequence}` during enrichment:
+).
+
+1. **You've printed this before notification** â€” On `print_started`, if the archive has `duplicate_count > 0` or `GET /archives/{id}/similar` returns matches, send a notification:
+   > "Starting 'Benchy' â€” you've printed this model 3 times before. Last result: completed (94.4% time accuracy). Best attempt: archive #145."
+
+2. **Reprint history enrichment** â€” Tag archives with `reprint_of:{original_id}` and `print_attempt:{sequence}` during enrichment:
    ```
    reprint_of:145, print_attempt:4, model_hash:351f48cd
    ```
 
-3. **Auto-favorite first success** — When a `print_complete` archive has `duplicate_count == 0` and succeeded, auto-favorite it as a notable first print.
+3. **Auto-favorite first success** â€” When a `print_complete` archive has `duplicate_count == 0` and succeeded, auto-favorite it as a notable first print.
 
-4. **Dashboard widget** — Show `Print History for this Model` on the archive detail view, listing all previous attempts with their outcomes.
+4. **Dashboard widget** â€” Show `Print History for this Model` on the archive detail view, listing all previous attempts with their outcomes.
 
 ### Implementation
 
-**Enrichment extension** — During the existing enrichment automation on `print_complete`:
+**Enrichment extension** â€” During the existing enrichment automation on `print_complete`:
 1. Call `GET /archives/{id}/duplicates`.
 2. If duplicates exist, add tags: `print_attempt:{count+1}`, `reprint_of:{original_id}`.
 3. If no duplicates and status is `completed`, auto-favorite.
 
-**Notification extension** — During `print_started` notification:
+**Notification extension** â€” During `print_started` notification:
 1. Query `GET /archives/search?q={print_name}&status=completed`.
 2. Include previous attempt count and last outcome in the notification.
 
@@ -270,7 +288,7 @@ Important caveat:
 - **Phase**: 2.3
 - **Depends on**: bambuddy_common, print_history core (enrichment automation)
 - **Package**: print_history
-- **Effort**: Medium — extends enrichment and notification automations, one new REST call
+- **Effort**: Medium â€” extends enrichment and notification automations, one new REST call
 
 ### Current implementation slice
 
@@ -301,48 +319,48 @@ Important boundary:
 ### Data Sources
 
 From the archive response `extra_data`:
-- `makerworld_url` — Full URL to the MakerWorld model page
-- `makerworld_model_id` — Numeric MakerWorld model ID, for example `"775698"`
-- `designer` — Model creator name, for example `"StefBull85"`
+- `makerworld_url` â€” Full URL to the MakerWorld model page
+- `makerworld_model_id` â€” Numeric MakerWorld model ID, for example `"775698"`
+- `designer` â€” Model creator name, for example `"StefBull85"`
 
 Also:
-- `GET /archives/{id}/project-page` — Full embedded MakerWorld project page data from the 3MF
+- `GET /archives/{id}/project-page` â€” Full embedded MakerWorld project page data from the 3MF
 
 ### Use Cases
 
-1. **Designer attribution in enrichment** — Tag archives with `designer:{name}`:
+1. **Designer attribution in enrichment** â€” Tag archives with `designer:{name}`:
    ```
    designer:StefBull85, makerworld:775698
    ```
    This enables Bambuddy tag search: "Show me all prints by StefBull85."
 
-2. **Source link in notes** — Add MakerWorld URL to the enrichment notes:
+2. **Source link in notes** â€” Add MakerWorld URL to the enrichment notes:
    ```
    --- Source ---
    Designer: StefBull85
    MakerWorld: https://makerworld.com/en/models/775698
    ```
 
-3. **Print started notification** — Include designer and source:
+3. **Print started notification** â€” Include designer and source:
    > "Printing 'Hueforge Back to the Future' by StefBull85 (MakerWorld)"
 
-4. **Designer stats** — Later template sensor counting prints per designer from tag data, with a `Top Designers` widget.
+4. **Designer stats** â€” Later template sensor counting prints per designer from tag data, with a `Top Designers` widget.
 
 ### Implementation
 
-**Enrichment extension** — Extract `designer` and `makerworld_model_id` from the archive GET response during enrichment:
+**Enrichment extension** â€” Extract `designer` and `makerworld_model_id` from the archive GET response during enrichment:
 1. If `extra_data.designer` exists and is non-empty, add tag `designer:{name}`.
 2. If `extra_data.makerworld_model_id` exists, add tag `makerworld:{id}`.
 3. Append source section to notes after existing Spoolman enrichment notes.
 
-**No new REST calls needed** — this data is already in the archive GET response used for UUID-based enrichment (Tier 1).
+**No new REST calls needed** â€” this data is already in the archive GET response used for UUID-based enrichment (Tier 1).
 
 ### Phase & Dependencies
 
 - **Phase**: 2.4
 - **Depends on**: print_history core (enrichment automation reads archive detail)
 - **Package**: print_history
-- **Effort**: Low — extends existing enrichment template, no new API calls
+- **Effort**: Low â€” extends existing enrichment template, no new API calls
 
 ---
 
@@ -351,38 +369,38 @@ Also:
 ### Data Sources
 
 From the archive's `extra_data._print_data.raw_data.ams[].tray[]`:
-- `remain` — Estimated remaining spool percentage, for example `31` = 31%
-- `tray_weight` — Original roll weight in grams, for example `"1000"`
-- `tray_uuid` — Spool UUID for precise identification
+- `remain` â€” Estimated remaining spool percentage, for example `31` = 31%
+- `tray_weight` â€” Original roll weight in grams, for example `"1000"`
+- `tray_uuid` â€” Spool UUID for precise identification
 
 From the archive's `extra_data.filament_slots[]`:
-- `used_g` — Grams this print will consume from each slot
+- `used_g` â€” Grams this print will consume from each slot
 
 Also:
-- `GET /archives/{id}/filament-requirements` — Per-plate filament requirements (type, color, weight)
+- `GET /archives/{id}/filament-requirements` â€” Per-plate filament requirements (type, color, weight)
 
 Cross-referenced with:
-- `sensor.spoolman_tray_map` — Current tray-to-spool mapping with match state
+- `sensor.spoolman_tray_map` â€” Current tray-to-spool mapping with match state
 
 ### Use Cases
 
-1. **Might run out notification** — On `print_started`, for each filament color used:
+1. **Might run out notification** â€” On `print_started`, for each filament color used:
    - Lookup the AMS tray by color from `raw_data.ams`.
-   - Calculate estimated remaining grams: `remain% × tray_weight / 100`.
+   - Calculate estimated remaining grams: `remain% Ã— tray_weight / 100`.
    - Compare against `filament_slots[].used_g`.
    - If demand is greater than estimated remaining, alert with warning or critical severity.
 
-2. **Spoolman precise check** — If the spool is UUID-matched in Spoolman, use Spoolman's `remaining_weight` attribute instead of the printer's `remain` estimate.
+2. **Spoolman precise check** â€” If the spool is UUID-matched in Spoolman, use Spoolman's `remaining_weight` attribute instead of the printer's `remain` estimate.
 
-3. **Dashboard pre-print card** — Show filament requirements vs. availability before a queued print starts.
+3. **Dashboard pre-print card** â€” Show filament requirements vs. availability before a queued print starts.
 
 ### Implementation
 
-**Automation: `bambuddy_spool_remaining_check`** — triggers on `print_started`:
+**Automation: `bambuddy_spool_remaining_check`** â€” triggers on `print_started`:
 1. Read `sensor.spoolman_tray_map` for current spool state.
 2. For each color in the archive's `filament_color`:
    - Find matching tray in `spoolman_tray_map` by color.
-   - Get the Spoolman spool's remaining weight, or fall back to `remain% × tray_weight`.
+   - Get the Spoolman spool's remaining weight, or fall back to `remain% Ã— tray_weight`.
    - Get print demand from `filament_slots[].used_g`.
    - If demand is greater than 80% of remaining, send a warning notification.
    - If demand is greater than remaining, send a critical notification.
@@ -393,8 +411,8 @@ Cross-referenced with:
 - **Phase**: 2.5
 - **Depends on**: bambuddy_common, print_history core (archive_id capture), spoolman_sync (`tray_map`)
 - **Package**: print_history or its own micro-feature
-- **Effort**: Medium — new automation, Jinja template for remaining calculations
-- **Value**: Very High — prevents the most frustrating long-print failure mode
+- **Effort**: Medium â€” new automation, Jinja template for remaining calculations
+- **Value**: Very High â€” prevents the most frustrating long-print failure mode
 
 ---
 
@@ -403,11 +421,11 @@ Cross-referenced with:
 ### Data Sources
 
 Archive response fields, visible in Bambuddy stats or model but not currently part of the normal archive PATCH contract:
-- `energy_kwh` — Energy consumed by this print
-- `energy_cost` — Dollar cost of that energy
+- `energy_kwh` â€” Energy consumed by this print
+- `energy_cost` â€” Dollar cost of that energy
 
 HA sensors from the power monitoring package:
-- `sensor.tp_link_power_strip_ab64_ams_heater_current_consumption` — Printer plug live wattage
+- `sensor.tp_link_power_strip_ab64_ams_heater_current_consumption` â€” Printer plug live wattage
 - Integration-based energy tracking or manual delta calculation
 
 ### Use Case
@@ -417,12 +435,12 @@ Capture HA's actual measured energy consumption for the print and expose it in t
 ### Implementation
 
 **Helpers:**
-- `input_number.print_energy_kwh_at_start` — Snapshot of the printer plug's cumulative kWh at `print_started`
+- `input_number.print_energy_kwh_at_start` â€” Snapshot of the printer plug's cumulative kWh at `print_started`
 
-**Automation: `bambuddy_capture_energy_at_start`** — on `print_started`:
+**Automation: `bambuddy_capture_energy_at_start`** â€” on `print_started`:
 1. Record `states('sensor.tp_link_power_strip_ab64_ams_heater_today_s_consumption')` to a helper.
 
-**Enrichment extension** — on `print_complete` or `print_failed`:
+**Enrichment extension** â€” on `print_complete` or `print_failed`:
 1. Read current kWh and subtract the start snapshot to get a delta.
 2. Multiply by electricity rate from `input_number.electricity_cost_per_kwh`.
 3. Store or surface the result in one of these ways:
@@ -443,8 +461,8 @@ Recommended metadata posture:
 - **Phase**: 2.6
 - **Depends on**: bambuddy_common, print_history core, power_monitoring (energy sensors)
 - **Package**: print_history (cross-feature with power_monitoring)
-- **Effort**: Medium — kWh snapshot at start, delta calculation, HA-side surfacing or sidecar persistence
-- **Value**: High — completes the total cost picture, but direct Bambuddy writeback is currently blocked by the mutable archive contract
+- **Effort**: Medium â€” kWh snapshot at start, delta calculation, HA-side surfacing or sidecar persistence
+- **Value**: High â€” completes the total cost picture, but direct Bambuddy writeback is currently blocked by the mutable archive contract
 
 ---
 
@@ -453,33 +471,33 @@ Recommended metadata posture:
 ### Data Sources
 
 From the completed archive and enrichment data:
-- `GET /archives/{id}/thumbnail` — Unauthenticated thumbnail PNG
-- `time_accuracy` — Slicer estimation accuracy percentage
-- `actual_time_seconds` vs. `print_time_seconds` — Real vs. estimated duration
-- `cost` — Total print cost
-- `extra_data.designer` — Model designer
-- `extra_data.makerworld_url` — Source link
-- Hidden `+>` enrichment payload — compact per-tray filament rows with `n`/`w`/`t` keys and best-effort spool or filament IDs when preserved
+- `GET /archives/{id}/thumbnail` â€” Unauthenticated thumbnail PNG
+- `time_accuracy` â€” Slicer estimation accuracy percentage
+- `actual_time_seconds` vs. `print_time_seconds` â€” Real vs. estimated duration
+- `cost` â€” Total print cost
+- `extra_data.designer` â€” Model designer
+- `extra_data.makerworld_url` â€” Source link
+- Hidden `+>` enrichment payload â€” compact per-tray filament rows with `n`/`w`/`t` keys and best-effort spool or filament IDs when preserved
 
 From the notification infrastructure:
-- `input_text.3dprinter_notification_service` — Target notify service
-- Camera snapshot pipeline — already captures printer camera photos
+- `input_text.3dprinter_notification_service` â€” Target notify service
+- Camera snapshot pipeline â€” already captures printer camera photos
 
 ### Use Cases
 
 **Enhanced print completion notification:**
-> **✅ Print Complete: Hueforge Back to the Future**  
-> ⏱ 4h 32m (94.4% of estimate)  
-> 🧵 44.82g PLA (4 colors)  
-> 💰 $1.12 filament + $0.07 energy = $1.19 total  
-> 👤 by StefBull85 (MakerWorld)  
-> 📸 [thumbnail image attached]
+> **âœ… Print Complete: Hueforge Back to the Future**  
+> â± 4h 32m (94.4% of estimate)  
+> ðŸ§µ 44.82g PLA (4 colors)  
+> ðŸ’° $1.12 filament + $0.07 energy = $1.19 total  
+> ðŸ‘¤ by StefBull85 (MakerWorld)  
+> ðŸ“¸ [thumbnail image attached]
 
 **Enhanced print failure notification:**
-> **❌ Print Failed: Benchy**  
-> ⏱ Failed at 2h 15m (52% complete)  
-> 🧵 ~23g PLA wasted  
-> 🔍 [Compare with last success →]({compare_url})
+> **âŒ Print Failed: Benchy**  
+> â± Failed at 2h 15m (52% complete)  
+> ðŸ§µ ~23g PLA wasted  
+> ðŸ” [Compare with last success â†’]({compare_url})
 
 ### Implementation
 
@@ -494,8 +512,8 @@ From the notification infrastructure:
 - **Phase**: 2.7
 - **Depends on**: print_history core (enrichment data), notifications package
 - **Package**: notifications (cross-feature with print_history)
-- **Effort**: Low — extends existing notification templates, no new API calls
-- **Value**: Medium — makes notifications genuinely useful instead of just `print done`
+- **Effort**: Low â€” extends existing notification templates, no new API calls
+- **Value**: Medium â€” makes notifications genuinely useful instead of just `print done`
 
 ---
 
@@ -514,11 +532,11 @@ From future work that is not shipped yet:
 
 ### Use Cases
 
-1. **What did this spool print?** — Given a Spoolman spool ID, query Bambuddy for all archives that used it. Surface as a count plus link on the filament catalog spool popup.
+1. **What did this spool print?** â€” Given a Spoolman spool ID, query Bambuddy for all archives that used it. Surface as a count plus link on the filament catalog spool popup.
 
-2. **Spool lifecycle summary** — For a sealed or empty spool, generate a summary such as: "This spool printed 12 models over 3 months, using 980g of its 1000g capacity."
+2. **Spool lifecycle summary** â€” For a sealed or empty spool, generate a summary such as: "This spool printed 12 models over 3 months, using 980g of its 1000g capacity."
 
-3. **Template sensor** — `sensor.bambuddy_spool_archive_count` with `spool_id` as input, returning the count of archives using that spool. This could also be a script that updates a helper.
+3. **Template sensor** â€” `sensor.bambuddy_spool_archive_count` with `spool_id` as input, returning the count of archives using that spool. This could also be a script that updates a helper.
 
 ### Implementation
 
@@ -528,15 +546,15 @@ This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag st
 
 **After that prerequisite exists:** build `bambuddy_spool_print_history` and popup/dashboard surfacing against the structured provenance source instead of `spoolman:` tag search or repeated payload parsing.
 
-**Dashboard integration** — On filament catalog spool popup, add a `Bambuddy Prints: N` badge that links to a filtered Bambuddy view.
+**Dashboard integration** â€” On filament catalog spool popup, add a `Bambuddy Prints: N` badge that links to a filtered Bambuddy view.
 
 ### Phase & Dependencies
 
 - **Phase**: 2.8
 - **Depends on**: print_history core adding structured, searchable spool provenance first
 - **Package**: print_history (cross-feature with filament_catalog)
-- **Effort**: Medium — requires a provenance representation before the script and badge
-- **Value**: Medium — bridges Spoolman and Bambuddy data
+- **Effort**: Medium â€” requires a provenance representation before the script and badge
+- **Value**: Medium â€” bridges Spoolman and Bambuddy data
 
 ---
 
@@ -563,7 +581,13 @@ Still deferred within Phase 2.9:
 - dedicated timelapse review queue or shared media-review lifecycle work
 - post-process presets such as trim or speed workflows
 
-Authoritative implementation notes for the shipped slice live in `../ui-media/timelapse-actions-and-viewer.md`.
+Authoritative implementation notes for the shipped slice live in `../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/timelapse-actions-and-viewer.md
+
+
+`.
 
 ### API
 
@@ -580,13 +604,13 @@ Authoritative implementation notes for the shipped slice live in `../ui-media/ti
 
 ### Feature Scope
 
-**Timelapse review** — Extend the existing photo review concept into a timelapse workflow for post-print media quality control.
+**Timelapse review** â€” Extend the existing photo review concept into a timelapse workflow for post-print media quality control.
 
 **Use cases:**
-1. **Auto-scan on completion** — After `print_complete`, ask Bambuddy to locate the timelapse automatically.
-2. **Missing timelapse exception chip** — If the last print has photos but no timelapse, surface a `media incomplete` chip.
-3. **Manual recover or replace** — If auto-scan misses the file, allow a manual select or upload action from HA.
-4. **Post-process presets** — Offer a `fast timelapse` or `trim start/end` script for favorite showcase prints.
+1. **Auto-scan on completion** â€” After `print_complete`, ask Bambuddy to locate the timelapse automatically.
+2. **Missing timelapse exception chip** â€” If the last print has photos but no timelapse, surface a `media incomplete` chip.
+3. **Manual recover or replace** â€” If auto-scan misses the file, allow a manual select or upload action from HA.
+4. **Post-process presets** â€” Offer a `fast timelapse` or `trim start/end` script for favorite showcase prints.
 
 ### Implementation
 
@@ -619,8 +643,8 @@ Likely follow-on commands or services for the deferred portion:
 - **Phase**: 2.9
 - **Depends on**: print_history core, photo review design, multipart upload path
 - **Package**: print_history
-- **Effort**: Medium — multiple media endpoints, but strong UX value
-- **Value**: High — complements the photo workflow and makes Bambuddy media more complete from HA
+- **Effort**: Medium â€” multiple media endpoints, but strong UX value
+- **Value**: High â€” complements the photo workflow and makes Bambuddy media more complete from HA
 
 ---
 
@@ -639,13 +663,13 @@ Likely follow-on commands or services for the deferred portion:
 
 ### Feature Scope
 
-**Exception views** — Surface archive health problems as actionable diagnostics instead of leaving them buried in Bambuddy.
+**Exception views** â€” Surface archive health problems as actionable diagnostics instead of leaving them buried in Bambuddy.
 
 **Use cases:**
-1. **Missing asset badge** — Flag recent archives with missing source, model preview, timelapse, or hash data.
-2. **Repair scripts** — Trigger single-archive rescan from HA when thumbnails, 3D view data, or timelapse assets are missing.
-3. **Admin maintenance panel** — One protected dashboard section for `rescan-all` and `backfill-hashes` after upgrades or storage migrations.
-4. **Reprint preflight** — Show plate count and filament requirements before allowing a reprint action.
+1. **Missing asset badge** â€” Flag recent archives with missing source, model preview, timelapse, or hash data.
+2. **Repair scripts** â€” Trigger single-archive rescan from HA when thumbnails, 3D view data, or timelapse assets are missing.
+3. **Admin maintenance panel** â€” One protected dashboard section for `rescan-all` and `backfill-hashes` after upgrades or storage migrations.
+4. **Reprint preflight** â€” Show plate count and filament requirements before allowing a reprint action.
 
 ### Current implementation slice
 
@@ -686,7 +710,13 @@ Still deferred within Phase 2.10:
 
 ## Phase 2.11: Archive Detail Popup and Editing
 
-The phased interaction design for per-archive popup drilldown is tracked in [archive-detail-popup-design.md](../ui-media/archive-detail-popup-design.md).
+The phased interaction design for per-archive popup drilldown is tracked in [archive-detail-popup-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/archive-detail-popup-design.md
+
+
+).
 
 ### Summary
 
@@ -701,13 +731,19 @@ The phased interaction design for per-archive popup drilldown is tracked in [arc
 - **Depends on**: stable archive card UX, print_history core browsing, update/archive PATCH support already validated in Bambuddy
 - **Package**: print_history dashboard and script layer
 - **Effort**: Medium
-- **Value**: Medium — strongest for support, manual cleanup, and provenance editing
+- **Value**: Medium â€” strongest for support, manual cleanup, and provenance editing
 
 ---
 
 ## Phase 2.12: Archive Mismatch Detection and Replacement
 
-Detailed design is tracked in [archive-mismatch-repair-design.md](../recovery/archive-mismatch-repair-design.md).
+Detailed design is tracked in [archive-mismatch-repair-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/recovery/archive-mismatch-repair-design.md
+
+
+).
 
 ### Summary
 
@@ -723,7 +759,7 @@ This is a distinct failure mode from fallback `no_3mf_available` archives. It ap
 - **Depends on**: duplicate detection context from Phase 2.3, archive diagnostics from Phase 2.10, operator review workflow, and broader lineage only if the mismatch workflow needs relationships beyond compact duplicate metadata plus repair lineage
 - **Package**: print_history plus repair workflow support
 - **Effort**: Medium
-- **Value**: High — explains and repairs wrong-file archive records
+- **Value**: High â€” explains and repairs wrong-file archive records
 
 ---
 
@@ -747,7 +783,7 @@ Best surfaced as a dashboard button with confirmation. It remains blocked until 
 - **Depends on**: spoolman_sync tray mapping, archive preflight from Phase 2.10, explicit safety and confirmation UX
 - **Package**: print_history
 - **Effort**: High
-- **Value**: Medium — useful, but higher risk than most phase 2 features
+- **Value**: Medium â€” useful, but higher risk than most phase 2 features
 
 ---
 
@@ -777,13 +813,25 @@ This stays in the roadmap as a fully assigned late phase rather than an unphased
 - **Depends on**: print_history search entry points in HA, optional voice assistant integration
 - **Package**: print_history or assistant-facing helper layer
 - **Effort**: Medium
-- **Value**: Low — mostly convenience, not core workflow improvement
+- **Value**: Low â€” mostly convenience, not core workflow improvement
 
 ---
 
 ## Phase 2.15: Source 3MF Image and Metadata Import
 
-Detailed design is tracked in [source-3mf-import-design.md](../imports/source-3mf-import-design.md) and [source-3mf-import-implementation-plan.md](../imports/source-3mf-import-implementation-plan.md).
+Detailed design is tracked in [source-3mf-import-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/imports/source-3mf-import-design.md
+
+
+) and [source-3mf-import-implementation-plan.md](../
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/imports/source-3mf-import-implementation-plan.md
+
+
+).
 
 ### Summary
 
@@ -811,4 +859,6 @@ Detailed design is tracked in [source-3mf-import-design.md](../imports/source-3m
 - **Depends on**: print_history popup/gallery, manual photo upload bridge, optional metadata write-back via archive PATCH
 - **Package**: print_history plus the `bambuddy` custom integration
 - **Effort**: Medium
-- **Value**: Medium — materially improves archive media quality for source-project prints without changing Bambuddy itself
+- **Value**: Medium â€” materially improves archive media quality for source-project prints without changing Bambuddy itself
+
+

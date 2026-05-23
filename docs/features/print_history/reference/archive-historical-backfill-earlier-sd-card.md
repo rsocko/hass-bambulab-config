@@ -1,4 +1,4 @@
-# Historical Archive Backfill From Earlier SD-Card Backup
+﻿# Historical Archive Backfill From Earlier SD-Card Backup
 
 Status: Active
 Last Reviewed: 2026-05-23
@@ -10,7 +10,13 @@ Replaced By: none
 
 Run the same historical archive backfill workflow against the earlier printer SD-card backup without merging it into the existing April 3 manifest lane.
 
-This runbook keeps the ledger, batch outputs, and operator workflow separate while reusing the same manifest generator and backfill runner described in [archive-historical-backfill-from-sd-card.md](../imports/archive-historical-backfill-from-sd-card.md).
+This runbook keeps the ledger, batch outputs, and operator workflow separate while reusing the same manifest generator and backfill runner described in [archive-historical-backfill-from-sd-card.md](../
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/imports/archive-historical-backfill-from-sd-card.md
+
+
+).
 
 ## Source And State Files
 
@@ -117,3 +123,4 @@ C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe .\tools\bambu
 - Secondary artifact analysis is now written into the isolated manifest with `437` cache `.gcode`, `20` cache `.bbl`, `455` `image/*.png`, and `19` `model/*.gcode` files recorded.
 - Current older-backup `.gcode` pairing summary is `21` exact cache-`.3mf` stem matches, `3` near-time-only matches, and `413` ambiguous `.gcode` files for forensic review.
 - Final manifest summary: `completed: 19`, `already_in_archive: 1`.
+

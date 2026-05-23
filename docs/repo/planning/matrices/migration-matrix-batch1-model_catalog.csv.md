@@ -1,4 +1,4 @@
-# Batch 1 Detailed Matrix: model_catalog
+﻿# Batch 1 Detailed Matrix: model_catalog
 
 Source scope: docs/features/model_catalog/**/*.md
 Row count: 153
@@ -139,24 +139,25 @@ docs/features/model_catalog/design/catalog-popup.md,design,design,Planned,docs/f
 docs/features/model_catalog/design/landing-page.md,design,design,Planned,docs/features/model_catalog/design/landing-page.md,No,Already in design lane
 docs/features/model_catalog/design/print-history-backfill.md,design,design,Planned,docs/features/model_catalog/design/print-history-backfill.md,No,Already in design lane
 docs/features/model_catalog/design/working-files-card.md,design,design,Planned,docs/features/model_catalog/design/working-files-card.md,No,Already in design lane
-docs/features/model_catalog/integration/archive-model-link-ha-service-and-popup-contract.md,reference,reference,Active,docs/features/model_catalog/reference/archive-model-link-contract.md,Yes,Integration contract
-docs/features/model_catalog/integration/archive-to-library-linkage.md,reference,reference,Active,docs/features/model_catalog/reference/archive-library-linkage.md,Yes,Integration specification
-docs/features/model_catalog/integration/github-work-items-v2-upload-and-streamdeck.md,reference,reference,Active,docs/features/model_catalog/reference/github-streamdeck.md,Yes,Integration specification
-docs/features/model_catalog/integration/ha-model-library-integration.md,reference,reference,Active,docs/features/model_catalog/reference/ha-library-integration.md,Yes,Integration guide
-docs/features/model_catalog/integration/intake-browser-upload-v2-contract-design.md,design,design,Planned,docs/features/model_catalog/design/intake-browser-upload.md,Yes,Feature design spec
-docs/features/model_catalog/integration/manyfold-api-design.md,design,design,Planned,docs/features/model_catalog/design/manyfold-api.md,Yes,API integration design
-docs/features/model_catalog/integration/manyfold-oauth-upload-redirect-bug-report.md,planning,planning,Planned,docs/features/model_catalog/planning/manyfold-oauth-bug.md,Yes,Issue report doc
-docs/features/model_catalog/integration/spike-1055-manyfold-upload-add-file-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1055-manyfold.md,Yes,Research spike work
-docs/features/model_catalog/integration/spike-1056-manyfold-patch-behavior-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1056-manyfold.md,Yes,Research spike work
-docs/features/model_catalog/integration/spike-1057-manyfold-rescan-behavior-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1057-manyfold.md,Yes,Research spike work
-docs/features/model_catalog/integration/spike-1058-recovery-restoration-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1058-recovery.md,Yes,Research spike work
-docs/features/model_catalog/integration/spike-1059-working-file-indexing-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1059-indexing.md,Yes,Research spike work
-docs/features/model_catalog/integration/spike-1060-archive-ranking-signals-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1060-ranking.md,Yes,Research spike work
-docs/features/model_catalog/integration/spike-1061-sidecar-deployment-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1061-sidecar.md,Yes,Research spike work
-docs/features/model_catalog/integration/streamdeck-upload-functionality-design.md,design,design,Planned,docs/features/model_catalog/design/streamdeck-upload.md,Yes,Feature design spec
+docs/features/model_catalog/integration/archive-model-link-ha-service-and-popup-contract.md,reference,reference,Active,docs/features/model_catalog/reference/integration/archive-model-link-contract.md,Yes,Integration contract
+docs/features/model_catalog/integration/archive-to-library-linkage.md,reference,reference,Active,docs/features/model_catalog/reference/integration/archive-library-linkage.md,Yes,Integration specification
+docs/features/model_catalog/integration/github-work-items-v2-upload-and-streamdeck.md,reference,reference,Active,docs/features/model_catalog/reference/integration/github-streamdeck.md,Yes,Integration specification
+docs/features/model_catalog/integration/ha-model-library-integration.md,reference,reference,Active,docs/features/model_catalog/reference/integration/ha-library-integration.md,Yes,Integration guide
+docs/features/model_catalog/integration/intake-browser-upload-v2-contract-design.md,design,design,Planned,docs/features/model_catalog/design/integration/intake-browser-upload.md,Yes,Feature design spec
+docs/features/model_catalog/integration/manyfold-api-design.md,design,design,Planned,docs/features/model_catalog/design/integration/manyfold-api.md,Yes,API integration design
+docs/features/model_catalog/integration/manyfold-oauth-upload-redirect-bug-report.md,planning,planning,Planned,docs/features/model_catalog/planning/integration/manyfold-oauth-bug.md,Yes,Issue report doc
+docs/features/model_catalog/integration/spike-1055-manyfold-upload-add-file-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1055-manyfold.md,Yes,Research spike work
+docs/features/model_catalog/integration/spike-1056-manyfold-patch-behavior-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1056-manyfold.md,Yes,Research spike work
+docs/features/model_catalog/integration/spike-1057-manyfold-rescan-behavior-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1057-manyfold.md,Yes,Research spike work
+docs/features/model_catalog/integration/spike-1058-recovery-restoration-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1058-recovery.md,Yes,Research spike work
+docs/features/model_catalog/integration/spike-1059-working-file-indexing-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1059-indexing.md,Yes,Research spike work
+docs/features/model_catalog/integration/spike-1060-archive-ranking-signals-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1060-ranking.md,Yes,Research spike work
+docs/features/model_catalog/integration/spike-1061-sidecar-deployment-validation.md,planning,planning,Active,docs/features/model_catalog/planning/integration/spike-1061-sidecar.md,Yes,Research spike work
+docs/features/model_catalog/integration/streamdeck-upload-functionality-design.md,design,design,Planned,docs/features/model_catalog/design/integration/streamdeck-upload.md,Yes,Feature design spec
 docs/features/model_catalog/planning/README.md,planning,planning,Active,docs/features/model_catalog/planning/README.md,No,Planning lane navigation
 docs/features/model_catalog/planning/3mf-cache-draft.md,planning,planning,Planned,docs/features/model_catalog/planning/3mf-cache-draft.md,No,Already in planning lane
 docs/features/model_catalog/planning/cache-roadmap.md,planning,planning,Active,docs/features/model_catalog/planning/cache-roadmap.md,No,Already in planning lane
 docs/features/model_catalog/planning/main-py-modularization-map.md,planning,planning,Planned,docs/features/model_catalog/planning/main-py-modularization-map.md,No,Already in planning lane
 docs/features/model_catalog/planning/main-py-modularization.md,planning,planning,Active,docs/features/model_catalog/planning/main-py-modularization.md,No,Already in planning lane
 docs/features/model_catalog/planning/er-diagrams.md,planning,planning,Active,docs/features/model_catalog/planning/er-diagrams.md,No,Already in planning lane
+

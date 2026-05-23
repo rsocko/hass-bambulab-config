@@ -1,6 +1,6 @@
-# Print History — Archive Reading, Photo Capture & Enrichment
+﻿# Print History â€” Archive Reading, Photo Capture & Enrichment
 
-> **⚠️ OpenAPI Corrections Applied**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference against Bambuddy v0.2.2.2 OpenAPI spec. Key fixes already in code: trailing slash URLs, flat array responses (not dict wrapper), offset-based pagination (not page-based), no `sort`/`order` query params.
+> **âš ï¸ OpenAPI Corrections Applied**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference against Bambuddy v0.2.2.2 OpenAPI spec. Key fixes already in code: trailing slash URLs, flat array responses (not dict wrapper), offset-based pagination (not page-based), no `sort`/`order` query params.
 
 ## Overview
 
@@ -12,18 +12,54 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 The local Variant 3 archive snapshot now also preserves archive `plate_id` and can hydrate it from live Bambuddy printer status (`current_archive_id` + `current_plate_id`) when the current printer/archive binding is known, so plate-aware local UI flows do not have to rely only on `print_name` suffix inference.
 
-Manual phone-photo upload is documented in `ui-media/manual-photo-upload.md`.
+Manual phone-photo upload is documented in `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/ui-media/manual-photo-upload.md
 
-Timelapse scan/upload/viewer behavior is documented in `ui-media/timelapse-actions-and-viewer.md`.
+
+`.
+
+Timelapse scan/upload/viewer behavior is documented in `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/timelapse-actions-and-viewer.md
+
+
+`.
 
 Tag color assignment for archive tags is documented in `reference/tag-color-contract.md`.
 
 Source `.3mf` import workflow and long-term storage policy are documented in:
 
-- `imports/folder-3mf-catalog-design.md`
-- `imports/source-3mf-import-design.md`
-- `imports/source-3mf-import-implementation-plan.md`
-- `imports/source-3mf-storage-strategy.md`
+- `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/imports/folder-3mf-catalog-design.md
+
+
+`
+- `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/imports/source-3mf-import-design.md
+
+
+`
+- `
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/imports/source-3mf-import-implementation-plan.md
+
+
+`
+- `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/imports/source-3mf-storage-strategy.md
+
+
+`
 
 Cross-system model-catalog strategy, including the active Manyfold/sidecar/Home Assistant split and archive-to-model linkage planning, is documented in:
 
@@ -36,23 +72,25 @@ Important current boundary:
 - the print-history Variant 3 local SQLite store remains print-history-owned
 - cross-feature model-catalog linkage should anchor on archive identity and integration/service contracts, not direct reads of print-history internal tables
 
-For the active print-history control-strip structure and mobile pagination guardrails, see `browser/top-controls-contract.md`.
+For the active print-history control-strip structure and mobile pagination guardrails, see `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/browser/top-controls-contract.md
+
+
+`.
 
 ## Documentation Map
 
-The print-history docs are grouped by sub-area so implementation notes, roadmap work, and recovery runbooks do not all live in one flat directory.
+The print-history docs use lane-first organization with sub-areas nested inside each lifecycle lane.
 
-- `reference/` - API contracts and canonical operational/reference docs
-- `design/` - implementation designs and feature workflow proposals
-- `browser/` - browser, filtering, pagination, and browser UX docs
-- `ui-media/` - popup, viewer, photo capture, photo review, and tag/media UX docs
-- `recovery/` - fallback archive detection, mismatch handling, exception UX, and recovery planning
-- `runtime-repair/` - canonical runtime repair and sidecar-backed restore contracts
-- `imports/` - historical backfill and source `.3mf` import workflows
-- `planning/` - roadmap, metadata, layering, and review/planning docs
+- `reference/<sub-area>/` - API contracts and canonical operational docs by sub-area
+- `design/<sub-area>/` - implementation designs and feature workflow proposals by sub-area
+- `planning/<sub-area>/` - roadmap and phased planning docs by sub-area
+- `archive/<sub-area>/` - historical documents retained for context
 - `examples/` - example payloads and working notes kept alongside the feature docs
 
-See the `README.md` inside each subfolder for a focused index.
+Legacy root sub-area folders (`browser/`, `imports/`, `recovery/`, `runtime-repair/`, `ui-media/`) are compatibility pointers only.
 
 ## Archived Browser Variants
 
@@ -64,8 +102,20 @@ The retired browser backends remain in-repo for reference only and are no longer
 
 Historical design notes:
 
-- `browser/appdaemon-query-cache.md`
-- `browser/filter-sort-design.md`
+- `
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/browser/appdaemon-query-cache.md
+
+
+`
+- `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/filter-sort-design.md
+
+
+`
 - `design/external-services-review.md` - now includes a direct O.D.I.N. vs Bambuddy comparison covering archive schema depth, API shape, Vigil AI/local inference, licensing gates, and transition recommendation
 - `planning/variant3-metadata-schema-and-variant4-carry-forward.md`
 - `planning/print-history-er-diagrams.md` - Issue #1122 ER baseline for local Variant 3 schema plus Bambuddy/sidecar touchpoints
@@ -77,14 +127,56 @@ For fallback-archive canonical timestamp repair and adjacent orchestration desig
 
 - `reference/archive-runtime-db-repair-guide.md`
 - `reference/archive-runtime-field-impact-matrix.md`
-- `runtime-repair/archive-runtime-repair-deployment-options.md`
-- `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
-- `runtime-repair/archive-runtime-ha-contract.md`
-- `runtime-repair/archive-runtime-restore-implementation-plan.md`
+- `
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/runtime-repair/archive-runtime-repair-deployment-options.md
+
+
+`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md
+
+
+`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/runtime-repair/archive-runtime-ha-contract.md
+
+
+`
+- `
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/runtime-repair/archive-runtime-restore-implementation-plan.md
+
+
+`
 - `reference/archive-runtime-restore-ha-service-and-popup-contract.md`
-- `runtime-repair/archive-runtime-restore-ha-ux-design.md`
-- `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
-- `imports/archive-historical-backfill-from-sd-card.md`
+- `
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/runtime-repair/archive-runtime-restore-ha-ux-design.md
+
+
+`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md
+
+
+`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/imports/archive-historical-backfill-from-sd-card.md
+
+
+`
 
 ## Historical Backfill Execution
 
@@ -144,8 +236,20 @@ Set-ExecutionPolicy -Scope Process Bypass
 If you have strong timing evidence, use the existing runtime repair tooling after upload. See:
 
 - `reference/archive-runtime-db-repair-guide.md`
-- `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
-- `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md
+
+
+`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md
+
+
+`
 
 When you know the historical print start time and the archive already exists, the HA integration now provides `bambuddy.repair_print_history_archive_from_start` as the direct operator action for this case. It derives `completed_at` from duration and defaults `created_at` to the same timestamp as `started_at` to match normal Bambuddy archive behavior.
 
@@ -158,7 +262,13 @@ Recommended use of that service:
 
 Primary design reference for the historical-import workflow:
 
-- `imports/archive-historical-backfill-from-sd-card.md`
+- `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/imports/archive-historical-backfill-from-sd-card.md
+
+
+`
 
 ### 6. Interpret the results
 
@@ -216,99 +326,99 @@ For the activity heatmap, the live metric contract is now: `Print Count` = archi
 
 ```
 homeassistant/packages/3d_printing/print_history/
-├── print_history_loader.yaml
-├── automations/
-│   ├── bambuddy_capture_archive_id.yaml          # webhook print_started → store archive_id
-│   ├── bambuddy_enrich_archive_on_complete.yaml   # during-print + terminal enrichment → PATCH managed tags/notes/cost
-│   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
-│   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped + native cancel + print_error/HMS sensors → immediate capture + upload
-│   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + reset browser page; integration refresh is internal
-│   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
-├── rest_commands/
-│   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
-│   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — enrichment + popup edit fields
-│   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
-├── scripts/
-│   ├── load_history_page.yaml                     # set current browser page
-│   ├── navigate_history.yaml                      # prev/next/first/last within Layer 2 totals
-│   ├── capture_and_upload_snapshot.yaml            # multi-camera snapshot → save + upload
-│   ├── set_print_history_capture_cameras.yaml      # persist chosen camera.* entities via multi-select selector
-│   ├── resolve_current_archive_id.yaml            # fallback: query API → match filename
-│   ├── refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
-│   ├── reenrich_print_history_archive.yaml        # rebuild managed enrichment for older archives
-│   ├── backfill_print_history_archive_enrichment.yaml # batch re-enrich a targeted archive list
-│   ├── enter_print_history_multi_select_mode.yaml # enter browser multi-select mode and reset shared selection summary helpers
-│   ├── cancel_print_history_multi_select_mode.yaml # leave browser multi-select mode and clear shared selection summary helpers
-│   ├── request_print_history_multi_select_action.yaml # send one-shot bulk-action requests from the toolbar to the browser card
-│   ├── bulk_update_print_history_user_tags.yaml   # add/remove user tags across selected archives while preserving system tags
-│   ├── bulk_assign_print_history_project.yaml     # assign or clear one project across selected archives
-│   ├── bulk_set_print_history_archive_favorite.yaml # bulk set favorite state across selected archives
-│   ├── bulk_delete_print_history_archives.yaml    # bulk delete selected archives
-│   ├── save_print_history_archive_popup_edits.yaml # persist popup edits while preserving hidden enrichment metadata
-│   ├── toggle_print_history_archive_favorite.yaml # toggle archive favorite state from cards/popup
-│   ├── clear_print_history_filters.yaml           # reset browser controls to defaults
-│   └── toggle_print_history_color_filter.yaml     # toggle a color in the multi-select chip row
-├── template_sensors/
-│   ├── active_print_display_name.yaml             # current print display name from archive detail + printer fallback
-│   ├── bambuddy_archive_binding_health.yaml       # runtime archive-binding guardrail
-│   ├── print_history_payload_diagnostics.yaml     # confirms large page/activity payloads stay out of HA state
-│   └── print_history_popup_archive_detail.yaml    # popup detail materialization for the selected archive
-├── helpers/
-│   ├── input_text/
-│   │   ├── input_text_bambuddy_current_archive_id.yaml
-│   │   ├── input_text_bambuddy_capture_camera_entities.yaml
-│   │   ├── input_text_bambuddy_last_photo_upload_result.yaml
-│   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
-│   │   ├── input_text_print_history_activity_selected_date.yaml
-│   │   ├── input_text_print_history_filter_colors.yaml
-│   │   ├── input_text_print_history_multi_select_request.yaml
-│   │   ├── input_text_print_history_popup_archive_id.yaml
-│   │   ├── input_text_print_history_popup_notes.yaml
-│   │   ├── input_text_print_history_popup_print_name.yaml
-│   │   ├── input_text_print_history_popup_tags.yaml
-│   │   └── input_text_print_history_search.yaml
-│   ├── counter/
-│   │   └── bambuddy_captured_photo_count.yaml
-│   ├── input_boolean/
-│   │   ├── input_boolean_bambuddy_history_sync_enabled.yaml
-│   │   ├── input_boolean_capture_at_start.yaml
-│   │   ├── input_boolean_capture_at_midprint.yaml
-│   │   ├── input_boolean_capture_near_complete.yaml
-│   │   ├── input_boolean_capture_on_error.yaml
-│   │   ├── input_boolean_print_history_multi_select_mode.yaml
-│   │   ├── input_boolean_print_history_multi_select_all_favorites.yaml
-│   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
-│   │   └── input_boolean_print_history_filter_favorites_only.yaml
-│   ├── input_number/
-│   │   ├── input_number_history_current_page.yaml
-│   │   ├── input_number_midprint_capture_percent.yaml
-│   │   ├── input_number_print_history_multi_select_count.yaml
-│   │   ├── input_number_print_history_page_size.yaml
-│   │   ├── input_number_print_history_max_archives.yaml
-│   │   └── input_number_photo_review_timeout_hours.yaml
-│   └── input_select/
-│       ├── input_select_bambuddy_photo_review_state.yaml
-│       ├── input_select_print_history_activity_metric.yaml
-│       ├── input_select_print_history_filter_*.yaml
-│       ├── input_select_print_history_popup_failure_reason.yaml
-│       ├── input_select_print_history_popup_project.yaml
-│       ├── input_select_print_history_popup_status.yaml
-│       ├── input_select_print_history_sort.yaml
-│       └── input_select_print_history_card_variant.yaml
-├── dashboard_cards/
-│   ├── print_history_activity_panel.yaml          # wrapper: separator-bar controls and heatmap
-│   ├── print_history_activity_heatmap.yaml        # GitHub-style heatmap card config
-│   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / List)
-│   ├── print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
-│   ├── print_history_top_controls.yaml            # top/bottom control strip: page nav, page size, layout, refresh
-│   └── photo_review_chip.yaml                     # conditional review-status chip; remaining work is smarter chip → popup targeting
-└── dashboard_views/
-    └── view_print_history.yaml
+â”œâ”€â”€ print_history_loader.yaml
+â”œâ”€â”€ automations/
+â”‚   â”œâ”€â”€ bambuddy_capture_archive_id.yaml          # webhook print_started â†’ store archive_id
+â”‚   â”œâ”€â”€ bambuddy_enrich_archive_on_complete.yaml   # during-print + terminal enrichment â†’ PATCH managed tags/notes/cost
+â”‚   â”œâ”€â”€ bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
+â”‚   â”œâ”€â”€ bambuddy_capture_error_photos.yaml         # print_failed/stopped + native cancel + print_error/HMS sensors â†’ immediate capture + upload
+â”‚   â”œâ”€â”€ bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events â†’ refresh REST sensor + reset browser page; integration refresh is internal
+â”‚   â””â”€â”€ print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
+â”œâ”€â”€ rest_commands/
+â”‚   â”œâ”€â”€ bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
+â”‚   â”œâ”€â”€ bambuddy_update_archive.yaml               # PATCH /archives/{id} â€” enrichment + popup edit fields
+â”‚   â””â”€â”€ bambuddy_query_recent_archive.yaml         # GET /archives â€” fallback archive_id resolution
+â”œâ”€â”€ scripts/
+â”‚   â”œâ”€â”€ load_history_page.yaml                     # set current browser page
+â”‚   â”œâ”€â”€ navigate_history.yaml                      # prev/next/first/last within Layer 2 totals
+â”‚   â”œâ”€â”€ capture_and_upload_snapshot.yaml            # multi-camera snapshot â†’ save + upload
+â”‚   â”œâ”€â”€ set_print_history_capture_cameras.yaml      # persist chosen camera.* entities via multi-select selector
+â”‚   â”œâ”€â”€ resolve_current_archive_id.yaml            # fallback: query API â†’ match filename
+â”‚   â”œâ”€â”€ refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
+â”‚   â”œâ”€â”€ reenrich_print_history_archive.yaml        # rebuild managed enrichment for older archives
+â”‚   â”œâ”€â”€ backfill_print_history_archive_enrichment.yaml # batch re-enrich a targeted archive list
+â”‚   â”œâ”€â”€ enter_print_history_multi_select_mode.yaml # enter browser multi-select mode and reset shared selection summary helpers
+â”‚   â”œâ”€â”€ cancel_print_history_multi_select_mode.yaml # leave browser multi-select mode and clear shared selection summary helpers
+â”‚   â”œâ”€â”€ request_print_history_multi_select_action.yaml # send one-shot bulk-action requests from the toolbar to the browser card
+â”‚   â”œâ”€â”€ bulk_update_print_history_user_tags.yaml   # add/remove user tags across selected archives while preserving system tags
+â”‚   â”œâ”€â”€ bulk_assign_print_history_project.yaml     # assign or clear one project across selected archives
+â”‚   â”œâ”€â”€ bulk_set_print_history_archive_favorite.yaml # bulk set favorite state across selected archives
+â”‚   â”œâ”€â”€ bulk_delete_print_history_archives.yaml    # bulk delete selected archives
+â”‚   â”œâ”€â”€ save_print_history_archive_popup_edits.yaml # persist popup edits while preserving hidden enrichment metadata
+â”‚   â”œâ”€â”€ toggle_print_history_archive_favorite.yaml # toggle archive favorite state from cards/popup
+â”‚   â”œâ”€â”€ clear_print_history_filters.yaml           # reset browser controls to defaults
+â”‚   â””â”€â”€ toggle_print_history_color_filter.yaml     # toggle a color in the multi-select chip row
+â”œâ”€â”€ template_sensors/
+â”‚   â”œâ”€â”€ active_print_display_name.yaml             # current print display name from archive detail + printer fallback
+â”‚   â”œâ”€â”€ bambuddy_archive_binding_health.yaml       # runtime archive-binding guardrail
+â”‚   â”œâ”€â”€ print_history_payload_diagnostics.yaml     # confirms large page/activity payloads stay out of HA state
+â”‚   â””â”€â”€ print_history_popup_archive_detail.yaml    # popup detail materialization for the selected archive
+â”œâ”€â”€ helpers/
+â”‚   â”œâ”€â”€ input_text/
+â”‚   â”‚   â”œâ”€â”€ input_text_bambuddy_current_archive_id.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_bambuddy_capture_camera_entities.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_bambuddy_last_photo_upload_result.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_bambuddy_tray_map_snapshot.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_activity_selected_date.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_filter_colors.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_multi_select_request.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_popup_archive_id.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_popup_notes.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_popup_print_name.yaml
+â”‚   â”‚   â”œâ”€â”€ input_text_print_history_popup_tags.yaml
+â”‚   â”‚   â””â”€â”€ input_text_print_history_search.yaml
+â”‚   â”œâ”€â”€ counter/
+â”‚   â”‚   â””â”€â”€ bambuddy_captured_photo_count.yaml
+â”‚   â”œâ”€â”€ input_boolean/
+â”‚   â”‚   â”œâ”€â”€ input_boolean_bambuddy_history_sync_enabled.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_capture_at_start.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_capture_at_midprint.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_capture_near_complete.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_capture_on_error.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_print_history_multi_select_mode.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_print_history_multi_select_all_favorites.yaml
+â”‚   â”‚   â”œâ”€â”€ input_boolean_print_history_show_activity_heatmap.yaml
+â”‚   â”‚   â””â”€â”€ input_boolean_print_history_filter_favorites_only.yaml
+â”‚   â”œâ”€â”€ input_number/
+â”‚   â”‚   â”œâ”€â”€ input_number_history_current_page.yaml
+â”‚   â”‚   â”œâ”€â”€ input_number_midprint_capture_percent.yaml
+â”‚   â”‚   â”œâ”€â”€ input_number_print_history_multi_select_count.yaml
+â”‚   â”‚   â”œâ”€â”€ input_number_print_history_page_size.yaml
+â”‚   â”‚   â”œâ”€â”€ input_number_print_history_max_archives.yaml
+â”‚   â”‚   â””â”€â”€ input_number_photo_review_timeout_hours.yaml
+â”‚   â””â”€â”€ input_select/
+â”‚       â”œâ”€â”€ input_select_bambuddy_photo_review_state.yaml
+â”‚       â”œâ”€â”€ input_select_print_history_activity_metric.yaml
+â”‚       â”œâ”€â”€ input_select_print_history_filter_*.yaml
+â”‚       â”œâ”€â”€ input_select_print_history_popup_failure_reason.yaml
+â”‚       â”œâ”€â”€ input_select_print_history_popup_project.yaml
+â”‚       â”œâ”€â”€ input_select_print_history_popup_status.yaml
+â”‚       â”œâ”€â”€ input_select_print_history_sort.yaml
+â”‚       â””â”€â”€ input_select_print_history_card_variant.yaml
+â”œâ”€â”€ dashboard_cards/
+â”‚   â”œâ”€â”€ print_history_activity_panel.yaml          # wrapper: separator-bar controls and heatmap
+â”‚   â”œâ”€â”€ print_history_activity_heatmap.yaml        # GitHub-style heatmap card config
+â”‚   â”œâ”€â”€ print_history.yaml                         # responsive archive renderer (Compact / Media / List)
+â”‚   â”œâ”€â”€ print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
+â”‚   â”œâ”€â”€ print_history_top_controls.yaml            # top/bottom control strip: page nav, page size, layout, refresh
+â”‚   â””â”€â”€ photo_review_chip.yaml                     # conditional review-status chip; remaining work is smarter chip â†’ popup targeting
+â””â”€â”€ dashboard_views/
+    â””â”€â”€ view_print_history.yaml
 
 archive/print_history/
-├── legacy-yaml-browser/                          # retired Layer 1/2/3 browser backend, not deployed
-├── appdaemon-browser/                            # retired Variant 1 sidecar, not deployed
-└── workflows/                                    # retired AppDaemon image-build workflow, not active
+â”œâ”€â”€ legacy-yaml-browser/                          # retired Layer 1/2/3 browser backend, not deployed
+â”œâ”€â”€ appdaemon-browser/                            # retired Variant 1 sidecar, not deployed
+â””â”€â”€ workflows/                                    # retired AppDaemon image-build workflow, not active
 ```
 
 ## Loader Domains
@@ -364,38 +474,38 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Entity | Type | Purpose | Persists? |
 |---|---|---|---|
-| `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
-| `input_text.bambuddy_capture_camera_entities` | input_text | Persisted comma-separated `camera.*` entity list for photo capture; blank falls back to the built-in Bambu camera | No `initial:` — survives restart |
+| `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` â€” survives restart |
+| `input_text.bambuddy_capture_camera_entities` | input_text | Persisted comma-separated `camera.*` entity list for photo capture; blank falls back to the built-in Bambu camera | No `initial:` â€” survives restart |
 | `input_text.bambuddy_last_photo_upload_result` | input_text | Last capture/upload verification summary for operator debugging | No `initial:` |
 | `input_text.print_history_activity_selected_date` | input_text | Selected day for the activity heatmap drill-in (`YYYY-MM-DD`) | - |
-| `input_text.print_history_search` | input_text | Browser search text | — |
-| `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | — |
-| `input_text.print_history_multi_select_request` | input_text | One-shot toolbar request channel for browser multi-select actions | — |
-| `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
-| `input_boolean.bambuddy_history_sync_enabled` | input_boolean | Enable/disable history sync features (refresh, cache sync, capture sync) | — |
-| `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
-| `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
-| `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | — |
-| `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
-| `input_boolean.print_history_multi_select_mode` | input_boolean | Shared browser toolbar/card flag for whether archive multi-select mode is active | — |
-| `input_boolean.print_history_multi_select_all_favorites` | input_boolean | Summary flag indicating whether every currently selected archive is already favorited | — |
-| `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
+| `input_text.print_history_search` | input_text | Browser search text | â€” |
+| `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | â€” |
+| `input_text.print_history_multi_select_request` | input_text | One-shot toolbar request channel for browser multi-select actions | â€” |
+| `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified trayâ†’spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
+| `input_boolean.bambuddy_history_sync_enabled` | input_boolean | Enable/disable history sync features (refresh, cache sync, capture sync) | â€” |
+| `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | â€” |
+| `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | â€” |
+| `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | â€” |
+| `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | â€” |
+| `input_boolean.print_history_multi_select_mode` | input_boolean | Shared browser toolbar/card flag for whether archive multi-select mode is active | â€” |
+| `input_boolean.print_history_multi_select_all_favorites` | input_boolean | Summary flag indicating whether every currently selected archive is already favorited | â€” |
+| `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | â€” |
 | `input_boolean.print_history_debug_instrumentation` | input_boolean | Enable browser and heatmap performance instrumentation for future debugging sessions | Off by default |
-| `input_number.history_current_page` | input_number | Current pagination page | — |
-| `input_number.print_history_multi_select_count` | input_number | Shared selected-count summary for the toolbar while multi-select mode is active | — |
-| `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
-| `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | — |
-| `input_number.midprint_capture_percent` | input_number | Progress % for mid-print capture (e.g., 50) | — |
-| `input_number.photo_review_timeout_hours` | input_number | Timeout control reserved for follow-on media-review auto-dismiss lifecycle | — |
+| `input_number.history_current_page` | input_number | Current pagination page | â€” |
+| `input_number.print_history_multi_select_count` | input_number | Shared selected-count summary for the toolbar while multi-select mode is active | â€” |
+| `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | â€” |
+| `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | â€” |
+| `input_number.midprint_capture_percent` | input_number | Progress % for mid-print capture (e.g., 50) | â€” |
+| `input_number.photo_review_timeout_hours` | input_number | Timeout control reserved for follow-on media-review auto-dismiss lifecycle | â€” |
 | `counter.bambuddy_captured_photo_count` | counter | Number of photos captured in the current print cycle | Reset on `print_started` |
-| `input_select.bambuddy_photo_review_state` | input_select | Coarse mirrored review lifecycle signal; per-archive source of truth now lives in store-backed `archive_media_review_state` | — |
+| `input_select.bambuddy_photo_review_state` | input_select | Coarse mirrored review lifecycle signal; per-archive source of truth now lives in store-backed `archive_media_review_state` | â€” |
 | `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, outcome, objects, cost, filaments used, or total printing time | - |
-| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/project/layer/tag) | — |
-| `input_text.print_history_popup_*` | input_text | Helper-backed popup edit state for archive ID, print name, tags, and notes | — |
-| `input_select.print_history_popup_*` | input_select | Helper-backed popup edit state for archive status and failure reason | — |
-| `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | — |
-| `input_select.print_history_sort` | input_select | Browser sort mode | — |
-| `input_select.print_history_card_variant` | input_select | Compact / Media / List renderer selection | — |
+| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/project/layer/tag) | â€” |
+| `input_text.print_history_popup_*` | input_text | Helper-backed popup edit state for archive ID, print name, tags, and notes | â€” |
+| `input_select.print_history_popup_*` | input_select | Helper-backed popup edit state for archive status and failure reason | â€” |
+| `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | â€” |
+| `input_select.print_history_sort` | input_select | Browser sort mode | â€” |
+| `input_select.print_history_card_variant` | input_select | Compact / Media / List renderer selection | â€” |
 
 ### Scripts
 
@@ -494,30 +604,144 @@ Popup implementation notes for the current shipped path:
 
 For detailed design of the two major subsystems, see:
 
-- **[photo-capture-design.md](ui-media/photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
-- **[archive-enrichment-current.md](reference/archive-enrichment-current.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
-- **[archive-enrichment-metadata-services.md](reference/archive-enrichment-metadata-services.md)** — Read and write contract for operator-facing managed enrichment tag and hidden note metadata services
-- **[photo-review-design.md](ui-media/photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
-- **[source-3mf-import-design.md](imports/source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
-- **[source-3mf-import-implementation-plan.md](imports/source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
-- **[folder-3mf-catalog-design.md](imports/folder-3mf-catalog-design.md)** — Nondestructive folder-driven catalog, reconciliation, editable viewer, browser queue actions, and confirmed backfill workflow for historical `.3mf` collections
-- **[filter-sort-design.md](browser/filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
-- **[multi-select-actions-design.md](browser/multi-select-actions-design.md)** — Issue #919 shipped browser multi-select mode, toolbar/card coordination, and bulk action semantics
-- **[archive-detail-popup-design.md](ui-media/archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
-- **[archive-compare-similar.md](design/archive-compare-similar.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
-- **[archive-runtime-restore-ha-ux-design.md](runtime-repair/archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
-- **[archive-runtime-restore-implementation-plan.md](runtime-repair/archive-runtime-restore-implementation-plan.md)** — Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
-- **[archive-runtime-restore-ha-service-and-popup-contract.md](reference/archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
-- **[archive-metadata-correction-design.md](runtime-repair/archive-metadata-correction-design.md)** — Issue #953 design for sidecar-backed single-archive metadata correction, warning UX, derived-field policy, and local audit history
-- **[advanced-features-design.md](planning/advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
-- **[archive-detection-recovery-design.md](recovery/archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
-- **[archive-detection-phase1-scope.md](recovery/archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only
-- **[archive-detection-implementation-plan.md](recovery/archive-detection-implementation-plan.md)** — Design-only phased implementation plan for detection and recovery orchestration
-- **[archive-recovery-n8n-design.md](recovery/archive-recovery-n8n-design.md)** — Recommended `n8n` workflow design for manual and future automated recovery
-- **[archive-exception-ux-design.md](recovery/archive-exception-ux-design.md)** — Dashboard and interaction design for incomplete archive visibility
-- **[archive-detection-execution-checklist.md](recovery/archive-detection-execution-checklist.md)** — Task-level execution checklist before implementation
-- **[archive-recovery-live-matrix-2026-04-04.md](recovery/archive-recovery-live-matrix-2026-04-04.md)** — Point-in-time recovery matrix for the current live fallback archive set
-- **[archive-recovery-interim-test-plan.md](recovery/archive-recovery-interim-test-plan.md)** — Staged manual test method before HA or `n8n` automation creates records
+- **[photo-capture-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/photo-capture-design.md
+
+
+)** â€” Multi-camera, multi-stage photo capture with error photos
+- **[archive-enrichment-current.md](reference/archive-enrichment-current.md)** â€” Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
+- **[archive-enrichment-metadata-services.md](reference/archive-enrichment-metadata-services.md)** â€” Read and write contract for operator-facing managed enrichment tag and hidden note metadata services
+- **[photo-review-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/photo-review-design.md
+
+
+)** â€” Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
+- **[source-3mf-import-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/imports/source-3mf-import-design.md
+
+
+)** â€” Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
+- **[source-3mf-import-implementation-plan.md](
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/imports/source-3mf-import-implementation-plan.md
+
+
+)** â€” Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
+- **[folder-3mf-catalog-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/imports/folder-3mf-catalog-design.md
+
+
+)** â€” Nondestructive folder-driven catalog, reconciliation, editable viewer, browser queue actions, and confirmed backfill workflow for historical `.3mf` collections
+- **[filter-sort-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/filter-sort-design.md
+
+
+)** â€” Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
+- **[multi-select-actions-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/multi-select-actions-design.md
+
+
+)** â€” Issue #919 shipped browser multi-select mode, toolbar/card coordination, and bulk action semantics
+- **[archive-detail-popup-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/archive-detail-popup-design.md
+
+
+)** â€” Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
+- **[archive-compare-similar.md](design/archive-compare-similar.md)** â€” Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
+- **[archive-runtime-restore-ha-ux-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/runtime-repair/archive-runtime-restore-ha-ux-design.md
+
+
+)** â€” Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
+- **[archive-runtime-restore-implementation-plan.md](
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/runtime-repair/archive-runtime-restore-implementation-plan.md
+
+
+)** â€” Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
+- **[archive-runtime-restore-ha-service-and-popup-contract.md](reference/archive-runtime-restore-ha-service-and-popup-contract.md)** â€” Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
+- **[archive-metadata-correction-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/runtime-repair/archive-metadata-correction-design.md
+
+
+)** â€” Issue #953 design for sidecar-backed single-archive metadata correction, warning UX, derived-field policy, and local audit history
+- **[advanced-features-design.md](planning/advanced-features-design.md)** â€” Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
+- **[archive-detection-recovery-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/recovery/archive-detection-recovery-design.md
+
+
+)** â€” Detection and no-code-change repair architecture for incomplete Bambuddy archives
+- **[archive-detection-phase1-scope.md](
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/recovery/archive-detection-phase1-scope.md
+
+
+)** â€” Recommended first build slice: detection and visibility only
+- **[archive-detection-implementation-plan.md](
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/recovery/archive-detection-implementation-plan.md
+
+
+)** â€” Design-only phased implementation plan for detection and recovery orchestration
+- **[archive-recovery-n8n-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/recovery/archive-recovery-n8n-design.md
+
+
+)** â€” Recommended `n8n` workflow design for manual and future automated recovery
+- **[archive-exception-ux-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/recovery/archive-exception-ux-design.md
+
+
+)** â€” Dashboard and interaction design for incomplete archive visibility
+- **[archive-detection-execution-checklist.md](
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/recovery/archive-detection-execution-checklist.md
+
+
+)** â€” Task-level execution checklist before implementation
+- **[archive-recovery-live-matrix-2026-04-04.md](
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/recovery/archive-recovery-live-matrix-2026-04-04.md
+
+
+)** â€” Point-in-time recovery matrix for the current live fallback archive set
+- **[archive-recovery-interim-test-plan.md](
+docs/features/print_history/planning/
+docs/features/print_history/planning/
+docs/features/print_history/planning/recovery/archive-recovery-interim-test-plan.md
+
+
+)** â€” Staged manual test method before HA or `n8n` automation creates records
 
 ## Migration Notes
 
@@ -529,9 +753,9 @@ For detailed design of the two major subsystems, see:
 - **Helpers**: `bambuddy_current_archive_id` and `bambuddy_history_sync_enabled` originated in the root `bambuddy/helpers.yaml` prototype; the old `bambuddy_history_limit` helper is retired
 
 ### Eliminated
-- `bambuddy/automations/sync_print_history.yaml` — Bambuddy auto-creates archives; HA no longer calls `POST /archives`
-- `rest_command.bambuddy_create_archive` — same reason
-- `rest_command.bambuddy_update_archive_status` — replaced by generalized `bambuddy_update_archive` (PATCH with any fields)
+- `bambuddy/automations/sync_print_history.yaml` â€” Bambuddy auto-creates archives; HA no longer calls `POST /archives`
+- `rest_command.bambuddy_create_archive` â€” same reason
+- `rest_command.bambuddy_update_archive_status` â€” replaced by generalized `bambuddy_update_archive` (PATCH with any fields)
 
 ### New (not in root prototype)
 - Archive ID capture from webhook events
@@ -552,24 +776,42 @@ For detailed design of the two major subsystems, see:
 
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
-- **Browser refinements** — See [filter-sort-design.md](browser/filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/list card layouts.
-- **Configurable browser instrumentation** — See [browser-instrumentation.md](reference/browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
-- **Heatmap backend unification** — See [filter-sort-design.md](browser/filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
-- **Photo review actions** — See [photo-review-design.md](ui-media/photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
-- **Timelapse lifecycle + media review** — See [advanced-features-design.md](planning/advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
-- **Archive repair/capability diagnostics** — See [advanced-features-design.md](planning/advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
-- **Reprint preflight** — See [advanced-features-design.md](planning/advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
+- **Browser refinements** â€” See [filter-sort-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/filter-sort-design.md
+
+
+). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/list card layouts.
+- **Configurable browser instrumentation** â€” See [browser-instrumentation.md](reference/browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
+- **Heatmap backend unification** â€” See [filter-sort-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/browser/filter-sort-design.md
+
+
+). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
+- **Photo review actions** â€” See [photo-review-design.md](
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/photo-review-design.md
+
+
+). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
+- **Timelapse lifecycle + media review** â€” See [advanced-features-design.md](planning/advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
+- **Archive repair/capability diagnostics** â€” See [advanced-features-design.md](planning/advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
+- **Reprint preflight** â€” See [advanced-features-design.md](planning/advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
 
 ### Implemented Browser Layer
 
 The Print History view now includes the configurable browser described in the filter/sort design:
 
-1. **Filter and sort layer** — search, filter, sort, and page over a projected in-memory archive dataset.
-2. **Always-visible browser header** — Open Bambuddy, settings, filter pills, search, matches, clear actions, and multi-select color chips stay pinned above the archive grid.
-3. **Repeated control strip** — page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
-4. **Multi-select archive actions** — the control strip can swap into a multi-select mode, archive cards become selectable instead of opening, and visible-page bulk actions can update tags, project, favorite state, or delete selected archives.
-5. **Archive card variants** — the history renderer switches between compact, media, and list cards while keeping a two-column desktop layout and a single-column mobile fallback.
-6. **Archive detail popup is live and now actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
+1. **Filter and sort layer** â€” search, filter, sort, and page over a projected in-memory archive dataset.
+2. **Always-visible browser header** â€” Open Bambuddy, settings, filter pills, search, matches, clear actions, and multi-select color chips stay pinned above the archive grid.
+3. **Repeated control strip** â€” page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
+4. **Multi-select archive actions** â€” the control strip can swap into a multi-select mode, archive cards become selectable instead of opening, and visible-page bulk actions can update tags, project, favorite state, or delete selected archives.
+5. **Archive card variants** â€” the history renderer switches between compact, media, and list cards while keeping a two-column desktop layout and a single-column mobile fallback.
+6. **Archive detail popup is live and now actionable** â€” each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
 
 ### Debug Instrumentation
 
@@ -592,11 +834,11 @@ The dashboard code includes an `onerror` handler that hides failed images gracef
 
 #### Potential Future Workarounds
 
-1. **Server-side relay through HA** — Build an HA automation or proxy endpoint that fetches thumbnails from Bambuddy server-side and streams them back to the browser. No duplicate storage; images work from any access method. HA does not currently offer a built-in generic HTTP proxy, so this would require a custom component or add-on.
+1. **Server-side relay through HA** â€” Build an HA automation or proxy endpoint that fetches thumbnails from Bambuddy server-side and streams them back to the browser. No duplicate storage; images work from any access method. HA does not currently offer a built-in generic HTTP proxy, so this would require a custom component or add-on.
 
-2. **Selective reverse proxy exposure** — Use Traefik (or similar) to expose only the read-only thumbnail path (`/api/v1/archives/*/thumbnail`) to the internet over HTTPS, keeping the rest of the Bambuddy API local-only. Minimal attack surface since the thumbnail endpoint is already unauthenticated.
+2. **Selective reverse proxy exposure** â€” Use Traefik (or similar) to expose only the read-only thumbnail path (`/api/v1/archives/*/thumbnail`) to the internet over HTTPS, keeping the rest of the Bambuddy API local-only. Minimal attack surface since the thumbnail endpoint is already unauthenticated.
 
-3. **Accept local-only thumbnails** (current approach) — Images work on LAN; a fallback is shown when accessed remotely. Simplest, no infrastructure changes, matches the "Bambuddy stays local" stance.
+3. **Accept local-only thumbnails** (current approach) â€” Images work on LAN; a fallback is shown when accessed remotely. Simplest, no infrastructure changes, matches the "Bambuddy stays local" stance.
 
 ---
 
@@ -604,7 +846,7 @@ The dashboard code includes an `onerror` handler that hides failed images gracef
 
 The Print History view is registered as a tab in the 3D Printing dashboard.
 
-- **View**: `dashboard_views/view_print_history.yaml` — `path: print-history`, `icon: mdi:history`
+- **View**: `dashboard_views/view_print_history.yaml` â€” `path: print-history`, `icon: mdi:history`
 - **Registration**: `!include ../../print_history/dashboard_views/view_print_history.yaml` in `common/dashboards/3d_printing.yaml`
 - **View type**: `panel: true` with a single `vertical-stack` so the review chip, browser header, both control strips, and archive grid stay in one full-width flow
 
@@ -615,62 +857,62 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 #### Visual Layout (Desktop)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  Section 1: Print History Browser                                         │
-│                                                                             │
-│  ┌─ Photo Review Chip (conditional) ─────────────────────────────────────┐ │
-│  │ 📸 Photos to Review  (status-only chip; opens more-info today)         │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                             │
-│  ┌─ Browser Header ──────────────────────────────────────────────────────┐ │
-│  │ Open Bambuddy  Settings                                               │ │
-│  │ Status  Archive Issue  Material  Printer  Date                        │ │
-│  │ Designer  Project  Layer Height  Tag  Favorites  Sort                │ │
-│  │ Search  Matches  Clear actions (including tag clear when active)      │ │
-│  │ Multi-select color chips (one chip per archive color)                │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                             │
-│  ┌─ Control Strip ───────────────────────────────────────────────────────┐ │
-│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  List  🔄  ▶ ⏭            │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                             │
-│  ┌─ Print Records ───────────────────────────────────────────────────────┐ │
-│  │ Compact / Media / List card mode                                     │ │
-│  │ ┌───────────────────────────────────────────────────────────────────┐ │ │
-│  │ │ [thumb] Benchy                                            ✅      │ │ │
-│  │ │ Mar 27 · 2.3h · PLA · 44.8g                                      │ │ │
-│  │ ├───────────────────────────────────────────────────────────────────┤ │ │
-│  │ │ [larger cover/photo when enabled]                                 │ │ │
-│  │ │ Phone Case · PETG · failure detail                                │ │ │
-│  │ ├───────────────────────────────────────────────────────────────────┤ │ │
-│  │ │ ...                                                               │ │ │
-│  │ └───────────────────────────────────────────────────────────────────┘ │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                             │
-│  ┌─ Control Strip ───────────────────────────────────────────────────────┐ │
-│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  List  🔄  ▶ ⏭            │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Section 1: Print History Browser                                         â”‚
+â”‚                                                                             â”‚
+â”‚  â”Œâ”€ Photo Review Chip (conditional) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚ ðŸ“¸ Photos to Review  (status-only chip; opens more-info today)         â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â”‚                                                                             â”‚
+â”‚  â”Œâ”€ Browser Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚ Open Bambuddy  Settings                                               â”‚ â”‚
+â”‚  â”‚ Status  Archive Issue  Material  Printer  Date                        â”‚ â”‚
+â”‚  â”‚ Designer  Project  Layer Height  Tag  Favorites  Sort                â”‚ â”‚
+â”‚  â”‚ Search  Matches  Clear actions (including tag clear when active)      â”‚ â”‚
+â”‚  â”‚ Multi-select color chips (one chip per archive color)                â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â”‚                                                                             â”‚
+â”‚  â”Œâ”€ Control Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚ â® â—€  1 of 3  Prints/Page  Compact  Media  List  ðŸ”„  â–¶ â­            â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â”‚                                                                             â”‚
+â”‚  â”Œâ”€ Print Records â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚ Compact / Media / List card mode                                     â”‚ â”‚
+â”‚  â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚ â”‚
+â”‚  â”‚ â”‚ [thumb] Benchy                                            âœ…      â”‚ â”‚ â”‚
+â”‚  â”‚ â”‚ Mar 27 Â· 2.3h Â· PLA Â· 44.8g                                      â”‚ â”‚ â”‚
+â”‚  â”‚ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”‚ â”‚
+â”‚  â”‚ â”‚ [larger cover/photo when enabled]                                 â”‚ â”‚ â”‚
+â”‚  â”‚ â”‚ Phone Case Â· PETG Â· failure detail                                â”‚ â”‚ â”‚
+â”‚  â”‚ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”‚ â”‚
+â”‚  â”‚ â”‚ ...                                                               â”‚ â”‚ â”‚
+â”‚  â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â”‚                                                                             â”‚
+â”‚  â”Œâ”€ Control Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚ â® â—€  1 of 3  Prints/Page  Compact  Media  List  ðŸ”„  â–¶ â­            â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 Popup launched from `Settings` button:
 
 ```
-┌─────────────────────────────────────────────┐
-│  Print History Settings                     │
-│  Capture Timing                             │
-│  Start [✓]  Mid-Print [✓]  Near End [✓]    │
-│  Complete [✓]  Error [✓]  Threshold   50%  │
-│  Cameras                                    │
-│  Capture Cameras      [stored list helper]  │
-│  Configure Capture Cameras      [selector]  │
-│  History Browser                            │
-│  History Sync [✓]   Max Cached Archives 175 │
-│  Review and Diagnostics                     │
-│  Review Timeout (hrs) 24   Debug [off/on]   │
-└─────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Print History Settings                     â”‚
+â”‚  Capture Timing                             â”‚
+â”‚  Start [âœ“]  Mid-Print [âœ“]  Near End [âœ“]    â”‚
+â”‚  Complete [âœ“]  Error [âœ“]  Threshold   50%  â”‚
+â”‚  Cameras                                    â”‚
+â”‚  Capture Cameras      [stored list helper]  â”‚
+â”‚  Configure Capture Cameras      [selector]  â”‚
+â”‚  History Browser                            â”‚
+â”‚  History Sync [âœ“]   Max Cached Archives 175 â”‚
+â”‚  Review and Diagnostics                     â”‚
+â”‚  Review Timeout (hrs) 24   Debug [off/on]   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
-#### Visual Layout (Mobile — 1 column)
+#### Visual Layout (Mobile â€” 1 column)
 
 On narrow screens, the browser remains a single stacked flow: review chip, browser header, top control strip, archive cards, then bottom control strip. The color chips wrap naturally into additional rows.
 
@@ -678,21 +920,21 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 #### Key Design Decisions
 
-1. **One full-width browser flow** — The photo review chip, browser header, archive cards, and both control strips live inside one `panel: true` vertical stack. This prevents navigation or layout controls from jumping into a secondary column.
+1. **One full-width browser flow** â€” The photo review chip, browser header, archive cards, and both control strips live inside one `panel: true` vertical stack. This prevents navigation or layout controls from jumping into a secondary column.
 
-2. **Settings move to popup, not a permanent column** — Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused, scales better on mobile, and allows the controls to be grouped by task instead of shown as one long helper list.
+2. **Settings move to popup, not a permanent column** â€” Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused, scales better on mobile, and allows the controls to be grouped by task instead of shown as one long helper list.
 
-3. **Archive card variants are a first-class view choice** — The page should support at least three presentation modes: compact card, media-first card, and list card. This allows the same data layer to support quick scanning and richer visual review.
+3. **Archive card variants are a first-class view choice** â€” The page should support at least three presentation modes: compact card, media-first card, and list card. This allows the same data layer to support quick scanning and richer visual review.
 
-4. **Workflow state stays out of settings UI** — Archive ID, review state, and similar runtime internals should support automations and review flows, but they should not appear as editable settings.
+4. **Workflow state stays out of settings UI** â€” Archive ID, review state, and similar runtime internals should support automations and review flows, but they should not appear as editable settings.
 
-5. **Color filter chips are generated from live archive data** — The browser header exposes one clickable swatch per discovered filament color. The chips use `custom:auto-entities` to build simple built-in `button` cards, and the selected state is stored as a comma-separated hex list in `input_text.print_history_filter_colors`.
+5. **Color filter chips are generated from live archive data** â€” The browser header exposes one clickable swatch per discovered filament color. The chips use `custom:auto-entities` to build simple built-in `button` cards, and the selected state is stored as a comma-separated hex list in `input_text.print_history_filter_colors`.
 
-6. **Photo review chip stays with the browser** — The chip is contextual to the history workflow and currently acts as a lightweight status surface. It belongs in the same full-width browsing flow as the archive browser.
+6. **Photo review chip stays with the browser** â€” The chip is contextual to the history workflow and currently acts as a lightweight status surface. It belongs in the same full-width browsing flow as the archive browser.
 
-7. **Archive issues stay visible in both browse and inspect flows** — The filter bar includes an `Archive Issue` selector (`All`, `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, `Missing Thumbnail`), archive cards add a severity-colored left rail plus issue chip when repair-worthy data problems exist, and the per-print popup repeats the issue summary with operator-facing detail chips rather than raw `file_path` / `no_3mf_available` fields.
+7. **Archive issues stay visible in both browse and inspect flows** â€” The filter bar includes an `Archive Issue` selector (`All`, `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, `Missing Thumbnail`), archive cards add a severity-colored left rail plus issue chip when repair-worthy data problems exist, and the per-print popup repeats the issue summary with operator-facing detail chips rather than raw `file_path` / `no_3mf_available` fields.
 
-#### Previous Layout (v1) — Issues
+#### Previous Layout (v1) â€” Issues
 
 The original layout used **6 separate sections**, each with a single card:
 
@@ -732,11 +974,13 @@ Section 3: pagination_browser    Section 6: current_print_diagnostics
 
 | # | Item | Impact | Blocking? |
 |---|---|---|---|
-| 1 | Verify `print_started` webhook includes `archive_id` in payload | If missing, first photo upload relies on fallback lookup | No — fallback designed |
-| 2 | Photo upload content type (multipart file only) | Determines upload mechanism in `capture_and_upload_snapshot` | No — valid transport options are documented |
-| 3 | Confirm `input_text.3dprinter_snapshot_light` availability cross-package | If notifications package not deployed, need local fallback | No — gated with template check |
-| 4 | Enrichment idempotency — verify PATCH tags doesn't create duplicates | Could pollute tag lists on retry | Low risk — test during Phase 7 |
-| 5 | Base64 `image` field in webhook payload — bonus data capture | Bambuddy webhooks can include base64 JPEG for some events | No — nice-to-have, not blocking |
-| 6 | Photo list/delete API — confirm `GET` and `DELETE` on `/archives/{id}/photos/{photo_id}` | Required for review delete action | No — review/dismiss still works without it |
-| 7 | Cover photo API — confirm `cover_photo_id` field on PATCH | Required for set-as-cover action | No — omit button if unavailable |
-| 8 | Upload response schema — does POST photos return `photo_id`? | Manifest needs photo_id for delete/replace mapping | No — can fall back to listing photos |
+| 1 | Verify `print_started` webhook includes `archive_id` in payload | If missing, first photo upload relies on fallback lookup | No â€” fallback designed |
+| 2 | Photo upload content type (multipart file only) | Determines upload mechanism in `capture_and_upload_snapshot` | No â€” valid transport options are documented |
+| 3 | Confirm `input_text.3dprinter_snapshot_light` availability cross-package | If notifications package not deployed, need local fallback | No â€” gated with template check |
+| 4 | Enrichment idempotency â€” verify PATCH tags doesn't create duplicates | Could pollute tag lists on retry | Low risk â€” test during Phase 7 |
+| 5 | Base64 `image` field in webhook payload â€” bonus data capture | Bambuddy webhooks can include base64 JPEG for some events | No â€” nice-to-have, not blocking |
+| 6 | Photo list/delete API â€” confirm `GET` and `DELETE` on `/archives/{id}/photos/{photo_id}` | Required for review delete action | No â€” review/dismiss still works without it |
+| 7 | Cover photo API â€” confirm `cover_photo_id` field on PATCH | Required for set-as-cover action | No â€” omit button if unavailable |
+| 8 | Upload response schema â€” does POST photos return `photo_id`? | Manifest needs photo_id for delete/replace mapping | No â€” can fall back to listing photos |
+
+

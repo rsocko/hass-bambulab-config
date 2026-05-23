@@ -1,4 +1,4 @@
-# Model Catalog — Feature Overview
+﻿# Model Catalog â€” Feature Overview
 
 > **Status**: Revised design baseline with approved post-Manyfold transition.
 > **Last updated**: 2026-04-28
@@ -53,67 +53,67 @@ Lane navigation:
 
 ### Core Design
 
-- [Architecture Overview](reference/architecture.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
-- [API Reference](reference/api-reference.md) — Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
-- [Implementation Plan](planning/implementation-plan.md) — Updated phased implementation plan aligned to the approved architecture and use-case priorities
-- [Phase 1.5 Intake Implementation Breakdown](planning/phase-1.5-breakdown.md) — Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
-- [Intake Wizard and Queue Design](design/intake-inbox.md) — Canonical wizard-first intake design with queue demoted from primary UI and Job History as the visible outcome surface
-- [Intake Wizard UX Mockups](design/intake-wizard-mockups.md) — Low-fi split-pane wizard wireframes for Browser Upload and Server Inbox, aligned to issues #1282, #1288, and #1292
-- [External Source Intake Design](design/external-source-intake.md) — Unified architecture for third-party source capture/import across URL paste, browser extension, Stream Deck quick actions, MakerWorld metadata import, and collection migration (issues #183, #1179, #189, #232, #1266, #1372)
-- [Intake Overlapping Server Selections Issue Drafts](planning/intake-overlapping-selections.md) — Issue-ready parent/child overlap tracking for Server browse semantics, warning UX, and deterministic unique-file planning
-- [Phase 6 Search, Ranking, and Discovery Design](design/phase-6-search.md) — Authoritative Phase 6 contract for unified query model, ranking signals, archive-initiated picker/search, related items, and HA search surfaces
-- [Phase 6 Bulk Metadata Enrichment Design](design/phase-6-enrichment.md) — Authoritative Phase 6 contract for bulk analyze, review-first enrichment, confidence handling, and audited batch apply
+- [Architecture Overview](reference/architecture.md) â€” Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
+- [API Reference](reference/api-reference.md) â€” Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
+- [Implementation Plan](planning/implementation-plan.md) â€” Updated phased implementation plan aligned to the approved architecture and use-case priorities
+- [Phase 1.5 Intake Implementation Breakdown](planning/phase-1.5-breakdown.md) â€” Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
+- [Intake Wizard and Queue Design](design/intake-inbox.md) â€” Canonical wizard-first intake design with queue demoted from primary UI and Job History as the visible outcome surface
+- [Intake Wizard UX Mockups](design/intake-wizard-mockups.md) â€” Low-fi split-pane wizard wireframes for Browser Upload and Server Inbox, aligned to issues #1282, #1288, and #1292
+- [External Source Intake Design](design/external-source-intake.md) â€” Unified architecture for third-party source capture/import across URL paste, browser extension, Stream Deck quick actions, MakerWorld metadata import, and collection migration (issues #183, #1179, #189, #232, #1266, #1372)
+- [Intake Overlapping Server Selections Issue Drafts](planning/intake-overlapping-selections.md) â€” Issue-ready parent/child overlap tracking for Server browse semantics, warning UX, and deterministic unique-file planning
+- [Phase 6 Search, Ranking, and Discovery Design](design/phase-6-search.md) â€” Authoritative Phase 6 contract for unified query model, ranking signals, archive-initiated picker/search, related items, and HA search surfaces
+- [Phase 6 Bulk Metadata Enrichment Design](design/phase-6-enrichment.md) â€” Authoritative Phase 6 contract for bulk analyze, review-first enrichment, confidence handling, and audited batch apply
 - Current implementation status: Phase 2 archive popup linkage is live; the current Phase 6 source of truth for candidate broadening, curated search/picker, ranking, related items, and bulk enrichment is the two Phase 6 design docs above
-- [Workflow And Ingestion Guide](reference/workflow-ingestion.md) — Realistic lifecycle flows for Working, cataloging, revisions, provenance capture, and recovery
-- [Operator Workflow](reference/operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, catalog, and archives
+- [Workflow And Ingestion Guide](reference/workflow-ingestion.md) â€” Realistic lifecycle flows for Working, cataloging, revisions, provenance capture, and recovery
+- [Operator Workflow](reference/operator-workflow.md) â€” Short operator-facing guidance for where files should live and how to move between Working, catalog, and archives
 
 ### Historical/Compatibility Context
 
-- [Post-Manyfold Transition Plan (2026-04)](planning/post-manyfold-transition.md) — Authoritative migration plan and sequential phase roadmap
-- [Legacy Router Snapshot Policy](../../../archive/model_catalog/legacy_router_snapshots/README.md) — Maintainer rule for where inactive router backups must live
-- [Manyfold API Gap Analysis](planning/manyfold-gap-analysis.md) — Historical analysis retained for context and optional future adapter work
-- [External Storage Behavior](reference/external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
-- [Implementation Strategy Options](planning/implementation-strategy.md) — Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking
-- [Persistence And Backup Strategy](reference/backup-strategy.md) — Phase 1.25 persistence boundary, backup/restore runbook shape, named-volume vs bind-mount tradeoffs, and backup-tool comparison
+- [Post-Manyfold Transition Plan (2026-04)](planning/post-manyfold-transition.md) â€” Authoritative migration plan and sequential phase roadmap
+- [Legacy Router Snapshot Policy](../../../archive/model_catalog/legacy_router_snapshots/README.md) â€” Maintainer rule for where inactive router backups must live
+- [Manyfold API Gap Analysis](planning/manyfold-gap-analysis.md) â€” Historical analysis retained for context and optional future adapter work
+- [External Storage Behavior](reference/external-storage-behavior.md) â€” Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
+- [Implementation Strategy Options](planning/implementation-strategy.md) â€” Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking
+- [Persistence And Backup Strategy](reference/backup-strategy.md) â€” Phase 1.25 persistence boundary, backup/restore runbook shape, named-volume vs bind-mount tradeoffs, and backup-tool comparison
 
 ### Data Model And Working Layer
 
-- [Persistence Strategy and Database Graduation Path](reference/persistence-graduation.md) — SQLite baseline decision, graduation criteria to Postgres, SQLAlchemy ORM migration path (3-4 day effort), and Phase 6+ evaluation checkpoints
-- [ER Diagrams and Sidecar Datamodel](planning/er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
-- [3MF Analysis Cache Schema And API Draft](planning/3mf-cache-draft.md) — Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
-- [Manyfold-Bambuddy Linkage Model](design/manyfold-bambuddy-linkage.md) — Data model and ownership split for archive-to-model links
-- [Custom Fields Schema](reference/custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
-- [API Cache And Sync Flow](design/api-cache-sync.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA
-- [Working Groups And Veneer](planning/working-groups-veneer.md) — Logical Working-file grouping model, folder vs virtual grouping, and operator flows
-- [Cross-Feature Data Contracts](reference/data-contracts.md) — Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
-- [Historical Print Backfill Via Model Catalog](reference/historical-backfill.md) — Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
-- [3MF Resource Extraction And Online Provenance Design](design/3mf-resource-extraction.md) — Resource taxonomy, parser/cache contract, STLShelf capability review, and issue-#173 phase mapping for `.3mf` images, support files, and public-source enrichment
-- [3MF Source Extraction (Source Tab + Intake)](design/3mf-source-extraction.md) — Operator-triggered extraction of source metadata from attached 3MF files, conflict policy for mixed-source models, and shared intake reuse contract
-- [Phase Delivery And Validation Tracker](planning/delivery-validation.md) — Concrete deliverables, validation steps, and milestone gating for phased implementation
-- [Working-File Indexing And Grouping Feasibility](planning/working-file-indexing.md) — Wave 1 feasibility decision and implementation guardrails for issue #1059
-- [Working File Inventory And Normalization Spec](design/working-file-spec.md) — Canonical path/name normalization, type scope, and dedupe identity rules for issue #1074
-- [Intake Flow States And Transitions](reference/intake-state-machine.md) — Canonical intake state machine and transition contract for issue #1079
-- [Import Flow Diagrams](reference/import-flows.md) — Canonical Source -> Organize -> Validate -> Commit flow and Job History-centric outcome model
-- [Intake Validation Contract](reference/intake-validation.md) — Concrete checks, warning codes, state mapping, and UI checklist contract for the Validate step
+- [Persistence Strategy and Database Graduation Path](reference/persistence-graduation.md) â€” SQLite baseline decision, graduation criteria to Postgres, SQLAlchemy ORM migration path (3-4 day effort), and Phase 6+ evaluation checkpoints
+- [ER Diagrams and Sidecar Datamodel](planning/er-diagrams.md) â€” Complete sidecar SQLite schema (Diagrams Aâ€“D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
+- [3MF Analysis Cache Schema And API Draft](planning/3mf-cache-draft.md) â€” Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
+- [Manyfold-Bambuddy Linkage Model](design/manyfold-bambuddy-linkage.md) â€” Data model and ownership split for archive-to-model links
+- [Custom Fields Schema](reference/custom-fields-schema.md) â€” Structured sidecar-owned metadata outside Manyfold
+- [API Cache And Sync Flow](design/api-cache-sync.md) â€” Runtime flow between Manyfold, Bambuddy, sidecar, and HA
+- [Working Groups And Veneer](planning/working-groups-veneer.md) â€” Logical Working-file grouping model, folder vs virtual grouping, and operator flows
+- [Cross-Feature Data Contracts](reference/data-contracts.md) â€” Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
+- [Historical Print Backfill Via Model Catalog](reference/historical-backfill.md) â€” Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
+- [3MF Resource Extraction And Online Provenance Design](design/3mf-resource-extraction.md) â€” Resource taxonomy, parser/cache contract, STLShelf capability review, and issue-#173 phase mapping for `.3mf` images, support files, and public-source enrichment
+- [3MF Source Extraction (Source Tab + Intake)](design/3mf-source-extraction.md) â€” Operator-triggered extraction of source metadata from attached 3MF files, conflict policy for mixed-source models, and shared intake reuse contract
+- [Phase Delivery And Validation Tracker](planning/delivery-validation.md) â€” Concrete deliverables, validation steps, and milestone gating for phased implementation
+- [Working-File Indexing And Grouping Feasibility](planning/working-file-indexing.md) â€” Wave 1 feasibility decision and implementation guardrails for issue #1059
+- [Working File Inventory And Normalization Spec](design/working-file-spec.md) â€” Canonical path/name normalization, type scope, and dedupe identity rules for issue #1074
+- [Intake Flow States And Transitions](reference/intake-state-machine.md) â€” Canonical intake state machine and transition contract for issue #1079
+- [Import Flow Diagrams](reference/import-flows.md) â€” Canonical Source -> Organize -> Validate -> Commit flow and Job History-centric outcome model
+- [Intake Validation Contract](reference/intake-validation.md) â€” Concrete checks, warning codes, state mapping, and UI checklist contract for the Validate step
 
 ### Home Assistant And UX
 
-- [HA Model Library Integration](reference/ha-library-integration.md) — HA responsibilities, service boundaries, and how catalog + Working veneer should surface in HA
-- [Archive Model Link HA Service And Popup Contract](reference/archive-model-link-contract.md) — Archive popup service contract and linked-model interaction surface
-- [UX Concepts And Mockups](design/ux-concepts.md) — Embedded low-fi wireframes plus guidance for future mid-fi mockups of the key operator surfaces
-- [Phase 5 Wave 4 HA UI Design](design/phase-5-ha-ui.md) — Implementation-facing Intake, Working Board, link management, batch-action, and queue UI design for issues #1077, #1082, and #1145
-- [Phase 5 End-State UI And Handoff Design](design/phase-5-end-state.md) — Companion design showing how Wave 4 surfaces grow into publish, lineage, preview-promotion, cleanup, and local-library flows
+- [HA Model Library Integration](reference/integration/ha-library-integration.md) â€” HA responsibilities, service boundaries, and how catalog + Working veneer should surface in HA
+- [Archive Model Link HA Service And Popup Contract](reference/integration/archive-model-link-contract.md) â€” Archive popup service contract and linked-model interaction surface
+- [UX Concepts And Mockups](design/ux-concepts.md) â€” Embedded low-fi wireframes plus guidance for future mid-fi mockups of the key operator surfaces
+- [Phase 5 Wave 4 HA UI Design](design/phase-5-ha-ui.md) â€” Implementation-facing Intake, Working Board, link management, batch-action, and queue UI design for issues #1077, #1082, and #1145
+- [Phase 5 End-State UI And Handoff Design](design/phase-5-end-state.md) â€” Companion design showing how Wave 4 surfaces grow into publish, lineage, preview-promotion, cleanup, and local-library flows
 
 ### Supporting Analysis
 
-- [Print Queue Assessment](planning/print-queue-assessment.md) — Queue/backlog guidance updated for catalog, Working groups, and archive-aware status
-- [Model Library Strategy](reference/library-strategy.md) — Historical strategy document; useful for background but superseded by the docs above
-- [External Services Design Review](design/external-services-review.md) — Earlier broader services evaluation
+- [Print Queue Assessment](planning/print-queue-assessment.md) â€” Queue/backlog guidance updated for catalog, Working groups, and archive-aware status
+- [Model Library Strategy](reference/library-strategy.md) â€” Historical strategy document; useful for background but superseded by the docs above
+- [External Services Design Review](design/external-services-review.md) â€” Earlier broader services evaluation
 
 ### Maintenance & Operations
 
-- [Cleanup And Reset](planning/maintenance-cleanup.md) — Safe database and filesystem reset utilities for testing and development; includes dry-run, selective zone cleanup, and confirmation workflows
-- [Model Folder Normalization](planning/maintenance-normalize.md) — One-time maintenance utility for normalizing model folder names to the current naming convention
+- [Cleanup And Reset](planning/maintenance-cleanup.md) â€” Safe database and filesystem reset utilities for testing and development; includes dry-run, selective zone cleanup, and confirmation workflows
+- [Model Folder Normalization](planning/maintenance-normalize.md) â€” One-time maintenance utility for normalizing model folder names to the current naming convention
 
 ## Component Map
 

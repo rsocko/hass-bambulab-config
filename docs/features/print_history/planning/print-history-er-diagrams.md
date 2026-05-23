@@ -1,4 +1,4 @@
-# Print History ER Diagrams (Issue #1122)
+﻿# Print History ER Diagrams (Issue #1122)
 
 ## Purpose
 
@@ -537,4 +537,14 @@ Use this checklist whenever schema or sidecar mutation contracts change.
 - [ ] Confirm links from feature indexes remain present:
     - `docs/features/print_history/README.md`
     - `docs/features/print_history/planning/README.md`
-    - `docs/features/print_history/runtime-repair/README.md`
+    - `
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/
+docs/features/print_history/reference/runtime-repair/README.md
+
+
+
+`
+
+

@@ -1,11 +1,9 @@
-# Archive Recovery Live Matrix 2026-04-04
+﻿# Moved
 
-Status: Superseded
-Last Reviewed: 2026-05-23
-Functional Owner: print_history
-Replaces: none
-Replaced By: ../archive/archive-recovery-live-matrix-2026-04-04.md
+This document moved to [archive-recovery-live-matrix-2026-04-04.md](../archive/recovery/archive-recovery-live-matrix-2026-04-04.md).
 
-This dated snapshot moved to the archive lane.
+- Canonical path: docs/features/print_history/archive/recovery/archive-recovery-live-matrix-2026-04-04.md
+- Migration rule: lane-first sub-area placement
 
-Use [../archive/archive-recovery-live-matrix-2026-04-04.md](../archive/archive-recovery-live-matrix-2026-04-04.md).
+
+

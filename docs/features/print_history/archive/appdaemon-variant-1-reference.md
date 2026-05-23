@@ -1,9 +1,17 @@
-# Print History AppDaemon Query/Cache
+﻿# Print History AppDaemon Query/Cache
 
 Status: Archived
 Last Reviewed: 2026-05-23
 Functional Owner: print_history
-Replaces: docs/features/print_history/browser/appdaemon-query-cache.md
+Replaces: 
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/browser/appdaemon-query-cache.md
+
+
+
+
 Replaced By: none
 
 > Archived on 2026-04-10. The AppDaemon browser variant is kept only as historical reference under `archive/print_history/appdaemon-browser/` and is no longer part of the active deploy path or active GitHub workflows.
@@ -119,3 +127,5 @@ Potential follow-up cleanup before final legacy removal:
 This document previously tracked `active_print_display_name.yaml` as a blocker because it used the old Layer 1 archive cache.
 
 That is no longer true in the current runtime: `active_print_display_name.yaml` now uses `bambuddy.get_print_history_archive_detail`, so the historical Layer 1 sensor is no longer required by that non-browser surface.
+
+

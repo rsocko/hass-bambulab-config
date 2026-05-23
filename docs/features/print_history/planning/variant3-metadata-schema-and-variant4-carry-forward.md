@@ -1,4 +1,4 @@
-# Variant 3 Metadata Schema And Variant 4 Carry-Forward
+﻿# Variant 3 Metadata Schema And Variant 4 Carry-Forward
 
 ## Purpose
 
@@ -111,7 +111,13 @@ Recommended additions:
 
 `archive_event_timeline` remains part of the normalized metadata model, but it is already present in the active Variant 3 store and should now be treated as an implemented prerequisite rather than a pending addition.
 
-The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../ui-media/archive-popup-timeline-design.md).
+The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../
+docs/features/print_history/design/
+docs/features/print_history/design/
+docs/features/print_history/design/ui-media/archive-popup-timeline-design.md
+
+
+).
 
 Additional linkage guidance:
 
@@ -417,3 +423,4 @@ The correct path is:
 - treat Variant 4 as a future hosting boundary for the same model, not a different model
 
 That gives the repo one coherent print-history metadata architecture instead of separate Variant 3 and Variant 4 approaches.
+

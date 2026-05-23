@@ -1,13 +1,9 @@
-# Print History Import Docs
+﻿# Moved
 
-This folder covers historical backfill and source `.3mf` import workflows.
+This document moved to [README.md](../reference/imports/README.md).
 
-- `archive-historical-backfill-from-sd-card.md` - primary historical-import design and workflow
-- `../reference/archive-historical-backfill-earlier-sd-card.md` - earlier SD-card runbook
-- `archive-historical-backfill-ha-bambulab-cache.md` - HA cache-based historical-import notes
-- `folder-3mf-catalog-design.md` - nondestructive folder-based historical catalog, viewer, reconciliation, and runner workflow
-- `source-3mf-import-design.md` - source `.3mf` import UX and parser design
-- `source-3mf-import-implementation-plan.md` - implementation plan for source import
-- `source-3mf-storage-strategy.md` - long-term source storage policy
+- Canonical path: docs/features/print_history/reference/imports/README.md
+- Migration rule: lane-first sub-area placement
 
-Start with `folder-3mf-catalog-design.md` when the source of truth is a user-selected folder, `archive-historical-backfill-from-sd-card.md` for SD-card historical import work, and `source-3mf-import-design.md` for popup-driven source import.
+
+

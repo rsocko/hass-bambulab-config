@@ -1,9 +1,17 @@
-# Archive Recovery Remediation Queue 2026-04-12
+﻿# Archive Recovery Remediation Queue 2026-04-12
 
 Status: Archived
 Last Reviewed: 2026-05-23
 Functional Owner: print_history
-Replaces: docs/features/print_history/recovery/archive-recovery-remediation-queue-2026-04-12.md
+Replaces: 
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/recovery/archive-recovery-remediation-queue-2026-04-12.md
+
+
+
+
 Replaced By: none
 
 ## Purpose
@@ -585,3 +593,4 @@ $recoveryArgs = @{
 3. Keep `34` and `105` manual until the inspect output looks credible.
 4. Leave `66` alone unless stronger matching evidence appears.
 5. If you want true bulk fallback remediation, design a new orchestrator around the current pairwise steps rather than reusing `Backfill` mode directly.
+

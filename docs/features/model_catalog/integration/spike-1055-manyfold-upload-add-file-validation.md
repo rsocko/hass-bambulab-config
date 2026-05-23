@@ -1,11 +1,11 @@
-# spike-1055-manyfold-upload-add-file-validation
+﻿# spike-1055-manyfold-upload-add-file-validation
 
 Status: Superseded
 Last Reviewed: 2026-05-23
 Functional Owner: model_catalog
 Replaces: none
-Replaced By: docs/features/model_catalog/planning/spike-1055-manyfold.md
+Replaced By: docs/features/model_catalog/planning/integration/spike-1055-manyfold.md
 
 This document moved.
 
-Use the current file: [../planning/spike-1055-manyfold.md](../planning/spike-1055-manyfold.md)
+Use the current file: [../planning/integration/spike-1055-manyfold.md](../planning/integration/spike-1055-manyfold.md)

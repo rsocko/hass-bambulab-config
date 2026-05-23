@@ -29,7 +29,7 @@ The repo already has meaningful recovery machinery:
 - `tools/bambuddy/run_forensics_import_queue.py`
 - `tools/bambuddy/folder_3mf_catalog_viewer.py`
 - `tools/bambuddy/run_folder_3mf_catalog_import.py`
-- print-history import docs under `docs/features/print_history/imports/`
+- print-history import docs under `docs/features/print_history/reference/imports/`
 
 Important existing behaviors:
 

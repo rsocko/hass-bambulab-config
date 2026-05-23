@@ -1,11 +1,9 @@
-# Print History AppDaemon Query/Cache
+﻿# Moved
 
-Status: Superseded
-Last Reviewed: 2026-05-23
-Functional Owner: print_history
-Replaces: none
-Replaced By: ../archive/appdaemon-variant-1-reference.md
+This document moved to [appdaemon-query-cache.md](../archive/browser/appdaemon-query-cache.md).
 
-This document moved to the archive lane.
+- Canonical path: docs/features/print_history/archive/browser/appdaemon-query-cache.md
+- Migration rule: lane-first sub-area placement
 
-Use [../archive/appdaemon-variant-1-reference.md](../archive/appdaemon-variant-1-reference.md).
+
+

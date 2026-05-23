@@ -1,9 +1,17 @@
-# Archive Recovery Live Matrix 2026-04-04
+﻿# Archive Recovery Live Matrix 2026-04-04
 
 Status: Archived
 Last Reviewed: 2026-05-23
 Functional Owner: print_history
-Replaces: docs/features/print_history/recovery/archive-recovery-live-matrix-2026-04-04.md
+Replaces: 
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/
+docs/features/print_history/archive/recovery/archive-recovery-live-matrix-2026-04-04.md
+
+
+
+
 Replaced By: none
 
 ## Purpose
@@ -347,3 +355,4 @@ Reason:
 - both have high-confidence SD-card matches
 - both avoid the filename-collision ambiguity present in archive `174`
 - both are better candidates for validating the recovery workflow before tackling approximate/provenance recovery cases
+
