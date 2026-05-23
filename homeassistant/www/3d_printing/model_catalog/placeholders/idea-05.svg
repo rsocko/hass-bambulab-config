@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Idea concept placeholder 5</title>
+  <desc id="desc">A concept card with luminous bulb and stacked cubes.</desc>
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1120"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg5)"/>
+  <rect x="120" y="120" width="960" height="660" rx="28" fill="#111827" stroke="#475569" stroke-width="5"/>
+  <g transform="translate(270 300)">
+    <circle cx="0" cy="0" r="96" fill="#fcd34d"/>
+    <circle cx="0" cy="0" r="52" fill="#fffbeb"/>
+    <rect x="-34" y="90" width="68" height="30" rx="8" fill="#b45309"/>
+  </g>
+  <g transform="translate(560 260)">
+    <rect x="0" y="210" width="160" height="160" fill="none" stroke="#f59e0b" stroke-width="9"/>
+    <rect x="80" y="110" width="160" height="160" fill="none" stroke="#fbbf24" stroke-width="9"/>
+    <rect x="160" y="10" width="160" height="160" fill="none" stroke="#fde68a" stroke-width="9"/>
+  </g>
+  <text x="180" y="710" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="38" font-weight="700">Idea placeholder art set</text>
+</svg>

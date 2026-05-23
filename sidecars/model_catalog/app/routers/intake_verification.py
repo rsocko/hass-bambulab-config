@@ -1216,6 +1216,7 @@ def _normalize_indexed_conflicts(conflicts: list[Any]) -> list[dict[str, Any]]:
                     "label": str(conflict.get("label") or filename or path_text).strip(),
                     "size_bytes": conflict.get("size_bytes"),
                     "source_mtime": conflict.get("source_mtime"),
+                    "preview_url": str(conflict.get("preview_url") or "").strip() or None,
                 }
             )
             continue

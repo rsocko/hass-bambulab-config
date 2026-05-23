@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Idea concept placeholder 2</title>
+  <desc id="desc">A blueprint card with a glowing bulb and exploded cube.</desc>
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg2)"/>
+  <rect x="140" y="120" width="920" height="660" rx="34" fill="#111827" stroke="#334155" stroke-width="6"/>
+  <g stroke="#334155" stroke-width="2" opacity="0.6">
+    <line x1="200" y1="230" x2="1000" y2="230"/>
+    <line x1="200" y1="310" x2="1000" y2="310"/>
+    <line x1="200" y1="390" x2="1000" y2="390"/>
+    <line x1="200" y1="470" x2="1000" y2="470"/>
+    <line x1="200" y1="550" x2="1000" y2="550"/>
+  </g>
+  <g transform="translate(340 310)">
+    <circle cx="0" cy="0" r="84" fill="#fde047"/>
+    <path d="M-34 18 C-28 58, 28 58, 34 18" fill="none" stroke="#92400e" stroke-width="10" stroke-linecap="round"/>
+    <rect x="-30" y="78" width="60" height="28" rx="8" fill="#f59e0b"/>
+  </g>
+  <g transform="translate(640 280)" fill="none" stroke-width="9">
+    <rect x="0" y="0" width="150" height="150" stroke="#fbbf24"/>
+    <rect x="40" y="40" width="150" height="150" stroke="#fde68a"/>
+    <line x1="150" y1="0" x2="190" y2="40" stroke="#fcd34d"/>
+    <line x1="0" y1="150" x2="40" y2="190" stroke="#fcd34d"/>
+  </g>
+  <text x="200" y="725" fill="#e2e8f0" font-family="Segoe UI, sans-serif" font-size="38" font-weight="700">Sketch now, refine in Idea details</text>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Idea concept placeholder 4</title>
+  <desc id="desc">Grid plan with bulb and dimensional cube.</desc>
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg4)"/>
+  <g stroke="#334155" stroke-width="1">
+    <path d="M80 80 H1120 M80 170 H1120 M80 260 H1120 M80 350 H1120 M80 440 H1120 M80 530 H1120 M80 620 H1120 M80 710 H1120 M80 800 H1120"/>
+    <path d="M80 80 V820 M170 80 V820 M260 80 V820 M350 80 V820 M440 80 V820 M530 80 V820 M620 80 V820 M710 80 V820 M800 80 V820 M890 80 V820 M980 80 V820 M1070 80 V820"/>
+  </g>
+  <g transform="translate(260 260)">
+    <circle cx="0" cy="0" r="95" fill="#fde047"/>
+    <path d="M-40 18 C-32 62, 32 62, 40 18" fill="none" stroke="#92400e" stroke-width="10" stroke-linecap="round"/>
+    <rect x="-36" y="88" width="72" height="32" rx="8" fill="#d97706"/>
+  </g>
+  <g transform="translate(660 250)" fill="none" stroke="#facc15" stroke-width="10">
+    <rect x="0" y="0" width="250" height="250"/>
+    <line x1="0" y1="0" x2="250" y2="250"/>
+    <line x1="250" y1="0" x2="0" y2="250"/>
+    <line x1="125" y1="0" x2="125" y2="250"/>
+    <line x1="0" y1="125" x2="250" y2="125"/>
+  </g>
+  <text x="140" y="770" fill="#fef3c7" font-family="Segoe UI, sans-serif" font-size="40" font-weight="700">Drafting a printable concept</text>
+</svg>

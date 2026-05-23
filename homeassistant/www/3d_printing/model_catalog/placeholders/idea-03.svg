@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Idea concept placeholder 3</title>
+  <desc id="desc">A bulb launching into geometric model cubes.</desc>
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#172554"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg3)"/>
+  <path d="M120 740 C360 680, 540 520, 700 280" fill="none" stroke="#fde047" stroke-width="14" stroke-linecap="round" stroke-dasharray="2 24"/>
+  <g transform="translate(210 690)">
+    <circle cx="0" cy="0" r="88" fill="#facc15"/>
+    <rect x="-34" y="84" width="68" height="34" rx="10" fill="#b45309"/>
+    <circle cx="-24" cy="-10" r="6" fill="#78350f"/>
+    <circle cx="0" cy="-24" r="6" fill="#78350f"/>
+    <circle cx="24" cy="-10" r="6" fill="#78350f"/>
+  </g>
+  <g transform="translate(710 250)">
+    <g fill="none" stroke="#fef08a" stroke-width="8">
+      <polygon points="0,60 60,25 120,60 60,95"/>
+      <polygon points="140,140 210,100 280,140 210,180"/>
+      <polygon points="80,250 145,212 210,250 145,288"/>
+    </g>
+    <circle cx="60" cy="25" r="8" fill="#fef3c7"/>
+    <circle cx="210" cy="100" r="8" fill="#fef3c7"/>
+    <circle cx="145" cy="212" r="8" fill="#fef3c7"/>
+  </g>
+  <text x="70" y="120" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="44" font-weight="700">Concept trajectory</text>
+</svg>

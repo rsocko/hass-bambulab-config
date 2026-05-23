@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Idea concept placeholder 1</title>
+  <desc id="desc">A bright bulb generating a wireframe cube concept.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.28" cy="0.36" r="0.5">
+      <stop offset="0" stop-color="#fde047" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="320" cy="320" r="250" fill="url(#glow)"/>
+  <g transform="translate(265 210)">
+    <circle cx="0" cy="0" r="110" fill="#fde047"/>
+    <circle cx="0" cy="0" r="72" fill="#fef3c7"/>
+    <rect x="-44" y="106" width="88" height="38" rx="12" fill="#f59e0b"/>
+    <rect x="-54" y="144" width="108" height="26" rx="10" fill="#d97706"/>
+  </g>
+  <g transform="translate(730 300)">
+    <polygon points="0,80 140,0 280,80 140,160" fill="none" stroke="#facc15" stroke-width="10"/>
+    <polygon points="0,80 0,250 140,330 140,160" fill="none" stroke="#fde68a" stroke-width="10"/>
+    <polygon points="280,80 280,250 140,330 140,160" fill="none" stroke="#fbbf24" stroke-width="10"/>
+    <line x1="140" y1="0" x2="140" y2="160" stroke="#fde68a" stroke-width="8"/>
+  </g>
+  <text x="70" y="825" fill="#fef3c7" font-family="Segoe UI, sans-serif" font-size="46" font-weight="700">Idea in progress</text>
+</svg>

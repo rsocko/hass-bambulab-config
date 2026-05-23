@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Idea concept placeholder 6</title>
+  <desc id="desc">Bulb burst with a printable cube blueprint.</desc>
+  <defs>
+    <linearGradient id="bg6" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg6)"/>
+  <g transform="translate(310 300)">
+    <circle cx="0" cy="0" r="92" fill="#fde047"/>
+    <g stroke="#fef08a" stroke-width="8" stroke-linecap="round">
+      <line x1="0" y1="-150" x2="0" y2="-120"/>
+      <line x1="-128" y1="-70" x2="-103" y2="-55"/>
+      <line x1="128" y1="-70" x2="103" y2="-55"/>
+      <line x1="-150" y1="20" x2="-120" y2="20"/>
+      <line x1="150" y1="20" x2="120" y2="20"/>
+    </g>
+    <rect x="-34" y="84" width="68" height="34" rx="8" fill="#d97706"/>
+  </g>
+  <g transform="translate(640 220)" fill="none" stroke-width="10">
+    <polygon points="70,0 280,120 70,240 -140,120" stroke="#fbbf24"/>
+    <polyline points="70,0 70,240" stroke="#fde68a"/>
+    <polyline points="-140,120 70,240 280,120" stroke="#f59e0b"/>
+  </g>
+  <text x="130" y="805" fill="#fef3c7" font-family="Segoe UI, sans-serif" font-size="40" font-weight="700">No image yet - concept art shown</text>
+</svg>

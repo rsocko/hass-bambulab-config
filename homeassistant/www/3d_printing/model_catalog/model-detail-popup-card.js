@@ -26,6 +26,7 @@
 import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=5';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
+import { pickIdeaPlaceholderUrl } from './idea-placeholders.js?v=1';
 
 class ModelDetailPopupCard extends HTMLElement {
   constructor() {
@@ -1709,6 +1710,10 @@ class ModelDetailPopupCard extends HTMLElement {
           border-bottom: 1px solid var(--divider-color);
           padding: 0 10px 4px;
         }
+        .popup-shell.is-idea .topbar {
+          border-bottom-color: rgba(250, 204, 21, 0.38);
+          box-shadow: inset 0 -1px 0 rgba(250, 204, 21, 0.16);
+        }
         .title { display: flex; align-items: center; }
         .title span { color: var(--secondary-text-color); font-size: 11px; line-height: 1.2; }
         .entity-type-badge {
@@ -1893,6 +1898,10 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .popup-shell.is-idea .main-media {
+          border-color: rgba(250, 204, 21, 0.55);
+          box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.22);
         }
         .main-media img {
           max-width: 100%;
@@ -2512,7 +2521,7 @@ class ModelDetailPopupCard extends HTMLElement {
         }
       </style>
 
-      <div class="popup-shell">
+      <div class="popup-shell ${isIdea ? 'is-idea' : ''}">
         <div class="topbar">
           <div class="title">
             <span>Creator ${creator} | Collection ${collectionText}</span>
@@ -4346,7 +4355,24 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  _ideaPlaceholderUrl(model) {
+    const fields = model && model.custom_fields && typeof model.custom_fields === 'object' ? model.custom_fields : {};
+    const seed = String(
+      this._modelRef
+      || (model && model.local_model_id)
+      || (model && model.public_id)
+      || fields.local_model_id
+      || (model && model.name)
+      || 'idea'
+    ).trim();
+    return pickIdeaPlaceholderUrl(seed);
+  }
+
   _galleryItems() {
+    const model = this._modelDetail && this._modelDetail.model && typeof this._modelDetail.model === 'object'
+      ? this._modelDetail.model
+      : {};
+    const isIdea = this._getEntityType(model) === 'idea';
     const hiddenIds = this._hiddenMediaIdSet();
     const sourcePreviewUrl = this._sourcePreviewUrl();
     const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
@@ -4459,6 +4485,25 @@ class ModelDetailPopupCard extends HTMLElement {
         is_preview: Boolean(!hasNonSourcePreview && sourcePreviewUrl && sourcePreviewUrl === normalizedUrl),
       });
     });
+
+    if (!items.length && isIdea) {
+      const placeholderUrl = this._ideaPlaceholderUrl(model);
+      if (placeholderUrl) {
+        addItem({
+          media_id: 'idea:placeholder',
+          id: 'idea-placeholder',
+          url: placeholderUrl,
+          thumbnail_url: placeholderUrl,
+          filename: 'Idea concept placeholder',
+          type: 'asset',
+          type_label: 'Idea Concept',
+          can_set_preview: false,
+          can_hide: false,
+          can_delete: false,
+          is_preview: false,
+        });
+      }
+    }
 
     return items;
   }

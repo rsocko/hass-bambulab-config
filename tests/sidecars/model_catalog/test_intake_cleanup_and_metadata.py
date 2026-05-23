@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.settings import Settings
+from sidecars.model_catalog.app.routers.intake_verification import _normalize_indexed_conflicts
 
 
 def _make_settings(db_path: Path, source_root: Path, working_root: Path, curated_root: Path) -> Settings:
@@ -755,3 +756,23 @@ def test_indexed_image_conflict_falls_back_to_model_asset_download_url(tmp_path:
         )
     finally:
         client.__exit__(None, None, None)
+
+
+def test_normalize_indexed_conflicts_preserves_preview_url() -> None:
+    normalized = _normalize_indexed_conflicts(
+        [
+            {
+                "scope": "indexed",
+                "parent_kind": "catalog_model",
+                "parent_name": "Soundwave - Transformers",
+                "path": "instructions torso.jpg",
+                "filename": "instructions torso.jpg",
+                "label": "Catalog model 'Soundwave - Transformers' -> instructions torso.jpg",
+                "preview_url": "/api/models/soundwave-transformers--94944ffc/files/instructions-torso-0386f557/download",
+            }
+        ]
+    )
+
+    assert len(normalized) == 1
+    conflict = normalized[0]
+    assert conflict.get("preview_url") == "/api/models/soundwave-transformers--94944ffc/files/instructions-torso-0386f557/download"

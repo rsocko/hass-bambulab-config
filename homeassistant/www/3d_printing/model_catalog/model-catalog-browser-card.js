@@ -1,6 +1,7 @@
 import { setupThumbnailLazyObserver, addShimmerAnimation, getCachedThumbnailObjectUrl } from './thumbnail-lazy-loader.js?v=5';
 import { addUnifiedQueueEntry } from '../common/unified-queue-api-client.js?v=1';
 import { UnifiedQueueDialogController, normalizeQueueDialogTargetState, queueDialogTargetStateLabel } from '../common/unified-queue-dialog.js?v=1';
+import { pickIdeaPlaceholderUrl } from './idea-placeholders.js?v=1';
 
 class ModelCatalogBrowserCard extends HTMLElement {
   constructor() {
@@ -2766,6 +2767,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return urls;
   }
 
+  _ideaPlaceholderUrlForModel(model, modelRef) {
+    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    var seed = String(
+      modelRef
+      || (model && model.local_model_id)
+      || (model && model.public_id)
+      || fields.local_model_id
+      || (model && model.name)
+      || "idea"
+    ).trim();
+    return pickIdeaPlaceholderUrl(seed);
+  }
+
   _resolveModelSidecarUrl() {
     if (this._config && this._config.model_entity && this._hass && this._hass.states) {
       var configuredEntity = this._hass.states[this._config.model_entity];
@@ -3386,6 +3400,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var mediaCount = mediaUrls.length;
     var mediaIndex = this._currentModelMediaIndex(modelRef, mediaCount || 1);
     var mediaUrl = mediaCount > 0 ? mediaUrls[mediaIndex] : "";
+    if (!mediaUrl && entityType === "idea") {
+      mediaUrl = this._ideaPlaceholderUrlForModel(model, modelRef);
+    }
     var detail = modelRef ? this._modelDetailCache[modelRef] : null;
     var fileKindCounts = this._deriveFileKindCounts(model, structured, fields, detail);
     var fileKindChipMarkup = this._renderFileKindChipRow(fileKindCounts);
@@ -3606,7 +3623,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "media") {
       var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-media' + queueRibbonClass + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media' + queueRibbonClass + (entityType === 'idea' ? ' is-idea' : '') + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay">'
@@ -3625,7 +3642,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "list") {
       var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-list' + queueRibbonClass + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-list' + queueRibbonClass + (entityType === 'idea' ? ' is-idea' : '') + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap">'
         + '    <div class="thumb list-thumb">' + previewHtml + '</div>'
         + '  </div>'
@@ -3635,7 +3652,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
     return ''
-      + '<article class="model-card view-compact' + queueRibbonClass + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+      + '<article class="model-card view-compact' + queueRibbonClass + (entityType === 'idea' ? ' is-idea' : '') + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
       + compactActionsHtml
@@ -4369,6 +4386,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.model-card.view-media{grid-template-rows:auto 1fr;}'
       + '.model-card.view-list{grid-template-columns:88px minmax(0,1fr);column-gap:10px;padding:10px 12px;align-items:start;}'
       + '.model-card.is-in-queue::after{opacity:1;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);}'
+      + '.model-card.is-idea{border:2px solid rgba(250,204,21,0.66);}'
+      + '.model-card.is-idea:hover{border-color:rgba(250,204,21,0.82);}'
       + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
       + '.view-compact .compact-wrap{grid-area:thumb;}'
       + '.view-compact .compact-main{grid-area:main;}'
