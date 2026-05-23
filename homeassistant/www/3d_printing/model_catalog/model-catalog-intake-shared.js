@@ -838,6 +838,9 @@
     + ".file-tree-label{overflow-wrap:anywhere;}"
     + ".file-tree-count{font-size:11px;}"
     + ".file-tree-file{display:flex;align-items:center;gap:5px;padding:1px 0;font-size:12px;color:var(--secondary-text-color);}"
+    + ".file-tree-file.file-tree-duplicate .file-tree-label{color:var(--error-color, #db4437);}"
+    + ".file-tree-dup-badge{font-size:10px;background:var(--error-color, #db4437);color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;}"
+    + ".file-tree-conflict-warning{font-size:12px;color:var(--error-color, #db4437);padding:4px 0 6px;}"
     + "@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:6px 10px 10px;}}";
 
   window.ModelCatalogIntakeShared = {

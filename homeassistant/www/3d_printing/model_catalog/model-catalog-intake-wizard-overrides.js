@@ -531,9 +531,44 @@ function countTreeFiles(node) {
  * Render the full collapsible file tree for a planned model.
  * Shows a toggle button; tree is hidden by default.
  */
-function renderFileTreeBlock(files) {
-  var tree = buildFileTree(files);
-  var treeHtml = renderFileTreeNode(tree, 0);
+function renderFileTreeBlock(files, opts) {
+  var options = opts || {};
+  var flatten = options.flatten || false;
+  var treeHtml = '';
+  var duplicateWarning = '';
+
+  if (flatten) {
+    // Show all files as flat basenames (how they'll appear at destination).
+    var basenames = (files || []).map(function (entry) {
+      var path = String(entry.relative_path || entry.filename || '');
+      var parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : path;
+    });
+    // Detect duplicate basenames.
+    var nameCount = {};
+    basenames.forEach(function (name) {
+      var key = name.toLowerCase();
+      nameCount[key] = (nameCount[key] || 0) + 1;
+    });
+    var duplicates = Object.keys(nameCount).filter(function (k) { return nameCount[k] > 1; });
+    if (duplicates.length) {
+      duplicateWarning = '<div class="file-tree-conflict-warning">&#9888; ' + String(duplicates.length) + ' filename conflict' + (duplicates.length > 1 ? 's' : '') + ' — duplicates will be auto-renamed (e.g. file-2.ext)</div>';
+    }
+    treeHtml = basenames.map(function (name) {
+      var isDuplicate = nameCount[name.toLowerCase()] > 1;
+      var ext = (name.match(/\.([^.]+)$/) || ['', ''])[1].toLowerCase();
+      var icon = ext === '3mf' || ext === 'stl' || ext === 'obj' ? '&#128196;' : '&#128462;';
+      return '<div class="file-tree-file' + (isDuplicate ? ' file-tree-duplicate' : '') + '">'
+        + '<span class="file-tree-icon">' + icon + '</span>'
+        + '<span class="file-tree-label">' + escapeHtml(name) + '</span>'
+        + (isDuplicate ? ' <span class="file-tree-dup-badge">duplicate</span>' : '')
+        + '</div>';
+    }).join('');
+  } else {
+    var tree = buildFileTree(files);
+    treeHtml = renderFileTreeNode(tree, 0);
+  }
+
   return ''
     + '<div class="file-tree-block">'
     + '  <div class="file-tree-toggle-header" data-tree-action="toggle-root">'
@@ -541,6 +576,7 @@ function renderFileTreeBlock(files) {
     + '    <span class="entry-path" style="cursor:pointer;">Show file tree</span>'
     + '  </div>'
     + '  <div class="file-tree-root" style="display:none;">'
+    + duplicateWarning
     + treeHtml
     + '  </div>'
     + '</div>';
@@ -626,7 +662,7 @@ function renderPlanSummary(card, options) {
     var destinationPlan = destinationPlans[index] || null;
     var totalFiles = (model.files || []).length;
     var destinationMarkup = '';
-    var files = renderFileTreeBlock(model.files || []);
+    var files = renderFileTreeBlock(model.files || [], { flatten: model.preserve_folder_structure === false });
     if (destinationPlan) {
       var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
