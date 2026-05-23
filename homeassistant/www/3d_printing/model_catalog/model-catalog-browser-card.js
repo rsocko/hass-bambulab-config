@@ -3107,7 +3107,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
       + '  <button class="filter-chip toggle-chip' + (this._entityTypeFilters.showIdeas ? ' active idea' : '') + '" type="button" data-action="toggle-show-ideas-filter" aria-pressed="' + (this._entityTypeFilters.showIdeas ? 'true' : 'false') + '">&#128161; Show ideas (' + this._escapeHtml(String(typeCounts.idea || 0)) + ')</button>'
       + '  <button class="filter-chip toggle-chip' + (this._entityTypeFilters.showWorkingGroups ? ' active working-group' : '') + '" type="button" data-action="toggle-show-working-groups-filter" aria-pressed="' + (this._entityTypeFilters.showWorkingGroups ? 'true' : 'false') + '">&#129529; Show working groups (' + this._escapeHtml(String(typeCounts.working_group || 0)) + ')</button>'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active warn' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
+      + '  <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active archived' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
       + '  <label class="inline-select" for="mc-frequent-window">Freq window'
       + '    <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
       + '      <option value="30"' + (windowDays === 30 ? ' selected' : '') + '>30d</option>'
@@ -3252,6 +3252,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var entityTypeBadgeText = this._entityTypeBadgeLabel(entityType);
     var entityTypeBadge = entityTypeBadgeText
       ? '<span class="entity-type-pill ' + this._escapeHtml(entityType === "working_group" ? "working-group" : entityType) + '">' + this._escapeHtml(entityTypeBadgeText) + '</span>'
+      : '';
+    var isArchived = String((structured && structured.catalog_signals && structured.catalog_signals.catalog_visibility) || model.catalog_visibility || "").trim().toLowerCase() === "archived";
+    var archivedBadge = isArchived
+      ? '<span class="archived-pill"><ha-icon icon="mdi:archive-outline"></ha-icon>Archived</span>'
       : '';
     var actionMenuOpen = this._activeActionMenu === modelRef;
 
@@ -3478,6 +3482,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="body compact-full">'
       + '  <div class="compact-title-row">'
       + entityTypeBadge
+      + archivedBadge
       + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
       + '  </div>'
       + '  <div class="metrics compact-metrics">'
@@ -3498,6 +3503,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="body media-body">'
       + '  <div class="media-title-row">'
       + entityTypeBadge
+      + archivedBadge
       + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
       + '  </div>'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
@@ -3528,6 +3534,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="list-top-row">'
       + '    <div class="list-title-block">'
       + entityTypeBadge
+      + archivedBadge
       + '      <h3 class="title">' + this._escapeHtml(name) + '</h3>'
       + '      <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '    </div>'
@@ -3562,7 +3569,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "media") {
       var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-media' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-media' + queueRibbonClass + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
         + '    <div class="media-overlay">'
@@ -3581,7 +3588,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._viewMode === "list") {
       var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
       return ''
-        + '<article class="model-card view-list' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+        + '<article class="model-card view-list' + queueRibbonClass + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap list-wrap">'
         + '    <div class="thumb list-thumb">' + previewHtml + '</div>'
         + '  </div>'
@@ -3591,7 +3598,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var cardAction = this._multiSelectMode ? "toggle-model-select" : "view-model-detail";
     return ''
-      + '<article class="model-card view-compact' + queueRibbonClass + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
+      + '<article class="model-card view-compact' + queueRibbonClass + (isArchived ? ' is-archived' : '') + (this._isModelSelected(modelRef) ? ' is-selected' : '') + '"' + queueBorderStyle + ' tabindex="0" role="button" data-action="' + cardAction + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="' + (cardAction === 'toggle-model-select' ? 'Select ' : 'Open details for ') + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div></div>'
       + compactMainHtml
       + compactActionsHtml
@@ -4285,6 +4292,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.filter-chip.docs.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.34);color:#93c5fd;}'
       + '.filter-chip.idea.active{background:rgba(250,204,21,0.20);border-color:rgba(250,204,21,0.44);color:#fde68a;}'
       + '.filter-chip.working-group.active{background:rgba(96,165,250,0.20);border-color:rgba(96,165,250,0.44);color:#dbeafe;}'
+      + '.filter-chip.archived.active{background:rgba(148,163,184,0.20);border-color:rgba(148,163,184,0.44);color:#cbd5e1;}'
       + '.page-control-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);}'
       + '.toolbar-group{display:inline-flex;align-items:center;gap:8px;min-width:0;}'
       + '.toolbar-group label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
@@ -4399,6 +4407,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.entity-type-pill{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:10px;font-weight:800;color:var(--secondary-text-color);}'
       + '.entity-type-pill.idea{background:rgba(250,204,21,0.18);border-color:rgba(250,204,21,0.34);color:#fef3c7;}'
       + '.entity-type-pill.working-group{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:#dbeafe;}'
+      + '.archived-pill{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);font-size:10px;font-weight:800;color:#94a3b8;}'
+      + '.archived-pill ha-icon{--mdc-icon-size:12px;}'
+      + '.model-card.is-archived{background:linear-gradient(180deg,rgba(100,116,139,0.14),rgba(100,116,139,0.08));border-color:rgba(148,163,184,0.28);opacity:0.82;}'
+      + '.model-card.is-archived:hover{opacity:1;border-color:rgba(148,163,184,0.44);}'
+      + '.archived-banner{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:12px;border:1px solid rgba(148,163,184,0.28);background:rgba(148,163,184,0.10);color:#94a3b8;font-size:12px;font-weight:700;}'
+      + '.archived-banner ha-icon{--mdc-icon-size:18px;opacity:0.8;}'
       + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:6px;}'
       + '.chip.file-kind-chip .icon-svg{width:16px;height:16px;flex-shrink:0;}'
       + '.chip.file-kind-chip .chip-label{font-weight:700;letter-spacing:.01em;}'
@@ -4532,6 +4546,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderFilterBar()
       + this._renderPageControlStrip()
       + '    </div>'
+      + (this._filters.show_archived ? '<div class="archived-banner"><ha-icon icon="mdi:archive-outline"></ha-icon><span>Viewing archived models · these are hidden from the default catalog view</span></div>' : '')
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + this._renderQueueDialog()
