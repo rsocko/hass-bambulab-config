@@ -798,11 +798,27 @@ function renderValidationSummary(card) {
     if (fileNameText && normalized.toLowerCase() === fileNameText.toLowerCase()) {
       return '';
     }
-    var parts = normalized.split('/').filter(Boolean);
-    if (!parts.length) {
-      return normalized;
+    return normalized;
+  }
+
+  function conflictSourceLabel(conflictItem) {
+    if (!conflictItem || typeof conflictItem !== 'object') {
+      return String(conflictItem || '').trim();
     }
-    return parts[parts.length - 1];
+    var parentKind = String(conflictItem.parent_kind || '').trim().replace(/_/g, ' ');
+    var parentName = String(conflictItem.parent_name || '').trim();
+    if (parentKind) {
+      parentKind = parentKind.split(' ').filter(Boolean).map(function (token) {
+        return token.charAt(0).toUpperCase() + token.slice(1);
+      }).join(' ');
+    }
+    if (parentKind && parentName) {
+      return parentKind + ': ' + parentName;
+    }
+    if (parentName) {
+      return parentName;
+    }
+    return String(conflictItem.label || '').trim();
   }
 
   function intakePreviewUrl(card, pathValue) {
@@ -826,17 +842,27 @@ function renderValidationSummary(card) {
     return sidecarBaseUrl + '/api/intake/preview?path=' + encodeURIComponent(rawPath);
   }
 
-  function compareThumbMarkup(previewUrl, imageLabel, findingKey, columnRole) {
+  function validationExtBadgeMarkup(filename) {
+    var ext = String(filename || '').replace(/^.*\./, '.').toLowerCase();
+    if (!ext || ext === filename || ext.indexOf('.') !== 0) { ext = ''; }
+    var extUpper = ext.replace('.', '').toUpperCase() || '?';
+    var extClass = ext ? 'x-' + ext.replace('.', '') : '';
+    return '<div class="validation-thumb-button validation-ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extUpper) + '</div>';
+  }
+
+  function compareThumbMarkup(previewUrl, imageLabel, findingKey, columnRole, filename) {
     if (!previewUrl) {
-      return '<div class="validation-thumb-missing">No preview available</div>';
+      return '<div class="validation-thumb-wrap">' + validationExtBadgeMarkup(filename) + '</div>';
     }
     var label = String(imageLabel || 'Preview image');
     var key = String(findingKey || 'finding');
     var role = String(columnRole || 'source');
+    var fallbackBadge = validationExtBadgeMarkup(filename);
     return ''
       + '<div class="validation-thumb-wrap">'
       + '  <button type="button" class="validation-thumb-button" data-action="validation-open-image-preview" data-image-url="' + escapeHtml(previewUrl) + '" data-image-label="' + escapeHtml(label) + '" data-image-key="' + escapeHtml(key) + '" data-image-role="' + escapeHtml(role) + '">'
-      + '    <img class="validation-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="' + escapeHtml(label) + '" loading="lazy" decoding="async">'
+      + '    <img class="validation-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="' + escapeHtml(label) + '" loading="lazy" decoding="async"'
+      + '      onerror="this.closest(\'.validation-thumb-wrap\').innerHTML=' + escapeHtml("'" + fallbackBadge.replace(/'/g, "\\'") + "'") + ';">'
       + '  </button>'
       + '  <div class="validation-thumb-hover" aria-hidden="true">'
       + '    <img class="validation-thumb-hover-image" src="' + escapeHtml(previewUrl) + '" alt="' + escapeHtml(label) + '" loading="lazy" decoding="async">'
@@ -1046,13 +1072,16 @@ function renderValidationSummary(card) {
             var conflictTargets = Array.isArray(finding.conflicts_with)
               ? finding.conflicts_with.filter(Boolean).slice(0, 5)
               : [];
-            var primaryConflict = conflictTargets.length && conflictTargets[0] && typeof conflictTargets[0] === 'object'
-              ? conflictTargets[0]
+            var firstConflictTarget = conflictTargets.length ? conflictTargets[0] : null;
+            var primaryConflict = firstConflictTarget && typeof firstConflictTarget === 'object'
+              ? firstConflictTarget
               : null;
             var findingPath = String(finding.path || '').trim();
             var findingFilename = String(finding.filename || '').trim();
             var conflictPath = primaryConflict ? String(primaryConflict.path || '').trim() : '';
-            var conflictFilename = primaryConflict ? String(primaryConflict.filename || '').trim() : '';
+            var conflictFilename = primaryConflict
+              ? String(primaryConflict.filename || '').trim()
+              : String(firstConflictTarget || '').trim();
             var currentDecision = String(decisionMap[findingKey] || 'review').trim();
             if (String(check.key || '') === 'batch_duplicate_scan' && currentDecision === 'allow_duplicate') {
               currentDecision = 'keep_both';
@@ -1111,6 +1140,13 @@ function renderValidationSummary(card) {
               { key: 'Check', value: String(check.key || 'duplicate_scan') },
               { key: 'Match type', value: violationLabel },
             ];
+            var matchSource = primaryConflict ? conflictSourceLabel(primaryConflict) : '';
+            if (!matchSource && firstConflictTarget && typeof firstConflictTarget !== 'object') {
+              matchSource = String(firstConflictTarget || '').trim();
+            }
+            if (matchSource) {
+              fullWidthDetails.push({ key: 'Match source', value: matchSource });
+            }
             if (finding.sha256) {
               fullWidthDetails.push({ key: 'SHA256', value: String(finding.sha256) });
             }
@@ -1128,8 +1164,8 @@ function renderValidationSummary(card) {
               + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathForTable || '(path unavailable)') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
-              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(sourcePreviewUrl, (findingFilename || 'Source') + ' preview', findingKey, 'source') + '</div>'
-              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match') + '</div>'
+              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(sourcePreviewUrl, (findingFilename || 'Source') + ' preview', findingKey, 'source', findingFilename) + '</div>'
+              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match', conflictFilename) + '</div>'
               + '  <div class="validation-match-toggle"><button type="button" class="link-button" data-action="validation-toggle-more-info" data-finding-key="' + escapeHtml(findingKey) + '">' + (isMoreInfoExpanded ? 'Hide more info' : 'Show more info') + '</button></div>';
             if (isMoreInfoExpanded) {
               var _fmtBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return n != null ? String(n) + ' B' : ''; };
@@ -3512,6 +3548,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-thumb-hover.visible{opacity:1;transform:translateY(0);}'
       + '.wizard-dialog .validation-thumb-hover-image{width:100%;height:100%;object-fit:contain;display:block;border-radius:6px;}'
       + '.wizard-dialog .validation-thumb-missing{font-size:11px;color:var(--secondary-text-color);}'
+      + '.wizard-dialog .validation-ext-badge{font-size:11px;font-weight:800;color:var(--secondary-text-color);cursor:default;}'
+      + '.wizard-dialog .validation-ext-badge.x-3mf{color:#5eead4;border-color:rgba(94,234,212,0.3);background:rgba(94,234,212,0.12);}'
+      + '.wizard-dialog .validation-ext-badge.x-stl,.wizard-dialog .validation-ext-badge.x-step,.wizard-dialog .validation-ext-badge.x-stp,.wizard-dialog .validation-ext-badge.x-obj{color:#93c5fd;border-color:rgba(96,165,250,0.32);background:rgba(96,165,250,0.12);}'
       + '.wizard-dialog .validation-match-toggle{grid-column:1/-1;padding:6px 8px;border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
       + '.wizard-dialog .validation-match-detail-row{grid-column:1/-1;padding:6px 8px;border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));font-size:11px;line-height:1.35;color:var(--primary-text-color);overflow-wrap:anywhere;word-break:break-word;}'
       + '.wizard-dialog .validation-match-detail-key{color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;margin-right:8px;}'
