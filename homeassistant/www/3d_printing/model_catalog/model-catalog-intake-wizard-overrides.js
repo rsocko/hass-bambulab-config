@@ -2502,6 +2502,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._render();
       return;
     }
+    // Issue #1316: navigating backward from the validation or commit step
+    // invalidates previous validation results so the user must re-run
+    // validation when they return — selections or destinations may have changed.
+    if (nextStep < this._wizardStep && this._wizardStep >= 4) {
+      this._invalidateWizardArtifacts({ clearPreview: false, deletePrepared: true });
+    }
     this._error = '';
     this._wizardStep = nextStep;
     if (nextStep >= 2) {
