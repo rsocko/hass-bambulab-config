@@ -187,6 +187,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
     this.shadowRoot.addEventListener("change", this._boundChangeHandler);
     this.shadowRoot.addEventListener("input", this._boundInputHandler);
+    this.shadowRoot.addEventListener("keydown", this._boundKeydownHandler);
     this.shadowRoot.addEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.addEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.addEventListener("drop", this._boundDropHandler);
@@ -196,6 +197,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
     this.shadowRoot.removeEventListener("change", this._boundChangeHandler);
     this.shadowRoot.removeEventListener("input", this._boundInputHandler);
+    this.shadowRoot.removeEventListener("keydown", this._boundKeydownHandler);
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
