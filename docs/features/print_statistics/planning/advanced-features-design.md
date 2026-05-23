@@ -1,6 +1,6 @@
 # Print Statistics — Advanced Features Design
 
-> Based on full archive API catalog: [bambuddy-archive-api-catalog.md](\docs\features\bambuddy_common\reference\bambuddy-archive-api-catalog.md)
+> Based on full archive API catalog: [bambuddy-archive-api-catalog.md](/docs/features/bambuddy_common/reference/bambuddy-archive-api-catalog.md)
 > Cross-references archive sample data fields not used by core statistics.
 
 ## Current Implementation Snapshot

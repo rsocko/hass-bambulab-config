@@ -26,7 +26,7 @@ This belongs under `spoolman_sync`, not `print_history` or `bambuddy`, because:
 
 The design intentionally focuses on **successful-print recovery only**.
 Partial-usage estimation for failed or stopped prints remains separately
-documented in [\docs\features\spoolman_sync\design\bambuddy-partial-usage-sidecar.md](\docs\features\spoolman_sync\design\bambuddy-partial-usage-sidecar.md).
+documented in [\docs\features\spoolman_sync\design\bambuddy-partial-usage-sidecar.md](/docs/features/spoolman_sync/design/bambuddy-partial-usage-sidecar.md).
 
 ---
 
@@ -34,8 +34,8 @@ documented in [\docs\features\spoolman_sync\design\bambuddy-partial-usage-sideca
 
 The current success-path decrement flow is centered on:
 
-- [print-complete-update-filament-usage.md](\docs\features\spoolman_sync\reference\print-complete-update-filament-usage.md)
-- [print-weight-persistence-overview.md](\docs\features\spoolman_sync\reference\print-weight-persistence-overview.md)
+- [print-complete-update-filament-usage.md](/docs/features/spoolman_sync/reference/print-complete-update-filament-usage.md)
+- [print-weight-persistence-overview.md](/docs/features/spoolman_sync/reference/print-weight-persistence-overview.md)
 - `input_text.print_weight_backup`
 - `input_text.print_metadata_backup`
 - `sensor.spoolman_tray_map`

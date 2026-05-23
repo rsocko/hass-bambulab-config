@@ -167,7 +167,7 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 - Error handling
 - Monitoring
 
-**Location**: [docs/features/spoolman_sync/print-weight-persistence.md](\docs\features\spoolman_sync\reference\print-weight-persistence-overview.md)
+**Location**: [docs/features/spoolman_sync/print-weight-persistence.md](/docs/features/spoolman_sync/reference/print-weight-persistence-overview.md)
 
 ## Key Features
 

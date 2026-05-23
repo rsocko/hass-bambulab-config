@@ -32,7 +32,7 @@ None
 
 ## Prequisites:
 - Spoolman installed and accessible from Home Assistant
-- Custom Fields added to Spoolman as follows: ([detailed instructions](\docs\features\spoolman_sync\reference\spoolman-custom-fields.md))
+- Custom Fields added to Spoolman as follows: ([detailed instructions](/docs/features/spoolman_sync/reference/spoolman-custom-fields.md))
   - UUID
   - etc.
 - Spoolman integration installed (for updating spoolman)

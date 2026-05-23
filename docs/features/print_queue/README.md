@@ -1,6 +1,6 @@
 # Print Queue — Bambuddy Queue in HA
 
-> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](\docs\repo\reference\openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
+> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](/docs/repo/reference/openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
 
 ## Overview
 
@@ -85,16 +85,16 @@ State value: number of jobs in queue.
 ## Mockups
 
 Self-contained HTML mockups for proposed UI evolutions live under
-[`mockups/`](\docs\features\print_queue\mockups\index.html):
+[`mockups/`](/docs/features/print_queue/mockups/index.html):
 
-- [`kanban-board.html`](\docs\features\print_queue\mockups\kanban-board.html) — adds a Kanban view mode
+- [`kanban-board.html`](/docs/features/print_queue/mockups/kanban-board.html) — adds a Kanban view mode
   (columns per state) with drag-and-drop state changes, a per-state color
   palette applied subtly to cards in both list and kanban views, and a
   prominent **Time Remaining** hero tile that excludes plates already marked
   `done`. The original list-style queue mockup remains under
-  [`docs/features/model_catalog/design/mockups/production-queue.html`](\docs\features\model_catalog\design\mockups\production-queue.html);
+  [`docs/features/model_catalog/design/mockups/production-queue.html`](/docs/features/model_catalog/design/mockups/production-queue.html);
   rationale for the underlying data model lives in
-  [`unified-queue.md`](\docs\features\model_catalog\design\unified-queue.md).
+  [`unified-queue.md`](/docs/features/model_catalog/design/unified-queue.md).
 
 ## Dashboard Cards
 
@@ -107,7 +107,7 @@ Displays the current print queue:
 
 ## Advanced Design
 
-- [advanced-features-design.md](\docs\features\print_queue\design\advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
+- [advanced-features-design.md](/docs/features/print_queue/design/advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
 
 ## Scope Decision After API Review
 
@@ -122,7 +122,7 @@ The live OpenAPI review changed the recommendation for this package:
 
 | Dependency | Required | Purpose |
 |---|---|---|
-| [bambuddy_common](\docs\features\bambuddy_common\README.md) | **Yes** | API config helpers, webhook event source |
+| [bambuddy_common](/docs/features/bambuddy_common/README.md) | **Yes** | API config helpers, webhook event source |
 
 ### External Dependencies
 

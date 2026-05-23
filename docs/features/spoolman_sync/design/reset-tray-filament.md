@@ -8,7 +8,7 @@ Replaced By: none
 
 > **Status**: Implementation
 > **Created**: 2026-03-26
-> **Parent**: [AMS Tray Assignment Design](\docs\features\spoolman_sync\design\ams-tray-assignment.md)
+> **Parent**: [AMS Tray Assignment Design](/docs/features/spoolman_sync/design/ams-tray-assignment.md)
 > **Scope**: Clear/reset filament metadata on any AMS tray or external spool via HA UI
 
 ## Problem Statement

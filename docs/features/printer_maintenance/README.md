@@ -1,6 +1,6 @@
 # Printer Maintenance — Bambuddy Maintenance Tracking in HA
 
-> **⚠️ UNBLOCKED**: Maintenance API endpoints have been discovered in the OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](\docs\repo\reference\openapi-correction-notes.md) for full cross-reference. All 4 blocking open items are now resolved.
+> **⚠️ UNBLOCKED**: Maintenance API endpoints have been discovered in the OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](/docs/repo/reference/openapi-correction-notes.md) for full cross-reference. All 4 blocking open items are now resolved.
 
 ## Overview
 
@@ -209,7 +209,7 @@ Full maintenance dashboard view assembling all 3 cards plus a link to Bambuddy's
 
 ## Advanced Design
 
-- [advanced-features-design.md](\docs\features\print_history\planning\advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
+- [advanced-features-design.md](/docs/features/print_history/planning/advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
 
 ## Scope Decision After API Review
 
@@ -224,8 +224,8 @@ The live maintenance API supports a bit more low-risk value than the original ba
 
 | Dependency | Required | Purpose |
 |---|---|---|
-| [bambuddy_common](\docs\features\bambuddy_common\README.md) | **Yes** | API config helpers, webhook event source |
-| [print_statistics](\docs\features\print_statistics\README.md) | **Yes** | `sensor.bambuddy_statistics` attributes (total_prints, etc.) used in health dashboard context |
+| [bambuddy_common](/docs/features/bambuddy_common/README.md) | **Yes** | API config helpers, webhook event source |
+| [print_statistics](/docs/features/print_statistics/README.md) | **Yes** | `sensor.bambuddy_statistics` attributes (total_prints, etc.) used in health dashboard context |
 
 ### External Dependencies
 

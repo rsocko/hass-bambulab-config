@@ -59,9 +59,9 @@ while adding the one capability Bambuddy is clearly better at:
 
 Current repository behavior is centered on the HA automation set documented in:
 
-- [README](\docs\features\spoolman_sync\README.md)
-- [print-complete-update-filament-usage.md](\docs\features\spoolman_sync\reference\print-complete-update-filament-usage.md)
-- [print-weight-persistence-overview.md](\docs\features\spoolman_sync\reference\print-weight-persistence-overview.md)
+- [README](/docs/features/spoolman_sync/README.md)
+- [print-complete-update-filament-usage.md](/docs/features/spoolman_sync/reference/print-complete-update-filament-usage.md)
+- [print-weight-persistence-overview.md](/docs/features/spoolman_sync/reference/print-weight-persistence-overview.md)
 
 Today the success-path decrement logic is owned by Home Assistant and uses:
 
