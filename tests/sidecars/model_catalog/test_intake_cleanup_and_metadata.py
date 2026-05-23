@@ -593,3 +593,84 @@ def test_batch_validation_action_pair_decision_is_persisted(tmp_path: Path) -> N
         assert actions[0].get("check_key") == "batch_duplicate_scan"
     finally:
         client.__exit__(None, None, None)
+
+
+def test_indexed_duplicate_conflict_includes_preview_url(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    db_path = tmp_path / "model_catalog.db"
+    expected_preview_url = "https://example.com/previews/duplicate-thumb.jpg"
+    try:
+        baseline_file = source_root / "indexed-duplicate.3mf"
+        baseline_file.write_bytes(b"baseline-bytes")
+
+        baseline_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(baseline_file)}],
+            },
+        )
+        assert baseline_upload.status_code == 200
+        baseline_upload_id = baseline_upload.json()["upload_id"]
+
+        baseline_publish = client.post(
+            f"/api/intake/uploads/{baseline_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "curated", "title": "Indexed Baseline"}]},
+        )
+        assert baseline_publish.status_code == 200
+
+        with sqlite3.connect(db_path) as connection:
+            connection.execute(
+                """
+                UPDATE model_catalog_assets
+                SET preview_url = ?
+                WHERE asset_filename = ?
+                """,
+                (expected_preview_url, baseline_file.name),
+            )
+            connection.commit()
+
+        incoming_duplicate = source_root / "indexed-duplicate.3mf"
+        incoming_duplicate.write_bytes(b"incoming-different-bytes")
+
+        duplicate_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(incoming_duplicate)}],
+            },
+        )
+        assert duplicate_upload.status_code == 200
+        duplicate_upload_id = duplicate_upload.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{duplicate_upload_id}/validate")
+        assert validate_response.status_code == 200
+        validation_payload = validate_response.json().get("validation") or {}
+
+        indexed_conflicts: list[dict[str, object]] = []
+        for check in validation_payload.get("checks") or []:
+            findings = check.get("findings") if isinstance(check, dict) else None
+            if not isinstance(findings, list):
+                continue
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                conflicts = finding.get("conflicts_with")
+                if not isinstance(conflicts, list):
+                    continue
+                for conflict in conflicts:
+                    if not isinstance(conflict, dict):
+                        continue
+                    if str(conflict.get("scope") or "").strip().lower() != "indexed":
+                        continue
+                    if str(conflict.get("parent_kind") or "").strip().lower() != "catalog_model":
+                        continue
+                    indexed_conflicts.append(conflict)
+
+        assert indexed_conflicts, "Expected at least one indexed catalog conflict"
+        assert any(
+            str(conflict.get("preview_url") or "").strip() == expected_preview_url
+            for conflict in indexed_conflicts
+        )
+    finally:
+        client.__exit__(None, None, None)

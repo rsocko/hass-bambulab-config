@@ -290,6 +290,13 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const deleteModelBtn = target.closest('#btn-delete-model');
+    if (deleteModelBtn) {
+      event.preventDefault();
+      this._handleDeleteModel();
+      return;
+    }
+
     if (!target.closest('.overflow-wrap') && this._overflowOpen) {
       this._overflowOpen = false;
       this._render();
@@ -1767,6 +1774,15 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .overflow-row .label { font-size: 12px; font-weight: 600; }
         .overflow-row .meta { font-size: 10px; color: var(--secondary-text-color); margin-top: 3px; }
+        .overflow-row.danger {
+          border-color: rgba(248, 113, 113, 0.32);
+          background: rgba(127, 29, 29, 0.22);
+        }
+        .overflow-row.danger .label { color: #fca5a5; }
+        .overflow-row.danger .meta { color: #f87171; }
+        .overflow-row.danger:hover {
+          background: rgba(127, 29, 29, 0.35);
+        }
 
         .hero {
           display: grid;
@@ -2466,15 +2482,11 @@ class ModelDetailPopupCard extends HTMLElement {
                     <div class="label">Recover Print History wizard</div>
                     <div class="meta">Extension host for #1483 backfill flow</div>
                   </div>
-                  <div class="overflow-row">
-                    <div class="label">Contribution lifecycle shortcut</div>
-                    <div class="meta">Extension host for #1494</div>
-                  </div>
-                  <div class="overflow-row">
-                    <div class="label">Publication pipeline shortcut</div>
-                    <div class="meta">Extension host for #1495</div>
-                  </div>
                 `)}
+                <div class="overflow-row danger" id="btn-delete-model" style="cursor: pointer;">
+                  <div class="label">Delete model</div>
+                  <div class="meta">Permanently remove from catalog</div>
+                </div>
               </div>
             </div>
           </div>
@@ -5724,6 +5736,139 @@ class ModelDetailPopupCard extends HTMLElement {
         this._hass.callService('persistent_notification', 'create', {
           title: 'Archive toggle failed',
           message: `Failed to update archive status: ${error.message}`,
+        }).catch(err => console.error('Notification failed:', err));
+      }
+    }
+  }
+
+  async _handleDeleteModel() {
+    if (!this._modelDetail || !this._hass) return;
+
+    const model = this._modelDetail.model || {};
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const modelName = String(model.name || this._modelRef || 'Model').trim();
+    const linkedCount = Number(this._modelDetail.linked_archive_count || 0);
+
+    if (!localModelId) {
+      this._error = "Could not identify model for deletion.";
+      this._render();
+      return;
+    }
+
+    // Build warning message about what will be deleted
+    const warningLines = [
+      `Delete ${modelName} from the Model Catalog?`,
+      "",
+      "This will delete:",
+      "• Model metadata and database entries",
+      "• All stored model files and assets",
+    ];
+
+    if (linkedCount > 0) {
+      warningLines.push(
+        "",
+        `This model has ${linkedCount} linked print archive${linkedCount === 1 ? "" : "s"}. The archives will NOT be deleted, but the model reference will be removed.`
+      );
+    }
+
+    warningLines.push("", "This action cannot be undone.");
+
+    const confirmMsg = warningLines.join("\n");
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    // Proceed with deletion
+    await this._executeModelDeletion(localModelId);
+  }
+
+  async _executeModelDeletion(localModelId) {
+    if (!this._hass || !localModelId) {
+      return;
+    }
+
+    try {
+      this._loading = true;
+      this._error = "";
+      this._render();
+
+      const sidecarUrl = this._resolveModelSidecarUrl();
+      if (!sidecarUrl) {
+        throw new Error("Model Catalog sidecar URL not configured");
+      }
+
+      const auth = this._hass && this._hass.auth ? this._hass.auth : null;
+      if (!auth) {
+        throw new Error("Not authenticated with Home Assistant");
+      }
+
+      const deleteUrl = sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "?hard_delete=false";
+      const response = await fetch(deleteUrl, {
+        method: "DELETE",
+        headers: {
+          "Authorization": "Bearer " + auth.accessToken,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (_) {
+          errorData = { error: "Unknown error", status: response.status };
+        }
+        const errorMsg = errorData && errorData.error ? String(errorData.error) : "HTTP " + String(response.status);
+        throw new Error("Delete failed: " + errorMsg);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || "Delete operation failed");
+      }
+
+      this._loading = false;
+      this._error = "";
+
+      // Show success notification
+      try {
+        await this._hass.callService("persistent_notification", "create", {
+          title: "Model Deleted",
+          message: "Model successfully deleted from the catalog.",
+          notification_id: "model_catalog_delete_success",
+        });
+      } catch (err) {
+        console.error('Notification failed:', err);
+      }
+
+      // Close the popup by triggering a browser_mod command to close
+      // First, emit an event that the browser card can listen for
+      this.dispatchEvent(new CustomEvent('model-deleted', { detail: { modelRef: this._modelRef } }));
+
+      // Then close this popup window
+      if (window && window.parent) {
+        try {
+          window.parent.postMessage({ type: 'close-popup' }, '*');
+        } catch (_) {
+          // If we can't communicate with parent, just wait for event handler
+        }
+      }
+
+      // Also trigger a re-render to show the deletion state
+      this._modelDetail = null;
+      this._render();
+
+    } catch (error) {
+      console.error('Delete failed:', error);
+      this._loading = false;
+      this._error = `Delete failed: ${error.message}`;
+      this._render();
+
+      if (this._hass) {
+        this._hass.callService('persistent_notification', 'create', {
+          title: 'Model Delete Failed',
+          message: `Failed to delete model: ${error.message}`,
+          notification_id: 'model_catalog_delete_failed',
         }).catch(err => console.error('Notification failed:', err));
       }
     }
