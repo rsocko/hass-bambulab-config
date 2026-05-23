@@ -347,3 +347,170 @@ def test_publish_to_working_keep_policy_preserves_source_files(tmp_path: Path) -
         assert "preview.png" in dest_file_names
     finally:
         client.__exit__(None, None, None)
+
+
+def test_publish_by_destination_requires_override_for_validated_warning(tmp_path: Path) -> None:
+    """Validated warning uploads require override_warning to publish by destination."""
+    client, source_root = _create_client(tmp_path)
+    try:
+        first_file = source_root / "existing.3mf"
+        first_file.write_bytes(b"duplicate-content")
+
+        first_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(first_file)}],
+            },
+        )
+        assert first_upload.status_code == 200
+        first_upload_id = first_upload.json()["upload_id"]
+
+        first_publish = client.post(
+            f"/api/intake/uploads/{first_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "working", "title": "Existing"}]},
+        )
+        assert first_publish.status_code == 200
+
+        duplicate_file = source_root / "existing-copy.3mf"
+        duplicate_file.write_bytes(b"duplicate-content")
+
+        second_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(duplicate_file)}],
+            },
+        )
+        assert second_upload.status_code == 200
+        second_upload_id = second_upload.json()["upload_id"]
+
+        second_validate = client.post(f"/api/intake/items/{second_upload_id}/validate")
+        assert second_validate.status_code == 200
+        assert second_validate.json()["validation"]["validation_state"] == "duplicate_candidate"
+
+        publish_without_override = client.post(
+            f"/api/intake/uploads/{second_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "working", "title": "Duplicate"}]},
+        )
+        assert publish_without_override.status_code == 409
+        assert publish_without_override.json().get("error") == "override_required_for_warning_state"
+
+        publish_with_override = client.post(
+            f"/api/intake/uploads/{second_upload_id}/publish-by-destination",
+            json={
+                "group_destinations": [{"destination": "working", "title": "Duplicate"}],
+                "override_warning": True,
+            },
+        )
+        assert publish_with_override.status_code == 200
+        assert publish_with_override.json().get("success") is True
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_validation_action_choices_are_persisted_for_review(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    db_path = tmp_path / "model_catalog.db"
+    try:
+        baseline_file = source_root / "baseline.3mf"
+        baseline_file.write_bytes(b"same-bytes")
+
+        baseline_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(baseline_file)}],
+            },
+        )
+        assert baseline_upload.status_code == 200
+        baseline_upload_id = baseline_upload.json()["upload_id"]
+
+        baseline_publish = client.post(
+            f"/api/intake/uploads/{baseline_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "working", "title": "Baseline"}]},
+        )
+        assert baseline_publish.status_code == 200
+
+        duplicate_file = source_root / "duplicate.3mf"
+        duplicate_file.write_bytes(b"same-bytes")
+
+        duplicate_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(duplicate_file)}],
+            },
+        )
+        assert duplicate_upload.status_code == 200
+        duplicate_upload_id = duplicate_upload.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{duplicate_upload_id}/validate")
+        assert validate_response.status_code == 200
+        assert validate_response.json()["validation"]["validation_state"] == "duplicate_candidate"
+
+        validation_payload = validate_response.json()["validation"]
+        duplicate_check = next(
+            (
+                check for check in (validation_payload.get("checks") or [])
+                if str(check.get("key") or "") in {"duplicate_scan", "batch_duplicate_scan"}
+                and isinstance(check.get("findings"), list)
+                and check.get("findings")
+            ),
+            None,
+        )
+        assert duplicate_check is not None
+        finding = duplicate_check["findings"][0]
+        finding_key = "|".join(
+            [
+                str(duplicate_check.get("key") or ""),
+                str(finding.get("path") or ""),
+                str(finding.get("filename") or ""),
+                str(finding.get("violation_code") or ""),
+                "0",
+            ]
+        ).lower()
+
+        save_action = client.post(
+            f"/api/intake/items/{duplicate_upload_id}/validation-actions",
+            json={
+                "finding_key": finding_key,
+                "decision": "allow_duplicate",
+                "check_key": str(duplicate_check.get("key") or ""),
+                "source_path": str(finding.get("path") or ""),
+                "source_name": str(finding.get("filename") or ""),
+            },
+        )
+        assert save_action.status_code == 200
+        assert save_action.json().get("validation_action_count") == 1
+
+        item_response = client.get(f"/api/intake/items/{duplicate_upload_id}")
+        assert item_response.status_code == 200
+        decision_note_raw = item_response.json()["item"].get("decision_note")
+        parsed_note = json.loads(str(decision_note_raw or "{}"))
+        assert isinstance(parsed_note.get("warnings"), list)
+        actions = parsed_note.get("validation_actions") or []
+        assert len(actions) == 1
+        assert actions[0].get("decision") == "allow_duplicate"
+        assert actions[0].get("finding_key") == finding_key
+
+        with sqlite3.connect(db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            event_row = connection.execute(
+                """
+                SELECT payload_json
+                FROM model_catalog_events
+                WHERE entity_type = 'intake_queue_upload'
+                  AND entity_id = ?
+                  AND event_type = 'intake_validation_action_set'
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (duplicate_upload_id,),
+            ).fetchone()
+        assert event_row is not None
+        event_payload = json.loads(str(event_row["payload_json"] or "{}"))
+        assert event_payload.get("decision") == "allow_duplicate"
+        assert event_payload.get("finding_key") == finding_key
+    finally:
+        client.__exit__(None, None, None)

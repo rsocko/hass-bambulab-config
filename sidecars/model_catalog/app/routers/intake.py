@@ -1105,6 +1105,7 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
 def intake_upload_publish_by_destination(request: Request, upload_id: str, payload: dict[str, Any] | None = None) -> Any:
     payload = payload or {}
     state: AppState = request.app.state.model_catalog
+    override_warning = bool(payload.get("override_warning"))
 
     connection = connect(state.settings.db_path)
     connection.row_factory = __import__("sqlite3").Row
@@ -1122,6 +1123,12 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
     current_state = str(upload_row["inbox_state"] or "").strip().lower() or "submitted"
     current_status = str(upload_row["status"] or "").strip().lower()
     is_eligible, reason_code = ActionEligibility.validate_action_eligibility(current_state, ActionEligibility.PUBLISH_CATALOG)
+    if not is_eligible and current_state == "validated_warning":
+        is_eligible, reason_code = ActionEligibility.validate_override_for_warning_state(
+            current_state,
+            ActionEligibility.PUBLISH_CATALOG,
+            override_warning,
+        )
     if not is_eligible:
         return JSONResponse(
             status_code=409,

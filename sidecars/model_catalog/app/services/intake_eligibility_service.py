@@ -105,10 +105,11 @@ class ActionEligibility:
         normalized_state = str(state or "").strip().lower()
         normalized_action = str(action or "").strip().lower()
 
-        # Group actions from validated_warning require override flag
+        # Group/publish actions from validated_warning require override flag
         if normalized_state == "validated_warning" and normalized_action in {
             ActionEligibility.GROUP_NEW,
             ActionEligibility.GROUP_EXISTING,
+            ActionEligibility.PUBLISH_CATALOG,
         }:
             if not override:
                 return False, "override_required_for_warning_state"

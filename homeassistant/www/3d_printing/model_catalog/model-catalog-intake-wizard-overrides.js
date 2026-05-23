@@ -618,6 +618,26 @@ function renderValidationSummary(card) {
   var warningText = (card._validationData.warnings || []).map(function (warning) {
     return warning && (warning.message || warning.code) ? (warning.message || warning.code) : String(warning || '');
   }).filter(Boolean).slice(0, 5);
+  var decisionMap = card && card._validationDecisionMap && typeof card._validationDecisionMap === 'object'
+    ? card._validationDecisionMap
+    : {};
+  var overrideSummary = card && typeof card._validationOverrideSummary === 'function'
+    ? card._validationOverrideSummary()
+    : null;
+  var overrideSummaryHtml = '';
+  if (overrideSummary && Number(overrideSummary.totalFindings || 0) > 0) {
+    var unresolvedCount = Number(overrideSummary.pendingFindings || 0);
+    var resolvedCount = Number(overrideSummary.resolvedFindings || 0);
+    var summaryChipClass = overrideSummary.canProceed ? 'ok' : 'warn';
+    var summaryChipLabel = overrideSummary.canProceed
+      ? 'Override ready'
+      : (unresolvedCount > 0 ? (String(unresolvedCount) + ' pending') : 'needs attention');
+    overrideSummaryHtml = ''
+      + '<div class="result-summary">'
+      + '  <div class="result-line"><span>Duplicate override actions</span><strong>' + String(resolvedCount) + ' / ' + String(Number(overrideSummary.totalFindings || 0)) + ' decided</strong></div>'
+      + '  <div class="result-line"><span>Status</span><strong><span class="chip ' + summaryChipClass + '">' + escapeHtml(summaryChipLabel) + '</span></strong></div>'
+      + '</div>';
+  }
   // Issue #1307: drop the "Prepared upload <GUID>" line (implementation detail, not
   // useful to operators) and surface validation_state in UPPER CASE for emphasis.
   // The Destination Plan section that used to render at the bottom of this summary
@@ -626,6 +646,7 @@ function renderValidationSummary(card) {
     + '<div class="result-summary">'
     + '  <div class="result-line"><span>Validation state</span><strong>' + escapeHtml(String(card._validationData.validation_state || 'unknown').toUpperCase()) + '</strong></div>'
     + '</div>'
+    + overrideSummaryHtml
     + '<div class="entries">' + checks.map(function (check) {
       var passed = !!check.passed;
       // Issue #1347: the informational "excluded_items_summary" check should
@@ -658,26 +679,90 @@ function renderValidationSummary(card) {
         ? '<button class="link-button" data-action="wizard-jump-step" data-step="1">Go to Select Step</button>'
         : '';
       var findings = Array.isArray(check && check.findings) ? check.findings : [];
-      var findingsHtml = findings.length
-        ? ('<div class="validation-findings">' + findings.slice(0, 20).map(function (finding) {
-            var offenderName = String((finding && finding.filename) || '').trim();
-            var offenderPath = String((finding && finding.path) || '').trim();
-            if (!offenderName && offenderPath) {
-              offenderName = basename(offenderPath);
-            }
-            var violationLabel = String((finding && finding.violation_label) || (finding && finding.violation_code) || 'Match').trim();
-            var conflictTargets = Array.isArray(finding && finding.conflicts_with)
-              ? finding.conflicts_with.filter(Boolean).slice(0, 3)
+      var findingsHtml = '';
+      if (findings.length) {
+        var grouped = {};
+        findings.forEach(function (finding, findingIndex) {
+          var offenderPath = String((finding && finding.path) || '').trim();
+          var offenderName = String((finding && finding.filename) || '').trim();
+          if (!offenderName && offenderPath) {
+            offenderName = basename(offenderPath);
+          }
+          var sourceKey = (offenderPath || ('__name__:' + offenderName) || ('__index__:' + String(findingIndex))).toLowerCase();
+          if (!grouped[sourceKey]) {
+            grouped[sourceKey] = {
+              source_name: offenderName || 'Source File',
+              source_path: offenderPath,
+              violations: [],
+            };
+          }
+          var findingKey = (typeof card._validationFindingKey === 'function')
+            ? card._validationFindingKey(String(check.key || ''), finding, findingIndex)
+            : (String(check.key || '') + '|' + String(findingIndex));
+          grouped[sourceKey].violations.push({
+            finding_key: findingKey,
+            finding: finding || {},
+          });
+        });
+
+        var groupedRows = Object.keys(grouped).map(function (groupKey) {
+          var group = grouped[groupKey];
+          var sourcePath = String(group.source_path || '').trim();
+          var sourcePathHtml = sourcePath
+            ? '<div class="validation-source-path">Source path: ' + escapeHtml(sourcePath) + '</div>'
+            : '';
+          var violationsHtml = group.violations.map(function (violationRow, violationIndex) {
+            var finding = violationRow.finding || {};
+            var findingKey = String(violationRow.finding_key || '');
+            var violationLabel = String(finding.violation_label || finding.violation_code || 'Match').trim() || 'Match';
+            var conflictTargets = Array.isArray(finding.conflicts_with)
+              ? finding.conflicts_with.filter(Boolean).slice(0, 5)
               : [];
-            var conflictText = conflictTargets.length ? (' ↔ ' + conflictTargets.join(', ')) : '';
-            var pathHtml = offenderPath ? ('<div class="entry-path muted">' + escapeHtml(offenderPath) + '</div>') : '';
+            var findingPath = String(finding.path || '').trim();
+            var findingFilename = String(finding.filename || '').trim();
+            var currentDecision = String(decisionMap[findingKey] || 'review').trim();
+            var actionControl = '';
+            if (String(check.key || '') === 'duplicate_scan' || String(check.key || '') === 'batch_duplicate_scan') {
+              actionControl = ''
+                + '<div class="validation-action-control">'
+                + '  <label>Action</label>'
+                + '  <select class="select" data-action="validation-finding-action" data-finding-key="' + escapeHtml(findingKey) + '" data-finding-path="' + escapeHtml(findingPath) + '" data-finding-filename="' + escapeHtml(findingFilename) + '" data-check-key="' + escapeHtml(String(check.key || '')) + '">'
+                + '    <option value="review"' + (currentDecision === 'review' ? ' selected' : '') + '>Needs review</option>'
+                + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude from import</option>'
+                + '    <option value="allow_duplicate"' + (currentDecision === 'allow_duplicate' ? ' selected' : '') + '>Allow duplicate and continue</option>'
+                + '  </select>'
+                + '</div>';
+            }
+            var conflictListHtml = conflictTargets.length
+              ? ('<ul class="validation-conflict-list">'
+                + conflictTargets.map(function (conflictItem) {
+                  return '<li>' + escapeHtml(String(conflictItem)) + '</li>';
+                }).join('')
+                + '</ul>')
+              : '<div class="muted">No conflict target metadata available.</div>';
             return ''
-              + '<div class="entry-path"><strong>' + escapeHtml(offenderName || 'File') + '</strong> · ' + escapeHtml(violationLabel) + escapeHtml(conflictText) + '</div>'
-              + pathHtml;
-          }).join('')
-          + (findings.length > 20 ? '<div class="entry-path muted">... and ' + String(findings.length - 20) + ' more finding(s)</div>' : '')
-          + '</div>')
-        : '';
+              + '<div class="validation-violation-row">'
+              + '  <div class="validation-violation-body">'
+              + '    <div class="validation-violation-label">Violation ' + String(violationIndex + 1) + ': ' + escapeHtml(violationLabel) + '</div>'
+              + '    <div class="validation-conflict-title">Conflicts with:</div>'
+              + conflictListHtml
+              + '  </div>'
+              + actionControl
+              + '</div>';
+          }).join('');
+          return ''
+            + '<div class="validation-source-row">'
+            + '  <div class="validation-source-header">' + escapeHtml(group.source_name || 'Source File') + '</div>'
+            + sourcePathHtml
+            + '  <div class="validation-source-violations">' + violationsHtml + '</div>'
+            + '</div>';
+        }).join('');
+
+        findingsHtml = ''
+          + '<div class="validation-findings">'
+          + groupedRows
+          + '</div>';
+      }
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
@@ -1242,6 +1327,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var uploadId = this._preparedUploadId;
     this._preparedUploadId = null;
     this._validationData = null;
+    this._validationDecisionMap = {};
     if (settings.clearPreview !== false) {
       this._previewData = null;
     }
@@ -1753,6 +1839,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         warnings: (uploadResponse.warnings || []).concat(validation.warnings || []),
         checks: Array.isArray(validation.checks) ? validation.checks : [],
       };
+      this._validationDecisionMap = {};
       this._status = this._validationData.validation_state === 'ready'
         ? 'Validation snapshot prepared. Review the destination assignments, then commit.'
         : 'Validation finished with blockers. Resolve them before commit.';
@@ -1768,6 +1855,157 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._loading = false;
       this._render();
     }
+  };
+
+  proto._validationFindingKey = function (checkKey, finding, index) {
+    var entry = finding && typeof finding === 'object' ? finding : {};
+    var parts = [
+      String(checkKey || ''),
+      String(entry.path || ''),
+      String(entry.filename || ''),
+      String(entry.violation_code || ''),
+      String(index || 0),
+    ];
+    return parts.join('|').toLowerCase();
+  };
+
+  proto._validationDecisionForFinding = function (checkKey, finding, index) {
+    var key = this._validationFindingKey(checkKey, finding, index);
+    if (!this._validationDecisionMap || typeof this._validationDecisionMap !== 'object') {
+      this._validationDecisionMap = {};
+    }
+    return String(this._validationDecisionMap[key] || 'review').trim();
+  };
+
+  proto._setValidationDecisionForFinding = function (checkKey, finding, index, decision) {
+    var key = this._validationFindingKey(checkKey, finding, index);
+    if (!this._validationDecisionMap || typeof this._validationDecisionMap !== 'object') {
+      this._validationDecisionMap = {};
+    }
+    var next = Object.assign({}, this._validationDecisionMap);
+    var normalizedDecision = String(decision || 'review').trim().toLowerCase();
+    if (!normalizedDecision || normalizedDecision === 'review') {
+      delete next[key];
+    } else {
+      next[key] = normalizedDecision;
+    }
+    this._validationDecisionMap = next;
+    return key;
+  };
+
+  proto._persistValidationActionDecision = function (payload) {
+    var uploadId = this._validationData && this._validationData.upload_id
+      ? String(this._validationData.upload_id)
+      : '';
+    if (!uploadId || !this._hass) {
+      return Promise.resolve(null);
+    }
+    var sidecarBaseUrl = this._resolveSidecarUrl();
+    return postJsonWithAuth(
+      this._hass,
+      sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/items/' + encodeURIComponent(uploadId) + '/validation-actions',
+      { action: payload }
+    );
+  };
+
+  proto._validationOverrideSummary = function () {
+    var checks = this._validationData && Array.isArray(this._validationData.checks)
+      ? this._validationData.checks
+      : [];
+    var duplicateCheckKeys = { duplicate_scan: true, batch_duplicate_scan: true };
+    var totalFindings = 0;
+    var pendingFindings = 0;
+    var resolvedFindings = 0;
+    var hasNonOverrideBlocker = false;
+
+    checks.forEach(function (check) {
+      var checkKey = String(check && check.key || '').trim();
+      var checkFindings = Array.isArray(check && check.findings) ? check.findings : [];
+      if (!duplicateCheckKeys[checkKey]) {
+        if (check && check.passed === false) {
+          hasNonOverrideBlocker = true;
+        }
+        return;
+      }
+      if (!checkFindings.length && check && check.passed === false) {
+        hasNonOverrideBlocker = true;
+        return;
+      }
+      checkFindings.forEach(function (finding, findingIndex) {
+        totalFindings += 1;
+        var decision = this._validationDecisionForFinding(checkKey, finding, findingIndex);
+        if (decision === 'allow_duplicate' || decision === 'exclude_source') {
+          resolvedFindings += 1;
+        } else {
+          pendingFindings += 1;
+        }
+      }, this);
+    }, this);
+
+    var hasFindings = totalFindings > 0;
+    var canProceed = !hasNonOverrideBlocker && (
+      String(this._validationData && this._validationData.validation_state || '').trim().toLowerCase() === 'ready'
+      || (hasFindings && pendingFindings === 0)
+    );
+
+    return {
+      totalFindings: totalFindings,
+      pendingFindings: pendingFindings,
+      resolvedFindings: resolvedFindings,
+      hasNonOverrideBlocker: hasNonOverrideBlocker,
+      hasFindings: hasFindings,
+      canProceed: canProceed,
+      requiresWarningOverride: !hasNonOverrideBlocker && hasFindings && pendingFindings === 0,
+    };
+  };
+
+  proto._validationReadyForCommit = function () {
+    if (!this._validationData || !this._validationData.upload_id) {
+      return false;
+    }
+    var validationState = String(this._validationData.validation_state || '').trim().toLowerCase();
+    if (validationState === 'ready') {
+      return true;
+    }
+    if (validationState !== 'duplicate_candidate') {
+      return false;
+    }
+    var summary = this._validationOverrideSummary();
+    return !!(summary && summary.canProceed && summary.requiresWarningOverride);
+  };
+
+  proto._applyValidationFindingExclusion = function (findingPath) {
+    var pathValue = String(findingPath || '').trim();
+    if (!pathValue) {
+      return false;
+    }
+
+    if (this._wizardMode === 'browser') {
+      var browserPath = normalizeBrowserRelativePath(pathValue);
+      var matched = false;
+      (this._browserFiles || []).forEach(function (entry) {
+        var relativePath = normalizeBrowserRelativePath(entry && (entry.relative_path || entry.name || '') || '');
+        if (relativePath && relativePath === browserPath) {
+          this._setBrowserKeyExcluded(this._browserFileKey(entry), true);
+          matched = true;
+        }
+      }, this);
+      if (!matched) {
+        return false;
+      }
+    } else {
+      var currentExcluded = Array.isArray(this._excludedItems) ? this._excludedItems.slice() : [];
+      if (currentExcluded.indexOf(pathValue) === -1) {
+        currentExcluded.push(pathValue);
+      }
+      this._excludedItems = currentExcluded;
+    }
+
+    this._status = 'Excluded source item from import. Re-run validation to refresh findings.';
+    this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+    this._refreshWizardPreview();
+    this._render();
+    return true;
   };
 
   proto._canAdvanceWizard = function () {
@@ -1788,10 +2026,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return this._destinationPlansReady();
     }
     if (this._wizardStep === 4) {
-      return !!(this._validationData && this._validationData.upload_id && this._validationData.validation_state === 'ready');
+      return this._validationReadyForCommit();
     }
     if (this._wizardStep === 5) {
-      return this._destinationPlansReady() && !!(this._validationData && this._validationData.upload_id && this._validationData.validation_state === 'ready');
+      return this._destinationPlansReady() && this._validationReadyForCommit();
     }
     return this._wizardMode === 'server' ? this._selectedList().length > 0 : this._activeBrowserFileCount() > 0;
   };
@@ -1812,7 +2050,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         this._error = 'Choose a destination for every planned group. Existing matches require a selected target.';
       } else if (this._wizardStep === 4) {
         this._error = this._validationData && this._validationData.upload_id
-          ? 'Validation must be ready before commit.'
+          ? 'Validation must be ready before commit, or every duplicate finding must have an explicit action.'
           : 'Run validation before continuing.';
       } else {
         this._error = this._wizardMode === 'server'
@@ -2647,6 +2885,20 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Left pane scrolls independently so long validation checklists are fully reachable.
       + '.wizard-validate-fixed{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;padding-right:4px;overflow-y:auto;overscroll-behavior:contain;}'
       + '.wizard-validate-fixed .entries{display:flex;flex-direction:column;gap:6px;}'
+      + '.wizard-dialog .validation-findings{display:flex;flex-direction:column;gap:10px;margin-top:8px;}'
+      + '.wizard-dialog .validation-source-row{border:1px solid var(--divider-color,rgba(148,163,184,0.24));border-radius:10px;padding:10px;background:var(--secondary-background-color,rgba(15,23,42,0.18));}'
+      + '.wizard-dialog .validation-source-header{font-size:13px;font-weight:700;color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-source-path{font-size:12px;line-height:1.3;color:var(--secondary-text-color);margin-top:4px;word-break:break-all;}'
+      + '.wizard-dialog .validation-source-violations{display:flex;flex-direction:column;gap:8px;margin-top:8px;}'
+      + '.wizard-dialog .validation-violation-row{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:10px;padding:8px;border:1px dashed var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:var(--card-background-color,rgba(15,23,42,0.14));}'
+      + '.wizard-dialog .validation-violation-label{font-size:12px;font-weight:700;color:var(--primary-text-color);margin-bottom:4px;}'
+      + '.wizard-dialog .validation-conflict-title{font-size:12px;font-weight:600;color:var(--secondary-text-color);margin-bottom:4px;}'
+      + '.wizard-dialog .validation-conflict-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px;}'
+      + '.wizard-dialog .validation-conflict-list li{font-size:12px;line-height:1.35;color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;}'
+      + '.wizard-dialog .validation-action-control label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.wizard-dialog .validation-action-control .select{width:100%;}'
+      + '@media (max-width: 900px){.wizard-dialog .validation-violation-row{grid-template-columns:1fr;}}'
       + '.wizard-commit-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:14px;padding-right:4px;overflow:hidden;}'
       + '.wizard-cleanup-policy-block{padding:12px;border-radius:14px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.08);}'
       + '.wizard-cleanup-policy-block .field label{font-weight:700;color:var(--primary-text-color);font-size:14px;}'
@@ -3179,14 +3431,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         this._render();
         return;
       }
-      if (validationData.validation_state !== 'ready') {
-        throw new Error('Validation must be ready before commit.');
+      if (!this._validationReadyForCommit()) {
+        throw new Error('Validation must be ready before commit, or every duplicate finding must have an explicit action.');
       }
       if (!this._destinationPlansReady()) {
         throw new Error('Choose a destination for every planned group before commit.');
       }
       var uploadId = validationData.upload_id;
       var sidecarBaseUrl = this._resolveSidecarUrl();
+      var warningOverride = false;
+      var overrideSummary = this._validationOverrideSummary();
+      if (String(validationData.validation_state || '').trim().toLowerCase() !== 'ready') {
+        warningOverride = !!(overrideSummary && overrideSummary.requiresWarningOverride);
+      }
       // Issue #1307: send cleanup_policy with the publish so a Commit-step policy
       // change is applied without forcing a re-validation. Browser path is locked
       // to delete_on_verified per the existing UX contract.
@@ -3194,6 +3451,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var publishResponse = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/uploads/' + encodeURIComponent(String(uploadId || '')) + '/publish-by-destination', {
         group_destinations: this._buildDestinationPublishPayload(),
         cleanup_policy: commitCleanupPolicy,
+        override_warning: warningOverride,
       });
       var changedCollections = [];
       if (Array.isArray(publishResponse && publishResponse.curated_model_ids) && publishResponse.curated_model_ids.length) {
@@ -3226,6 +3484,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       this._preparedUploadId = null;
       this._validationData = null;
+      this._validationDecisionMap = {};
       this._previewData = null;
       this._groupDestinations = [];
       this._selected = {};
@@ -3542,6 +3801,42 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         lookup_loading: false,
         selected_summary: null,
       });
+      this._render();
+      return;
+    }
+    if (action === 'validation-finding-action') {
+      var findingKey = String(target.getAttribute('data-finding-key') || '').trim().toLowerCase();
+      var findingPath = String(target.getAttribute('data-finding-path') || '').trim();
+      var findingFilename = String(target.getAttribute('data-finding-filename') || '').trim();
+      var checkKey = String(target.getAttribute('data-check-key') || '').trim();
+      var selectedDecision = String(target.value || 'review').trim().toLowerCase();
+      if (!this._validationDecisionMap || typeof this._validationDecisionMap !== 'object') {
+        this._validationDecisionMap = {};
+      }
+      var nextDecisionMap = Object.assign({}, this._validationDecisionMap);
+      if (selectedDecision === 'review' || !selectedDecision) {
+        delete nextDecisionMap[findingKey];
+      } else {
+        nextDecisionMap[findingKey] = selectedDecision;
+      }
+      this._validationDecisionMap = nextDecisionMap;
+      this._persistValidationActionDecision({
+        finding_key: findingKey,
+        decision: selectedDecision,
+        check_key: checkKey,
+        source_path: findingPath,
+        source_name: findingFilename,
+      }).catch(function (_error) {
+        // Keep the local selection even if audit logging fails; commit validation
+        // flow still enforces explicit decisions before proceeding.
+      });
+      if (selectedDecision === 'exclude_source') {
+        if (!this._applyValidationFindingExclusion(findingPath)) {
+          this._error = 'Could not exclude this finding because the source path could not be resolved.';
+        }
+        return;
+      }
+      this._error = '';
       this._render();
       return;
     }

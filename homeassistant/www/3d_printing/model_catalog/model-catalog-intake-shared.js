@@ -228,18 +228,38 @@
     }).join("");
   }
 
-  function parseDecisionWarnings(item) {
+  function parseDecisionNote(item) {
     if (!item || !item.decision_note) {
-      return [];
+      return null;
     }
     try {
       var parsed = JSON.parse(item.decision_note);
-      return Array.isArray(parsed)
-        ? parsed.filter(function (entry) { return entry && typeof entry === "object"; })
-        : [];
+      return parsed && typeof parsed === "object" ? parsed : null;
     } catch (_error) {
+      return null;
+    }
+  }
+
+  function parseDecisionWarnings(item) {
+    var parsed = parseDecisionNote(item);
+    if (!parsed) {
       return [];
     }
+    if (Array.isArray(parsed)) {
+      return parsed.filter(function (entry) { return entry && typeof entry === "object"; });
+    }
+    if (Array.isArray(parsed.warnings)) {
+      return parsed.warnings.filter(function (entry) { return entry && typeof entry === "object"; });
+    }
+    return [];
+  }
+
+  function parseValidationActions(item) {
+    var parsed = parseDecisionNote(item);
+    if (!parsed || Array.isArray(parsed) || !Array.isArray(parsed.validation_actions)) {
+      return [];
+    }
+    return parsed.validation_actions.filter(function (entry) { return entry && typeof entry === "object"; });
   }
 
   function warningMessages(warnings) {
@@ -825,6 +845,8 @@
     groupingOptionsHtml: groupingOptionsHtml,
     getModelCatalogScopeStamp: getModelCatalogScopeStamp,
     getJsonWithAuth: getJsonWithAuth,
+    parseDecisionNote: parseDecisionNote,
+    parseValidationActions: parseValidationActions,
     parseDecisionWarnings: parseDecisionWarnings,
     postFormWithAuth: postFormWithAuth,
     postJsonWithAuth: postJsonWithAuth,

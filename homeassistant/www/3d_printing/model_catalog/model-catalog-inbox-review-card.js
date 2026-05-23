@@ -6,6 +6,7 @@ if (!inboxShared) {
 var escapeHtml = inboxShared.escapeHtml;
 var basename = inboxShared.basename;
 var formatLabel = inboxShared.formatLabel;
+var parseValidationActions = inboxShared.parseValidationActions;
 var parseDecisionWarnings = inboxShared.parseDecisionWarnings;
 var warningMessages = inboxShared.warningMessages;
 var duplicateWarnings = inboxShared.duplicateWarnings;
@@ -33,6 +34,33 @@ function suggestedGroupTitle(sourceEntry) {
     return basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
   }
   return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
+}
+
+function validationActionSummary(actions) {
+  if (!Array.isArray(actions) || !actions.length) {
+    return '';
+  }
+  var counts = {
+    allow_duplicate: 0,
+    exclude_source: 0,
+  };
+  actions.forEach(function (entry) {
+    var decision = String(entry && entry.decision || '').trim().toLowerCase();
+    if (decision === 'allow_duplicate' || decision === 'exclude_source') {
+      counts[decision] += 1;
+    }
+  });
+  var parts = [];
+  if (counts.allow_duplicate) {
+    parts.push(String(counts.allow_duplicate) + ' allow duplicate');
+  }
+  if (counts.exclude_source) {
+    parts.push(String(counts.exclude_source) + ' excluded source');
+  }
+  if (!parts.length) {
+    return '';
+  }
+  return parts.join('; ');
 }
 
 function normalizedTerminalResult(item) {
@@ -887,10 +915,12 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
           var sourceEntry = item.source_entry || {};
           var proposedTitle = suggestedGroupTitle(sourceEntry);
           var warnings = parseDecisionWarnings(item);
+          var validationActions = parseValidationActions(item);
           var warningsText = warningMessages(warnings).join('; ');
           if (!warningsText) {
             warningsText = item.decision_note || '';
           }
+          var validationActionText = validationActionSummary(validationActions);
           var duplicateSignals = duplicateWarnings(item);
           var isSelected = !!this._selectedIds[item.item_id];
           var deleteDisabled = this._canDeleteItem(item) ? '' : ' disabled title="Only queued/failed items can be deleted"';
@@ -904,6 +934,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
             + '  ' + (isTerminal ? this._terminalSummaryMarkup(item, proposedTitle) : '<div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Working Group Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>')
             + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
             + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')
+            + (validationActionText ? '<div class="muted">Saved review actions: ' + escapeHtml(validationActionText) + '</div>' : '')
             + (this._selectMode && canSelect ? '<div class="muted">Row actions are replaced by the shared batch toolbar while selection mode is active.</div>' : '<div class="entry-actions">' + actionButtons + '</div>')
             + '</article>';
         }, this).join('') + '</div>' : '')

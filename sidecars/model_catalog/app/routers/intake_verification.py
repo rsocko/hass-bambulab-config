@@ -115,6 +115,61 @@ def _build_intake_item_response(item_row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _parse_decision_note_payload(raw_value: Any) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    validation_actions: list[dict[str, Any]] = []
+
+    if isinstance(raw_value, str) and raw_value.strip():
+        try:
+            parsed = json.loads(raw_value)
+        except json.JSONDecodeError:
+            parsed = None
+    else:
+        parsed = None
+
+    if isinstance(parsed, list):
+        warnings = [entry for entry in parsed if isinstance(entry, dict)]
+    elif isinstance(parsed, dict):
+        parsed_warnings = parsed.get("warnings")
+        parsed_actions = parsed.get("validation_actions")
+        if isinstance(parsed_warnings, list):
+            warnings = [entry for entry in parsed_warnings if isinstance(entry, dict)]
+        if isinstance(parsed_actions, list):
+            validation_actions = [entry for entry in parsed_actions if isinstance(entry, dict)]
+
+    return {
+        "warnings": warnings,
+        "validation_actions": validation_actions,
+    }
+
+
+def _normalize_validation_action(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    finding_key = str(payload.get("finding_key") or "").strip().lower()
+    decision = str(payload.get("decision") or "").strip().lower()
+
+    if not finding_key:
+        return None, "finding_key is required"
+    if decision not in {"review", "exclude_source", "allow_duplicate"}:
+        return None, "decision must be one of: review, exclude_source, allow_duplicate"
+
+    if decision == "review":
+        return {
+            "finding_key": finding_key,
+            "decision": decision,
+        }, None
+
+    normalized: dict[str, Any] = {
+        "finding_key": finding_key,
+        "decision": decision,
+        "applied_at": _bulk_utc_now_iso(),
+    }
+    for optional_key in ("check_key", "source_path", "source_name", "target_path", "note"):
+        optional_value = str(payload.get(optional_key) or "").strip()
+        if optional_value:
+            normalized[optional_key] = optional_value
+    return normalized, None
+
+
 
 @router.post("/api/intake/plan")
 def plan_intake_groups(request: Request, payload: dict[str, Any] | None = None) -> Any:
@@ -207,6 +262,14 @@ def _check_action_eligibility(item_row: dict[str, Any], action: str, override: b
                 for warning in decision_note_payload
                 if isinstance(warning, dict) and str(warning.get("code") or "").strip()
             }
+        elif isinstance(decision_note_payload, dict):
+            note_warnings = decision_note_payload.get("warnings")
+            if isinstance(note_warnings, list):
+                warning_codes = {
+                    str(warning.get("code") or "").strip().lower()
+                    for warning in note_warnings
+                    if isinstance(warning, dict) and str(warning.get("code") or "").strip()
+                }
     
     # Check basic eligibility
     is_eligible, reason = ActionEligibility.validate_action_eligibility(current_state, action)
@@ -532,12 +595,14 @@ def _read_indexed_filename_maps(
     db_path: Path,
     *,
     exclude_upload_id: str | None = None,
-) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, set[str]], dict[str, set[str]]]:
     """Build exact+soft filename indexes from working, queue, and catalog assets."""
     exact_map: dict[str, set[str]] = {}
     normalized_map: dict[str, set[str]] = {}
+    exact_context_map: dict[str, set[str]] = {}
+    normalized_context_map: dict[str, set[str]] = {}
 
-    def _add_filename(raw_name: object) -> None:
+    def _add_filename(raw_name: object, context_label: str | None = None) -> None:
         name = str(raw_name or "").strip().replace("\\", "/")
         if not name:
             return
@@ -546,17 +611,33 @@ def _read_indexed_filename_maps(
             return
         exact_key = base_name.lower()
         exact_map.setdefault(exact_key, set()).add(base_name)
+        if context_label:
+            exact_context_map.setdefault(exact_key, set()).add(str(context_label).strip())
         normalized_key = _normalized_duplicate_name(base_name)
         if normalized_key:
             normalized_map.setdefault(normalized_key, set()).add(base_name)
+            if context_label:
+                normalized_context_map.setdefault(normalized_key, set()).add(str(context_label).strip())
 
     connection = connect(db_path)
     try:
         rows = connection.execute(
-            "SELECT file_path FROM working_items WHERE file_path IS NOT NULL AND TRIM(file_path) != ''"
+            """
+            SELECT wi.file_path, wg.title
+            FROM working_items wi
+            LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
+            WHERE wi.file_path IS NOT NULL AND TRIM(wi.file_path) != ''
+            """
         ).fetchall()
         for row in rows:
-            _add_filename(row[0])
+            file_name = Path(str(row[0] or "")).name or str(row[0] or "").strip()
+            group_title = str(row[1] or "").strip()
+            context = (
+                f"Working group '{group_title}' -> {file_name}"
+                if group_title and file_name
+                else (f"Working file '{file_name}'" if file_name else "")
+            )
+            _add_filename(row[0], context or None)
 
         if exclude_upload_id:
             queue_rows = connection.execute(
@@ -596,20 +677,35 @@ def _read_indexed_filename_maps(
                 entry_type = str(entry.get("type") or "").strip().lower()
                 if entry_type == "folder":
                     continue
-                _add_filename(entry.get("filename") or entry.get("relative_path") or entry.get("path"))
+                queued_name = entry.get("filename") or entry.get("relative_path") or entry.get("path")
+                base_name = Path(str(queued_name or "")).name or str(queued_name or "").strip()
+                queued_context = f"Queued intake source -> {base_name}" if base_name else ""
+                _add_filename(queued_name, queued_context or None)
 
         try:
             asset_rows = connection.execute(
-                "SELECT asset_filename FROM model_catalog_assets WHERE asset_filename IS NOT NULL AND TRIM(asset_filename) != ''"
+                """
+                SELECT a.asset_filename, e.model_name
+                FROM model_catalog_assets a
+                LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
+                WHERE a.asset_filename IS NOT NULL AND TRIM(a.asset_filename) != ''
+                """
             ).fetchall()
         except sqlite3.OperationalError:
             asset_rows = []
         for row in asset_rows:
-            _add_filename(row[0])
+            asset_name = Path(str(row[0] or "")).name or str(row[0] or "").strip()
+            model_name = str(row[1] or "").strip()
+            asset_context = (
+                f"Catalog model '{model_name}' -> {asset_name}"
+                if model_name and asset_name
+                else (f"Catalog asset '{asset_name}'" if asset_name else "")
+            )
+            _add_filename(row[0], asset_context or None)
     finally:
         connection.close()
 
-    return exact_map, normalized_map
+    return exact_map, normalized_map, exact_context_map, normalized_context_map
 
 
 def _read_indexed_hash_match_contexts(
@@ -2117,7 +2213,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
 
     existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
     indexed_hash_contexts = _read_indexed_hash_match_contexts(state.settings.db_path)
-    indexed_exact_names, indexed_normalized_names = _read_indexed_filename_maps(
+    indexed_exact_names, indexed_normalized_names, indexed_exact_contexts, indexed_normalized_contexts = _read_indexed_filename_maps(
         state.settings.db_path,
         exclude_upload_id=item_id,
     )
@@ -2165,13 +2261,15 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         if exact_name_matches:
             duplicate_name_exact_count += 1
             validation_state = "duplicate_candidate"
+            exact_context_matches = sorted(indexed_exact_contexts.get(filename_key, set())) if filename_key else []
+            exact_conflicts = exact_context_matches[:3] if exact_context_matches else exact_name_matches[:3]
             warnings.append(
                 {
                     "code": "duplicate_name_exact_match",
                     "message": "Exact filename matched an existing indexed file.",
                     "filename": filename,
                     "matches": exact_name_matches[:3],
-                    "conflicts_with": exact_name_matches[:3],
+                    "conflicts_with": exact_conflicts,
                 }
             )
             duplicate_findings.append(
@@ -2182,7 +2280,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                     "violation_label": "Indexed exact filename match",
                     "check_key": "duplicate_scan",
                     "scope": "indexed",
-                    "conflicts_with": exact_name_matches[:3],
+                    "conflicts_with": exact_conflicts,
                 }
             )
 
@@ -2196,6 +2294,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             if soft_name_matches:
                 duplicate_name_soft_count += 1
                 validation_state = "duplicate_candidate"
+                soft_context_matches = sorted(indexed_normalized_contexts.get(normalized_name, set())) if normalized_name else []
+                soft_conflicts = soft_context_matches[:3] if soft_context_matches else soft_name_matches[:3]
                 warnings.append(
                     {
                         "code": "duplicate_name_soft_match",
@@ -2203,7 +2303,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                         "filename": filename,
                         "normalized_name": normalized_name,
                         "matches": soft_name_matches[:3],
-                        "conflicts_with": soft_name_matches[:3],
+                        "conflicts_with": soft_conflicts,
                     }
                 )
                 duplicate_findings.append(
@@ -2214,7 +2314,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                         "violation_label": "Indexed near-name match",
                         "check_key": "duplicate_scan",
                         "scope": "indexed",
-                        "conflicts_with": soft_name_matches[:3],
+                        "conflicts_with": soft_conflicts,
                         "normalized_name": normalized_name,
                     }
                 )
@@ -2250,6 +2350,10 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
     )
 
     next_inbox_state = "validated_ready" if validation_state == "ready" else "validated_warning"
+    decision_note_payload = {
+        "warnings": warnings,
+        "validation_actions": [],
+    }
     connection = connect(state.settings.db_path)
     try:
         connection.execute(
@@ -2266,7 +2370,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                 json.dumps(file_hashes),
                 "pass" if validation_state == "ready" else "unverified",
                 next_inbox_state,
-                json.dumps(warnings) if warnings else None,
+                json.dumps(decision_note_payload),
                 _bulk_utc_now_iso(),
                 item_id,
             ),
@@ -2300,6 +2404,90 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             "checks": validation_checks,
         },
         **_build_intake_item_response(updated_row),
+    }
+
+
+@router.post("/api/intake/items/{item_id}/validation-actions")
+def set_intake_item_validation_actions(request: Request, item_id: str, payload: dict[str, Any] | None = None) -> Any:
+    payload = payload or {}
+    item_row = _get_intake_item_row(request.app.state.model_catalog.settings.db_path, item_id)
+    if item_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
+        )
+
+    action_payload = payload.get("action") if isinstance(payload.get("action"), dict) else payload
+    if not isinstance(action_payload, dict):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_payload",
+                "message": "Provide an action object with finding_key and decision.",
+            },
+        )
+    normalized_action, action_error = _normalize_validation_action(action_payload)
+    if action_error:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "invalid_payload", "message": action_error},
+        )
+
+    note_payload = _parse_decision_note_payload(item_row.get("decision_note"))
+    existing_actions = [entry for entry in note_payload.get("validation_actions", []) if isinstance(entry, dict)]
+    finding_key = str(normalized_action.get("finding_key") or "").strip().lower()
+    existing_actions = [
+        entry
+        for entry in existing_actions
+        if str(entry.get("finding_key") or "").strip().lower() != finding_key
+    ]
+
+    decision = str(normalized_action.get("decision") or "review").strip().lower()
+    if decision != "review":
+        existing_actions.append(normalized_action)
+
+    updated_note_payload = {
+        "warnings": note_payload.get("warnings", []),
+        "validation_actions": existing_actions,
+    }
+
+    connection = connect(request.app.state.model_catalog.settings.db_path)
+    try:
+        connection.execute(
+            """
+            UPDATE intake_queue_uploads
+            SET decision_note = ?,
+                updated_at = ?
+            WHERE upload_id = ?
+            """,
+            (
+                json.dumps(updated_note_payload),
+                _bulk_utc_now_iso(),
+                item_id,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    _record_queue_event(
+        request=request,
+        upload_id=item_id,
+        event_type="intake_validation_action_set",
+        payload={
+            "item_id": item_id,
+            "decision": decision,
+            "finding_key": finding_key,
+            "action_count": len(existing_actions),
+        },
+    )
+
+    return {
+        "success": True,
+        "item_id": item_id,
+        "decision_note": updated_note_payload,
+        "validation_action_count": len(existing_actions),
     }
 
 
