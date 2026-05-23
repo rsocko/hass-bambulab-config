@@ -20,12 +20,12 @@
 | ✅ | `dashboard-full-mobile` | png | Full dashboard — mobile overview | [README](../features/printer_dashboards/README.md) |
 | ✅ | `ams-tray-popup-matched` | png | AMS tray popup — matched spool with full details | [README](../features/printer_dashboards/README.md) |
 | ⬜ | `ams-tray-popup-interaction` | gif | AMS tray popup — tap-to-open interaction | [README](../features/printer_dashboards/README.md) |
-| ✅ | `top-bar-desktop` | png | Top bar — desktop 2-column grid during active print | [top-bar-layout.md](../features/printer_dashboards/top-bar-layout.md) |
-| ✅ | `top-bar-mobile` | png | Top bar — mobile single-column layout | [top-bar-layout.md](../features/printer_dashboards/top-bar-layout.md) |
-| ✅ | `ams-popup-full-matched` | png | AMS popup — full matched spool view | [ams-tray-popup-visual.md](../features/printer_dashboards/ams-tray-popup-visual.md) |
-| ✅ | `ams-popup-no-spool` | png | AMS popup — fallback/no spool matched | [ams-tray-popup-visual.md](../features/printer_dashboards/ams-tray-popup-visual.md) |
-| ✅ | `ams-popup-weight-warning` | png | AMS popup — insufficient filament warning | [ams-tray-popup-visual.md](../features/printer_dashboards/ams-tray-popup-visual.md) |
-| ⬜ | `ams-popup-desiccant-states` | png | AMS popup — desiccant status color states | [ams-tray-popup-visual.md](../features/printer_dashboards/ams-tray-popup-visual.md) |
+| ✅ | `top-bar-desktop` | png | Top bar — desktop 2-column grid during active print | [top-bar-layout.md](../features/printer_dashboards/design/top-bar-layout.md) |
+| ✅ | `top-bar-mobile` | png | Top bar — mobile single-column layout | [top-bar-layout.md](../features/printer_dashboards/design/top-bar-layout.md) |
+| ✅ | `ams-popup-full-matched` | png | AMS popup — full matched spool view | [ams-tray-popup-visual.md](../features/printer_dashboards/design/ams-tray-popup-visual.md) |
+| ✅ | `ams-popup-no-spool` | png | AMS popup — fallback/no spool matched | [ams-tray-popup-visual.md](../features/printer_dashboards/design/ams-tray-popup-visual.md) |
+| ✅ | `ams-popup-weight-warning` | png | AMS popup — insufficient filament warning | [ams-tray-popup-visual.md](../features/printer_dashboards/design/ams-tray-popup-visual.md) |
+| ⬜ | `ams-popup-desiccant-states` | png | AMS popup — desiccant status color states | [ams-tray-popup-visual.md](../features/printer_dashboards/design/ams-tray-popup-visual.md) |
 
 ## Common (AMS Card Templates)
 
@@ -51,9 +51,9 @@
 | ⬜ | `temp-cards-cooling` | png | Temp cards — cooling state (blue indicators) | [README](../features/printer_temps/README.md) |
 | ⬜ | `temp-cards-idle` | png | Temp cards — idle state (grey) | [README](../features/printer_temps/README.md) |
 | ⬜ | `temp-cards-transition` | gif | Temp cards — heating cycle color transition | [README](../features/printer_temps/README.md) |
-| ✅ | `temp-visual-heating` | png | Visual ref — heating state (red tint, borders) | [printer-temps-visual-reference.md](../features/printer_temps/printer-temps-visual-reference.md) |
-| ⬜ | `temp-visual-cooling` | png | Visual ref — cooling state (blue tint, borders) | [printer-temps-visual-reference.md](../features/printer_temps/printer-temps-visual-reference.md) |
-| ⬜ | `temp-visual-idle` | png | Visual ref — idle state (no color indicators) | [printer-temps-visual-reference.md](../features/printer_temps/printer-temps-visual-reference.md) |
+| ✅ | `temp-visual-heating` | png | Visual ref — heating state (red tint, borders) | [printer-temps-visual-reference.md](../features/printer_temps/design/printer-temps-visual-reference.md) |
+| ⬜ | `temp-visual-cooling` | png | Visual ref — cooling state (blue tint, borders) | [printer-temps-visual-reference.md](../features/printer_temps/design/printer-temps-visual-reference.md) |
+| ⬜ | `temp-visual-idle` | png | Visual ref — idle state (no color indicators) | [printer-temps-visual-reference.md](../features/printer_temps/design/printer-temps-visual-reference.md) |
 
 ## Printer LED
 
@@ -63,8 +63,8 @@
 | ⬜ | `led-controls-expanded-grid` | png | LED expanded grid with all 7 lights | [README](../features/printer_led/README.md) |
 | ⬜ | `led-wled-popup` | gif | WLED advanced popup — effect selection | [README](../features/printer_led/README.md) |
 | ⬜ | `led-physical-strips` | gif | Physical LED strips — state transition on hardware | [README](../features/printer_led/README.md) |
-| ✅ | `led-visual-full-grid` | png | Visual ref — full 7-light grid | [led-controls-visual.md](../features/printer_led/led-controls-visual.md) |
-| ⬜ | `led-visual-wled-popup` | png | Visual ref — WLED popup control panel | [led-controls-visual.md](../features/printer_led/led-controls-visual.md) |
+| ✅ | `led-visual-full-grid` | png | Visual ref — full 7-light grid | [led-controls-visual.md](../features/printer_led/reference/led-controls/visual-reference.md) |
+| ⬜ | `led-visual-wled-popup` | png | Visual ref — WLED popup control panel | [led-controls-visual.md](../features/printer_led/reference/led-controls/visual-reference.md) |
 
 ## Print Progress
 
@@ -89,9 +89,9 @@
 | ⬜ | `hms-alert-multiple-errors` | png | Multiple errors with severity colors | [README](../features/error_alerts/README.md) |
 | ⬜ | `hms-alert-collapse-toggle` | gif | Expand/collapse interaction | [README](../features/error_alerts/README.md) |
 | ⬜ | `hms-alert-no-errors` | png | Dashboard with banner hidden (no errors) | [README](../features/error_alerts/README.md) |
-| ⬜ | `hms-ui-single-expanded` | png | UI mockup — single error expanded | [hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) |
-| ⬜ | `hms-ui-multiple-errors` | png | UI mockup — multiple errors | [hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) |
-| ⬜ | `hms-ui-collapsed` | png | UI mockup — collapsed state | [hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) |
+| ⬜ | `hms-ui-single-expanded` | png | UI mockup — single error expanded | [hms-error-ui-mockup.md](../features/error_alerts/design/hms-error-ui-mockup.md) |
+| ⬜ | `hms-ui-multiple-errors` | png | UI mockup — multiple errors | [hms-error-ui-mockup.md](../features/error_alerts/design/hms-error-ui-mockup.md) |
+| ⬜ | `hms-ui-collapsed` | png | UI mockup — collapsed state | [hms-error-ui-mockup.md](../features/error_alerts/design/hms-error-ui-mockup.md) |
 
 ## Air Quality
 
@@ -100,10 +100,10 @@
 | ✅ | `air-quality-sensors-good` | png | Sensor cards — good state (all green) | [README](../features/air_quality/README.md) |
 | ⬜ | `air-quality-sensors-poor` | png | Sensor cards — poor state (high-VOC print) | [README](../features/air_quality/README.md) |
 | ✅ | `air-quality-purifier-controls` | png | Govee purifier control card | [README](../features/air_quality/README.md) |
-| ✅ | `air-quality-visual-good` | png | Visual preview — good (all green) | [visual-preview.md](../features/air_quality/visual-preview.md) |
-| ⬜ | `air-quality-visual-moderate` | png | Visual preview — moderate (yellow) | [visual-preview.md](../features/air_quality/visual-preview.md) |
-| ⬜ | `air-quality-visual-poor` | png | Visual preview — poor (orange) | [visual-preview.md](../features/air_quality/visual-preview.md) |
-| ✅ | `air-quality-visual-purifier` | png | Visual preview — purifier controls ON | [visual-preview.md](../features/air_quality/visual-preview.md) |
+| ✅ | `air-quality-visual-good` | png | Visual preview — good (all green) | [visual-preview.md](../features/air_quality/reference/visual-preview.md) |
+| ⬜ | `air-quality-visual-moderate` | png | Visual preview — moderate (yellow) | [visual-preview.md](../features/air_quality/reference/visual-preview.md) |
+| ⬜ | `air-quality-visual-poor` | png | Visual preview — poor (orange) | [visual-preview.md](../features/air_quality/reference/visual-preview.md) |
+| ✅ | `air-quality-visual-purifier` | png | Visual preview — purifier controls ON | [visual-preview.md](../features/air_quality/reference/visual-preview.md) |
 
 ## Humidity
 
