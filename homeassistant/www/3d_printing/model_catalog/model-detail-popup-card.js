@@ -5837,7 +5837,10 @@ class ModelDetailPopupCard extends HTMLElement {
   _handleKeydown(event) {
     // Tag picker: Enter/Tab/comma to add/create, arrows and Home/End to navigate, Escape to close
     if (this._tagPickerOpen) {
-      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') && event.target instanceof HTMLInputElement && event.target.dataset.input === 'tag-search') {
+      // Use composedPath()[0] to get the real target inside shadow DOM (event.target at document level is the host element)
+      const _cpTarget = event.composedPath ? event.composedPath()[0] : event.target;
+      const _isTagSearch = _cpTarget instanceof HTMLInputElement && _cpTarget.dataset && _cpTarget.dataset.input === 'tag-search';
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') && _isTagSearch) {
         const model = (this._modelDetail && this._modelDetail.model) || {};
         const tags = Array.isArray(model.keywords) ? model.keywords : [];
         const options = this._buildTagPickerState(tags).options;
@@ -5868,7 +5871,7 @@ class ModelDetailPopupCard extends HTMLElement {
         this._render();
         return;
       }
-      if ((event.key === 'Enter' || event.key === 'Tab' || event.key === ',') && event.target instanceof HTMLInputElement && event.target.dataset.input === 'tag-search') {
+      if ((event.key === 'Enter' || event.key === 'Tab' || event.key === ',') && _isTagSearch) {
         const committed = this._commitTagPickerSelection();
         if (!committed && event.key === 'Tab') {
           return;
