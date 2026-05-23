@@ -6,8 +6,8 @@
 
 ## Linked Design Docs
 
-- `docs/features/model_catalog/integration/intake-browser-upload-v2-contract-design.md`
-- `docs/features/model_catalog/integration/streamdeck-upload-functionality-design.md`
+- `docs/features/model_catalog/design/integration/intake-browser-upload.md`
+- `docs/features/model_catalog/design/integration/streamdeck-upload.md`
 
 Cross-cutting UI follow-on:
 

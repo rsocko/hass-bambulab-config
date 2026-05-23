@@ -90,7 +90,7 @@ The print-history docs use lane-first organization with sub-areas nested inside 
 - `archive/<sub-area>/` - historical documents retained for context
 - `examples/` - example payloads and working notes kept alongside the feature docs
 
-Legacy root sub-area folders (`browser/`, `imports/`, `recovery/`, `runtime-repair/`, `ui-media/`) are compatibility pointers only.
+Legacy root sub-area folders were removed after link migration; use lane-first sub-area paths only.
 
 ## Archived Browser Variants
 

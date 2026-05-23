@@ -18,7 +18,7 @@ The Phase 5 intake architecture can safely use:
 
 ## Evidence Sources
 
-- Validation spike: `docs/features/model_catalog/integration/spike-1059-working-file-indexing-validation.md`
+- Validation spike: `docs/features/model_catalog/planning/integration/spike-1059-indexing.md`
 - Spike test module: `tests/sidecars/model_catalog/test_spike_1059_working_files.py`
 - Validation report: `tests/sidecars/model_catalog/VALIDATION_TEST_REPORT.md`
 
