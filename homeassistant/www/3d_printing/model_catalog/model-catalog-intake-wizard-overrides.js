@@ -896,7 +896,8 @@ function renderValidationSummary(card) {
       }
       return ''
         + '<article class="entry-row validation-check-row">'
-        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div><div class="button-row validation-status-chip"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
+        + '  <div class="entry-top validation-check-header"><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="button-row validation-status-chip"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
+        + '  <div class="validation-check-content"><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div>'
         + '</article>';
     }).join('') + '</div>'
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '');
@@ -1037,6 +1038,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   var originalRenderServerSelectionRows = proto._renderServerSelectionRows;
   var originalServerPayloadSelections = proto._serverPayloadSelections;
   var originalSelectedList = proto._selectedList;
+  var originalCloseWizard = proto._closeWizard;
 
   proto._wizardStepCount = function () {
     return 5;
@@ -1467,6 +1469,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         upload_id: uploadId,
       }).catch(function () {});
     }
+  };
+
+  proto._closeWizard = function (options) {
+    var force = !!(options && options.force);
+    var isDirty = typeof this._isWizardDirty === 'function' && this._isWizardDirty();
+    if (!force && isDirty) {
+      return originalCloseWizard.call(this, options);
+    }
+    if (typeof this._invalidateWizardArtifacts === 'function') {
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+    }
+    return originalCloseWizard.call(this, options);
   };
 
   proto._refreshWizardPreview = async function () {
@@ -3016,7 +3030,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Left pane scrolls independently so long validation checklists are fully reachable.
       + '.wizard-validate-fixed{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;padding-right:4px;overflow-y:auto;overscroll-behavior:contain;}'
       + '.wizard-validate-fixed .entries{display:flex;flex-direction:column;gap:6px;}'
-      + '.wizard-dialog .validation-check-row .entry-top > :first-child{min-width:0;width:100%;}'
+      + '.wizard-dialog .validation-check-row{width:100%;box-sizing:border-box;}'
+      + '.wizard-dialog .validation-check-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.wizard-dialog .validation-check-content{width:100%;min-width:0;}'
       + '.wizard-dialog .validation-findings{display:flex;flex-direction:column;gap:10px;margin-top:8px;width:100%;align-self:stretch;}'
       + '.wizard-dialog .validation-source-row{border:1px solid var(--divider-color,rgba(148,163,184,0.24));border-radius:10px;padding:10px;background:var(--secondary-background-color,rgba(15,23,42,0.18));width:100%;box-sizing:border-box;align-self:stretch;}'
       + '.wizard-dialog .validation-source-header{font-size:13px;font-weight:700;color:var(--primary-text-color);}'
@@ -3039,7 +3055,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-conflict-list li{font-size:12px;line-height:1.35;color:var(--primary-text-color);}'
       + '.wizard-dialog .validation-conflict-primary{font-weight:700;color:var(--primary-text-color);}'
       + '.wizard-dialog .validation-conflict-secondary{font-size:12px;line-height:1.3;color:var(--secondary-text-color);word-break:break-all;}'
-      + '.wizard-dialog .validation-check-row .entry-top{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.wizard-dialog .validation-status-chip{align-self:flex-start;justify-self:end;}'
       + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
       + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;justify-self:end;width:100%;max-width:220px;}'
