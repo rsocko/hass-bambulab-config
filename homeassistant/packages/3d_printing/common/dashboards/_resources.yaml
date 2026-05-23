@@ -7,7 +7,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=194
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=132
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=133
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=5
   type: module
@@ -15,7 +15,7 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-tag-editor-card.js?v=10
   type: module
-- url: /local/3d_printing/print_history/print-history-browser-card.js?v=138
+- url: /local/3d_printing/print_history/print-history-browser-card.js?v=139
   type: module
 - url: /local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64
   type: module
@@ -43,7 +43,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=9
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=139
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=140
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=40
   type: module

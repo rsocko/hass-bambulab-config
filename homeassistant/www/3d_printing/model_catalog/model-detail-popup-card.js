@@ -1687,19 +1687,19 @@ class ModelDetailPopupCard extends HTMLElement {
           color: var(--accent-color, #6edacb);
         }
         .action-button.toggle-active-warn {
-          border: 1px solid var(--warning-color, #f0be62);
-          background: rgba(240,190,98,0.12);
-          color: var(--warning-color, #f0be62);
+          border: 1px solid rgba(148,163,184,0.44);
+          background: rgba(148,163,184,0.14);
+          color: #cbd5e1;
         }
         .archived-banner {
           padding: 8px 18px;
-          background: rgba(240,190,98,0.08);
-          border-bottom: 1px solid rgba(240,190,98,0.24);
+          background: rgba(148,163,184,0.08);
+          border-bottom: 1px solid rgba(148,163,184,0.28);
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 12px;
-          color: var(--warning-color, #f0be62);
+          color: #94a3b8;
         }
         .archived-banner button {
           background: none;

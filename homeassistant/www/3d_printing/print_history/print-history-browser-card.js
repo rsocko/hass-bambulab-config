@@ -65,7 +65,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._viewSignature = "";
     this._selectionSignature = "";
     this._refreshIndicatorSignature = "";
-    this._suppressRevisionEcho = false;
+    this._suppressRevisionEchoUntil = 0;
     this._selectedArchiveIds = {};
     this._handledMultiSelectRequest = "";
     this._bulkDialog = null;
@@ -90,11 +90,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var selectionChanged = nextSelectionSignature !== this._selectionSignature;
 
     if (nextQuerySignature !== this._querySignature) {
-      // After _refreshData() completes, the server echoes back a bumped
-      // browser_revision via state_changed.  If the only fields that
-      // changed are the revision counters, absorb without re-fetching.
-      if (this._suppressRevisionEcho) {
-        this._suppressRevisionEcho = false;
+      // After _refreshData() completes, the server echoes back bumped
+      // browser_revision via state_changed for both the filtered and
+      // page_info entities.  These may arrive as separate events.  Use a
+      // time-window to absorb ALL revision-only echoes for 2 seconds after
+      // the last refresh completed, preventing a feedback loop.
+      if (Date.now() < this._suppressRevisionEchoUntil) {
         try {
           var prev = JSON.parse(this._querySignature);
           var next = JSON.parse(nextQuerySignature);
@@ -403,7 +404,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v116</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v117</span>';
     }
 
     this._syncRefreshIndicator(true);
@@ -519,7 +520,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._loading = false;
       this._querySignature = this._buildQuerySignature(this._hass);
       this._viewSignature = this._buildViewSignature(this._hass);
-      this._suppressRevisionEcho = true;
+      this._suppressRevisionEchoUntil = Date.now() + 2000;
       var renderStart = _perf ? _perf.now() : Date.now();
       if (this._initialRenderDone) {
         this._renderBody();

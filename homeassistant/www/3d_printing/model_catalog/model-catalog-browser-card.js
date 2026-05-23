@@ -4407,7 +4407,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.entity-type-pill{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:10px;font-weight:800;color:var(--secondary-text-color);}'
       + '.entity-type-pill.idea{background:rgba(250,204,21,0.18);border-color:rgba(250,204,21,0.34);color:#fef3c7;}'
       + '.entity-type-pill.working-group{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:#dbeafe;}'
-      + '.archived-pill{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);font-size:10px;font-weight:800;color:#94a3b8;}'
+      + '.archived-pill{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);font-size:10px;font-weight:800;color:#94a3b8;width:fit-content;}'
       + '.archived-pill ha-icon{--mdc-icon-size:12px;}'
       + '.model-card.is-archived{background:linear-gradient(180deg,rgba(100,116,139,0.14),rgba(100,116,139,0.08));border-color:rgba(148,163,184,0.28);opacity:0.82;}'
       + '.model-card.is-archived:hover{opacity:1;border-color:rgba(148,163,184,0.44);}'
