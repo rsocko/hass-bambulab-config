@@ -688,6 +688,68 @@ function renderValidationSummary(card) {
     return parts[parts.length - 1];
   }
 
+  function intakePreviewUrl(card, pathValue) {
+    var rawPath = String(pathValue || '').trim();
+    if (!rawPath) {
+      return '';
+    }
+    var normalizedPath = rawPath.replace(/\\/g, '/');
+    var isAbsoluteWindows = /^[A-Za-z]:\//.test(normalizedPath);
+    var isAbsolutePosix = normalizedPath.indexOf('/') === 0;
+    if (!isAbsoluteWindows && !isAbsolutePosix) {
+      return '';
+    }
+    if (!card || typeof card._resolveSidecarUrl !== 'function') {
+      return '';
+    }
+    var sidecarBaseUrl = String(card._resolveSidecarUrl() || '').replace(/\/$/, '');
+    if (!sidecarBaseUrl) {
+      return '';
+    }
+    return sidecarBaseUrl + '/api/intake/preview?path=' + encodeURIComponent(rawPath);
+  }
+
+  function compareThumbMarkup(previewUrl, imageLabel, findingKey, columnRole) {
+    if (!previewUrl) {
+      return '<div class="validation-thumb-missing">No preview available</div>';
+    }
+    var label = String(imageLabel || 'Preview image');
+    var key = String(findingKey || 'finding');
+    var role = String(columnRole || 'source');
+    return ''
+      + '<div class="validation-thumb-wrap">'
+      + '  <button type="button" class="validation-thumb-button" data-action="validation-open-image-preview" data-image-url="' + escapeHtml(previewUrl) + '" data-image-label="' + escapeHtml(label) + '" data-image-key="' + escapeHtml(key) + '" data-image-role="' + escapeHtml(role) + '">'
+      + '    <img class="validation-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="' + escapeHtml(label) + '" loading="lazy" decoding="async">'
+      + '  </button>'
+      + '  <div class="validation-thumb-hover" aria-hidden="true">'
+      + '    <img class="validation-thumb-hover-image" src="' + escapeHtml(previewUrl) + '" alt="' + escapeHtml(label) + '" loading="lazy" decoding="async">'
+      + '  </div>'
+      + '</div>';
+  }
+
+  function renderValidationImageLightbox(card) {
+    var state = card && card._validationImagePreview && typeof card._validationImagePreview === 'object'
+      ? card._validationImagePreview
+      : null;
+    if (!state || !state.url) {
+      return '';
+    }
+    var label = String(state.label || 'Comparison preview');
+    return ''
+      + '<div class="validation-lightbox" data-action="validation-close-image-preview">'
+      + '  <div class="validation-lightbox-backdrop" data-action="validation-close-image-preview"></div>'
+      + '  <div class="validation-lightbox-dialog">'
+      + '    <div class="validation-lightbox-header">'
+      + '      <div class="validation-lightbox-title">' + escapeHtml(label) + '</div>'
+      + '      <button type="button" class="button" data-action="validation-close-image-preview">Close</button>'
+      + '    </div>'
+      + '    <div class="validation-lightbox-body">'
+      + '      <img class="validation-lightbox-image" src="' + escapeHtml(state.url) + '" alt="' + escapeHtml(label) + '" loading="eager" decoding="async">'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
   function renderConflictItem(conflictItem) {
     if (conflictItem && typeof conflictItem === 'object') {
       var parentKind = String(conflictItem.parent_kind || '').trim().replace(/_/g, ' ');
@@ -888,6 +950,9 @@ function renderValidationSummary(card) {
             var isInventoryMatch = String(check.key || '') === 'duplicate_scan';
             var leftColumnHeader = isInventoryMatch ? 'Source file (incoming)' : 'Source file';
             var rightColumnHeader = isInventoryMatch ? 'Inventory match (existing)' : 'Matched file';
+            var sourcePreviewUrl = intakePreviewUrl(card, findingPath);
+            var conflictPreviewUrl = intakePreviewUrl(card, conflictPath);
+            var isMoreInfoExpanded = !!(card && card._validationInfoExpandedMap && card._validationInfoExpandedMap[findingKey]);
             var decisionLabelMap = {
               review: 'Pending: Needs review',
               exclude_source: 'Selected: Exclude source file',
@@ -925,6 +990,33 @@ function renderValidationSummary(card) {
                 + '  <div class="validation-action-selected">' + escapeHtml(decisionText) + '</div>'
                 + '</div>';
             }
+            var compareDetailsRows = [
+              { key: 'Check', value: String(check.key || 'duplicate_scan') },
+              { key: 'Match type', value: violationLabel },
+              { key: 'Source scope', value: String(finding.scope || 'batch') },
+              { key: 'Target scope', value: String(primaryConflict && primaryConflict.scope || 'unknown') },
+              { key: 'Source parent', value: String(sourceFolderForTable || '(unknown)') },
+              { key: 'Target parent', value: String(primaryConflict && primaryConflict.parent_name || conflictPathForTable || '(unknown)') },
+            ];
+            if (finding.sha256) {
+              compareDetailsRows.push({ key: 'SHA256', value: String(finding.sha256) });
+            }
+            if (finding.normalized_name) {
+              compareDetailsRows.push({ key: 'Normalized name', value: String(finding.normalized_name) });
+            }
+            if (typeof finding.match_score === 'number') {
+              compareDetailsRows.push({ key: 'Match score', value: String(finding.match_score) });
+            }
+            var detailsTableHtml = ''
+              + '<div class="validation-more-info' + (isMoreInfoExpanded ? ' open' : '') + '">'
+              + '  <div class="validation-more-info-grid">'
+              + compareDetailsRows.map(function (row) {
+                return ''
+                  + '<div class="validation-more-info-key">' + escapeHtml(row.key) + '</div>'
+                  + '<div class="validation-more-info-value">' + escapeHtml(row.value || '') + '</div>';
+              }).join('')
+              + '  </div>'
+              + '</div>';
             var comparisonTableHtml = ''
               + '<div class="validation-match-table">'
               + '  <div class="validation-match-header">' + escapeHtml(leftColumnHeader) + '</div>'
@@ -933,6 +1025,8 @@ function renderValidationSummary(card) {
               + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathForTable || '(path unavailable)') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
+              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(sourcePreviewUrl, (findingFilename || 'Source') + ' preview', findingKey, 'source') + '</div>'
+              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match') + '</div>'
               + '</div>';
             return ''
               + '<div class="validation-violation-row ' + severityClass + '">'
@@ -942,6 +1036,8 @@ function renderValidationSummary(card) {
               + '  </div>'
               + '  <div class="validation-violation-body">'
               + '    ' + comparisonTableHtml
+              + '    <div class="validation-more-info-row"><button type="button" class="link-button" data-action="validation-toggle-more-info" data-finding-key="' + escapeHtml(findingKey) + '">' + (isMoreInfoExpanded ? 'Hide more info' : 'More info') + '</button></div>'
+              + detailsTableHtml
               + '  </div>'
               + '</div>';
           }).join('');
@@ -962,7 +1058,8 @@ function renderValidationSummary(card) {
         + '  <div class="validation-check-content"><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div>'
         + '</article>';
     }).join('') + '</div>'
-    + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '');
+    + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '')
+    + renderValidationImageLightbox(card);
 }
 
 // Issue #1307: compact roll-up of validation checks for the Commit step's left pane.
@@ -1523,6 +1620,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._preparedUploadId = null;
     this._validationData = null;
     this._validationDecisionMap = {};
+    this._validationInfoExpandedMap = {};
+    this._validationImagePreview = null;
     if (settings.clearPreview !== false) {
       this._previewData = null;
     }
@@ -2047,6 +2146,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         checks: Array.isArray(validation.checks) ? validation.checks : [],
       };
       this._validationDecisionMap = {};
+      this._validationInfoExpandedMap = {};
+      this._validationImagePreview = null;
       this._status = this._validationData.validation_state === 'ready'
         ? 'Validation snapshot prepared. Review the destination assignments, then commit.'
         : 'Validation finished with blockers. Resolve them before commit.';
@@ -3125,6 +3226,28 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-match-cell:nth-child(2n){border-left:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
       + '.wizard-dialog .validation-match-name{font-weight:700;overflow-wrap:anywhere;word-break:break-word;}'
       + '.wizard-dialog .validation-match-path{font-size:11px;color:var(--secondary-text-color);overflow-wrap:anywhere;word-break:break-word;}'
+      + '.wizard-dialog .validation-match-preview{display:flex;align-items:center;justify-content:flex-start;min-height:52px;}'
+      + '.wizard-dialog .validation-thumb-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;}'
+      + '.wizard-dialog .validation-thumb-button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1px solid var(--divider-color,rgba(148,163,184,0.35));border-radius:8px;background:rgba(15,23,42,0.35);cursor:zoom-in;overflow:hidden;}'
+      + '.wizard-dialog .validation-thumb-image{width:100%;height:100%;object-fit:cover;display:block;}'
+      + '.wizard-dialog .validation-thumb-hover{position:absolute;left:52px;top:-6px;width:148px;height:148px;padding:6px;border-radius:10px;border:1px solid var(--divider-color,rgba(148,163,184,0.4));background:rgba(15,23,42,0.95);box-shadow:0 10px 24px rgba(2,6,23,0.55);opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .14s ease,transform .14s ease;z-index:3;}'
+      + '.wizard-dialog .validation-thumb-wrap:hover .validation-thumb-hover{opacity:1;transform:translateY(0);}'
+      + '.wizard-dialog .validation-thumb-hover-image{width:100%;height:100%;object-fit:contain;display:block;border-radius:6px;}'
+      + '.wizard-dialog .validation-thumb-missing{font-size:11px;color:var(--secondary-text-color);}'
+      + '.wizard-dialog .validation-more-info-row{margin-top:8px;display:flex;justify-content:flex-start;}'
+      + '.wizard-dialog .validation-more-info{display:none;margin-top:8px;border:1px solid var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:rgba(15,23,42,0.2);}'
+      + '.wizard-dialog .validation-more-info.open{display:block;}'
+      + '.wizard-dialog .validation-more-info-grid{display:grid;grid-template-columns:120px minmax(0,1fr);gap:0;}'
+      + '.wizard-dialog .validation-more-info-key,.wizard-dialog .validation-more-info-value{padding:6px 8px;border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));font-size:11px;line-height:1.35;overflow-wrap:anywhere;word-break:break-word;}'
+      + '.wizard-dialog .validation-more-info-key{color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
+      + '.wizard-dialog .validation-more-info-value{color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-lightbox{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;}'
+      + '.wizard-dialog .validation-lightbox-backdrop{position:absolute;inset:0;background:rgba(2,6,23,0.78);}'
+      + '.wizard-dialog .validation-lightbox-dialog{position:relative;max-width:min(90vw,920px);max-height:88vh;width:100%;padding:12px;border-radius:12px;border:1px solid var(--divider-color,rgba(148,163,184,0.35));background:rgba(15,23,42,0.98);display:flex;flex-direction:column;gap:10px;}'
+      + '.wizard-dialog .validation-lightbox-header{display:flex;align-items:center;justify-content:space-between;gap:10px;}'
+      + '.wizard-dialog .validation-lightbox-title{font-size:13px;font-weight:700;color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-lightbox-body{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;}'
+      + '.wizard-dialog .validation-lightbox-image{max-width:100%;max-height:72vh;object-fit:contain;border-radius:8px;}'
       + '.wizard-dialog .validation-status-chip{align-self:flex-start;justify-self:end;}'
       + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
       + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;justify-self:end;width:100%;max-width:220px;}'
@@ -3875,6 +3998,40 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       if (jumpTarget >= 1 && jumpTarget <= this._wizardStepCount() && jumpTarget < this._wizardStep) {
         this._goToWizardStep(jumpTarget);
       }
+      return;
+    }
+    if (action === 'validation-toggle-more-info') {
+      event.preventDefault();
+      var infoKey = String(target.getAttribute('data-finding-key') || '').trim().toLowerCase();
+      if (!infoKey) {
+        return;
+      }
+      if (!this._validationInfoExpandedMap || typeof this._validationInfoExpandedMap !== 'object') {
+        this._validationInfoExpandedMap = {};
+      }
+      var nextInfoMap = Object.assign({}, this._validationInfoExpandedMap);
+      nextInfoMap[infoKey] = !nextInfoMap[infoKey];
+      this._validationInfoExpandedMap = nextInfoMap;
+      this._render();
+      return;
+    }
+    if (action === 'validation-open-image-preview') {
+      event.preventDefault();
+      var imageUrl = String(target.getAttribute('data-image-url') || '').trim();
+      if (!imageUrl) {
+        return;
+      }
+      this._validationImagePreview = {
+        url: imageUrl,
+        label: String(target.getAttribute('data-image-label') || 'Comparison preview').trim(),
+      };
+      this._render();
+      return;
+    }
+    if (action === 'validation-close-image-preview') {
+      event.preventDefault();
+      this._validationImagePreview = null;
+      this._render();
       return;
     }
     // Issue #1349: clicking a Server right-pane row jumps the left-side
