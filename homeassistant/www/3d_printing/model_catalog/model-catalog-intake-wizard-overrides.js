@@ -2645,6 +2645,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._refreshWizardPreview();
     }
     this._render();
+    // Auto-run validation when navigating to the Validate step for the first
+    // time (no existing data).  The user can still re-run via the button.
+    if (nextStep === 4 && !this._validationData) {
+      this._runWizardValidation(false);
+    }
   };
 
   // Issue #1323: lock the host page scroll while the modal is open so the
@@ -4249,7 +4254,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '  <div class="button-row">'
       + (!atFirstStep ? '<button class="button" data-action="wizard-back"' + (this._loading ? ' disabled' : '') + '>Back</button>' : '')
       + (this._wizardStep === 4
-        ? '<button class="button primary" data-action="run-wizard-validation"' + (this._loading ? ' disabled' : '') + '>' + (this._validationData ? 'Re-Run Validation' : 'Run Validation') + '</button>' + '<button class="button" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
+        ? '<button class="button" data-action="run-wizard-validation"' + (this._loading ? ' disabled' : '') + '>Re-Validate</button>' + '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>Next</button>'
         : (!atLastStep
           ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>Next</button>'
           : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>' + commitButtonLabel + '</button>'))
