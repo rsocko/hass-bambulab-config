@@ -2644,7 +2644,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Issue #1307: fixed (non-scrolling) panels for the Validate-step results
       // and Commit-step summary so the operator-facing chrome stays put while
       // the right-pane Resolved Output handles scrolling on its own.
-      + '.wizard-validate-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:10px;padding-right:4px;overflow:hidden;}'
+      // Left pane scrolls independently so long validation checklists are fully reachable.
+      + '.wizard-validate-fixed{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;padding-right:4px;overflow-y:auto;overscroll-behavior:contain;}'
       + '.wizard-validate-fixed .entries{display:flex;flex-direction:column;gap:6px;}'
       + '.wizard-commit-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:14px;padding-right:4px;overflow:hidden;}'
       + '.wizard-cleanup-policy-block{padding:12px;border-radius:14px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.08);}'
