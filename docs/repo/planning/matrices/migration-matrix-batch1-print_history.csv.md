@@ -3,6 +3,9 @@
 Source scope: docs/features/print_history/**/*.md
 Row count: 73
 
+Label alignment: local `Batch 1` = global `C1` in documentation-migration-matrix.md.
+Format: raw CSV text for machine import (spreadsheets/scripts).
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/print_history/README.md,print_history,root-readme,Active,docs/features/print_history/README.md,No,Root entry point
 docs/features/print_history/api-reference.md,api,reference,Active,docs/features/print_history/reference/api-reference.md,No,API contract landing

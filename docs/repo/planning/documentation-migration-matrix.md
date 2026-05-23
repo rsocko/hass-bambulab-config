@@ -11,7 +11,17 @@ This matrix is the execution tracker for documentation reorganization.
 
 Two levels:
 1. Owner-area batch queue for whole-repo sequencing.
-2. Batch 1 row-per-document matrices for immediate execution.
+2. C1 row-per-document matrices for immediate execution.
+
+## Batch Label Alignment
+Two label schemes are used in this plan and they refer to the same execution flow:
+1. Global owner-area batches use `A`, `B`, `C1`, `C2`, `C3`, `C4`, `D`, `E`, `F`, `G`.
+2. Detailed feature matrices were originally named with local shorthand `Batch 1`.
+
+Alignment rule:
+1. `Batch 1` in detailed files means `C1` in the global matrix.
+2. `C1` is the pattern-setter feature wave: `model_catalog`, `print_history`, `spoolman_sync`.
+3. All downstream references should treat `C1` as canonical naming.
 
 ## Matrix A: Owner-Area Batch Queue
 
@@ -43,7 +53,12 @@ Two levels:
 | F | non-doc markdown policy | Medium | sidecars/tests/openhasp/wled backups/archive notes | Cross-link canonical docs and mark local vs historical | C1-C4 |
 | G | stabilization and cleanup | High | whole repository | Link audits, pointer cleanup, final index pass | B-F |
 
-## Matrix B: Batch 1 Detailed Row-Level Coverage
+## Matrix B: C1 Detailed Row-Level Coverage
+
+Format note:
+1. Detailed files under `docs/repo/planning/matrices/` are stored as raw CSV text inside `.md` files.
+2. This is intentional for easy import into spreadsheets and scripts.
+3. If preferred, these can be converted to markdown tables later for manual readability.
 
 | Feature | Row Count | Detailed Matrix File |
 |---|---:|---|

@@ -3,6 +3,9 @@
 Source scope: docs/features/model_catalog/**/*.md
 Row count: 153
 
+Label alignment: local `Batch 1` = global `C1` in documentation-migration-matrix.md.
+Format: raw CSV text for machine import (spreadsheets/scripts).
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/model_catalog/README.md,root-readme,root,Active,docs/features/model_catalog/README.md,No,Navigation entry point
 docs/features/model_catalog/INDEX.md,planning,planning,Planned,docs/features/model_catalog/planning/index.md,Yes,Master navigation index
