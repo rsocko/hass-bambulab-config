@@ -317,14 +317,16 @@ class ModelDetailPopupCard extends HTMLElement {
       this._tagSearchQuery = "";
       this._tagPickerHighlightIndex = 0;
       if (this._tagPickerOpen && !this._allTagsFetched) {
-        this._loadAllTags().then(() => { this._render(); });
+        this._loadAllTags().then(() => {
+          this._render();
+          if (this._tagPickerOpen) {
+            this._focusTagSearchBox();
+          }
+        });
       }
       this._render();
       if (this._tagPickerOpen) {
-        requestAnimationFrame(() => {
-          const searchBox = this.shadowRoot.querySelector('.picker-dd .search-box');
-          if (searchBox) searchBox.focus();
-        });
+        this._focusTagSearchBox();
       }
       return;
     }
@@ -909,6 +911,17 @@ class ModelDetailPopupCard extends HTMLElement {
         }
       }
     }
+  }
+
+  _focusTagSearchBox() {
+    requestAnimationFrame(() => {
+      const searchBox = this.shadowRoot && this.shadowRoot.querySelector
+        ? this.shadowRoot.querySelector('.picker-dd .search-box')
+        : null;
+      if (searchBox) {
+        searchBox.focus();
+      }
+    });
   }
 
   _getPhotoUploadArea(target) {
