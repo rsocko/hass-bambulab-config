@@ -2590,7 +2590,6 @@ def search_models(
     refresh: bool = False,
     page: int = 1,
     per_page: int = 10,
-    include_supplements: bool = False,
     debug_collection_lookup: bool = False,
     context: str | None = None,
     archive_name: str | None = None,
@@ -2841,47 +2840,7 @@ def search_models(
     if collection_diagnostics is not None:
         response_payload["collection_lookup_diagnostics"] = collection_diagnostics
 
-    if include_supplements:
-        response_payload["supplements"] = _build_model_search_supplements(
-            candidate_models,
-            normalized_sort=normalized_sort,
-            query_tokens_present=bool(query_tokens),
-            frequent_min_prints=resolved_min_prints,
-        )
-
     return response_payload
-
-
-def _build_model_search_supplements(
-    candidate_models: list[tuple[float, dict[str, Any]]],
-    *,
-    normalized_sort: str,
-    query_tokens_present: bool,
-    frequent_min_prints: int,
-) -> dict[str, Any]:
-    favorite_candidates = [
-        (score, model)
-        for score, model in candidate_models
-        if _model_is_favorite(model) and _model_catalog_visibility(model) == "active"
-    ]
-    frequent_candidates = [
-        model
-        for _, model in candidate_models
-        if _model_is_frequent(model, frequent_min_prints=frequent_min_prints)
-        and _model_catalog_visibility(model) == "active"
-    ]
-
-    if normalized_sort == "best" and query_tokens_present:
-        favorite_candidates.sort(key=lambda item: (-item[0], str(item[1].get("name") or "").lower()))
-    else:
-        favorite_candidates.sort(key=lambda item: _sort_value(item[1], normalized_sort))
-
-    frequent_candidates.sort(key=lambda item: _sort_value(item, "frequent"))
-
-    return {
-        "favorite_candidates": [model for _, model in favorite_candidates[:24]],
-        "frequent_candidates": frequent_candidates[:24],
-    }
 
 # ==================== Local Model CRUD (Phase 1) ====================
 # These endpoints manage models created locally, not imported from external catalog.

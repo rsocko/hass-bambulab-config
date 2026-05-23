@@ -4113,7 +4113,7 @@ def test_frequents_layer2_derivation_applies_window_threshold_and_backfill_weigh
         assert frequent_only_payload["results"][0]["public_id"] == "tool-rack"
 
 
-def test_model_search_can_include_rail_supplements_without_extra_queries(tmp_path: Path) -> None:
+def test_model_search_does_not_return_rail_supplements(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
@@ -4202,15 +4202,13 @@ def test_model_search_can_include_rail_supplements_without_extra_queries(tmp_pat
 
     with TestClient(app) as test_client:
         response = test_client.get(
-            "/api/models/search?include_supplements=true&sort=recent&frequent_window_days=30&frequent_min_prints=2"
+            "/api/models/search?sort=recent&frequent_window_days=30&frequent_min_prints=2"
         )
         assert response.status_code == 200
         payload = response.json()
 
         assert payload["pagination"]["total"] == 3
-        assert "supplements" in payload
-        assert [item["public_id"] for item in payload["supplements"]["favorite_candidates"]] == ["gridfinity-bin"]
-        assert [item["public_id"] for item in payload["supplements"]["frequent_candidates"]] == ["tool-rack"]
+        assert "supplements" not in payload
 
 
 def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Path) -> None:

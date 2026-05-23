@@ -54,9 +54,6 @@ model_catalog_search_models:
     {%- if refresh is defined -%}
       {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
     {%- endif -%}
-    {%- if include_supplements is defined -%}
-      {%- set ns.params = ns.params + ['include_supplements=' ~ ((include_supplements | bool) | string | lower)] -%}
-    {%- endif -%}
     {%- if context is defined and (context | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['context=' ~ ((context | string) | urlencode)] -%}
     {%- endif -%}
