@@ -329,7 +329,7 @@ After Change 1, the 7 new stages will no longer trigger the alert — they'll ma
 Below is the full sensor definition with Changes 1 and 2 applied. Change 3 (detail improvement) is left as optional and not included here.
 
 ```yaml
-# Docs: docs/features/core/smart-status.md
+# Docs: docs/features/core/reference/smart-status.md
 - name: "ntk_ryansoffice_3dprinter_smart_status"
   state: >
     {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}

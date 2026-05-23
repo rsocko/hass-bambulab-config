@@ -184,7 +184,7 @@ For interactive filtering beyond the default aggregate sensor window, use the Ba
 ## Related
 
 - [printer_maintenance](../printer_maintenance/README.md) — Uses statistics data for maintenance health scoring (depends on this package for `sensor.bambuddy_statistics`)
-- [advanced-features-design.md](advanced-features-design.md) — failure analysis, rolling windows, energy analytics, and per-printer efficiency follow-ons
+- [advanced-features-design.md](planning/advanced-features-design.md) — failure analysis, rolling windows, energy analytics, and per-printer efficiency follow-ons
 - [../print_history/planning/metadata-implementation-roadmap.md](../print_history/planning/metadata-implementation-roadmap.md) — prerequisite roadmap for metadata-dependent analytics such as utilization, derived per-print cost truth, and spool-history crossover
 
 ## Recommended Next Steps

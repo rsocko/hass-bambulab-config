@@ -15,18 +15,18 @@ A physical touchscreen display mounted near the 3D printer that shows real-time 
 
 The system is split into two halves:
 
-1. **ESP32 Device (openHASP side)** — The `.jsonl` page layout and device configuration files run directly on the ESP32. They define what UI objects (arcs, labels, rectangles, images) appear on screen. See the [openhasp/](../../../openhasp/) folder.
+1. **ESP32 Device (openHASP side)** — The `.jsonl` page layout and device configuration files run directly on the ESP32. They define what UI objects (arcs, labels, rectangles, images) appear on screen. See the [openhasp/](../../../../openhasp/) folder.
 
-2. **Home Assistant side** — A plate configuration YAML binds those UI objects to HA entities (sensors, images). Automations push camera/model images to the display. See [hass-config-readme.md](hass-config-readme.md).
+2. **Home Assistant side** — A plate configuration YAML binds those UI objects to HA entities (sensors, images). Automations push camera/model images to the display. See [hass-config-readme.md](./hass-config-readme.md).
 
 ### Smart Status Source
 
-The status text shown on the ESP32 is now sourced from the Home Assistant template sensor defined in [../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml):
+The status text shown on the ESP32 is now sourced from the Home Assistant template sensor defined in [../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml):
 
 - **Primary status (State):** `sensor.ntk_ryansoffice_3dprinter_smart_status`
 - **Secondary status (Detail):** `sensor.ntk_ryansoffice_3dprinter_smart_status` attribute `detail`
 
-These values are bound in [../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml) and rendered by label objects in [../../../openhasp/esp32s3-5inch/device/printer2.jsonl](../../../openhasp/esp32s3-5inch/device/printer2.jsonl).
+These values are bound in [../../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml](../../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml) and rendered by label objects in [../../../../openhasp/esp32s3-5inch/device/printer2.jsonl](../../../../openhasp/esp32s3-5inch/device/printer2.jsonl).
 
 ```
 ┌──────────────────────┐         MQTT          ┌──────────────────────┐
@@ -67,7 +67,7 @@ The controls page provides direct machine movement actions inspired by the ha-ba
 
 ## Object ID Quick Reference
 
-Use this as a fast map of the major object groups. For full object-by-object details (types, coordinates, and static labels), use [openhasp/README.md](../../../openhasp/README.md).
+Use this as a fast map of the major object groups. For full object-by-object details (types, coordinates, and static labels), use [openhasp/README.md](../../../../openhasp/README.md).
 
 | Object IDs | Role |
 |------------|------|
@@ -88,7 +88,7 @@ Use this as a fast map of the major object groups. For full object-by-object det
 | `p3b73`–`p3b81` | Weight panel stacked bar segments |
 | `p3b71`, `p3b72` | Multiline legend/detail labels (per-slot values and percentages) |
 
-Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/README.md](../../../openhasp/README.md) to maintain a single detailed source of truth.
+Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/README.md](../../../../openhasp/README.md) to maintain a single detailed source of truth.
 
 ## Directory Structure
 
@@ -114,8 +114,8 @@ openhasp/esp32s3-5inch/device/
 
 ## Quick Links
 
-- **Home Assistant config details** → [hass-config-readme.md](hass-config-readme.md)
-- **ESP32 device file details** → [openhasp/README.md](../../../openhasp/README.md)
+- **Home Assistant config details** → [hass-config-readme.md](./hass-config-readme.md)
+- **ESP32 device file details** → [openhasp/README.md](../../../../openhasp/README.md)
 - **openHASP documentation** → [openhasp.com](https://www.openhasp.com/)
 - **openHASP HA integration** → [How-To](https://www.openhasp.com/0.7.0/integrations/home-assistant/howto/)
 - **Guition hardware page** → [ESP32-S3 JC8048W550](https://www.openhasp.com/0.7.0/hardware/guition/jc8048w550/)

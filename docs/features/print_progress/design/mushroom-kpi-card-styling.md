@@ -6,8 +6,8 @@ The **Time Remaining** and **Estimated Completion** cards use `custom:mushroom-t
 
 | Card | File |
 |------|------|
-| Time Remaining | [`time-remaining.yaml`](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/time-remaining.yaml) |
-| Est. Completion | [`estimated-completion-time.yaml`](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/estimated-completion-time.yaml) |
+| Time Remaining | [`time-remaining.yaml`](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/time-remaining.yaml) |
+| Est. Completion | [`estimated-completion-time.yaml`](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/estimated-completion-time.yaml) |
 
 ## Why Mushroom Instead of Button-Card
 

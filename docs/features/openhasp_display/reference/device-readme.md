@@ -102,9 +102,9 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 
 > **Note:** Static visual-only IDs (for labels/icons) do not require Home Assistant bindings. On page 2 this includes icon overlays such as `p2b15`, `p2b25`, `p2b33`, and `p2b42`–`p2b55`.
 
-The values for `p1b31` and `p1b32` are populated by Home Assistant via [officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
+The values for `p1b31` and `p1b32` are populated by Home Assistant via [officetouch5.yaml](../../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
 
-Page-2 touch events are consumed by [printer_motion_controls.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_motion_controls.yaml), which calls:
+Page-2 touch events are consumed by [printer_motion_controls.yaml](../../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_motion_controls.yaml), which calls:
 
 - `bambu_lab.move_axis` for X/Y/Z/home actions
 - `bambu_lab.extrude_retract` for filament retract/extrude

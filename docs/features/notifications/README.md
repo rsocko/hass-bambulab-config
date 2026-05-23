@@ -28,7 +28,7 @@ Automated mobile notifications, camera snapshots, and TTS announcements for Bamb
 | Feature | Relationship |
 |---|---|
 | [Error Alerts](../error_alerts/README.md) | Triggers notifications based on HMS + print errors |
-| [Error Alerts Unified Design](../error_alerts/error-alerts-unified-design.md) | Consolidates HMS + print error notifications into one pipeline |
+| [Error Alerts Unified Design](../error_alerts/design/error-alerts-unified-design.md) | Consolidates HMS + print error notifications into one pipeline |
 | [Bambuddy Integration](../bambuddy_integration/README.md) | Shares camera snapshot logic |
 
 ## Screenshots

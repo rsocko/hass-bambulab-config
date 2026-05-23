@@ -79,7 +79,7 @@ Print progress cards use:
 
 - `custom:button-card` — Layer Progress and Print Progress option cards (options 1–13)
 - `custom:mushroom-template-card` — Time Remaining and Estimated Completion KPI cards
-- `card-mod` — Custom typography and opacity on the mushroom cards (see [mushroom-kpi-card-styling.md](mushroom-kpi-card-styling.md))
+- `card-mod` — Custom typography and opacity on the mushroom cards (see [mushroom-kpi-card-styling.md](../design/mushroom-kpi-card-styling.md))
 
 ## Deployment Considerations
 

@@ -40,9 +40,9 @@ Animated print progress KPI cards showing layer count, percentage, time remainin
 
 | File | Description |
 |------|-------------|
-| [print-progress-options-guide.md](print-progress-options-guide.md) | Comparison of all 13 variants with selection checklist |
-| [print-progress-dependencies.md](print-progress-dependencies.md) | Runtime dependency map: include chain, required entities, custom cards |
-| [mushroom-kpi-card-styling.md](mushroom-kpi-card-styling.md) | Mushroom template card styling reference — card-mod technique, typography, and text wrapping |
+| [print-progress-options-guide.md](reference/print-progress-options-guide.md) | Comparison of all 13 variants with selection checklist |
+| [print-progress-dependencies.md](reference/print-progress-dependencies.md) | Runtime dependency map: include chain, required entities, custom cards |
+| [mushroom-kpi-card-styling.md](design/mushroom-kpi-card-styling.md) | Mushroom template card styling reference — card-mod technique, typography, and text wrapping |
 
 ## Dependencies & Requirements
 
@@ -56,7 +56,7 @@ This is a dashboard-card-only feature — it has no loader in `_feature_loaders.
 |---|---|---|
 | [button-card](https://github.com/custom-cards/button-card) | **Yes** | Animated KPI card rendering for Layer/Print Progress |
 | [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | Time Remaining and Est. Completion KPI cards |
-| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | **Yes** | Custom typography and opacity on mushroom cards ([styling reference](mushroom-kpi-card-styling.md)) |
+| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | **Yes** | Custom typography and opacity on mushroom cards ([styling reference](design/mushroom-kpi-card-styling.md)) |
 
 ### Related Features
 

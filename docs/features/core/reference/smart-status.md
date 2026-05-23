@@ -1,6 +1,6 @@
 # Smart Printer Status Sensor
 
-**File:** [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml)  
+**File:** [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml)  
 **Sensor:** `sensor.ntk_ryansoffice_3dprinter_smart_status`
 
 This template sensor combines the two raw ha-bambulab integration entities:
@@ -199,7 +199,7 @@ All stage strings defined by ha-bambulab's `CURRENT_STAGE_IDS`, mapped to the se
 
 ### ha-bambulab v2.2.22 update (2026-05-12)
 
-Release [v2.2.22](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) added 10 new stage IDs (67–76) via [PR #1975](https://github.com/greghesp/ha-bambulab/pull/1975). All 10 are now mapped in [smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and in the stage tables above (look for the **(v2.2.22)** badge). New display labels added:
+Release [v2.2.22](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) added 10 new stage IDs (67–76) via [PR #1975](https://github.com/greghesp/ha-bambulab/pull/1975). All 10 are now mapped in [smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and in the stage tables above (look for the **(v2.2.22)** badge). New display labels added:
 
 - `Cooling Nozzle` (`status_class: heating`)
 - `Bed Leveling` for `build_plate_alignment_detection` (`status_class: leveling`)
@@ -207,7 +207,7 @@ Release [v2.2.22](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) 
 - `Nozzle Prep` for `moving_toolhead_above_purge_chute`, `pre_extrusion_before_printing`
 - `Calibration` for `measuring_rotary_attachment`, `active_arc_fitting`
 
-> **Unrelated breaking change in v2.2.22**: `sensor.<printer>_start_time` and `sensor.<printer>_end_time` switched from naive-local strings to `device_class: timestamp` (UTC ISO-8601). All numeric/`as_timestamp()` consumers in this repo are unaffected; the one consumer that called `.date()` / `.strftime()` directly ([print_end_time_friendly.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_end_time_friendly.yaml)) was patched to apply `| as_local` before formatting. See [release notes](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) and [PR #1959](https://github.com/greghesp/ha-bambulab/pull/1959).
+> **Unrelated breaking change in v2.2.22**: `sensor.<printer>_start_time` and `sensor.<printer>_end_time` switched from naive-local strings to `device_class: timestamp` (UTC ISO-8601). All numeric/`as_timestamp()` consumers in this repo are unaffected; the one consumer that called `.date()` / `.strftime()` directly ([print_end_time_friendly.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/print_end_time_friendly.yaml)) was patched to apply `| as_local` before formatting. See [release notes](https://github.com/greghesp/ha-bambulab/releases/tag/v2.2.22) and [PR #1959](https://github.com/greghesp/ha-bambulab/pull/1959).
 
 ### Finding 1: Missing stages (52–58) — ha-bambulab added, sensor not updated
 
@@ -319,17 +319,17 @@ The sensor is designed to degrade gracefully when the ha-bambulab integration or
 
 2. **Main `state`** falls through to `Unmapped Printer State` for any combination not matched by an explicit branch.
 
-3. **Automation alert**: [homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml](../../../homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml) triggers a persistent notification whenever the sensor enters `Unmapped Printer State`, with a 30-second debounce, system log entry, and auto-dismiss when the state clears.
+3. **Automation alert**: [homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml](../../../../homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml) triggers a persistent notification whenever the sensor enters `Unmapped Printer State`, with a 30-second debounce, system log entry, and auto-dismiss when the state clears.
 
 To add support for a new value, either:
-- Add it to the relevant display branch in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml), **and** add it to `known_stages` in the `detail` block.
+- Add it to the relevant display branch in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml), **and** add it to `known_stages` in the `detail` block.
 - Or, if it is a new stage that logically fits an existing group (e.g., a new paused reason), the `paused_*` wildcard will catch it automatically — just add it to `known_stages`.
 
 ---
 
 ## Recommended code changes
 
-See [smart-status-review-2026-03-19.md](smart-status-review-2026-03-19.md) for the complete change specification with exact before/after templates.
+See [smart-status-review-2026-03-19.md](../archive/smart-status-review-2026-03-19.md) for the complete change specification with exact before/after templates.
 
 
 

@@ -1,12 +1,12 @@
 # Smart Printer Status Mapping
 
-> **Full reference**: See [smart-status.md](smart-status.md) for the complete stage mapping table, Bambuddy consistency analysis, and future-proofing details.
+> **Full reference**: See [smart-status.md](./smart-status.md) for the complete stage mapping table, Bambuddy consistency analysis, and future-proofing details.
 
 This repo now provides a reusable merged printer status sensor:
 
 - `sensor.ntk_ryansoffice_3dprinter_smart_status`
 
-Defined in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml), it combines:
+Defined in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml), it combines:
 
 - `sensor.ntk_ryansoffice_3dprinter_print_status` (ha_bambulab `gcode_state`)
 - `sensor.ntk_ryansoffice_3dprinter_current_stage` (ha_bambulab stage description)
@@ -55,7 +55,7 @@ action:
 
 Or use the ready-made file in this repo:
 
-- [homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml](../../../homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml)
+- [homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml](../../../../homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml)
 
 It includes:
 

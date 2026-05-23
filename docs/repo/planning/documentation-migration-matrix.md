@@ -44,7 +44,7 @@ Alignment rule:
 | C3 (complete) | error_alerts | Medium | docs/features/error_alerts | Lane assignment and historical cleanup | A |
 | C3 (complete) | humidity | Medium | docs/features/humidity | Lane assignment and README reduction | A |
 | C3 (complete) | print_queue | Medium | docs/features/print_queue | Move mockups to design, retain current reference docs | A |
-| C4 | Small/stub feature group | Low-Med | print_progress, print_statistics, print_weight_and_cost, bambuddy_common, bambuddy_integration, core, common, api, notifications, filament_tag, power_monitoring, model_intake, openhasp_display, printer_maintenance | Minimal lane normalization and stub triage | A |
+| C4 (complete) | Small/stub feature group | Low-Med | print_progress, print_statistics, print_weight_and_cost, bambuddy_common, bambuddy_integration, core, common, api, notifications, filament_tag, power_monitoring, model_intake, openhasp_display, printer_maintenance | Minimal lane normalization and stub triage | A |
 | D | repo shared docs | Medium | docs/repo | Split into reference/design/planning/archive and relocate feature-owned docs | A |
 | D | infrastructure docs | Medium | docs/infrastructure | Keep active references, move dated diagnostics to archive | A |
 | D | testing docs | Low | docs/testing | Keep active reference docs, archive milestone reports | A |
@@ -100,6 +100,16 @@ Post-cleanup interpretation note (2026-05-23):
 | printer_dashboards | 9 | docs/repo/planning/matrices/migration-matrix-batch3-printer_dashboards.csv.md |
 | printer_temps | 8 | docs/repo/planning/matrices/migration-matrix-batch3-printer_temps.csv.md |
 | printer_controls | 6 | docs/repo/planning/matrices/migration-matrix-batch3-printer_controls.csv.md |
+
+## Matrix E: C4 Detailed Row-Level Coverage
+
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed C4 CSV matrices, `current_path` is a migration-source field and may reference paths removed by later lane migrations.
+2. `target_path` is the canonical destination for active docs.
+
+| Feature Group | Row Count | Detailed Matrix File |
+|---|---:|---|
+| small_stub_feature_group | 33 | docs/repo/planning/matrices/migration-matrix-batch4-small-stub-group.csv.md |
 
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.

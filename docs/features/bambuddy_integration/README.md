@@ -24,7 +24,7 @@ Related feature docs:
 
 - [Bambuddy Archive API Catalog](../bambuddy_common/bambuddy-archive-api-catalog.md)
 - [Print History](../print_history/README.md)
-- [Bambuddy v0.2.4.1 Enhancements Roadmap](./bambuddy-v0.2.4.1-enhancements-roadmap.md)
+- [Bambuddy v0.2.4.1 Enhancements Roadmap](planning/bambuddy-v0.2.4.1-enhancements-roadmap.md)
 
 ## Dependencies & Requirements
 
@@ -69,7 +69,7 @@ Current repo assessment:
   `stats.total_prints` means unique archived rows.
 
 Enhancement follow-ons from the `v0.2.4.1` review are documented in
-[bambuddy-v0.2.4.1-enhancements-roadmap.md](./bambuddy-v0.2.4.1-enhancements-roadmap.md).
+[bambuddy-v0.2.4.1-enhancements-roadmap.md](planning/bambuddy-v0.2.4.1-enhancements-roadmap.md).
 
 Operational caveat:
 

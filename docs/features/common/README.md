@@ -28,7 +28,7 @@ Shared dashboard infrastructure — layouts, views, reusable card templates, and
 
 - **`lovelace.3d_printing`** — Root dashboard configuration containing `button_card_templates:` (AMS header, tray label, tray detail, tray popup, catalog location header, catalog spool card, catalog spool popup) and view includes.
 - **`view_main.yaml`** — Primary view assembling cards from all feature packages via `!include`.
-- **`catalog_location_header.yaml`** — Button-card template for filament catalog location section headers. Owned by the [Filament Catalog](../filament_catalog/filament-catalog.md) feature but hosted here because `button_card_templates` loads from a single directory via `!include_dir_merge_named`.
+- **`catalog_location_header.yaml`** — Button-card template for filament catalog location section headers. Owned by the [Filament Catalog](../filament_catalog/README.md) feature but hosted here because `button_card_templates` loads from a single directory via `!include_dir_merge_named`.
 - **`catalog_spool_card.yaml`** — Compact spool card template for catalog grid display. Same hosting constraint.
 - **`catalog_spool_popup.yaml`** — Browser_mod popup template for spool detail view. Same hosting constraint.
 
@@ -39,7 +39,7 @@ Shared dashboard infrastructure — layouts, views, reusable card templates, and
 | Dependency | Required | Purpose |
 |---|---|---|
 | [Core](../core/README.md) | **Yes** | Smart status sensor, base template sensors — used in card templates and conditional cards |
-| [Filament Catalog](../filament_catalog/filament-catalog.md) | Cross-dep | Common hosts `catalog_*` button-card templates on behalf of this feature (single-directory `!include_dir_merge_named` constraint). The catalog view is included from `3d_printing.yaml`. |
+| [Filament Catalog](../filament_catalog/README.md) | Cross-dep | Common hosts `catalog_*` button-card templates on behalf of this feature (single-directory `!include_dir_merge_named` constraint). The catalog view is included from `3d_printing.yaml`. |
 
 ### External Dependencies
 
@@ -62,5 +62,5 @@ The cards defined in Common's templates require these custom cards to be install
 ## See Also
 
 - [Printer Dashboards](../printer_dashboards/README.md) — Documentation focused on dashboard composition and UI behavior
-- [card-templates-README.md](../printer_dashboards/card-templates-README.md) — Reusable button-card template reference
-- [Filament Catalog](../filament_catalog/filament-catalog.md) — Design document for the location-grouped spool catalog (owns the `catalog_*` templates hosted here)
+- [card-templates-README.md](../printer_dashboards/reference/card-templates-README.md) — Reusable button-card template reference
+- [Filament Catalog](../filament_catalog/README.md) — Design document for the location-grouped spool catalog (owns the `catalog_*` templates hosted here)

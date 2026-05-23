@@ -410,7 +410,7 @@ docs/features/print_history/design/ui-media/archive-detail-popup-design.md
 
 
 `
-3. `docs/features/bambuddy_common/bambuddy-archive-api-catalog.md`
+3. `docs/features/bambuddy_common/reference/bambuddy-archive-api-catalog.md`
 4. `
 docs/features/print_history/design/
 docs/features/print_history/design/

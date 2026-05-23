@@ -29,12 +29,12 @@ OpenHASP touchscreen display configuration for Bambu Lab printer control panels.
 
 | File | Description |
 |------|-------------|
-| [device-readme.md](device-readme.md) | General OpenHASP device setup |
-| [esp32s3-5inch-readme.md](esp32s3-5inch-readme.md) | ESP32-S3 5" display configuration |
-| [hass-config-readme.md](hass-config-readme.md) | Home Assistant configuration for OpenHASP |
-| [xtouch-2-8-inch-readme.md](xtouch-2-8-inch-readme.md) | xTouch 2.8" display setup |
-| [xtouch-2-8-inch-temperature-sensor.md](xtouch-2-8-inch-temperature-sensor.md) | Temperature sensor integration |
-| [xtouch-openhasp-conversion-README.md](xtouch-openhasp-conversion-README.md) | xTouch to OpenHASP conversion guide |
+| [device-readme.md](reference/device-readme.md) | General OpenHASP device setup |
+| [esp32s3-5inch-readme.md](reference/esp32s3-5inch-readme.md) | ESP32-S3 5" display configuration |
+| [hass-config-readme.md](reference/hass-config-readme.md) | Home Assistant configuration for OpenHASP |
+| [xtouch-2-8-inch-readme.md](reference/xtouch-2-8-inch-readme.md) | xTouch 2.8" display setup |
+| [xtouch-2-8-inch-temperature-sensor.md](reference/xtouch-2-8-inch-temperature-sensor.md) | Temperature sensor integration |
+| [xtouch-openhasp-conversion-README.md](reference/xtouch-openhasp-conversion-README.md) | xTouch to OpenHASP conversion guide |
 
 ## Dependencies & Requirements
 
