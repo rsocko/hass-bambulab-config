@@ -288,8 +288,17 @@
     + '.other-head{display:flex;justify-content:space-between;font-size:10px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}'
     + '.other-chips{display:flex;gap:5px;flex-wrap:wrap;}'
     + '.other-chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);font-size:10px;color:var(--secondary-text-color);}'
+    + '.folder-explorer{display:grid;gap:8px;}'
+    + '.folder-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}'
+    + '.folder-type-filters{display:flex;gap:6px;flex-wrap:wrap;}'
     + '.folder-list{display:grid;gap:4px;}'
-    + '.folder-row{display:grid;grid-template-columns:minmax(0,1fr)auto auto;gap:8px;padding:6px;border-radius:8px;background:rgba(96,165,250,0.08);font-size:11px;color:#bfdbfe;}'
+    + '.folder-row{display:grid;grid-template-columns:minmax(0,1fr)auto auto;gap:8px;padding:6px 8px;border-radius:8px;border:1px solid rgba(96,165,250,0.22);background:rgba(96,165,250,0.08);font-size:11px;color:#bfdbfe;cursor:pointer;text-align:left;position:relative;}'
+    + '.folder-row:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.34);}'
+    + '.folder-row.active{background:rgba(94,234,212,0.16);border-color:rgba(94,234,212,0.42);color:#99f6e4;}'
+    + '.folder-row .stat{font-size:10px;color:var(--secondary-text-color);}'
+    + '.folder-row.active .stat{color:#99f6e4;opacity:.85;}'
+    + '.folder-row .indent-mark{position:absolute;left:0;top:0;bottom:0;width:2px;background:rgba(96,165,250,0.45);transform:translateX(calc(var(--depth, 0) * 8px));}'
+    + '.folder-row.active .indent-mark{background:rgba(94,234,212,0.8);}'
     + '.files-table{border:1px solid rgba(148,163,184,0.18);border-radius:12px;overflow:auto;background:rgba(15,23,42,0.1);}'
     + '.files-table table{width:100%;border-collapse:collapse;min-width:860px;}'
     + '.files-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color);padding:10px;border-bottom:1px solid rgba(148,163,184,0.2);text-align:left;background:rgba(15,23,42,0.35);}'
@@ -329,6 +338,8 @@
       this._selectedPaths = {};
       this._collapsedGroups = {};
       this._groupSubViews = {};
+      this._groupFolderFilters = {};
+      this._groupFolderTypeFilters = {};
       this._lastAppliedScopeStamp = 0;
       this._catalogScope = 'working';
       this._boundClick = this._handleClick.bind(this);
@@ -461,6 +472,12 @@
           }
           if (!Object.prototype.hasOwnProperty.call(this._groupSubViews, id)) {
             this._groupSubViews[id] = 'files';
+          }
+          if (!Object.prototype.hasOwnProperty.call(this._groupFolderFilters, id)) {
+            this._groupFolderFilters[id] = '';
+          }
+          if (!Object.prototype.hasOwnProperty.call(this._groupFolderTypeFilters, id)) {
+            this._groupFolderTypeFilters[id] = 'all';
           }
         }, this);
 
@@ -864,6 +881,187 @@
       }).join('') + '</div>';
     }
 
+    _folderFromRelativePath(relativePath) {
+      var normalized = normalizePath(String(relativePath || '')).replace(/^\/+/, '').replace(/\/+$/, '');
+      if (!normalized || normalized.indexOf('/') < 0) {
+        return '.';
+      }
+      return normalized.slice(0, normalized.lastIndexOf('/')) || '.';
+    }
+
+    _folderDepth(folderPath) {
+      var normalized = String(folderPath || '').trim();
+      if (!normalized || normalized === '.') {
+        return 0;
+      }
+      return normalized.split('/').length;
+    }
+
+    _folderLabel(folderPath) {
+      var normalized = String(folderPath || '').trim();
+      if (!normalized || normalized === '.') {
+        return 'Root';
+      }
+      return basename(normalized) || normalized;
+    }
+
+    _entryInFolderScope(entry, group, folderScope) {
+      var normalizedScope = String(folderScope || '').trim();
+      if (!normalizedScope) {
+        return true;
+      }
+      var rel = normalizePath(this._entryRelativePath(entry, group) || basename(this._entryPath(entry))).replace(/^\/+/, '');
+      if (!rel) {
+        return false;
+      }
+      var folder = this._folderFromRelativePath(rel);
+      if (normalizedScope === '.') {
+        return folder === '.';
+      }
+      return folder === normalizedScope || folder.indexOf(normalizedScope + '/') === 0;
+    }
+
+    _entryMatchesFolderType(entry, typeFilter) {
+      var normalized = String(typeFilter || 'all').trim().toLowerCase();
+      var extension = this._entryExtension(entry);
+      if (!normalized || normalized === 'all') {
+        return true;
+      }
+      if (normalized === 'models') {
+        return isModelExtension(extension);
+      }
+      if (normalized === 'other') {
+        return !isModelExtension(extension);
+      }
+      if (normalized.indexOf('ext:') === 0) {
+        return extension === normalized.slice(4);
+      }
+      return true;
+    }
+
+    _folderTypeCounts(entries) {
+      var counts = {
+        all: entries.length,
+        models: 0,
+        other: 0,
+        extensions: {},
+      };
+      entries.forEach(function (entry) {
+        var extension = this._entryExtension(entry) || '';
+        if (isModelExtension(extension)) {
+          counts.models += 1;
+        } else {
+          counts.other += 1;
+        }
+        if (extension) {
+          counts.extensions[extension] = (counts.extensions[extension] || 0) + 1;
+        }
+      }, this);
+      return counts;
+    }
+
+    _renderFolderExplorer(groupFiles, group, groupId) {
+      var folderScope = String(this._groupFolderFilters[groupId] || '');
+      var typeFilter = String(this._groupFolderTypeFilters[groupId] || 'all');
+      var byFolder = {};
+
+      groupFiles.forEach(function (entry) {
+        var rel = normalizePath(this._entryRelativePath(entry, group) || basename(this._entryPath(entry))).replace(/^\/+/, '');
+        var folder = this._folderFromRelativePath(rel);
+        if (!byFolder[folder]) {
+          byFolder[folder] = { count: 0, latestMtime: '' };
+        }
+        byFolder[folder].count += 1;
+        var current = parseIsoDate(byFolder[folder].latestMtime);
+        var candidate = parseIsoDate(this._entryMtime(entry));
+        if (candidate && (!current || candidate.getTime() > current.getTime())) {
+          byFolder[folder].latestMtime = this._entryMtime(entry);
+        }
+      }, this);
+
+      var folderKeys = Object.keys(byFolder).sort(function (a, b) {
+        var depthDiff = this._folderDepth(a) - this._folderDepth(b);
+        if (depthDiff !== 0) {
+          return depthDiff;
+        }
+        if (a === '.') {
+          return -1;
+        }
+        if (b === '.') {
+          return 1;
+        }
+        return a.localeCompare(b);
+      }.bind(this));
+
+      var folderRows = folderKeys.length
+        ? '<div class="folder-list">' + folderKeys.map(function (folder) {
+          var summary = byFolder[folder];
+          var depth = this._folderDepth(folder);
+          var active = folderScope === folder;
+          return ''
+            + '<button class="folder-row' + (active ? ' active' : '') + '"'
+            + ' data-action="set-group-folder-filter"'
+            + ' data-group-id="' + String(groupId) + '"'
+            + ' data-folder-path="' + escapeHtml(folder) + '">'
+            + '<span>' + escapeHtml(this._folderLabel(folder)) + '</span>'
+            + '<span class="stat">' + String(summary.count) + ' file(s)</span>'
+            + '<span class="stat">' + escapeHtml(formatRelativeTime(summary.latestMtime)) + '</span>'
+            + '<span class="indent-mark" style="--depth:' + String(Math.max(0, depth)) + ';"></span>'
+            + '</button>';
+        }, this).join('') + '</div>'
+        : '<div class="state-row">No folders in this group.</div>';
+
+      var scopedFiles = groupFiles.filter(function (entry) {
+        return this._entryInFolderScope(entry, group, folderScope);
+      }, this);
+      var typeCounts = this._folderTypeCounts(scopedFiles);
+      var extensionEntries = Object.keys(typeCounts.extensions).sort().slice(0, 6);
+
+      var typeChips = ''
+        + '<div class="folder-type-filters">'
+        + '<button class="button' + (typeFilter === 'all' ? ' primary' : '') + '" data-action="set-group-folder-type" data-group-id="' + String(groupId) + '" data-folder-type="all">All ' + String(typeCounts.all) + '</button>'
+        + '<button class="button' + (typeFilter === 'models' ? ' primary' : '') + '" data-action="set-group-folder-type" data-group-id="' + String(groupId) + '" data-folder-type="models">Models ' + String(typeCounts.models) + '</button>'
+        + '<button class="button' + (typeFilter === 'other' ? ' primary' : '') + '" data-action="set-group-folder-type" data-group-id="' + String(groupId) + '" data-folder-type="other">Other ' + String(typeCounts.other) + '</button>'
+        + extensionEntries.map(function (ext) {
+          var key = 'ext:' + ext;
+          return '<button class="button' + (typeFilter === key ? ' primary' : '') + '" data-action="set-group-folder-type" data-group-id="' + String(groupId) + '" data-folder-type="' + escapeHtml(key) + '">' + escapeHtml(extensionBadge(ext)) + ' ' + String(typeCounts.extensions[ext]) + '</button>';
+        }).join('')
+        + '</div>';
+
+      var visibleFiles = scopedFiles.filter(function (entry) {
+        return this._entryMatchesFolderType(entry, typeFilter);
+      }, this);
+
+      var fileRows = visibleFiles.length
+        ? '<div class="file-list">' + visibleFiles.map(function (entry) {
+          var pathValue = this._entryPath(entry);
+          var extension = this._entryExtension(entry);
+          var extClass = 'x-' + extension.replace(/^\./, '');
+          var selected = !!this._selectedPaths[pathValue];
+          return ''
+            + '<div class="file-row">'
+            + '<span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(extension)) + '</span>'
+            + '<span class="file-main"><div class="file-name">' + escapeHtml(basename(pathValue)) + '</div><div class="file-path">' + escapeHtml(this._entryRelativePath(entry, group)) + '</div></span>'
+            + '<span class="file-num">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
+            + '<span class="file-num">' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</span>'
+            + '<span></span>'
+            + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label>'
+            + '</div>';
+        }, this).join('') + '</div>'
+        : '<div class="state-row">No files match this folder/type filter.</div>';
+
+      return ''
+        + '<div class="folder-explorer">'
+        + '<div class="folder-head-row">'
+        + '<span class="subtitle">Folder explorer' + (folderScope ? ' · ' + escapeHtml(folderScope === '.' ? 'Root' : folderScope) : ' · All folders') + '</span>'
+        + (folderScope ? '<button class="button" data-action="clear-group-folder-filter" data-group-id="' + String(groupId) + '">Clear Folder Filter</button>' : '')
+        + '</div>'
+        + folderRows
+        + typeChips
+        + fileRows
+        + '</div>';
+    }
+
     _toggleAllVisibleSelections() {
       var paths = (this._files || []).map(function (entry) {
         return this._entryPath(entry);
@@ -928,6 +1126,32 @@
         var nextSubView = String(target.getAttribute('data-subview') || 'files');
         if (subViewGroupId) {
           this._groupSubViews[subViewGroupId] = nextSubView === 'folders' ? 'folders' : 'files';
+          this._render();
+        }
+        return;
+      }
+      if (action === 'set-group-folder-filter') {
+        var folderGroupId = Number(target.getAttribute('data-group-id') || 0);
+        var folderPath = String(target.getAttribute('data-folder-path') || '').trim();
+        if (folderGroupId) {
+          this._groupFolderFilters[folderGroupId] = this._groupFolderFilters[folderGroupId] === folderPath ? '' : folderPath;
+          this._render();
+        }
+        return;
+      }
+      if (action === 'clear-group-folder-filter') {
+        var clearFolderGroupId = Number(target.getAttribute('data-group-id') || 0);
+        if (clearFolderGroupId) {
+          this._groupFolderFilters[clearFolderGroupId] = '';
+          this._render();
+        }
+        return;
+      }
+      if (action === 'set-group-folder-type') {
+        var folderTypeGroupId = Number(target.getAttribute('data-group-id') || 0);
+        var nextFolderType = String(target.getAttribute('data-folder-type') || 'all').trim().toLowerCase();
+        if (folderTypeGroupId) {
+          this._groupFolderTypeFilters[folderTypeGroupId] = nextFolderType || 'all';
           this._render();
         }
         return;
@@ -1016,7 +1240,7 @@
         }
 
         var stripBody = subView === 'folders'
-          ? this._buildFolderRows(files, group)
+          ? this._renderFolderExplorer(files, group, groupId)
           : modelRowsHtml
             + (otherFiles.length
               ? '<div class="other-strip"><div class="other-head"><span>Other files (' + String(otherFiles.length) + ')</span></div><div class="other-chips">'
