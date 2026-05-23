@@ -18,6 +18,7 @@ import uuid
 from pathlib import Path
 from sqlite3 import connect
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -621,6 +622,26 @@ def _read_indexed_filename_maps(
     exact_context_map: dict[str, list[dict[str, Any]]] = {}
     normalized_context_map: dict[str, list[dict[str, Any]]] = {}
 
+    def _catalog_asset_preview_url(
+        *,
+        preview_url: object,
+        asset_type: object,
+        local_model_id: object,
+        asset_id: object,
+    ) -> str | None:
+        configured_preview = str(preview_url or "").strip()
+        if configured_preview:
+            return configured_preview
+        normalized_asset_type = str(asset_type or "").strip().lower()
+        normalized_model_id = str(local_model_id or "").strip()
+        normalized_asset_id = str(asset_id or "").strip()
+        if normalized_asset_type != "image" or not normalized_model_id or not normalized_asset_id:
+            return None
+        return (
+            f"/api/models/{quote(normalized_model_id, safe='')}/files/"
+            f"{quote(normalized_asset_id, safe='')}/download"
+        )
+
     def _append_context(bucket: dict[str, list[dict[str, Any]]], key: str, context_item: dict[str, Any] | None) -> None:
         if not key or not isinstance(context_item, dict):
             return
@@ -747,7 +768,8 @@ def _read_indexed_filename_maps(
         try:
             asset_rows = connection.execute(
                 """
-                SELECT a.asset_filename, e.model_name, a.file_size_bytes, a.preview_url
+                SELECT a.asset_filename, e.model_name, a.file_size_bytes, a.preview_url,
+                       a.asset_type, e.local_model_id, a.asset_id
                 FROM model_catalog_assets a
                 LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.asset_filename IS NOT NULL AND TRIM(a.asset_filename) != ''
@@ -760,7 +782,12 @@ def _read_indexed_filename_maps(
             asset_name = Path(asset_path).name or asset_path
             model_name = str(row[1] or "").strip()
             asset_size = row[2] if len(row) > 2 else None
-            asset_preview_url = str(row[3] or "").strip() if len(row) > 3 else ""
+            asset_preview_url = _catalog_asset_preview_url(
+                preview_url=row[3] if len(row) > 3 else None,
+                asset_type=row[4] if len(row) > 4 else None,
+                local_model_id=row[5] if len(row) > 5 else None,
+                asset_id=row[6] if len(row) > 6 else None,
+            )
             asset_context: dict[str, Any] = {
                 "scope": "indexed",
                 "parent_kind": "catalog_model",
@@ -785,6 +812,26 @@ def _read_indexed_hash_match_contexts(
 ) -> dict[str, list[dict[str, Any]]]:
     """Build hash match context text for duplicate findings in validation UI."""
     context_map: dict[str, list[dict[str, Any]]] = {}
+
+    def _catalog_asset_preview_url(
+        *,
+        preview_url: object,
+        asset_type: object,
+        local_model_id: object,
+        asset_id: object,
+    ) -> str | None:
+        configured_preview = str(preview_url or "").strip()
+        if configured_preview:
+            return configured_preview
+        normalized_asset_type = str(asset_type or "").strip().lower()
+        normalized_model_id = str(local_model_id or "").strip()
+        normalized_asset_id = str(asset_id or "").strip()
+        if normalized_asset_type != "image" or not normalized_model_id or not normalized_asset_id:
+            return None
+        return (
+            f"/api/models/{quote(normalized_model_id, safe='')}/files/"
+            f"{quote(normalized_asset_id, safe='')}/download"
+        )
 
     def _add_context(raw_hash: object, context_item: dict[str, Any]) -> None:
         hash_key = str(raw_hash or "").strip().lower()
@@ -855,7 +902,8 @@ def _read_indexed_hash_match_contexts(
         try:
             asset_rows = connection.execute(
                 """
-                                SELECT a.file_hash, a.asset_filename, e.model_name, a.file_size_bytes, a.preview_url
+                                SELECT a.file_hash, a.asset_filename, e.model_name, a.file_size_bytes, a.preview_url,
+                                             a.asset_type, e.local_model_id, a.asset_id
                 FROM model_catalog_assets a
                 LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.file_hash IS NOT NULL
@@ -869,7 +917,12 @@ def _read_indexed_hash_match_contexts(
             asset_name = Path(asset_path).name or asset_path
             model_name = str(row[2] or "").strip()
             asset_size = row[3] if len(row) > 3 else None
-            asset_preview_url = str(row[4] or "").strip() if len(row) > 4 else ""
+            asset_preview_url = _catalog_asset_preview_url(
+                preview_url=row[4] if len(row) > 4 else None,
+                asset_type=row[5] if len(row) > 5 else None,
+                local_model_id=row[6] if len(row) > 6 else None,
+                asset_id=row[7] if len(row) > 7 else None,
+            )
             _add_context(
                 row[0],
                 {

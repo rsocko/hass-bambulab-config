@@ -69,6 +69,14 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelFilePlateCountRequestToken = 0;
     this._popupExtensions = new Map();
     this._pendingPopupShellScroll = null;
+    this._ideaMetaEditOpen = false;
+    this._ideaMetaSaving = false;
+    this._ideaPromoteBusy = false;
+    this._ideaMetaDraft = {
+      notes: '',
+      externalLinksText: '',
+      sketchImageUrl: '',
+    };
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
       addEntry: async ({ queueApiBase, printerId, payload }) => {
@@ -139,6 +147,14 @@ class ModelDetailPopupCard extends HTMLElement {
       this._archiveLinkageFilter = 'all';
       this._linkedArchiveSortOrder = 'desc';
       this._selectedArchiveCandidates = {};
+      this._ideaMetaEditOpen = false;
+      this._ideaMetaSaving = false;
+      this._ideaPromoteBusy = false;
+      this._ideaMetaDraft = {
+        notes: '',
+        externalLinksText: '',
+        sketchImageUrl: '',
+      };
     }
     var requestedInitialTab = String(this._config.initial_tab || "details").trim().toLowerCase();
     if (requestedInitialTab !== "details" && requestedInitialTab !== "gallery" && requestedInitialTab !== "prints") {
@@ -435,6 +451,41 @@ class ModelDetailPopupCard extends HTMLElement {
       this._panelActiveTab = String(panelTab.dataset.panelTab || 'panel-queue');
       this._panelMode = 'tabs';
       this._render();
+      return;
+    }
+
+    const promoteIdeaCatalogBtn = target.closest('[data-action="idea-promote-catalog"]');
+    if (promoteIdeaCatalogBtn) {
+      event.preventDefault();
+      this._promoteIdeaEntity('model');
+      return;
+    }
+
+    const promoteIdeaWorkingBtn = target.closest('[data-action="idea-promote-working"]');
+    if (promoteIdeaWorkingBtn) {
+      event.preventDefault();
+      this._promoteIdeaEntity('working_group');
+      return;
+    }
+
+    const ideaEditBtn = target.closest('[data-action="idea-edit-start"]');
+    if (ideaEditBtn) {
+      event.preventDefault();
+      this._openIdeaMetadataEditor();
+      return;
+    }
+
+    const ideaEditCancelBtn = target.closest('[data-action="idea-edit-cancel"]');
+    if (ideaEditCancelBtn) {
+      event.preventDefault();
+      this._cancelIdeaMetadataEditor();
+      return;
+    }
+
+    const ideaEditSaveBtn = target.closest('[data-action="idea-edit-save"]');
+    if (ideaEditSaveBtn) {
+      event.preventDefault();
+      this._saveIdeaMetadataEdits();
       return;
     }
 
@@ -2469,8 +2520,10 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="top-actions">
             ${isIdea ? `<span class="entity-type-badge idea">💡 Idea</span>` : ''}
             ${this._renderExtensionSlot('actions:top-bar', '')}
+            ${isIdea ? `<button class="action-button" data-action="idea-promote-catalog" ${this._ideaPromoteBusy ? 'disabled' : ''}>⬆ Promote to Catalog</button>` : ''}
+            ${isIdea ? `<button class="action-button ghost" data-action="idea-promote-working" ${this._ideaPromoteBusy ? 'disabled' : ''}>⬆ Promote to Working Group</button>` : ''}
             ${isIdea ? '' : `<button class="action-button ghost ${isFrequent ? 'toggle-active' : ''}" id="btn-toggle-frequent" title="${isFrequent ? 'This model is marked as Frequent (auto-derived from ≥3 prints in 90d window).' : 'Not marked as frequent.'}">⚡ Frequent</button>`}
-            ${isIdea ? '' : `<button class="action-button ghost ${isArchived ? 'toggle-active-warn' : ''}" id="btn-toggle-archive" title="${isArchived ? 'This model is archived — hidden from default Catalog views. Click to un-archive.' : 'Archive this model — hides from default Catalog views while preserving all data.'}">${isArchived ? '📦 Archived' : '📦 Archive'}</button>`}
+            <button class="action-button ghost ${isArchived ? 'toggle-active-warn' : ''}" id="btn-toggle-archive" title="${isArchived ? 'This model is archived — hidden from default Catalog views. Click to un-archive.' : 'Archive this model — hides from default Catalog views while preserving all data.'}">${isArchived ? '📦 Archived' : '📦 Archive'}</button>
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
             ${isIdea ? '' : '<button class="action-button" id="btn-print">Print</button>'}
@@ -2507,7 +2560,7 @@ class ModelDetailPopupCard extends HTMLElement {
                   ${activeMedia && activeMedia.url ? `<img src="${this._escapeHtml(activeMedia.url)}" alt="Model media" loading="lazy">` : '<span>No preview</span>'}
                   ${activeMedia && activeMedia.type_label ? `<span class="badge">${this._escapeHtml(activeMedia.type_label)}</span>` : ''}
                   <div class="main-overlay-tools">
-                    <button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>
+                    ${isIdea ? '' : '<button class="icon-action viewer" id="btn-viewer" type="button" aria-label="Open 3D viewer" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'}
                     <button class="icon-action expand" type="button" aria-label="Open full screen" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
                   </div>
                   <button class="main-nav-btn prev" id="btn-hero-prev" title="Previous" ${mediaItems.filter(i => !i.is_hidden).length > 1 ? '' : 'disabled'}>&#8249;</button>
@@ -3404,7 +3457,7 @@ class ModelDetailPopupCard extends HTMLElement {
               </div>
             </div>
             <div class="meta">Collections: ${this._escapeHtml((model.collection_names || []).join(', ') || 'none')}</div>
-            <div class="meta">Print history links: ${linkedCount} linked, ${candidateCount} candidates</div>
+            <div class="meta">${this._getEntityType(model) === 'idea' ? 'Idea entry: no model files or print history required yet.' : `Print history links: ${linkedCount} linked, ${candidateCount} candidates`}</div>
           </div>
         `)}
       </section>
@@ -5293,34 +5346,10 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderIdeaMetadataCard(model) {
-    const detailIdeaMetadata = this._modelDetail && this._modelDetail.idea_metadata && typeof this._modelDetail.idea_metadata === 'object'
-      ? this._modelDetail.idea_metadata
-      : {};
-    const enrichment = this._modelDetail && this._modelDetail.enrichment && typeof this._modelDetail.enrichment === 'object'
-      ? this._modelDetail.enrichment
-      : {};
-    const enrichmentFields = enrichment.custom_fields && typeof enrichment.custom_fields === 'object'
-      ? enrichment.custom_fields
-      : {};
-    const modelFields = model && model.custom_fields && typeof model.custom_fields === 'object'
-      ? model.custom_fields
-      : {};
-
-    const externalLinks = Array.isArray(detailIdeaMetadata.external_links)
-      ? detailIdeaMetadata.external_links
-      : (Array.isArray(enrichmentFields.external_links)
-        ? enrichmentFields.external_links
-        : (Array.isArray(modelFields.external_links) ? modelFields.external_links : []));
-    const sketchImage = detailIdeaMetadata.sketch_image && detailIdeaMetadata.sketch_image.url
-      ? detailIdeaMetadata.sketch_image.url
-      : (enrichmentFields.sketch_image && enrichmentFields.sketch_image.url
-        ? enrichmentFields.sketch_image.url
-        : (enrichmentFields.sketch_image || modelFields.sketch_image || null));
-    const notes = String(
-      detailIdeaMetadata.notes != null
-        ? detailIdeaMetadata.notes
-        : (enrichmentFields.notes != null ? enrichmentFields.notes : (modelFields.notes || ''))
-    ).trim();
+    const metadata = this._resolveIdeaMetadata(model);
+    const externalLinks = metadata.external_links;
+    const sketchImage = metadata.sketch_image;
+    const notes = metadata.notes;
 
     const linksHtml = externalLinks.length ? externalLinks.map(link => {
       const url = this._escapeHtml(String(link.url || ''));
@@ -5340,44 +5369,260 @@ class ModelDetailPopupCard extends HTMLElement {
       `;
     }).join('') : '<div style="padding: 8px; color: var(--secondary-text-color); font-size: 12px;">No links</div>';
 
+    const editNotes = this._escapeHtml(this._ideaMetaDraft.notes || '');
+    const editLinks = this._escapeHtml(this._ideaMetaDraft.externalLinksText || '');
+    const editSketch = this._escapeHtml(this._ideaMetaDraft.sketchImageUrl || '');
+
     return `
       <section class="card">
         <div class="h">
           <span>💡 Idea Details</span>
+          <span>
+            ${this._ideaMetaEditOpen
+              ? `<button class="action-button ghost" data-action="idea-edit-cancel" ${this._ideaMetaSaving ? 'disabled' : ''}>Cancel</button>
+                 <button class="action-button" data-action="idea-edit-save" ${this._ideaMetaSaving ? 'disabled' : ''}>${this._ideaMetaSaving ? 'Saving...' : 'Save'}</button>`
+              : '<button class="action-button ghost" data-action="idea-edit-start">Edit</button>'}
+          </span>
         </div>
         <div style="padding: 10px; display: grid; gap: 8px; font-size: 12px;">
-          ${notes ? `
-            <div>
-              <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">Notes</div>
-              <div style="color: var(--primary-text-color); line-height: 1.4;">${this._escapeHtml(notes)}</div>
-            </div>
-          ` : ''}
-          ${externalLinks.length ? `
-            <div>
-              <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">External Links</div>
-              <div style="border: 1px solid var(--divider-color); border-radius: 8px; overflow: hidden;">
-                ${linksHtml}
+          ${this._ideaMetaEditOpen ? `
+            <label style="display:grid; gap:4px;">
+              <span style="font-weight: 600; color: var(--secondary-text-color);">Notes</span>
+              <textarea id="idea-notes-input" rows="4" maxlength="5000" style="width:100%; resize:vertical; border:1px solid var(--divider-color); border-radius:8px; background:var(--card-background-color); color:var(--primary-text-color); padding:8px;">${editNotes}</textarea>
+            </label>
+            <label style="display:grid; gap:4px;">
+              <span style="font-weight: 600; color: var(--secondary-text-color);">External Links</span>
+              <textarea id="idea-links-input" rows="4" placeholder="One per line. Use url|label for custom labels." style="width:100%; resize:vertical; border:1px solid var(--divider-color); border-radius:8px; background:var(--card-background-color); color:var(--primary-text-color); padding:8px;">${editLinks}</textarea>
+            </label>
+            <label style="display:grid; gap:4px;">
+              <span style="font-weight: 600; color: var(--secondary-text-color);">Sketch Image URL</span>
+              <input id="idea-sketch-input" type="url" placeholder="https://..." value="${editSketch}" style="border:1px solid var(--divider-color); border-radius:8px; background:var(--card-background-color); color:var(--primary-text-color); padding:8px;" />
+            </label>
+          ` : `
+            ${notes ? `
+              <div>
+                <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">Notes</div>
+                <div style="color: var(--primary-text-color); line-height: 1.4;">${this._escapeHtml(notes)}</div>
               </div>
-            </div>
-          ` : ''}
-          ${sketchImage ? `
-            <div>
-              <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">Sketch/Reference</div>
-              <img src="${this._escapeHtml(String(sketchImage))}" alt="Sketch" style="
-                max-width: 100%;
-                height: auto;
-                border: 1px solid var(--divider-color);
-                border-radius: 8px;
-                max-height: 200px;
-              " onerror="this.style.display='none'">
-            </div>
-          ` : ''}
-          <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 4px; font-style: italic;">
-            💡 This is an idea. Editing features available in Phase 2.2
+            ` : ''}
+            ${externalLinks.length ? `
+              <div>
+                <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">External Links</div>
+                <div style="border: 1px solid var(--divider-color); border-radius: 8px; overflow: hidden;">
+                  ${linksHtml}
+                </div>
+              </div>
+            ` : ''}
+            ${sketchImage ? `
+              <div>
+                <div style="font-weight: 600; margin-bottom: 4px; color: var(--secondary-text-color);">Sketch/Reference</div>
+                <img src="${this._escapeHtml(String(sketchImage))}" alt="Sketch" style="
+                  max-width: 100%;
+                  height: auto;
+                  border: 1px solid var(--divider-color);
+                  border-radius: 8px;
+                  max-height: 200px;
+                " onerror="this.style.display='none'">
+              </div>
+            ` : ''}
+            ${!notes && !externalLinks.length && !sketchImage ? '<div style="color: var(--secondary-text-color);">No idea details yet.</div>' : ''}
+          `}
+          <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 4px;">
+            Promoting this Idea keeps project/collection/tag memberships and changes entity type.
           </div>
         </div>
       </section>
     `;
+  }
+
+  _resolveIdeaMetadata(model) {
+    const detailIdeaMetadata = this._modelDetail && this._modelDetail.idea_metadata && typeof this._modelDetail.idea_metadata === 'object'
+      ? this._modelDetail.idea_metadata
+      : {};
+    const enrichment = this._modelDetail && this._modelDetail.enrichment && typeof this._modelDetail.enrichment === 'object'
+      ? this._modelDetail.enrichment
+      : {};
+    const enrichmentFields = enrichment.custom_fields && typeof enrichment.custom_fields === 'object'
+      ? enrichment.custom_fields
+      : {};
+    const modelFields = model && model.custom_fields && typeof model.custom_fields === 'object'
+      ? model.custom_fields
+      : {};
+
+    const externalLinks = Array.isArray(detailIdeaMetadata.external_links)
+      ? detailIdeaMetadata.external_links
+      : (Array.isArray(enrichmentFields.external_links)
+        ? enrichmentFields.external_links
+        : (Array.isArray(modelFields.external_links) ? modelFields.external_links : []));
+
+    const sketchCandidate = detailIdeaMetadata.sketch_image != null
+      ? detailIdeaMetadata.sketch_image
+      : (enrichmentFields.sketch_image != null ? enrichmentFields.sketch_image : modelFields.sketch_image);
+    const sketchUrl = sketchCandidate && typeof sketchCandidate === 'object'
+      ? String(sketchCandidate.url || '').trim()
+      : String(sketchCandidate || '').trim();
+
+    const notes = String(
+      detailIdeaMetadata.notes != null
+        ? detailIdeaMetadata.notes
+        : (enrichmentFields.notes != null ? enrichmentFields.notes : (modelFields.notes || ''))
+    ).trim();
+
+    return {
+      notes,
+      external_links: externalLinks,
+      sketch_image: sketchUrl,
+    };
+  }
+
+  _ideaExternalLinksToText(links) {
+    const rows = Array.isArray(links) ? links : [];
+    return rows.map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return '';
+      }
+      const url = String(entry.url || '').trim();
+      const label = String(entry.label || '').trim();
+      if (!url) {
+        return '';
+      }
+      return label ? `${url}|${label}` : url;
+    }).filter(Boolean).join('\n');
+  }
+
+  _parseIdeaExternalLinks(rawValue) {
+    const text = String(rawValue || '').trim();
+    if (!text) {
+      return [];
+    }
+    const tokens = text.split(/[\n,]+/);
+    const links = [];
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = String(tokens[i] || '').trim();
+      if (!token) {
+        continue;
+      }
+      const parts = token.split('|');
+      const url = String(parts[0] || '').trim();
+      const label = String(parts[1] || '').trim();
+      if (!url) {
+        continue;
+      }
+      if (label) {
+        links.push({ url, label });
+      } else {
+        links.push({ url });
+      }
+    }
+    return links;
+  }
+
+  _openIdeaMetadataEditor() {
+    const model = this._modelDetail && this._modelDetail.model ? this._modelDetail.model : {};
+    const metadata = this._resolveIdeaMetadata(model);
+    this._ideaMetaDraft = {
+      notes: String(metadata.notes || ''),
+      externalLinksText: this._ideaExternalLinksToText(metadata.external_links),
+      sketchImageUrl: String(metadata.sketch_image || ''),
+    };
+    this._ideaMetaEditOpen = true;
+    this._render();
+  }
+
+  _cancelIdeaMetadataEditor() {
+    this._ideaMetaEditOpen = false;
+    this._ideaMetaSaving = false;
+    this._render();
+  }
+
+  async _saveIdeaMetadataEdits() {
+    if (this._ideaMetaSaving) {
+      return;
+    }
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    if (!localModelId || !this._modelSidecarUrl) {
+      return;
+    }
+
+    const notesInput = this.shadowRoot && this.shadowRoot.querySelector ? this.shadowRoot.querySelector('#idea-notes-input') : null;
+    const linksInput = this.shadowRoot && this.shadowRoot.querySelector ? this.shadowRoot.querySelector('#idea-links-input') : null;
+    const sketchInput = this.shadowRoot && this.shadowRoot.querySelector ? this.shadowRoot.querySelector('#idea-sketch-input') : null;
+
+    const notes = String(notesInput && 'value' in notesInput ? notesInput.value : this._ideaMetaDraft.notes || '').trim();
+    const externalLinksText = String(linksInput && 'value' in linksInput ? linksInput.value : this._ideaMetaDraft.externalLinksText || '').trim();
+    const sketchImageUrl = String(sketchInput && 'value' in sketchInput ? sketchInput.value : this._ideaMetaDraft.sketchImageUrl || '').trim();
+
+    this._ideaMetaSaving = true;
+    this._ideaMetaDraft = { notes, externalLinksText, sketchImageUrl };
+    this._render();
+
+    try {
+      const payload = {
+        notes: notes || null,
+        external_links: this._parseIdeaExternalLinks(externalLinksText),
+        sketch_image: sketchImageUrl ? { url: sketchImageUrl } : null,
+      };
+      const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+      const response = await fetch(`${base}/api/local/models/${encodeURIComponent(localModelId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.success === false) {
+        throw new Error(String(body.error || `Idea metadata update failed (HTTP ${response.status})`));
+      }
+      await this._loadModelDetail({ silent: true });
+      this._ideaMetaSaving = false;
+      this._ideaMetaEditOpen = false;
+      this._notifyBrowserDetailChanged();
+    } catch (error) {
+      this._ideaMetaSaving = false;
+      this._error = `Failed to save idea metadata: ${error}`;
+      this._render();
+    }
+  }
+
+  async _promoteIdeaEntity(toEntityType) {
+    if (this._ideaPromoteBusy) {
+      return;
+    }
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const model = this._modelDetail && this._modelDetail.model ? this._modelDetail.model : {};
+    const fromEntityType = this._getEntityType(model);
+    const target = String(toEntityType || '').trim().toLowerCase();
+    if (!localModelId || fromEntityType !== 'idea' || (target !== 'model' && target !== 'working_group')) {
+      return;
+    }
+    const targetLabel = target === 'model' ? 'Catalog' : 'Working Group';
+    if (!window.confirm(`Promote "${String(model.name || localModelId)}" to ${targetLabel}?`)) {
+      return;
+    }
+
+    this._ideaPromoteBusy = true;
+    this._render();
+    try {
+      const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+      const response = await fetch(`${base}/api/local/models/${encodeURIComponent(localModelId)}/promote`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_entity_type: 'idea',
+          to_entity_type: target,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.success === false) {
+        throw new Error(String(body.error || `Promotion failed (HTTP ${response.status})`));
+      }
+      await this._loadModelDetail({ silent: true });
+      this._ideaPromoteBusy = false;
+      this._notifyBrowserDetailChanged();
+    } catch (error) {
+      this._ideaPromoteBusy = false;
+      this._error = `Failed to promote idea: ${error}`;
+      this._render();
+    }
   }
 
   // Phase 3.1 Methods: Edit Mode & Conflict Detection

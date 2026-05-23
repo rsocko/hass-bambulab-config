@@ -674,3 +674,84 @@ def test_indexed_duplicate_conflict_includes_preview_url(tmp_path: Path) -> None
         )
     finally:
         client.__exit__(None, None, None)
+
+
+def test_indexed_image_conflict_falls_back_to_model_asset_download_url(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    db_path = tmp_path / "model_catalog.db"
+    try:
+        baseline_image = source_root / "instructions torso.jpg"
+        baseline_image.write_bytes(b"baseline-image")
+
+        baseline_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(baseline_image)}],
+            },
+        )
+        assert baseline_upload.status_code == 200
+        baseline_upload_id = baseline_upload.json()["upload_id"]
+
+        baseline_publish = client.post(
+            f"/api/intake/uploads/{baseline_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "curated", "title": "Image Baseline"}]},
+        )
+        assert baseline_publish.status_code == 200
+
+        with sqlite3.connect(db_path) as connection:
+            connection.execute(
+                """
+                UPDATE model_catalog_assets
+                SET preview_url = NULL
+                WHERE asset_filename = ?
+                """,
+                (baseline_image.name,),
+            )
+            connection.commit()
+
+        incoming_image = source_root / "instructions torso (1).jpg"
+        incoming_image.write_bytes(b"incoming-image")
+
+        duplicate_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(incoming_image)}],
+            },
+        )
+        assert duplicate_upload.status_code == 200
+        duplicate_upload_id = duplicate_upload.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{duplicate_upload_id}/validate")
+        assert validate_response.status_code == 200
+        validation_payload = validate_response.json().get("validation") or {}
+
+        indexed_conflicts: list[dict[str, object]] = []
+        for check in validation_payload.get("checks") or []:
+            findings = check.get("findings") if isinstance(check, dict) else None
+            if not isinstance(findings, list):
+                continue
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                conflicts = finding.get("conflicts_with")
+                if not isinstance(conflicts, list):
+                    continue
+                for conflict in conflicts:
+                    if not isinstance(conflict, dict):
+                        continue
+                    if str(conflict.get("scope") or "").strip().lower() != "indexed":
+                        continue
+                    if str(conflict.get("parent_kind") or "").strip().lower() != "catalog_model":
+                        continue
+                    indexed_conflicts.append(conflict)
+
+        assert indexed_conflicts, "Expected at least one indexed catalog conflict"
+        assert any(
+            str(conflict.get("preview_url") or "").startswith("/api/models/")
+            and "/download" in str(conflict.get("preview_url") or "")
+            for conflict in indexed_conflicts
+        )
+    finally:
+        client.__exit__(None, None, None)
