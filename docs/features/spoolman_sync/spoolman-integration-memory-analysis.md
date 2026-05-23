@@ -4,8 +4,8 @@ Status: Superseded
 Last Reviewed: 2026-05-23
 Functional Owner: spoolman_sync
 Replaces: none
-Replaced By: design/popup-extension-points.md
+Replaced By: reference/spoolman-integration-memory-analysis.md
 
 This document moved to a lifecycle lane.
 
-Use [design/popup-extension-points.md](design/popup-extension-points.md).
+Use [reference/spoolman-integration-memory-analysis.md](reference/spoolman-integration-memory-analysis.md).

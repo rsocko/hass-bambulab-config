@@ -39,7 +39,7 @@ I noticed when first starting to use the Spoolman integration that it got out of
 
 This script simply forced a reload of the integration on a nightly basis.
 
-[Automation Details](reload-spoolman-integration-nightly.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/)
+[Automation Details](reference/reload-spoolman-integration-automation.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/)
 
 ### 4. Persistent error logging and manual recovery
 When the spoolman sync automation fails (e.g., spool not found), the system stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
@@ -145,7 +145,7 @@ Design and phased implementation plan for improving in-popup live updates while
 preserving catalog/main dashboard performance and supporting side-by-side
 legacy/reactive rollout:
 
-- [Popup Reactivity Refactor Design](popup-reactivity-refactor-design.md)
+- [Popup Reactivity Refactor Design](design/popup-reactivity-refactor.md)
 
 ### 11. Bambuddy partial-usage hybrid design
 
@@ -164,7 +164,7 @@ The design note also records live-production findings from 2026-04-12,
 including the currently observed Bambuddy Spoolman settings and why native
 transient tracking is not expected to be populated in production today.
 
-- [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md)
+- [Bambuddy Partial-Usage Sidecar Design](design/bambuddy-partial-usage-sidecar.md)
 
 Plan-only implementation documentation:
 
