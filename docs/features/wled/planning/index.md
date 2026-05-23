@@ -1,4 +1,4 @@
-﻿# WLED Configuration â€” File Index
+# WLED Configuration — File Index
 
 - Status: Active
 - Last Reviewed: 2026-05-23
@@ -7,11 +7,11 @@
 - Replaced By: n/a
 
 
-> **Updated 2026-03-13** â€” Restructured around the HA State Machine approach.
+> **Updated 2026-03-13** — Restructured around the HA State Machine approach.
 
 ## Current Architecture: HA State Machine
 
-The system uses a Home Assistant state machine that monitors printer status, transitions through 9 core states (S0â€“S8), and applies WLED presets (101â€“109) to the DigQuad controller. See [ha-state-machine-package.md](../reference/ha-state-machine-package.md) for the authoritative reference.
+The system uses a Home Assistant state machine that monitors printer status, transitions through 9 core states (S0–S8), and applies WLED presets (101–109) to the DigQuad controller. See [ha-state-machine-package.md](\docs\features\wled\reference\ha-state-machine-package.md) for the authoritative reference.
 
 ---
 
@@ -19,12 +19,12 @@ The system uses a Home Assistant state machine that monitors printer status, tra
 
 | #   | Document                                                         | Status      | Purpose                                                      |
 | --- | ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
-| 1   | [quick-reference.md](../reference/quick-reference.md)                         | **Current** | One-page overview of architecture, entities, and phases      |
-| 2   | [ha-state-machine-package.md](../reference/ha-state-machine-package.md)       | **Current** | State diagram, E_* event mapping, preset mapping, phase plan |
-| 3   | [controller-allocation.md](../reference/controller-allocation.md)             | **Current** | Hardware constraints, segment strategy                       |
-| 4   | [digquad-led-segments.md](../reference/digquad-led-segments.md)               | **Current** | Physical LED counts and GPIO mapping (711 LEDs)              |
-| 5   | [phased-implementation-guide.md](phased-implementation-guide.md) | **Current** | 3-phase guide aligned to state machine                       |
-| 6   | [backup-and-restore.md](../reference/backup-and-restore.md)                   | **Current** | Backup/restore procedures                                    |
+| 1   | [quick-reference.md](\docs\features\wled\reference\quick-reference.md)                         | **Current** | One-page overview of architecture, entities, and phases      |
+| 2   | [ha-state-machine-package.md](\docs\features\wled\reference\ha-state-machine-package.md)       | **Current** | State diagram, E_* event mapping, preset mapping, phase plan |
+| 3   | [controller-allocation.md](\docs\features\wled\reference\controller-allocation.md)             | **Current** | Hardware constraints, segment strategy                       |
+| 4   | [digquad-led-segments.md](\docs\features\wled\reference\digquad-led-segments.md)               | **Current** | Physical LED counts and GPIO mapping (711 LEDs)              |
+| 5   | [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) | **Current** | 3-phase guide aligned to state machine                       |
+| 6   | [backup-and-restore.md](\docs\features\wled\reference\backup-and-restore.md)                   | **Current** | Backup/restore procedures                                    |
 
 ---
 
@@ -32,62 +32,62 @@ The system uses a Home Assistant state machine that monitors printer status, tra
 
 ```
 docs/features/wled/
-â”œâ”€â”€ README.md                       â† Overview and quick links
-â”œâ”€â”€ INDEX.md                        â† This file
-â”œâ”€â”€ quick-reference.md              â† Start here
-â”œâ”€â”€ ha-state-machine-package.md     â† State machine reference
-â”œâ”€â”€ phased-implementation-guide.md  â† 3-phase implementation
-â”œâ”€â”€ light-scenarios.md              â† Target vision: 33+ LED scenarios
-â”œâ”€â”€ controller-allocation.md        â† Hardware constraints
-â”œâ”€â”€ digquad-led-segments.md         â† Physical LED specs (711 LEDs)
-â”œâ”€â”€ hardware-constraint.md          â† DigQuad capacity limits
-â”œâ”€â”€ backup-and-restore.md           â† Backup/restore procedures
-â”œâ”€â”€ cleanup-recommendations.md      â† File status and cleanup guidance
-â”œâ”€â”€ summary.md                      â† Design history
-â”œâ”€â”€ segment-reference.md            â† Segment lookup tables
-â”œâ”€â”€ wiring-diagram.md               â† Physical wiring guide
-â”œâ”€â”€ visual-installation-guide.md    â† ASCII strip layout
-â”œâ”€â”€ preset-specification.md         â† Legacy: preset 1â€“49 spec (not deployed)
-â”œâ”€â”€ preset-based-segments.md        â† Future: dynamic segments (Phase 3)
-â”œâ”€â”€ preset-based-visual-guide.md    â† Future: visual guide (Phase 3)
-â”œâ”€â”€ ha-automation-preset-based.md   â† Future: preset-based automations (Phase 3)
-â”œâ”€â”€ quick-start-preset-based.md     â† Future: preset-based quick start (Phase 3)
-â”œâ”€â”€ home-assistant-automations.md   â† Legacy: pre-state-machine automations
-â””â”€â”€ quick-start.md                  â† Legacy: pre-state-machine setup
+├── README.md                       ← Overview and quick links
+├── INDEX.md                        ← This file
+├── quick-reference.md              ← Start here
+├── ha-state-machine-package.md     ← State machine reference
+├── phased-implementation-guide.md  ← 3-phase implementation
+├── light-scenarios.md              ← Target vision: 33+ LED scenarios
+├── controller-allocation.md        ← Hardware constraints
+├── digquad-led-segments.md         ← Physical LED specs (711 LEDs)
+├── hardware-constraint.md          ← DigQuad capacity limits
+├── backup-and-restore.md           ← Backup/restore procedures
+├── cleanup-recommendations.md      ← File status and cleanup guidance
+├── summary.md                      ← Design history
+├── segment-reference.md            ← Segment lookup tables
+├── wiring-diagram.md               ← Physical wiring guide
+├── visual-installation-guide.md    ← ASCII strip layout
+├── preset-specification.md         ← Legacy: preset 1–49 spec (not deployed)
+├── preset-based-segments.md        ← Future: dynamic segments (Phase 3)
+├── preset-based-visual-guide.md    ← Future: visual guide (Phase 3)
+├── ha-automation-preset-based.md   ← Future: preset-based automations (Phase 3)
+├── quick-start-preset-based.md     ← Future: preset-based quick start (Phase 3)
+├── home-assistant-automations.md   ← Legacy: pre-state-machine automations
+└── quick-start.md                  ← Legacy: pre-state-machine setup
 
 wled/
-â”œâ”€â”€ digquad-settings/
-â”‚   â”œâ”€â”€ wled_state_machine_presets_Digquad_skeleton.json â† Active: presets 101â€“109
-â”‚   â”œâ”€â”€ wled_state_machine_preset_map.json       â† Active: reference mapping
-â”‚   â”œâ”€â”€ wled_segments_Digquad_UPDATED.json       â† Reference: target layout (Phase 2)
-â”‚   â”œâ”€â”€ wled_preset_50_A1_full_highlight.json    â† Future: preset-based segments
-â”‚   â””â”€â”€ wled_preset_54_B1_full_highlight.json    â† Future: preset-based segments
-â”œâ”€â”€ magwled-settings/                            â† Empty (configs removed; re-export from device)
-â””â”€â”€ backups/
-    â”œâ”€â”€ README.md
-    â”œâ”€â”€ digquad/
-    â”‚   â”œâ”€â”€ README_TEMPLATE.md
-    â”‚   â”œâ”€â”€ 2026-03-13 - Preinstall (baseline config)/  â† Baseline cfg + presets snapshot
-    â”‚   â””â”€â”€ 2026-03-13 - 2 - Phase 1 Implemented/      â† Post-Phase 1 cfg + presets snapshot
-    â””â”€â”€ magwled/
-        â””â”€â”€ NOTES_TEMPLATE.md
+├── digquad-settings/
+│   ├── wled_state_machine_presets_Digquad_skeleton.json ← Active: presets 101–109
+│   ├── wled_state_machine_preset_map.json       ← Active: reference mapping
+│   ├── wled_segments_Digquad_UPDATED.json       ← Reference: target layout (Phase 2)
+│   ├── wled_preset_50_A1_full_highlight.json    ← Future: preset-based segments
+│   └── wled_preset_54_B1_full_highlight.json    ← Future: preset-based segments
+├── magwled-settings/                            ← Empty (configs removed; re-export from device)
+└── backups/
+    ├── README.md
+    ├── digquad/
+    │   ├── README_TEMPLATE.md
+    │   ├── 2026-03-13 - Preinstall (baseline config)/  ← Baseline cfg + presets snapshot
+    │   └── 2026-03-13 - 2 - Phase 1 Implemented/      ← Post-Phase 1 cfg + presets snapshot
+    └── magwled/
+        └── NOTES_TEMPLATE.md
 
 homeassistant/packages/3d_printing/wled/
-â”œâ”€â”€ wled_loader.yaml                             â† Active: package loader
-â”œâ”€â”€ automations/
-â”‚   â””â”€â”€ wled_3dprinter_state_machine_orchestrator.yaml â† Active
-â”œâ”€â”€ scripts/
-â”‚   â”œâ”€â”€ wled_3dprinter_transition_from_event-script.yaml â† Active
-â”‚   â””â”€â”€ wled_3dprinter_apply_core_state_to_presets-script.yaml â† Active
-â””â”€â”€ helpers/
-    â”œâ”€â”€ input_boolean/
-    â”‚   â”œâ”€â”€ wled_3dprinter_state_machine_enabled.yaml â† Active
-    â”‚   â””â”€â”€ wled_3dprinter_show_mode_enabled.yaml     â† Active
-    â”œâ”€â”€ input_select/
-    â”‚   â””â”€â”€ wled_3dprinter_core_state.yaml            â† Active
-    â””â”€â”€ input_text/
-        â”œâ”€â”€ wled_3dprinter_last_event.yaml            â† Active
-        â””â”€â”€ wled_3dprinter_last_transition_reason.yaml â† Active
+├── wled_loader.yaml                             ← Active: package loader
+├── automations/
+│   └── wled_3dprinter_state_machine_orchestrator.yaml ← Active
+├── scripts/
+│   ├── wled_3dprinter_transition_from_event-script.yaml ← Active
+│   └── wled_3dprinter_apply_core_state_to_presets-script.yaml ← Active
+└── helpers/
+    ├── input_boolean/
+    │   ├── wled_3dprinter_state_machine_enabled.yaml ← Active
+    │   └── wled_3dprinter_show_mode_enabled.yaml     ← Active
+    ├── input_select/
+    │   └── wled_3dprinter_core_state.yaml            ← Active
+    └── input_text/
+        ├── wled_3dprinter_last_event.yaml            ← Active
+        └── wled_3dprinter_last_transition_reason.yaml ← Active
 ```
 
 ---
@@ -109,41 +109,41 @@ homeassistant/packages/3d_printing/wled/
 
 | Document                                                         | Purpose                         |
 | ---------------------------------------------------------------- | ------------------------------- |
-| [quick-reference.md](../reference/quick-reference.md)                         | One-page architecture reference |
-| [ha-state-machine-package.md](../reference/ha-state-machine-package.md)       | State machine specification     |
-| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation plan     |
-| [controller-allocation.md](../reference/controller-allocation.md)             | Hardware allocation analysis    |
-| [hardware-constraint.md](../reference/hardware-constraint.md)                 | DigQuad capacity limitations    |
-| [backup-and-restore.md](../reference/backup-and-restore.md)                   | Backup procedures               |
-| [digquad-led-segments.md](../reference/digquad-led-segments.md)               | Physical LED specs (711 LEDs)   |
+| [quick-reference.md](\docs\features\wled\reference\quick-reference.md)                         | One-page architecture reference |
+| [ha-state-machine-package.md](\docs\features\wled\reference\ha-state-machine-package.md)       | State machine specification     |
+| [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) | 3-phase implementation plan     |
+| [controller-allocation.md](\docs\features\wled\reference\controller-allocation.md)             | Hardware allocation analysis    |
+| [hardware-constraint.md](\docs\features\wled\reference\hardware-constraint.md)                 | DigQuad capacity limitations    |
+| [backup-and-restore.md](\docs\features\wled\reference\backup-and-restore.md)                   | Backup procedures               |
+| [digquad-led-segments.md](\docs\features\wled\reference\digquad-led-segments.md)               | Physical LED specs (711 LEDs)   |
 
 ### Reference (Background / Hardware)
 
 | Document | Purpose |
 |----------|---------|
-| [light-scenarios.md](../design/light-scenarios.md) | 33+ lighting scenario catalog |
-| [segment-reference.md](../reference/segment-reference.md) | Segment ID quick reference |
-| [wiring-diagram.md](../reference/wiring-diagram.md) | Physical wiring guide |
-| [visual-installation-guide.md](../reference/visual-installation-guide.md) | ASCII strip layout diagrams |
-| [summary.md](../archive/summary-2026-03-13.md) | Design evolution history |
-| [README.md](../README.md) | Original overview |
+| [light-scenarios.md](\docs\features\wled\design\light-scenarios.md) | 33+ lighting scenario catalog |
+| [segment-reference.md](\docs\features\wled\reference\segment-reference.md) | Segment ID quick reference |
+| [wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md) | Physical wiring guide |
+| [visual-installation-guide.md](\docs\features\wled\reference\visual-installation-guide.md) | ASCII strip layout diagrams |
+| [summary.md](\docs\features\wled\archive\summary-2026-03-13.md) | Design evolution history |
+| [README.md](\docs\features\wled\README.md) | Original overview |
 
 ### Future (Phase 3+)
 
 | Document | Purpose |
 |----------|---------|
-| [preset-based-segments.md](../design/preset-based-segments.md) | Dynamic segment switching technique |
-| [quick-start-preset-based.md](quick-start-preset-based.md) | Quick start for preset-based approach |
-| [ha-automation-preset-based.md](../design/preset-based-automation-examples.md) | Preset-based HA automations |
-| [preset-based-visual-guide.md](../design/preset-based-visual-guide.md) | Visual guide for dynamic segments |
+| [preset-based-segments.md](\docs\features\wled\design\preset-based-segments.md) | Dynamic segment switching technique |
+| [\docs\features\wled\planning\quick-start-preset-based.md](\docs\features\wled\planning\quick-start-preset-based.md) | Quick start for preset-based approach |
+| [ha-automation-preset-based.md](\docs\features\wled\design\preset-based-automation-examples.md) | Preset-based HA automations |
+| [preset-based-visual-guide.md](\docs\features\wled\design\preset-based-visual-guide.md) | Visual guide for dynamic segments |
 
 ### Legacy (Pre-State-Machine)
 
 | Document | Purpose |
 |----------|---------|
-| [preset-specification.md](../archive/preset-specification-legacy.md) | Presets 1â€“49 spec (never deployed on device) |
-| [quick-start.md](../reference/quick-start-legacy.md) | Original setup guide (pre-state-machine) |
-| [home-assistant-automations.md](../archive/home-assistant-automations-legacy.md) | Traditional HA automations |
+| [preset-specification.md](\docs\features\wled\archive\preset-specification-legacy.md) | Presets 1–49 spec (never deployed on device) |
+| [quick-start.md](\docs\features\wled\reference\quick-start-legacy.md) | Original setup guide (pre-state-machine) |
+| [home-assistant-automations.md](\docs\features\wled\archive\home-assistant-automations-legacy.md) | Traditional HA automations |
 
 ---
 
@@ -153,7 +153,7 @@ homeassistant/packages/3d_printing/wled/
 
 | File | Status | Purpose |
 |------|--------|--------|
-| `wled_state_machine_presets_Digquad_skeleton.json` | **Active** | Deployed as presets 101â€“109 |
+| `wled_state_machine_presets_Digquad_skeleton.json` | **Active** | Deployed as presets 101–109 |
 | `wled_state_machine_preset_map.json` | **Active** | Reference for HA scripts |
 | `wled_segments_Digquad_UPDATED.json` | **Reference** | Target layout for Phase 2 |
 | `wled_preset_50_A1_full_highlight.json` | **Future** | Phase 3 preset-based segments |
@@ -163,34 +163,34 @@ homeassistant/packages/3d_printing/wled/
 
 | Folder | Contents |
 |--------|----------|
-| `2026-03-13 - Preinstall (baseline config)/` | `wled_cfg_Dig-Quad-V3.json`, `wled_presets_Dig-Quad-V3.json` â€” baseline before state machine |
-| `2026-03-13 - 2 - Phase 1 Implemented/` | `wled_cfg_Dig-Quad-V3.json`, `wled_presets_Dig-Quad-V3.json` â€” after Phase 1 deployment |
+| `2026-03-13 - Preinstall (baseline config)/` | `wled_cfg_Dig-Quad-V3.json`, `wled_presets_Dig-Quad-V3.json` — baseline before state machine |
+| `2026-03-13 - 2 - Phase 1 Implemented/` | `wled_cfg_Dig-Quad-V3.json`, `wled_presets_Dig-Quad-V3.json` — after Phase 1 deployment |
 
 ---
 
 ## Use Case Guide
 
 ### "I just want to understand the current system"
-â†’ [quick-reference.md](../reference/quick-reference.md)
+→ [quick-reference.md](\docs\features\wled\reference\quick-reference.md)
 
 ### "I need to understand the state machine"
-â†’ [ha-state-machine-package.md](../reference/ha-state-machine-package.md)
+→ [ha-state-machine-package.md](\docs\features\wled\reference\ha-state-machine-package.md)
 
 ### "What do I do next?"
-â†’ [phased-implementation-guide.md](phased-implementation-guide.md) (Phase 2: Segment Expansion)
+→ [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) (Phase 2: Segment Expansion)
 
 ### "What are the hardware specs?"
-â†’ [digquad-led-segments.md](../reference/digquad-led-segments.md) (711 LEDs, 5 GPIO pins)
+→ [digquad-led-segments.md](\docs\features\wled\reference\digquad-led-segments.md) (711 LEDs, 5 GPIO pins)
 
 ### "I need to back up before making changes"
-â†’ [backup-and-restore.md](../reference/backup-and-restore.md)
+→ [backup-and-restore.md](\docs\features\wled\reference\backup-and-restore.md)
 
 ### "I want to see all lighting scenarios"
-â†’ [light-scenarios.md](../design/light-scenarios.md) (33+ scenarios â€” reference)
+→ [light-scenarios.md](\docs\features\wled\design\light-scenarios.md) (33+ scenarios — reference)
 
 ### "I'm troubleshooting"
-â†’ [phased-implementation-guide.md](phased-implementation-guide.md) (Troubleshooting section)
-â†’ [quick-reference.md](../reference/quick-reference.md) (Quick Diagnostic table)
+→ [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) (Troubleshooting section)
+→ [quick-reference.md](\docs\features\wled\reference\quick-reference.md) (Quick Diagnostic table)
 
 ---
 
@@ -200,14 +200,14 @@ homeassistant/packages/3d_printing/wled/
 |-----------|-------|
 | Total LEDs | 711 (DigQuad) + 48 (MagWLED) |
 | GPIO pins used | 5 of 5 on DigQuad + 1 on MagWLED |
-| Active presets | 101â€“109 (state machine) |
+| Active presets | 101–109 (state machine) |
 | Core states | 9 (S0_OFFLINE through S8_SHOW) |
 | HA entities | 5 helpers + 2 scripts + 1 automation |
 | Current phase | Phase 1 complete; Phase 2 next |
 
 ---
 
-**Version**: 2.0 (State Machine approach â€” 2026-03-13)
+**Version**: 2.0 (State Machine approach — 2026-03-13)
 - [ ] Read README.md for design overview
 - [ ] Obtained LED strips (711 LEDs total)
 - [ ] Installed Printer Front Door LEDs (GPIO 15, 158 LEDs)
@@ -226,12 +226,12 @@ homeassistant/packages/3d_printing/wled/
 - [ ] Tested with actual print
 - [ ] Documented final configuration
 
-## ðŸ†˜ Getting Help
+## 🆘 Getting Help
 
 ### Troubleshooting Resources
-1. **[quick-start.md](../reference/quick-start-legacy.md)** - Common issues section
-2. **[segment-reference.md](../reference/segment-reference.md)** - Troubleshooting quick reference
-3. **[wiring-diagram.md](../reference/wiring-diagram.md)** - Troubleshooting guide section
+1. **[quick-start.md](\docs\features\wled\reference\quick-start-legacy.md)** - Common issues section
+2. **[segment-reference.md](\docs\features\wled\reference\segment-reference.md)** - Troubleshooting quick reference
+3. **[wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md)** - Troubleshooting guide section
 
 ### External Resources
 - **WLED Documentation**: https://kno.wled.ge/
@@ -243,53 +243,53 @@ homeassistant/packages/3d_printing/wled/
 - **Issues**: https://github.com/rsocko/hass-bambulab-config/issues
 - **Discussions**: Share your setup and ask questions
 
-## ðŸŽ“ Learning Path
+## 🎓 Learning Path
 
 ### Beginner
-1. Read [controller-allocation.md](../reference/controller-allocation.md) - Understand segment limitations
-2. Read [preset-specification.md](../archive/preset-specification-legacy.md) - Review preset definitions
-3. Read [phased-implementation-guide.md](phased-implementation-guide.md) - Start with Phase 1
-4. Read [digquad-led-segments.md](../reference/digquad-led-segments.md) - Understand LED layout
-5. Read [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated) - Learn zone functions
-6. Read [light-scenarios.md](../design/light-scenarios.md) - See all scenarios
-7. Follow [quick-start.md](../reference/quick-start-legacy.md) - Setup guide
-8. Use [visual-installation-guide.md](../reference/visual-installation-guide.md) - Visual reference
+1. Read [controller-allocation.md](\docs\features\wled\reference\controller-allocation.md) - Understand segment limitations
+2. Read [preset-specification.md](\docs\features\wled\archive\preset-specification-legacy.md) - Review preset definitions
+3. Read [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) - Start with Phase 1
+4. Read [digquad-led-segments.md](\docs\features\wled\reference\digquad-led-segments.md) - Understand LED layout
+5. Read [LED Function Map](\docs\features\wled\design\light-scenarios.md#2-led-function-map-consolidated) - Learn zone functions
+6. Read [light-scenarios.md](\docs\features\wled\design\light-scenarios.md) - See all scenarios
+7. Follow [quick-start.md](\docs\features\wled\reference\quick-start-legacy.md) - Setup guide
+8. Use [visual-installation-guide.md](\docs\features\wled\reference\visual-installation-guide.md) - Visual reference
 
 ### Intermediate
-1. Review [README.md](../README.md) for complete design
-2. Study [wiring-diagram.md](../reference/wiring-diagram.md) for details
-3. Create segments based on [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated)
-4. Configure presets from [light-scenarios.md](../design/light-scenarios.md)
+1. Review [README.md](\docs\features\wled\README.md) for complete design
+2. Study [wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md) for details
+3. Create segments based on [LED Function Map](\docs\features\wled\design\light-scenarios.md#2-led-function-map-consolidated)
+4. Configure presets from [light-scenarios.md](\docs\features\wled\design\light-scenarios.md)
 
 ### Advanced
-1. Read [home-assistant-automations.md](../archive/home-assistant-automations-legacy.md)
-2. Map scenarios from [light-scenarios.md](../design/light-scenarios.md) to automations
+1. Read [home-assistant-automations.md](\docs\features\wled\archive\home-assistant-automations-legacy.md)
+2. Map scenarios from [light-scenarios.md](\docs\features\wled\design\light-scenarios.md) to automations
 3. Implement progress bar visualization (door bottom)
 4. Add filament color matching (from Spoolman)
 5. Configure humidity warnings (hygrometer LEDs)
 
-## ðŸ“Œ Quick Links
+## 📌 Quick Links
 
 ### Most Important Files
-- ðŸŽ¯ [quick-reference.md](../reference/quick-reference.md) - **START HERE!** One-page overview
-- ðŸ“„ [summary.md](../archive/summary-2026-03-13.md) - High-level summary
-- â­ [controller-allocation.md](../reference/controller-allocation.md) - Allocation strategy & limitations
-- â­ [preset-specification.md](../archive/preset-specification-legacy.md) - 31+ preset definitions
-- â­ [phased-implementation-guide.md](phased-implementation-guide.md) - 7-phase implementation
-- â­ [backup-and-restore.md](../reference/backup-and-restore.md) - Backup and restore workflow
-- â­ [digquad-led-segments.md](../reference/digquad-led-segments.md) - LED specifications (711 LEDs)
-- â­ [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated) - Zone functions
-- â­ [light-scenarios.md](../design/light-scenarios.md) - Scenario catalog (33+)
-- ðŸš€ [quick-start.md](../reference/quick-start-legacy.md) - Setup guide
-- ðŸ“– [README.md](../README.md) - Full documentation
-- ðŸ”Œ [wiring-diagram.md](../reference/wiring-diagram.md) - Wiring guide
-- ðŸ“‹ [segment-reference.md](../reference/segment-reference.md) - Quick reference
+- 🎯 [quick-reference.md](\docs\features\wled\reference\quick-reference.md) - **START HERE!** One-page overview
+- 📄 [summary.md](\docs\features\wled\archive\summary-2026-03-13.md) - High-level summary
+- ⭐ [controller-allocation.md](\docs\features\wled\reference\controller-allocation.md) - Allocation strategy & limitations
+- ⭐ [preset-specification.md](\docs\features\wled\archive\preset-specification-legacy.md) - 31+ preset definitions
+- ⭐ [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) - 7-phase implementation
+- ⭐ [backup-and-restore.md](\docs\features\wled\reference\backup-and-restore.md) - Backup and restore workflow
+- ⭐ [digquad-led-segments.md](\docs\features\wled\reference\digquad-led-segments.md) - LED specifications (711 LEDs)
+- ⭐ [LED Function Map](\docs\features\wled\design\light-scenarios.md#2-led-function-map-consolidated) - Zone functions
+- ⭐ [light-scenarios.md](\docs\features\wled\design\light-scenarios.md) - Scenario catalog (33+)
+- 🚀 [quick-start.md](\docs\features\wled\reference\quick-start-legacy.md) - Setup guide
+- 📖 [README.md](\docs\features\wled\README.md) - Full documentation
+- 🔌 [wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md) - Wiring guide
+- 📋 [segment-reference.md](\docs\features\wled\reference\segment-reference.md) - Quick reference
 
 ### Configuration Files
-- âœ¨ [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json) - Target segment layout (Phase 2)
-- ðŸŽ¨ [digquad-settings/wled_state_machine_presets_Digquad_skeleton.json](../../../wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json) - Active presets 101â€“109
+- ✨ [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json) - Target segment layout (Phase 2)
+- 🎨 [digquad-settings/wled_state_machine_presets_Digquad_skeleton.json](../../../wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json) - Active presets 101–109
 
-## ðŸ’¡ Tips
+## 💡 Tips
 
 - **Read specifications first** - digquad-led-segments.md has exact LED counts
 - **Understand functions** - light-scenarios.md Section 2 explains what each zone does
@@ -300,7 +300,7 @@ homeassistant/packages/3d_printing/wled/
 - **Backup configurations** before making changes
 - **Test incrementally** - one GPIO output at a time
 
-## ðŸ“… Revision History
+## 📅 Revision History
 
 - **v1.1** (2024): Added comprehensive specifications
   - Added digquad-led-segments.md with exact LED counts (711 total)
@@ -318,7 +318,7 @@ homeassistant/packages/3d_printing/wled/
 
 ---
 
-**Ready to get started?** â†’ Open [quick-reference.md](../reference/quick-reference.md) first, then [phased-implementation-guide.md](phased-implementation-guide.md) now! ðŸš€
+**Ready to get started?** → Open [quick-reference.md](\docs\features\wled\reference\quick-reference.md) first, then [\docs\features\wled\planning\phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md) now! 🚀
 
 
 

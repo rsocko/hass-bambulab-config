@@ -33,7 +33,7 @@ Implemented in this repository:
 - Searchable selector-based tray pin pickers are available for all 9 tray targets (8 AMS + external), backed by canonical `sensor.spoolman_spool_<id>` entities.
 
 Automatic matching and multi-color matching design are documented in:
-- [multicolor-spool-matching-design.md](multicolor-spool-matching.md)
+- [multicolor-spool-matching-design.md](\docs\features\spoolman_sync\design\multicolor-spool-matching.md)
 
 ## Core Concept
 

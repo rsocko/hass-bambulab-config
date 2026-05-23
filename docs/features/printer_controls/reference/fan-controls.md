@@ -268,8 +268,8 @@ The cards use:
 
 ## Related Documentation
 
-- [Dashboard README](../README.md) - Main dashboard documentation
-- [Top Bar Layout](../../printer_dashboards/design/top-bar-layout.md) - Top bar customization
+- [Dashboard README](\docs\features\printer_controls\README.md) - Main dashboard documentation
+- [Top Bar Layout](\docs\features\printer_dashboards\design\top-bar-layout.md) - Top bar customization
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab) - Integration documentation
 - [ESPHome Fan Component](https://esphome.io/components/fan/) - ESP32 fan setup
 

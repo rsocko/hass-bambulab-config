@@ -22,16 +22,16 @@ Primary package files:
 
 Related feature docs:
 
-- [Bambuddy Archive API Catalog](../bambuddy_common/reference/bambuddy-archive-api-catalog.md)
-- [Print History](../print_history/README.md)
-- [Bambuddy v0.2.4.1 Enhancements Roadmap](planning/bambuddy-v0.2.4.1-enhancements-roadmap.md)
+- [Bambuddy Archive API Catalog](\docs\features\bambuddy_common\reference\bambuddy-archive-api-catalog.md)
+- [Print History](\docs\features\print_history\README.md)
+- [Bambuddy v0.2.4.1 Enhancements Roadmap](\docs\features\bambuddy_integration\planning\bambuddy-v0.2.4.1-enhancements-roadmap.md)
 
 ## Dependencies & Requirements
 
-> **Foundation:** This feature requires the [Core](../core/README.md)
+> **Foundation:** This feature requires the [Core](\docs\features\core\README.md)
 > package and the
 > [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration.
-> It does not depend on [Common](../common/README.md).
+> It does not depend on [Common](\docs\features\common\README.md).
 
 ### External Dependencies
 
@@ -69,7 +69,7 @@ Current repo assessment:
   `stats.total_prints` means unique archived rows.
 
 Enhancement follow-ons from the `v0.2.4.1` review are documented in
-[bambuddy-v0.2.4.1-enhancements-roadmap.md](planning/bambuddy-v0.2.4.1-enhancements-roadmap.md).
+[bambuddy-v0.2.4.1-enhancements-roadmap.md](\docs\features\bambuddy_integration\planning\bambuddy-v0.2.4.1-enhancements-roadmap.md).
 
 Operational caveat:
 

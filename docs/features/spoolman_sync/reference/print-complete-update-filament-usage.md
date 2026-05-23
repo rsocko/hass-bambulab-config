@@ -10,7 +10,7 @@ Replaced By: none
 This Home Assistant automation triggers upon a successful completion of a print job on your Bambu Lab printer (as reported by the Bambu Lab integration). It updates Spoolman with the filament usage for each tray that contributed to the print.
 
 ## Key Features
-- **Backup/restore support**: If Home Assistant restarts during a print, the automation falls back to a backed-up snapshot of print weight attributes (captured after printer status reaches `running`, with wait/retry for MQTT tray data) so Spoolman is still updated correctly. See [Print Weight Persistence](print-weight-persistence-overview.md) for details.
+- **Backup/restore support**: If Home Assistant restarts during a print, the automation falls back to a backed-up snapshot of print weight attributes (captured after printer status reaches `running`, with wait/retry for MQTT tray data) so Spoolman is still updated correctly. See [Print Weight Persistence](\docs\features\spoolman_sync\reference\print-weight-persistence-overview.md) for details.
 - **Guarded native print-status fallback**: If the Bambu device `print_finished` event is missed, the automation can still run from a `print_status` transition to `finish`/`failed`/`idle`/`offline`. This fallback only runs when the printer transitioned from an active print state and there is usable live tray data or a valid backup payload. It does not rely on a fixed maximum print duration.
 - **Multi-AMS tray mapping**: Dynamically resolves AMS tray entities from the reported tray label (e.g., `AMS 2 Tray 3` → `sensor.[printer]_ams_2_tray_3`) so AMS2+ usage updates the correct spool.
 - **Runout/swap safety guard**: If an AMS tray UUID is missing at print completion (common after runout or spool swap), the automation skips automatic decrement for that tray to avoid updating the wrong spool.
@@ -35,7 +35,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 ## Prerequisites
 - [Print Started - Backup Print Weight automation](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml) enabled (for backup/restore support)
 - Helper entities and template sensors loaded via [spoolman_sync_loader.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
-- All other prerequisites as specified in [README](../README.md)
+- All other prerequisites as specified in [README](\docs\features\spoolman_sync\README.md)
 
 ## Notes
 - The automation now parses the AMS index from tray labels (for example `AMS 1 Tray 2`, `AMS 2 Tray 2`) instead of hardcoding AMS 1 tray entities.
@@ -44,9 +44,9 @@ This Home Assistant automation triggers upon a successful completion of a print 
 - The status fallback is intentionally guarded by print-context validation rather than a blanket age cutoff. The automation still validates backup task name and total print weight before using backup data, which is the actual protection against stale payloads.
 - This automation remains the recommended authority for successful-print
 	decrements even if a future Bambuddy hybrid partial-usage fallback is added.
-	See [Bambuddy Partial-Usage Sidecar Design](../design/bambuddy-partial-usage-sidecar.md).
+	See [Bambuddy Partial-Usage Sidecar Design](\docs\features\spoolman_sync\design\bambuddy-partial-usage-sidecar.md).
 - **External Spool behavior**: Based on analysis of the ha-bambulab integration source code, when printing from the External Spool on a printer with an AMS, the `print_weight` sensor's per-tray attributes (`External Spool: <weight>`) may be cleared when the print finishes (because the external spool becomes "inactive" as `tray_now` resets to 255). The backup mechanism in [Print Started - Backup Print Weight](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml) captures these attributes once printing is active and is used as a fallback in this scenario.
-- **Future extension**: If your environment later exposes a second external spool entity, add `external_spool_2` mapping in the same five files documented in the [README](../README.md#external-spool-assumption).
+- **Future extension**: If your environment later exposes a second external spool entity, add `external_spool_2` mapping in the same five files documented in the [README](\docs\features\spoolman_sync\README.md#external-spool-assumption).
 
 ## Flow of the Logic
 

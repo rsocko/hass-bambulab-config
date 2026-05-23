@@ -2,7 +2,7 @@
 
 > Based on full Bambuddy maintenance API: [`maintenance.py`](https://github.com/maziggy/bambuddy/blob/main/backend/app/api/routes/maintenance.py)
 > Cross-references printer status API (`runtime_seconds`, `nozzles`, AMS humidity), archive stats API, and printer control API (calibration).
-> Builds on the core maintenance package defined in [README.md](../README.md).
+> Builds on the core maintenance package defined in [README.md](\docs\features\printer_maintenance\README.md).
 >
 > **OpenAPI cross-check**: Re-validated against the live spec at `http://bambuddy.socko.us/openapi.json` on 2026-03-29.
 

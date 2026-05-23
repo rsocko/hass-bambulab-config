@@ -1,4 +1,4 @@
-﻿# Quick Start Guide - WLED Bambu Lab Printer Lighting
+# Quick Start Guide - WLED Bambu Lab Printer Lighting
 
 - Status: Active
 - Last Reviewed: 2026-05-23
@@ -7,7 +7,7 @@
 - Replaced By: n/a
 
 
-> **STATUS: LEGACY** â€” This guide predates the Home Assistant State Machine approach. For the current setup path, see [quick-reference.md](quick-reference.md) and [phased-implementation-guide.md](../planning/phased-implementation-guide.md). The hardware information here remains accurate.
+> **STATUS: LEGACY** — This guide predates the Home Assistant State Machine approach. For the current setup path, see [\docs\features\wled\reference\quick-reference.md](\docs\features\wled\reference\quick-reference.md) and [phased-implementation-guide.md](\docs\features\wled\planning\phased-implementation-guide.md). The hardware information here remains accurate.
 
 This guide will help you get started quickly with your WLED LED strip configuration for Bambu Lab printer and dual AMS setup.
 
@@ -20,9 +20,9 @@ This configuration package includes:
    - `light-scenarios.md` (Section 2: LED Function Map) - Detailed function specifications for each zone
    - `light-scenarios.md` - Complete catalog of 33+ lighting scenarios
 2. **Main README** (`README.md`) - Complete overview integrated with specifications
-3. **Wiring Diagram** ([wiring-diagram.md](wiring-diagram.md)) - Detailed installation instructions
-4. **Home Assistant Automations** ([home-assistant-automations.md](../archive/home-assistant-automations-legacy.md)) - Integration examples
-5. **Backup Guide** ([backup-and-restore.md](backup-and-restore.md)) - Backup/restore process and required files
+3. **Wiring Diagram** ([\docs\features\wled\reference\wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md)) - Detailed installation instructions
+4. **Home Assistant Automations** ([home-assistant-automations.md](\docs\features\wled\archive\home-assistant-automations-legacy.md)) - Integration examples
+5. **Backup Guide** ([\docs\features\wled\reference\backup-and-restore.md](\docs\features\wled\reference\backup-and-restore.md)) - Backup/restore process and required files
 6. **Digquad Configuration**:
    - `digquad-settings/wled_cfg_Digquad.json` - Controller configuration
    - `digquad-settings/wled_presets_Digquad.json` - Presets based on light-scenarios.md
@@ -48,7 +48,7 @@ Use this as the source of truth for what to load to DigQuad.
 
 1. Back up current DigQuad (`cfg.json`, `presets.json`; optional `backup-export.json` if available).
 2. Load `wled_cfg_Digquad.json` (or manually reconcile deltas with your current config).
-3. Load `wled_presets_Digquad.json` â€” this is a complete `presets.json` with presets 0-14, ready to upload directly.
+3. Load `wled_presets_Digquad.json` — this is a complete `presets.json` with presets 0-14, ready to upload directly.
 4. If using the HA state machine, also load `wled_state_machine_presets_Digquad_skeleton.json` (presets 101-109). Since preset IDs don't overlap, you can safely merge or append.
 5. Validate segment bounds against `wled_segments_Digquad_UPDATED.json`.
 6. Reboot and run validation tests.
@@ -60,7 +60,7 @@ All `.json` preset files in this repo use the native WLED `presets.json` format 
 ### Important guardrail
 
 - Treat `.customization` files as repository reference artifacts unless you intentionally convert them into active `cfg.json`/`presets.json` payloads.
-- The skeleton file contains only presets 101-109 â€” uploading it alone as `presets.json` will replace all existing presets. Merge it into an existing `presets.json` to preserve presets 1-14.
+- The skeleton file contains only presets 101-109 — uploading it alone as `presets.json` will replace all existing presets. Merge it into an existing `presets.json` to preserve presets 1-14.
 
 ## Quick Start Steps
 
@@ -99,7 +99,7 @@ All `.json` preset files in this repo use the native WLED `presets.json` format 
 - See Amazon product links in `digquad-led-segments.md`
 
 **Power Supply:**
-- 711 LEDs Ã— 0.06A = 42.66A maximum (full white, worst case)
+- 711 LEDs × 0.06A = 42.66A maximum (full white, worst case)
 - Typical usage at 30-50% brightness: 12-21A
 - **Recommended**: 15-20A @ 5V power supply with headroom
 - Power injection recommended for each GPIO output
@@ -110,7 +110,7 @@ All `.json` preset files in this repo use the native WLED `presets.json` format 
 
 ### Step 3: Install LED Strips (2-3 hours)
 
-Follow the detailed instructions in [wiring-diagram.md](wiring-diagram.md) and use LED specifications from `digquad-led-segments.md`:
+Follow the detailed instructions in [\docs\features\wled\reference\wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md) and use LED specifications from `digquad-led-segments.md`:
 
 1. **Printer Front Door** (GPIO 15, 158 LEDs):
    - COB 160 LED/m strip
@@ -156,7 +156,7 @@ Follow the detailed instructions in [wiring-diagram.md](wiring-diagram.md) and u
 
 Before segment edits and preset changes, capture a baseline snapshot:
 
-1. Follow [backup-and-restore.md](backup-and-restore.md).
+1. Follow [\docs\features\wled\reference\backup-and-restore.md](\docs\features\wled\reference\backup-and-restore.md).
 2. In WLED UI (`Config` -> `Security & Updates`), export:
    - `Backup Configuration` -> save as `cfg.json`
    - `Backup Presets` -> save as `presets.json`
@@ -223,7 +223,7 @@ Reference `light-scenarios.md` for detailed color and effect specifications for 
 
 ### Step 8: Home Assistant Integration (1 hour)
 
-Follow instructions in [home-assistant-automations.md](../archive/home-assistant-automations-legacy.md):
+Follow instructions in [home-assistant-automations.md](\docs\features\wled\archive\home-assistant-automations-legacy.md):
 
 1. Add WLED device to Home Assistant
 2. Create automations based on `light-scenarios.md`:
@@ -236,12 +236,12 @@ Follow instructions in [home-assistant-automations.md](../archive/home-assistant
 4. Monitor during actual prints
 
 Example key automations:
-- **Print Started** â†’ Preset 8 (Printing state)
-- **Heating Bed** â†’ Preset 4 (Orange pulse)
-- **Print Error** â†’ Preset 10 (Red strobe)
-- **Filament Loading** â†’ Preset 17 (Blue chase)
-- **Humidity High** â†’ Preset 20 (Red hygrometer)
-- **Print Complete** â†’ Preset 11 (Green celebration)
+- **Print Started** → Preset 8 (Printing state)
+- **Heating Bed** → Preset 4 (Orange pulse)
+- **Print Error** → Preset 10 (Red strobe)
+- **Filament Loading** → Preset 17 (Blue chase)
+- **Humidity High** → Preset 20 (Red hygrometer)
+- **Print Complete** → Preset 11 (Green celebration)
 
 ## Common Issues and Solutions
 
@@ -273,11 +273,11 @@ Example key automations:
 Calculate your power needs:
 - Total LEDs: 711
 - Each LED: ~60mA at full white
-- Maximum theoretical: 711 Ã— 0.06A = 42.66A (full white, all LEDs)
+- Maximum theoretical: 711 × 0.06A = 42.66A (full white, all LEDs)
 - Typical usage at 30-50% brightness: ~12-21A
 - **Recommendation**: 15-20A @ 5V power supply with adequate headroom
 
-âš ï¸ **Important**: 
+⚠️ **Important**: 
 - Use power injection at each GPIO output for best performance
 - Full white at 100% is rarely needed in practice
 - Most scenarios use 30-50% brightness with mixed colors
@@ -361,11 +361,11 @@ The automation system maps printer states to lighting scenarios (see `light-scen
 6. **Manual Control**: Dashboard buttons for maintenance and testing
 
 Key sensor mappings:
-- `sensor.bambu_lab_x1c_current_stage` â†’ Print lifecycle presets
-- `sensor.bambu_lab_x1c_active_tray` â†’ Tray/tag highlighting
-- `sensor.bambu_lab_x1c_print_progress` â†’ Progress bar percentage
-- `sensor.bambu_lab_x1c_hms_errors` â†’ Error state presets
-- AMS humidity sensors â†’ Hygrometer warnings
+- `sensor.bambu_lab_x1c_current_stage` → Print lifecycle presets
+- `sensor.bambu_lab_x1c_active_tray` → Tray/tag highlighting
+- `sensor.bambu_lab_x1c_print_progress` → Progress bar percentage
+- `sensor.bambu_lab_x1c_hms_errors` → Error state presets
+- AMS humidity sensors → Hygrometer warnings
 
 ## Maintenance
 
@@ -406,7 +406,7 @@ WLED has 100+ built-in effects. Try different ones for each preset!
 ### Progress Visualization
 The bottom printer segment (0-50 LEDs) is dedicated for progress visualization:
 - Read print percentage from Home Assistant
-- Calculate LEDs to light: (percentage / 100) Ã— 50
+- Calculate LEDs to light: (percentage / 100) × 50
 - Update LED colors via WLED API
 - Create moving gradient or solid progress bar
 
@@ -478,16 +478,16 @@ Found a bug or have an improvement?
 - **Testing & Refinement**: 2-3 hours
 - **Total**: 8-12 hours for complete setup
 
-Good luck with your installation! ðŸŽ‰
+Good luck with your installation! 🎉
 
 ## Quick Reference Links
 
-- ðŸ“Š [digquad-led-segments.md](digquad-led-segments.md) - LED specifications
-- ðŸŽ¯ [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated) - Zone functions
-- ðŸŽ¨ [light-scenarios.md](../design/light-scenarios.md) - Scenario catalog
-- ðŸ“– [README.md](../README.md) - Complete documentation
-- ðŸ”Œ [wiring-diagram.md](wiring-diagram.md) - Installation guide
-- ðŸ  [home-assistant-automations.md](../archive/home-assistant-automations-legacy.md) - Automation examples
+- 📊 [\docs\features\wled\reference\digquad-led-segments.md](\docs\features\wled\reference\digquad-led-segments.md) - LED specifications
+- 🎯 [LED Function Map](\docs\features\wled\design\light-scenarios.md#2-led-function-map-consolidated) - Zone functions
+- 🎨 [light-scenarios.md](\docs\features\wled\design\light-scenarios.md) - Scenario catalog
+- 📖 [README.md](\docs\features\wled\README.md) - Complete documentation
+- 🔌 [\docs\features\wled\reference\wiring-diagram.md](\docs\features\wled\reference\wiring-diagram.md) - Installation guide
+- 🏠 [home-assistant-automations.md](\docs\features\wled\archive\home-assistant-automations-legacy.md) - Automation examples
 
 
 

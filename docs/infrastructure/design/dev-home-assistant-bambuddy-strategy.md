@@ -22,7 +22,7 @@ The current repository and deployment model assume a single Home Assistant targe
 - Package loading is driven by [homeassistant/packages/3d_printing/_feature_loaders.yaml](../..//homeassistant/packages/3d_printing/_feature_loaders.yaml).
 - The main deploy workflow is [.github/workflows/deploy-homeassistant-template.yml](../../.github/workflows/deploy-homeassistant-template.yml).
 - Push-triggered deploy dispatch is controlled by [.github/workflows/auto-dispatch-homeassistant-deploy.yml](../../.github/workflows/auto-dispatch-homeassistant-deploy.yml) and [.github/deploy/auto-deploy.env](../../.github/deploy/auto-deploy.env).
-- Lovelace resource versioning and runtime registration are controlled by [docs/repo/reference/dashboard-deployment-behavior.md](../../repo/reference/dashboard-deployment-behavior.md) and [homeassistant/packages/3d_printing/common/dashboards/_resources.yaml](../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml).
+- Lovelace resource versioning and runtime registration are controlled by [docs/repo/reference/dashboard-deployment-behavior.md](\docs\repo\reference\dashboard-deployment-behavior.md) and [homeassistant/packages/3d_printing/common/dashboards/_resources.yaml](../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml).
 
 Additional current-state assumptions for this strategy:
 
@@ -237,7 +237,7 @@ When a tracked JS resource under `homeassistant/www/**` changes:
 - ensure the workflow syncs the live resource registry correctly
 - hard refresh the browser after deploy
 
-This contract is documented in [docs/repo/reference/dashboard-deployment-behavior.md](../../repo/reference/dashboard-deployment-behavior.md).
+This contract is documented in [docs/repo/reference/dashboard-deployment-behavior.md](\docs\repo\reference\dashboard-deployment-behavior.md).
 
 ### 4. Single-Target Workflow Assumptions
 
@@ -425,6 +425,6 @@ These decisions should be made after the environment-aware deploy groundwork exi
 - [homeassistant/README.md](../../../homeassistant/README.md)
 - [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../../homeassistant/packages/3d_printing/_feature_loaders.yaml)
 - [homeassistant/custom_components/bambuddy/config_flow.py](../../../homeassistant/custom_components/bambuddy/config_flow.py)
-- [docs/repo/reference/deployment-workflow-reference.md](../../repo/reference/deployment-workflow-reference.md)
-- [docs/repo/reference/deployment-structure.md](../../repo/reference/deployment-structure.md)
-- [docs/repo/reference/dashboard-deployment-behavior.md](../../repo/reference/dashboard-deployment-behavior.md)
+- [docs/repo/reference/deployment-workflow-reference.md](\docs\repo\reference\deployment-workflow-reference.md)
+- [docs/repo/reference/deployment-structure.md](\docs\repo\reference\deployment-structure.md)
+- [docs/repo/reference/dashboard-deployment-behavior.md](\docs\repo\reference\dashboard-deployment-behavior.md)

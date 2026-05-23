@@ -4,7 +4,7 @@ This document provides visual examples of how the fan control cards appear in di
 
 <!-- SCREENSHOT: id=fan-controls-printing | format=png | version=1.0 | package=printer_controls | added=2026-03-15 | captured=2026-03-15 -->
 
-![Fan controls — all fans active during print](../../../screenshots/images/fan-controls-printing.png)
+![Fan controls — all fans active during print](\docs\screenshots\images\fan-controls-printing.png)
 
 <!-- SCREENSHOT: id=fan-controls-idle | format=png | version=1.0 | package=printer_controls | added=2026-03-15 -->
 <!-- Capture: All 4 fan cards when idle — grey icons, 0%/Off values -->
@@ -297,7 +297,7 @@ Icon changes from grey to green
 
 ## Customization Examples
 
-See [fan-controls.md](../reference/fan-controls.md) for detailed customization instructions including:
+See [fan-controls.md](\docs\features\printer_controls\reference\fan-controls.md) for detailed customization instructions including:
 - Changing color thresholds
 - Modifying background colors
 - Using different icons

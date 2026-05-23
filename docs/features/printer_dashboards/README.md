@@ -18,14 +18,14 @@ Each feature package contributes cards via its `dashboard_cards/` directory, whi
 
 <!-- SCREENSHOT: id=dashboard-full-desktop | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![Full dashboard — desktop overview](../../screenshots/images/dashboard-full-desktop.png)
+![Full dashboard — desktop overview](\docs\screenshots\images\dashboard-full-desktop.png)
 
 <!-- SCREENSHOT: id=dashboard-full-mobile | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![Full dashboard — mobile overview](../../screenshots/images/dashboard-full-mobile.png)
+![Full dashboard — mobile overview](\docs\screenshots\images\dashboard-full-mobile.png)
 
 ### Top Bar
-Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](design/top-bar-layout.md) for layout design.
+Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](\docs\features\printer_dashboards\design\top-bar-layout.md) for layout design.
 
 - Real-time print status and progress
 - Time remaining and estimated completion
@@ -39,44 +39,44 @@ Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](d
 - Spool information and tracking
 
 ### AMS Tray Popup
-Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md](reference/ams-tray-popup.md) and [ams-tray-popup-visual.md](design/ams-tray-popup-visual.md).
+Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md](\docs\features\printer_dashboards\reference\ams-tray-popup.md) and [ams-tray-popup-visual.md](\docs\features\printer_dashboards\design\ams-tray-popup-visual.md).
 
 <!-- SCREENSHOT: id=ams-tray-popup-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![AMS tray popup — matched spool with full details](../../screenshots/images/ams-tray-popup-matched.png)
+![AMS tray popup — matched spool with full details](\docs\screenshots\images\ams-tray-popup-matched.png)
 
 <!-- SCREENSHOT: id=ams-tray-popup-interaction | format=gif | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
 <!-- Capture: Record tap on AMS tray card → popup opens → scroll through details → close. ~5-8s loop (use ScreenToGif or ShareX GIF mode) -->
 > **🎬 Animation needed:** AMS tray popup — tap-to-open interaction *(gif)*
 
 ### AMS Header Cards
-Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](reference/card-templates-README.md).
+Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](\docs\features\printer_dashboards\reference\card-templates-README.md).
 
 ### Feature Cards
 Each feature contributes dashboard cards — see feature-specific docs:
 
 | Dashboard Section | Feature Docs |
 |-------------------|-------------|
-| Error Alert Banner | [Error Alerts](../error_alerts/README.md) |
-| Temperature Cards | [Printer Temps](../printer_temps/README.md) |
-| Print Progress KPIs | [Print Progress](../print_progress/README.md) |
-| Weight & Cost | [Print Weight & Cost](../print_weight_and_cost/README.md) |
-| Fan Controls | [Printer Controls](../printer_controls/README.md) |
-| LED Controls | [Printer LED](../printer_led/README.md) |
-| Spool Tracking | [Spoolman Sync](../spoolman_sync/README.md) |
+| Error Alert Banner | [Error Alerts](\docs\features\error_alerts\README.md) |
+| Temperature Cards | [Printer Temps](\docs\features\printer_temps\README.md) |
+| Print Progress KPIs | [Print Progress](\docs\features\print_progress\README.md) |
+| Weight & Cost | [Print Weight & Cost](\docs\features\print_weight_and_cost\README.md) |
+| Fan Controls | [Printer Controls](\docs\features\printer_controls\README.md) |
+| LED Controls | [Printer LED](\docs\features\printer_led\README.md) |
+| Spool Tracking | [Spoolman Sync](\docs\features\spoolman_sync\README.md) |
 
 ## Dashboard-Specific Documentation
 
 | File | Description |
 |------|-------------|
-| [top-bar-layout.md](design/top-bar-layout.md) | Top bar card layout and responsive grid |
-| [ams-tray-popup.md](reference/ams-tray-popup.md) | AMS tray popup implementation and data sources |
-| [ams-tray-popup-visual.md](design/ams-tray-popup-visual.md) | Visual mockup and layout guide |
-| [active-spool-border.md](reference/active-spool-border.md) | Active spool cyan border indicator |
-| [card-templates-README.md](reference/card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
-| [animation-design-notes.md](design/animation-design-notes.md) | CSS animation design notes and patterns |
-| [multicolor-spool-testing.md](reference/multicolor-spool-testing.md) | Testing guide for multi-color spool display |
-| [yaml-conversion-status.md](planning/yaml-conversion-status.md) | YAML conversion status and known issues |
+| [top-bar-layout.md](\docs\features\printer_dashboards\design\top-bar-layout.md) | Top bar card layout and responsive grid |
+| [ams-tray-popup.md](\docs\features\printer_dashboards\reference\ams-tray-popup.md) | AMS tray popup implementation and data sources |
+| [ams-tray-popup-visual.md](\docs\features\printer_dashboards\design\ams-tray-popup-visual.md) | Visual mockup and layout guide |
+| [active-spool-border.md](\docs\features\printer_dashboards\reference\active-spool-border.md) | Active spool cyan border indicator |
+| [card-templates-README.md](\docs\features\printer_dashboards\reference\card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
+| [animation-design-notes.md](\docs\features\printer_dashboards\design\animation-design-notes.md) | CSS animation design notes and patterns |
+| [multicolor-spool-testing.md](\docs\features\printer_dashboards\reference\multicolor-spool-testing.md) | Testing guide for multi-color spool display |
+| [yaml-conversion-status.md](\docs\features\printer_dashboards\planning\yaml-conversion-status.md) | YAML conversion status and known issues |
 
 ## Custom Cards Required (HACS)
 
@@ -105,7 +105,7 @@ Each feature contributes dashboard cards — see feature-specific docs:
 
 ## Dependencies & Requirements
 
-> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
+> **Foundation:** This feature requires the [Core](\docs\features\core\README.md) and [Common](\docs\features\common\README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](\docs\README.md#foundation-packages).
 
 Printer Dashboards is the **aggregation layer** — it assembles cards contributed by all other features. Every feature with a `dashboard_cards/` directory is an implicit dependency.
 
@@ -123,7 +123,7 @@ See the [Custom Cards Required](#custom-cards-required-hacs) section above for t
 
 | Feature | Relationship |
 |---|---|
-| [Core — Smart Status](../core/README.md) | Status mapping used throughout the dashboard |
+| [Core — Smart Status](\docs\features\core\README.md) | Status mapping used throughout the dashboard |
 
 **Why `button_card_templates` is dashboard-level (not `configuration.yaml`):**
 button-card reads `button_card_templates` from the Lovelace dashboard config object itself
@@ -192,7 +192,7 @@ If you have a smart switch controlling printer power, update:
 ## Customization
 
 ### Top Bar Layout
-See [top-bar-layout.md](design/top-bar-layout.md) for details on customizing the top bar, including:
+See [top-bar-layout.md](\docs\features\printer_dashboards\design\top-bar-layout.md) for details on customizing the top bar, including:
 - Changing grid columns
 - Adjusting font sizes
 - Adding new cards

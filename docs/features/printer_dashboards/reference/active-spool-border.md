@@ -201,13 +201,13 @@ return active ? 'inset 0 0 0 4px var(--primary-color), 0 0 10px var(--primary-co
 
 ## Related Features
 
-- [AMS Tray Popup](./ams-tray-popup.md) - Detailed popup when clicking a spool card
-- [Print Weight Bar Chart](../../print_weight_and_cost/reference/print-weight-and-cost-bar-charts.md) - Visual weight breakdown by filament
+- [AMS Tray Popup](\docs\features\printer_dashboards\reference\ams-tray-popup.md) - Detailed popup when clicking a spool card
+- [Print Weight Bar Chart](\docs\features\print_weight_and_cost\reference\print-weight-and-cost-bar-charts.md) - Visual weight breakdown by filament
 
 ## Files Modified
 
 - [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) - Main dashboard configuration containing all 9 spool button-cards
-- [docs/features/printer_dashboards/reference/active-spool-border.md](active-spool-border.md) - This documentation file
+- [docs/features/printer_dashboards/reference/\docs\features\printer_dashboards\reference\active-spool-border.md](\docs\features\printer_dashboards\reference\active-spool-border.md) - This documentation file
 
 ## Technical Notes
 
@@ -240,7 +240,7 @@ Using `var(--primary-color)`:
 ## Support
 
 For issues or questions about this feature:
-- Check the [main README](../README.md)
+- Check the [main README](\docs\features\printer_dashboards\README.md)
 - Review the [ha-bambulab integration](https://github.com/greghesp/ha-bambulab) documentation
 - Reference the [button-card documentation](https://github.com/custom-cards/button-card) for styling options
 

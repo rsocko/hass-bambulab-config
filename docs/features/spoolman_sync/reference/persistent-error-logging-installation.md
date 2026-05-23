@@ -237,10 +237,10 @@ card:
 
 After installation:
 
-1. Read the [Persistent Error Logging Documentation](persistent-error-logging.md)
-2. Review the [Error Logging Flow Diagram](../design/error-logging-flow.md)
+1. Read the [Persistent Error Logging Documentation](\docs\features\spoolman_sync\reference\persistent-error-logging.md)
+2. Review the [Error Logging Flow Diagram](\docs\features\spoolman_sync\design\error-logging-flow.md)
 3. Test the system by simulating an error (temporarily rename a spool in Spoolman)
-4. Familiarize yourself with the [Manual Recovery Process](persistent-error-logging.md#manual-recovery-process)
+4. Familiarize yourself with the [Manual Recovery Process](\docs\features\spoolman_sync\reference\persistent-error-logging.md#manual-recovery-process)
 
 ## Support
 

@@ -184,8 +184,8 @@ Both charts use identical styling conventions:
 |---|---|---|
 | `custom:tabbed-card` | **Yes** | Wraps the two breakdown modes into one compact UI |
 | `/local/3d_printing/common/print-filament-breakdown-card.js` | **Yes** | Shared stacked-bar renderer used by both tabs |
-| [Spoolman Sync](../../spoolman_sync/README.md) | **Yes** | Spool weight data, AMS tray mapping, price data |
-| [Core](../../core/README.md) | **Yes** | `sensor.print_cost` template sensor |
+| [Spoolman Sync](\docs\features\spoolman_sync\README.md) | **Yes** | Spool weight data, AMS tray mapping, price data |
+| [Core](\docs\features\core\README.md) | **Yes** | `sensor.print_cost` template sensor |
 | `input_number.print_cost_default_per_kg` | Optional | User-configurable fallback price (defaults to $20/kg) |
 
 ## Troubleshooting

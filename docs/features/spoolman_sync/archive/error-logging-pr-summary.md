@@ -201,7 +201,7 @@ For existing users:
 5. Add "Manual Recovery" script
 6. Test with a print job
 
-Detailed in [Installation Guide](../reference/persistent-error-logging-installation.md).
+Detailed in [Installation Guide](\docs\features\spoolman_sync\reference\persistent-error-logging-installation.md).
 
 ## Testing Recommendations
 
@@ -217,16 +217,16 @@ Detailed in [Installation Guide](../reference/persistent-error-logging-installat
 - [homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
 - [homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml)
 - [homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml)
-- [docs/features/spoolman_sync/installation-guide.md](../reference/persistent-error-logging-installation.md)
-- [docs/features/spoolman_sync/reference/error-logging-quick-reference.md](../reference/error-logging-quick-reference.md)
-- [docs/features/spoolman_sync/persistent-error-logging.md](../reference/persistent-error-logging.md)
-- [docs/features/spoolman_sync/error-logging-flow.md](../design/error-logging-flow.md)
-- [docs/features/spoolman_sync/docs/error-logging/error-logging-implementation-summary.md](../archive/error-logging-pr-summary.md) (this file)
+- [docs/features/spoolman_sync/installation-guide.md](\docs\features\spoolman_sync\reference\persistent-error-logging-installation.md)
+- [docs/features/spoolman_sync/reference/error-logging-quick-reference.md](\docs\features\spoolman_sync\reference\error-logging-quick-reference.md)
+- [docs/features/spoolman_sync/persistent-error-logging.md](\docs\features\spoolman_sync\reference\persistent-error-logging.md)
+- [docs/features/spoolman_sync/error-logging-flow.md](\docs\features\spoolman_sync\design\error-logging-flow.md)
+- [docs/features/spoolman_sync/docs/error-logging/error-logging-implementation-summary.md](\docs\features\spoolman_sync\archive\error-logging-pr-summary.md) (this file)
 
 **Modified Files** (3):
 - [homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml) (bug fix + error logging)
 - [homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml) (enhanced error messages)
-- [docs/features/spoolman_sync/README.md](../README.md) (documentation links)
+- [docs/features/spoolman_sync/README.md](\docs\features\spoolman_sync\README.md) (documentation links)
 
 **Total Changes**: 720 lines added, 11 lines removed
 

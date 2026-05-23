@@ -44,8 +44,8 @@ The automation also suppresses persistent error notifications for indeterminate 
 [Active Tray Changed - Update Spoolman - YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
 
 ## Prequisites:
-- [Update Spool Last and First Used in Spoolman - Home Assistant script](update-spool-last-used-script.md) setup and working
-- All other prerequisites as specified in [README](../README.md)
+- [Update Spool Last and First Used in Spoolman - Home Assistant script](\docs\features\spoolman_sync\reference\update-spool-last-used-script.md) setup and working
+- All other prerequisites as specified in [README](\docs\features\spoolman_sync\README.md)
  
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.

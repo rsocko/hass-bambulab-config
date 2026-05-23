@@ -1,4 +1,4 @@
-﻿# Phase 3 Completion Summary & Next Steps
+# Phase 3 Completion Summary & Next Steps
 
 Status: Historical
 Last Reviewed: 2026-05-23
@@ -9,31 +9,31 @@ Replaced By: none
 
 **Session:** April 25, 2026  
 **Completed By:** GitHub Copilot  
-**Status:** âœ… Phase 3.1 Deployed | ðŸŽ¯ Phase 3.2 & 3.3 Planned & Ready
+**Status:** ✅ Phase 3.1 Deployed | 🎯 Phase 3.2 & 3.3 Planned & Ready
 
 ---
 
 ## What Was Accomplished
 
-### âœ… Phase 3.1: Edit Form & Conflict Detection (DEPLOYED)
+### ✅ Phase 3.1: Edit Form & Conflict Detection (DEPLOYED)
 
 **Deployment Status:** Live on https://model-catalog.socko.us
 
 **Endpoints:**
-- âœ… `PATCH /api/models/{model_ref}` â€” Update model metadata & enrichment
-- âœ… `POST /api/models/{model_ref}/photos` â€” Upload and manage model photos
-- âœ… `GET /api/models/{model_ref}/related` â€” Get related models by similarity score
-- âœ… `GET /api/archives/{archive_id}/model` â€” Link archives to source models
+- ✅ `PATCH /api/models/{model_ref}` — Update model metadata & enrichment
+- ✅ `POST /api/models/{model_ref}/photos` — Upload and manage model photos
+- ✅ `GET /api/models/{model_ref}/related` — Get related models by similarity score
+- ✅ `GET /api/archives/{archive_id}/model` — Link archives to source models
 
 **HA Integration:**
-- âœ… 4 services defined (services.yaml)
-- âœ… 5 REST commands configured (rest_commands.yaml)
-- âœ… Dashboard browser card integrated
+- ✅ 4 services defined (services.yaml)
+- ✅ 5 REST commands configured (rest_commands.yaml)
+- ✅ Dashboard browser card integrated
 
 **Validation:**
-- âœ… Deployment validation report: [PHASE-3.1-VALIDATION-REPORT.md](PHASE-3.1-VALIDATION-REPORT.md)
-- âœ… Integration test script: [test_phase3_endpoints.py](test_phase3_endpoints.py)
-- âœ… 50+ unit tests: [tests/phase3/test_phase3_1_edit_form.py](../../../../tests/phase3/test_phase3_1_edit_form.py)
+- ✅ Deployment validation report: [\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md](\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md)
+- ✅ Integration test script: [test_phase3_endpoints.py](test_phase3_endpoints.py)
+- ✅ 50+ unit tests: [tests/phase3/test_phase3_1_edit_form.py](../../../../tests/phase3/test_phase3_1_edit_form.py)
 
 **Key Features:**
 - Form field validation (name, description, tags, enrichment)
@@ -43,10 +43,10 @@ Replaced By: none
 
 ---
 
-### ðŸ“‹ Phase 3.2: 3D Viewer & STL Loader (READY TO START)
+### 📋 Phase 3.2: 3D Viewer & STL Loader (READY TO START)
 
 **Target:** April 26 - May 3, 2026 (1 week)  
-**Implementation Plan:** [PHASE-3.2-IMPLEMENTATION-PLAN.md](PHASE-3.2-IMPLEMENTATION-PLAN.md) (300+ lines)
+**Implementation Plan:** [\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md) (300+ lines)
 
 **What's Included:**
 1. **Geometry Endpoint:** GET /api/models/{model_ref}/geometry/{file_id}
@@ -62,15 +62,15 @@ Replaced By: none
 **Key Decisions:**
 - Use Three.js with OrbitControls for camera manipulation
 - Auto-fit camera on load to frame entire model
-- Show model fit status (âœ… Fits / âš ï¸ Over-size)
+- Show model fit status (✅ Fits / ⚠️ Over-size)
 - Support space key to toggle build volume visibility
 
 ---
 
-### ðŸ“‹ Phase 3.3: Cross-System Integration (READY TO START)
+### 📋 Phase 3.3: Cross-System Integration (READY TO START)
 
 **Target:** May 3 - May 10, 2026 (1 week)  
-**Implementation Plan:** [PHASE-3.3-IMPLEMENTATION-PLAN.md](PHASE-3.3-IMPLEMENTATION-PLAN.md) (400+ lines)
+**Implementation Plan:** [\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md) (400+ lines)
 
 **What's Included:**
 1. **Archive Linking:** GET /api/archives/{archive_id}/model with fuzzy matching
@@ -83,7 +83,7 @@ Replaced By: none
 **Test Coverage:** 35 test methods in [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py)
 
 **Key Decisions:**
-- Archive matching: exact filename â†’ fuzzy name â†’ not found
+- Archive matching: exact filename → fuzzy name → not found
 - Similarity scoring: Collection (+30) + Creator (+25) + Keywords (+5 ea) = max 100
 - Recommendations triggered on print completion
 - Export available in JSON (full) and CSV (summary) formats
@@ -95,9 +95,9 @@ Replaced By: none
 ### Comprehensive Test Suite
 ```
 tests/phase3/
-â”œâ”€â”€ test_phase3_1_edit_form.py          (220 lines, 11 classes)
-â”œâ”€â”€ test_phase3_2_3d_viewer.py          (310 lines, 8 classes)
-â””â”€â”€ test_phase3_3_cross_system.py       (360 lines, 8 classes)
+├── test_phase3_1_edit_form.py          (220 lines, 11 classes)
+├── test_phase3_2_3d_viewer.py          (310 lines, 8 classes)
+└── test_phase3_3_cross_system.py       (360 lines, 8 classes)
 
 Total: 890+ lines, 110+ test methods
 ```
@@ -116,9 +116,9 @@ test_phase3_endpoints.py                (250+ lines)
 
 | Document | Purpose | Pages |
 |----------|---------|-------|
-| [PHASE-3.1-VALIDATION-REPORT.md](PHASE-3.1-VALIDATION-REPORT.md) | Deployment verification | 3 |
-| [PHASE-3.2-IMPLEMENTATION-PLAN.md](PHASE-3.2-IMPLEMENTATION-PLAN.md) | 3D Viewer implementation guide | 10 |
-| [PHASE-3.3-IMPLEMENTATION-PLAN.md](PHASE-3.3-IMPLEMENTATION-PLAN.md) | Cross-system integration guide | 12 |
+| [\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md](\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md) | Deployment verification | 3 |
+| [\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md) | 3D Viewer implementation guide | 10 |
+| [\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md) | Cross-system integration guide | 12 |
 
 **Total Documentation:** 25+ pages, 8000+ lines of detailed technical specifications
 
@@ -128,53 +128,53 @@ test_phase3_endpoints.py                (250+ lines)
 
 ```
 Model Catalog Sidecar (model-catalog.socko.us)
-â”‚
-â”œâ”€â”€ Phase 3.1: Edit & Metadata âœ… DONE
-â”‚   â”œâ”€â”€ PATCH /api/models/{ref}
-â”‚   â”œâ”€â”€ POST /api/models/{ref}/photos
-â”‚   â”œâ”€â”€ GET /api/models/{ref}/related
-â”‚   â””â”€â”€ GET /api/archives/{id}/model
-â”‚
-â”œâ”€â”€ Phase 3.2: 3D Viewer ðŸŽ¯ NEXT
-â”‚   â”œâ”€â”€ GET /api/models/{ref}/geometry/{file_id}
-â”‚   â”œâ”€â”€ STL Parser (geometry-parser.js)
-â”‚   â”œâ”€â”€ Three.js Viewer (viewer.js)
-â”‚   â”œâ”€â”€ Build Volume Helper (build-volume.js)
-â”‚   â”œâ”€â”€ Camera Controls (controls.js)
-â”‚   â””â”€â”€ Dashboard Card (model-detail-3d-viewer.js)
-â”‚
-â””â”€â”€ Phase 3.3: Integration ðŸŽ¯ AFTER 3.2
-    â”œâ”€â”€ Recommendation Engine
-    â”œâ”€â”€ Statistics Aggregation
-    â”œâ”€â”€ Export Functionality
-    â””â”€â”€ HA Automation Integration
+│
+├── Phase 3.1: Edit & Metadata ✅ DONE
+│   ├── PATCH /api/models/{ref}
+│   ├── POST /api/models/{ref}/photos
+│   ├── GET /api/models/{ref}/related
+│   └── GET /api/archives/{id}/model
+│
+├── Phase 3.2: 3D Viewer 🎯 NEXT
+│   ├── GET /api/models/{ref}/geometry/{file_id}
+│   ├── STL Parser (geometry-parser.js)
+│   ├── Three.js Viewer (viewer.js)
+│   ├── Build Volume Helper (build-volume.js)
+│   ├── Camera Controls (controls.js)
+│   └── Dashboard Card (model-detail-3d-viewer.js)
+│
+└── Phase 3.3: Integration 🎯 AFTER 3.2
+    ├── Recommendation Engine
+    ├── Statistics Aggregation
+    ├── Export Functionality
+    └── HA Automation Integration
 
 Integration with:
-â”œâ”€â”€ Print History (Phase 2)
-â”œâ”€â”€ Statistics Dashboard (Phase 4)
-â”œâ”€â”€ Filament Catalog (Phase 1)
-â””â”€â”€ Manyfold API (External)
+├── Print History (Phase 2)
+├── Statistics Dashboard (Phase 4)
+├── Filament Catalog (Phase 1)
+└── Manyfold API (External)
 ```
 
 ---
 
 ## Readiness Checklist
 
-### âœ… Phase 3.1 Complete
+### ✅ Phase 3.1 Complete
 - [x] All endpoints deployed to production
 - [x] HA services wired and tested
 - [x] Dashboard integration complete
 - [x] Validation report written
 - [x] Integration test script ready
 
-### ðŸŸ¢ Phase 3.2 Ready to Start
+### 🟢 Phase 3.2 Ready to Start
 - [x] Implementation plan detailed (7 tasks)
 - [x] Architecture documented
 - [x] Test scaffolds created (25 tests)
 - [x] Code examples provided
 - [x] Timeline: 1 week
 
-### ðŸŸ¢ Phase 3.3 Ready to Start
+### 🟢 Phase 3.3 Ready to Start
 - [x] Implementation plan detailed (7 tasks)
 - [x] Architecture documented
 - [x] Test scaffolds created (35 tests)
@@ -240,12 +240,12 @@ Integration with:
 ### Phase 3.2 Decisions
 - **Rendering:** Three.js (industry standard, WebGL support)
 - **STL Support:** Binary & ASCII with auto-detection
-- **Build Volume:** Hardcoded Bambu P1S (256Ã—256Ã—256mm)
+- **Build Volume:** Hardcoded Bambu P1S (256×256×256mm)
 - **Camera:** OrbitControls with keyboard shortcuts (Space=toggle volume, R=reset)
 - **Performance:** Support 500k triangles minimum
 
 ### Phase 3.3 Decisions
-- **Archive Matching:** Filename â†’ fuzzy â†’ not found (3-tier approach)
+- **Archive Matching:** Filename → fuzzy → not found (3-tier approach)
 - **Similarity:** Weighted algorithm (collection, creator, keywords)
 - **Recommendations:** 3 strategies (next-steps, popularity, difficulty-match)
 - **Statistics:** Aggregated per-model across all archives
@@ -255,20 +255,20 @@ Integration with:
 
 ## Success Metrics
 
-### Phase 3.1 âœ…
+### Phase 3.1 ✅
 - All 4 endpoints operational
 - All 50+ tests passing
 - Deployed to production
 - HA services integrated
 
-### Phase 3.2 Goals ðŸŽ¯
+### Phase 3.2 Goals 🎯
 - All 25+ tests passing
 - STL parser handles 500k triangles
 - 3D viewer loads in <2 seconds
 - Camera controls responsive
 - Build volume visualization accurate
 
-### Phase 3.3 Goals ðŸŽ¯
+### Phase 3.3 Goals 🎯
 - All 35+ tests passing
 - Archive linking works reliably
 - Recommendations show within 1 second
@@ -283,8 +283,8 @@ Integration with:
 - [Print History Layer 1 Design](../../../../
 docs/features/print_history/design/browser/filter-sort-design.md
 )
-- [Model Catalog Implementation Plan](../../../../docs/features/model_catalog/planning/implementation-plan.md)
-- [Phase 3.1-3.3 Roadmap](../../../../docs/features/model_catalog/planning/phase-3.1-3.3-roadmap.md)
+- [Model Catalog Implementation Plan](\docs\features\model_catalog\planning\implementation-plan.md)
+- [Phase 3.1-3.3 Roadmap](\docs\features\model_catalog\planning\phase-3.1-3.3-roadmap.md)
 
 ### External Resources
 - Three.js Documentation: https://threejs.org/docs/
@@ -300,11 +300,11 @@ docs/features/print_history/design/browser/filter-sort-design.md
 
 ## Sign-Off
 
-**Phase 3.1 Status:** âœ… **COMPLETE & DEPLOYED**
+**Phase 3.1 Status:** ✅ **COMPLETE & DEPLOYED**
 
-**Phase 3.2 Status:** ðŸŸ¢ **READY TO START** (April 26, 2026)
+**Phase 3.2 Status:** 🟢 **READY TO START** (April 26, 2026)
 
-**Phase 3.3 Status:** ðŸŸ¢ **READY TO START** (May 3, 2026)
+**Phase 3.3 Status:** 🟢 **READY TO START** (May 3, 2026)
 
 **Overall Project:** On track for May 10, 2026 completion
 

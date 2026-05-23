@@ -49,7 +49,7 @@ The Phase 0 catalog popup redesign has been completed with four deliverables tha
 
 ### 2. Extension Points Specification ✅
 
-**File**: [popup-extension-points.md](../../features/model_catalog/design/popup-extension-points.md)
+**File**: [popup-extension-points.md](\docs\features\model_catalog\design\popup-extension-points.md)
 
 **Purpose**: Formal API contract for dependent issues to inject content safely without breaking layout.
 
@@ -76,7 +76,7 @@ The Phase 0 catalog popup redesign has been completed with four deliverables tha
 
 ### 3. Archive Candidate Review Workflow ✅
 
-**File**: [archive-candidate-review-workflow.md](../../features/model_catalog/planning/archive-candidate-review.md)
+**File**: [archive-candidate-review-workflow.md](\docs\features\model_catalog\planning\archive-candidate-review.md)
 
 **Detailed UX specification** for the most complex feature in the redesign: archive linkage review.
 
@@ -101,7 +101,7 @@ The Phase 0 catalog popup redesign has been completed with four deliverables tha
 
 ### 4. Updated Design Document ✅
 
-**File**: [model-detail-popup-redesign-2026-05.md](../../features/model_catalog/design/model-detail-popup.md) (sections updated)
+**File**: [model-detail-popup-redesign-2026-05.md](\docs\features\model_catalog\design\model-detail-popup.md) (sections updated)
 
 **Updates**:
 - **Summary of Changes**: Added explicit callout that tab UI → collapsible sections

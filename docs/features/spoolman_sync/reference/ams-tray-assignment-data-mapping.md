@@ -9,7 +9,7 @@ Replaced By: none
 
 > **Status**: Design
 > **Created**: 2026-03-24
-> **Parent Document**: [AMS Tray Assignment Design](../design/ams-tray-assignment.md)
+> **Parent Document**: [AMS Tray Assignment Design](\docs\features\spoolman_sync\design\ams-tray-assignment.md)
 
 This document details the specific data transformations required to map Spoolman spool attributes to `bambu_lab.set_filament` parameters.
 
