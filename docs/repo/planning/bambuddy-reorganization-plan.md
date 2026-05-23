@@ -4,7 +4,7 @@
 >
 > This file tracks execution status. The prompt file is useful for historical planning context, but it is no longer the source of truth for current enrichment behavior. Use `docs/features/`, `docs/repo/`, and `homeassistant/packages/3d_printing/` for the live contract.
 >
-> **API Reference**: All design docs have been cross-referenced against the live OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](openapi-correction-notes.md) for per-phase corrections and [api-vs-design-guidance.md](api-vs-design-guidance.md) for development guidance covering all 280+ API endpoints.
+> **API Reference**: All design docs have been cross-referenced against the live OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](../reference/openapi-correction-notes.md) for per-phase corrections and [api-vs-design-guidance.md](../reference/api-vs-design-guidance.md) for development guidance covering all 280+ API endpoints.
 
 ## Overview
 
@@ -124,7 +124,7 @@ Still to do:
 
 ## Phase 5: `printer_maintenance`
 
-*Depends on Phase 1 + Phase 4. **UNBLOCKED** — all maintenance API endpoints confirmed via OpenAPI spec v0.2.2.2. See [openapi-correction-notes.md](openapi-correction-notes.md#phase-5-printer_maintenance--unblocked).*
+*Depends on Phase 1 + Phase 4. **UNBLOCKED** — all maintenance API endpoints confirmed via OpenAPI spec v0.2.2.2. See [openapi-correction-notes.md](../reference/openapi-correction-notes.md#phase-5-printer_maintenance--unblocked).*
 
 | Step | Description | Status | Blocked? | Notes |
 |------|------------|--------|----------|-------|
@@ -174,7 +174,7 @@ Still to do:
 
 | # | Item | Blocking? | Phase | Resolution Path |
 |---|------|-----------|-------|-----------------|
-| 1 | ~~**Maintenance API endpoints**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `GET /api/v1/maintenance/printers/{printer_id}`, `POST /items/{item_id}/perform`, etc. Full list in [openapi-correction-notes.md](openapi-correction-notes.md#phase-5-printer_maintenance--unblocked) |
+| 1 | ~~**Maintenance API endpoints**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `GET /api/v1/maintenance/printers/{printer_id}`, `POST /items/{item_id}/perform`, etc. Full list in [openapi-correction-notes.md](../reference/openapi-correction-notes.md#phase-5-printer_maintenance--unblocked) |
 | 2 | ~~**Maintenance task schema**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `MaintenanceStatus` and `PrinterMaintenanceOverview` schemas fully documented. Hours-based tracking (not print count). |
 | 3 | **Photo upload content type** — `POST /archives/{id}/photos` expects `multipart/form-data`. HA `rest_command` doesn't natively support file uploads. | No — first phase is now in place | 1, 2 | Invalid JSON-hint upload YAML removed; active package now uses a `shell_command` bridge, with Python worker still the recommended hardening path |
 | 4 | **Webhook format for HA** — "Webhook (Custom)" provider: does it send flat notifications format or structured API format with `archive_id`? | No — receiver normalizes both | 1 | Test during Phase 1 step 7 |
@@ -235,4 +235,4 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 | 6 — Cleanup | N/A | Depends on 1–5 |
 | 7 — Verification | N/A | Depends on 6 |
 
-**Recommendation**: Phase 1 is complete and Phase 2 is live as a browser-first history surface. Run Phases 3–5 in parallel, then return to Phase 2 advanced work for multipart media upload, review actions, and archive-detail workflows. See [api-vs-design-guidance.md](api-vs-design-guidance.md) for per-phase implementation notes and priority order.
+**Recommendation**: Phase 1 is complete and Phase 2 is live as a browser-first history surface. Run Phases 3–5 in parallel, then return to Phase 2 advanced work for multipart media upload, review actions, and archive-detail workflows. See [api-vs-design-guidance.md](../reference/api-vs-design-guidance.md) for per-phase implementation notes and priority order.

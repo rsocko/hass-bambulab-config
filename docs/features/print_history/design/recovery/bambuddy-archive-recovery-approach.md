@@ -4,18 +4,18 @@
 
 Define the recommended approach for handling Bambuddy fallback archives from this repository without changing Bambuddy itself.
 
-This document is the repo-level decision record. Feature-level detail lives in [../features/print_history/recovery/archive-detection-recovery-design.md](../features/print_history/recovery/archive-detection-recovery-design.md).
+This document is the repo-level decision record. Feature-level detail lives in [archive-detection-recovery-design.md](./archive-detection-recovery-design.md).
 
 Additional print_history design references for canonical runtime repair and deployment patterns:
 
-- [../features/print_history/runtime-repair/archive-runtime-db-repair-guide.md](../features/print_history/runtime-repair/archive-runtime-db-repair-guide.md)
-- [../features/print_history/runtime-repair/archive-runtime-field-impact-matrix.md](../features/print_history/runtime-repair/archive-runtime-field-impact-matrix.md)
-- [../features/print_history/runtime-repair/archive-runtime-repair-deployment-options.md](../features/print_history/runtime-repair/archive-runtime-repair-deployment-options.md)
-- [../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
-- [../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md](../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
-- [../features/print_history/imports/archive-historical-backfill-from-sd-card.md](../features/print_history/imports/archive-historical-backfill-from-sd-card.md)
-- [../features/print_history/imports/folder-3mf-catalog-design.md](../features/print_history/imports/folder-3mf-catalog-design.md)
-- [../features/print_history/imports/source-3mf-import-design.md](../features/print_history/imports/source-3mf-import-design.md)
+- [../runtime-repair/archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [../runtime-repair/archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md)
+- [../runtime-repair/archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
+- [../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
+- [../runtime-repair/archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
+- [../imports/archive-historical-backfill-from-sd-card.md](../imports/archive-historical-backfill-from-sd-card.md)
+- [../imports/folder-3mf-catalog-design.md](../imports/folder-3mf-catalog-design.md)
+- [../imports/source-3mf-import-design.md](../imports/source-3mf-import-design.md)
 
 ## Executive Summary
 

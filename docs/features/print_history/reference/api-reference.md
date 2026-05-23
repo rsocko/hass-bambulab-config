@@ -21,8 +21,8 @@ Runtime docs landing (Home Assistant auth required):
 Recommended references:
 
 - Bambuddy endpoint catalog: `docs/features/bambuddy_common/reference/bambuddy-archive-api-catalog.md`
-- OpenAPI corrections and response-shape notes: `docs/repo/openapi-correction-notes.md`
-- API-vs-design guidance: `docs/repo/api-vs-design-guidance.md`
+- OpenAPI corrections and response-shape notes: `docs/repo/reference/openapi-correction-notes.md`
+- API-vs-design guidance: `docs/repo/reference/api-vs-design-guidance.md`
 
 ## Home Assistant Integration Entry Points
 

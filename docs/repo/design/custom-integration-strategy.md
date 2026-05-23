@@ -80,8 +80,8 @@ Examples:
 That layering is already reflected in the package structure and loader map under:
 
 - `homeassistant/packages/3d_printing/_feature_loaders.yaml`
-- `docs/repo/deployment-structure.md`
-- `docs/repo/repo-layout.md`
+- `docs/repo/reference/deployment-structure.md`
+- `docs/repo/reference/repo-layout.md`
 
 ---
 
@@ -156,7 +156,7 @@ Reasons to keep this layer in YAML:
 
 This repo already documents the YAML dashboard/resource model in:
 
-- `docs/repo/dashboard-deployment-behavior.md`
+- `docs/repo/reference/dashboard-deployment-behavior.md`
 - `docs/features/common/README.md`
 
 ---

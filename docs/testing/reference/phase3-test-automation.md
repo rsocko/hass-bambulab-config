@@ -342,7 +342,7 @@ Add these tests to CI/CD pipeline:
 | `tests/phase3/test_model_detail_endpoint.py` | 450+ | Sidecar unit tests with mocking |
 | `tests/phase3/test_model_detail_integration.py` | 500+ | Card, REST command, helpers validation |
 | `tests/phase3/test_e2e_validation.py` | 400+ | Live deployment E2E validator |
-| `docs/testing/phase3-test-automation.md` | THIS FILE | Test documentation and execution guide |
+| `docs/testing/reference/phase3-test-automation.md` | THIS FILE | Test documentation and execution guide |
 
 ---
 

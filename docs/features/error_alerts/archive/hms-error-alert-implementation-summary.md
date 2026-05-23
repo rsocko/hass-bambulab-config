@@ -167,7 +167,7 @@ sensor:
 
 ## 📚 Documentation
 
-Complete documentation provided in [docs/features/error_alerts/](../features/error_alerts/):
+Complete documentation provided in [docs/features/error_alerts/](../):
 - `error-alerts-unified-design.md` - Unified design and phased implementation plan
 - `hms-error-alert-implementation.md` - Technical details (legacy HMS card)
 - `hms-error-ui-mockup.md` - Visual mockups and examples
@@ -176,7 +176,7 @@ Complete documentation provided in [docs/features/error_alerts/](../features/err
 ## 🚀 Installation
 
 1. **Update Dashboard**:
-  - Copy contents of [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) to your Home Assistant dashboard
+  - Copy contents of [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) to your Home Assistant dashboard
    - Or import via Dashboard → Edit → Raw Configuration Editor
 
 2. **Required Custom Cards**:
@@ -192,9 +192,9 @@ Complete documentation provided in [docs/features/error_alerts/](../features/err
 
 - `homeassistant/packages/3d_printing/error_alerts/dashboard_cards/error-alert-section.yaml` - Unified error alert card (HMS + print errors)
 - `homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml` - Updated include reference
-- [docs/features/error_alerts/reference/hms-error-alert-implementation.md](../features/error_alerts/reference/hms-error-alert-implementation.md) - Technical documentation
-- [docs/features/error_alerts/design/hms-error-ui-mockup.md](../features/error_alerts/design/hms-error-ui-mockup.md) - Visual documentation
-- [docs/features/error_alerts/reference/hms-error-testing-guide.md](../features/error_alerts/reference/hms-error-testing-guide.md) - Testing guide
+- [docs/features/error_alerts/reference/hms-error-alert-implementation.md](../reference/hms-error-alert-implementation.md) - Technical documentation
+- [docs/features/error_alerts/design/hms-error-ui-mockup.md](../design/hms-error-ui-mockup.md) - Visual documentation
+- [docs/features/error_alerts/reference/hms-error-testing-guide.md](../reference/hms-error-testing-guide.md) - Testing guide
 
 ## 🎉 Result
 

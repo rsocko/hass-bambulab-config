@@ -9,8 +9,8 @@
 
 ## Quick Links
 - **Validation Script**: `python tests/phase3/test_e2e_validation.py`
-- **Test Documentation**: `docs/testing/phase3-test-automation.md`
-- **Test Report**: `docs/testing/phase3-test-report.md`
+- **Test Documentation**: `docs/testing/reference/phase3-test-automation.md`
+- **Test Report**: `docs/testing/archive/phase3-test-report.md`
 
 ---
 
@@ -67,8 +67,8 @@ SUMMARY: 8/8 passed, 0/8 failed
 3. `tests/phase3/test_e2e_validation.py` - 8 E2E validator tests
 
 ### Documentation
-1. `docs/testing/phase3-test-automation.md` - Comprehensive testing guide
-2. `docs/testing/phase3-test-report.md` - Test summary and execution guide
+1. `docs/testing/reference/phase3-test-automation.md` - Comprehensive testing guide
+2. `docs/testing/archive/phase3-test-report.md` - Test summary and execution guide
 
 ---
 
@@ -161,6 +161,6 @@ After validation ✅:
 ## Questions?
 
 See full documentation:
-- Testing guide: `docs/testing/phase3-test-automation.md`
+- Testing guide: `docs/testing/reference/phase3-test-automation.md`
 - Implementation report: `docs/features/model_catalog/phase-3-implementation-report.md`
 - Design spec: `docs/features/model_catalog/phase-3-detail-view-design.md`

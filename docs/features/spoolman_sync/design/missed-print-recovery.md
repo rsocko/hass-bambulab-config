@@ -281,7 +281,7 @@ Introduce a small service layer owned by the `spoolman_sync` feature set.
 
 This should start as a deliberately narrow backend surface, not a broad new
 printer integration. The repo-level strategy in
-`docs/repo/custom-integration-strategy.md` still holds: keep the application
+`docs/repo/design/custom-integration-strategy.md` still holds: keep the application
 shell in YAML, and only move the recorder-correlation and durable-ledger pieces
 into Python because they are awkward and fragile in pure YAML.
 

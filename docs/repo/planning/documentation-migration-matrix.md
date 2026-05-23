@@ -45,11 +45,11 @@ Alignment rule:
 | C3 (complete) | humidity | Medium | docs/features/humidity | Lane assignment and README reduction | A |
 | C3 (complete) | print_queue | Medium | docs/features/print_queue | Move mockups to design, retain current reference docs | A |
 | C4 (complete) | Small/stub feature group | Low-Med | print_progress, print_statistics, print_weight_and_cost, bambuddy_common, bambuddy_integration, core, common, api, notifications, filament_tag, power_monitoring, model_intake, openhasp_display, printer_maintenance | Minimal lane normalization and stub triage | A |
-| D | repo shared docs | Medium | docs/repo | Split into reference/design/planning/archive and relocate feature-owned docs | A |
-| D | infrastructure docs | Medium | docs/infrastructure | Keep active references, move dated diagnostics to archive | A |
-| D | testing docs | Low | docs/testing | Keep active reference docs, archive milestone reports | A |
-| D | docs root loose markdown | Medium | docs root spillover files | Move to owner lanes and triage malformed docs | A |
-| E | screenshots docs | Low | docs/screenshots | Keep index/reference policy, archive stale planning docs | A |
+| D (complete) | repo shared docs | Medium | docs/repo | Split into reference/design/planning/archive and relocate feature-owned docs | A |
+| D (complete) | infrastructure docs | Medium | docs/infrastructure | Keep active references, move dated diagnostics to archive | A |
+| D (complete) | testing docs | Low | docs/testing | Keep active reference docs, archive milestone reports | A |
+| D (complete) | docs root loose markdown | Medium | docs root spillover files | Move to owner lanes and triage malformed docs | A |
+| E (complete) | screenshots docs | Low | docs/screenshots | Keep index/reference policy, archive stale planning docs | A |
 | F | non-doc markdown policy | Medium | sidecars/tests/openhasp/wled backups/archive notes | Cross-link canonical docs and mark local vs historical | C1-C4 |
 | G | stabilization and cleanup | High | whole repository | Link audits, pointer cleanup, final index pass | B-F |
 
@@ -110,6 +110,29 @@ Post-cleanup interpretation note (2026-05-23):
 | Feature Group | Row Count | Detailed Matrix File |
 |---|---:|---|
 | small_stub_feature_group | 33 | docs/repo/planning/matrices/migration-matrix-batch4-small-stub-group.csv.md |
+
+## Matrix F: D Detailed Row-Level Coverage
+
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed D CSV matrices, `current_path` is a migration-source field and may reference paths removed by lane migration cleanup.
+2. `target_path` is the canonical destination for active docs.
+
+| Feature Group | Row Count | Detailed Matrix File |
+|---|---:|---|
+| repo_shared_docs | 19 | docs/repo/planning/matrices/migration-matrix-batchD-repo-shared-docs.csv.md |
+| infrastructure_docs | 5 | docs/repo/planning/matrices/migration-matrix-batchD-infrastructure.csv.md |
+| testing_docs | 3 | docs/repo/planning/matrices/migration-matrix-batchD-testing.csv.md |
+| docs_root_spillover | 10 | docs/repo/planning/matrices/migration-matrix-batchD-docs-root-spillover.csv.md |
+
+## Matrix G: E Detailed Row-Level Coverage
+
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed E CSV matrices, current_path is a migration-source field and may reference paths removed by later lane migrations.
+2. target_path is the canonical destination for active docs.
+
+| Feature Group | Row Count | Detailed Matrix File |
+|---|---:|---|
+| screenshots_docs | 1 | docs/repo/planning/matrices/migration-matrix-batchE-screenshots.csv.md |
 
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.

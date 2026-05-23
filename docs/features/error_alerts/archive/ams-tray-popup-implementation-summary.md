@@ -5,7 +5,7 @@ This implementation adds custom popup dialogs for each AMS (Automatic Material S
 
 ## Changes Made
 
-### 1. Dashboard Configuration ([homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml))
+### 1. Dashboard Configuration ([homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml))
 - Modified `tap_action` for all 8 AMS tray cards (ams_1_tray_1 through ams_2_tray_4)
 - Changed from `more-info` or `none` actions to custom `fire-dom-event` with `browser_mod.popup`
 - Each popup dynamically generates content based on:
@@ -13,7 +13,7 @@ This implementation adds custom popup dialogs for each AMS (Automatic Material S
   - Spool entity attributes from `sensor.spoolman_spool_{id}`
   - Raw tray data from AMS sensors when no match exists
 
-### 2. Documentation ([docs/features/printer_dashboards/reference/ams-tray-popup.md](../features/printer_dashboards/reference/ams-tray-popup.md))
+### 2. Documentation ([docs/features/printer_dashboards/reference/ams-tray-popup.md](../../printer_dashboards/reference/ams-tray-popup.md))
 Created comprehensive documentation covering:
 - All implemented features
 - Data sources and structure
@@ -23,7 +23,7 @@ Created comprehensive documentation covering:
 - Future enhancement ideas
 - Related files and support information
 
-### 3. README Updates ([docs/features/printer_dashboards/README.md](../features/printer_dashboards/README.md))
+### 3. README Updates ([docs/features/printer_dashboards/README.md](../../printer_dashboards/README.md))
 - Added new "AMS Tray Popup" section under Main Content Area
 - Listed key features of the popup
 - Added `browser-mod` to the required custom cards list

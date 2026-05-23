@@ -17,7 +17,7 @@ This page is the docs landing point for API surfaces related to 3D printing feat
 - API reference: `docs/features/print_history/reference/api-reference.md`
 - Live integration docs landing: `GET /api/bambuddy/print-history/docs` (requires Home Assistant auth)
 - Bambuddy API catalog: `docs/features/bambuddy_common/reference/bambuddy-archive-api-catalog.md`
-- OpenAPI correction notes: `docs/repo/openapi-correction-notes.md`
+- OpenAPI correction notes: `docs/repo/reference/openapi-correction-notes.md`
 
 ## Bambuddy Runtime Repair Sidecar
 

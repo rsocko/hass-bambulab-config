@@ -71,7 +71,7 @@ Use this document for deeper reference on initiative backlog, operational scenar
 - Notifications with snapshots: [docs/features/notifications/README.md](../../features/notifications/README.md)
 - Air quality automation: [docs/features/air_quality/README.md](../../features/air_quality/README.md)
 - Humidity monitoring: [docs/features/humidity/README.md](../../features/humidity/README.md)
-- Bambuddy package reorganization context: [docs/repo/bambuddy-reorganization-plan.md](../bambuddy-reorganization-plan.md)
+- Bambuddy package reorganization context: [docs/repo/planning/bambuddy-reorganization-plan.md](../planning/bambuddy-reorganization-plan.md)
 
 ## Deployment-Aligned Structure
 
@@ -79,9 +79,9 @@ This repository is organized for the HAOS deployment workflow and allowlist prof
 
 Primary references:
 
-- Structure guide: [docs/repo/repo-layout.md](../repo-layout.md)
-- Deployment workflow reference: [docs/repo/deployment-workflow-reference.md](../deployment-workflow-reference.md)
-- Deployment profile summary: [docs/repo/deployment-structure.md](../deployment-structure.md)
+- Structure guide: [docs/repo/reference/repo-layout.md](./repo-layout.md)
+- Deployment workflow reference: [docs/repo/reference/deployment-workflow-reference.md](./deployment-workflow-reference.md)
+- Deployment profile summary: [docs/repo/reference/deployment-structure.md](./deployment-structure.md)
 
 Operational summary:
 
@@ -111,8 +111,8 @@ python -m pytest tests/print_history/test_bambuddy_variant3_store.py -k tooltip
 
 Related references:
 
-- [docs/repo/quick-start.md](../quick-start.md)
-- [docs/repo/deployment-workflow-reference.md](../deployment-workflow-reference.md)
+- [docs/features/error_alerts/archive/hms-error-alert-quick-reference.md](../../features/error_alerts/archive/hms-error-alert-quick-reference.md)
+- [docs/repo/reference/deployment-workflow-reference.md](./deployment-workflow-reference.md)
 
 ## Implementation Component Inventory
 

@@ -76,7 +76,7 @@ Cross-system planning features may appear here before a Home Assistant package e
 | [model_catalog](features/model_catalog/README.md) | Cross-system model catalog spanning Manyfold, Bambuddy, and a catalog sidecar — architecture, linkage model, HA integration contracts, and phased implementation plan |
 | [spoolman_sync](features/spoolman_sync/README.md) | Spoolman integration, spool usage, print weight persistence |
 | [filament_tag](features/filament_tag/README.md) | NFC filament tag scanning and Spoolman association |
-| [filament_catalog](features/filament_catalog/filament-catalog.md) | Large-scale spool and filament browsing, filtering, insights, and backend migration planning |
+| [filament_catalog](features/filament_catalog/README.md) | Large-scale spool and filament browsing, filtering, insights, and backend migration planning |
 
 ### Environment & Monitoring
 
@@ -100,27 +100,26 @@ Cross-system planning features may appear here before a Home Assistant package e
 - `repo/planning/documentation-organization-guidance-and-migration-plan.md` — Canonical documentation IA guidance, lifecycle lane definitions, and migration rules.
 - `repo/planning/documentation-migration-matrix.md` — Owner-area batch matrix and links to detailed C1 row-level matrices.
 - `repo/archive/root-history/README.md` — Archive index for historical root markdown moved in Batch B. Non-canonical by design.
-- `repo/deployment-workflow-reference.md` — End-to-end reference for the deploy workflow, auto-dispatch wrapper, allowlists, auto-deploy env file, and helper scripts under `.github/scripts/`.
-- `repo/deployment-structure.md` — Deployment profiles, package scope, and workflow safety guards.
+- `repo/reference/deployment-workflow-reference.md` — End-to-end reference for the deploy workflow, auto-dispatch wrapper, allowlists, auto-deploy env file, and helper scripts under `.github/scripts/`.
+- `repo/reference/deployment-structure.md` — Deployment profiles, package scope, and workflow safety guards.
 - `repo/reference/repository-capabilities-and-operations-reference.md` — Detailed backlog, scenario/use-case mapping, deployment-aligned operational notes, and local development/testing reference migrated from the root README.
-- `repo/dashboard-deployment-behavior.md` — Dashboard/reload behavior and JS cache-bust procedure.
-- `repo/custom-integration-strategy.md` — Architectural guidance for what should become a custom integration versus remain YAML, blueprints, or UI composition.
-- `repo/repo-layout.md` — Repository file layout.
-- `repo/quick-start.md` — Quick start guide.
-- `repo/implementation-summary.md` — Implementation overview.
-- `repo/implementation-notes.md` — AMS tray popup implementation details.
-- `repo/third-party-attribution.md` — Third-party inspiration and attribution.
-- `repo/screenshot-guide.md` — Screenshot & animation capture guide, versioning, and embedding conventions.
+- `repo/reference/dashboard-deployment-behavior.md` — Dashboard/reload behavior and JS cache-bust procedure.
+- `repo/design/custom-integration-strategy.md` — Architectural guidance for what should become a custom integration versus remain YAML, blueprints, or UI composition.
+- `repo/reference/repo-layout.md` — Repository file layout.
+- `repo/reference/third-party-attribution.md` — Third-party inspiration and attribution.
+- `repo/reference/screenshot-guide.md` — Screenshot & animation capture guide, versioning, and embedding conventions.
 
 ## Infrastructure Notes
 
-- `infrastructure/ha-error-assessment-2026-03-16.md` — Earlier HA error and restart assessment, including historical restart observations.
-- `infrastructure/ha-restart-diagnosis-2026-04-13.md` — Follow-up HA restart diagnosis with MCP evidence, current suspects, and deferred recommendations.
-- `infrastructure/dev-home-assistant-bambuddy-strategy.md` — Strategy for moving Bambuddy and print-history development to a separate Development Home Assistant instance with explicit dev/prod deployment targeting.
+- `infrastructure/reference/github-runner-README.md` — GitHub self-hosted runner setup and operational reference.
+- `infrastructure/reference/gh-actions-dashboard.md` — GitHub Actions dashboard and monitoring notes.
+- `infrastructure/design/dev-home-assistant-bambuddy-strategy.md` — Strategy for moving Bambuddy and print-history development to a separate Development Home Assistant instance with explicit dev/prod deployment targeting.
+- `infrastructure/archive/diagnostics/ha-error-assessment-2026-03-16.md` — Earlier HA error and restart assessment, including historical restart observations.
+- `infrastructure/archive/diagnostics/ha-restart-diagnosis-2026-04-13.md` — Follow-up HA restart diagnosis with MCP evidence, current suspects, and deferred recommendations.
 
 ## Screenshots
 
-Visual assets are tracked in [`screenshots/README.md`](screenshots/README.md) — a checklist of all 65 planned screenshots and animations across the documentation. See [`repo/screenshot-guide.md`](repo/screenshot-guide.md) for capture tools, format recommendations, and versioning conventions.
+Visual assets are tracked in [`screenshots/README.md`](screenshots/README.md) — a checklist of all 65 planned screenshots and animations across the documentation. See [`repo/reference/screenshot-guide.md`](repo/reference/screenshot-guide.md) for capture tools, format recommendations, and versioning conventions.
 
 ## Dependency Overview
 

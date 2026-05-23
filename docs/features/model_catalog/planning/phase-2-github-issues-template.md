@@ -269,8 +269,8 @@ After all Phase 2 refactoring is complete, run comprehensive test suite and perf
 Update documentation to reflect Phase 2 refactoring:
 
 ### Acceptance Criteria
-- [ ] Update [MODEL_CATALOG_PHASE_2_DESIGN.md](../docs/MODEL_CATALOG_PHASE_2_DESIGN.md) as work progresses
-- [ ] Create [MODEL_CATALOG_ARCHITECTURE.md](../docs/MODEL_CATALOG_ARCHITECTURE.md) with:
+- [ ] Update [model-catalog-phase-2-design.md](model-catalog-phase-2-design.md) as work progresses
+- [ ] Create [model-catalog-sidecar-architecture.md](../reference/model-catalog-sidecar-architecture.md) with:
   - Router organization and responsibilities
   - Service layer design
   - Database schema by context
@@ -280,8 +280,8 @@ Update documentation to reflect Phase 2 refactoring:
 - [ ] Create migration guide for external clients (if API changes)
 
 ### Related Files
-- `docs/MODEL_CATALOG_PHASE_2_DESIGN.md` (UPDATE)
-- `docs/MODEL_CATALOG_ARCHITECTURE.md` (NEW)
+- `docs/features/model_catalog/planning/model-catalog-phase-2-design.md` (UPDATE)
+- `docs/features/model_catalog/reference/model-catalog-sidecar-architecture.md` (NEW)
 - `sidecars/model_catalog/app/README.md` (UPDATE)
 - `sidecars/model_catalog/README.md` (UPDATE)
 

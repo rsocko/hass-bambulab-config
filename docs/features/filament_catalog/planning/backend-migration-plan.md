@@ -362,7 +362,7 @@ Defer full datasource migration if, after Phase 1-3, the remaining YAML filter l
 
 ## Relationship to Repo Strategy
 
-This plan is consistent with the repository-level guidance in `docs/repo/custom-integration-strategy.md`:
+This plan is consistent with the repository-level guidance in `docs/repo/design/custom-integration-strategy.md`:
 
 - keep the application shell in YAML
 - move only backend/domain logic that benefits from code ownership
