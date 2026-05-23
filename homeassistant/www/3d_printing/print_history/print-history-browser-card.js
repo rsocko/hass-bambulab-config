@@ -404,7 +404,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v117</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v118</span>';
     }
 
     this._syncRefreshIndicator(true);
@@ -936,7 +936,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     // Build a content fingerprint to detect no-op renders.
     // Include variant + showImages so layout/image-toggle changes are not skipped.
-    var fp = variant + ":" + (this._showImages() ? "1" : "0") + ":";
+    var fp = variant + ":" + (this._showImages() ? "1" : "0") + ":" + (this._isMultiSelectMode() ? "ms:on" : "ms:off") + ":";
+    if (this._isMultiSelectMode()) {
+      fp += this._selectedArchiveIdList().sort().join(",") + ":";
+    }
     for (var fi = 0; fi < archives.length; fi++) {
       fp += this._normalizeArchiveCacheKey(archives[fi]) + "|";
     }
