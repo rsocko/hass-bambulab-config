@@ -44,7 +44,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 - The status fallback is intentionally guarded by print-context validation rather than a blanket age cutoff. The automation still validates backup task name and total print weight before using backup data, which is the actual protection against stale payloads.
 - This automation remains the recommended authority for successful-print
 	decrements even if a future Bambuddy hybrid partial-usage fallback is added.
-	See [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md).
+	See [Bambuddy Partial-Usage Sidecar Design](../design/bambuddy-partial-usage-sidecar.md).
 - **External Spool behavior**: Based on analysis of the ha-bambulab integration source code, when printing from the External Spool on a printer with an AMS, the `print_weight` sensor's per-tray attributes (`External Spool: <weight>`) may be cleared when the print finishes (because the external spool becomes "inactive" as `tray_now` resets to 255). The backup mechanism in [Print Started - Backup Print Weight](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml) captures these attributes once printing is active and is used as a fallback in this scenario.
 - **Future extension**: If your environment later exposes a second external spool entity, add `external_spool_2` mapping in the same five files documented in the [README](README.md#external-spool-assumption).
 

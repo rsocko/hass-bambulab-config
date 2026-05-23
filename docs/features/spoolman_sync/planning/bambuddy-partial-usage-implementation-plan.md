@@ -25,7 +25,7 @@ Primary guardrails:
 
 Related design context:
 
-- [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md)
+- [Bambuddy Partial-Usage Sidecar Design](../design/bambuddy-partial-usage-sidecar.md)
 
 ## Scope
 

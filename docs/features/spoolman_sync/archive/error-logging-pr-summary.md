@@ -218,7 +218,7 @@ Detailed in [Installation Guide](installation-guide.md).
 - [homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml)
 - [homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml)
 - [docs/features/spoolman_sync/installation-guide.md](installation-guide.md)
-- [docs/features/spoolman_sync/quick-reference.md](quick-reference.md)
+- [docs/features/spoolman_sync/reference/error-logging-quick-reference.md](../reference/error-logging-quick-reference.md)
 - [docs/features/spoolman_sync/persistent-error-logging.md](persistent-error-logging.md)
 - [docs/features/spoolman_sync/error-logging-flow.md](error-logging-flow.md)
 - [docs/features/spoolman_sync/docs/error-logging/error-logging-implementation-summary.md](error-logging-implementation-summary.md) (this file)

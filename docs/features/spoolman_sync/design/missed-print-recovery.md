@@ -26,7 +26,7 @@ This belongs under `spoolman_sync`, not `print_history` or `bambuddy`, because:
 
 The design intentionally focuses on **successful-print recovery only**.
 Partial-usage estimation for failed or stopped prints remains separately
-documented in [bambuddy-partial-usage-sidecar-design.md](bambuddy-partial-usage-sidecar-design.md).
+documented in [bambuddy-partial-usage-sidecar.md](bambuddy-partial-usage-sidecar.md).
 
 ---
 
