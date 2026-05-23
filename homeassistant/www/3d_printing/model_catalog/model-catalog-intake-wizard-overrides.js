@@ -625,6 +625,79 @@ function renderValidationSummary(card) {
     ? card._validationOverrideSummary()
     : null;
   var overrideSummaryHtml = '';
+
+  function trimIntakeSourcePrefix(pathValue) {
+    var normalized = String(pathValue || '').replace(/\\/g, '/').trim();
+    if (!normalized) {
+      return '';
+    }
+    var withoutPrefix = normalized.replace(/^\/assets\/model inbox\//i, '');
+    withoutPrefix = withoutPrefix.replace(/^\/assets\/model inbox$/i, '');
+    return withoutPrefix.replace(/^\/+/, '');
+  }
+
+  function sourceFolderDisplay(group, firstFinding) {
+    var finding = firstFinding && typeof firstFinding === 'object' ? firstFinding : {};
+    var filename = String(group && group.source_name || finding.filename || '').trim();
+    var relativePath = String(finding.relative_path || '').trim().replace(/\\/g, '/');
+    if (relativePath) {
+      var relParts = relativePath.split('/').filter(Boolean);
+      if (relParts.length > 1) {
+        return relParts.slice(0, -1).join('/');
+      }
+    }
+    var fullPath = String(group && group.source_path || finding.path || '').trim().replace(/\\/g, '/');
+    if (!fullPath) {
+      return '';
+    }
+    var trimmed = trimIntakeSourcePrefix(fullPath);
+    if (filename && trimmed.toLowerCase().endsWith('/' + filename.toLowerCase())) {
+      trimmed = trimmed.slice(0, Math.max(0, trimmed.length - (filename.length + 1)));
+    }
+    if (filename && trimmed.toLowerCase() === filename.toLowerCase()) {
+      return '';
+    }
+    return trimmed;
+  }
+
+  function conflictPathDisplay(pathValue, filename) {
+    var normalized = trimIntakeSourcePrefix(pathValue);
+    var fileNameText = String(filename || '').trim();
+    if (fileNameText && normalized.toLowerCase() === fileNameText.toLowerCase()) {
+      return '';
+    }
+    return normalized;
+  }
+
+  function renderConflictItem(conflictItem) {
+    if (conflictItem && typeof conflictItem === 'object') {
+      var parentKind = String(conflictItem.parent_kind || '').trim().replace(/_/g, ' ');
+      var parentName = String(conflictItem.parent_name || '').trim();
+      var parentKindLabel = parentKind
+        ? parentKind.split(' ').filter(Boolean).map(function (token) {
+          return token.charAt(0).toUpperCase() + token.slice(1);
+        }).join(' ')
+        : '';
+      var parentLabel = parentName
+        ? ((parentKindLabel ? (parentKindLabel + ': ') : '') + parentName)
+        : '';
+      var filename = String(conflictItem.filename || '').trim();
+      var pathText = conflictPathDisplay(conflictItem.path, filename);
+      var primary = parentLabel || String(conflictItem.label || filename || 'Conflict target').trim();
+      var secondary = pathText || (filename && filename !== primary ? filename : '');
+      return ''
+        + '<li>'
+        + '  <div class="validation-conflict-primary">' + escapeHtml(primary) + '</div>'
+        + (secondary ? ('  <div class="validation-conflict-secondary">' + escapeHtml(secondary) + '</div>') : '')
+        + '</li>';
+    }
+    var fallbackText = String(conflictItem || '').trim();
+    if (!fallbackText) {
+      return '';
+    }
+    return '<li><div class="validation-conflict-primary">' + escapeHtml(fallbackText) + '</div></li>';
+  }
+
   if (overrideSummary && Number(overrideSummary.totalFindings || 0) > 0) {
     var unresolvedCount = Number(overrideSummary.pendingFindings || 0);
     var resolvedCount = Number(overrideSummary.resolvedFindings || 0);
@@ -660,6 +733,8 @@ function renderValidationSummary(card) {
       var iconHtml;
       if (hasExclusions) {
         iconHtml = '<span class="validation-icon warn" aria-hidden="true">⚠</span>';
+      } else if (!passed) {
+        iconHtml = '<span class="validation-icon fail" aria-hidden="true">✕</span>';
       } else {
         iconHtml = '<input type="checkbox" disabled' + (passed ? ' checked' : '') + '>';
       }
@@ -693,6 +768,7 @@ function renderValidationSummary(card) {
             grouped[sourceKey] = {
               source_name: offenderName || 'Source File',
               source_path: offenderPath,
+              source_relative_path: String((finding && finding.relative_path) || '').trim(),
               violations: [],
             };
           }
@@ -707,9 +783,10 @@ function renderValidationSummary(card) {
 
         var groupedRows = Object.keys(grouped).map(function (groupKey) {
           var group = grouped[groupKey];
-          var sourcePath = String(group.source_path || '').trim();
-          var sourcePathHtml = sourcePath
-            ? '<div class="validation-source-path">Source path: ' + escapeHtml(sourcePath) + '</div>'
+          var firstFinding = group.violations.length ? (group.violations[0].finding || {}) : {};
+          var sourceFolder = sourceFolderDisplay(group, firstFinding);
+          var sourcePathHtml = sourceFolder
+            ? '<div class="validation-source-path">Source folder: ' + escapeHtml(sourceFolder) + '</div>'
             : '';
           var violationsHtml = group.violations.map(function (violationRow, violationIndex) {
             var finding = violationRow.finding || {};
@@ -736,7 +813,7 @@ function renderValidationSummary(card) {
             var conflictListHtml = conflictTargets.length
               ? ('<ul class="validation-conflict-list">'
                 + conflictTargets.map(function (conflictItem) {
-                  return '<li>' + escapeHtml(String(conflictItem)) + '</li>';
+                  return renderConflictItem(conflictItem);
                 }).join('')
                 + '</ul>')
               : '<div class="muted">No conflict target metadata available.</div>';
@@ -765,7 +842,7 @@ function renderValidationSummary(card) {
       }
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div><div class="button-row validation-status-chip"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '');
@@ -2895,6 +2972,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-conflict-title{font-size:12px;font-weight:600;color:var(--secondary-text-color);margin-bottom:4px;}'
       + '.wizard-dialog .validation-conflict-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px;}'
       + '.wizard-dialog .validation-conflict-list li{font-size:12px;line-height:1.35;color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-conflict-primary{font-weight:700;color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-conflict-secondary{font-size:12px;line-height:1.3;color:var(--secondary-text-color);word-break:break-all;}'
+      + '.wizard-dialog .validation-status-chip{align-self:flex-start;}'
+      + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
       + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;}'
       + '.wizard-dialog .validation-action-control label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.wizard-dialog .validation-action-control .select{width:100%;}'

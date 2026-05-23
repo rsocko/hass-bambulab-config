@@ -595,14 +595,37 @@ def _read_indexed_filename_maps(
     db_path: Path,
     *,
     exclude_upload_id: str | None = None,
-) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, set[str]], dict[str, set[str]]]:
+) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]]]:
     """Build exact+soft filename indexes from working, queue, and catalog assets."""
     exact_map: dict[str, set[str]] = {}
     normalized_map: dict[str, set[str]] = {}
-    exact_context_map: dict[str, set[str]] = {}
-    normalized_context_map: dict[str, set[str]] = {}
+    exact_context_map: dict[str, list[dict[str, Any]]] = {}
+    normalized_context_map: dict[str, list[dict[str, Any]]] = {}
 
-    def _add_filename(raw_name: object, context_label: str | None = None) -> None:
+    def _append_context(bucket: dict[str, list[dict[str, Any]]], key: str, context_item: dict[str, Any] | None) -> None:
+        if not key or not isinstance(context_item, dict):
+            return
+        rows = bucket.setdefault(key, [])
+        dedupe_key = (
+            str(context_item.get("scope") or "").strip().lower(),
+            str(context_item.get("parent_kind") or "").strip().lower(),
+            str(context_item.get("parent_name") or "").strip(),
+            str(context_item.get("path") or "").strip(),
+            str(context_item.get("filename") or "").strip(),
+        )
+        for existing in rows:
+            existing_key = (
+                str(existing.get("scope") or "").strip().lower(),
+                str(existing.get("parent_kind") or "").strip().lower(),
+                str(existing.get("parent_name") or "").strip(),
+                str(existing.get("path") or "").strip(),
+                str(existing.get("filename") or "").strip(),
+            )
+            if existing_key == dedupe_key:
+                return
+        rows.append(context_item)
+
+    def _add_filename(raw_name: object, context_item: dict[str, Any] | None = None) -> None:
         name = str(raw_name or "").strip().replace("\\", "/")
         if not name:
             return
@@ -611,13 +634,11 @@ def _read_indexed_filename_maps(
             return
         exact_key = base_name.lower()
         exact_map.setdefault(exact_key, set()).add(base_name)
-        if context_label:
-            exact_context_map.setdefault(exact_key, set()).add(str(context_label).strip())
+        _append_context(exact_context_map, exact_key, context_item)
         normalized_key = _normalized_duplicate_name(base_name)
         if normalized_key:
             normalized_map.setdefault(normalized_key, set()).add(base_name)
-            if context_label:
-                normalized_context_map.setdefault(normalized_key, set()).add(str(context_label).strip())
+            _append_context(normalized_context_map, normalized_key, context_item)
 
     connection = connect(db_path)
     try:
@@ -630,14 +651,18 @@ def _read_indexed_filename_maps(
             """
         ).fetchall()
         for row in rows:
-            file_name = Path(str(row[0] or "")).name or str(row[0] or "").strip()
+            full_path = str(row[0] or "").strip().replace("\\", "/")
+            file_name = Path(full_path).name or full_path
             group_title = str(row[1] or "").strip()
-            context = (
-                f"Working group '{group_title}' -> {file_name}"
-                if group_title and file_name
-                else (f"Working file '{file_name}'" if file_name else "")
-            )
-            _add_filename(row[0], context or None)
+            context_item: dict[str, Any] = {
+                "scope": "indexed",
+                "parent_kind": "working_group",
+                "parent_name": group_title,
+                "path": full_path,
+                "filename": file_name,
+                "label": (f"Working group '{group_title}'" if group_title else "Working files") + (f" -> {full_path}" if full_path else ""),
+            }
+            _add_filename(row[0], context_item)
 
         if exclude_upload_id:
             queue_rows = connection.execute(
@@ -679,8 +704,16 @@ def _read_indexed_filename_maps(
                     continue
                 queued_name = entry.get("filename") or entry.get("relative_path") or entry.get("path")
                 base_name = Path(str(queued_name or "")).name or str(queued_name or "").strip()
-                queued_context = f"Queued intake source -> {base_name}" if base_name else ""
-                _add_filename(queued_name, queued_context or None)
+                queued_path = str(queued_name or "").strip().replace("\\", "/")
+                queued_context: dict[str, Any] = {
+                    "scope": "indexed",
+                    "parent_kind": "queue",
+                    "parent_name": "Queued intake",
+                    "path": queued_path,
+                    "filename": base_name,
+                    "label": f"Queued intake -> {queued_path or base_name}",
+                }
+                _add_filename(queued_name, queued_context)
 
         try:
             asset_rows = connection.execute(
@@ -694,14 +727,18 @@ def _read_indexed_filename_maps(
         except sqlite3.OperationalError:
             asset_rows = []
         for row in asset_rows:
-            asset_name = Path(str(row[0] or "")).name or str(row[0] or "").strip()
+            asset_path = str(row[0] or "").strip().replace("\\", "/")
+            asset_name = Path(asset_path).name or asset_path
             model_name = str(row[1] or "").strip()
-            asset_context = (
-                f"Catalog model '{model_name}' -> {asset_name}"
-                if model_name and asset_name
-                else (f"Catalog asset '{asset_name}'" if asset_name else "")
-            )
-            _add_filename(row[0], asset_context or None)
+            asset_context: dict[str, Any] = {
+                "scope": "indexed",
+                "parent_kind": "catalog_model",
+                "parent_name": model_name,
+                "path": asset_path,
+                "filename": asset_name,
+                "label": (f"Catalog model '{model_name}'" if model_name else "Catalog") + (f" -> {asset_path}" if asset_path else ""),
+            }
+            _add_filename(row[0], asset_context)
     finally:
         connection.close()
 
@@ -712,19 +749,38 @@ def _read_indexed_hash_match_contexts(
     db_path: Path,
     *,
     max_contexts_per_hash: int = 5,
-) -> dict[str, list[str]]:
+) -> dict[str, list[dict[str, Any]]]:
     """Build hash match context text for duplicate findings in validation UI."""
-    context_map: dict[str, list[str]] = {}
+    context_map: dict[str, list[dict[str, Any]]] = {}
 
-    def _add_context(raw_hash: object, context_text: str) -> None:
+    def _add_context(raw_hash: object, context_item: dict[str, Any]) -> None:
         hash_key = str(raw_hash or "").strip().lower()
-        label = str(context_text or "").strip()
+        if not isinstance(context_item, dict):
+            return
+        label = str(context_item.get("label") or "").strip()
         if not hash_key or not label:
             return
         rows = context_map.setdefault(hash_key, [])
-        if label in rows or len(rows) >= max_contexts_per_hash:
+        dedupe_key = (
+            str(context_item.get("scope") or "").strip().lower(),
+            str(context_item.get("parent_kind") or "").strip().lower(),
+            str(context_item.get("parent_name") or "").strip(),
+            str(context_item.get("path") or "").strip(),
+            str(context_item.get("filename") or "").strip(),
+        )
+        for existing in rows:
+            existing_key = (
+                str(existing.get("scope") or "").strip().lower(),
+                str(existing.get("parent_kind") or "").strip().lower(),
+                str(existing.get("parent_name") or "").strip(),
+                str(existing.get("path") or "").strip(),
+                str(existing.get("filename") or "").strip(),
+            )
+            if existing_key == dedupe_key:
+                return
+        if len(rows) >= max_contexts_per_hash:
             return
-        rows.append(label)
+        rows.append(context_item)
 
     connection = connect(db_path)
     try:
@@ -738,14 +794,20 @@ def _read_indexed_hash_match_contexts(
             """
         ).fetchall()
         for row in working_rows:
-            file_name = Path(str(row[1] or "")).name or str(row[1] or "").strip()
+            full_path = str(row[1] or "").strip().replace("\\", "/")
+            file_name = Path(full_path).name or full_path
             group_title = str(row[2] or "").strip()
-            if group_title and file_name:
-                _add_context(row[0], f"Working group '{group_title}' -> {file_name}")
-            elif group_title:
-                _add_context(row[0], f"Working group '{group_title}'")
-            elif file_name:
-                _add_context(row[0], f"Working file '{file_name}'")
+            _add_context(
+                row[0],
+                {
+                    "scope": "indexed",
+                    "parent_kind": "working_group",
+                    "parent_name": group_title,
+                    "path": full_path,
+                    "filename": file_name,
+                    "label": (f"Working group '{group_title}'" if group_title else "Working files") + (f" -> {full_path}" if full_path else ""),
+                },
+            )
 
         try:
             asset_rows = connection.execute(
@@ -760,14 +822,72 @@ def _read_indexed_hash_match_contexts(
         except sqlite3.OperationalError:
             asset_rows = []
         for row in asset_rows:
-            asset_name = Path(str(row[1] or "")).name or str(row[1] or "").strip()
+            asset_path = str(row[1] or "").strip().replace("\\", "/")
+            asset_name = Path(asset_path).name or asset_path
             model_name = str(row[2] or "").strip()
-            if model_name and asset_name:
-                _add_context(row[0], f"Catalog model '{model_name}' -> {asset_name}")
-            elif model_name:
-                _add_context(row[0], f"Catalog model '{model_name}'")
-            elif asset_name:
-                _add_context(row[0], f"Catalog asset '{asset_name}'")
+            _add_context(
+                row[0],
+                {
+                    "scope": "indexed",
+                    "parent_kind": "catalog_model",
+                    "parent_name": model_name,
+                    "path": asset_path,
+                    "filename": asset_name,
+                    "label": (f"Catalog model '{model_name}'" if model_name else "Catalog") + (f" -> {asset_path}" if asset_path else ""),
+                },
+            )
+
+        placeholders = ", ".join("?" for _ in _TERMINAL_INBOX_STATES)
+        queue_rows = connection.execute(
+            f"""
+            SELECT upload_id, source_entries_json, file_hashes_json
+            FROM intake_queue_uploads
+            WHERE file_hashes_json IS NOT NULL
+              AND TRIM(file_hashes_json) != ''
+              AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
+            """,
+            _TERMINAL_INBOX_STATES,
+        ).fetchall()
+        for row in queue_rows:
+            upload_id = str(row[0] or "").strip()
+            source_entries_raw = str(row[1] or "[]")
+            source_entries: list[dict[str, Any]] = []
+            try:
+                parsed_entries = json.loads(source_entries_raw)
+                if isinstance(parsed_entries, list):
+                    source_entries = [entry for entry in parsed_entries if isinstance(entry, dict)]
+            except (json.JSONDecodeError, ValueError):
+                source_entries = []
+
+            source_labels: list[str] = []
+            for entry in source_entries[:3]:
+                source_path = str(entry.get("path") or "").strip().replace("\\", "/")
+                entry_type = str(entry.get("type") or "source").strip().lower() or "source"
+                if source_path:
+                    source_labels.append(f"{entry_type}: {source_path}")
+            queue_path_label = "; ".join(source_labels) if source_labels else "Queued intake batch"
+
+            try:
+                hashes = json.loads(str(row[2] or "[]"))
+            except (json.JSONDecodeError, ValueError):
+                hashes = []
+            if not isinstance(hashes, list):
+                continue
+            for raw_hash in hashes:
+                hash_value = str(raw_hash or "").strip().lower()
+                if not hash_value:
+                    continue
+                _add_context(
+                    hash_value,
+                    {
+                        "scope": "indexed",
+                        "parent_kind": "queue",
+                        "parent_name": f"Queued intake ({upload_id[:8]})" if upload_id else "Queued intake",
+                        "path": queue_path_label,
+                        "filename": "",
+                        "label": f"Queued intake ({upload_id[:8]}) -> {queue_path_label}" if upload_id else f"Queued intake -> {queue_path_label}",
+                    },
+                )
     finally:
         connection.close()
 
@@ -779,10 +899,11 @@ def _scan_batch_duplicate_warnings(
 ) -> tuple[list[dict[str, Any]], int, int, int, list[dict[str, Any]]]:
     warnings: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
-    seen_hashes: dict[str, tuple[str, str]] = {}
+    seen_hashes: dict[str, dict[str, str]] = {}
     seen_exact_names: set[str] = set()
     seen_normalized_names: list[tuple[str, tuple[str, ...]]] = []
-    seen_exact_primary_names: dict[str, str] = {}
+    seen_exact_primary_names: dict[str, dict[str, str]] = {}
+    seen_normalized_primary_names: dict[str, dict[str, str]] = {}
     duplicate_hash_count = 0
     duplicate_name_exact_count = 0
     duplicate_name_soft_count = 0
@@ -794,6 +915,7 @@ def _scan_batch_duplicate_warnings(
         file_hash = str(item.get("file_hash") or "").strip().lower()
         filename = str(item.get("filename") or Path(str(item.get("path") or "")).name).strip()
         file_path = str(item.get("path") or "").strip()
+        relative_path = str(item.get("relative_path") or "").strip().replace("\\", "/")
         filename_key = filename.lower()
         normalized_name = _normalized_duplicate_name(filename)
         normalized_tokens = _normalized_duplicate_name_tokens(filename)
@@ -802,58 +924,104 @@ def _scan_batch_duplicate_warnings(
             first_hash_match = seen_hashes.get(file_hash)
             if first_hash_match is not None:
                 duplicate_hash_count += 1
-                conflict_name = first_hash_match[0] or first_hash_match[1] or "earlier file in batch"
+                conflict_filename = str(first_hash_match.get("filename") or "").strip()
+                conflict_path = str(first_hash_match.get("path") or "").strip()
+                conflict_parent = str(first_hash_match.get("parent_name") or "").strip()
+                conflict_label = conflict_filename or conflict_path or "earlier file in batch"
                 warnings.append(
                     {
                         "code": "batch_duplicate_hash_match",
                         "message": "Hard duplicate: hash matched another file in this batch.",
                         "sha256": file_hash,
                         "filename": filename or None,
-                        "conflicts_with": [conflict_name],
+                        "conflicts_with": [
+                            {
+                                "scope": "batch",
+                                "parent_kind": "batch_folder",
+                                "parent_name": conflict_parent,
+                                "path": conflict_path,
+                                "filename": conflict_filename,
+                                "label": conflict_label,
+                            }
+                        ],
                     }
                 )
                 findings.append(
                     {
                         "filename": filename or None,
                         "path": file_path or None,
+                        "relative_path": relative_path or None,
                         "violation_code": "batch_duplicate_hash_match",
                         "violation_label": "Batch hash duplicate",
                         "check_key": "batch_duplicate_scan",
                         "scope": "batch",
-                        "conflicts_with": [conflict_name],
+                        "conflicts_with": [
+                            {
+                                "scope": "batch",
+                                "parent_kind": "batch_folder",
+                                "parent_name": conflict_parent,
+                                "path": conflict_path,
+                                "filename": conflict_filename,
+                                "label": conflict_label,
+                            }
+                        ],
                         "sha256": file_hash,
                     }
                 )
             else:
-                seen_hashes[file_hash] = (filename, file_path)
+                seen_hashes[file_hash] = {
+                    "filename": filename,
+                    "path": file_path,
+                    "parent_name": Path(file_path).parent.name if file_path else "",
+                }
 
         exact_seen = bool(filename_key and filename_key in seen_exact_names)
         similar_match = _batch_duplicate_name_similarity(filename, seen_normalized_names)
         if exact_seen:
             duplicate_name_exact_count += 1
-            conflict_name = seen_exact_primary_names.get(filename_key) or "earlier file in batch"
+            exact_match_meta = seen_exact_primary_names.get(filename_key, {})
+            conflict_name = str(exact_match_meta.get("filename") or "").strip() or "earlier file in batch"
+            conflict_item = {
+                "scope": "batch",
+                "parent_kind": "batch_folder",
+                "parent_name": str(exact_match_meta.get("parent_name") or "").strip(),
+                "path": str(exact_match_meta.get("path") or "").strip(),
+                "filename": conflict_name,
+                "label": conflict_name,
+            }
             warnings.append(
                 {
                     "code": "batch_duplicate_name_exact_match",
                     "message": "Exact filename matched another file in this batch.",
                     "filename": filename,
-                    "conflicts_with": [conflict_name],
+                    "conflicts_with": [conflict_item],
                 }
             )
             findings.append(
                 {
                     "filename": filename or None,
                     "path": file_path or None,
+                    "relative_path": relative_path or None,
                     "violation_code": "batch_duplicate_name_exact_match",
                     "violation_label": "Batch exact filename duplicate",
                     "check_key": "batch_duplicate_scan",
                     "scope": "batch",
-                    "conflicts_with": [conflict_name],
+                    "conflicts_with": [conflict_item],
                 }
             )
         elif similar_match is not None:
             match_name, match_score = similar_match
             duplicate_name_soft_count += 1
+            soft_match_meta = seen_normalized_primary_names.get(str(match_name or ""), {})
+            soft_filename = str(soft_match_meta.get("filename") or "").strip() or match_name
+            match_item = {
+                "scope": "batch",
+                "parent_kind": "batch_folder",
+                "parent_name": str(soft_match_meta.get("parent_name") or "").strip(),
+                "path": str(soft_match_meta.get("path") or "").strip(),
+                "filename": soft_filename,
+                "label": soft_filename,
+            }
             warnings.append(
                 {
                     "code": "batch_duplicate_name_soft_match",
@@ -862,18 +1030,19 @@ def _scan_batch_duplicate_warnings(
                     "normalized_name": normalized_name,
                     "matched_name": match_name,
                     "match_score": round(match_score, 3),
-                    "conflicts_with": [match_name],
+                    "conflicts_with": [match_item],
                 }
             )
             findings.append(
                 {
                     "filename": filename or None,
                     "path": file_path or None,
+                    "relative_path": relative_path or None,
                     "violation_code": "batch_duplicate_name_soft_match",
                     "violation_label": "Batch near-name duplicate",
                     "check_key": "batch_duplicate_scan",
                     "scope": "batch",
-                    "conflicts_with": [match_name],
+                    "conflicts_with": [match_item],
                     "normalized_name": normalized_name,
                     "match_score": round(match_score, 3),
                 }
@@ -881,9 +1050,24 @@ def _scan_batch_duplicate_warnings(
 
         if filename_key:
             seen_exact_names.add(filename_key)
-            seen_exact_primary_names.setdefault(filename_key, filename)
+            seen_exact_primary_names.setdefault(
+                filename_key,
+                {
+                    "filename": filename,
+                    "path": file_path,
+                    "parent_name": Path(file_path).parent.name if file_path else "",
+                },
+            )
         if normalized_name:
             seen_normalized_names.append((normalized_name, normalized_tokens))
+            seen_normalized_primary_names.setdefault(
+                normalized_name,
+                {
+                    "filename": filename,
+                    "path": file_path,
+                    "parent_name": Path(file_path).parent.name if file_path else "",
+                },
+            )
 
     return warnings, duplicate_hash_count, duplicate_name_exact_count, duplicate_name_soft_count, findings
 
@@ -2226,6 +2410,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         file_hash = str(file_item.get("file_hash") or "").strip().lower()
         file_path = str(file_item.get("path") or "").strip()
         filename = str(file_item.get("filename") or Path(str(file_item.get("path") or "")).name).strip()
+        relative_path = str(file_item.get("relative_path") or "").strip().replace("\\", "/")
         filename_key = filename.lower()
         if not file_hash:
             pass
@@ -2248,6 +2433,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                     {
                         "filename": filename,
                         "path": file_path,
+                        "relative_path": relative_path,
                         "violation_code": "working_group_hash_match",
                         "violation_label": "Indexed hash match",
                         "check_key": "duplicate_scan",
@@ -2261,7 +2447,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         if exact_name_matches:
             duplicate_name_exact_count += 1
             validation_state = "duplicate_candidate"
-            exact_context_matches = sorted(indexed_exact_contexts.get(filename_key, set())) if filename_key else []
+            exact_context_matches = indexed_exact_contexts.get(filename_key, []) if filename_key else []
             exact_conflicts = exact_context_matches[:3] if exact_context_matches else exact_name_matches[:3]
             warnings.append(
                 {
@@ -2276,6 +2462,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                 {
                     "filename": filename,
                     "path": file_path,
+                    "relative_path": relative_path,
                     "violation_code": "duplicate_name_exact_match",
                     "violation_label": "Indexed exact filename match",
                     "check_key": "duplicate_scan",
@@ -2294,7 +2481,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             if soft_name_matches:
                 duplicate_name_soft_count += 1
                 validation_state = "duplicate_candidate"
-                soft_context_matches = sorted(indexed_normalized_contexts.get(normalized_name, set())) if normalized_name else []
+                soft_context_matches = indexed_normalized_contexts.get(normalized_name, []) if normalized_name else []
                 soft_conflicts = soft_context_matches[:3] if soft_context_matches else soft_name_matches[:3]
                 warnings.append(
                     {
@@ -2310,6 +2497,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                     {
                         "filename": filename,
                         "path": file_path,
+                        "relative_path": relative_path,
                         "violation_code": "duplicate_name_soft_match",
                         "violation_label": "Indexed near-name match",
                         "check_key": "duplicate_scan",
