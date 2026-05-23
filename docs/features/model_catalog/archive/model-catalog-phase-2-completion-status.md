@@ -172,9 +172,9 @@ Phase 2 Specific:
 
 ## Related Documents
 
-- [MODEL_CATALOG_PHASE_2_DESIGN.md](MODEL_CATALOG_PHASE_2_DESIGN.md) - Original design document
-- [MODEL_CATALOG_ARCHITECTURE.md](MODEL_CATALOG_ARCHITECTURE.md) - Architecture reference
-- [MODEL_CATALOG_PHASE_2_COMPLETION_REVIEW.md](MODEL_CATALOG_PHASE_2_COMPLETION_REVIEW.md) - Detailed completion review
+- [/docs/features/model_catalog/planning/model-catalog-phase-2-design.md](/docs/features/model_catalog/planning/model-catalog-phase-2-design.md) - Original design document
+- [/docs/features/model_catalog/reference/architecture.md](/docs/features/model_catalog/reference/architecture.md) - Architecture reference
+- [/docs/features/model_catalog/archive/model-catalog-phase-2-completion-review.md](/docs/features/model_catalog/archive/model-catalog-phase-2-completion-review.md) - Detailed completion review
 
 ---
 

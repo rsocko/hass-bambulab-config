@@ -262,7 +262,7 @@ Contains flow diagrams for the import process. References cleanup policy as part
 
 ### Sidecar README
 
-The [sidecar README](../../../sidecars/model_catalog/README.md) includes the only explicit operational guidance about stale files:
+The [sidecar README](/sidecars/model_catalog/README.md) includes the only explicit operational guidance about stale files:
 
 > "clear stale queue files only after confirming no active `queued`, `uploading`, or `cleanup_failed` items remain"
 
@@ -270,7 +270,7 @@ This acknowledges the orphan problem exists but offers only a manual, caveat-lad
 
 ### Test Coverage
 
-The [validation test report](../../../tests/sidecars/model_catalog/VALIDATION_TEST_REPORT.md) includes unchecked items:
+The [validation test report](/tests/sidecars/model_catalog/VALIDATION_TEST_REPORT.md) includes unchecked items:
 - `[ ] Test orphaned record cleanup`
 - `[ ] Test orphaned record detection via API`
 

@@ -279,4 +279,4 @@ Rejected because:
 
 - [Candidate Discovery Strategy](/docs/features/model_catalog/planning/candidate-discovery.md) — signal tiers and match methods
 - [Archive-Model Link HA Service Contract](/docs/features/model_catalog/reference/integration/archive-model-link-contract.md) — API surface
-- [Implementation Sequence](../ARCHIVE-LINKING-IMPLEMENTATION-SEQUENCE.md) — execution plan
+- [Implementation Sequence](/docs/features/model_catalog/planning/archive-linking-sequence.md) — execution plan

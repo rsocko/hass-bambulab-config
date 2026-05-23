@@ -113,7 +113,7 @@ detail_payload = None
 ## 3. Design Documentation & Planning
 
 ### 3.1 Phase 2 Design Document
-- **File**: `docs/MODEL_CATALOG_PHASE_2_DESIGN.md` (NEW)
+- **File**: `docs//docs/features/model_catalog/planning/model-catalog-phase-2-design.md` (NEW)
 - **Content**:
   - Phase 1 summary and context
   - Phase 2 objectives and scope
@@ -181,7 +181,7 @@ tests/sidecars/test_model_catalog_sidecar.py & test_manyfold_upload_adapter.py
 
 ### New Files Created
 - ✅ `sidecars/model_catalog/app/services/shared_helpers.py` - Canonical helpers
-- ✅ `docs/MODEL_CATALOG_PHASE_2_DESIGN.md` - Comprehensive design
+- ✅ `docs//docs/features/model_catalog/planning/model-catalog-phase-2-design.md` - Comprehensive design
 - ✅ `docs/PHASE_2_GITHUB_ISSUES_TEMPLATE.md` - Issue templates
 
 ---
@@ -238,7 +238,7 @@ tests/sidecars/test_model_catalog_sidecar.py & test_manyfold_upload_adapter.py
 ## 9. Deliverables Summary
 
 **Documentation** (3 files):
-- Phase 2 Design: `docs/MODEL_CATALOG_PHASE_2_DESIGN.md`
+- Phase 2 Design: `docs//docs/features/model_catalog/planning/model-catalog-phase-2-design.md`
 - GitHub Issues: `docs/PHASE_2_GITHUB_ISSUES_TEMPLATE.md`
 - This Summary: `docs/PHASE_1_COMPLETION_SUMMARY.md`
 

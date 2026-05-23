@@ -377,7 +377,7 @@ Manyfold's rescan behavior is **underdocumented in REST API** but **predictable 
 
 ## Related Documentation
 
-- [Spike #1056: PATCH Behavior](../spike-1056-manyfold-patch-behavior-validation.md)
+- [Spike #1056: PATCH Behavior](/docs/features/model_catalog/planning/integration/spike-1056-manyfold.md)
 - [Manyfold API Gap Analysis](../manyfold-gap-analysis.md)
 - [Intake Inbox Design](/docs/features/model_catalog/design/intake-inbox.md)
 - Manyfold upstream: ScanLibraryJob and library controllers

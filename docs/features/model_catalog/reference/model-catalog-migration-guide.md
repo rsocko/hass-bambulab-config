@@ -390,7 +390,7 @@ PUT /api/models/{model_ref}/fields/{key} with value in body
 
 ### Q: How do I find the new module structure?
 
-**A**: See [Model Catalog App README](../../../../sidecars/model_catalog/app/README.md) for module organization and [Model Catalog Architecture](model-catalog-sidecar-architecture.md) for design details.
+**A**: See [Model Catalog App README](/sidecars/model_catalog/README.md) for module organization and [Model Catalog Architecture](model-catalog-sidecar-architecture.md) for design details.
 
 ---
 
@@ -398,7 +398,7 @@ PUT /api/models/{model_ref}/fields/{key} with value in body
 
 For questions about the refactoring:
 - Review [model-catalog-sidecar-architecture.md](model-catalog-sidecar-architecture.md)
-- Check [app/README.md](app/README.md) for module overview
+- Check [/sidecars/model_catalog/README.md](/sidecars/model_catalog/README.md) for module overview
 - Open an issue on GitHub with the `model_catalog`, `documentation` labels
 
 For API contract questions:

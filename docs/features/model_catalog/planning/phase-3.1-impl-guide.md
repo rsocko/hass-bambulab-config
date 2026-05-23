@@ -365,4 +365,4 @@ If Phase 3.1 causes issues:
 - Phase 3.0 Implementation: [phase-3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3-guide.md)
 - Design Document: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)
 - Print History Reference: [print-history-archive-actions-card.js](../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js)
-- Bambuddy REST API: [bambuddy/README.md](../../../bambuddy/README.md)
+- Bambuddy REST API: [bambuddy/README.md](/bambuddy/README.md)

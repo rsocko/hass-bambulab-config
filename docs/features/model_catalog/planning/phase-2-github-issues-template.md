@@ -282,7 +282,7 @@ Update documentation to reflect Phase 2 refactoring:
 ### Related Files
 - `docs/features/model_catalog/planning/model-catalog-phase-2-design.md` (UPDATE)
 - `docs/features/model_catalog/reference/model-catalog-sidecar-architecture.md` (NEW)
-- `sidecars/model_catalog/app/README.md` (UPDATE)
+- `sidecars/model_catalog//sidecars/model_catalog/README.md` (UPDATE)
 - `sidecars/model_catalog/README.md` (UPDATE)
 
 ---

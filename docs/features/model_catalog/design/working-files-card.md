@@ -1,7 +1,7 @@
 # Working Files — Card Design (Groups / Files / Toolbar)
 
 > **Status:** Hi-fidelity design proposal.
-> **Scope:** Working Files explorer surface rendered today by [model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js). This document defines the redesigned UI; it complements (does not replace) the workflow contract in [working-files-workflow-redesign-issue-1169.md](/docs/features/model_catalog/design/working-files-workflow.md) and reuses the visual grammar already established in [catalog-card.md](catalog-card.md).
+> **Scope:** Working Files explorer surface rendered today by [model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js). This document defines the redesigned UI; it complements (does not replace) the workflow contract in [/docs/features/model_catalog/design/working-files-workflow.md](/docs/features/model_catalog/design/working-files-workflow.md) and reuses the visual grammar already established in [catalog-card.md](catalog-card.md).
 > **Related issues:** #1215 (catalog list-view density / decisions), #1216 (catalog toolbar redesign). Working Files inherits both patterns where they apply, but **diverges in workflow** because the Working Files user is *organising and acting on files*, not browsing a curated index.
 > **Companion HTML mockups (browser-viewable, fully self-contained):**
 > - [mockups/working-files-groups.html](mockups/working-files-groups.html) — primary focus
@@ -298,7 +298,7 @@ The catalog browser already renders a working Three.js viewer in a `browser_mod.
 
 #### 4.4.2 Per-group detail / edit popup — *replaces the current `window.prompt` flows*
 
-The current explorer card uses `window.prompt(...)` for "New working group title" and "Enter destination group id" ([model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js#L418-L463)). That is an explicit design debt called out in §8 of this document and in [working-files-workflow-redesign-issue-1169.md](/docs/features/model_catalog/design/working-files-workflow.md). The redesign replaces both with a single proper **Group details popup** opened on group-title click.
+The current explorer card uses `window.prompt(...)` for "New working group title" and "Enter destination group id" ([model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js#L418-L463)). That is an explicit design debt called out in §8 of this document and in [/docs/features/model_catalog/design/working-files-workflow.md](/docs/features/model_catalog/design/working-files-workflow.md). The redesign replaces both with a single proper **Group details popup** opened on group-title click.
 
 Mockup: [mockups/working-files-group-popup.html](mockups/working-files-group-popup.html).
 

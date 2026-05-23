@@ -4,11 +4,11 @@ Date: 2026-05-08
 
 Inputs consolidated:
 - [external-competitive-review-mmp-orynt-2026-05-08.md](/docs/features/model_catalog/planning/external-competitor-review.md)
-- [external-competitive-review-orynt-alternatives-2026-05-08.md](../external-competitive-review-orynt-alternatives-2026-05-08.md)
+- [external-competitive-review-orynt-alternatives-2026-05-08.md](/docs/features/model_catalog/planning/external-alternatives-review.md)
 
 Alignment anchors used:
 - [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)
-- [PHASE-5-EXECUTION-SEQUENCE.md](../PHASE-5-EXECUTION-SEQUENCE.md)
+- [PHASE-5-EXECUTION-SEQUENCE.md](/docs/features/model_catalog/planning/phase-5-sequence.md)
 - [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md)
 - [phase-3.1-3.3-roadmap.md](phase-3.1-3.3-roadmap.md)
 

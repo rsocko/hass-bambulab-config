@@ -8,7 +8,7 @@
 
 ### For Project Managers
 
-1. Open [phase-3.1-3.3-development-checklist.md](../phase-3.1-3.3-development-checklist.md)
+1. Open [phase-3.1-3.3-development-checklist.md](/docs/features/model_catalog/planning/phase-3.1-3.3-checklist.md)
 2. Assign developers to each phase (can be parallel)
 3. Create GitHub issues from templates (see below)
 4. Track progress on GitHub project board
@@ -43,19 +43,19 @@
 
 Use these to track development:
 
-**Phase 3.1**: [Create Issue](../../.github/ISSUE_TEMPLATE/phase-3-1-implementation.md)
+**Phase 3.1**: [Create Issue](/docs/features/model_catalog/planning/phase-2-github-issues-template.md)
 ```bash
 # Copy this template into a new GitHub issue:
 .github/ISSUE_TEMPLATE/phase-3-1-implementation.md
 ```
 
-**Phase 3.2**: [Create Issue](../../.github/ISSUE_TEMPLATE/phase-3-2-implementation.md)
+**Phase 3.2**: [Create Issue](/docs/features/model_catalog/planning/phase-2-github-issues-template.md)
 ```bash
 # Copy this template into a new GitHub issue:
 .github/ISSUE_TEMPLATE/phase-3-2-implementation.md
 ```
 
-**Phase 3.3**: [Create Issue](../../.github/ISSUE_TEMPLATE/phase-3-3-implementation.md)
+**Phase 3.3**: [Create Issue](/docs/features/model_catalog/planning/phase-2-github-issues-template.md)
 ```bash
 # Copy this template into a new GitHub issue:
 .github/ISSUE_TEMPLATE/phase-3-3-implementation.md

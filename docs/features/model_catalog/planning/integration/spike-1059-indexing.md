@@ -575,4 +575,4 @@ Working-file indexing is **feasible and ergonomic** for Phase 1.5 intake workflo
 
 - [Intake Inbox Design](/docs/features/model_catalog/design/intake-inbox.md)
 - [Working Groups and Veneer](/docs/features/model_catalog/planning/working-groups-veneer.md)
-- [Phase 1.5 Intake Implementation Breakdown](../phase-1.5-intake-implementation-breakdown.md)
+- [Phase 1.5 Intake Implementation Breakdown](/docs/features/model_catalog/planning/phase-1.5-breakdown.md)

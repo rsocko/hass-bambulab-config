@@ -770,7 +770,7 @@ The full set of GitHub issues opened on 2026-05-13/14 to track this redesign. Ea
 - [model-detail-popup-redesign-2026-05.md](/docs/features/model_catalog/design/model-detail-popup.md)
 - [projects-design.md](/docs/features/model_catalog/design/projects.md)
 - [unified-queue.md](./unified-queue.md)
-- [unified-queue-state-transitions.md](../unified-queue-state-transitions.md)
+- [unified-queue-state-transitions.md](/docs/features/model_catalog/reference/unified-queue-states.md)
 - [historical-print-backfill-via-model-catalog.md](/docs/features/model_catalog/design/print-history-backfill.md)
 - [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)
 - [external-competitive-prioritized-implementation-backlog-2026-05-08.md](/docs/features/model_catalog/planning/external-competitive-backlog.md)

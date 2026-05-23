@@ -127,7 +127,7 @@ curl http://localhost:8000/api/local/models?limit=500
 - ✅ Backend validation of promotion paths (frontend can check `can_promote()` via API or replicate the logic)
 
 ### What Needs Frontend Implementation (Phase 2.1)
-See [ISSUE-1490-ENTITY-TYPES-FRONTEND-GUIDE.md](../ISSUE-1490-ENTITY-TYPES-FRONTEND-GUIDE.md) for detailed code patterns:
+See [ISSUE-1490-ENTITY-TYPES-FRONTEND-GUIDE.md](/docs/features/model_catalog/planning/issue-1490-frontend-guide.md) for detailed code patterns:
 
 1. **Toolbar Chips** (`Show ideas`, `Show working groups`)
    - Toggle `_filterState.showIdeas` and `_filterState.showWorkingGroups`

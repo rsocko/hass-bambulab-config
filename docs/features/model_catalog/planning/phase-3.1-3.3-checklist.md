@@ -338,7 +338,7 @@ docs/features/model_catalog/
 
 ### Reference Materials
 - Phase 3 Design: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)
-- Bambuddy API: [../../bambuddy/README.md](../../bambuddy/README.md)
+- Bambuddy API: [../../bambuddy/README.md](/bambuddy/README.md)
 - Print History: [../print_history/](../print_history/)
 - Three.js Docs: https://threejs.org/docs/
 
@@ -347,9 +347,9 @@ docs/features/model_catalog/
 ## Issues & Problem Tracking
 
 Use the GitHub issue templates to track development:
-- 🎫 [Phase 3.1 Issue Template](.././.github/ISSUE_TEMPLATE/phase-3-1-implementation.md)
-- 🎫 [Phase 3.2 Issue Template](.././.github/ISSUE_TEMPLATE/phase-3-2-implementation.md)
-- 🎫 [Phase 3.3 Issue Template](.././.github/ISSUE_TEMPLATE/phase-3-3-implementation.md)
+- 🎫 [Phase 3.1 Issue Template](/docs/features/model_catalog/planning/phase-2-github-issues-template.md)
+- 🎫 [Phase 3.2 Issue Template](/docs/features/model_catalog/planning/phase-2-github-issues-template.md)
+- 🎫 [Phase 3.3 Issue Template](/docs/features/model_catalog/planning/phase-2-github-issues-template.md)
 
 ---
 

@@ -495,5 +495,5 @@ That's good architecture.
 
 - **Current schema**: [Model Catalog ER Diagrams](../planning/er-diagrams.md)
 - **Current implementation**: [db.py](../../sidecars/model_catalog/app/db.py)
-- **Architecture**: [architecture-overview.md](../architecture-overview.md#model-catalog-persistence-direction)
+- **Architecture**: [architecture-overview.md](/docs/features/model_catalog/reference/architecture.md#model-catalog-persistence-direction)
 - **Post-Manyfold transition**: [post-manyfold-transition-plan-2026-04.md](/docs/features/model_catalog/planning/post-manyfold-transition.md)

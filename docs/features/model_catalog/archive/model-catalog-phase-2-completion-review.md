@@ -2,7 +2,7 @@
 
 **Status**: Phase 2.1-2.2 Complete ✅; Phase 2.3 In Progress 🔄; Phase 2.4+ Planned ⏳  
 **Date**: 2026-05-02  
-**Related**: MODEL_CATALOG_PHASE_2_DESIGN.md, MODEL_CATALOG_ARCHITECTURE.md
+**Related**: /docs/features/model_catalog/planning/model-catalog-phase-2-design.md, /docs/features/model_catalog/reference/architecture.md
 
 ---
 
@@ -397,8 +397,8 @@ from sidecars.model_catalog.app.main import _resolve_local_asset_storage_path # 
 - 🔄 Full test suite needs verification after Phase 2.3 updates
 
 **Criterion 5: Documentation updated**
-- ✅ MODEL_CATALOG_PHASE_2_DESIGN.md updated
-- ✅ MODEL_CATALOG_ARCHITECTURE.md created
+- ✅ /docs/features/model_catalog/planning/model-catalog-phase-2-design.md updated
+- ✅ /docs/features/model_catalog/reference/architecture.md created
 - ✅ README files in routers/ and services/
 - ✅ Inline code documentation
 
@@ -426,7 +426,7 @@ from sidecars.model_catalog.app.main import _resolve_local_asset_storage_path # 
    - [ ] Fix any broken imports found
 
 3. **Document Phase 2.3 completion** (30 min)
-   - [ ] Update MODEL_CATALOG_PHASE_2_DESIGN.md with Phase 2.3 completion
+   - [ ] Update /docs/features/model_catalog/planning/model-catalog-phase-2-design.md with Phase 2.3 completion
    - [ ] Document any import path changes needed
 
 ### Short-term (Next 1 week)

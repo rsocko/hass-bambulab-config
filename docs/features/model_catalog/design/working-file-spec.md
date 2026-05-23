@@ -249,7 +249,7 @@ Minimum schema contract for working-file index rows:
 ## Related Docs
 
 - `docs/features/model_catalog/planning/integration/spike-1059-indexing.md`
-- `docs/features/model_catalog/working-files-workflow-redesign-issue-1169.md`
+- `docs/features/model_catalog//docs/features/model_catalog/design/working-files-workflow.md`
 - `docs/features/model_catalog/intake-inbox-design.md`
 - `docs/features/model_catalog/phase-1.5-intake-implementation-breakdown.md`
 - `docs/features/model_catalog/phase-delivery-and-validation.md`

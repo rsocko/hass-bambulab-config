@@ -9,7 +9,7 @@
 ## 📋 Documents (Read in This Order)
 
 ### 1. **Summary & Status** (START HERE)
-   - [PHASE-0-POPUP-REDESIGN-SUMMARY.md](.././PHASE-0-POPUP-REDESIGN-SUMMARY.md)
+   - [PHASE-0-POPUP-REDESIGN-SUMMARY.md](/docs/archive/model_catalog/phase-0-popup-summary.md)
    - 5-min executive overview, validation checklist, next steps
 
 ### 2. **Extension Points API** (For Feature Leads)
@@ -18,12 +18,12 @@
    - **Review**: Feature teams #1494, #1495, #1483, #1499
 
 ### 3. **Archive Candidate Review Workflow** (For Archive UI)
-   - [archive-candidate-review-workflow.md](.././archive-candidate-review-workflow.md)
+   - [archive-candidate-review-workflow.md](/docs/features/model_catalog/planning/archive-candidate-review.md)
    - Candidate scoring, confidence breakdown, keyboard shortcuts, accessibility
    - **Review**: #1495 (Archive UI), intake/forensics team
 
 ### 4. **Updated Design Document** (For Context)
-   - [model-detail-popup-redesign-2026-05.md](.././model-detail-popup-redesign-2026-05.md) (Sections 1–2 updated)
+   - [model-detail-popup-redesign-2026-05.md](/docs/features/model_catalog/design/model-detail-popup.md) (Sections 1–2 updated)
    - New collapsible layout mockups (desktop + mobile)
    - Section organization & edit pattern
 

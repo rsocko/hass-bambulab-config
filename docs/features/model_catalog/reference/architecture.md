@@ -158,7 +158,7 @@ The preferred deployment shape is a same-stack sidecar:
 
 The baseline explicitly avoids treating direct Manyfold DB writes as a supported product path.
 
-See [Implementation Strategy Options](../implementation-strategy-options.md) and [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md) for the active execution direction.
+See [Implementation Strategy Options](/docs/features/model_catalog/planning/implementation-strategy.md) and [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md) for the active execution direction.
 
 ## Working Groups
 

@@ -323,7 +323,7 @@ Recommended identity keys:
 - normalized filename
 - timestamps for provenance, not primary identity
 
-See [archive-to-library-linkage.md](../integration/archive-to-library-linkage.md) for the detailed contract.
+See [archive-to-library-linkage.md](/docs/features/model_catalog/reference/integration/archive-library-linkage.md) for the detailed contract.
 
 ## Home Assistant Surface Options
 

@@ -4,7 +4,7 @@
 > **Tracking issue:** [#1227 — "Advanced Actions" card for models](https://github.com/rsocko/hass-bambulab-config/issues/1227)
 > **Scope:** A new Lovelace custom card — `custom:model-catalog-advanced-actions-card` — that mirrors the Print History [print-history-archive-actions-card.js](../../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js) UX and architecture, applied to **catalog models** (not archives). Includes a proper **DELETE** flow (two-stage confirmation) which the Catalog does not have today.
 > **Companion mockup:** [mockups/catalog-advanced-actions.html](mockups/catalog-advanced-actions.html).
-> **Related design docs:** [catalog-popup.md](catalog-popup.md), [working-files-card.md](working-files-card.md), [working-files-workflow-redesign-issue-1169.md](working-files-workflow-redesign-issue-1169.md).
+> **Related design docs:** [catalog-popup.md](catalog-popup.md), [working-files-card.md](working-files-card.md), [/docs/features/model_catalog/design/working-files-workflow.md](/docs/features/model_catalog/design/working-files-workflow.md).
 
 ---
 

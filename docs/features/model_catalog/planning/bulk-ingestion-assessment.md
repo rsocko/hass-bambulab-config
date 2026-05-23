@@ -421,7 +421,7 @@ Work items:
 
 **Current State**: Model Catalog, Print History, and Bambuddy have separate data models; project linkage is undefined.
 
-**Recommendation**: Add a new design document: **[Cross-Feature Project & Variant Linkage Contract](../cross-feature-project-linkage.md)** (to be created).
+**Recommendation**: Add a new design document: **[Cross-Feature Project & Variant Linkage Contract](/docs/features/model_catalog/design/manyfold-bambuddy-linkage.md)** (to be created).
 
 **Key Contracts**:
 

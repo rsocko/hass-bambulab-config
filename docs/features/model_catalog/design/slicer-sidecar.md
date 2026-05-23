@@ -9,7 +9,7 @@ See also:
 - [Print History Slicer Plan](../planning/print-history-slicer-plan.md) — primary owning design (orchestration, validation, persistence, archive commit)
 - [Print History Slicer Implementation Plan](/docs/features/model_catalog/planning/print-history-slicer-plan.md) — workstream and phase breakdown (Workstream D = local worker)
 - [Working Files Local Launch And Slicer Integration Design](/docs/features/model_catalog/design/working-files-launch.md) — operator launch surface considerations
-- [server-side-bambu-slicing-feasibility (repo memory)](../../../memories/repo/server-side-bambu-slicing-feasibility.md)
+- memories/repo/server-side-bambu-slicing-feasibility.md
 
 ## Purpose
 

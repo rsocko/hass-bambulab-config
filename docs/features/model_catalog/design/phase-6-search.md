@@ -444,4 +444,4 @@ Phase 6 search/discovery design is implementation-ready when all of the followin
 - [candidate-discovery-strategy.md](/docs/features/model_catalog/planning/candidate-discovery.md)
 - [integration/archive-model-link-ha-service-and-popup-contract.md](/docs/features/model_catalog/reference/integration/archive-model-link-contract.md)
 - [print-queue-assessment.md](../planning/print-queue-assessment.md)
-- [integration/spike-1060-archive-ranking-signals-validation.md](../integration/spike-1060-archive-ranking-signals-validation.md)
+- [integration/spike-1060-archive-ranking-signals-validation.md](/docs/features/model_catalog/planning/integration/spike-1060-ranking.md)
