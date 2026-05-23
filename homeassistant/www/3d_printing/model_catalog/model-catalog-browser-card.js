@@ -883,8 +883,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
-      this._refreshUnifiedQueueIndex().then(function () {
+      this._refreshUnifiedQueueIndex().then(function (queueIndexChanged) {
         if (this._loading) {
+          return;
+        }
+        if (!queueIndexChanged) {
           return;
         }
         if (this._viewMode === "media") {
@@ -938,7 +941,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var ageMs = now - Number(this._unifiedQueueIndexLastFetchedAt || 0);
     var hasCache = this._unifiedQueueByModelRef && Object.keys(this._unifiedQueueByModelRef).length > 0;
     if (!force && hasCache && ageMs >= 0 && ageMs < Number(this._unifiedQueueIndexCacheTtlMs || 0)) {
-      return;
+      return false;
     }
     try {
       var queuePayload = await this._callServiceWithResponse("rest_command", "model_catalog_list_unified_queue_entries", {
@@ -971,11 +974,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
         byModelRef[modelRef].count += 1;
         byModelRef[modelRef].entries.push(candidate);
       }
+      var changed = JSON.stringify(this._unifiedQueueByModelRef || {}) !== JSON.stringify(byModelRef);
       this._unifiedQueueByModelRef = byModelRef;
       this._unifiedQueueIndexLastFetchedAt = Date.now();
+      return changed;
     } catch (_error) {
       this._unifiedQueueByModelRef = {};
       this._unifiedQueueIndexLastFetchedAt = 0;
+      return false;
     }
   }
 
