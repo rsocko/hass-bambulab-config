@@ -55,6 +55,10 @@ Alignment rule:
 
 ## Matrix B: C1 Detailed Row-Level Coverage
 
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed C1 CSV matrices, `current_path` is a migration-source field and may reference paths removed by later pointer-prune cleanup.
+2. `target_path` is the canonical destination for active docs.
+
 Format note:
 1. Detailed files under `docs/repo/planning/matrices/` are stored as raw CSV text inside `.md` files.
 2. This is intentional for easy import into spreadsheets and scripts.
@@ -73,6 +77,7 @@ Batch 1 total planned row-level items: 268
 | Feature | Row Count | Detailed Matrix File |
 |---|---:|---|
 | wled | 21 | docs/repo/planning/matrices/migration-matrix-batch2-wled.csv.md |
+| air_quality | 13 | docs/repo/planning/matrices/migration-matrix-batch2-air_quality.csv.md |
 
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.

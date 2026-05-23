@@ -6,6 +6,10 @@ Row count: 42
 Label alignment: local `Batch 1` = global `C1` in documentation-migration-matrix.md.
 Format: raw CSV text for machine import (spreadsheets/scripts).
 
+Post-cleanup note (2026-05-23):
+1. `current_path` values are historical migration-source paths, not a required current filesystem assertion.
+2. `target_path` values identify canonical destinations for active docs.
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/spoolman_sync/README.md,spoolman_sync,root-readme,Active,docs/features/spoolman_sync/README.md,No,Primary entry point for feature
 docs/features/spoolman_sync/solution-summary.md,spoolman_sync,archive,Completed,docs/features/spoolman_sync/archive/solution-summary-print-weight-persistence.md,Yes,Historical completion summary for print weight persistence solution
