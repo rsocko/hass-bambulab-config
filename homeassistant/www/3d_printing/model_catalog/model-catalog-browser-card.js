@@ -1470,7 +1470,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
-    if (action.indexOf("queue-") === 0) {
+    if (action === "queue-add") {
       event.preventDefault();
       event.stopPropagation();
       var queueModelRef = String(target.getAttribute("data-model-ref") || "").trim();
@@ -1882,150 +1882,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
     });
   }
 
-  _preferredUnifiedQueueEntry(entries) {
-    if (!Array.isArray(entries) || !entries.length) {
-      return null;
-    }
-    var preferred = null;
-    for (var i = 0; i < entries.length; i++) {
-      var candidate = entries[i] || {};
-      if (!preferred) {
-        preferred = candidate;
-        continue;
-      }
-      var preferredActive = this._isUnifiedQueueActiveState(preferred.state);
-      var candidateActive = this._isUnifiedQueueActiveState(candidate.state);
-      if (candidateActive && !preferredActive) {
-        preferred = candidate;
-        continue;
-      }
-      if (candidateActive === preferredActive && Number(candidate.rank || 0) < Number(preferred.rank || 0)) {
-        preferred = candidate;
-      }
-    }
-    return preferred;
-  }
-
-  async _addUnifiedQueueEntryForModel(modelRef, options) {
-    var body = options && typeof options === "object" ? options : {};
-    return addUnifiedQueueEntry({
-      queueApiBase: this._resolveModelSidecarUrl() + '/api/v1',
-      printerId: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
-      payload: {
-        source_kind: "catalog_model",
-        source_id: modelRef,
-        copies: body.copies != null ? body.copies : 1,
-        state: body.state || "preparing",
-        rank: body.rank != null ? body.rank : 0,
-        queue_notes: body.queue_notes || "",
-        // Default to quick_add so the entry is populated with the model's
-        // file_units and plate_units (otherwise the Details popup shows no
-        // files or plates because the v1 add endpoint only seeds units when
-        // quick_add or selected_files are provided).
-        quick_add: body.quick_add != null ? !!body.quick_add : true,
-      },
-    });
-  }
-
-  async _patchUnifiedQueueEntry(queueEntryId, patchBody) {
-    return this._callServiceWithResponse("rest_command", "model_catalog_update_unified_queue_entry", Object.assign({
-      queue_entry_id: queueEntryId,
-    }, patchBody || {}));
-  }
-
-  async _deleteUnifiedQueueEntry(queueEntryId) {
-    return this._callServiceWithResponse("rest_command", "model_catalog_delete_unified_queue_entry", {
-      queue_entry_id: queueEntryId,
-    });
-  }
-
-  async _transitionQueueEntryToDone(entry) {
-    var entryId = String(entry && entry.queue_entry_id || "").trim();
-    var state = String(entry && entry.state || "").trim().toLowerCase();
-    if (!entryId || !state) {
-      return;
-    }
-    var paths = {
-        backlog: ["up_next", "preparing", "ready", "in_progress", "done"],
-        up_next: ["preparing", "ready", "in_progress", "done"],
-      preparing: ["ready", "in_progress", "done"],
-      ready: ["in_progress", "done"],
-      in_progress: ["done"],
-      blocked: ["done"],
-      done: [],
-    };
-    var steps = paths[state] || [];
-    for (var i = 0; i < steps.length; i++) {
-      await this._patchUnifiedQueueEntry(entryId, { state: steps[i] });
-    }
-  }
-
   async _applyUnifiedQueueAction(action, modelRef, options) {
-    var entries = await this._listUnifiedQueueEntriesForModel(modelRef);
-    var preferred = this._preferredUnifiedQueueEntry(entries);
     var actionOptions = options && typeof options === "object" ? options : {};
     var modelName = String(actionOptions.modelName || "Model").trim() || "Model";
 
-    if (action === "queue-clear") {
-      for (var i = 0; i < entries.length; i++) {
-        var entryId = String(entries[i] && entries[i].queue_entry_id || "").trim();
-        if (entryId) {
-          var entryState = String(entries[i].state || "").toLowerCase();
-          // Require confirmation if entry is not in backlog or up_next
-          if (["preparing", "ready", "in_progress", "blocked", "done"].indexOf(entryState) >= 0) {
-            var shouldContinue = confirm(
-              "This queue entry is in " + entryState + " state. Are you sure you want to dequeue it?"
-            );
-            if (!shouldContinue) {
-              return;
-            }
-          }
-          await this._deleteUnifiedQueueEntry(entryId);
-        }
-      }
-      return true;
-    }
-
     if (action === "queue-add") {
+      var entries = await this._listUnifiedQueueEntriesForModel(modelRef);
       await this._openQueueDialog(modelRef, modelName, entries, { intent: "add", defaultState: "up_next" });
       return false;
-    }
-
-    if (action === "queue-re-add") {
-        await this._openQueueDialog(modelRef, modelName, entries, { intent: "re-add", defaultState: "backlog" });
-      return false;
-    }
-
-    if (action === "queue-mark-queued") {
-      if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-          await this._addUnifiedQueueEntryForModel(modelRef, { state: "up_next" });
-        return true;
-      }
-      var preferredState = String(preferred.state || "").toLowerCase();
-      if (preferredState === "backlog") {
-          await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { state: "up_next" });
-      }
-      return true;
-    }
-
-    if (action === "queue-mark-done") {
-      if (!preferred) {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "done" });
-        return true;
-      }
-      await this._transitionQueueEntryToDone(preferred);
-      return true;
-    }
-
-    if (action === "queue-priority-up" || action === "queue-priority-down") {
-      if (!preferred || String(preferred.state || "").toLowerCase() === "done") {
-        await this._addUnifiedQueueEntryForModel(modelRef, { state: "up_next", rank: 0 });
-        return true;
-      }
-      var delta = action === "queue-priority-up" ? -1 : 1;
-      var nextRank = Math.max(0, Number(preferred.rank || 0) + delta);
-      await this._patchUnifiedQueueEntry(preferred.queue_entry_id, { rank: nextRank });
-      return true;
     }
 
     return true;
@@ -3298,7 +3162,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderModelCard(model) {
-    var modelUrl = String(model.model_url || "");
     var name = String(model.name || "Unnamed Model");
     var creator = String(model.creator_name || "Unknown Creator");
     var collections = Array.isArray(model.collection_names) ? model.collection_names : [];
@@ -3471,18 +3334,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
           + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
           + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
-          + (modelUrl ? '  <button class="advanced-action" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '"><ha-icon icon="mdi:open-in-new"></ha-icon><span>Open source page</span></button>' : '')
           + workingGroupActions
           + promotionActions
-          + '  <div class="advanced-group-label">Queue actions</div>'
-          + '  <div class="advanced-inline-grid">'
-          + '    <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">-P</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">+P</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Queued</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Done</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Clear</button>'
-          + '    <button class="mini-btn" type="button" data-action="queue-re-add" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Re-add</button>'
-          + '  </div>'
           + deleteButton
           + '</div>'
       + '</div>';
@@ -4513,7 +4366,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.media-gallery-nav .media-counter{justify-self:center;pointer-events:none;}'
       + '.media-gallery-nav .icon-action{pointer-events:auto;}'
       + '.advanced-menu-shell{position:relative;display:flex;justify-content:flex-end;}'
-      + '.icon-action,.mini-btn,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease,border-color .16s ease;}'
+      + '.icon-action,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease,border-color .16s ease;}'
       + '.icon-action{width:34px;padding:0;}'
       + '.icon-action ha-icon{--mdc-icon-size:18px;}'
       + '.icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}'
@@ -4530,7 +4383,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.advanced-action.danger:hover,.advanced-action.danger:focus-visible{background:rgba(185,28,28,0.24);border-color:rgba(185,28,28,0.44);color:#fca5a5;}'
       + '.advanced-action ha-icon{--mdc-icon-size:16px;}'
       + '.advanced-group-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding:2px 2px 0;}'
-      + '.advanced-inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.state-row{padding:20px;border-radius:16px;border:1px dashed rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:13px;color:var(--secondary-text-color);}'
       + '.state-row.error{background:rgba(185,28,28,0.16);color:var(--primary-text-color);}'
       + '.queue-dialog-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}'
