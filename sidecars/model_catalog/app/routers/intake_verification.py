@@ -2638,8 +2638,7 @@ def set_intake_item_validation_actions(request: Request, item_id: str, payload: 
     ]
 
     decision = str(normalized_action.get("decision") or "review").strip().lower()
-    if decision != "review":
-        existing_actions.append(normalized_action)
+    existing_actions.append(normalized_action)
 
     updated_note_payload = {
         "warnings": note_payload.get("warnings", []),

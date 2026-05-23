@@ -871,12 +871,14 @@ function renderValidationSummary(card) {
               : '<div class="muted">No conflict target metadata available.</div>';
             return ''
               + '<div class="validation-violation-row ' + severityClass + '">'
-              + '  <div class="validation-violation-body">'
+              + '  <div class="validation-violation-top">'
               + '    <div class="validation-violation-label">Violation ' + String(violationIndex + 1) + ': ' + escapeHtml(violationLabel) + ' <span class="validation-severity-chip ' + severityClass + '">' + escapeHtml(severityLabel) + '</span></div>'
+              + (actionControl || '')
+              + '  </div>'
+              + '  <div class="validation-violation-body">'
               + '    <div class="validation-conflict-title">Conflicts with:</div>'
               + conflictListHtml
               + '  </div>'
-              + actionControl
               + '</div>';
           }).join('');
           return ''
@@ -3019,7 +3021,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-source-header{font-size:13px;font-weight:700;color:var(--primary-text-color);}'
       + '.wizard-dialog .validation-source-path{font-size:12px;line-height:1.3;color:var(--secondary-text-color);margin-top:4px;word-break:break-all;}'
       + '.wizard-dialog .validation-source-violations{display:flex;flex-direction:column;gap:8px;margin-top:8px;}'
-      + '.wizard-dialog .validation-violation-row{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:10px;padding:8px;border:1px dashed var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:var(--card-background-color,rgba(15,23,42,0.14));}'
+      + '.wizard-dialog .validation-violation-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:8px;border:1px dashed var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:var(--card-background-color,rgba(15,23,42,0.14));}'
+      + '.wizard-dialog .validation-violation-top{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:10px;align-items:start;}'
+      + '.wizard-dialog .validation-violation-body{grid-column:1 / -1;}'
       + '.wizard-dialog .validation-violation-row.severity-hash{border-color:rgba(248,113,113,0.6);background:rgba(127,29,29,0.16);}'
       + '.wizard-dialog .validation-violation-row.severity-exact{border-color:rgba(245,158,11,0.55);background:rgba(120,53,15,0.14);}'
       + '.wizard-dialog .validation-violation-row.severity-soft{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.1);}'
@@ -3037,10 +3041,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-check-row .entry-top{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
       + '.wizard-dialog .validation-status-chip{align-self:flex-start;justify-self:end;}'
       + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
-      + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;}'
+      + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;justify-self:end;width:100%;max-width:220px;}'
       + '.wizard-dialog .validation-action-control label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.wizard-dialog .validation-action-control .select{width:100%;}'
-      + '@media (max-width: 900px){.wizard-dialog .validation-violation-row{grid-template-columns:1fr;}}'
+      + '@media (max-width: 900px){.wizard-dialog .validation-violation-top{grid-template-columns:1fr;}.wizard-dialog .validation-action-control{max-width:none;justify-self:stretch;}}'
       + '.wizard-commit-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:14px;padding-right:4px;overflow:hidden;}'
       + '.wizard-cleanup-policy-block{padding:12px;border-radius:14px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.08);}'
       + '.wizard-cleanup-policy-block .field label{font-weight:700;color:var(--primary-text-color);font-size:14px;}'
