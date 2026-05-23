@@ -74,6 +74,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._selectedModelRefs = new Set();
     this._selectionChangeCallbacks = [];
     this._multiSelectMode = false;
+
+    this._ideaCreateDialogOpen = false;
+    this._ideaCreateSubmitting = false;
+    this._ideaCreateError = "";
+    this._ideaCreateDraft = {
+      title: "",
+      notes: "",
+      links: "",
+      sketchUrl: "",
+    };
   }
 
   _defaultFilters() {
@@ -294,6 +304,99 @@ class ModelCatalogBrowserCard extends HTMLElement {
       throw new Error(String(data.error || ("Failed to create idea (HTTP " + String(response.status) + ")")));
     }
     return data;
+  }
+
+  _openIdeaCreateDialog() {
+    this._ideaCreateDialogOpen = true;
+    this._ideaCreateSubmitting = false;
+    this._ideaCreateError = "";
+    this._ideaCreateDraft = {
+      title: "",
+      notes: "",
+      links: "",
+      sketchUrl: "",
+    };
+    this._render();
+  }
+
+  _closeIdeaCreateDialog() {
+    if (this._ideaCreateSubmitting) {
+      return;
+    }
+    this._ideaCreateDialogOpen = false;
+    this._ideaCreateSubmitting = false;
+    this._ideaCreateError = "";
+    this._render();
+  }
+
+  async _submitIdeaCreateDialog() {
+    if (this._ideaCreateSubmitting) {
+      return;
+    }
+
+    var normalizedIdeaName = String(this._ideaCreateDraft.title || "").trim();
+    if (!normalizedIdeaName) {
+      this._ideaCreateError = "Idea title is required.";
+      this._render();
+      return;
+    }
+
+    this._ideaCreateSubmitting = true;
+    this._ideaCreateError = "";
+    this._render();
+
+    try {
+      var created = await this._createIdeaEntity({
+        name: normalizedIdeaName,
+        notes: String(this._ideaCreateDraft.notes || "").trim(),
+        external_links: this._parseIdeaExternalLinks(this._ideaCreateDraft.links),
+        sketch_image: String(this._ideaCreateDraft.sketchUrl || "").trim(),
+      });
+      var ideaRef = String((created && (created.local_model_id || (created.summary && created.summary.model_ref) || "")) || "").trim();
+      this._entityTypeFilters.showIdeas = true;
+      this._activeActionMenu = "";
+      this._error = "";
+      this._ideaCreateDialogOpen = false;
+      this._ideaCreateSubmitting = false;
+      this._ideaCreateError = "";
+
+      if (ideaRef) {
+        this._openModelDetailPopup(ideaRef, normalizedIdeaName, "details");
+      }
+
+      this._requestLoad(1, true);
+      this._render();
+    } catch (error) {
+      this._ideaCreateSubmitting = false;
+      this._ideaCreateError = error && error.message ? String(error.message) : "Could not create idea.";
+      this._render();
+    }
+  }
+
+  _renderIdeaCreateDialog() {
+    if (!this._ideaCreateDialogOpen) {
+      return "";
+    }
+    return ''
+      + '<div class="idea-create-backdrop" data-action="close-idea-create-dialog">'
+      + '  <div class="idea-create-dialog" role="dialog" aria-modal="true" aria-label="Create Idea">'
+      + '    <div class="idea-create-header">'
+      + '      <div><h3>New Idea</h3><div class="idea-create-subtitle">Capture quickly, then open full Idea popup for richer editing.</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-idea-create-dialog" aria-label="Close">✕</button>'
+      + '    </div>'
+      + '    <div class="idea-create-body">'
+      + '      <label class="idea-create-field"><span>Title <strong>*</strong></span><input class="idea-create-input" data-idea-field="title" type="text" maxlength="255" placeholder="What should we make?" value="' + this._escapeHtml(this._ideaCreateDraft.title) + '"></label>'
+      + '      <label class="idea-create-field"><span>Notes (optional)</span><textarea class="idea-create-input" data-idea-field="notes" rows="3" maxlength="5000" placeholder="Context, constraints, rough concept...">' + this._escapeHtml(this._ideaCreateDraft.notes) + '</textarea></label>'
+      + '      <label class="idea-create-field"><span>External links (optional)</span><textarea class="idea-create-input" data-idea-field="links" rows="3" placeholder="One per line. Use url|label for custom labels.">' + this._escapeHtml(this._ideaCreateDraft.links) + '</textarea></label>'
+      + '      <label class="idea-create-field"><span>Sketch image URL (optional)</span><input class="idea-create-input" data-idea-field="sketchUrl" type="url" placeholder="https://..." value="' + this._escapeHtml(this._ideaCreateDraft.sketchUrl) + '"></label>'
+      + (this._ideaCreateError ? '<div class="idea-create-error">' + this._escapeHtml(this._ideaCreateError) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="idea-create-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-idea-create-dialog" ' + (this._ideaCreateSubmitting ? 'disabled' : '') + '>Cancel</button>'
+      + '      <button class="toolbar-btn idea-create-submit" type="button" data-action="submit-idea-create-dialog" ' + (this._ideaCreateSubmitting ? 'disabled' : '') + '>' + (this._ideaCreateSubmitting ? 'Creating...' : 'Create Idea') + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
   }
 
   async _promoteEntity(localModelId, fromType, toType) {
@@ -925,6 +1028,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._queueDialogNotes = String(target.value || "");
       return;
     }
+    if (target && target.classList && target.classList.contains("idea-create-input")) {
+      var field = String(target.getAttribute("data-idea-field") || "").trim();
+      if (field && Object.prototype.hasOwnProperty.call(this._ideaCreateDraft, field)) {
+        this._ideaCreateDraft[field] = String(target.value || "");
+      }
+      if (this._ideaCreateError) {
+        this._ideaCreateError = "";
+      }
+      return;
+    }
     if (!target || !target.classList || !target.classList.contains("control-input")) {
       return;
     }
@@ -998,6 +1111,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     var target = event.target;
+    if (target && target.classList && target.classList.contains("idea-create-input")) {
+      var targetTag = String(target.tagName || "").toUpperCase();
+      if (targetTag !== "TEXTAREA") {
+        event.preventDefault();
+        this._submitIdeaCreateDialog();
+      }
+      return;
+    }
     if (!target || !target.classList || !target.classList.contains("control-input")) {
       return;
     }
@@ -1042,6 +1163,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return;
       }
       this._closeQueueDialog();
+      return;
+    }
+
+    if (action === "open-idea-create-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openIdeaCreateDialog();
+      return;
+    }
+
+    if (action === "close-idea-create-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target.classList && target.classList.contains("idea-create-backdrop") && rawTarget !== target) {
+        return;
+      }
+      this._closeIdeaCreateDialog();
+      return;
+    }
+
+    if (action === "submit-idea-create-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitIdeaCreateDialog();
       return;
     }
 
@@ -1337,29 +1482,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "create-idea") {
       event.preventDefault();
       event.stopPropagation();
-      var ideaName = window.prompt("Idea title:", "");
-      var normalizedIdeaName = String(ideaName || "").trim();
-      if (!normalizedIdeaName) {
-        return;
-      }
-      var ideaNotes = window.prompt("Idea notes (optional):", "") || "";
-      var ideaLinksRaw = window.prompt("Idea external links (optional, comma/newline-separated, use url|label):", "") || "";
-      var ideaSketchUrl = window.prompt("Idea sketch image URL (optional):", "") || "";
-      try {
-        await this._createIdeaEntity({
-          name: normalizedIdeaName,
-          notes: String(ideaNotes || "").trim(),
-          external_links: this._parseIdeaExternalLinks(ideaLinksRaw),
-          sketch_image: String(ideaSketchUrl || "").trim(),
-        });
-        this._entityTypeFilters.showIdeas = true;
-        this._activeActionMenu = "";
-        this._error = "";
-        this._requestLoad(1, true);
-      } catch (error) {
-        this._error = error && error.message ? String(error.message) : "Could not create idea.";
-        this._render();
-      }
+      this._openIdeaCreateDialog();
       return;
     }
 
@@ -4389,6 +4512,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.queue-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}'
       + '.queue-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,0.18);}'
       + '.queue-dialog-header h3{margin:0;font-size:18px;font-weight:800;}'
+      + '.modal-close-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:14px;font-weight:700;cursor:pointer;}'
+      + '.modal-close-btn:hover,.modal-close-btn:focus-visible{background:rgba(148,163,184,0.18);border-color:rgba(148,163,184,0.38);outline:none;}'
       + '.queue-dialog-subtitle{margin-top:4px;font-size:12px;color:var(--secondary-text-color);}'
       + '.queue-dialog-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid rgba(148,163,184,0.16);}'
       + '.queue-dialog-tab{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.16);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;}'
@@ -4412,6 +4537,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.queue-dialog-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}'
       + '.queue-dialog-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}'
       + '.queue-dialog-submit{background:rgba(96,165,250,0.22);border-color:rgba(96,165,250,0.34);}'
+      + '.idea-create-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}'
+      + '.idea-create-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}'
+      + '.idea-create-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,0.18);}'
+      + '.idea-create-header h3{margin:0;font-size:18px;font-weight:800;}'
+      + '.idea-create-subtitle{margin-top:4px;font-size:12px;color:var(--secondary-text-color);}'
+      + '.idea-create-body{display:grid;gap:12px;padding:18px 20px;overflow:auto;}'
+      + '.idea-create-field{display:grid;gap:6px;}'
+      + '.idea-create-field span{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}'
+      + '.idea-create-field strong{color:#fecaca;}'
+      + '.idea-create-input{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}'
+      + '.idea-create-input:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
+      + '.idea-create-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}'
+      + '.idea-create-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}'
+      + '.idea-create-submit{background:rgba(250,204,21,0.22);border-color:rgba(250,204,21,0.4);}'
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
@@ -4449,7 +4588,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!this._queueDialogOpen);
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen));
 
     this._contentRoot.innerHTML = ''
       + '  <div class="shell">'
@@ -4461,6 +4600,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + this._renderQueueDialog()
+      + this._renderIdeaCreateDialog()
       + '  </div>';
 
     this._scheduleThumbnailObserverSetup(0);
