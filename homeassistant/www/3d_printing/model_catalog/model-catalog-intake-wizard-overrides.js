@@ -1139,8 +1139,29 @@ function renderValidationSummary(card) {
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
               + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(sourcePreviewUrl, (findingFilename || 'Source') + ' preview', findingKey, 'source') + '</div>'
-              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match') + '</div>'
-              + '</div>';
+              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match') + '</div>';
+            if (isMoreInfoExpanded) {
+              var _fmtBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return n != null ? String(n) + ' B' : ''; };
+              var _fmtDate = function (v) {
+                if (!v) return '';
+                try { var d = new Date(v); return isNaN(d.getTime()) ? String(v) : d.toLocaleString(); } catch (e) { return String(v); }
+              };
+              var srcSize = finding.size_bytes;
+              var matchSize = primaryConflict ? primaryConflict.size_bytes : null;
+              var srcMtime = finding.source_mtime;
+              var matchMtime = primaryConflict ? primaryConflict.source_mtime : null;
+              if (srcSize != null || matchSize != null) {
+                comparisonTableHtml += ''
+                  + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Size:</span> ' + escapeHtml(srcSize != null ? _fmtBytes(srcSize) : '\u2014') + '</div>'
+                  + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Size:</span> ' + escapeHtml(matchSize != null ? _fmtBytes(matchSize) : '\u2014') + '</div>';
+              }
+              if (srcMtime || matchMtime) {
+                comparisonTableHtml += ''
+                  + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Modified:</span> ' + escapeHtml(srcMtime ? _fmtDate(srcMtime) : '\u2014') + '</div>'
+                  + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Modified:</span> ' + escapeHtml(matchMtime ? _fmtDate(matchMtime) : '\u2014') + '</div>';
+              }
+            }
+            comparisonTableHtml += '</div>';
             return ''
               + '<div class="validation-violation-row ' + severityClass + '">'
               + '  <div class="validation-violation-top">'

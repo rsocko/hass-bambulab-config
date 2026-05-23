@@ -663,7 +663,7 @@ def _read_indexed_filename_maps(
     try:
         rows = connection.execute(
             """
-            SELECT wi.file_path, wg.title
+            SELECT wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
             FROM working_items wi
             LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
             WHERE wi.file_path IS NOT NULL AND TRIM(wi.file_path) != ''
@@ -673,6 +673,14 @@ def _read_indexed_filename_maps(
             full_path = str(row[0] or "").strip().replace("\\", "/")
             file_name = Path(full_path).name or full_path
             group_title = str(row[1] or "").strip()
+            wi_file_size = row[2] if len(row) > 2 else None
+            wi_source_mtime = None
+            if len(row) > 3 and row[3]:
+                try:
+                    wi_meta = json.loads(str(row[3]))
+                    wi_source_mtime = str(wi_meta.get("source_mtime") or "").strip() or None
+                except (json.JSONDecodeError, ValueError):
+                    pass
             context_item: dict[str, Any] = {
                 "scope": "indexed",
                 "parent_kind": "working_group",
@@ -680,6 +688,8 @@ def _read_indexed_filename_maps(
                 "path": full_path,
                 "filename": file_name,
                 "label": (f"Working group '{group_title}'" if group_title else "Working files") + (f" -> {full_path}" if full_path else ""),
+                "size_bytes": wi_file_size,
+                "source_mtime": wi_source_mtime,
             }
             _add_filename(row[0], context_item)
 
@@ -737,7 +747,7 @@ def _read_indexed_filename_maps(
         try:
             asset_rows = connection.execute(
                 """
-                SELECT a.asset_filename, e.model_name
+                SELECT a.asset_filename, e.model_name, a.file_size_bytes
                 FROM model_catalog_assets a
                 LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.asset_filename IS NOT NULL AND TRIM(a.asset_filename) != ''
@@ -749,6 +759,7 @@ def _read_indexed_filename_maps(
             asset_path = str(row[0] or "").strip().replace("\\", "/")
             asset_name = Path(asset_path).name or asset_path
             model_name = str(row[1] or "").strip()
+            asset_size = row[2] if len(row) > 2 else None
             asset_context: dict[str, Any] = {
                 "scope": "indexed",
                 "parent_kind": "catalog_model",
@@ -756,6 +767,7 @@ def _read_indexed_filename_maps(
                 "path": asset_path,
                 "filename": asset_name,
                 "label": (f"Catalog model '{model_name}'" if model_name else "Catalog") + (f" -> {asset_path}" if asset_path else ""),
+                "size_bytes": asset_size,
             }
             _add_filename(row[0], asset_context)
     finally:
@@ -805,7 +817,7 @@ def _read_indexed_hash_match_contexts(
     try:
         working_rows = connection.execute(
             """
-            SELECT wi.file_hash, wi.file_path, wg.title
+            SELECT wi.file_hash, wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
             FROM working_items wi
             LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
             WHERE wi.file_hash IS NOT NULL
@@ -816,6 +828,14 @@ def _read_indexed_hash_match_contexts(
             full_path = str(row[1] or "").strip().replace("\\", "/")
             file_name = Path(full_path).name or full_path
             group_title = str(row[2] or "").strip()
+            wi_file_size = row[3] if len(row) > 3 else None
+            wi_source_mtime = None
+            if len(row) > 4 and row[4]:
+                try:
+                    wi_meta = json.loads(str(row[4]))
+                    wi_source_mtime = str(wi_meta.get("source_mtime") or "").strip() or None
+                except (json.JSONDecodeError, ValueError):
+                    pass
             _add_context(
                 row[0],
                 {
@@ -825,13 +845,15 @@ def _read_indexed_hash_match_contexts(
                     "path": full_path,
                     "filename": file_name,
                     "label": (f"Working group '{group_title}'" if group_title else "Working files") + (f" -> {full_path}" if full_path else ""),
+                    "size_bytes": wi_file_size,
+                    "source_mtime": wi_source_mtime,
                 },
             )
 
         try:
             asset_rows = connection.execute(
                 """
-                SELECT a.file_hash, a.asset_filename, e.model_name
+                SELECT a.file_hash, a.asset_filename, e.model_name, a.file_size_bytes
                 FROM model_catalog_assets a
                 LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.file_hash IS NOT NULL
@@ -844,6 +866,7 @@ def _read_indexed_hash_match_contexts(
             asset_path = str(row[1] or "").strip().replace("\\", "/")
             asset_name = Path(asset_path).name or asset_path
             model_name = str(row[2] or "").strip()
+            asset_size = row[3] if len(row) > 3 else None
             _add_context(
                 row[0],
                 {
@@ -853,6 +876,7 @@ def _read_indexed_hash_match_contexts(
                     "path": asset_path,
                     "filename": asset_name,
                     "label": (f"Catalog model '{model_name}'" if model_name else "Catalog") + (f" -> {asset_path}" if asset_path else ""),
+                    "size_bytes": asset_size,
                 },
             )
 
@@ -935,6 +959,8 @@ def _scan_batch_duplicate_warnings(
         filename = str(item.get("filename") or Path(str(item.get("path") or "")).name).strip()
         file_path = str(item.get("path") or "").strip()
         relative_path = str(item.get("relative_path") or "").strip().replace("\\", "/")
+        item_size_bytes = item.get("size_bytes")
+        item_source_mtime = str((item.get("source_metadata") or {}).get("source_mtime") or "").strip() or None
         filename_key = filename.lower()
         normalized_name = _normalized_duplicate_name(filename)
         normalized_tokens = _normalized_duplicate_name_tokens(filename)
@@ -948,6 +974,8 @@ def _scan_batch_duplicate_warnings(
                 conflict_filename = str(first_hash_match.get("filename") or "").strip()
                 conflict_path = str(first_hash_match.get("path") or "").strip()
                 conflict_parent = str(first_hash_match.get("parent_name") or "").strip()
+                conflict_size = first_hash_match.get("size_bytes")
+                conflict_mtime = first_hash_match.get("source_mtime")
                 conflict_label = conflict_filename or conflict_path or "earlier file in batch"
                 warnings.append(
                     {
@@ -963,6 +991,8 @@ def _scan_batch_duplicate_warnings(
                                 "path": conflict_path,
                                 "filename": conflict_filename,
                                 "label": conflict_label,
+                                "size_bytes": conflict_size,
+                                "source_mtime": conflict_mtime,
                             }
                         ],
                     }
@@ -976,6 +1006,8 @@ def _scan_batch_duplicate_warnings(
                         "violation_label": "Batch hash duplicate",
                         "check_key": "batch_duplicate_scan",
                         "scope": "batch",
+                        "size_bytes": item_size_bytes,
+                        "source_mtime": item_source_mtime,
                         "conflicts_with": [
                             {
                                 "scope": "batch",
@@ -984,6 +1016,8 @@ def _scan_batch_duplicate_warnings(
                                 "path": conflict_path,
                                 "filename": conflict_filename,
                                 "label": conflict_label,
+                                "size_bytes": conflict_size,
+                                "source_mtime": conflict_mtime,
                             }
                         ],
                         "sha256": file_hash,
@@ -994,6 +1028,8 @@ def _scan_batch_duplicate_warnings(
                     "filename": filename,
                     "path": file_path,
                     "parent_name": Path(file_path).parent.name if file_path else "",
+                    "size_bytes": item_size_bytes,
+                    "source_mtime": item_source_mtime,
                 }
 
         exact_seen = bool(filename_key and filename_key in seen_exact_names)
@@ -1009,6 +1045,8 @@ def _scan_batch_duplicate_warnings(
                 "path": str(exact_match_meta.get("path") or "").strip(),
                 "filename": conflict_name,
                 "label": conflict_name,
+                "size_bytes": exact_match_meta.get("size_bytes"),
+                "source_mtime": exact_match_meta.get("source_mtime"),
             }
             warnings.append(
                 {
@@ -1027,6 +1065,8 @@ def _scan_batch_duplicate_warnings(
                     "violation_label": "Batch exact filename duplicate",
                     "check_key": "batch_duplicate_scan",
                     "scope": "batch",
+                    "size_bytes": item_size_bytes,
+                    "source_mtime": item_source_mtime,
                     "conflicts_with": [conflict_item],
                 }
             )
@@ -1042,6 +1082,8 @@ def _scan_batch_duplicate_warnings(
                 "path": str(soft_match_meta.get("path") or "").strip(),
                 "filename": soft_filename,
                 "label": soft_filename,
+                "size_bytes": soft_match_meta.get("size_bytes"),
+                "source_mtime": soft_match_meta.get("source_mtime"),
             }
             warnings.append(
                 {
@@ -1063,6 +1105,8 @@ def _scan_batch_duplicate_warnings(
                     "violation_label": "Batch near-name duplicate",
                     "check_key": "batch_duplicate_scan",
                     "scope": "batch",
+                    "size_bytes": item_size_bytes,
+                    "source_mtime": item_source_mtime,
                     "conflicts_with": [match_item],
                     "normalized_name": normalized_name,
                     "match_score": round(match_score, 3),
@@ -1077,6 +1121,8 @@ def _scan_batch_duplicate_warnings(
                     "filename": filename,
                     "path": file_path,
                     "parent_name": Path(file_path).parent.name if file_path else "",
+                    "size_bytes": item_size_bytes,
+                    "source_mtime": item_source_mtime,
                 },
             )
         if normalized_name:
@@ -1087,6 +1133,8 @@ def _scan_batch_duplicate_warnings(
                     "filename": filename,
                     "path": file_path,
                     "parent_name": Path(file_path).parent.name if file_path else "",
+                    "size_bytes": item_size_bytes,
+                    "source_mtime": item_source_mtime,
                 },
             )
 
@@ -2433,6 +2481,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         filename = str(file_item.get("filename") or Path(str(file_item.get("path") or "")).name).strip()
         relative_path = str(file_item.get("relative_path") or "").strip().replace("\\", "/")
         filename_key = filename.lower()
+        item_size_bytes = file_item.get("size_bytes")
+        item_source_mtime = str((file_item.get("source_metadata") or {}).get("source_mtime") or "").strip() or None
         has_hash_duplicate = False
         has_exact_name_duplicate = False
         if not file_hash:
@@ -2464,6 +2514,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                         "scope": "indexed",
                         "conflicts_with": hash_conflicts[:3],
                         "sha256": file_hash,
+                        "size_bytes": item_size_bytes,
+                        "source_mtime": item_source_mtime,
                     }
                 )
 
@@ -2493,6 +2545,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                     "check_key": "duplicate_scan",
                     "scope": "indexed",
                     "conflicts_with": exact_conflicts,
+                    "size_bytes": item_size_bytes,
+                    "source_mtime": item_source_mtime,
                 }
             )
 
@@ -2529,6 +2583,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                         "scope": "indexed",
                         "conflicts_with": soft_conflicts,
                         "normalized_name": normalized_name,
+                        "size_bytes": item_size_bytes,
+                        "source_mtime": item_source_mtime,
                     }
                 )
 
