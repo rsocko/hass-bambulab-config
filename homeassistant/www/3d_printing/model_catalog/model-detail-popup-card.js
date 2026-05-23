@@ -5867,6 +5867,10 @@ class ModelDetailPopupCard extends HTMLElement {
       }
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) {
+          event.stopImmediatePropagation();
+        }
         this._tagPickerOpen = false;
         this._tagSearchQuery = "";
         this._tagPickerHighlightIndex = 0;
