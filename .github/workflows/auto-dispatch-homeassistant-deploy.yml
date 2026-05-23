@@ -125,9 +125,6 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             case "$f" in
-              homeassistant/*)
-                DEPLOY_RELEVANT_PUSH=true
-                ;;
               sidecars/model_catalog/*)
                 MODEL_CATALOG_RELEVANT_PUSH=true
                 ;;
@@ -137,17 +134,23 @@ jobs:
               homeassistant/packages/3d_printing/common/common_loader.yaml|\
               homeassistant/packages/3d_printing/common/dashboards/_resources.yaml|\
               homeassistant/www/3d_printing/*)
+                DEPLOY_RELEVANT_PUSH=true
                 RESTART_REQUIRED_PUSH=true
                 RESTART_REQUIRED_REASONS="${RESTART_REQUIRED_REASONS} resource-related"
                 ;;
               homeassistant/custom_components/bambuddy/*)
+                DEPLOY_RELEVANT_PUSH=true
                 RESTART_REQUIRED_PUSH=true
                 RESTART_REQUIRED_REASONS="${RESTART_REQUIRED_REASONS} bambuddy-custom-component"
                 ;;
               homeassistant/packages/3d_printing/*/rest_commands/*|\
               homeassistant/packages/3d_printing/*/rest_sensors/*)
+                DEPLOY_RELEVANT_PUSH=true
                 RESTART_REQUIRED_PUSH=true
                 RESTART_REQUIRED_REASONS="${RESTART_REQUIRED_REASONS} rest-backed-package"
+                ;;
+              homeassistant/*)
+                DEPLOY_RELEVANT_PUSH=true
                 ;;
             esac
           done <<< "$CHANGED_FILES"
