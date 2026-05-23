@@ -9,6 +9,7 @@ import re
 from pathlib import Path, PureWindowsPath
 from sqlite3 import connect
 from typing import Any
+from urllib.parse import quote
 
 from ..settings import Settings
 
@@ -54,6 +55,37 @@ def _slugify_title(value: str) -> str:
     normalized = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower())
     collapsed = re.sub(r"-+", "-", normalized).strip("-")
     return collapsed or "working-group"
+
+
+def _local_asset_media_urls(
+    *,
+    model_ref: str | None,
+    asset_id: object,
+    asset_type: object = None,
+    preview_url: object = None,
+) -> dict[str, str | None]:
+    """Build canonical media URLs for a local model asset.
+
+    This keeps model detail serialization and intake duplicate previews aligned.
+    """
+    normalized_model_ref = str(model_ref or "").strip()
+    normalized_asset_id = str(asset_id or "").strip()
+    normalized_asset_type = str(asset_type or "").strip().lower()
+    configured_preview_url = str(preview_url or "").strip() or None
+
+    download_url = (
+        f"/api/models/{quote(normalized_model_ref, safe='')}/files/{quote(normalized_asset_id, safe='')}/download"
+        if normalized_model_ref and normalized_asset_id
+        else None
+    )
+    resolved_image_url = configured_preview_url or (download_url if normalized_asset_type == "image" else None)
+
+    return {
+        "download_url": download_url,
+        "preview_url": configured_preview_url,
+        "image_url": resolved_image_url,
+        "thumbnail_url": resolved_image_url,
+    }
 
 
 def _sha256_file(path: Path) -> str:

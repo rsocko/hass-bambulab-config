@@ -132,6 +132,7 @@ from ..services import (
     get_all_indexed_file_hashes,
 )
 from ..services.shared_helpers import (
+    _local_asset_media_urls,
     _resolve_local_asset_storage_path,
     _serialize_project_row,
     _serialize_working_group,
@@ -686,11 +687,13 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
         filename = str(getattr(asset, "asset_filename", "") or "").strip()
         asset_type = str(getattr(asset, "asset_type", "") or "").strip() or None
         preview_url = str(getattr(asset, "preview_url", "") or "").strip() or None
-        download_url = (
-            f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/download"
-            if model_ref
-            else None
+        media_urls = _local_asset_media_urls(
+            model_ref=model_ref,
+            asset_id=asset_id,
+            asset_type=asset_type,
+            preview_url=preview_url,
         )
+        download_url = media_urls.get("download_url")
         
         # Lazy-load thumbnail URL for 3MF files (no extraction during serialization)
         # Frontend will fetch on-demand to avoid blocking page load
@@ -711,9 +714,9 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
                 "download_url": download_url,
                 "content_type": asset_type,
                 "asset_type": asset_type,
-                "image_url": preview_url or (download_url if asset_type == "image" else None),
-                "thumbnail_url": preview_url or (download_url if asset_type == "image" else None),
-                "preview_url": preview_url,
+                "image_url": media_urls.get("image_url"),
+                "thumbnail_url": media_urls.get("thumbnail_url"),
+                "preview_url": media_urls.get("preview_url"),
                 "thumbnail_lazy_url": thumbnail_lazy_url,
                 "created_at": getattr(asset, "created_at", None),
                 "updated_at": getattr(asset, "updated_at", None),
