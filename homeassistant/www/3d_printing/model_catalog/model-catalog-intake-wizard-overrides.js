@@ -459,6 +459,93 @@ function buildBrowserPlanPreview(card) {
   return preview;
 }
 
+/**
+ * Build a nested tree structure from a flat list of file entries.
+ * Each entry should have relative_path or filename.
+ * Returns an object: { folders: { name: subtree, ... }, files: [{ name, entry }, ...] }
+ */
+function buildFileTree(files) {
+  var root = { folders: {}, files: [] };
+  (files || []).forEach(function (entry) {
+    var path = String(entry.relative_path || entry.filename || '');
+    var parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+    if (!parts.length) return;
+    var node = root;
+    for (var i = 0; i < parts.length - 1; i++) {
+      var folder = parts[i];
+      if (!node.folders[folder]) {
+        node.folders[folder] = { folders: {}, files: [] };
+      }
+      node = node.folders[folder];
+    }
+    node.files.push({ name: parts[parts.length - 1], entry: entry });
+  });
+  return root;
+}
+
+/**
+ * Render a file tree node as nested HTML for the Review pane.
+ * Folders are rendered as collapsible sections (collapsed by default).
+ */
+function renderFileTreeNode(node, depth) {
+  var d = depth || 0;
+  var indent = d * 16;
+  var html = '';
+  var folderNames = Object.keys(node.folders).sort();
+  folderNames.forEach(function (folderName) {
+    var subtree = node.folders[folderName];
+    var childCount = countTreeFiles(subtree);
+    html += ''
+      + '<div class="file-tree-folder" style="padding-left:' + indent + 'px;">'
+      + '  <div class="file-tree-toggle" data-tree-action="toggle">'
+      + '    <span class="file-tree-arrow">&#9654;</span>'
+      + '    <span class="file-tree-icon">&#128193;</span>'
+      + '    <span class="file-tree-label">' + escapeHtml(folderName) + '/</span>'
+      + '    <span class="file-tree-count muted">(' + childCount + ')</span>'
+      + '  </div>'
+      + '  <div class="file-tree-children" style="display:none;">'
+      + renderFileTreeNode(subtree, d + 1)
+      + '  </div>'
+      + '</div>';
+  });
+  node.files.forEach(function (f) {
+    var ext = (f.name.match(/\.([^.]+)$/) || ['', ''])[1].toLowerCase();
+    var icon = ext === '3mf' || ext === 'stl' || ext === 'obj' ? '&#128196;' : '&#128462;';
+    html += '<div class="file-tree-file" style="padding-left:' + (indent + 16) + 'px;">'
+      + '<span class="file-tree-icon">' + icon + '</span>'
+      + '<span class="file-tree-label">' + escapeHtml(f.name) + '</span>'
+      + '</div>';
+  });
+  return html;
+}
+
+function countTreeFiles(node) {
+  var count = node.files.length;
+  Object.keys(node.folders).forEach(function (k) {
+    count += countTreeFiles(node.folders[k]);
+  });
+  return count;
+}
+
+/**
+ * Render the full collapsible file tree for a planned model.
+ * Shows a toggle button; tree is hidden by default.
+ */
+function renderFileTreeBlock(files) {
+  var tree = buildFileTree(files);
+  var treeHtml = renderFileTreeNode(tree, 0);
+  return ''
+    + '<div class="file-tree-block">'
+    + '  <div class="file-tree-toggle-header" data-tree-action="toggle-root">'
+    + '    <span class="file-tree-arrow">&#9654;</span>'
+    + '    <span class="entry-path" style="cursor:pointer;">Show file tree</span>'
+    + '  </div>'
+    + '  <div class="file-tree-root" style="display:none;">'
+    + treeHtml
+    + '  </div>'
+    + '</div>';
+}
+
 function renderPlanSummary(card, options) {
   var settings = options || {};
   var preview = card._previewData;
@@ -538,14 +625,8 @@ function renderPlanSummary(card, options) {
   var entriesHtml = '<div class="entries' + (isLoading ? ' loading-entries' : '') + '">' + preview.planned_models.map(function (model, index) {
     var destinationPlan = destinationPlans[index] || null;
     var totalFiles = (model.files || []).length;
-    var visibleFiles = (model.files || []).slice(0, 4);
     var destinationMarkup = '';
-    var files = visibleFiles.map(function (entry) {
-      return '<div class="entry-path">' + escapeHtml(entry.relative_path || entry.filename || '') + '</div>';
-    }).join('');
-    if (totalFiles > visibleFiles.length) {
-      files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
-    }
+    var files = renderFileTreeBlock(model.files || []);
     if (destinationPlan) {
       var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
@@ -3567,7 +3648,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       leftRow.setAttribute('data-entry-index', leftIndex);
 
       leftRow.addEventListener('click', function (event) {
-        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action]');
+        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action],[data-tree-action]');
         if (interactiveTarget) {
           return;
         }
@@ -3589,7 +3670,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
 
     rightEntries.forEach(function (rightRow, rightIndex) {
       rightRow.addEventListener('click', function (event) {
-        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action]');
+        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action],[data-tree-action]');
         if (interactiveTarget) {
           return;
         }
@@ -3607,6 +3688,36 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         }
       }, false);
     });
+
+    // Delegate file tree toggle clicks on the right (Review) panel.
+    rightPanel.addEventListener('click', function (event) {
+      var toggleRoot = event.target.closest('[data-tree-action="toggle-root"]');
+      if (toggleRoot) {
+        event.stopPropagation();
+        var block = toggleRoot.closest('.file-tree-block');
+        if (!block) return;
+        var root = block.querySelector('.file-tree-root');
+        if (!root) return;
+        var isOpen = root.style.display !== 'none';
+        root.style.display = isOpen ? 'none' : '';
+        toggleRoot.classList.toggle('expanded', !isOpen);
+        var label = toggleRoot.querySelector('.entry-path');
+        if (label) label.textContent = isOpen ? 'Show file tree' : 'Hide file tree';
+        return;
+      }
+      var toggleFolder = event.target.closest('[data-tree-action="toggle"]');
+      if (toggleFolder) {
+        event.stopPropagation();
+        var folder = toggleFolder.closest('.file-tree-folder');
+        if (!folder) return;
+        var children = folder.querySelector('.file-tree-children');
+        if (!children) return;
+        var wasOpen = children.style.display !== 'none';
+        children.style.display = wasOpen ? 'none' : '';
+        folder.classList.toggle('expanded', !wasOpen);
+        return;
+      }
+    }, false);
   };
 
   proto._renderWizardBody = function () {

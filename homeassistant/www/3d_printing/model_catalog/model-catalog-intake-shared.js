@@ -823,6 +823,21 @@
     + ".link-button{background:transparent;border:0;padding:0;margin-left:8px;font:inherit;color:#fbbf24;text-decoration:underline;cursor:pointer;}"
     + ".link-button:hover{color:#fde047;}"
     + ".hidden-upload-input{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}"
+    + ".file-tree-block{margin-top:4px;}"
+    + ".file-tree-toggle-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 0;user-select:none;}"
+    + ".file-tree-toggle-header:hover .entry-path{color:var(--primary-text-color);}"
+    + ".file-tree-toggle-header .file-tree-arrow{font-size:10px;transition:transform 0.15s ease;display:inline-block;color:var(--secondary-text-color);}"
+    + ".file-tree-toggle-header.expanded .file-tree-arrow{transform:rotate(90deg);}"
+    + ".file-tree-root{padding:4px 0;}"
+    + ".file-tree-folder{margin:1px 0;}"
+    + ".file-tree-toggle{display:flex;align-items:center;gap:5px;cursor:pointer;padding:2px 0;user-select:none;font-size:12px;color:var(--primary-text-color);}"
+    + ".file-tree-toggle:hover{color:var(--primary-color);}"
+    + ".file-tree-toggle .file-tree-arrow{font-size:9px;transition:transform 0.15s ease;display:inline-block;width:10px;text-align:center;color:var(--secondary-text-color);}"
+    + ".file-tree-folder.expanded > .file-tree-toggle .file-tree-arrow{transform:rotate(90deg);}"
+    + ".file-tree-icon{font-size:13px;line-height:1;}"
+    + ".file-tree-label{overflow-wrap:anywhere;}"
+    + ".file-tree-count{font-size:11px;}"
+    + ".file-tree-file{display:flex;align-items:center;gap:5px;padding:1px 0;font-size:12px;color:var(--secondary-text-color);}"
     + "@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:6px 10px 10px;}}";
 
   window.ModelCatalogIntakeShared = {
