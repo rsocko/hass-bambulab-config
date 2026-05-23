@@ -69,7 +69,7 @@ Current repo assessment:
   `stats.total_prints` means unique archived rows.
 
 Enhancement follow-ons from the `v0.2.4.1` review are documented in
-[bambuddy-v0.2.4.1-enhancements-roadmap.md](/docs/features/bambuddy_integration/planning/bambuddy-v0.2.4.1-enhancements-roadmap.md).
+[Bambuddy V0.2.4.1 Enhancements Roadmap](/docs/features/bambuddy_integration/planning/bambuddy-v0.2.4.1-enhancements-roadmap.md).
 
 Operational caveat:
 

@@ -25,7 +25,7 @@ Each feature package contributes cards via its `dashboard_cards/` directory, whi
 ![Full dashboard — mobile overview](/docs/screenshots/images/dashboard-full-mobile.png)
 
 ### Top Bar
-Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](/docs/features/printer_dashboards/design/top-bar-layout.md) for layout design.
+Prominent status bar optimized for desktop and mobile. See [Top Bar Layout](/docs/features/printer_dashboards/design/top-bar-layout.md) for layout design.
 
 - Real-time print status and progress
 - Time remaining and estimated completion
@@ -39,7 +39,7 @@ Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](/
 - Spool information and tracking
 
 ### AMS Tray Popup
-Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md](/docs/features/printer_dashboards/reference/ams-tray-popup.md) and [ams-tray-popup-visual.md](/docs/features/printer_dashboards/design/ams-tray-popup-visual.md).
+Interactive popup dialogs for detailed spool information. See [Ams Tray Popup](/docs/features/printer_dashboards/reference/ams-tray-popup.md) and [Ams Tray Popup Visual](/docs/features/printer_dashboards/design/ams-tray-popup-visual.md).
 
 <!-- SCREENSHOT: id=ams-tray-popup-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
@@ -50,7 +50,7 @@ Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md
 > **🎬 Animation needed:** AMS tray popup — tap-to-open interaction *(gif)*
 
 ### AMS Header Cards
-Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](/docs/features/printer_dashboards/reference/card-templates-README.md).
+Reusable `ams_header` button-card template placed above each AMS unit. See [Card Templates Readme](/docs/features/printer_dashboards/reference/card-templates-README.md).
 
 ### Feature Cards
 Each feature contributes dashboard cards — see feature-specific docs:
@@ -69,14 +69,14 @@ Each feature contributes dashboard cards — see feature-specific docs:
 
 | File | Description |
 |------|-------------|
-| [top-bar-layout.md](/docs/features/printer_dashboards/design/top-bar-layout.md) | Top bar card layout and responsive grid |
-| [ams-tray-popup.md](/docs/features/printer_dashboards/reference/ams-tray-popup.md) | AMS tray popup implementation and data sources |
-| [ams-tray-popup-visual.md](/docs/features/printer_dashboards/design/ams-tray-popup-visual.md) | Visual mockup and layout guide |
-| [active-spool-border.md](/docs/features/printer_dashboards/reference/active-spool-border.md) | Active spool cyan border indicator |
-| [card-templates-README.md](/docs/features/printer_dashboards/reference/card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
-| [animation-design-notes.md](/docs/features/printer_dashboards/design/animation-design-notes.md) | CSS animation design notes and patterns |
-| [multicolor-spool-testing.md](/docs/features/printer_dashboards/reference/multicolor-spool-testing.md) | Testing guide for multi-color spool display |
-| [yaml-conversion-status.md](/docs/features/printer_dashboards/planning/yaml-conversion-status.md) | YAML conversion status and known issues |
+| [Top Bar Layout](/docs/features/printer_dashboards/design/top-bar-layout.md) | Top bar card layout and responsive grid |
+| [Ams Tray Popup](/docs/features/printer_dashboards/reference/ams-tray-popup.md) | AMS tray popup implementation and data sources |
+| [Ams Tray Popup Visual](/docs/features/printer_dashboards/design/ams-tray-popup-visual.md) | Visual mockup and layout guide |
+| [Active Spool Border](/docs/features/printer_dashboards/reference/active-spool-border.md) | Active spool cyan border indicator |
+| [Card Templates Readme](/docs/features/printer_dashboards/reference/card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
+| [Animation Design Notes](/docs/features/printer_dashboards/design/animation-design-notes.md) | CSS animation design notes and patterns |
+| [Multicolor Spool Testing](/docs/features/printer_dashboards/reference/multicolor-spool-testing.md) | Testing guide for multi-color spool display |
+| [Yaml Conversion Status](/docs/features/printer_dashboards/planning/yaml-conversion-status.md) | YAML conversion status and known issues |
 
 ## Custom Cards Required (HACS)
 
@@ -192,7 +192,7 @@ If you have a smart switch controlling printer power, update:
 ## Customization
 
 ### Top Bar Layout
-See [top-bar-layout.md](/docs/features/printer_dashboards/design/top-bar-layout.md) for details on customizing the top bar, including:
+See [Top Bar Layout](/docs/features/printer_dashboards/design/top-bar-layout.md) for details on customizing the top bar, including:
 - Changing grid columns
 - Adjusting font sizes
 - Adding new cards

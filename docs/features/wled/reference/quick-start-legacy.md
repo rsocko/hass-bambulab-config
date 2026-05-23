@@ -7,7 +7,7 @@
 - Replaced By: n/a
 
 
-> **STATUS: LEGACY** — This guide predates the Home Assistant State Machine approach. For the current setup path, see [\docs\features\wled\reference\quick-reference.md](/docs/features/wled/reference/quick-reference.md) and [phased-implementation-guide.md](/docs/features/wled/planning/phased-implementation-guide.md). The hardware information here remains accurate.
+> **STATUS: LEGACY** — This guide predates the Home Assistant State Machine approach. For the current setup path, see [Quick Reference](/docs/features/wled/reference/quick-reference.md) and [Phased Implementation Guide](/docs/features/wled/planning/phased-implementation-guide.md). The hardware information here remains accurate.
 
 This guide will help you get started quickly with your WLED LED strip configuration for Bambu Lab printer and dual AMS setup.
 
@@ -20,9 +20,9 @@ This configuration package includes:
    - `light-scenarios.md` (Section 2: LED Function Map) - Detailed function specifications for each zone
    - `light-scenarios.md` - Complete catalog of 33+ lighting scenarios
 2. **Main README** (`README.md`) - Complete overview integrated with specifications
-3. **Wiring Diagram** ([\docs\features\wled\reference\wiring-diagram.md](/docs/features/wled/reference/wiring-diagram.md)) - Detailed installation instructions
-4. **Home Assistant Automations** ([home-assistant-automations.md](/docs/features/wled/archive/home-assistant-automations-legacy.md)) - Integration examples
-5. **Backup Guide** ([\docs\features\wled\reference\backup-and-restore.md](/docs/features/wled/reference/backup-and-restore.md)) - Backup/restore process and required files
+3. **Wiring Diagram** ([Wiring Diagram](/docs/features/wled/reference/wiring-diagram.md)) - Detailed installation instructions
+4. **Home Assistant Automations** ([Home Assistant Automations Legacy](/docs/features/wled/archive/home-assistant-automations-legacy.md)) - Integration examples
+5. **Backup Guide** ([Backup And Restore](/docs/features/wled/reference/backup-and-restore.md)) - Backup/restore process and required files
 6. **Digquad Configuration**:
    - `digquad-settings/wled_cfg_Digquad.json` - Controller configuration
    - `digquad-settings/wled_presets_Digquad.json` - Presets based on light-scenarios.md
@@ -110,7 +110,7 @@ All `.json` preset files in this repo use the native WLED `presets.json` format 
 
 ### Step 3: Install LED Strips (2-3 hours)
 
-Follow the detailed instructions in [\docs\features\wled\reference\wiring-diagram.md](/docs/features/wled/reference/wiring-diagram.md) and use LED specifications from `digquad-led-segments.md`:
+Follow the detailed instructions in [Wiring Diagram](/docs/features/wled/reference/wiring-diagram.md) and use LED specifications from `digquad-led-segments.md`:
 
 1. **Printer Front Door** (GPIO 15, 158 LEDs):
    - COB 160 LED/m strip
@@ -156,7 +156,7 @@ Follow the detailed instructions in [\docs\features\wled\reference\wiring-diagra
 
 Before segment edits and preset changes, capture a baseline snapshot:
 
-1. Follow [\docs\features\wled\reference\backup-and-restore.md](/docs/features/wled/reference/backup-and-restore.md).
+1. Follow [Backup And Restore](/docs/features/wled/reference/backup-and-restore.md).
 2. In WLED UI (`Config` -> `Security & Updates`), export:
    - `Backup Configuration` -> save as `cfg.json`
    - `Backup Presets` -> save as `presets.json`
@@ -223,7 +223,7 @@ Reference `light-scenarios.md` for detailed color and effect specifications for 
 
 ### Step 8: Home Assistant Integration (1 hour)
 
-Follow instructions in [home-assistant-automations.md](/docs/features/wled/archive/home-assistant-automations-legacy.md):
+Follow instructions in [Home Assistant Automations Legacy](/docs/features/wled/archive/home-assistant-automations-legacy.md):
 
 1. Add WLED device to Home Assistant
 2. Create automations based on `light-scenarios.md`:
@@ -482,12 +482,12 @@ Good luck with your installation! 🎉
 
 ## Quick Reference Links
 
-- 📊 [\docs\features\wled\reference\digquad-led-segments.md](/docs/features/wled/reference/digquad-led-segments.md) - LED specifications
+- 📊 [Digquad Led Segments](/docs/features/wled/reference/digquad-led-segments.md) - LED specifications
 - 🎯 [LED Function Map](/docs/features/wled/design/light-scenarios.md#2-led-function-map-consolidated) - Zone functions
-- 🎨 [light-scenarios.md](/docs/features/wled/design/light-scenarios.md) - Scenario catalog
-- 📖 [README.md](/docs/features/wled/README.md) - Complete documentation
-- 🔌 [\docs\features\wled\reference\wiring-diagram.md](/docs/features/wled/reference/wiring-diagram.md) - Installation guide
-- 🏠 [home-assistant-automations.md](/docs/features/wled/archive/home-assistant-automations-legacy.md) - Automation examples
+- 🎨 [Light Scenarios](/docs/features/wled/design/light-scenarios.md) - Scenario catalog
+- 📖 [README](/docs/features/wled/README.md) - Complete documentation
+- 🔌 [Wiring Diagram](/docs/features/wled/reference/wiring-diagram.md) - Installation guide
+- 🏠 [Home Assistant Automations Legacy](/docs/features/wled/archive/home-assistant-automations-legacy.md) - Automation examples
 
 
 

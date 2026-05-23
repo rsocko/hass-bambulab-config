@@ -1,6 +1,6 @@
 # Print Queue — Bambuddy Queue in HA
 
-> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](/docs/repo/reference/openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
+> **⚠️ OpenAPI Corrections Needed**: See [Openapi Correction Notes](/docs/repo/reference/openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
 
 ## Overview
 
@@ -107,7 +107,7 @@ Displays the current print queue:
 
 ## Advanced Design
 
-- [advanced-features-design.md](/docs/features/print_queue/design/advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
+- [Advanced Features Design](/docs/features/print_queue/design/advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
 
 ## Scope Decision After API Review
 

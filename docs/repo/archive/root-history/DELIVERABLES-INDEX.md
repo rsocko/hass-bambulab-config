@@ -11,9 +11,9 @@ This file is a historical delivery snapshot and is not a canonical source for cu
 
 For current documentation navigation and lifecycle policy, use:
 
-- [docs/README.md](/docs/README.md)
-- [docs/repo/planning/documentation-organization-guidance-and-migration-plan.md](/docs/repo/planning/documentation-organization-guidance-and-migration-plan.md)
-- [docs/repo/planning/documentation-migration-matrix.md](/docs/repo/planning/documentation-migration-matrix.md)
+- [README](/docs/README.md)
+- [Documentation Organization Guidance And Migration Plan](/docs/repo/planning/documentation-organization-guidance-and-migration-plan.md)
+- [Documentation Migration Matrix](/docs/repo/planning/documentation-migration-matrix.md)
 
 **Session Date:** April 25, 2026  
 **Prepared By:** GitHub Copilot  
@@ -52,20 +52,20 @@ For current documentation navigation and lifecycle policy, use:
 
 ### Main Documentation (4 files, 25+ pages)
 
-1. **[\docs\repo\archive\root-history\PHASE-3-COMPLETION-SUMMARY.md](/docs/repo/archive/root-history/PHASE-3-COMPLETION-SUMMARY.md)**
+1. **[Phase 3 Completion Summary](/docs/repo/archive/root-history/PHASE-3-COMPLETION-SUMMARY.md)**
    - High-level overview of Phase 3.1 completion
    - Phase 3.2-3.3 readiness assessment
    - Next steps and success metrics
    - **Pages:** 8 | **Lines:** 400+
 
-2. **[\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md](/docs/repo/archive/root-history/PHASE-3.1-VALIDATION-REPORT.md)**
+2. **[Phase 3.1 Validation Report](/docs/repo/archive/root-history/PHASE-3.1-VALIDATION-REPORT.md)**
    - Deployment verification
    - Endpoint functionality confirmation
    - Test coverage summary
    - Blockers and issues (none identified)
    - **Pages:** 3 | **Lines:** 150+
 
-3. **[\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md)**
+3. **[Phase 3.2 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md)**
    - Complete task breakdown (7 tasks × 2-3 days each)
    - Detailed code examples for each task
    - Architecture diagrams in Mermaid format
@@ -73,7 +73,7 @@ For current documentation navigation and lifecycle policy, use:
    - Timeline and dependencies
    - **Pages:** 10 | **Lines:** 600+
 
-4. **[\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md)**
+4. **[Phase 3.3 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md)**
    - Complete task breakdown (7 tasks × 1-2 days each)
    - Detailed code examples for each task
    - Integration points documented
@@ -81,7 +81,7 @@ For current documentation navigation and lifecycle policy, use:
    - Timeline and dependencies
    - **Pages:** 12 | **Lines:** 700+
 
-5. **[\docs\repo\archive\root-history\PHASE-3-DEPLOYMENT-CONFIG.md](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md)**
+5. **[Phase 3 Deployment Config](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md)**
    - Production deployment details
    - Development environment setup
    - Testing and validation procedures
@@ -186,18 +186,18 @@ For current documentation navigation and lifecycle policy, use:
 ## Quick Reference
 
 ### Files to Review Before Phase 3.2 (April 26)
-1. [\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) — Full implementation guide
-2. [PHASE-3-DEPLOYMENT-CONFIG.md](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-32-validation-checklist) — Validation procedures
+1. [Phase 3.2 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) — Full implementation guide
+2. [Phase 3 Deployment Config](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-32-validation-checklist) — Validation procedures
 3. [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py) — Test scaffold
 
 ### Files to Review Before Phase 3.3 (May 3)
-1. [\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md) — Full implementation guide
-2. [PHASE-3-DEPLOYMENT-CONFIG.md](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-33-validation-checklist) — Validation procedures
+1. [Phase 3.3 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md) — Full implementation guide
+2. [Phase 3 Deployment Config](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-33-validation-checklist) — Validation procedures
 3. [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py) — Test scaffold
 
 ### Existing Files to Reference
-- [sidecars/model_catalog/README.md](../../../../sidecars/model_catalog/README.md) — Sidecar architecture
-- [docs/features/model_catalog/planning/implementation-plan.md](/docs/features/model_catalog/planning/implementation-plan.md) — Project roadmap
+- [README](../../../../sidecars/model_catalog/README.md) — Sidecar architecture
+- [Implementation Plan](/docs/features/model_catalog/planning/implementation-plan.md) — Project roadmap
 - [homeassistant/packages/3d_printing/model_catalog/](../../../../homeassistant/packages/3d_printing/model_catalog/) — HA package structure
 
 ---
@@ -263,23 +263,23 @@ Post-Phase 3: Future enhancements
 ### For Phase 3.2 Implementation (Starts April 26)
 
 **Day 1-2: Preparation**
-1. Read [\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) → Task 1-2
+1. Read [Phase 3.2 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) → Task 1-2
 2. Review [test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L9) → TestSTLLoader
-3. Set up local environment per [PHASE-3-DEPLOYMENT-CONFIG.md](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#local-testing-phase-32-33)
+3. Set up local environment per [Phase 3 Deployment Config](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#local-testing-phase-32-33)
 
 **Day 3-7: Implementation**
 1. Follow task sequence in implementation plan
 2. Write code matching examples provided
 3. Run tests: `pytest tests/phase3/test_phase3_2_3d_viewer.py -v`
 4. Deploy to staging
-5. Validate per checklist in [PHASE-3-DEPLOYMENT-CONFIG.md](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-32-validation-checklist)
+5. Validate per checklist in [Phase 3 Deployment Config](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-32-validation-checklist)
 
 ### For Phase 3.3 Implementation (Starts May 3)
 
 **Follow same pattern with:**
-- [\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md)
+- [Phase 3.3 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md)
 - [test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py)
-- [PHASE-3-DEPLOYMENT-CONFIG.md](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-33-validation-checklist)
+- [Phase 3 Deployment Config](/docs/repo/archive/root-history/PHASE-3-DEPLOYMENT-CONFIG.md#phase-33-validation-checklist)
 
 ---
 

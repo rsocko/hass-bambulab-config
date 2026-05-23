@@ -138,10 +138,10 @@ Possible improvements:
 
 ## Support & Resources
 
-- **Full Documentation**: [print-weight-persistence-overview.md](/docs/features/spoolman_sync/reference/print-weight-persistence-overview.md)
-- **Quick Start**: [print-weight-persistence-quickstart.md](/docs/features/spoolman_sync/reference/print-weight-persistence-quickstart.md)
-- **Visual Diagrams**: [print-weight-persistence-visual.md](/docs/features/spoolman_sync/design/print-weight-persistence-visual.md)
-- **Implementation Details**: [\docs\features\spoolman_sync\archive\print-weight-persistence-implementation.md](/docs/features/spoolman_sync/archive/print-weight-persistence-implementation.md)
+- **Full Documentation**: [Print Weight Persistence Overview](/docs/features/spoolman_sync/reference/print-weight-persistence-overview.md)
+- **Quick Start**: [Print Weight Persistence Quickstart](/docs/features/spoolman_sync/reference/print-weight-persistence-quickstart.md)
+- **Visual Diagrams**: [Print Weight Persistence Visual](/docs/features/spoolman_sync/design/print-weight-persistence-visual.md)
+- **Implementation Details**: [Print Weight Persistence Implementation](/docs/features/spoolman_sync/archive/print-weight-persistence-implementation.md)
 - **Upstream Issue**: https://github.com/greghesp/ha-bambulab/issues/1048
 
 ## Success Criteria

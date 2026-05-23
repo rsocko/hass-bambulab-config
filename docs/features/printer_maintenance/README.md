@@ -1,6 +1,6 @@
 # Printer Maintenance — Bambuddy Maintenance Tracking in HA
 
-> **⚠️ UNBLOCKED**: Maintenance API endpoints have been discovered in the OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](/docs/repo/reference/openapi-correction-notes.md) for full cross-reference. All 4 blocking open items are now resolved.
+> **⚠️ UNBLOCKED**: Maintenance API endpoints have been discovered in the OpenAPI spec (Bambuddy v0.2.2.2). See [Openapi Correction Notes](/docs/repo/reference/openapi-correction-notes.md) for full cross-reference. All 4 blocking open items are now resolved.
 
 ## Overview
 
@@ -209,7 +209,7 @@ Full maintenance dashboard view assembling all 3 cards plus a link to Bambuddy's
 
 ## Advanced Design
 
-- [advanced-features-design.md](/docs/features/print_history/planning/advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
+- [Advanced Features Design](/docs/features/print_history/planning/advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
 
 ## Scope Decision After API Review
 

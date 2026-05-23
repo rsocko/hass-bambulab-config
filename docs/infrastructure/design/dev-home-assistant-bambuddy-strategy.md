@@ -18,11 +18,11 @@ It does not implement the workflow changes. It defines the target operating mode
 
 The current repository and deployment model assume a single Home Assistant target in several important places.
 
-- The deployable Home Assistant root is [homeassistant/README.md](../../../homeassistant/README.md).
+- The deployable Home Assistant root is [README](../../../homeassistant/README.md).
 - Package loading is driven by [homeassistant/packages/3d_printing/_feature_loaders.yaml](../..//homeassistant/packages/3d_printing/_feature_loaders.yaml).
 - The main deploy workflow is [.github/workflows/deploy-homeassistant-template.yml](../../.github/workflows/deploy-homeassistant-template.yml).
 - Push-triggered deploy dispatch is controlled by [.github/workflows/auto-dispatch-homeassistant-deploy.yml](../../.github/workflows/auto-dispatch-homeassistant-deploy.yml) and [.github/deploy/auto-deploy.env](../../.github/deploy/auto-deploy.env).
-- Lovelace resource versioning and runtime registration are controlled by [docs/repo/reference/dashboard-deployment-behavior.md](/docs/repo/reference/dashboard-deployment-behavior.md) and [homeassistant/packages/3d_printing/common/dashboards/_resources.yaml](../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml).
+- Lovelace resource versioning and runtime registration are controlled by [Dashboard Deployment Behavior](/docs/repo/reference/dashboard-deployment-behavior.md) and [homeassistant/packages/3d_printing/common/dashboards/_resources.yaml](../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml).
 
 Additional current-state assumptions for this strategy:
 
@@ -84,7 +84,7 @@ homeassistant:
   packages: !include packages/3d_printing/_feature_loaders.yaml
 ```
 
-That contract is described in [homeassistant/README.md](../../../homeassistant/README.md).
+That contract is described in [README](../../../homeassistant/README.md).
 
 ### Required Packages And Loaders
 
@@ -237,7 +237,7 @@ When a tracked JS resource under `homeassistant/www/**` changes:
 - ensure the workflow syncs the live resource registry correctly
 - hard refresh the browser after deploy
 
-This contract is documented in [docs/repo/reference/dashboard-deployment-behavior.md](/docs/repo/reference/dashboard-deployment-behavior.md).
+This contract is documented in [Dashboard Deployment Behavior](/docs/repo/reference/dashboard-deployment-behavior.md).
 
 ### 4. Single-Target Workflow Assumptions
 
@@ -422,9 +422,9 @@ These decisions should be made after the environment-aware deploy groundwork exi
 
 ## References
 
-- [homeassistant/README.md](../../../homeassistant/README.md)
+- [README](../../../homeassistant/README.md)
 - [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../../homeassistant/packages/3d_printing/_feature_loaders.yaml)
 - [homeassistant/custom_components/bambuddy/config_flow.py](../../../homeassistant/custom_components/bambuddy/config_flow.py)
-- [docs/repo/reference/deployment-workflow-reference.md](/docs/repo/reference/deployment-workflow-reference.md)
-- [docs/repo/reference/deployment-structure.md](/docs/repo/reference/deployment-structure.md)
-- [docs/repo/reference/dashboard-deployment-behavior.md](/docs/repo/reference/dashboard-deployment-behavior.md)
+- [Deployment Workflow Reference](/docs/repo/reference/deployment-workflow-reference.md)
+- [Deployment Structure](/docs/repo/reference/deployment-structure.md)
+- [Dashboard Deployment Behavior](/docs/repo/reference/dashboard-deployment-behavior.md)

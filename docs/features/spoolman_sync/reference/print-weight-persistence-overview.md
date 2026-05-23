@@ -20,7 +20,7 @@ When Home Assistant restarts during an active 3D print job, the `sensor.print_we
 ### Root Cause
 
 This is a known limitation documented in:
-- This repository: [docs/features/spoolman_sync/\docs\features\spoolman_sync\reference\print-complete-update-filament-usage.md](/docs/features/spoolman_sync/reference/print-complete-update-filament-usage.md) (line 20)
+- This repository: [Print Complete Update Filament Usage](/docs/features/spoolman_sync/reference/print-complete-update-filament-usage.md) (line 20)
 - Upstream issue: https://github.com/greghesp/ha-bambulab/issues/1048
 
 ## Solution Architecture

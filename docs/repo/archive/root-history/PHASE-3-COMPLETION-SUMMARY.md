@@ -31,7 +31,7 @@ Replaced By: none
 - ✅ Dashboard browser card integrated
 
 **Validation:**
-- ✅ Deployment validation report: [\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md](/docs/repo/archive/root-history/PHASE-3.1-VALIDATION-REPORT.md)
+- ✅ Deployment validation report: [Phase 3.1 Validation Report](/docs/repo/archive/root-history/PHASE-3.1-VALIDATION-REPORT.md)
 - ✅ Integration test script: [test_phase3_endpoints.py](test_phase3_endpoints.py)
 - ✅ 50+ unit tests: [tests/phase3/test_phase3_1_edit_form.py](../../../../tests/phase3/test_phase3_1_edit_form.py)
 
@@ -46,7 +46,7 @@ Replaced By: none
 ### 📋 Phase 3.2: 3D Viewer & STL Loader (READY TO START)
 
 **Target:** April 26 - May 3, 2026 (1 week)  
-**Implementation Plan:** [\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) (300+ lines)
+**Implementation Plan:** [Phase 3.2 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) (300+ lines)
 
 **What's Included:**
 1. **Geometry Endpoint:** GET /api/models/{model_ref}/geometry/{file_id}
@@ -70,7 +70,7 @@ Replaced By: none
 ### 📋 Phase 3.3: Cross-System Integration (READY TO START)
 
 **Target:** May 3 - May 10, 2026 (1 week)  
-**Implementation Plan:** [\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md) (400+ lines)
+**Implementation Plan:** [Phase 3.3 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md) (400+ lines)
 
 **What's Included:**
 1. **Archive Linking:** GET /api/archives/{archive_id}/model with fuzzy matching
@@ -116,9 +116,9 @@ test_phase3_endpoints.py                (250+ lines)
 
 | Document | Purpose | Pages |
 |----------|---------|-------|
-| [\docs\repo\archive\root-history\PHASE-3.1-VALIDATION-REPORT.md](/docs/repo/archive/root-history/PHASE-3.1-VALIDATION-REPORT.md) | Deployment verification | 3 |
-| [\docs\repo\archive\root-history\PHASE-3.2-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) | 3D Viewer implementation guide | 10 |
-| [\docs\repo\archive\root-history\PHASE-3.3-IMPLEMENTATION-PLAN.md](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md) | Cross-system integration guide | 12 |
+| [Phase 3.1 Validation Report](/docs/repo/archive/root-history/PHASE-3.1-VALIDATION-REPORT.md) | Deployment verification | 3 |
+| [Phase 3.2 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.2-IMPLEMENTATION-PLAN.md) | 3D Viewer implementation guide | 10 |
+| [Phase 3.3 Implementation Plan](/docs/repo/archive/root-history/PHASE-3.3-IMPLEMENTATION-PLAN.md) | Cross-system integration guide | 12 |
 
 **Total Documentation:** 25+ pages, 8000+ lines of detailed technical specifications
 

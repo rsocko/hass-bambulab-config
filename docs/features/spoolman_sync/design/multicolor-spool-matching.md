@@ -21,7 +21,7 @@ Current deployed architecture and matching authority:
 - Manual pin precedence is implemented in tray-map as `UUID -> manual_pin -> auto tiers`.
 
 Related manual interaction design is documented in:
-- [manual-spool-matching-design.md](/docs/features/spoolman_sync/design/manual-spool-matching.md)
+- [Manual Spool Matching](/docs/features/spoolman_sync/design/manual-spool-matching.md)
 
 ## Current Baseline (Implemented)
 
