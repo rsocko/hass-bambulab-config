@@ -645,6 +645,13 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Queue tab shortcut — use the same add-to-queue dialog path as Print
+    if (target.closest('[data-action="queue-add"]')) {
+      event.preventDefault();
+      this._handlePrint();
+      return;
+    }
+
     // Queue dialog actions (#1499)
     if (target.classList && target.classList.contains("queue-dialog-backdrop")) {
       event.preventDefault();
@@ -2709,8 +2716,9 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderQueueStatusPanel() {
     const queued = Array.isArray(this._modelDetail.queued_items) ? this._modelDetail.queued_items : [];
+    const addToQueueAction = '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="action-button" type="button" data-action="queue-add">Add To Queue</button></div>';
     if (!queued.length) {
-      return '<div class="queue-list"><article class="queue-row"><strong>No queued prints</strong><div class="detail">When this model is added to the print queue, its entries will appear here.</div></article></div>';
+      return addToQueueAction + '<div class="queue-list"><article class="queue-row"><strong>No queued prints</strong><div class="detail">When this model is added to the print queue, its entries will appear here.</div></article></div>';
     }
     const stateLabel = (s) => {
       const labels = { backlog: 'Backlog', up_next: 'Up Next', preparing: 'Preparing', ready: 'Ready', in_progress: 'In Progress', blocked: 'Blocked', done: 'Done' };
@@ -2771,7 +2779,7 @@ class ModelDetailPopupCard extends HTMLElement {
         </article>
       `;
     });
-    return `<div class="queue-list">${rows.join('')}</div>`;
+    return `${addToQueueAction}<div class="queue-list">${rows.join('')}</div>`;
   }
 
   _renderRelatedModelsPanel(model) {
@@ -6278,9 +6286,9 @@ class ModelDetailPopupCard extends HTMLElement {
     }
     var model = this._modelDetail.model;
     var modelName = String(model.name || this._modelRef || "Model").trim() || "Model";
-    // Check for existing queue entries to populate re-add warning in dialog.
+    // Match list-view behavior: always open the unified Add to Queue dialog.
     this._listUnifiedQueueEntriesForModel(this._modelRef).then(function (entries) {
-      this._openQueueDialog(this._modelRef, modelName, entries, { intent: entries.length ? "re-add" : "add", defaultState: "up_next" });
+      this._openQueueDialog(this._modelRef, modelName, entries, { intent: "add", defaultState: "up_next" });
     }.bind(this)).catch(function () {
       this._openQueueDialog(this._modelRef, modelName, [], { intent: "add", defaultState: "up_next" });
     }.bind(this));

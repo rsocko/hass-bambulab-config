@@ -842,6 +842,22 @@ function renderValidationSummary(card) {
     return sidecarBaseUrl + '/api/intake/preview?path=' + encodeURIComponent(rawPath);
   }
 
+  function normalizeConflictPreviewUrl(card, previewUrl, fallbackPath) {
+    var rawPreview = String(previewUrl || '').trim();
+    if (rawPreview) {
+      if (/^(https?:|data:|blob:)/i.test(rawPreview)) {
+        return rawPreview;
+      }
+      if (rawPreview.indexOf('/') === 0 && card && typeof card._resolveSidecarUrl === 'function') {
+        var sidecarBaseUrl = String(card._resolveSidecarUrl() || '').replace(/\/$/, '');
+        if (sidecarBaseUrl) {
+          return sidecarBaseUrl + rawPreview;
+        }
+      }
+    }
+    return intakePreviewUrl(card, fallbackPath);
+  }
+
   function validationExtBadgeMarkup(filename) {
     var ext = String(filename || '').replace(/^.*\./, '.').toLowerCase();
     if (!ext || ext === filename || ext.indexOf('.') !== 0) { ext = ''; }
@@ -1097,7 +1113,7 @@ function renderValidationSummary(card) {
             var leftColumnHeader = isInventoryMatch ? 'Source file (incoming)' : 'Source file';
             var rightColumnHeader = isInventoryMatch ? 'Inventory match (existing)' : 'Matched file';
             var sourcePreviewUrl = intakePreviewUrl(card, findingPath);
-            var conflictPreviewUrl = intakePreviewUrl(card, conflictPath);
+            var conflictPreviewUrl = normalizeConflictPreviewUrl(card, primaryConflict && primaryConflict.preview_url, conflictPath);
             var isMoreInfoExpanded = !!(card && card._validationInfoExpandedMap && card._validationInfoExpandedMap[findingKey]);
             var decisionLabelMap = {
               review: 'Pending: Needs review',
@@ -1147,11 +1163,16 @@ function renderValidationSummary(card) {
             if (matchSource) {
               fullWidthDetails.push({ key: 'Match source', value: matchSource });
             }
+            var normalizedConflictPath = trimIntakeSourcePrefix(conflictPath);
+            var conflictPathLooksLikeFilename = !!normalizedConflictPath
+              && normalizedConflictPath.indexOf('/') < 0
+              && (!conflictFilename || normalizedConflictPath.toLowerCase() === conflictFilename.toLowerCase());
+            var meaningfulConflictPath = conflictPathLooksLikeFilename ? '' : normalizedConflictPath;
             var conflictPathDisplayText = conflictPathForTable
-              || trimIntakeSourcePrefix(conflictPath)
               || matchSource
               || String(primaryConflict && primaryConflict.label || '').trim()
               || String(primaryConflict && primaryConflict.parent_name || '').trim()
+              || meaningfulConflictPath
               || conflictFilename
               || String(firstConflictTarget || '').trim();
             if (finding.sha256) {

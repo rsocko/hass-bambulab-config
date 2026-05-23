@@ -747,7 +747,7 @@ def _read_indexed_filename_maps(
         try:
             asset_rows = connection.execute(
                 """
-                SELECT a.asset_filename, e.model_name, a.file_size_bytes
+                SELECT a.asset_filename, e.model_name, a.file_size_bytes, a.preview_url
                 FROM model_catalog_assets a
                 LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.asset_filename IS NOT NULL AND TRIM(a.asset_filename) != ''
@@ -760,6 +760,7 @@ def _read_indexed_filename_maps(
             asset_name = Path(asset_path).name or asset_path
             model_name = str(row[1] or "").strip()
             asset_size = row[2] if len(row) > 2 else None
+            asset_preview_url = str(row[3] or "").strip() if len(row) > 3 else ""
             asset_context: dict[str, Any] = {
                 "scope": "indexed",
                 "parent_kind": "catalog_model",
@@ -768,6 +769,7 @@ def _read_indexed_filename_maps(
                 "filename": asset_name,
                 "label": (f"Catalog model '{model_name}'" if model_name else "Catalog") + (f" -> {asset_path}" if asset_path else ""),
                 "size_bytes": asset_size,
+                "preview_url": asset_preview_url or None,
             }
             _add_filename(row[0], asset_context)
     finally:
@@ -853,7 +855,7 @@ def _read_indexed_hash_match_contexts(
         try:
             asset_rows = connection.execute(
                 """
-                SELECT a.file_hash, a.asset_filename, e.model_name, a.file_size_bytes
+                                SELECT a.file_hash, a.asset_filename, e.model_name, a.file_size_bytes, a.preview_url
                 FROM model_catalog_assets a
                 LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.file_hash IS NOT NULL
@@ -867,6 +869,7 @@ def _read_indexed_hash_match_contexts(
             asset_name = Path(asset_path).name or asset_path
             model_name = str(row[2] or "").strip()
             asset_size = row[3] if len(row) > 3 else None
+            asset_preview_url = str(row[4] or "").strip() if len(row) > 4 else ""
             _add_context(
                 row[0],
                 {
@@ -877,6 +880,7 @@ def _read_indexed_hash_match_contexts(
                     "filename": asset_name,
                     "label": (f"Catalog model '{model_name}'" if model_name else "Catalog") + (f" -> {asset_path}" if asset_path else ""),
                     "size_bytes": asset_size,
+                    "preview_url": asset_preview_url or None,
                 },
             )
 
