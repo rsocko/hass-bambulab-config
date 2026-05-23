@@ -3482,6 +3482,39 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   };
 
   // Issue #1328: Attach event listeners for left/right side highlighting in ORGANIZE step
+  proto._attachFileTreeListeners = function () {
+    if (!this.shadowRoot) return;
+    var container = this.shadowRoot.querySelector('.wizard-body') || this.shadowRoot;
+    container.addEventListener('click', function (event) {
+      var toggleRoot = event.target.closest('[data-tree-action="toggle-root"]');
+      if (toggleRoot) {
+        event.stopPropagation();
+        var block = toggleRoot.closest('.file-tree-block');
+        if (!block) return;
+        var root = block.querySelector('.file-tree-root');
+        if (!root) return;
+        var isOpen = root.style.display !== 'none';
+        root.style.display = isOpen ? 'none' : '';
+        toggleRoot.classList.toggle('expanded', !isOpen);
+        var label = toggleRoot.querySelector('.entry-path');
+        if (label) label.textContent = isOpen ? 'Show file tree' : 'Hide file tree';
+        return;
+      }
+      var toggleFolder = event.target.closest('[data-tree-action="toggle"]');
+      if (toggleFolder) {
+        event.stopPropagation();
+        var folder = toggleFolder.closest('.file-tree-folder');
+        if (!folder) return;
+        var children = folder.querySelector('.file-tree-children');
+        if (!children) return;
+        var wasOpen = children.style.display !== 'none';
+        children.style.display = wasOpen ? 'none' : '';
+        folder.classList.toggle('expanded', !wasOpen);
+        return;
+      }
+    }, false);
+  };
+
   proto._attachHighlightListeners = function () {
     if (!this.shadowRoot || this._wizardStep !== 2) {
       return;
@@ -3684,36 +3717,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         }
       }, false);
     });
-
-    // Delegate file tree toggle clicks on the right (Review) panel.
-    rightPanel.addEventListener('click', function (event) {
-      var toggleRoot = event.target.closest('[data-tree-action="toggle-root"]');
-      if (toggleRoot) {
-        event.stopPropagation();
-        var block = toggleRoot.closest('.file-tree-block');
-        if (!block) return;
-        var root = block.querySelector('.file-tree-root');
-        if (!root) return;
-        var isOpen = root.style.display !== 'none';
-        root.style.display = isOpen ? 'none' : '';
-        toggleRoot.classList.toggle('expanded', !isOpen);
-        var label = toggleRoot.querySelector('.entry-path');
-        if (label) label.textContent = isOpen ? 'Show file tree' : 'Hide file tree';
-        return;
-      }
-      var toggleFolder = event.target.closest('[data-tree-action="toggle"]');
-      if (toggleFolder) {
-        event.stopPropagation();
-        var folder = toggleFolder.closest('.file-tree-folder');
-        if (!folder) return;
-        var children = folder.querySelector('.file-tree-children');
-        if (!children) return;
-        var wasOpen = children.style.display !== 'none';
-        children.style.display = wasOpen ? 'none' : '';
-        folder.classList.toggle('expanded', !wasOpen);
-        return;
-      }
-    }, false);
 
     // Issue #1558: hover thumbnail preview — position:fixed to escape overflow clipping.
     var thumbWraps = rightPanel.querySelectorAll('.validation-thumb-wrap');
@@ -4480,7 +4483,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (!this.shadowRoot) {
       return [];
     }
-    var scrollers = this.shadowRoot.querySelectorAll('.wizard-panel-scroll');
+    var scrollers = this.shadowRoot.querySelectorAll('.wizard-panel-scroll, .wizard-validate-fixed');
     return Array.prototype.map.call(scrollers, function (node, index) {
       return {
         index: index,
@@ -4493,7 +4496,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (!this.shadowRoot || !Array.isArray(state) || !state.length) {
       return;
     }
-    var scrollers = this.shadowRoot.querySelectorAll('.wizard-panel-scroll');
+    var scrollers = this.shadowRoot.querySelectorAll('.wizard-panel-scroll, .wizard-validate-fixed');
     state.forEach(function (entry) {
       var node = scrollers[entry.index];
       if (!node) {
@@ -4514,6 +4517,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     originalRender.call(this);
     // Attach highlight listeners after rendering completes
     setTimeout(function () {
+      this._attachFileTreeListeners();
       this._attachHighlightListeners();
       // Restore only on same-step rerenders; step transitions should start at
       // the top of the new pane.
