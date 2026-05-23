@@ -1055,7 +1055,6 @@ function renderValidationSummary(card) {
                 + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude source file from import</option>'
                 + '    <option value="allow_duplicate"' + (currentDecision === 'allow_duplicate' ? ' selected' : '') + '>Keep source file and continue</option>'
                 + '  </select>'
-                + '  <div class="validation-action-selected">' + escapeHtml(decisionText) + '</div>'
                 + '</div>';
             } else if (String(check.key || '') === 'batch_duplicate_scan') {
               actionControl = ''
@@ -1068,7 +1067,6 @@ function renderValidationSummary(card) {
                 + '    <option value="exclude_both"' + (currentDecision === 'exclude_both' ? ' selected' : '') + '>Exclude both files from import</option>'
                 + '    <option value="keep_both"' + (currentDecision === 'keep_both' ? ' selected' : '') + '>Keep both files</option>'
                 + '  </select>'
-                + '  <div class="validation-action-selected">' + escapeHtml(decisionText) + '</div>'
                 + '</div>';
             }
             var compareDetailsRows = [
@@ -1076,8 +1074,6 @@ function renderValidationSummary(card) {
               { key: 'Match type', value: violationLabel },
               { key: 'Source scope', value: String(finding.scope || 'batch') },
               { key: 'Target scope', value: String(primaryConflict && primaryConflict.scope || 'unknown') },
-              { key: 'Source parent', value: String(sourceFolderForTable || '(unknown)') },
-              { key: 'Target parent', value: String(primaryConflict && primaryConflict.parent_name || conflictPathForTable || '(unknown)') },
             ];
             if (finding.sha256) {
               compareDetailsRows.push({ key: 'SHA256', value: String(finding.sha256) });
@@ -3301,7 +3297,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-severity-chip.severity-exact{border-color:rgba(245,158,11,0.45);background:rgba(120,53,15,0.2);color:#fde68a;}'
       + '.wizard-dialog .validation-severity-chip.severity-soft{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.2);color:#bfdbfe;}'
       + '.wizard-dialog .validation-severity-chip.severity-other{border-color:rgba(148,163,184,0.4);background:rgba(71,85,105,0.2);color:#e2e8f0;}'
-      + '.wizard-dialog .validation-match-table{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--divider-color,rgba(148,163,184,0.25));border-radius:8px;overflow:hidden;}'
+      + '.wizard-dialog .validation-match-table{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--divider-color,rgba(148,163,184,0.25));border-radius:8px;}'
       + '.wizard-dialog .validation-match-header{padding:6px 8px;background:rgba(15,23,42,0.36);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.25));}'
       + '.wizard-dialog .validation-match-cell{padding:6px 8px;font-size:12px;line-height:1.35;color:var(--primary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));white-space:normal;overflow-wrap:anywhere;word-break:break-word;}'
       + '.wizard-dialog .validation-match-cell:nth-child(2n){border-left:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
@@ -3311,8 +3307,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-thumb-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;}'
       + '.wizard-dialog .validation-thumb-button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1px solid var(--divider-color,rgba(148,163,184,0.35));border-radius:8px;background:rgba(15,23,42,0.35);cursor:zoom-in;overflow:hidden;}'
       + '.wizard-dialog .validation-thumb-image{width:100%;height:100%;object-fit:cover;display:block;}'
-      + '.wizard-dialog .validation-thumb-hover{position:absolute;left:52px;top:-6px;width:148px;height:148px;padding:6px;border-radius:10px;border:1px solid var(--divider-color,rgba(148,163,184,0.4));background:rgba(15,23,42,0.95);box-shadow:0 10px 24px rgba(2,6,23,0.55);opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .14s ease,transform .14s ease;z-index:3;}'
-      + '.wizard-dialog .validation-thumb-wrap:hover .validation-thumb-hover{opacity:1;transform:translateY(0);}'
+      + '.wizard-dialog .validation-thumb-hover{position:fixed;width:180px;height:180px;padding:6px;border-radius:10px;border:1px solid var(--divider-color,rgba(148,163,184,0.4));background:rgba(15,23,42,0.95);box-shadow:0 10px 24px rgba(2,6,23,0.55);opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .14s ease,transform .14s ease;z-index:100;}'
+      + '.wizard-dialog .validation-thumb-hover.visible{opacity:1;transform:translateY(0);}'
       + '.wizard-dialog .validation-thumb-hover-image{width:100%;height:100%;object-fit:contain;display:block;border-radius:6px;}'
       + '.wizard-dialog .validation-thumb-missing{font-size:11px;color:var(--secondary-text-color);}'
       + '.wizard-dialog .validation-more-info-row{margin-top:8px;display:flex;justify-content:flex-start;}'
@@ -3718,6 +3714,29 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         return;
       }
     }, false);
+
+    // Issue #1558: hover thumbnail preview — position:fixed to escape overflow clipping.
+    var thumbWraps = rightPanel.querySelectorAll('.validation-thumb-wrap');
+    thumbWraps.forEach(function (wrap) {
+      wrap.addEventListener('mouseenter', function () {
+        var hoverEl = wrap.querySelector('.validation-thumb-hover');
+        if (!hoverEl) return;
+        var btnRect = wrap.getBoundingClientRect();
+        var hoverW = 192; var hoverH = 192;
+        var left = btnRect.right + 8;
+        var top = btnRect.top - 6;
+        if (left + hoverW > window.innerWidth) { left = btnRect.left - hoverW - 8; }
+        if (top + hoverH > window.innerHeight) { top = window.innerHeight - hoverH - 8; }
+        if (top < 4) { top = 4; }
+        hoverEl.style.left = left + 'px';
+        hoverEl.style.top = top + 'px';
+        hoverEl.classList.add('visible');
+      }, false);
+      wrap.addEventListener('mouseleave', function () {
+        var hoverEl = wrap.querySelector('.validation-thumb-hover');
+        if (hoverEl) { hoverEl.classList.remove('visible'); }
+      }, false);
+    });
   };
 
   proto._renderWizardBody = function () {
