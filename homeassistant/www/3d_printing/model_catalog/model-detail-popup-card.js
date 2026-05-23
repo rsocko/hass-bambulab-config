@@ -110,6 +110,7 @@ class ModelDetailPopupCard extends HTMLElement {
     // Tag picker state
     this._tagPickerOpen = false;
     this._tagSearchQuery = "";
+    this._tagPickerHighlightIndex = 0;
     this._knownTags = []; // populated on first picker open
     this._allTagsFetched = false;
     
@@ -295,6 +296,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (this._tagPickerOpen && !target.closest('.picker-wrap')) {
       this._tagPickerOpen = false;
       this._tagSearchQuery = "";
+      this._tagPickerHighlightIndex = 0;
       this._render();
       return;
     }
@@ -313,6 +315,7 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       this._tagPickerOpen = !this._tagPickerOpen;
       this._tagSearchQuery = "";
+      this._tagPickerHighlightIndex = 0;
       if (this._tagPickerOpen && !this._allTagsFetched) {
         this._loadAllTags().then(() => { this._render(); });
       }
@@ -331,7 +334,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (tagOpt) {
       event.preventDefault();
       const tagName = tagOpt.dataset.tag;
-      if (tagName) this._handleTagAdd(tagName);
+      if (tagName) this._handleTagAdd(tagName, { keepPickerOpen: true });
       return;
     }
 
@@ -339,7 +342,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('[data-action="create-tag"]')) {
       event.preventDefault();
       const q = this._tagSearchQuery.trim();
-      if (q) this._handleTagAdd(q);
+      if (q) this._handleTagAdd(q, { keepPickerOpen: true });
       return;
     }
 
@@ -889,6 +892,7 @@ class ModelDetailPopupCard extends HTMLElement {
     // Tag picker search
     if (target instanceof HTMLInputElement && target.dataset.input === 'tag-search') {
       this._tagSearchQuery = String(target.value || "");
+      this._tagPickerHighlightIndex = 0;
       // Re-render only the picker dropdown to avoid full re-render losing focus
       const pickerDd = this.shadowRoot.querySelector('.picker-dd');
       if (pickerDd) {
@@ -2253,12 +2257,14 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--primary-text-color);
         }
         .picker-dd .opt:hover { background: rgba(255,255,255,0.06); }
+        .picker-dd .opt.selected { background: rgba(255,255,255,0.10); }
         .picker-dd .opt.already { color: var(--accent-color, #6edacb); opacity: 0.6; cursor: default; }
         .picker-dd .create-new {
           color: var(--accent-color, #6edacb); font-weight: 700; font-size: 12px;
           padding: 7px 10px; border-top: 1px solid var(--divider-color); cursor: pointer;
         }
         .picker-dd .create-new:hover { background: rgba(110,218,203,0.08); }
+        .picker-dd .create-new.selected { background: rgba(110,218,203,0.12); }
 
         .status { display: flex; gap: 6px; flex-wrap: wrap; }
         .status span {
@@ -5486,19 +5492,38 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderTagPicker(currentTags) {
-    const q = this._tagSearchQuery.toLowerCase();
-    // Build suggestion list from known tags minus current tags
-    const suggestions = this._knownTags
-      .filter(t => !currentTags.includes(t))
-      .filter(t => !q || t.toLowerCase().includes(q));
-    const exactMatch = currentTags.includes(q) || suggestions.some(t => t.toLowerCase() === q);
+    const pickerState = this._buildTagPickerState(currentTags);
+    const options = pickerState.options;
+    if (this._tagPickerHighlightIndex < 0 || this._tagPickerHighlightIndex >= options.length) {
+      this._tagPickerHighlightIndex = options.length ? 0 : -1;
+    }
     return `
       <div class="picker-dd">
         <input class="search-box" type="text" placeholder="Search or create tag…" data-input="tag-search" value="${this._escapeHtml(this._tagSearchQuery)}" />
-        ${suggestions.map(t => `<div class="opt" data-action="add-tag" data-tag="${this._escapeHtml(t)}">${this._escapeHtml(t)}</div>`).join('')}
-        ${q && !exactMatch ? `<div class="create-new" data-action="create-tag">+ Create "${this._escapeHtml(q)}"</div>` : ''}
+        ${options.map((option, index) => {
+          const selectedClass = index === this._tagPickerHighlightIndex ? ' selected' : '';
+          if (option.type === 'create') {
+            return `<div class="create-new${selectedClass}" data-action="create-tag" data-tag="${this._escapeHtml(option.value)}">+ Create "${this._escapeHtml(option.value)}"</div>`;
+          }
+          return `<div class="opt${selectedClass}" data-action="add-tag" data-tag="${this._escapeHtml(option.value)}">${this._escapeHtml(option.label)}</div>`;
+        }).join('')}
       </div>
     `;
+  }
+
+  _buildTagPickerState(currentTags) {
+    const query = String(this._tagSearchQuery || '').trim();
+    const queryNormalized = query.toLowerCase();
+    const selectedTagSet = new Set((Array.isArray(currentTags) ? currentTags : []).map(tag => String(tag || '').toLowerCase()));
+    const suggestions = this._knownTags
+      .filter(tag => !selectedTagSet.has(String(tag || '').toLowerCase()))
+      .filter(tag => !queryNormalized || String(tag || '').toLowerCase().includes(queryNormalized));
+    const exactMatch = selectedTagSet.has(queryNormalized) || suggestions.some(tag => String(tag || '').toLowerCase() === queryNormalized);
+    const options = suggestions.map(tag => ({ type: 'tag', value: tag, label: tag }));
+    if (query && !exactMatch) {
+      options.push({ type: 'create', value: query, label: query });
+    }
+    return { options: options };
   }
 
   async _handleTagRemove(tagName) {
@@ -5532,26 +5557,42 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
-  async _handleTagAdd(tagName) {
+  async _handleTagAdd(tagName, options) {
+    const addOptions = options && typeof options === 'object' ? options : {};
+    const keepPickerOpen = !!addOptions.keepPickerOpen;
+    const normalizedTagName = String(tagName || '').trim();
+    if (!normalizedTagName) return;
     const model = (this._modelDetail && this._modelDetail.model) || {};
     const tags = Array.isArray(model.keywords) ? [...model.keywords] : [];
-    if (tags.includes(tagName)) return;
-    const updated = [...tags, tagName];
+    const lowerTagName = normalizedTagName.toLowerCase();
+    if (tags.some(tag => String(tag || '').toLowerCase() === lowerTagName)) return;
+    const updated = [...tags, normalizedTagName];
 
-    console.log('[TAG-ADD] starting add of', tagName, '| current keywords:', JSON.stringify(tags), '| updated:', JSON.stringify(updated));
+    console.log('[TAG-ADD] starting add of', normalizedTagName, '| current keywords:', JSON.stringify(tags), '| updated:', JSON.stringify(updated));
 
     // Close picker and optimistic update
-    this._tagPickerOpen = false;
+    this._tagPickerOpen = keepPickerOpen;
     this._tagSearchQuery = "";
+    this._tagPickerHighlightIndex = 0;
     if (this._modelDetail && this._modelDetail.model) {
       this._modelDetail.model.keywords = updated;
     }
     // Track the new tag for future suggestions
-    if (!this._knownTags.includes(tagName)) {
-      this._knownTags.push(tagName);
+    if (!this._knownTags.some(tag => String(tag || '').toLowerCase() === lowerTagName)) {
+      this._knownTags.push(normalizedTagName);
+      this._knownTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }
     console.log('[TAG-ADD] before optimistic render | _loading:', this._loading, '| model.keywords:', JSON.stringify(this._modelDetail?.model?.keywords));
     this._render();
+    if (keepPickerOpen) {
+      requestAnimationFrame(() => {
+        const searchBox = this.shadowRoot.querySelector('.picker-dd .search-box');
+        if (searchBox) {
+          searchBox.focus();
+          searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+        }
+      });
+    }
     console.log('[TAG-ADD] after optimistic render | chips in DOM:', this.shadowRoot.querySelectorAll('.tag-chip').length);
 
     try {
@@ -5763,20 +5804,63 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  _commitTagPickerSelection() {
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const tags = Array.isArray(model.keywords) ? model.keywords : [];
+    const options = this._buildTagPickerState(tags).options;
+    const selected = options[this._tagPickerHighlightIndex] || null;
+    if (selected && selected.value) {
+      this._handleTagAdd(selected.value, { keepPickerOpen: true });
+      return true;
+    }
+    const q = this._tagSearchQuery.trim();
+    if (q) {
+      this._handleTagAdd(q, { keepPickerOpen: true });
+      return true;
+    }
+    return false;
+  }
+
   _handleKeydown(event) {
-    // Tag picker: Enter to add/create, Escape to close
+    // Tag picker: Enter/Tab/comma to add/create, arrows and Home/End to navigate, Escape to close
     if (this._tagPickerOpen) {
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') && event.target instanceof HTMLInputElement && event.target.dataset.input === 'tag-search') {
+        const model = (this._modelDetail && this._modelDetail.model) || {};
+        const tags = Array.isArray(model.keywords) ? model.keywords : [];
+        const options = this._buildTagPickerState(tags).options;
+        if (options.length) {
+          event.preventDefault();
+          if (event.key === 'ArrowDown') {
+            this._tagPickerHighlightIndex = Math.min(this._tagPickerHighlightIndex + 1, options.length - 1);
+          } else if (event.key === 'ArrowUp') {
+            this._tagPickerHighlightIndex = Math.max(this._tagPickerHighlightIndex - 1, 0);
+          } else if (event.key === 'Home') {
+            this._tagPickerHighlightIndex = 0;
+          } else if (event.key === 'End') {
+            this._tagPickerHighlightIndex = options.length - 1;
+          }
+          this._render();
+          requestAnimationFrame(() => {
+            const searchBox = this.shadowRoot.querySelector('.picker-dd .search-box');
+            if (searchBox) searchBox.focus();
+          });
+        }
+        return;
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
         this._tagPickerOpen = false;
         this._tagSearchQuery = "";
+        this._tagPickerHighlightIndex = 0;
         this._render();
         return;
       }
-      if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.dataset.input === 'tag-search') {
+      if ((event.key === 'Enter' || event.key === 'Tab' || event.key === ',') && event.target instanceof HTMLInputElement && event.target.dataset.input === 'tag-search') {
+        const committed = this._commitTagPickerSelection();
+        if (!committed && event.key === 'Tab') {
+          return;
+        }
         event.preventDefault();
-        const q = this._tagSearchQuery.trim();
-        if (q) this._handleTagAdd(q);
         return;
       }
     }
