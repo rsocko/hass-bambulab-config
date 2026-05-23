@@ -16,20 +16,20 @@ Date: 2026-05-08
 
 ## Evidence Sources
 ### MMP code and docs (local clones)
-- [tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go](../tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go)
-- [tmp/external-review/agent/core/processing/enrichment/enrichment.go](../tmp/external-review/agent/core/processing/enrichment/enrichment.go)
-- [tmp/external-review/agent/core/processing/enrichment/parseGCode.go](../tmp/external-review/agent/core/processing/enrichment/parseGCode.go)
-- [tmp/external-review/agent/core/processing/enrichment/renderGcode.go](../tmp/external-review/agent/core/processing/enrichment/renderGcode.go)
-- [tmp/external-review/agent/data/assetTypes.toml](../tmp/external-review/agent/data/assetTypes.toml)
-- [tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx](../tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx)
-- [tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx](../tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx)
-- [tmp/external-review/docs/README.md](../tmp/external-review/docs/README.md)
+- [tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go](../../../../tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go)
+- [tmp/external-review/agent/core/processing/enrichment/enrichment.go](../../../../tmp/external-review/agent/core/processing/enrichment/enrichment.go)
+- [tmp/external-review/agent/core/processing/enrichment/parseGCode.go](../../../../tmp/external-review/agent/core/processing/enrichment/parseGCode.go)
+- [tmp/external-review/agent/core/processing/enrichment/renderGcode.go](../../../../tmp/external-review/agent/core/processing/enrichment/renderGcode.go)
+- [tmp/external-review/agent/data/assetTypes.toml](../../../../tmp/external-review/agent/data/assetTypes.toml)
+- [tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx](../../../../tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx)
+- [tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx](../../../../tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx)
+- [tmp/external-review/docs/README.md](../../../../tmp/external-review/docs/README.md)
 
 ### Current implementation references (for fit/gap)
-- [sidecars/model_catalog/app/geometry_3mf.py](../sidecars/model_catalog/app/geometry_3mf.py)
-- [sidecars/model_catalog/app/routers/models.py](../sidecars/model_catalog/app/routers/models.py)
-- [homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js](../homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js)
-- [homeassistant/www/3d_printing/model_catalog/viewer.js](../homeassistant/www/3d_printing/model_catalog/viewer.js)
+- [sidecars/model_catalog/app/geometry_3mf.py](../../../../sidecars/model_catalog/app/geometry_3mf.py)
+- [sidecars/model_catalog/app/routers/models.py](../../../../sidecars/model_catalog/app/routers/models.py)
+- [homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js](../../../../homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js)
+- [homeassistant/www/3d_printing/model_catalog/viewer.js](../../../../homeassistant/www/3d_printing/model_catalog/viewer.js)
 
 ### Orynt3D
 - Live documentation pages read in browser (features/docs/manual pages).
@@ -67,31 +67,31 @@ Date: 2026-05-08
 
 ### Important code-level risks and defects
 1. 3MF support appears misconfigured in core type mapping
-- [tmp/external-review/agent/data/assetTypes.toml](../tmp/external-review/agent/data/assetTypes.toml#L10) maps model extension as `.3fm` rather than `.3mf`.
-- This same typo pattern appears in default state initialization in [tmp/external-review/agent/core/state/state.go](../tmp/external-review/agent/core/state/state.go#L60).
+- [tmp/external-review/agent/data/assetTypes.toml](../../../../tmp/external-review/agent/data/assetTypes.toml#L10) maps model extension as `.3fm` rather than `.3mf`.
+- This same typo pattern appears in default state initialization in [tmp/external-review/agent/core/state/state.go](../../../../tmp/external-review/agent/core/state/state.go#L60).
 - Risk: inconsistent typing/routing for 3MF model files.
 
 2. 3MF extractor is image extraction only (no geometry/material metadata extraction)
-- [tmp/external-review/agent/core/processing/enrichment/enrichment.go](../tmp/external-review/agent/core/processing/enrichment/enrichment.go#L41) registers 3MF extractor for `.3mf`.
-- [tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go](../tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go#L41) only extracts entries whose extension is in image types.
-- [tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go](../tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go#L46) explicitly skips `.thumbnails/` images.
+- [tmp/external-review/agent/core/processing/enrichment/enrichment.go](../../../../tmp/external-review/agent/core/processing/enrichment/enrichment.go#L41) registers 3MF extractor for `.3mf`.
+- [tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go](../../../../tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go#L41) only extracts entries whose extension is in image types.
+- [tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go](../../../../tmp/external-review/agent/core/processing/enrichment/3mfExtractor.go#L46) explicitly skips `.thumbnails/` images.
 - Net: no robust 3MF geometric or process metadata extraction from agent path.
 
 3. G-code property parser appears logically inverted
-- [tmp/external-review/agent/core/processing/enrichment/parseGCode.go](../tmp/external-review/agent/core/processing/enrichment/parseGCode.go#L65) and [tmp/external-review/agent/core/processing/enrichment/parseGCode.go](../tmp/external-review/agent/core/processing/enrichment/parseGCode.go#L69) assign parsed numeric values in `err != nil` branch, not success branch.
+- [tmp/external-review/agent/core/processing/enrichment/parseGCode.go](../../../../tmp/external-review/agent/core/processing/enrichment/parseGCode.go#L65) and [tmp/external-review/agent/core/processing/enrichment/parseGCode.go](../../../../tmp/external-review/agent/core/processing/enrichment/parseGCode.go#L69) assign parsed numeric values in `err != nil` branch, not success branch.
 - Likely outcomes:
   - non-numeric values become `0`/`0.0`
   - numeric values often stored as strings
 - This undermines metadata reliability.
 
 4. G-code thumbnail parser uses first dimension for both height and width
-- [tmp/external-review/agent/core/processing/enrichment/renderGcode.go](../tmp/external-review/agent/core/processing/enrichment/renderGcode.go#L128)
-- [tmp/external-review/agent/core/processing/enrichment/renderGcode.go](../tmp/external-review/agent/core/processing/enrichment/renderGcode.go#L133)
+- [tmp/external-review/agent/core/processing/enrichment/renderGcode.go](../../../../tmp/external-review/agent/core/processing/enrichment/renderGcode.go#L128)
+- [tmp/external-review/agent/core/processing/enrichment/renderGcode.go](../../../../tmp/external-review/agent/core/processing/enrichment/renderGcode.go#L133)
 - Width assignment repeats `dimensions[0]`; likely should use `dimensions[1]`.
 
 5. Viewer capability mismatch between claims and implementation
-- Orynt-style claim equivalent appears in MMP docs/screenshots, but UI implementation in [tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx](../tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx#L3) uses `STLLoader` only.
-- 3D toggle in [tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx](../tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx#L68) is STL-specific.
+- Orynt-style claim equivalent appears in MMP docs/screenshots, but UI implementation in [tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx](../../../../tmp/external-review/mmp-ui/src/assets/components/model/model-detail-pane/ModelDetailPane.tsx#L3) uses `STLLoader` only.
+- 3D toggle in [tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx](../../../../tmp/external-review/mmp-ui/src/assets/components/asset-card/AssetCard.tsx#L68) is STL-specific.
 
 ### 3D viewer/3MF architectural comparison to current repo
 Your current implementation has materially stronger backend geometry infrastructure:

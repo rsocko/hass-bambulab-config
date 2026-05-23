@@ -1,5 +1,8 @@
 # Bambuddy Runtime Repair Sidecar
 
+Canonical docs: docs/features/bambuddy_integration/README.md and docs/repo/planning/bambuddy-reorganization-plan.md
+Documentation policy: this README is implementation-adjacent operational guidance for this sidecar.
+
 ## Purpose
 
 Small FastAPI sidecar that exposes an authenticated admin endpoint for canonical Bambuddy archive runtime repair.

@@ -1,6 +1,12 @@
 # WLED Backups
 
+Status: Local operational artifacts
+Canonical docs: docs/features/wled/reference/backup-and-restore.md
+Historical policy: files under this folder are backup artifacts, not canonical architecture/design docs
+
 This folder stores versioned backup snapshots exported from running WLED controllers.
+
+For current implementation guidance, use `docs/features/wled/` (especially `reference/backup-and-restore.md`).
 
 ## What to back up
 

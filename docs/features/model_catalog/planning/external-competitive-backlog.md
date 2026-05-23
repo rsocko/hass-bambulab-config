@@ -3,14 +3,14 @@
 Date: 2026-05-08
 
 Inputs consolidated:
-- [docs/features/model_catalog/external-competitive-review-mmp-orynt-2026-05-08.md](../docs/features/model_catalog/external-competitive-review-mmp-orynt-2026-05-08.md)
-- [docs/features/model_catalog/external-competitive-review-orynt-alternatives-2026-05-08.md](../docs/features/model_catalog/external-competitive-review-orynt-alternatives-2026-05-08.md)
+- [external-competitive-review-mmp-orynt-2026-05-08.md](../external-competitive-review-mmp-orynt-2026-05-08.md)
+- [external-competitive-review-orynt-alternatives-2026-05-08.md](../external-competitive-review-orynt-alternatives-2026-05-08.md)
 
 Alignment anchors used:
-- [docs/features/model_catalog/phase-6-search-ranking-and-discovery-design.md](../docs/features/model_catalog/phase-6-search-ranking-and-discovery-design.md)
-- [docs/features/model_catalog/PHASE-5-EXECUTION-SEQUENCE.md](../docs/features/model_catalog/PHASE-5-EXECUTION-SEQUENCE.md)
-- [docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md](../docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md)
-- [docs/features/model_catalog/phase-3.1-3.3-roadmap.md](../docs/features/model_catalog/phase-3.1-3.3-roadmap.md)
+- [phase-6-search-ranking-and-discovery-design.md](../phase-6-search-ranking-and-discovery-design.md)
+- [PHASE-5-EXECUTION-SEQUENCE.md](../PHASE-5-EXECUTION-SEQUENCE.md)
+- [phase-5-end-state-ui-and-handoff-design.md](../phase-5-end-state-ui-and-handoff-design.md)
+- [phase-3.1-3.3-roadmap.md](../phase-3.1-3.3-roadmap.md)
 
 ---
 

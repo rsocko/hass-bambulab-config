@@ -200,5 +200,5 @@ Typical selected-scope deploy with JS changes:
 
 - [deployment-structure.md](./deployment-structure.md)
 - [dashboard-deployment-behavior.md](./dashboard-deployment-behavior.md)
-- [quick-start.md](./quick-start.md)
-- [github-runner-README.md](../infrastructure/github-runner-README.md)
+- [repository-capabilities-and-operations-reference.md](./repository-capabilities-and-operations-reference.md)
+- [github-runner-README.md](../../infrastructure/reference/github-runner-README.md)

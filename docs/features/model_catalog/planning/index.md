@@ -297,10 +297,10 @@ Week 4: Phase 3.3 (Days 15-20)
 
 ## 🔗 Related Documentation
 
-- **Model Catalog Overview**: [model-catalog.md](../model-catalog.md)
-- **Print History Features**: [../print_history/](../print_history/)
-- **Bambuddy Integration**: [../../../bambuddy/README.md](../../../bambuddy/README.md)
-- **Repository Structure**: [../../../docs/repo/](../../../docs/repo/)
+- **Model Catalog Overview**: [README.md](../README.md)
+- **Print History Features**: [../../print_history/README.md](../../print_history/README.md)
+- **Bambuddy Integration**: [../../../../bambuddy/README.md](../../../../bambuddy/README.md)
+- **Repository Structure**: [../../../repo/](../../../repo/)
 
 ---
 
@@ -339,7 +339,7 @@ Before deploying each phase:
 **Last Updated**: 2026-04-20  
 **Status**: ✅ Complete Planning & Scaffolding - Ready for Development  
 **Next Step**: Assign developers and create GitHub issues  
-**Maintained By**: [Bambuddy Integration Team](../../../docs/repo/CODEOWNERS)
+**Maintained By**: Bambuddy Integration Team
 
 ---
 

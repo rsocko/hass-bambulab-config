@@ -1,5 +1,8 @@
 # Model Catalog Sidecar
 
+Canonical docs: docs/features/model_catalog/README.md
+Documentation policy: this README is implementation-adjacent and local to the sidecar; canonical cross-feature/reference docs live under `docs/features/model_catalog/`.
+
 **Phase 1.1**: Standalone sidecar stack with local model authority.
 
 Current scope:

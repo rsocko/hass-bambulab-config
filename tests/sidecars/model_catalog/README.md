@@ -1,5 +1,10 @@
 # Test Suite Quick Reference
 
+Status: Local test artifacts
+Canonical docs: docs/features/model_catalog/README.md
+
+These test docs are implementation-adjacent artifacts. Canonical product documentation lives under `docs/features/model_catalog/`.
+
 ## Location
 ```
 tests/sidecars/model_catalog/

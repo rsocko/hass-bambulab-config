@@ -50,8 +50,8 @@ Alignment rule:
 | D (complete) | testing docs | Low | docs/testing | Keep active reference docs, archive milestone reports | A |
 | D (complete) | docs root loose markdown | Medium | docs root spillover files | Move to owner lanes and triage malformed docs | A |
 | E (complete) | screenshots docs | Low | docs/screenshots | Keep index/reference policy, archive stale planning docs | A |
-| F | non-doc markdown policy | Medium | sidecars/tests/openhasp/wled backups/archive notes | Cross-link canonical docs and mark local vs historical | C1-C4 |
-| G | stabilization and cleanup | High | whole repository | Link audits, pointer cleanup, final index pass | B-F |
+| F (complete) | non-doc markdown policy | Medium | sidecars/tests/openhasp/wled backups/archive notes | Cross-link canonical docs and mark local vs historical | C1-C4 |
+| G (complete) | stabilization and cleanup | High | whole repository | Link audits, pointer cleanup, final index pass | B-F |
 
 ## Matrix B: C1 Detailed Row-Level Coverage
 
@@ -133,6 +133,26 @@ Post-cleanup interpretation note (2026-05-23):
 | Feature Group | Row Count | Detailed Matrix File |
 |---|---:|---|
 | screenshots_docs | 1 | docs/repo/planning/matrices/migration-matrix-batchE-screenshots.csv.md |
+
+## Matrix H: F Detailed Row-Level Coverage
+
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed F CSV matrices, current_path is a migration-source field and may reference local artifact paths intentionally retained outside docs.
+2. target_path is the canonical destination for the retained artifact doc or its in-place policy location.
+
+| Feature Group | Row Count | Detailed Matrix File |
+|---|---:|---|
+| non_doc_markdown_policy | 14 | docs/repo/planning/matrices/migration-matrix-batchF-non-doc-markdown-policy.csv.md |
+
+## Matrix I: G Detailed Row-Level Coverage
+
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed G CSV matrices, current_path records stabilization audit/remediation sources.
+2. target_path is the canonical active destination after cleanup.
+
+| Feature Group | Row Count | Detailed Matrix File |
+|---|---:|---|
+| stabilization_cleanup | 7 | docs/repo/planning/matrices/migration-matrix-batchG-stabilization-cleanup.csv.md |
 
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.

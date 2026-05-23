@@ -7,6 +7,9 @@
 > **License**: GPL-3.0 (2.8" open source version)
 > **Note**: The xtouch project appears to no longer be actively maintained. The xtouch.pro website is no longer functional. This archive preserves the screen designs for reference.
 
+Canonical docs for current implementation: `docs/features/openhasp_display/README.md`.
+This archive is historical and non-canonical.
+
 ---
 
 ## Project Overview

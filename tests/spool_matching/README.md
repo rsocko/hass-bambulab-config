@@ -1,5 +1,10 @@
 # Spool Matching Deterministic Fixture Tests
 
+Status: Local test artifacts
+Canonical docs: docs/features/spoolman_sync/README.md
+
+This folder documents deterministic test fixtures. Canonical feature documentation and operational behavior are documented under `docs/features/spoolman_sync/`.
+
 ## Purpose
 These tests provide deterministic regression coverage for Option A spool matching
 rules using fixture data, independent of live Home Assistant entity state.
