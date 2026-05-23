@@ -6,6 +6,11 @@ Row count: 73
 Label alignment: local `Batch 1` = global `C1` in documentation-migration-matrix.md.
 Format: raw CSV text for machine import (spreadsheets/scripts).
 
+Post-cleanup note (2026-05-23):
+1. `current_path` values are historical migration-source paths, not a required current filesystem assertion.
+2. C1 pointer-prune cleanup intentionally removed legacy compatibility files from root sub-area folders (`browser/`, `imports/`, `recovery/`, `runtime-repair/`, `ui-media`).
+3. Canonical active locations are represented by `target_path`.
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/print_history/README.md,print_history,root-readme,Active,docs/features/print_history/README.md,No,Root entry point
 docs/features/print_history/api-reference.md,api,reference,Active,docs/features/print_history/reference/api-reference.md,No,API contract landing

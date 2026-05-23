@@ -6,6 +6,11 @@ Row count: 153
 Label alignment: local `Batch 1` = global `C1` in documentation-migration-matrix.md.
 Format: raw CSV text for machine import (spreadsheets/scripts).
 
+Post-cleanup note (2026-05-23):
+1. `current_path` values are historical migration-source paths, not a required current filesystem assertion.
+2. C1 pointer-prune cleanup intentionally removed legacy compatibility files under `docs/features/model_catalog/integration/`.
+3. Canonical active locations are represented by `target_path`.
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/model_catalog/README.md,root-readme,root,Active,docs/features/model_catalog/README.md,No,Navigation entry point
 docs/features/model_catalog/INDEX.md,planning,planning,Planned,docs/features/model_catalog/planning/index.md,Yes,Master navigation index
