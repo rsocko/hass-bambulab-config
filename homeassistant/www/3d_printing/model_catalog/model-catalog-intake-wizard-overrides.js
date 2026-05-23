@@ -847,11 +847,19 @@ function renderValidationSummary(card) {
             var conflictTargets = Array.isArray(finding.conflicts_with)
               ? finding.conflicts_with.filter(Boolean).slice(0, 5)
               : [];
+            var primaryConflict = conflictTargets.length && conflictTargets[0] && typeof conflictTargets[0] === 'object'
+              ? conflictTargets[0]
+              : null;
             var findingPath = String(finding.path || '').trim();
             var findingFilename = String(finding.filename || '').trim();
+            var conflictPath = primaryConflict ? String(primaryConflict.path || '').trim() : '';
+            var conflictFilename = primaryConflict ? String(primaryConflict.filename || '').trim() : '';
             var currentDecision = String(decisionMap[findingKey] || 'review').trim();
+            if (String(check.key || '') === 'batch_duplicate_scan' && currentDecision === 'allow_duplicate') {
+              currentDecision = 'keep_both';
+            }
             var actionControl = '';
-            if (String(check.key || '') === 'duplicate_scan' || String(check.key || '') === 'batch_duplicate_scan') {
+            if (String(check.key || '') === 'duplicate_scan') {
               actionControl = ''
                 + '<div class="validation-action-control">'
                 + '  <label>Action</label>'
@@ -859,6 +867,18 @@ function renderValidationSummary(card) {
                 + '    <option value="review"' + (currentDecision === 'review' ? ' selected' : '') + '>Needs review</option>'
                 + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude from import</option>'
                 + '    <option value="allow_duplicate"' + (currentDecision === 'allow_duplicate' ? ' selected' : '') + '>Allow duplicate and continue</option>'
+                + '  </select>'
+                + '</div>';
+            } else if (String(check.key || '') === 'batch_duplicate_scan') {
+              actionControl = ''
+                + '<div class="validation-action-control">'
+                + '  <label>Action</label>'
+                + '  <select class="select" data-action="validation-finding-action" data-finding-key="' + escapeHtml(findingKey) + '" data-finding-path="' + escapeHtml(findingPath) + '" data-finding-filename="' + escapeHtml(findingFilename) + '" data-conflict-path="' + escapeHtml(conflictPath) + '" data-conflict-filename="' + escapeHtml(conflictFilename) + '" data-check-key="' + escapeHtml(String(check.key || '')) + '">'
+                + '    <option value="review"' + (currentDecision === 'review' ? ' selected' : '') + '>Needs review</option>'
+                + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude this file (A)</option>'
+                + '    <option value="exclude_conflict"' + (currentDecision === 'exclude_conflict' ? ' selected' : '') + '>Exclude conflicting file (B)</option>'
+                + '    <option value="exclude_both"' + (currentDecision === 'exclude_both' ? ' selected' : '') + '>Exclude both files (A and B)</option>'
+                + '    <option value="keep_both"' + (currentDecision === 'keep_both' ? ' selected' : '') + '>Keep both files</option>'
                 + '  </select>'
                 + '</div>';
             }
@@ -2062,6 +2082,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var pendingFindings = 0;
     var resolvedFindings = 0;
     var hasNonOverrideBlocker = false;
+    var resolvedDecisions = {
+      allow_duplicate: true,
+      keep_both: true,
+      exclude_source: true,
+      exclude_conflict: true,
+      exclude_both: true,
+    };
 
     checks.forEach(function (check) {
       var checkKey = String(check && check.key || '').trim();
@@ -2079,7 +2106,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       checkFindings.forEach(function (finding, findingIndex) {
         totalFindings += 1;
         var decision = this._validationDecisionForFinding(checkKey, finding, findingIndex);
-        if (decision === 'allow_duplicate' || decision === 'exclude_source') {
+        if (resolvedDecisions[decision]) {
           resolvedFindings += 1;
         } else {
           pendingFindings += 1;
@@ -3970,6 +3997,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var findingKey = String(target.getAttribute('data-finding-key') || '').trim().toLowerCase();
       var findingPath = String(target.getAttribute('data-finding-path') || '').trim();
       var findingFilename = String(target.getAttribute('data-finding-filename') || '').trim();
+      var conflictPath = String(target.getAttribute('data-conflict-path') || '').trim();
+      var conflictFilename = String(target.getAttribute('data-conflict-filename') || '').trim();
       var checkKey = String(target.getAttribute('data-check-key') || '').trim();
       var selectedDecision = String(target.value || 'review').trim().toLowerCase();
       if (!this._validationDecisionMap || typeof this._validationDecisionMap !== 'object') {
@@ -3988,13 +4017,36 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         check_key: checkKey,
         source_path: findingPath,
         source_name: findingFilename,
+        target_path: conflictPath,
+        target_name: conflictFilename,
       }).catch(function (_error) {
         // Keep the local selection even if audit logging fails; commit validation
         // flow still enforces explicit decisions before proceeding.
       });
-      if (selectedDecision === 'exclude_source') {
-        if (!this._applyValidationFindingExclusion(findingPath)) {
+      if (selectedDecision === 'exclude_source' || selectedDecision === 'exclude_conflict' || selectedDecision === 'exclude_both') {
+        var exclusionPaths = [];
+        if (selectedDecision === 'exclude_source' || selectedDecision === 'exclude_both') {
+          exclusionPaths.push(findingPath);
+        }
+        if (selectedDecision === 'exclude_conflict' || selectedDecision === 'exclude_both') {
+          exclusionPaths.push(conflictPath);
+        }
+        var normalizedExclusions = [];
+        exclusionPaths.forEach(function (pathEntry) {
+          var normalizedPath = String(pathEntry || '').trim();
+          if (normalizedPath && normalizedExclusions.indexOf(normalizedPath) === -1) {
+            normalizedExclusions.push(normalizedPath);
+          }
+        });
+        var appliedCount = 0;
+        normalizedExclusions.forEach(function (pathEntry) {
+          if (this._applyValidationFindingExclusion(pathEntry)) {
+            appliedCount += 1;
+          }
+        }, this);
+        if (appliedCount === 0) {
           this._error = 'Could not exclude this finding because the source path could not be resolved.';
+          this._render();
         }
         return;
       }

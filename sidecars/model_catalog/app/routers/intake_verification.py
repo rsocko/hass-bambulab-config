@@ -146,11 +146,30 @@ def _parse_decision_note_payload(raw_value: Any) -> dict[str, Any]:
 def _normalize_validation_action(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     finding_key = str(payload.get("finding_key") or "").strip().lower()
     decision = str(payload.get("decision") or "").strip().lower()
+    check_key = str(payload.get("check_key") or "").strip().lower()
+
+    allowed_decisions = {
+        "review",
+        "exclude_source",
+        "allow_duplicate",
+        "keep_both",
+        "exclude_conflict",
+        "exclude_both",
+    }
 
     if not finding_key:
         return None, "finding_key is required"
-    if decision not in {"review", "exclude_source", "allow_duplicate"}:
-        return None, "decision must be one of: review, exclude_source, allow_duplicate"
+    if decision not in allowed_decisions:
+        return (
+            None,
+            "decision must be one of: review, exclude_source, allow_duplicate, keep_both, exclude_conflict, exclude_both",
+        )
+
+    if check_key == "duplicate_scan" and decision in {"keep_both", "exclude_conflict", "exclude_both"}:
+        return None, "duplicate_scan decisions must be one of: review, exclude_source, allow_duplicate"
+    if check_key == "batch_duplicate_scan" and decision == "allow_duplicate":
+        # Keep compatibility with older UI payloads while converging on keep_both.
+        decision = "keep_both"
 
     if decision == "review":
         return {
@@ -163,7 +182,7 @@ def _normalize_validation_action(payload: dict[str, Any]) -> tuple[dict[str, Any
         "decision": decision,
         "applied_at": _bulk_utc_now_iso(),
     }
-    for optional_key in ("check_key", "source_path", "source_name", "target_path", "note"):
+    for optional_key in ("check_key", "source_path", "source_name", "target_path", "target_name", "note"):
         optional_value = str(payload.get(optional_key) or "").strip()
         if optional_value:
             normalized[optional_key] = optional_value

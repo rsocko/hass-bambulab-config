@@ -514,3 +514,82 @@ def test_validation_action_choices_are_persisted_for_review(tmp_path: Path) -> N
         assert event_payload.get("finding_key") == finding_key
     finally:
         client.__exit__(None, None, None)
+
+
+def test_batch_validation_action_pair_decision_is_persisted(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        first_file = source_root / "batch-a.3mf"
+        second_file = source_root / "batch-b.3mf"
+        first_file.write_bytes(b"same-batch-bytes")
+        second_file.write_bytes(b"same-batch-bytes")
+
+        upload_response = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [
+                    {"type": "file", "path": str(first_file)},
+                    {"type": "file", "path": str(second_file)},
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_id = upload_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{upload_id}/validate")
+        assert validate_response.status_code == 200
+        validation = validate_response.json().get("validation") or {}
+        assert validation.get("validation_state") == "duplicate_candidate"
+
+        batch_check = next(
+            (
+                check for check in (validation.get("checks") or [])
+                if str(check.get("key") or "") == "batch_duplicate_scan"
+                and isinstance(check.get("findings"), list)
+                and check.get("findings")
+            ),
+            None,
+        )
+        assert batch_check is not None
+        finding = batch_check["findings"][0]
+        finding_key = "|".join(
+            [
+                str(batch_check.get("key") or ""),
+                str(finding.get("path") or ""),
+                str(finding.get("filename") or ""),
+                str(finding.get("violation_code") or ""),
+                "0",
+            ]
+        ).lower()
+
+        conflict = None
+        if isinstance(finding.get("conflicts_with"), list) and finding.get("conflicts_with"):
+            candidate = finding.get("conflicts_with")[0]
+            if isinstance(candidate, dict):
+                conflict = candidate
+
+        save_action = client.post(
+            f"/api/intake/items/{upload_id}/validation-actions",
+            json={
+                "finding_key": finding_key,
+                "decision": "keep_both",
+                "check_key": "batch_duplicate_scan",
+                "source_path": str(finding.get("path") or ""),
+                "source_name": str(finding.get("filename") or ""),
+                "target_path": str((conflict or {}).get("path") or ""),
+                "target_name": str((conflict or {}).get("filename") or ""),
+            },
+        )
+        assert save_action.status_code == 200
+        assert save_action.json().get("validation_action_count") == 1
+
+        item_response = client.get(f"/api/intake/items/{upload_id}")
+        assert item_response.status_code == 200
+        parsed_note = json.loads(str(item_response.json()["item"].get("decision_note") or "{}"))
+        actions = parsed_note.get("validation_actions") or []
+        assert len(actions) == 1
+        assert actions[0].get("decision") == "keep_both"
+        assert actions[0].get("check_key") == "batch_duplicate_scan"
+    finally:
+        client.__exit__(None, None, None)
