@@ -5652,6 +5652,10 @@ class ModelDetailPopupCard extends HTMLElement {
         this._modelDetail.model.keywords = tags;
       }
       this._render();
+    } finally {
+      if (keepPickerOpen) {
+        this._focusTagSearchBox();
+      }
     }
   }
 
