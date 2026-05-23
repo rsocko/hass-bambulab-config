@@ -820,6 +820,7 @@ function renderValidationSummary(card) {
           grouped[sourceKey].violations.push({
             finding_key: findingKey,
             finding: finding || {},
+            display_index: findingIndex + 1,
           });
         });
 
@@ -838,9 +839,12 @@ function renderValidationSummary(card) {
             }
             return String(left && left.finding_key || '').localeCompare(String(right && right.finding_key || ''));
           });
-          var violationsHtml = sortedViolations.map(function (violationRow, violationIndex) {
+          var violationsHtml = sortedViolations.map(function (violationRow) {
             var finding = violationRow.finding || {};
             var findingKey = String(violationRow.finding_key || '');
+            var displayIndex = Number(violationRow.display_index || 0) > 0
+              ? Number(violationRow.display_index)
+              : 1;
             var violationLabel = String(finding.violation_label || finding.violation_code || 'Match').trim() || 'Match';
             var severityClass = violationSeverityClass(finding);
             var severityLabel = violationSeverityLabel(finding);
@@ -858,6 +862,21 @@ function renderValidationSummary(card) {
             if (String(check.key || '') === 'batch_duplicate_scan' && currentDecision === 'allow_duplicate') {
               currentDecision = 'keep_both';
             }
+            var sourcePathForTable = sourceFolder;
+            if (!sourcePathForTable) {
+              var normalizedSourcePath = String(findingPath || '').replace(/\\/g, '/').trim();
+              sourcePathForTable = trimIntakeSourcePrefix(normalizedSourcePath);
+            }
+            var conflictPathForTable = conflictPathDisplay(conflictPath, conflictFilename);
+            var decisionLabelMap = {
+              review: 'Pending: Needs review',
+              exclude_source: 'Selected: Exclude source file',
+              allow_duplicate: 'Selected: Keep source and continue',
+              keep_both: 'Selected: Keep both files',
+              exclude_conflict: 'Selected: Exclude conflicting file',
+              exclude_both: 'Selected: Exclude both files',
+            };
+            var decisionText = String(decisionLabelMap[currentDecision] || 'Pending: Needs review');
             var actionControl = '';
             if (String(check.key || '') === 'duplicate_scan') {
               actionControl = ''
@@ -865,9 +884,10 @@ function renderValidationSummary(card) {
                 + '  <label>Action</label>'
                 + '  <select class="select" data-action="validation-finding-action" data-finding-key="' + escapeHtml(findingKey) + '" data-finding-path="' + escapeHtml(findingPath) + '" data-finding-filename="' + escapeHtml(findingFilename) + '" data-check-key="' + escapeHtml(String(check.key || '')) + '">'
                 + '    <option value="review"' + (currentDecision === 'review' ? ' selected' : '') + '>Needs review</option>'
-                + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude from import</option>'
-                + '    <option value="allow_duplicate"' + (currentDecision === 'allow_duplicate' ? ' selected' : '') + '>Allow duplicate and continue</option>'
+                + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude source file from import</option>'
+                + '    <option value="allow_duplicate"' + (currentDecision === 'allow_duplicate' ? ' selected' : '') + '>Keep source file and continue</option>'
                 + '  </select>'
+                + '  <div class="validation-action-selected">' + escapeHtml(decisionText) + '</div>'
                 + '</div>';
             } else if (String(check.key || '') === 'batch_duplicate_scan') {
               actionControl = ''
@@ -875,36 +895,36 @@ function renderValidationSummary(card) {
                 + '  <label>Action</label>'
                 + '  <select class="select" data-action="validation-finding-action" data-finding-key="' + escapeHtml(findingKey) + '" data-finding-path="' + escapeHtml(findingPath) + '" data-finding-filename="' + escapeHtml(findingFilename) + '" data-conflict-path="' + escapeHtml(conflictPath) + '" data-conflict-filename="' + escapeHtml(conflictFilename) + '" data-check-key="' + escapeHtml(String(check.key || '')) + '">'
                 + '    <option value="review"' + (currentDecision === 'review' ? ' selected' : '') + '>Needs review</option>'
-                + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude this file (A)</option>'
-                + '    <option value="exclude_conflict"' + (currentDecision === 'exclude_conflict' ? ' selected' : '') + '>Exclude conflicting file (B)</option>'
-                + '    <option value="exclude_both"' + (currentDecision === 'exclude_both' ? ' selected' : '') + '>Exclude both files (A and B)</option>'
+                + '    <option value="exclude_source"' + (currentDecision === 'exclude_source' ? ' selected' : '') + '>Exclude source file from import</option>'
+                + '    <option value="exclude_conflict"' + (currentDecision === 'exclude_conflict' ? ' selected' : '') + '>Exclude matched file from import</option>'
+                + '    <option value="exclude_both"' + (currentDecision === 'exclude_both' ? ' selected' : '') + '>Exclude both files from import</option>'
                 + '    <option value="keep_both"' + (currentDecision === 'keep_both' ? ' selected' : '') + '>Keep both files</option>'
                 + '  </select>'
+                + '  <div class="validation-action-selected">' + escapeHtml(decisionText) + '</div>'
                 + '</div>';
             }
-            var conflictListHtml = conflictTargets.length
-              ? ('<ul class="validation-conflict-list">'
-                + conflictTargets.map(function (conflictItem) {
-                  return renderConflictItem(conflictItem);
-                }).join('')
-                + '</ul>')
-              : '<div class="muted">No conflict target metadata available.</div>';
+            var comparisonTableHtml = ''
+              + '<div class="validation-match-table">'
+              + '  <div class="validation-match-header">Source file</div>'
+              + '  <div class="validation-match-header">Matched file</div>'
+              + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
+              + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
+              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(sourcePathForTable || '(path unavailable)') + '</div>'
+              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathForTable || '(path unavailable)') + '</div>'
+              + '</div>';
             return ''
               + '<div class="validation-violation-row ' + severityClass + '">'
               + '  <div class="validation-violation-top">'
-              + '    <div class="validation-violation-label">Violation ' + String(violationIndex + 1) + ': ' + escapeHtml(violationLabel) + ' <span class="validation-severity-chip ' + severityClass + '">' + escapeHtml(severityLabel) + '</span></div>'
+              + '    <div class="validation-violation-label">Violation ' + String(displayIndex) + ': ' + escapeHtml(violationLabel) + ' <span class="validation-severity-chip ' + severityClass + '">' + escapeHtml(severityLabel) + '</span></div>'
               + (actionControl || '')
               + '  </div>'
               + '  <div class="validation-violation-body">'
-              + '    <div class="validation-conflict-title">Conflicts with:</div>'
-              + conflictListHtml
+              + '    ' + comparisonTableHtml
               + '  </div>'
               + '</div>';
           }).join('');
           return ''
             + '<div class="validation-source-row">'
-            + '  <div class="validation-source-header">' + escapeHtml(group.source_name || 'Source File') + '</div>'
-            + sourcePathHtml
             + '  <div class="validation-source-violations">' + violationsHtml + '</div>'
             + '</div>';
         }).join('');
@@ -3064,7 +3084,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-source-row{border:1px solid var(--divider-color,rgba(148,163,184,0.24));border-radius:10px;padding:10px;background:var(--secondary-background-color,rgba(15,23,42,0.18));width:100%;box-sizing:border-box;align-self:stretch;}'
       + '.wizard-dialog .validation-source-header{font-size:13px;font-weight:700;color:var(--primary-text-color);}'
       + '.wizard-dialog .validation-source-path{font-size:12px;line-height:1.3;color:var(--secondary-text-color);margin-top:4px;word-break:break-all;}'
-      + '.wizard-dialog .validation-source-violations{display:flex;flex-direction:column;gap:8px;margin-top:8px;width:100%;}'
+      + '.wizard-dialog .validation-source-violations{display:flex;flex-direction:column;gap:8px;width:100%;}'
       + '.wizard-dialog .validation-violation-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:8px;border:1px dashed var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:var(--card-background-color,rgba(15,23,42,0.14));}'
       + '.wizard-dialog .validation-violation-top{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:10px;align-items:start;}'
       + '.wizard-dialog .validation-violation-body{grid-column:1 / -1;}'
@@ -3077,16 +3097,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-severity-chip.severity-exact{border-color:rgba(245,158,11,0.45);background:rgba(120,53,15,0.2);color:#fde68a;}'
       + '.wizard-dialog .validation-severity-chip.severity-soft{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.2);color:#bfdbfe;}'
       + '.wizard-dialog .validation-severity-chip.severity-other{border-color:rgba(148,163,184,0.4);background:rgba(71,85,105,0.2);color:#e2e8f0;}'
-      + '.wizard-dialog .validation-conflict-title{font-size:12px;font-weight:600;color:var(--secondary-text-color);margin-bottom:4px;}'
-      + '.wizard-dialog .validation-conflict-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px;}'
-      + '.wizard-dialog .validation-conflict-list li{font-size:12px;line-height:1.35;color:var(--primary-text-color);}'
-      + '.wizard-dialog .validation-conflict-primary{font-weight:700;color:var(--primary-text-color);}'
-      + '.wizard-dialog .validation-conflict-secondary{font-size:12px;line-height:1.3;color:var(--secondary-text-color);word-break:break-all;}'
+      + '.wizard-dialog .validation-match-table{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--divider-color,rgba(148,163,184,0.25));border-radius:8px;overflow:hidden;}'
+      + '.wizard-dialog .validation-match-header{padding:6px 8px;background:rgba(15,23,42,0.36);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.25));}'
+      + '.wizard-dialog .validation-match-cell{padding:6px 8px;font-size:12px;color:var(--primary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
+      + '.wizard-dialog .validation-match-cell:nth-child(2n){border-left:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
+      + '.wizard-dialog .validation-match-name{font-weight:700;}'
+      + '.wizard-dialog .validation-match-path{font-size:11px;color:var(--secondary-text-color);word-break:break-all;}'
       + '.wizard-dialog .validation-status-chip{align-self:flex-start;justify-self:end;}'
       + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
       + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;justify-self:end;width:100%;max-width:220px;}'
       + '.wizard-dialog .validation-action-control label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.wizard-dialog .validation-action-control .select{width:100%;}'
+      + '.wizard-dialog .validation-action-selected{font-size:11px;line-height:1.3;color:var(--secondary-text-color);}'
       + '@media (max-width: 900px){.wizard-dialog .validation-violation-top{grid-template-columns:1fr;}.wizard-dialog .validation-action-control{max-width:none;justify-self:stretch;}}'
       + '.wizard-commit-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:14px;padding-right:4px;overflow:hidden;}'
       + '.wizard-cleanup-policy-block{padding:12px;border-radius:14px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.08);}'
