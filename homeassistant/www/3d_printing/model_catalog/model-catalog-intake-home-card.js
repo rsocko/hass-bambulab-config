@@ -1490,6 +1490,55 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '</div>';
   }
 
+  _activeQueueCleanupCandidates() {
+    var deletableStates = {
+      queued: true,
+      failed: true,
+      submitted: true,
+      validated_ready: true,
+      validated_warning: true,
+      deferred: true,
+    };
+    return (Array.isArray(this._intakeItems) ? this._intakeItems : []).filter(function (item) {
+      var state = String(item && (item.state || item.status) || '').trim().toLowerCase();
+      var status = String(item && item.status || '').trim().toLowerCase();
+      return deletableStates[state] === true || deletableStates[status] === true;
+    });
+  }
+
+  async _cleanupActiveQueueItems() {
+    var candidates = this._activeQueueCleanupCandidates();
+    if (!candidates.length) {
+      this._status = 'No active queue items are eligible for cleanup.';
+      this._render();
+      return;
+    }
+    var confirmed = window.confirm('Delete ' + String(candidates.length) + ' non-terminal intake item(s) from the active queue? Use this only to clean up stale queue records from canceled or abandoned work.');
+    if (!confirmed) {
+      return;
+    }
+    this._loading = true;
+    this._error = '';
+    this._status = '';
+    this._render();
+    var deletedCount = 0;
+    try {
+      for (var index = 0; index < candidates.length; index += 1) {
+        await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_delete_intake_upload', {
+          upload_id: candidates[index].item_id,
+        });
+        deletedCount += 1;
+      }
+      this._status = 'Deleted ' + String(deletedCount) + ' active queue item(s).';
+      this._loading = false;
+      await this._refreshAll();
+    } catch (error) {
+      this._error = error && error.message ? String(error.message) : 'Could not clean up active queue items.';
+      this._loading = false;
+      this._render();
+    }
+  }
+
   _renderBrowserFileRows(showActions) {
     if (!this._browserFiles.length) {
       return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
@@ -1647,9 +1696,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var rootNames = this._roots.map(function (root) {
       return basename(root.path || root.name || '/');
     }).filter(Boolean).slice(0, 3);
+    var cleanupCandidateCount = this._activeQueueCleanupCandidates().length;
     return ''
       + '<section class="section">'
-      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, review the batch, then commit it into the shared intake queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button><button class="button primary" data-action="goto-inbox">Open Job History</button></div></div>'
+      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, review the batch, then commit it into the shared intake queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button>' + (cleanupCandidateCount > 0 ? '<button class="button warn" data-action="cleanup-active-queue">Clean Active Queue (' + String(cleanupCandidateCount) + ')</button>' : '') + '<button class="button primary" data-action="goto-inbox">Open Job History</button></div></div>'
       + '  <div class="wizard-launch-grid">'
       + '    <article class="launch-card">'
       + '      <div class="launch-kicker">Path 1</div><div class="launch-title">Upload Files / Folder</div><div class="muted">Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
@@ -1838,6 +1888,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'refresh-intake') {
       this._refreshAll();
+      return;
+    }
+    if (action === 'cleanup-active-queue') {
+      this._cleanupActiveQueueItems();
       return;
     }
     if (action === 'open-browser-wizard') {

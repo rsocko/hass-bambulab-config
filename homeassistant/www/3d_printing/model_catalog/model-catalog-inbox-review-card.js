@@ -63,6 +63,20 @@ function validationActionSummary(actions) {
   return parts.join('; ');
 }
 
+function summarizeCleanupCandidateStates(items) {
+  var counts = {};
+  (items || []).forEach(function (item) {
+    var state = String(item && (item.state || item.status) || 'unknown').trim().toLowerCase();
+    if (!state) {
+      state = 'unknown';
+    }
+    counts[state] = Number(counts[state] || 0) + 1;
+  });
+  return Object.keys(counts).sort().map(function (state) {
+    return formatLabel(state) + ' ' + String(counts[state]);
+  }).join(', ');
+}
+
 function normalizedTerminalResult(item) {
   var value = item && item.terminal_result;
   if (value && typeof value === 'object') {
@@ -586,6 +600,51 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     this._render();
   }
 
+  _cleanupCandidates() {
+    return this._getActiveQueueItems().filter(function (item) {
+      return this._canDeleteItem(item);
+    }, this);
+  }
+
+  async _cleanupStaleQueueItems() {
+    var candidates = this._cleanupCandidates();
+    if (!candidates.length) {
+      this._status = 'No active queue items are eligible for cleanup.';
+      this._render();
+      return;
+    }
+    var confirmed = await this._showConfirmDialog({
+      title: 'Delete Active Queue Items?',
+      message: 'This will delete ' + String(candidates.length) + ' non-terminal intake item(s): ' + summarizeCleanupCandidateStates(candidates) + '. Use this only to clean up stale queue records from canceled or abandoned work.',
+      confirmLabel: 'Delete Queue Items',
+      cancelLabel: 'Keep Items',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+    this._loading = true;
+    this._error = '';
+    this._status = '';
+    this._render();
+    var deletedCount = 0;
+    try {
+      for (var index = 0; index < candidates.length; index += 1) {
+        await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_delete_intake_upload', {
+          upload_id: candidates[index].item_id,
+        });
+        deletedCount += 1;
+      }
+      this._status = 'Deleted ' + String(deletedCount) + ' active queue item(s).';
+      this._loading = false;
+      await this._refresh();
+    } catch (error) {
+      this._error = error && error.message ? String(error.message) : 'Could not clean up active queue items.';
+      this._loading = false;
+      this._render();
+    }
+  }
+
   async _runBatchAction(action) {
     var selectedItems = this._selectedItems();
     if (!selectedItems.length) {
@@ -758,6 +817,10 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       this._refresh();
       return;
     }
+    if (action === 'cleanup-stale-queue') {
+      this._cleanupStaleQueueItems();
+      return;
+    }
     if (action === 'switch-view') {
       if (!this._showActiveQueue()) {
         return;
@@ -882,6 +945,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     var jobHistoryCount = this._getJobHistoryItems().length;
     var isActiveQueueView = this._currentView === 'active_queue' && this._showActiveQueue();
     var canSelect = isActiveQueueView;
+    var cleanupCandidateCount = this._cleanupCandidates().length;
     var subtitle = this._historyOnly() || this._currentView === 'job_history'
       ? 'Completed intake outcomes from wizard-direct and queued execution paths.'
       : 'Review queued intake items, with Job History kept as the primary completed-work surface.';
@@ -900,7 +964,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       + '<style>' + sharedStyles + confirmStyles + '</style>'
       + '<ha-card>'
       + '  <div class="shell">'
-      + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">' + escapeHtml(subtitle) + '</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button>' + (canSelect ? '<button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Items') + '</button>' : '') + '</div></div>'
+      + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">' + escapeHtml(subtitle) + '</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button>' + ((!isActiveQueueView && cleanupCandidateCount > 0) ? '<button class="button warn" data-action="cleanup-stale-queue">Clean Active Queue (' + String(cleanupCandidateCount) + ')</button>' : '') + (canSelect ? '<button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Items') + '</button>' : '') + '</div></div>'
       + '    ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + '    ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
       + '    </div>'
