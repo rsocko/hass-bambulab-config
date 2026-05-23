@@ -1,6 +1,26 @@
 # Documentation Index
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: none
+Replaced By: none
+
 This folder contains all repository documentation organized by topic.
+
+## Documentation Lifecycle Lanes
+
+Documentation in this repository follows four lifecycle lanes:
+
+1. `reference` - current as-built truth for implementation and operations.
+2. `design` - decisions, rationale, alternatives, and mockups.
+3. `planning` - pre-implementation or in-progress plans.
+4. `archive` - historical and non-canonical records.
+
+Canonical guidance and execution tracker:
+
+- `repo/planning/documentation-organization-guidance-and-migration-plan.md`
+- `repo/planning/documentation-migration-matrix.md`
 
 ## Sections
 
@@ -78,9 +98,10 @@ Cross-system planning features may appear here before a Home Assistant package e
 ## Repo Docs
 
 - `repo/planning/documentation-organization-guidance-and-migration-plan.md` — Canonical documentation IA guidance, lifecycle lane definitions, and migration rules.
-- `repo/planning/documentation-migration-matrix.md` — Owner-area batch matrix and links to detailed Batch 1 row-level matrices.
+- `repo/planning/documentation-migration-matrix.md` — Owner-area batch matrix and links to detailed C1 row-level matrices.
 - `repo/deployment-workflow-reference.md` — End-to-end reference for the deploy workflow, auto-dispatch wrapper, allowlists, auto-deploy env file, and helper scripts under `.github/scripts/`.
 - `repo/deployment-structure.md` — Deployment profiles, package scope, and workflow safety guards.
+- `repo/reference/repository-capabilities-and-operations-reference.md` — Detailed backlog, scenario/use-case mapping, deployment-aligned operational notes, and local development/testing reference migrated from the root README.
 - `repo/dashboard-deployment-behavior.md` — Dashboard/reload behavior and JS cache-bust procedure.
 - `repo/custom-integration-strategy.md` — Architectural guidance for what should become a custom integration versus remain YAML, blueprints, or UI composition.
 - `repo/repo-layout.md` — Repository file layout.

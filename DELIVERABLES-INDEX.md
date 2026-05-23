@@ -1,5 +1,20 @@
 # Phase 3 Implementation - Complete Deliverables Index
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: model-catalog
+Replaces: none
+Replaced By: docs/repo/planning/documentation-migration-matrix.md
+
+Historical note:
+This file is a historical delivery snapshot and is not a canonical source for current repository-wide documentation structure.
+
+For current documentation navigation and lifecycle policy, use:
+
+- [docs/README.md](docs/README.md)
+- [docs/repo/planning/documentation-organization-guidance-and-migration-plan.md](docs/repo/planning/documentation-organization-guidance-and-migration-plan.md)
+- [docs/repo/planning/documentation-migration-matrix.md](docs/repo/planning/documentation-migration-matrix.md)
+
 **Session Date:** April 25, 2026  
 **Prepared By:** GitHub Copilot  
 **Status:** ✅ Phase 3.1 Validated | 📋 Phase 3.2-3.3 Fully Planned
