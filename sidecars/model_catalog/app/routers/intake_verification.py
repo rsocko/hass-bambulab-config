@@ -1141,6 +1141,44 @@ def _scan_batch_duplicate_warnings(
     return warnings, duplicate_hash_count, duplicate_name_exact_count, duplicate_name_soft_count, findings
 
 
+def _normalize_indexed_conflicts(conflicts: list[Any]) -> list[dict[str, Any]]:
+    """Return structured conflict rows so validation UI can always render source context."""
+    normalized: list[dict[str, Any]] = []
+    for conflict in conflicts:
+        if isinstance(conflict, dict):
+            filename = str(conflict.get("filename") or "").strip()
+            path_text = str(conflict.get("path") or "").strip()
+            normalized.append(
+                {
+                    "scope": str(conflict.get("scope") or "indexed").strip() or "indexed",
+                    "parent_kind": str(conflict.get("parent_kind") or "indexed_inventory").strip() or "indexed_inventory",
+                    "parent_name": str(conflict.get("parent_name") or "Indexed inventory").strip() or "Indexed inventory",
+                    "path": path_text,
+                    "filename": filename,
+                    "label": str(conflict.get("label") or filename or path_text).strip(),
+                    "size_bytes": conflict.get("size_bytes"),
+                    "source_mtime": conflict.get("source_mtime"),
+                }
+            )
+            continue
+
+        conflict_name = str(conflict or "").strip()
+        if not conflict_name:
+            continue
+        normalized.append(
+            {
+                "scope": "indexed",
+                "parent_kind": "indexed_inventory",
+                "parent_name": "Indexed inventory",
+                "path": f"name-only match: {conflict_name}",
+                "filename": conflict_name,
+                "label": conflict_name,
+            }
+        )
+
+    return normalized
+
+
 def _build_validation_checks(
     *,
     warning_codes: set[str],
@@ -2525,7 +2563,9 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             duplicate_name_exact_count += 1
             validation_state = "duplicate_candidate"
             exact_context_matches = indexed_exact_contexts.get(filename_key, []) if filename_key else []
-            exact_conflicts = exact_context_matches[:3] if exact_context_matches else exact_name_matches[:3]
+            exact_conflicts = _normalize_indexed_conflicts(
+                exact_context_matches[:3] if exact_context_matches else exact_name_matches[:3]
+            )
             warnings.append(
                 {
                     "code": "duplicate_name_exact_match",
@@ -2561,7 +2601,9 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                 duplicate_name_soft_count += 1
                 validation_state = "duplicate_candidate"
                 soft_context_matches = indexed_normalized_contexts.get(normalized_name, []) if normalized_name else []
-                soft_conflicts = soft_context_matches[:3] if soft_context_matches else soft_name_matches[:3]
+                soft_conflicts = _normalize_indexed_conflicts(
+                    soft_context_matches[:3] if soft_context_matches else soft_name_matches[:3]
+                )
                 warnings.append(
                     {
                         "code": "duplicate_name_soft_match",
