@@ -110,6 +110,8 @@ class ModelDetailPopupCard extends HTMLElement {
     // Tag picker state
     this._tagPickerOpen = false;
     this._tagSearchQuery = "";
+    this._tagSearchSelectionStart = null;
+    this._tagSearchSelectionEnd = null;
     this._tagPickerHighlightIndex = 0;
     this._knownTags = []; // populated on first picker open
     this._allTagsFetched = false;
@@ -298,6 +300,8 @@ class ModelDetailPopupCard extends HTMLElement {
     if (this._tagPickerOpen && !target.closest('.picker-wrap')) {
       this._tagPickerOpen = false;
       this._tagSearchQuery = "";
+      this._tagSearchSelectionStart = null;
+      this._tagSearchSelectionEnd = null;
       this._tagPickerHighlightIndex = 0;
       this._render();
       return;
@@ -317,6 +321,8 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       this._tagPickerOpen = !this._tagPickerOpen;
       this._tagSearchQuery = "";
+      this._tagSearchSelectionStart = null;
+      this._tagSearchSelectionEnd = null;
       this._tagPickerHighlightIndex = 0;
       if (this._tagPickerOpen && !this._allTagsFetched) {
         this._loadAllTags().then(() => {
@@ -896,6 +902,8 @@ class ModelDetailPopupCard extends HTMLElement {
     // Tag picker search
     if (target instanceof HTMLInputElement && target.dataset.input === 'tag-search') {
       this._tagSearchQuery = String(target.value || "");
+      this._tagSearchSelectionStart = Number.isFinite(target.selectionStart) ? target.selectionStart : this._tagSearchQuery.length;
+      this._tagSearchSelectionEnd = Number.isFinite(target.selectionEnd) ? target.selectionEnd : this._tagSearchSelectionStart;
       this._tagPickerHighlightIndex = 0;
       // Re-render only the picker dropdown to avoid full re-render losing focus
       const pickerDd = this.shadowRoot.querySelector('.picker-dd');
@@ -909,7 +917,13 @@ class ModelDetailPopupCard extends HTMLElement {
         const searchBox = newDd.querySelector('.search-box');
         if (searchBox) {
           searchBox.focus();
-          searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+          const nextStart = Number.isFinite(this._tagSearchSelectionStart)
+            ? Math.max(0, Math.min(this._tagSearchSelectionStart, searchBox.value.length))
+            : searchBox.value.length;
+          const nextEnd = Number.isFinite(this._tagSearchSelectionEnd)
+            ? Math.max(nextStart, Math.min(this._tagSearchSelectionEnd, searchBox.value.length))
+            : nextStart;
+          searchBox.setSelectionRange(nextStart, nextEnd);
         }
       }
     }
@@ -922,6 +936,13 @@ class ModelDetailPopupCard extends HTMLElement {
         : null;
       if (searchBox) {
         searchBox.focus();
+        const nextStart = Number.isFinite(this._tagSearchSelectionStart)
+          ? Math.max(0, Math.min(this._tagSearchSelectionStart, searchBox.value.length))
+          : searchBox.value.length;
+        const nextEnd = Number.isFinite(this._tagSearchSelectionEnd)
+          ? Math.max(nextStart, Math.min(this._tagSearchSelectionEnd, searchBox.value.length))
+          : nextStart;
+        searchBox.setSelectionRange(nextStart, nextEnd);
       }
     });
   }
@@ -5588,6 +5609,8 @@ class ModelDetailPopupCard extends HTMLElement {
     // Close picker and optimistic update
     this._tagPickerOpen = keepPickerOpen;
     this._tagSearchQuery = "";
+    this._tagSearchSelectionStart = null;
+    this._tagSearchSelectionEnd = null;
     this._tagPickerHighlightIndex = 0;
     if (this._modelDetail && this._modelDetail.model) {
       this._modelDetail.model.keywords = updated;
@@ -5873,6 +5896,8 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         this._tagPickerOpen = false;
         this._tagSearchQuery = "";
+        this._tagSearchSelectionStart = null;
+        this._tagSearchSelectionEnd = null;
         this._tagPickerHighlightIndex = 0;
         this._render();
         return;
