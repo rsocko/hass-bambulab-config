@@ -6,7 +6,7 @@ Functional Owner: spoolman_sync
 Replaces: docs/features/spoolman_sync/spool-replace-refill-wireframes.md
 Replaced By: none
 
-> **Companion to:** [spool-replace-refill.md](design/spool-replace-refill.md)
+> **Companion to:** [spool-replace-refill.md](spool-replace-refill.md)
 
 ---
 
@@ -338,7 +338,7 @@ distinguish them from the action labels.
 
 **Qty field fallback note:** If a spool does not yet have `extra_purchase_qty`, both popups render qty as `0` and allow `+` to initialize the field on first update.
 
-- [ ] **Testing** — See [spool-replace-refill-test-plan.md](planning/spool-replace-refill-test-plan.md)
+- [ ] **Testing** — See [spool-replace-refill-test-plan.md](../planning/spool-replace-refill-test-plan.md)
   - [ ] Test: spool at 0g → full flow → verify Spoolman state
   - [ ] Test: spool at >0g → warning shown → continue → weight reset
   - [ ] Test: spool at <0g → info shown → weight reset

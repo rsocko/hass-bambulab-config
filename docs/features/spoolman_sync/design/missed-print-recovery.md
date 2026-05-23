@@ -34,8 +34,8 @@ documented in [bambuddy-partial-usage-sidecar.md](bambuddy-partial-usage-sidecar
 
 The current success-path decrement flow is centered on:
 
-- [print-complete-update-filament-usage.md](reference/print-complete-update-filament-usage.md)
-- [print-weight-persistence-overview.md](reference/print-weight-persistence-overview.md)
+- [print-complete-update-filament-usage.md](../reference/print-complete-update-filament-usage.md)
+- [print-weight-persistence-overview.md](../reference/print-weight-persistence-overview.md)
 - `input_text.print_weight_backup`
 - `input_text.print_metadata_backup`
 - `sensor.spoolman_tray_map`

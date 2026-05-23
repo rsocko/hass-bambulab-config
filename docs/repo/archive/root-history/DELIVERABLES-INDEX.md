@@ -197,7 +197,7 @@ For current documentation navigation and lifecycle policy, use:
 
 ### Existing Files to Reference
 - [sidecars/model_catalog/README.md](../../../../sidecars/model_catalog/README.md) — Sidecar architecture
-- [docs/features/model_catalog/implementation-plan.md](../../../../docs/features/model_catalog/implementation-plan.md) — Project roadmap
+- [docs/features/model_catalog/planning/implementation-plan.md](../../../../docs/features/model_catalog/planning/implementation-plan.md) — Project roadmap
 - [homeassistant/packages/3d_printing/model_catalog/](../../../../homeassistant/packages/3d_printing/model_catalog/) — HA package structure
 
 ---

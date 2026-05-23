@@ -485,7 +485,7 @@ Good luck with your installation! ðŸŽ‰
 - ðŸ“Š [digquad-led-segments.md](digquad-led-segments.md) - LED specifications
 - ðŸŽ¯ [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated) - Zone functions
 - ðŸŽ¨ [light-scenarios.md](../design/light-scenarios.md) - Scenario catalog
-- ðŸ“– [README.md](README.md) - Complete documentation
+- ðŸ“– [README.md](../README.md) - Complete documentation
 - ðŸ”Œ [wiring-diagram.md](wiring-diagram.md) - Installation guide
 - ðŸ  [home-assistant-automations.md](../archive/home-assistant-automations-legacy.md) - Automation examples
 

@@ -56,7 +56,7 @@ Dashboard resource registration required (via HA UI or API, **not** YAML):
 Register in HA: **Settings → Dashboards → Resources → Add Resource**
 
 > **Note:** HA uses storage mode for resource management. Resources defined in YAML
-> packages are silently ignored. See [Dashboard Deploy Behavior](../../../repo/dashboard-deployment-behavior.md)
+> packages are silently ignored. See [Dashboard Deploy Behavior](../../../repo/reference/dashboard-deployment-behavior.md)
 > section 3 for details.
 
 The file `common/dashboards/_resources.yaml` is kept as a reference manifest of resource

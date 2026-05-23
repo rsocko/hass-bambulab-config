@@ -420,8 +420,8 @@ Possible improvements:
 ## Related Documentation
 
 - [Print Complete - Update Filament Usage](print-complete-update-filament-usage.md)
-- [Find Matching Spool](find-matching-spools.md)
-- [Spoolman Sync README](README.md)
+- [Find Matching Spool](find-matching-spool-script.md)
+- [Spoolman Sync README](../README.md)
 
 ## References
 

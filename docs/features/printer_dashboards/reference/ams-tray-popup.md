@@ -106,7 +106,7 @@ Data source: the `spools` list inside `sensor.spoolman_filament_totals.attribute
 - **More Details** — triggers `action: more-info` for `sensor.spoolman_spool_{id}`; `mdi:information-outline` icon; `var(--primary-color)` background
 - **Open in Spoolman** — opens `http://spoolman.example.com/spool/show/{id}` in a new tab; Spoolman icon (dashboardicons.com via jsDelivr CDN); `var(--primary-color)` background
 - **Reload from Spoolman** — calls `homeassistant.update_entity` on `sensor.spoolman_spool_{id}` to force a fresh pull of spool data from Spoolman; `mdi:refresh` icon; `var(--primary-color)` background
-- **Reset Tray** (conditional) — opens a nested confirmation popup ("Clear all filament metadata from this tray?") with OK/Cancel; on confirm calls `script.reset_tray_filament` to clear type, color, temps, and any pin override; `mdi:delete-sweep` icon; dark red (`#c62828`) background; hidden when tray already reports as Empty (`trayIsEmpty`). See [reset-tray-filament-design.md](../../spoolman_sync/reset-tray-filament-design.md)
+- **Reset Tray** (conditional) — opens a nested confirmation popup ("Clear all filament metadata from this tray?") with OK/Cancel; on confirm calls `script.reset_tray_filament` to clear type, color, temps, and any pin override; `mdi:delete-sweep` icon; dark red (`#c62828`) background; hidden when tray already reports as Empty (`trayIsEmpty`). See [reset-tray-filament-design.md](../../spoolman_sync/design/reset-tray-filament.md)
 - **Close** — fires `browser_mod.close_popup` to dismiss the dialog; `mdi:close-circle-outline` icon; `var(--primary-color)` background; useful on mobile where the standard dismiss gesture may not be available
 
 ---
@@ -118,7 +118,7 @@ When the tray has filament but no Spoolman spool could be matched:
 - Header shows: `{tray label} — No Spool` with grey `mdi:help-rhombus` icon
 - Displays the match failure reason (e.g. "No unsealed spool with color #FF5733")
 - Shows raw tray entity data via `entities` card
-- **Reset Tray** button (conditional) — full-width `custom:button-card` with `mdi:delete-sweep` icon and dark red (`#c62828`) background; opens a nested confirmation popup, then calls `script.reset_tray_filament` to clear stale filament metadata so the tray reports as truly Empty rather than carrying unmatched type/color data; hidden when tray already reports as Empty (`trayIsEmpty`). See [reset-tray-filament-design.md](../../spoolman_sync/reset-tray-filament-design.md)
+- **Reset Tray** button (conditional) — full-width `custom:button-card` with `mdi:delete-sweep` icon and dark red (`#c62828`) background; opens a nested confirmation popup, then calls `script.reset_tray_filament` to clear stale filament metadata so the tray reports as truly Empty rather than carrying unmatched type/color data; hidden when tray already reports as Empty (`trayIsEmpty`). See [reset-tray-filament-design.md](../../spoolman_sync/design/reset-tray-filament.md)
 
 ---
 
@@ -320,7 +320,7 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ~~Location dropdown~~ | **Implemented** — uses native `select.spoolman_spool_{id}_location` entity from Spoolman integration v1.1                                                                                                                                                  |
 | Mismatch threshold config UI | **Partially implemented** — the warning threshold now reads from `input_number.ams_spool_weight_mismatch_threshold_percent`. Remaining work is to surface that helper in a dedicated dashboard config page or popup instead of relying on HA's generic Helpers UI. |
-| ~~Reset Tray~~        | **Implemented** — clears filament metadata via `script.reset_tray_filament` with confirmation dialog; available in both matched-spool and no-spool popups. See [reset-tray-filament-design.md](../../features/spoolman_sync/reset-tray-filament-design.md) |
+| ~~Reset Tray~~        | **Implemented** — clears filament metadata via `script.reset_tray_filament` with confirmation dialog; available in both matched-spool and no-spool popups. See [reset-tray-filament-design.md](../../spoolman_sync/design/reset-tray-filament.md) |
 | Total inventory       | **Implemented -** Sum weight across all spools of same material type                                                                                                                                                                                       |
 | Quality/age warnings  | Alert when `first_used` > configurable age threshold                                                                                                                                                                                                       |
 | Custom notes          | Display/edit `extra.notes` field per spool                                                                                                                                                                                                                 |
@@ -334,7 +334,7 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 |------|---------|
 | [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) | Main dashboard — contains the popup tap_action JS |
 | [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml) | `spoolman_tray_map` sensor template |
-| [ams-tray-popup-visual.md](ams-tray-popup-visual.md) | Visual mockup and layout guide |
+| [ams-tray-popup-visual.md](../design/ams-tray-popup-visual.md) | Visual mockup and layout guide |
 | [homeassistant/packages/3d_printing/spoolman_sync/](../../../homeassistant/packages/3d_printing/spoolman_sync/) | Spoolman sync automations |
 
 

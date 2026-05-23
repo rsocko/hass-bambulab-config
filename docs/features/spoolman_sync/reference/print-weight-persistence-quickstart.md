@@ -229,9 +229,9 @@ If you need to go back to the old automation:
 ## Need Help?
 
 See the full documentation:
-- [Complete Documentation](reference/print-weight-persistence-overview.md)
-- [Implementation Summary](print-weight-persistence-implementation.md)
-- [Troubleshooting Guide](reference/print-weight-persistence-overview.md#troubleshooting)
+- [Complete Documentation](print-weight-persistence-overview.md)
+- [Implementation Summary](../archive/print-weight-persistence-implementation.md)
+- [Troubleshooting Guide](print-weight-persistence-overview.md#troubleshooting)
 
 ## Success!
 

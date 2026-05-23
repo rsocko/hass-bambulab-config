@@ -29,7 +29,7 @@ Legacy comparator now mirrors multicolor fallback tiers used by the authoritativ
 
 ## Deterministic Unit Tests
 - [Fixture test suite](../../../tests/spool_matching/test_option_a_matching.py)
-- [Fixture test README](../../../tests/spool_matching/README.md)
+- [Fixture test README](../../../../tests/spool_matching/README.md)
 
 These tests encode expected outcomes for documented scenarios using mock tray and
 spool data so results are deterministic and independent of live HA state.

@@ -283,8 +283,8 @@ Integration with:
 - [Print History Layer 1 Design](../../../../
 docs/features/print_history/design/browser/filter-sort-design.md
 )
-- [Model Catalog Implementation Plan](../../../../docs/features/model_catalog/implementation-plan.md)
-- [Phase 3.1-3.3 Roadmap](../../../../docs/features/model_catalog/phase-3.1-3.3-roadmap.md)
+- [Model Catalog Implementation Plan](../../../../docs/features/model_catalog/planning/implementation-plan.md)
+- [Phase 3.1-3.3 Roadmap](../../../../docs/features/model_catalog/planning/phase-3.1-3.3-roadmap.md)
 
 ### External Resources
 - Three.js Documentation: https://threejs.org/docs/

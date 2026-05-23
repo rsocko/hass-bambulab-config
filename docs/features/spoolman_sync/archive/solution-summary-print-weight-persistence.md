@@ -44,7 +44,7 @@ A **backup and restore mechanism** that:
 4. Restart Home Assistant
 5. Test with a print
 
-See [Quick Start Guide](print-weight-persistence-quickstart.md) for detailed steps.
+See [Quick Start Guide](../reference/print-weight-persistence-quickstart.md) for detailed steps.
 
 ## Key Features
 
@@ -139,8 +139,8 @@ Possible improvements:
 ## Support & Resources
 
 - **Full Documentation**: [print-weight-persistence-overview.md](../reference/print-weight-persistence-overview.md)
-- **Quick Start**: [print-weight-persistence-quickstart.md](print-weight-persistence-quickstart.md)
-- **Visual Diagrams**: [print-weight-persistence-visual.md](print-weight-persistence-visual.md)
+- **Quick Start**: [print-weight-persistence-quickstart.md](../reference/print-weight-persistence-quickstart.md)
+- **Visual Diagrams**: [print-weight-persistence-visual.md](../design/print-weight-persistence-visual.md)
 - **Implementation Details**: [print-weight-persistence-implementation.md](print-weight-persistence-implementation.md)
 - **Upstream Issue**: https://github.com/greghesp/ha-bambulab/issues/1048
 
@@ -188,5 +188,5 @@ The solution has been designed to be minimal, surgical, and non-invasive while p
 
 ---
 
-**Ready to Install?** Start with the [Quick Start Guide](print-weight-persistence-quickstart.md)!
+**Ready to Install?** Start with the [Quick Start Guide](../reference/print-weight-persistence-quickstart.md)!
 

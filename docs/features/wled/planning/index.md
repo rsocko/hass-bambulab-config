@@ -126,7 +126,7 @@ homeassistant/packages/3d_printing/wled/
 | [wiring-diagram.md](../reference/wiring-diagram.md) | Physical wiring guide |
 | [visual-installation-guide.md](../reference/visual-installation-guide.md) | ASCII strip layout diagrams |
 | [summary.md](../archive/summary-2026-03-13.md) | Design evolution history |
-| [README.md](README.md) | Original overview |
+| [README.md](../README.md) | Original overview |
 
 ### Future (Phase 3+)
 
@@ -256,7 +256,7 @@ homeassistant/packages/3d_printing/wled/
 8. Use [visual-installation-guide.md](../reference/visual-installation-guide.md) - Visual reference
 
 ### Intermediate
-1. Review [README.md](README.md) for complete design
+1. Review [README.md](../README.md) for complete design
 2. Study [wiring-diagram.md](../reference/wiring-diagram.md) for details
 3. Create segments based on [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated)
 4. Configure presets from [light-scenarios.md](../design/light-scenarios.md)
@@ -281,7 +281,7 @@ homeassistant/packages/3d_printing/wled/
 - â­ [LED Function Map](../design/light-scenarios.md#2-led-function-map-consolidated) - Zone functions
 - â­ [light-scenarios.md](../design/light-scenarios.md) - Scenario catalog (33+)
 - ðŸš€ [quick-start.md](../reference/quick-start-legacy.md) - Setup guide
-- ðŸ“– [README.md](README.md) - Full documentation
+- ðŸ“– [README.md](../README.md) - Full documentation
 - ðŸ”Œ [wiring-diagram.md](../reference/wiring-diagram.md) - Wiring guide
 - ðŸ“‹ [segment-reference.md](../reference/segment-reference.md) - Quick reference
 

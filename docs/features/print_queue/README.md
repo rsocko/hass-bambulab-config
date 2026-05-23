@@ -1,6 +1,6 @@
 # Print Queue — Bambuddy Queue in HA
 
-> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
+> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](../../repo/reference/openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
 
 ## Overview
 

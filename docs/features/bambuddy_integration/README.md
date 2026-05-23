@@ -22,7 +22,7 @@ Primary package files:
 
 Related feature docs:
 
-- [Bambuddy Archive API Catalog](../bambuddy_common/bambuddy-archive-api-catalog.md)
+- [Bambuddy Archive API Catalog](../bambuddy_common/reference/bambuddy-archive-api-catalog.md)
 - [Print History](../print_history/README.md)
 - [Bambuddy v0.2.4.1 Enhancements Roadmap](planning/bambuddy-v0.2.4.1-enhancements-roadmap.md)
 

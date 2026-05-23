@@ -40,8 +40,8 @@
 |--------|-----|--------|-------------|-------------|
 | ✅ | `fan-controls-desktop` | png | Fan controls — desktop layout during active print | [README](../features/printer_controls/README.md) |
 | ⬜ | `fan-controls-speed-states` | gif | Fan control icon color transitions at different speeds | [README](../features/printer_controls/README.md) |
-| ✅ | `fan-controls-printing` | png | All fans active during print (varying speeds, colored icons) | [fan-controls-visual.md](../features/printer_controls/fan-controls-visual.md) |
-| ⬜ | `fan-controls-idle` | png | All fans idle (grey icons, 0%/Off) | [fan-controls-visual.md](../features/printer_controls/fan-controls-visual.md) |
+| ✅ | `fan-controls-printing` | png | All fans active during print (varying speeds, colored icons) | [fan-controls-visual.md](../features/printer_controls/design/fan-controls-visual.md) |
+| ⬜ | `fan-controls-idle` | png | All fans idle (grey icons, 0%/Off) | [fan-controls-visual.md](../features/printer_controls/design/fan-controls-visual.md) |
 
 ## Printer Temps
 

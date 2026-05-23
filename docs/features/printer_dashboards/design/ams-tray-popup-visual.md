@@ -283,7 +283,7 @@ The popup JavaScript is modular and easy to extend. Potential additions:
 
 ---
 
-For full implementation details, see [ams-tray-popup.md](ams-tray-popup.md)
+For full implementation details, see [ams-tray-popup.md](../reference/ams-tray-popup.md)
 
 
 

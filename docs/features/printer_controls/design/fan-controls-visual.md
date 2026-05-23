@@ -297,7 +297,7 @@ Icon changes from grey to green
 
 ## Customization Examples
 
-See [fan-controls.md](fan-controls.md) for detailed customization instructions including:
+See [fan-controls.md](../reference/fan-controls.md) for detailed customization instructions including:
 - Changing color thresholds
 - Modifying background colors
 - Using different icons

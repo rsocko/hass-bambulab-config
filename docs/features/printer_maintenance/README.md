@@ -1,6 +1,6 @@
 # Printer Maintenance — Bambuddy Maintenance Tracking in HA
 
-> **⚠️ UNBLOCKED**: Maintenance API endpoints have been discovered in the OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference. All 4 blocking open items are now resolved.
+> **⚠️ UNBLOCKED**: Maintenance API endpoints have been discovered in the OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](../../repo/reference/openapi-correction-notes.md) for full cross-reference. All 4 blocking open items are now resolved.
 
 ## Overview
 

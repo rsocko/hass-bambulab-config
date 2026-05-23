@@ -50,7 +50,7 @@ Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md
 > **🎬 Animation needed:** AMS tray popup — tap-to-open interaction *(gif)*
 
 ### AMS Header Cards
-Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](card-templates-README.md).
+Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](reference/card-templates-README.md).
 
 ### Feature Cards
 Each feature contributes dashboard cards — see feature-specific docs:
