@@ -12,7 +12,7 @@ The air quality integration provides:
 
 ## Architecture Documentation
 
-- [Entity Relationship Diagram](entity-relationship-diagram.md) - Sensor-to-control contracts, filter tracking, and alert boundaries
+- [Entity Relationship Diagram](design/entity-relationship-diagram.md) - Sensor-to-control contracts, filter tracking, and alert boundaries
 
 ## Screenshots
 

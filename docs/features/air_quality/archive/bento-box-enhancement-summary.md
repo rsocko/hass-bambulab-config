@@ -99,7 +99,7 @@ Print Complete:
 
 ### New Documentation
 
-**1. [bento-box-fan-filament-control.md](bento-box-fan-filament-control.md)** (11KB)
+**1. [bento-box-fan-filament-control.md](../reference/bento-box-fan-filament-control.md)** (11KB)
 - Complete guide with theory and examples
 - Speed logic explanation
 - Configuration instructions
@@ -107,7 +107,7 @@ Print Complete:
 - Troubleshooting guide
 - Safety notes
 
-**2. [bento-box-fan-quick-config.md](bento-box-fan-quick-config.md)** (7KB)
+**2. [bento-box-fan-quick-config.md](../reference/bento-box-fan-quick-config.md)** (7KB)
 - Quick 5-minute setup guide
 - Step-by-step instructions
 - Example scenarios

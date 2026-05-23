@@ -523,7 +523,7 @@ A: Yes! Adapt entity IDs for any fan entity in Home Assistant.
 ## Related Documentation
 
 - [Bento Box Fan Control](bento-box-fan-filament-control.md) - Main fan automation
-- [Air Quality Integration](README.md) - Complete air quality system
+- [Air Quality Integration](../README.md) - Complete air quality system
 - [Filter Replacement Schedule](filter-tracking-quick-setup.md) - Detailed maintenance guide
 
 ## Summary

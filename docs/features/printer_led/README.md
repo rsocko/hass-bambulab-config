@@ -41,7 +41,7 @@ The `printer_led` package provides unified control over all LED lighting associa
 
 2. Add a dashboard card — copy either compact or expanded card YAML into your dashboard via Edit Dashboard → Add Card → Manual.
 
-3. (Optional) Enable automations — see [AUTOMATIONS.md](AUTOMATIONS.md).
+3. (Optional) Enable automations — see [automations.md](reference/automations.md).
 
 ## Screenshots
 
@@ -65,17 +65,17 @@ The `printer_led` package provides unified control over all LED lighting associa
 
 | Guide | Description |
 |---|---|
-| [AUTOMATIONS.md](AUTOMATIONS.md) | How to enable/customize the interior light auto-reset automations |
-| [customization-examples.md](customization-examples.md) | Light presets, advanced automations, input helpers, Node-RED, webhooks |
-| [esp32-integration.md](esp32-integration.md) | ESPHome touchscreen button integration |
-| [physical-button-integration.md](physical-button-integration.md) | Zigbee, Z-Wave, WiFi, and wired button setups |
-| [visual-examples.md](visual-examples.md) | ASCII mockups and dashboard layout ideas |
+| [automations.md](reference/automations.md) | How to enable/customize the interior light auto-reset automations |
+| [customization-examples.md](reference/customization-examples.md) | Light presets, advanced automations, input helpers, Node-RED, webhooks |
+| [esp32-integration.md](reference/esp32-integration.md) | ESPHome touchscreen button integration |
+| [physical-button-integration.md](reference/physical-button-integration.md) | Zigbee, Z-Wave, WiFi, and wired button setups |
+| [visual-examples.md](design/visual-examples.md) | ASCII mockups and dashboard layout ideas |
 | [dashboard-button-variants.yaml](dashboard-button-variants.yaml) | 5 alternative reset-button styles (Mushroom, standard, entity, Bubble, horizontal stack) |
-| [led-controls-readme.md](led-controls-readme.md) | Quick start guide for expanded LED controls grid |
-| [led-controls-implementation-summary.md](led-controls-implementation-summary.md) | Full implementation summary |
-| [led-controls.md](led-controls.md) | Comprehensive LED controls documentation (7 lights, WLED config, troubleshooting) |
-| [led-controls-visual.md](led-controls-visual.md) | Visual reference guide with ASCII layouts and state visualizations |
-| [led-controls-integration-examples.md](led-controls-integration-examples.md) | 9 integration methods with code examples |
+| [quick-start.md](reference/led-controls/quick-start.md) | Quick start guide for expanded LED controls grid |
+| [led-controls-implementation-summary.md](archive/led-controls-implementation-summary.md) | Full implementation summary |
+| [overview.md](reference/led-controls/overview.md) | Comprehensive LED controls documentation (7 lights, WLED config, troubleshooting) |
+| [visual-reference.md](reference/led-controls/visual-reference.md) | Visual reference guide with ASCII layouts and state visualizations |
+| [integration-examples.md](reference/led-controls/integration-examples.md) | 9 integration methods with code examples |
 
 ## Key Entities
 

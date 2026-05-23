@@ -287,7 +287,7 @@ triggers:
 
 **Detailed documentation:**
 - [bento-box-filter-tracking.md](bento-box-filter-tracking.md) - Complete guide
-- [docs/features/air_quality/README.md](README.md) - Air quality system overview
+- [docs/features/air_quality/README.md](../README.md) - Air quality system overview
 
 **Questions?**
 - Check automation traces in Home Assistant

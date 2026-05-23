@@ -66,7 +66,7 @@ Monitors logs and triggers actions:
 - Trigger remediation scripts
 - Log to external systems
 
-### 5. Integration Configs (`integrations/`)
+### 5. Integration Configs (`reference/integrations/`)
 Pre-configured examples for:
 - Grafana Loki (via Promtail)
 - Prometheus metrics
@@ -161,7 +161,7 @@ Check logs at: Settings > System > Logs
 - Efficient storage with label-based indexing
 - Easy to scale
 
-**Setup**: See `integrations/loki-promtail/README.md`
+**Setup**: See `reference/integrations/loki-promtail.md`
 
 ### Option 2: Syslog Forwarding
 
@@ -172,7 +172,7 @@ Check logs at: Settings > System > Logs
 - Wide compatibility
 - Simple setup
 
-**Setup**: See `integrations/syslog/README.md`
+**Setup**: See `reference/integrations/syslog.md`
 
 ### Option 3: Elasticsearch + Logstash
 
@@ -194,7 +194,7 @@ Check logs at: Settings > System > Logs
 - Can integrate with any HTTP endpoint
 - Custom processing logic
 
-**Setup**: See `integrations/webhook/README.md`
+**Setup**: See `reference/integrations/webhook.md`
 
 ## 📤 Log Forwarding
 

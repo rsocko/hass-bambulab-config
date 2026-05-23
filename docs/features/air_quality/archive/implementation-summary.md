@@ -73,14 +73,14 @@ This implementation provides a complete air quality monitoring and automated air
 - Testing procedures
 - Common issues
 
-**[air-quality-cards-visual-reference.md](air-quality-cards-visual-reference.md)**
+**[air-quality-cards-visual-reference.md](../reference/air-quality-cards-visual-reference.md)**
 - Visual layout examples
 - Color coding system
 - Icon reference
 - Dashboard integration examples
 - Real-world scenarios
 
-**[configuration-examples.md](configuration-examples.md)**
+**[configuration-examples.md](../reference/configuration-examples.md)**
 - Example configurations for common setups
 - Multiple printer scenarios
 - Alternative hardware configurations

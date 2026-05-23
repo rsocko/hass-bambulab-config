@@ -242,7 +242,7 @@ All work together for comprehensive air management!
 
 Questions? Check:
 - Full documentation: [bento-box-fan-filament-control.md](bento-box-fan-filament-control.md)
-- Main README: [docs/features/air_quality/README.md](README.md)
+- Main README: [docs/features/air_quality/README.md](../README.md)
 - Automation traces in Home Assistant
 - Logbook entries for "Bento Box Fan"
 

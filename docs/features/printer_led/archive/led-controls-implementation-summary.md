@@ -44,13 +44,13 @@ A complete Lovelace card configuration featuring:
 
 ### Documentation Files
 
-1. **[docs/features/printer_led/led-controls-readme.md](led-controls-readme.md)**
+1. **[docs/features/printer_led/reference/led-controls/quick-start.md](../reference/led-controls/quick-start.md)**
    - Quick start guide
    - Entity ID reference table
    - Setup instructions
    - Basic usage guide
 
-2. **[led-controls.md](led-controls.md)**
+2. **[overview.md](../reference/led-controls/overview.md)**
    - Comprehensive documentation (10KB+)
    - Features overview
    - Detailed setup instructions
@@ -60,7 +60,7 @@ A complete Lovelace card configuration featuring:
    - Advanced features
    - WLED configuration reference
 
-3. **[led-controls-visual.md](led-controls-visual.md)**
+3. **[visual-reference.md](../reference/led-controls/visual-reference.md)**
    - Visual reference guide (11KB+)
    - ASCII art layouts
    - State visualizations
@@ -68,7 +68,7 @@ A complete Lovelace card configuration featuring:
    - Responsive layout examples
    - Color indicator examples
 
-4. **[led-controls-integration-examples.md](led-controls-integration-examples.md)**
+4. **[integration-examples.md](../reference/led-controls/integration-examples.md)**
    - Nine integration options
    - Code examples for each option
    - Testing checklist
@@ -324,10 +324,10 @@ The implementation is production-ready and can be immediately used by updating e
 
 ## Support Resources
 
-- **Quick Start**: [led-controls-readme.md](led-controls-readme.md)
-- **Full Docs**: [led-controls.md](led-controls.md)
-- **Visual Guide**: [led-controls-visual.md](led-controls-visual.md)
-- **Integration**: [led-controls-integration-examples.md](led-controls-integration-examples.md)
+- **Quick Start**: [quick-start.md](../reference/led-controls/quick-start.md)
+- **Full Docs**: [overview.md](../reference/led-controls/overview.md)
+- **Visual Guide**: [visual-reference.md](../reference/led-controls/visual-reference.md)
+- **Integration**: [integration-examples.md](../reference/led-controls/integration-examples.md)
 - **WLED Setup**: `/wled/README.md`
 
 ---

@@ -6,6 +6,10 @@ Row count: 13
 Label alignment: this detailed matrix maps to global `C2` in documentation-migration-matrix.md.
 Format: raw CSV text for machine import (spreadsheets/scripts).
 
+Post-cleanup note (2026-05-23):
+1. `current_path` values are historical migration-source paths, not a required current filesystem assertion.
+2. `target_path` values identify canonical destinations for active docs.
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/air_quality/README.md,air_quality,root-readme,Active,docs/features/air_quality/README.md,No,Primary entry point
 docs/features/air_quality/air-quality-cards-visual-reference.md,air_quality,reference,Active,docs/features/air_quality/reference/air-quality-cards-visual-reference.md,Yes,Card behavior and layout reference

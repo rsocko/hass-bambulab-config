@@ -34,9 +34,9 @@ Alignment rule:
 | C1 (complete) | print_history | Very High | docs/features/print_history | Preserve subdomains, enforce lifecycle placement, trim parent README | A |
 | C1 (complete) | spoolman_sync | High | docs/features/spoolman_sync | Split mixed root docs into lifecycle lanes | A |
 | C2 (complete) | wled | High | docs/features/wled | Hardware/reference/design separation | A |
-| C2 | air_quality | High | docs/features/air_quality | README de-bloat, lane migration | A |
-| C2 | printer_led | High | docs/features/printer_led | Separate runbook/design/history docs | A |
-| C2 | logging | Medium | docs/features/logging | Keep integrations subtree, lane classify | A |
+| C2 (complete) | air_quality | High | docs/features/air_quality | README de-bloat, lane migration | A |
+| C2 (complete) | printer_led | High | docs/features/printer_led | Separate runbook/design/history docs | A |
+| C2 (complete) | logging | Medium | docs/features/logging | Keep integrations subtree, lane classify | A |
 | C3 | filament_catalog | Medium | docs/features/filament_catalog | Formalize planning/design/reference boundaries | A |
 | C3 | printer_dashboards | Medium | docs/features/printer_dashboards | Consolidate active references, archive stale docs | A |
 | C3 | printer_temps | Medium | docs/features/printer_temps | Archive version snapshots, preserve active references | A |
@@ -74,10 +74,16 @@ Batch 1 total planned row-level items: 268
 
 ## Matrix C: C2 Detailed Row-Level Coverage
 
+Post-cleanup interpretation note (2026-05-23):
+1. In detailed C2 CSV matrices, `current_path` is a migration-source field and may reference paths removed by later lane migrations.
+2. `target_path` is the canonical destination for active docs.
+
 | Feature | Row Count | Detailed Matrix File |
 |---|---:|---|
 | wled | 21 | docs/repo/planning/matrices/migration-matrix-batch2-wled.csv.md |
 | air_quality | 13 | docs/repo/planning/matrices/migration-matrix-batch2-air_quality.csv.md |
+| printer_led | 12 | docs/repo/planning/matrices/migration-matrix-batch2-printer_led.csv.md |
+| logging | 8 | docs/repo/planning/matrices/migration-matrix-batch2-logging.csv.md |
 
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.

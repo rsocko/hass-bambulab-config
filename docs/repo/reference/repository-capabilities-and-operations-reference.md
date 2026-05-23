@@ -66,7 +66,7 @@ Use this document for deeper reference on initiative backlog, operational scenar
 ## Scenario and Use-Case Map
 
 - Spoolman usage sync: [docs/features/spoolman_sync/README.md](../../features/spoolman_sync/README.md)
-- Printer LED controls: [docs/features/printer_led/led-controls-readme.md](../../features/printer_led/led-controls-readme.md)
+- Printer LED controls: [docs/features/printer_led/reference/led-controls/quick-start.md](../../features/printer_led/reference/led-controls/quick-start.md)
 - Logging and monitoring: [docs/features/logging/README.md](../../features/logging/README.md)
 - Notifications with snapshots: [docs/features/notifications/README.md](../../features/notifications/README.md)
 - Air quality automation: [docs/features/air_quality/README.md](../../features/air_quality/README.md)

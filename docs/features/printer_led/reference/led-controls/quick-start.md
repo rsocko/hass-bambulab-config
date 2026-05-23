@@ -63,8 +63,8 @@ Open advanced popup with:
 
 For detailed setup, customization, and troubleshooting:
 
-- **Main Documentation**: [led-controls.md](led-controls.md)
-- **Visual Guide**: [led-controls-visual.md](led-controls-visual.md)
+- **Main Documentation**: [overview.md](overview.md)
+- **Visual Guide**: [visual-reference.md](visual-reference.md)
 - **WLED Setup**: `/wled/README.md`
 
 ## 🔧 Prerequisites

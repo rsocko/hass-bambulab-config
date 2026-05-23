@@ -6,6 +6,10 @@ Row count: 21
 Label alignment: this detailed matrix maps to global `C2` in documentation-migration-matrix.md.
 Format: raw CSV text for machine import (spreadsheets/scripts).
 
+Post-cleanup note (2026-05-23):
+1. `current_path` values are historical migration-source paths, not a required current filesystem assertion.
+2. `target_path` values identify canonical destinations for active docs.
+
 current_path,owner_area,intended_lane,status,target_path,redirect_needed,notes
 docs/features/wled/README.md,wled,root-readme,Active,docs/features/wled/README.md,No,Primary entry point
 docs/features/wled/backup-and-restore.md,wled,reference,Active,docs/features/wled/reference/backup-and-restore.md,Yes,Operational backup and restore runbook
