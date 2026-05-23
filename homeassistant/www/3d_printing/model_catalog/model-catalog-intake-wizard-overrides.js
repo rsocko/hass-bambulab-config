@@ -868,10 +868,15 @@ function renderValidationSummary(card) {
               sourcePathForTable = trimIntakeSourcePrefix(normalizedSourcePath);
             }
             var conflictPathForTable = conflictPathDisplay(conflictPath, conflictFilename);
+            var isInventoryMatch = String(check.key || '') === 'duplicate_scan';
+            var leftColumnHeader = isInventoryMatch ? 'Source file (incoming)' : 'Source file';
+            var rightColumnHeader = isInventoryMatch ? 'Inventory match (existing)' : 'Matched file';
             var decisionLabelMap = {
               review: 'Pending: Needs review',
               exclude_source: 'Selected: Exclude source file',
-              allow_duplicate: 'Selected: Keep source and continue',
+              allow_duplicate: isInventoryMatch
+                ? 'Selected: Keep source file (inventory match allowed)'
+                : 'Selected: Keep source and continue',
               keep_both: 'Selected: Keep both files',
               exclude_conflict: 'Selected: Exclude conflicting file',
               exclude_both: 'Selected: Exclude both files',
@@ -905,8 +910,8 @@ function renderValidationSummary(card) {
             }
             var comparisonTableHtml = ''
               + '<div class="validation-match-table">'
-              + '  <div class="validation-match-header">Source file</div>'
-              + '  <div class="validation-match-header">Matched file</div>'
+              + '  <div class="validation-match-header">' + escapeHtml(leftColumnHeader) + '</div>'
+              + '  <div class="validation-match-header">' + escapeHtml(rightColumnHeader) + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
               + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(sourcePathForTable || '(path unavailable)') + '</div>'
