@@ -13,9 +13,9 @@ For each important current field or payload, should the backend migration **pres
 
 Related docs:
 
-- [Backend Migration Plan](backend-migration-plan.md)
-- [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
-- [Backend Integration Design](backend-integration-design.md)
+- [Backend Migration Plan](../planning/backend-migration-plan.md)
+- [Backend Migration Phase 0 Checklist](../planning/backend-phase0-contract-checklist.md)
+- [Backend Integration Design](../design/backend-integration-design.md)
 
 ## Decision Legend
 

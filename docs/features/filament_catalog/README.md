@@ -3,11 +3,11 @@
 See also:
 
 - [ER Diagrams and Spoolman Integration](planning/filament-catalog-er-diagrams.md) — Complete Spoolman REST API contract, HA template sensor schema, field touchpoint matrix, and maintenance checklist
-- [Backend Migration Plan](backend-migration-plan.md)
-- [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
-- [Backend Integration Design](backend-integration-design.md)
-- [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
-- [Backend Consumer Change Map](backend-consumer-change-map.md)
+- [Backend Migration Plan](planning/backend-migration-plan.md)
+- [Backend Migration Phase 0 Checklist](planning/backend-phase0-contract-checklist.md)
+- [Backend Integration Design](design/backend-integration-design.md)
+- [Backend Entity Contract Matrix](reference/backend-entity-contract-matrix.md)
+- [Backend Consumer Change Map](planning/backend-consumer-change-map.md)
 
 > **Status**: Phase 1–4 and 5A complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
 > **Last updated**: 2026-04-05

@@ -23,8 +23,8 @@ This document proposes a phased migration of the **heavy Spoolman-derived projec
 Related design docs:
 
 - [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
-- [Backend Integration Design](backend-integration-design.md)
-- [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
+- [Backend Integration Design](../design/backend-integration-design.md)
+- [Backend Entity Contract Matrix](../reference/backend-entity-contract-matrix.md)
 - [Backend Consumer Change Map](backend-consumer-change-map.md)
 
 ## Executive Decision

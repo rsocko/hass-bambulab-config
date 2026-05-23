@@ -39,7 +39,7 @@ Source:
 Sources:
 - `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup.yaml`
 - `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml`
-- `docs/features/filament_catalog/filament-catalog.md`
+- `docs/features/filament_catalog/README.md`
 
 ### 2.3 Why some popup elements appear live today
 
@@ -446,7 +446,7 @@ Optional later:
 ### 15.6 Documentation updates
 
 - Update: `docs/features/spoolman_sync/popup-reactivity-refactor-design.md` (this file)
-- Update: `docs/features/filament_catalog/filament-catalog.md`
+- Update: `docs/features/filament_catalog/README.md`
 - Update: `docs/features/spoolman_sync/README.md`
 
 ### 15.7 Migration order (file-level)

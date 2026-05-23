@@ -107,7 +107,7 @@ Displays the current print queue:
 
 ## Advanced Design
 
-- [advanced-features-design.md](../print_history/planning/advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
+- [advanced-features-design.md](design/advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
 
 ## Scope Decision After API Review
 

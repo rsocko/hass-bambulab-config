@@ -598,7 +598,7 @@ The filament catalog has a documented plan (Phase 1–3) to move heavy projectio
 ## Related Documentation
 
 - [Filament Catalog README](../README.md) — High-level feature overview
-- [Backend Migration Plan](../backend-migration-plan.md) — Phase 1–3 planned improvements
-- [Backend Phase 0 Checklist](../backend-phase0-contract-checklist.md) — Design contract decisions before migration
-- [Backend Entity Contract Matrix](../backend-entity-contract-matrix.md) — Detailed entity field mapping
-- [Backend Consumer Change Map](../backend-consumer-change-map.md) — Files and logic that will change during migration
+- [Backend Migration Plan](backend-migration-plan.md) — Phase 1–3 planned improvements
+- [Backend Phase 0 Checklist](backend-phase0-contract-checklist.md) — Design contract decisions before migration
+- [Backend Entity Contract Matrix](../reference/backend-entity-contract-matrix.md) — Detailed entity field mapping
+- [Backend Consumer Change Map](backend-consumer-change-map.md) — Files and logic that will change during migration

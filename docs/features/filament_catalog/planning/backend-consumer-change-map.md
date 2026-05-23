@@ -18,8 +18,8 @@ Related docs:
 
 - [Backend Migration Plan](backend-migration-plan.md)
 - [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
-- [Backend Integration Design](backend-integration-design.md)
-- [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
+- [Backend Integration Design](../design/backend-integration-design.md)
+- [Backend Entity Contract Matrix](../reference/backend-entity-contract-matrix.md)
 
 ## Migration Summary
 
