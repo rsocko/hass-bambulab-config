@@ -919,10 +919,12 @@ def _scan_batch_duplicate_warnings(
         filename_key = filename.lower()
         normalized_name = _normalized_duplicate_name(filename)
         normalized_tokens = _normalized_duplicate_name_tokens(filename)
+        has_hash_duplicate = False
 
         if file_hash:
             first_hash_match = seen_hashes.get(file_hash)
             if first_hash_match is not None:
+                has_hash_duplicate = True
                 duplicate_hash_count += 1
                 conflict_filename = str(first_hash_match.get("filename") or "").strip()
                 conflict_path = str(first_hash_match.get("path") or "").strip()
@@ -977,7 +979,7 @@ def _scan_batch_duplicate_warnings(
 
         exact_seen = bool(filename_key and filename_key in seen_exact_names)
         similar_match = _batch_duplicate_name_similarity(filename, seen_normalized_names)
-        if exact_seen:
+        if not has_hash_duplicate and exact_seen:
             duplicate_name_exact_count += 1
             exact_match_meta = seen_exact_primary_names.get(filename_key, {})
             conflict_name = str(exact_match_meta.get("filename") or "").strip() or "earlier file in batch"
@@ -1009,7 +1011,7 @@ def _scan_batch_duplicate_warnings(
                     "conflicts_with": [conflict_item],
                 }
             )
-        elif similar_match is not None:
+        elif not has_hash_duplicate and similar_match is not None:
             match_name, match_score = similar_match
             duplicate_name_soft_count += 1
             soft_match_meta = seen_normalized_primary_names.get(str(match_name or ""), {})
@@ -2412,11 +2414,14 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         filename = str(file_item.get("filename") or Path(str(file_item.get("path") or "")).name).strip()
         relative_path = str(file_item.get("relative_path") or "").strip().replace("\\", "/")
         filename_key = filename.lower()
+        has_hash_duplicate = False
+        has_exact_name_duplicate = False
         if not file_hash:
             pass
         else:
             file_hashes.append(file_hash)
             if file_hash in existing_hashes:
+                has_hash_duplicate = True
                 duplicate_hashes.append(file_hash)
                 validation_state = "duplicate_candidate"
                 hash_conflicts = indexed_hash_contexts.get(file_hash, [])
@@ -2444,7 +2449,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
                 )
 
         exact_name_matches = sorted(indexed_exact_names.get(filename_key, set())) if filename_key else []
-        if exact_name_matches:
+        if not has_hash_duplicate and exact_name_matches:
+            has_exact_name_duplicate = True
             duplicate_name_exact_count += 1
             validation_state = "duplicate_candidate"
             exact_context_matches = indexed_exact_contexts.get(filename_key, []) if filename_key else []
@@ -2472,7 +2478,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             )
 
         normalized_name = _normalized_duplicate_name(filename)
-        if normalized_name:
+        if normalized_name and not has_hash_duplicate and not has_exact_name_duplicate:
             soft_name_matches = [
                 candidate
                 for candidate in sorted(indexed_normalized_names.get(normalized_name, set()))

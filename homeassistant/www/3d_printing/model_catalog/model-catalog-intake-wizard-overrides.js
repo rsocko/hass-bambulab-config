@@ -698,6 +698,48 @@ function renderValidationSummary(card) {
     return '<li><div class="validation-conflict-primary">' + escapeHtml(fallbackText) + '</div></li>';
   }
 
+  function violationSeverityRank(finding) {
+    var code = String(finding && finding.violation_code || '').toLowerCase();
+    if (code.indexOf('hash') >= 0) {
+      return 1;
+    }
+    if (code.indexOf('exact') >= 0) {
+      return 2;
+    }
+    if (code.indexOf('soft') >= 0 || code.indexOf('near') >= 0) {
+      return 3;
+    }
+    return 4;
+  }
+
+  function violationSeverityClass(finding) {
+    var rank = violationSeverityRank(finding);
+    if (rank === 1) {
+      return 'severity-hash';
+    }
+    if (rank === 2) {
+      return 'severity-exact';
+    }
+    if (rank === 3) {
+      return 'severity-soft';
+    }
+    return 'severity-other';
+  }
+
+  function violationSeverityLabel(finding) {
+    var rank = violationSeverityRank(finding);
+    if (rank === 1) {
+      return 'Most exact';
+    }
+    if (rank === 2) {
+      return 'Exact name';
+    }
+    if (rank === 3) {
+      return 'Soft name';
+    }
+    return 'Other';
+  }
+
   if (overrideSummary && Number(overrideSummary.totalFindings || 0) > 0) {
     var unresolvedCount = Number(overrideSummary.pendingFindings || 0);
     var resolvedCount = Number(overrideSummary.resolvedFindings || 0);
@@ -788,10 +830,20 @@ function renderValidationSummary(card) {
           var sourcePathHtml = sourceFolder
             ? '<div class="validation-source-path">Source folder: ' + escapeHtml(sourceFolder) + '</div>'
             : '';
-          var violationsHtml = group.violations.map(function (violationRow, violationIndex) {
+          var sortedViolations = group.violations.slice().sort(function (left, right) {
+            var leftRank = violationSeverityRank(left && left.finding);
+            var rightRank = violationSeverityRank(right && right.finding);
+            if (leftRank !== rightRank) {
+              return leftRank - rightRank;
+            }
+            return String(left && left.finding_key || '').localeCompare(String(right && right.finding_key || ''));
+          });
+          var violationsHtml = sortedViolations.map(function (violationRow, violationIndex) {
             var finding = violationRow.finding || {};
             var findingKey = String(violationRow.finding_key || '');
             var violationLabel = String(finding.violation_label || finding.violation_code || 'Match').trim() || 'Match';
+            var severityClass = violationSeverityClass(finding);
+            var severityLabel = violationSeverityLabel(finding);
             var conflictTargets = Array.isArray(finding.conflicts_with)
               ? finding.conflicts_with.filter(Boolean).slice(0, 5)
               : [];
@@ -818,9 +870,9 @@ function renderValidationSummary(card) {
                 + '</ul>')
               : '<div class="muted">No conflict target metadata available.</div>';
             return ''
-              + '<div class="validation-violation-row">'
+              + '<div class="validation-violation-row ' + severityClass + '">'
               + '  <div class="validation-violation-body">'
-              + '    <div class="validation-violation-label">Violation ' + String(violationIndex + 1) + ': ' + escapeHtml(violationLabel) + '</div>'
+              + '    <div class="validation-violation-label">Violation ' + String(violationIndex + 1) + ': ' + escapeHtml(violationLabel) + ' <span class="validation-severity-chip ' + severityClass + '">' + escapeHtml(severityLabel) + '</span></div>'
               + '    <div class="validation-conflict-title">Conflicts with:</div>'
               + conflictListHtml
               + '  </div>'
@@ -841,7 +893,7 @@ function renderValidationSummary(card) {
           + '</div>';
       }
       return ''
-        + '<article class="entry-row">'
+        + '<article class="entry-row validation-check-row">'
         + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div>' + findingsHtml + '</div><div class="button-row validation-status-chip"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
@@ -2968,13 +3020,22 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-source-path{font-size:12px;line-height:1.3;color:var(--secondary-text-color);margin-top:4px;word-break:break-all;}'
       + '.wizard-dialog .validation-source-violations{display:flex;flex-direction:column;gap:8px;margin-top:8px;}'
       + '.wizard-dialog .validation-violation-row{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:10px;padding:8px;border:1px dashed var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:var(--card-background-color,rgba(15,23,42,0.14));}'
+      + '.wizard-dialog .validation-violation-row.severity-hash{border-color:rgba(248,113,113,0.6);background:rgba(127,29,29,0.16);}'
+      + '.wizard-dialog .validation-violation-row.severity-exact{border-color:rgba(245,158,11,0.55);background:rgba(120,53,15,0.14);}'
+      + '.wizard-dialog .validation-violation-row.severity-soft{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.1);}'
       + '.wizard-dialog .validation-violation-label{font-size:12px;font-weight:700;color:var(--primary-text-color);margin-bottom:4px;}'
+      + '.wizard-dialog .validation-severity-chip{display:inline-flex;align-items:center;margin-left:8px;padding:1px 6px;border-radius:999px;font-size:10px;letter-spacing:.03em;text-transform:uppercase;border:1px solid transparent;vertical-align:middle;}'
+      + '.wizard-dialog .validation-severity-chip.severity-hash{border-color:rgba(248,113,113,0.45);background:rgba(127,29,29,0.22);color:#fecaca;}'
+      + '.wizard-dialog .validation-severity-chip.severity-exact{border-color:rgba(245,158,11,0.45);background:rgba(120,53,15,0.2);color:#fde68a;}'
+      + '.wizard-dialog .validation-severity-chip.severity-soft{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.2);color:#bfdbfe;}'
+      + '.wizard-dialog .validation-severity-chip.severity-other{border-color:rgba(148,163,184,0.4);background:rgba(71,85,105,0.2);color:#e2e8f0;}'
       + '.wizard-dialog .validation-conflict-title{font-size:12px;font-weight:600;color:var(--secondary-text-color);margin-bottom:4px;}'
       + '.wizard-dialog .validation-conflict-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px;}'
       + '.wizard-dialog .validation-conflict-list li{font-size:12px;line-height:1.35;color:var(--primary-text-color);}'
       + '.wizard-dialog .validation-conflict-primary{font-weight:700;color:var(--primary-text-color);}'
       + '.wizard-dialog .validation-conflict-secondary{font-size:12px;line-height:1.3;color:var(--secondary-text-color);word-break:break-all;}'
-      + '.wizard-dialog .validation-status-chip{align-self:flex-start;}'
+      + '.wizard-dialog .validation-check-row .entry-top{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.wizard-dialog .validation-status-chip{align-self:flex-start;justify-self:end;}'
       + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
       + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;}'
       + '.wizard-dialog .validation-action-control label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
