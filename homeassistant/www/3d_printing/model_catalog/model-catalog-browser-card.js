@@ -27,6 +27,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._deferredRenderHandle = null;
     this._modelSidecarUrl = "";
     this._unifiedQueueByModelRef = {};
+    this._unifiedQueueIndexLastFetchedAt = 0;
+    this._unifiedQueueIndexCacheTtlMs = 15000;
     this._frequentsTuning = {
       window_days: 90,
       min_prints: 3,
@@ -929,7 +931,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return current;
   }
 
-  async _refreshUnifiedQueueIndex() {
+  async _refreshUnifiedQueueIndex(options) {
+    var opts = options && typeof options === "object" ? options : {};
+    var force = !!opts.force;
+    var now = Date.now();
+    var ageMs = now - Number(this._unifiedQueueIndexLastFetchedAt || 0);
+    var hasCache = this._unifiedQueueByModelRef && Object.keys(this._unifiedQueueByModelRef).length > 0;
+    if (!force && hasCache && ageMs >= 0 && ageMs < Number(this._unifiedQueueIndexCacheTtlMs || 0)) {
+      return;
+    }
     try {
       var queuePayload = await this._callServiceWithResponse("rest_command", "model_catalog_list_unified_queue_entries", {
         printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
@@ -962,8 +972,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
         byModelRef[modelRef].entries.push(candidate);
       }
       this._unifiedQueueByModelRef = byModelRef;
+      this._unifiedQueueIndexLastFetchedAt = Date.now();
     } catch (_error) {
       this._unifiedQueueByModelRef = {};
+      this._unifiedQueueIndexLastFetchedAt = 0;
     }
   }
 

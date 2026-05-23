@@ -1027,6 +1027,68 @@ def _read_local_asset_kind_counts_bulk(*, db_path: Any) -> dict[str, dict[str, i
     return result
 
 
+def _coerce_field_json_value(raw_value: object) -> object:
+    if isinstance(raw_value, str):
+        try:
+            return json.loads(raw_value)
+        except json.JSONDecodeError:
+            return raw_value
+    return raw_value
+
+
+def _read_model_fields_bulk(
+    *,
+    db_path: Any,
+    model_refs: list[str],
+    field_namespace: str = "model_catalog",
+) -> dict[str, dict[str, object]]:
+    """Return all custom fields for many model refs in a small number of queries."""
+    normalized_refs = []
+    seen_refs: set[str] = set()
+    for model_ref in model_refs:
+        normalized = str(model_ref or "").strip()
+        if not normalized or normalized in seen_refs:
+            continue
+        seen_refs.add(normalized)
+        normalized_refs.append(normalized)
+
+    if not normalized_refs:
+        return {}
+
+    fields_by_ref: dict[str, dict[str, object]] = {}
+    chunk_size = 500
+    try:
+        conn = connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        try:
+            for offset in range(0, len(normalized_refs), chunk_size):
+                chunk = normalized_refs[offset : offset + chunk_size]
+                placeholders = ",".join(["?"] * len(chunk))
+                rows = conn.execute(
+                    f"""
+                    SELECT entity_id, field_key, field_value_json
+                    FROM model_catalog_custom_fields
+                    WHERE entity_type = 'catalog_model'
+                      AND field_namespace = ?
+                      AND entity_id IN ({placeholders})
+                    ORDER BY entity_id ASC, field_key ASC
+                    """,
+                    [field_namespace, *chunk],
+                ).fetchall()
+                for row in rows:
+                    entity_id = str(row["entity_id"])
+                    field_key = str(row["field_key"])
+                    if entity_id not in fields_by_ref:
+                        fields_by_ref[entity_id] = {}
+                    fields_by_ref[entity_id][field_key] = _coerce_field_json_value(row["field_value_json"])
+        finally:
+            conn.close()
+    except Exception:
+        return {}
+
+    return fields_by_ref
+
+
 def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
     ranking = model_payload.get("ranking") or {}
     if sort_by == "priority":
@@ -1161,7 +1223,7 @@ def _serialize_model_summary(
         preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip()
         local_model_id = str(summary.public_id or summary.model_id or "").strip()
         if preview_photo_id and local_model_id:
-            uploaded_rows = _read_uploaded_photo_rows(db_path=settings.db_path, model_ref=local_model_id)
+            uploaded_rows = _normalize_uploaded_photo_rows(custom_fields.get(MODEL_UPLOAD_PHOTOS_FIELD) or [])
             preview_row = next(
                 (row for row in uploaded_rows if str(row.get("id") or "").strip() == preview_photo_id),
                 None,
@@ -2648,6 +2710,15 @@ def search_models(
 
     # Bulk-load local model asset counts (one query, avoids N+1 per model)
     local_asset_kind_counts = _read_local_asset_kind_counts_bulk(db_path=state.settings.db_path)
+    model_refs_for_fields = [
+        str(summary.public_id or summary.model_id or summary.model_url)
+        for summary in summaries
+        if str(summary.public_id or summary.model_id or summary.model_url).strip()
+    ]
+    fields_by_model_ref = _read_model_fields_bulk(
+        db_path=state.settings.db_path,
+        model_refs=model_refs_for_fields,
+    )
 
     # Filter and score models
     candidate_models: list[tuple[float, dict[str, Any]]] = []
@@ -2660,7 +2731,7 @@ def search_models(
             continue
 
         model_ref = summary.public_id or summary.model_id or summary.model_url
-        custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
+        custom_fields = fields_by_model_ref.get(str(model_ref), {})
         if to_print_status and str(custom_fields.get("to_print_status") or "") != str(to_print_status):
             continue
         if not _matches_priority_filters(
