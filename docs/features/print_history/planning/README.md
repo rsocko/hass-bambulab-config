@@ -3,14 +3,14 @@
 This folder groups roadmap and planning-oriented docs that are useful context but are not the primary implementation contracts.
 
 - `advanced-features-design.md` - follow-on print-history roadmap
-- `archive-enrichment.md` - current archive enrichment contract and future refinements
-- `archive-enrichment-metadata-services.md` - service contract for reading and replacing managed enrichment tags and hidden note data
+- `../reference/archive-enrichment-current.md` - current archive enrichment contract and future refinements
+- `../reference/archive-enrichment-metadata-services.md` - service contract for reading and replacing managed enrichment tags and hidden note data
 - `archive-skip-history-bridge.md` - HASS-first plan for skipped-object history, overlay regeneration, and local archive metadata
 - `metadata-implementation-roadmap.md` - metadata/store roadmap
 - `variant3-metadata-schema-and-variant4-carry-forward.md` - schema and carry-forward plan
 - `print-history-er-diagrams.md` - Issue #1122 ER diagrams for the Variant 3 local store and Bambuddy/sidecar touchpoints
-- `layering-guidance.md` - layering guardrails for the browser stack
-- `external-services-design-review-2026-04.md` - external service comparison notes
+- `../reference/layering-guidance.md` - layering guardrails for the browser stack
+- `../design/external-services-review.md` - external service comparison notes
 - `design-doc-review-2026-04-16.md` - doc-review snapshot and recommended updates
 
-Start with `archive-enrichment.md` for the current enrichment contract, `archive-enrichment-metadata-services.md` for the new operator-facing metadata service contract, and `advanced-features-design.md` for the broader roadmap.
+Start with `../reference/archive-enrichment-current.md` for the current enrichment contract, `../reference/archive-enrichment-metadata-services.md` for the new operator-facing metadata service contract, and `advanced-features-design.md` for the broader roadmap.

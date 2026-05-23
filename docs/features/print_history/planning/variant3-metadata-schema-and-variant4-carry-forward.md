@@ -95,7 +95,7 @@ It should not become the place for:
 - per-view display strings
 - volatile analytics blobs
 
-That remains consistent with [layering-guidance.md](layering-guidance.md).
+That remains consistent with [layering-guidance.md](../reference/layering-guidance.md).
 
 ### Add New Metadata In Focused Tables
 

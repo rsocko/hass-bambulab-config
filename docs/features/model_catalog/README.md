@@ -79,8 +79,8 @@ Lane navigation:
 ### Data Model And Working Layer
 
 - [Persistence Strategy and Database Graduation Path](reference/persistence-graduation.md) — SQLite baseline decision, graduation criteria to Postgres, SQLAlchemy ORM migration path (3-4 day effort), and Phase 6+ evaluation checkpoints
-- [ER Diagrams and Sidecar Datamodel](planning/model-catalog-er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
-- [3MF Analysis Cache Schema And API Draft](planning/3mf-analysis-cache-schema-and-api-draft.md) — Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
+- [ER Diagrams and Sidecar Datamodel](planning/er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
+- [3MF Analysis Cache Schema And API Draft](planning/3mf-cache-draft.md) — Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
 - [Manyfold-Bambuddy Linkage Model](design/manyfold-bambuddy-linkage.md) — Data model and ownership split for archive-to-model links
 - [Custom Fields Schema](reference/custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
 - [API Cache And Sync Flow](design/api-cache-sync.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA
@@ -164,4 +164,4 @@ Tracking note:
 - [Print History README](../print_history/README.md)
 - [Historical Print Backfill Via Model Catalog](reference/historical-backfill.md)
 - [Print History Slicer Integration Design](design/print-history-slicer.md)
-- [Print History Backfill Design](design/print-history-backfill-design.md)
+- [Print History Backfill Design](design/print-history-backfill.md)

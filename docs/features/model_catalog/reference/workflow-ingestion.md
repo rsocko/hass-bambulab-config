@@ -305,7 +305,7 @@ Baseline rule:
 - later publish or curated enrichment flows explicitly decide what to promote
 - raw model payload members are not surfaced as user-facing "supporting files"
 
-See [3MF Resource Extraction And Online Provenance Design](../3mf-resource-extraction-and-online-provenance-design.md) for the resource taxonomy and [planning/3mf-analysis-cache-schema-and-api-draft.md](../planning/3mf-analysis-cache-schema-and-api-draft.md) for the concrete sidecar draft.
+See [3MF Resource Extraction And Online Provenance Design](../3mf-resource-extraction-and-online-provenance-design.md) for the resource taxonomy and [planning/3mf-cache-draft.md](../planning/3mf-cache-draft.md) for the concrete sidecar draft.
 
 ## Photo Workflow
 

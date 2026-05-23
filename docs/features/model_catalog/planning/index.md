@@ -23,8 +23,8 @@
 - **[Working-File Indexing And Grouping Feasibility](../working-file-indexing-feasibility.md)** ← Issue #1059
 - **[Working File Inventory And Normalization Spec](../working-file-spec.md)** ← Issue #1074
 - **[Working Files Workflow Redesign](../working-files-workflow-redesign-issue-1169.md)** ← Issue #1169
-- **[Main.py Modularization Low-Risk Plan](../planning/main-py-modularization-low-risk-plan.md)** ← Deterministic decomposition plan for sidecar backend
-- **[Main.py Modularization Issue Map](../planning/main-py-modularization-issue-map.md)** ← Epic + child issue sequence and acceptance gates
+- **[Main.py Modularization Low-Risk Plan](../planning/main-py-modularization.md)** ← Deterministic decomposition plan for sidecar backend
+- **[Main.py Modularization Issue Map](../planning/main-py-modularization-map.md)** ← Epic + child issue sequence and acceptance gates
 - **[Working Files Local Launch And Slicer Integration Design](../working-files-local-launch-and-slicer-integration-design.md)** ← Local file, slicer protocol, companion, and replace-flow design
 - **[Print History Slicer Integration Design](../print-history-slicer-integration-design.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
 - **[Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
@@ -75,7 +75,7 @@
 - **[Phase 3 Design Document](../phase-3-detail-view-design.md)** ← UI/UX specifications
 - **[3MF Embedded Thumbnail Display Design](../3mf-embedded-thumbnail-display-design.md)** ← Automatic `.3mf` thumbnail behavior for cards and popup media
 - **[3MF Source Extraction (Source Tab + Intake)](../3mf-source-extraction-source-tab-and-intake-design.md)** ← Operator-triggered source/provenance extraction from attached `.3mf` files, including mixed-source conflict handling and intake reuse
-- **[Cache Roadmap And Invalidation Design](../planning/cache-roadmap-and-invalidation-design.md)** ← Incremental cache plan (no-Redis first, Redis decision gates)
+- **[Cache Roadmap And Invalidation Design](../planning/cache-roadmap.md)** ← Incremental cache plan (no-Redis first, Redis decision gates)
 - **[Phase 5 Wave 4 HA UI Design](../phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
 - **[Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 - **[Print History Slicer Integration Design](../print-history-slicer-integration-design.md)** ← Model Catalog to Print History source-3MF slicing orchestration

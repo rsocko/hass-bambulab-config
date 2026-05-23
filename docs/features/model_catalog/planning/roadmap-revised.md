@@ -382,7 +382,7 @@ Boundary note:
 
 **Design references**:
 - See [bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md) "Phase 3.5" section for full specification
-- See [planning/3mf-analysis-cache-schema-and-api-draft.md](../planning/3mf-analysis-cache-schema-and-api-draft.md) for the concrete sidecar schema and `/api/3mf-analysis/...` draft
+- See [planning/3mf-cache-draft.md](../planning/3mf-cache-draft.md) for the concrete sidecar schema and `/api/3mf-analysis/...` draft
 
 Deliverables:
 - 3MF analysis service
@@ -477,7 +477,7 @@ Work items:
 
 Boundary note:
 - Phase 6 is still the late-sequence curated enrichment phase in this roadmap.
-- The parser/cache foundation for issue `#173` is tracked earlier under Phase 3.5 and its concrete schema draft lives in [planning/3mf-analysis-cache-schema-and-api-draft.md](../planning/3mf-analysis-cache-schema-and-api-draft.md).
+- The parser/cache foundation for issue `#173` is tracked earlier under Phase 3.5 and its concrete schema draft lives in [planning/3mf-cache-draft.md](../planning/3mf-cache-draft.md).
 
 Deliverables:
 - Curated records can be enriched from HA

@@ -25,7 +25,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | Doc | Package | Purpose |
 |-----|---------|---------|
 | [photo-capture-design.md](../features/print_history/ui-media/photo-capture-design.md) | print_history | Multi-camera, multi-stage capture flow |
-| [archive-enrichment.md](../features/print_history/planning/archive-enrichment.md) | print_history | Spoolman → Bambuddy tag/notes pipeline |
+| [archive-enrichment-current.md](../features/print_history/reference/archive-enrichment-current.md) | print_history | Spoolman → Bambuddy tag/notes pipeline |
 | [photo-review-design.md](../features/print_history/ui-media/photo-review-design.md) | print_history | Post-print photo curation (remove/replace/cover) |
 | [archive-detection-recovery-design.md](../features/print_history/recovery/archive-detection-recovery-design.md) | print_history | Detect incomplete Bambuddy archives and define no-code-change repair options |
 | [archive-mismatch-repair-design.md](../features/print_history/recovery/archive-mismatch-repair-design.md) | print_history | Detect wrong-file archive records and define replacement-based repair options |
@@ -67,7 +67,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
-| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `f:` / `s:` tags, and a hidden `+>` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment.md](../features/print_history/planning/archive-enrichment.md) |
+| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `f:` / `s:` tags, and a hidden `+>` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment-current.md](../features/print_history/reference/archive-enrichment-current.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
 | 21 | Browser paging scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml`, `refresh_print_history_archives.yaml`, `clear_print_history_filters.yaml`, `toggle_print_history_color_filter.yaml` |
 | 22 | Template sensors (modern format) | **Done** | Layer 1 cache (`print_history_archives`), Layer 2 filter metadata (`print_history_filtered`), page label, and current page slice |

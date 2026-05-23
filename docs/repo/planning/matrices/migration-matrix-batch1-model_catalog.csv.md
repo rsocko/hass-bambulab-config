@@ -133,12 +133,12 @@ docs/features/model_catalog/working-files-local-launch-and-slicer-integration-de
 docs/features/model_catalog/working-files-workflow-redesign-issue-1169.md,design,design,Planned,docs/features/model_catalog/design/working-files-workflow.md,Yes,Feature redesign spec
 docs/features/model_catalog/working-groups-and-veneer.md,planning,planning,Active,docs/features/model_catalog/planning/working-groups-veneer.md,Yes,Process documentation
 docs/features/model_catalog/workflow-and-ingestion-guide.md,reference,reference,Active,docs/features/model_catalog/reference/workflow-ingestion.md,Yes,Integration guide
-docs/features/model_catalog/design/catalog-advanced-actions-design.md,design,design,Planned,docs/features/model_catalog/design/catalog-advanced-actions.md,No,Already in design lane
-docs/features/model_catalog/design/catalog-card-design.md,design,design,Planned,docs/features/model_catalog/design/catalog-card.md,No,Already in design lane
-docs/features/model_catalog/design/catalog-popup-design.md,design,design,Planned,docs/features/model_catalog/design/catalog-popup.md,No,Already in design lane
-docs/features/model_catalog/design/landing-page-dashboard-design.md,design,design,Planned,docs/features/model_catalog/design/landing-page.md,No,Already in design lane
-docs/features/model_catalog/design/print-history-backfill-design.md,design,design,Planned,docs/features/model_catalog/design/print-history-backfill.md,No,Already in design lane
-docs/features/model_catalog/design/working-files-card-design.md,design,design,Planned,docs/features/model_catalog/design/working-files-card.md,No,Already in design lane
+docs/features/model_catalog/design/catalog-advanced-actions.md,design,design,Planned,docs/features/model_catalog/design/catalog-advanced-actions.md,No,Already in design lane
+docs/features/model_catalog/design/catalog-card.md,design,design,Planned,docs/features/model_catalog/design/catalog-card.md,No,Already in design lane
+docs/features/model_catalog/design/catalog-popup.md,design,design,Planned,docs/features/model_catalog/design/catalog-popup.md,No,Already in design lane
+docs/features/model_catalog/design/landing-page.md,design,design,Planned,docs/features/model_catalog/design/landing-page.md,No,Already in design lane
+docs/features/model_catalog/design/print-history-backfill.md,design,design,Planned,docs/features/model_catalog/design/print-history-backfill.md,No,Already in design lane
+docs/features/model_catalog/design/working-files-card.md,design,design,Planned,docs/features/model_catalog/design/working-files-card.md,No,Already in design lane
 docs/features/model_catalog/integration/archive-model-link-ha-service-and-popup-contract.md,reference,reference,Active,docs/features/model_catalog/reference/archive-model-link-contract.md,Yes,Integration contract
 docs/features/model_catalog/integration/archive-to-library-linkage.md,reference,reference,Active,docs/features/model_catalog/reference/archive-library-linkage.md,Yes,Integration specification
 docs/features/model_catalog/integration/github-work-items-v2-upload-and-streamdeck.md,reference,reference,Active,docs/features/model_catalog/reference/github-streamdeck.md,Yes,Integration specification
@@ -155,8 +155,8 @@ docs/features/model_catalog/integration/spike-1060-archive-ranking-signals-valid
 docs/features/model_catalog/integration/spike-1061-sidecar-deployment-validation.md,planning,planning,Active,docs/features/model_catalog/planning/spike-1061-sidecar.md,Yes,Research spike work
 docs/features/model_catalog/integration/streamdeck-upload-functionality-design.md,design,design,Planned,docs/features/model_catalog/design/streamdeck-upload.md,Yes,Feature design spec
 docs/features/model_catalog/planning/README.md,planning,planning,Active,docs/features/model_catalog/planning/README.md,No,Planning lane navigation
-docs/features/model_catalog/planning/3mf-analysis-cache-schema-and-api-draft.md,planning,planning,Planned,docs/features/model_catalog/planning/3mf-cache-draft.md,No,Already in planning lane
-docs/features/model_catalog/planning/cache-roadmap-and-invalidation-design.md,planning,planning,Active,docs/features/model_catalog/planning/cache-roadmap.md,No,Already in planning lane
-docs/features/model_catalog/planning/main-py-modularization-issue-map.md,planning,planning,Planned,docs/features/model_catalog/planning/main-py-modularization-map.md,No,Already in planning lane
-docs/features/model_catalog/planning/main-py-modularization-low-risk-plan.md,planning,planning,Active,docs/features/model_catalog/planning/main-py-modularization.md,No,Already in planning lane
-docs/features/model_catalog/planning/model-catalog-er-diagrams.md,planning,planning,Active,docs/features/model_catalog/planning/er-diagrams.md,No,Already in planning lane
+docs/features/model_catalog/planning/3mf-cache-draft.md,planning,planning,Planned,docs/features/model_catalog/planning/3mf-cache-draft.md,No,Already in planning lane
+docs/features/model_catalog/planning/cache-roadmap.md,planning,planning,Active,docs/features/model_catalog/planning/cache-roadmap.md,No,Already in planning lane
+docs/features/model_catalog/planning/main-py-modularization-map.md,planning,planning,Planned,docs/features/model_catalog/planning/main-py-modularization-map.md,No,Already in planning lane
+docs/features/model_catalog/planning/main-py-modularization.md,planning,planning,Active,docs/features/model_catalog/planning/main-py-modularization.md,No,Already in planning lane
+docs/features/model_catalog/planning/er-diagrams.md,planning,planning,Active,docs/features/model_catalog/planning/er-diagrams.md,No,Already in planning lane

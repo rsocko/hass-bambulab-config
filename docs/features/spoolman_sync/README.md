@@ -15,7 +15,7 @@ This is a collection of Home Assistant automations & scripts I have configured t
 
 ## Architecture Documentation
 
-- [Entity Relationship Diagram](entity-relationship-diagram.md) - Runtime entities, recovery contracts, and write boundaries
+- [Entity Relationship Diagram](reference/entity-relationship-diagram.md) - Runtime entities, recovery contracts, and write boundaries
 
 ## Scenarios / Use Cases:
 ### 1. Update filament usage in Spoolman
@@ -24,7 +24,7 @@ Spool selection now comes from `sensor.spoolman_tray_map` (authoritative shared
 matcher).
 The automation resolves the final response via `script.resolve_matching_spool_from_tray_map`.
 
-[Automation Details](print-complete-update-filament-usage.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
+[Automation Details](reference/print-complete-update-filament-usage.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
@@ -32,7 +32,7 @@ Any time a spool is active in Bambu Lab integration (while printing), it will up
 This automation also uses `sensor.spoolman_tray_map` as the shared spool matcher.
 The automation resolves matches via `script.resolve_matching_spool_from_tray_map`.
 
-[Automation Details](active-tray-changed-update-spoolman.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
+[Automation Details](reference/active-tray-changed-update-automation.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
 
 ### 3. Refresh Spoolman integration daily
 I noticed when first starting to use the Spoolman integration that it got out of sync and the Home Assistant entities were sometimes inaccurate (specifically the location was wrong and/or orphaned entities existed). 
@@ -45,10 +45,10 @@ This script simply forced a reload of the integration on a nightly basis.
 When the spoolman sync automation fails (e.g., spool not found), the system stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
 
 **📚 Documentation:**
-- [Installation Guide](installation-guide.md) - Step-by-step setup instructions
-- [Quick Reference](quick-reference.md) - At-a-glance command reference
-- [Full Documentation](persistent-error-logging.md) - Complete system details
-- [Error Flow Diagram](error-logging-flow.md) - Visual flow and scenarios
+- [Installation Guide](reference/persistent-error-logging-installation.md) - Step-by-step setup instructions
+- [Quick Reference](reference/error-logging-quick-reference.md) - At-a-glance command reference
+- [Full Documentation](reference/persistent-error-logging.md) - Complete system details
+- [Error Flow Diagram](design/error-logging-flow.md) - Visual flow and scenarios
 
 **📄 Files:**
 - [Input Helpers Configuration](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
@@ -116,8 +116,8 @@ state, this repository also includes deterministic fixture unit tests.
 Spool matching design documentation is intentionally split so each feature can
 be built and deployed independently:
 
-- [Multi-Color Spool Matching Design](multicolor-spool-matching-design.md) - automatic multi-color matching rules and fallback tiers only
-- [Manual Spool Matching Design](manual-spool-matching-design.md) - implemented tray pin/unpin helpers, precedence, UI behavior, and auto-clear policy
+- [Multi-Color Spool Matching Design](design/multicolor-spool-matching.md) - automatic multi-color matching rules and fallback tiers only
+- [Manual Spool Matching Design](design/manual-spool-matching.md) - implemented tray pin/unpin helpers, precedence, UI behavior, and auto-clear policy
 
 This separation supports independent implementation sequencing and release
 planning for automatic multi-color matching vs manual override workflows.
@@ -168,9 +168,9 @@ transient tracking is not expected to be populated in production today.
 
 Plan-only implementation documentation:
 
-- [Bambuddy Partial-Usage Hybrid Implementation Plan](bambuddy-partial-usage-implementation-plan.md)
-- [Bambuddy Partial-Usage Contracts and Decision Tables](bambuddy-partial-usage-contracts.md)
-- [Bambuddy Partial-Usage Rollout and Validation Runbook](bambuddy-partial-usage-rollout-validation.md)
+- [Bambuddy Partial-Usage Hybrid Implementation Plan](planning/bambuddy-partial-usage-implementation-plan.md)
+- [Bambuddy Partial-Usage Contracts and Decision Tables](reference/bambuddy-partial-usage-contracts.md)
+- [Bambuddy Partial-Usage Rollout and Validation Runbook](planning/bambuddy-partial-usage-rollout-runbook.md)
 
 Current repository implementation status:
 
@@ -208,7 +208,7 @@ The design is split into two phases:
 - Phase 2: a fuller scan, review, and apply workflow with replay protection and
   candidate management
 
-- [Missed Successful-Print Recovery Design](missed-print-recovery-design.md)
+- [Missed Successful-Print Recovery Design](design/missed-print-recovery.md)
 
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
@@ -239,18 +239,18 @@ re-enable it by adding `external_spool_2` in these files:
 
 ### Spoolman Configuration Required
 
-- Custom Fields added to Spoolman — see [detailed instructions](spoolman-custom-fields.md)
+- Custom Fields added to Spoolman — see [detailed instructions](reference/spoolman-custom-fields.md)
 - One location in Spoolman called `AMS` (used as a tiebreaker when multiple candidates match)
 - REST endpoint sensor configured for Spoolman API — required for legacy matcher and self-test comparison script
 
 ### Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
-- Custom Fields added to Spoolman as follows: ([detailed instructions](spoolman-custom-fields.md))
+- Custom Fields added to Spoolman as follows: ([detailed instructions](reference/spoolman-custom-fields.md))
 - One location in Spoolman called 'AMS' (used as a tiebreaker when multiple matches exist).
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
-- REST endpoint sensor for Spoolman configured (for legacy comparison script and diagnostics) ([detailed instructions](sensor-rest-spoolman-api-get-spools.md))
+- REST endpoint sensor for Spoolman configured (for legacy comparison script and diagnostics) ([detailed instructions](reference/sensor-rest-spoolman-api-get-spools.md))
 - Input helpers configured for error logging ([configuration file](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)) - Add this to your Home Assistant configuration
 
 ## Helper YAML Files & Configuration

@@ -205,7 +205,7 @@ Capture file-derived metadata at print start when a `.3mf` or related artifact i
 ### Existing doc alignment
 
 - archive recovery and historical backfill docs under `docs/features/print_history/`
-- `archive-enrichment.md`
+- `../reference/archive-enrichment-current.md`
 
 ### Current implementation status
 

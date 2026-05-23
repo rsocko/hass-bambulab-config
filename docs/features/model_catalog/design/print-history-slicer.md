@@ -7,7 +7,7 @@
 See also:
 
 - [Historical Print Backfill Via Model Catalog](../historical-print-backfill-via-model-catalog.md)
-- [3MF Analysis Cache Schema And API Draft](../planning/3mf-analysis-cache-schema-and-api-draft.md)
+- [3MF Analysis Cache Schema And API Draft](../planning/3mf-cache-draft.md)
 - [Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)
 - [Source 3MF Import Design](../print_history/imports/source-3mf-import-design.md)
 - [Filament Catalog - Design Document](../filament_catalog/filament-catalog.md)

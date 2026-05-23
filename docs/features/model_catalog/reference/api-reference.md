@@ -239,7 +239,7 @@ They are documented here because the Phase 3.5 `.3mf` parser/cache design now ha
 
 Source draft:
 
-- [planning/3mf-analysis-cache-schema-and-api-draft.md](../planning/3mf-analysis-cache-schema-and-api-draft.md)
+- [planning/3mf-cache-draft.md](../planning/3mf-cache-draft.md)
 
 ### 3MF Analysis
 

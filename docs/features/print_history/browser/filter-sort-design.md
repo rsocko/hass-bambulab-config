@@ -102,7 +102,7 @@ Current recommendation:
 
 This is intentionally different from the color filter because textual filters benefit from search more than constant visibility.
 
-The follow-on evaluation for designer, project, material, printer, status, and other filters is documented in [multi-select-filter-design.md](multi-select-filter-design.md).
+The follow-on evaluation for designer, project, material, printer, status, and other filters is documented in [../design/multi-select-filter.md](../design/multi-select-filter.md).
 
 ## Reading This Document Today
 
