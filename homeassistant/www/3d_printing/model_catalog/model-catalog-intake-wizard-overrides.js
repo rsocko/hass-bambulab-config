@@ -1105,31 +1105,21 @@ function renderValidationSummary(card) {
                 + '  </select>'
                 + '</div>';
             }
-            var compareDetailsRows = [
+            var sourceScope = String(finding.scope || 'batch');
+            var targetScope = String(primaryConflict && primaryConflict.scope || 'unknown');
+            var fullWidthDetails = [
               { key: 'Check', value: String(check.key || 'duplicate_scan') },
               { key: 'Match type', value: violationLabel },
-              { key: 'Source scope', value: String(finding.scope || 'batch') },
-              { key: 'Target scope', value: String(primaryConflict && primaryConflict.scope || 'unknown') },
             ];
             if (finding.sha256) {
-              compareDetailsRows.push({ key: 'SHA256', value: String(finding.sha256) });
+              fullWidthDetails.push({ key: 'SHA256', value: String(finding.sha256) });
             }
             if (finding.normalized_name) {
-              compareDetailsRows.push({ key: 'Normalized name', value: String(finding.normalized_name) });
+              fullWidthDetails.push({ key: 'Normalized name', value: String(finding.normalized_name) });
             }
             if (typeof finding.match_score === 'number') {
-              compareDetailsRows.push({ key: 'Match score', value: String(finding.match_score) });
+              fullWidthDetails.push({ key: 'Match score', value: String(finding.match_score) });
             }
-            var detailsTableHtml = ''
-              + '<div class="validation-more-info' + (isMoreInfoExpanded ? ' open' : '') + '">'
-              + '  <div class="validation-more-info-grid">'
-              + compareDetailsRows.map(function (row) {
-                return ''
-                  + '<div class="validation-more-info-key">' + escapeHtml(row.key) + '</div>'
-                  + '<div class="validation-more-info-value">' + escapeHtml(row.value || '') + '</div>';
-              }).join('')
-              + '  </div>'
-              + '</div>';
             var comparisonTableHtml = ''
               + '<div class="validation-match-table">'
               + '  <div class="validation-match-header">' + escapeHtml(leftColumnHeader) + '</div>'
@@ -1139,7 +1129,8 @@ function renderValidationSummary(card) {
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
               + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(sourcePreviewUrl, (findingFilename || 'Source') + ' preview', findingKey, 'source') + '</div>'
-              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match') + '</div>';
+              + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(conflictPreviewUrl, (conflictFilename || 'Match') + ' preview', findingKey, 'match') + '</div>'
+              + '  <div class="validation-match-toggle"><button type="button" class="link-button" data-action="validation-toggle-more-info" data-finding-key="' + escapeHtml(findingKey) + '">' + (isMoreInfoExpanded ? 'Hide more info' : 'Show more info') + '</button></div>';
             if (isMoreInfoExpanded) {
               var _fmtBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return n != null ? String(n) + ' B' : ''; };
               var _fmtDate = function (v) {
@@ -1160,6 +1151,12 @@ function renderValidationSummary(card) {
                   + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Modified:</span> ' + escapeHtml(srcMtime ? _fmtDate(srcMtime) : '\u2014') + '</div>'
                   + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Modified:</span> ' + escapeHtml(matchMtime ? _fmtDate(matchMtime) : '\u2014') + '</div>';
               }
+              comparisonTableHtml += ''
+                + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Source scope:</span> ' + escapeHtml(sourceScope) + '</div>'
+                + '  <div class="validation-match-cell validation-match-meta"><span class="muted">Match scope:</span> ' + escapeHtml(targetScope) + '</div>';
+              comparisonTableHtml += fullWidthDetails.map(function (row) {
+                return '<div class="validation-match-detail-row"><span class="validation-match-detail-key">' + escapeHtml(row.key) + '</span> ' + escapeHtml(row.value || '') + '</div>';
+              }).join('');
             }
             comparisonTableHtml += '</div>';
             return ''
@@ -1170,8 +1167,6 @@ function renderValidationSummary(card) {
               + '  </div>'
               + '  <div class="validation-violation-body">'
               + '    ' + comparisonTableHtml
-              + '    <div class="validation-more-info-row"><button type="button" class="link-button" data-action="validation-toggle-more-info" data-finding-key="' + escapeHtml(findingKey) + '">' + (isMoreInfoExpanded ? 'Hide more info' : 'More info') + '</button></div>'
-              + detailsTableHtml
               + '  </div>'
               + '</div>';
           }).join('');
@@ -1194,6 +1189,142 @@ function renderValidationSummary(card) {
     }).join('') + '</div>'
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '')
     + renderValidationImageLightbox(card);
+}
+
+// Issue #1311: Cleanup Impact Preview for the Commit step's left pane.
+// Shows categorized file lists based on the selected cleanup policy so the user
+// knows exactly which files will be deleted, stubbed, or left untouched.
+function renderCleanupImpactPreview(card) {
+  var policy = typeof card._cleanupPolicy === 'function' ? card._cleanupPolicy() : 'keep';
+  var isBrowser = card._wizardMode === 'browser';
+  var effectivePolicy = isBrowser ? 'delete_on_verified' : policy;
+  var preview = card._previewData;
+  if (!preview || !Array.isArray(preview.planned_models) || !preview.planned_models.length) {
+    return '';
+  }
+
+  // Collect all planned source file paths (these are subject to cleanup).
+  var plannedPaths = [];
+  preview.planned_models.forEach(function (model) {
+    (model.files || []).forEach(function (file) {
+      var p = String(file.path || '').replace(/\\/g, '/');
+      if (p) { plannedPaths.push(p); }
+    });
+  });
+
+  // Collect excluded items (these remain untouched regardless of policy).
+  var excludedItems = Array.isArray(card._excludedItems) ? card._excludedItems : [];
+  var excludedDisplay = excludedItems.map(function (p) {
+    return String(p || '').replace(/\\/g, '/');
+  }).filter(Boolean);
+
+  // Collect warning paths (unsupported files, etc.) — these also remain untouched.
+  var warningPaths = [];
+  var warnings = preview.warnings || (card._validationData && card._validationData.warnings) || [];
+  if (Array.isArray(warnings)) {
+    warnings.forEach(function (w) {
+      if (w && w.path) {
+        var wp = String(w.path).replace(/\\/g, '/');
+        if (wp && plannedPaths.indexOf(wp) === -1) { warningPaths.push(wp); }
+      }
+    });
+  }
+
+  var untouchedPaths = excludedDisplay.concat(warningPaths);
+
+  // For "keep" policy, everything is untouched.
+  if (effectivePolicy === 'keep') {
+    return ''
+      + '<div class="cleanup-impact-block">'
+      + '  <div class="cleanup-impact-title">Cleanup Impact</div>'
+      + '  <div class="cleanup-impact-info">All <strong>' + String(plannedPaths.length) + '</strong> source file' + (plannedPaths.length !== 1 ? 's' : '') + ' will remain in their original location after publish.</div>'
+      + (untouchedPaths.length
+        ? '  <div class="cleanup-impact-info muted">' + String(untouchedPaths.length) + ' excluded/unsupported file' + (untouchedPaths.length !== 1 ? 's' : '') + ' also remain untouched.</div>'
+        : '')
+      + '</div>';
+  }
+
+  // Build the action label.
+  var actionLabel = effectivePolicy === 'delete_on_verified' ? 'Deleted after success' : 'Replaced with stub marker';
+  var actionIcon = effectivePolicy === 'delete_on_verified' ? '&#128465;' : '&#128196;';
+
+  // Build a simple flat file list for the "affected" category.
+  var affectedListHtml = plannedPaths.map(function (p) {
+    var parts = p.split('/');
+    var name = parts[parts.length - 1] || p;
+    return '<div class="cleanup-impact-file"><span class="cleanup-impact-icon">' + actionIcon + '</span>' + escapeHtml(name) + '</div>';
+  }).join('');
+
+  // Build the "untouched" list.
+  var untouchedListHtml = untouchedPaths.map(function (p) {
+    var parts = String(p).split('/');
+    var name = parts[parts.length - 1] || p;
+    return '<div class="cleanup-impact-file untouched"><span class="cleanup-impact-icon">&#128274;</span>' + escapeHtml(name) + '</div>';
+  }).join('');
+
+  // Stub example block (only for replace_with_stub).
+  var stubExampleHtml = '';
+  if (effectivePolicy === 'replace_with_stub') {
+    stubExampleHtml = ''
+      + '<div class="cleanup-impact-stub-example file-tree-block">'
+      + '  <div class="cleanup-impact-toggle" data-tree-action="toggle-root">'
+      + '    <span class="file-tree-arrow">&#9654;</span>'
+      + '    <span style="cursor:pointer;font-size:12px;">What does a stub file look like?</span>'
+      + '  </div>'
+      + '  <div class="file-tree-root" style="display:none;">'
+      + '    <div class="cleanup-impact-stub-content">'
+      + '      <code>[MODEL_CATALOG_UPLOAD_STUB_V1]<br>'
+      + '      upload_id=&lt;batch-id&gt;<br>'
+      + '      source_path=&lt;original/path/file.3mf&gt;<br>'
+      + '      local_model_id=&lt;model-slug--id&gt;<br>'
+      + '      status=source_replaced_after_verified_publish</code>'
+      + '    </div>'
+      + '    <div class="muted" style="margin-top:4px;font-size:11px;">'
+      + '      Each original file is replaced with a <code>.stub.txt</code> sibling containing this metadata, so you can trace where the file was published.'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  // Folder cleanup note (only for delete_on_verified).
+  var folderNote = '';
+  if (effectivePolicy === 'delete_on_verified') {
+    folderNote = '<div class="cleanup-impact-info muted" style="margin-top:6px;">'
+      + 'Parent folders that become empty after deletion are also removed automatically. '
+      + 'Folders containing excluded or unsupported files will <strong>not</strong> be removed.'
+      + '</div>';
+  }
+
+  return ''
+    + '<div class="cleanup-impact-block">'
+    + '  <div class="cleanup-impact-title">Cleanup Impact</div>'
+    + '  <div class="cleanup-impact-section file-tree-block">'
+    + '    <div class="cleanup-impact-section-header">'
+    + '      <span class="chip ' + (effectivePolicy === 'delete_on_verified' ? 'warn' : '') + '">' + actionLabel + '</span>'
+    + '      <span class="muted">' + String(plannedPaths.length) + ' file' + (plannedPaths.length !== 1 ? 's' : '') + '</span>'
+    + '    </div>'
+    + '    <div class="cleanup-impact-toggle" data-tree-action="toggle-root">'
+    + '      <span class="file-tree-arrow">&#9654;</span>'
+    + '      <span class="entry-path" style="cursor:pointer;font-size:12px;">Show files</span>'
+    + '    </div>'
+    + '    <div class="file-tree-root" style="display:none;">' + affectedListHtml + '</div>'
+    + '  </div>'
+    + (untouchedPaths.length
+      ? '  <div class="cleanup-impact-section file-tree-block">'
+        + '    <div class="cleanup-impact-section-header">'
+        + '      <span class="chip ok">Left untouched</span>'
+        + '      <span class="muted">' + String(untouchedPaths.length) + ' file' + (untouchedPaths.length !== 1 ? 's' : '') + '</span>'
+        + '    </div>'
+        + '    <div class="cleanup-impact-toggle" data-tree-action="toggle-root">'
+        + '      <span class="file-tree-arrow">&#9654;</span>'
+        + '      <span class="entry-path" style="cursor:pointer;font-size:12px;">Show files</span>'
+        + '    </div>'
+        + '    <div class="file-tree-root" style="display:none;">' + untouchedListHtml + '</div>'
+        + '  </div>'
+      : '')
+    + folderNote
+    + stubExampleHtml
+    + '</div>';
 }
 
 // Issue #1307: compact roll-up of validation checks for the Commit step's left pane.
@@ -3370,13 +3501,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-thumb-hover.visible{opacity:1;transform:translateY(0);}'
       + '.wizard-dialog .validation-thumb-hover-image{width:100%;height:100%;object-fit:contain;display:block;border-radius:6px;}'
       + '.wizard-dialog .validation-thumb-missing{font-size:11px;color:var(--secondary-text-color);}'
-      + '.wizard-dialog .validation-more-info-row{margin-top:8px;display:flex;justify-content:flex-start;}'
-      + '.wizard-dialog .validation-more-info{display:none;margin-top:8px;border:1px solid var(--divider-color,rgba(148,163,184,0.26));border-radius:8px;background:rgba(15,23,42,0.2);}'
-      + '.wizard-dialog .validation-more-info.open{display:block;}'
-      + '.wizard-dialog .validation-more-info-grid{display:grid;grid-template-columns:120px minmax(0,1fr);gap:0;}'
-      + '.wizard-dialog .validation-more-info-key,.wizard-dialog .validation-more-info-value{padding:6px 8px;border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));font-size:11px;line-height:1.35;overflow-wrap:anywhere;word-break:break-word;}'
-      + '.wizard-dialog .validation-more-info-key{color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
-      + '.wizard-dialog .validation-more-info-value{color:var(--primary-text-color);}'
+      + '.wizard-dialog .validation-match-toggle{grid-column:1/-1;padding:6px 8px;border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
+      + '.wizard-dialog .validation-match-detail-row{grid-column:1/-1;padding:6px 8px;border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));font-size:11px;line-height:1.35;color:var(--primary-text-color);overflow-wrap:anywhere;word-break:break-word;}'
+      + '.wizard-dialog .validation-match-detail-key{color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;margin-right:8px;}'
       + '.wizard-dialog .validation-lightbox{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;}'
       + '.wizard-dialog .validation-lightbox-backdrop{position:absolute;inset:0;background:rgba(2,6,23,0.78);}'
       + '.wizard-dialog .validation-lightbox-dialog{position:relative;max-width:min(90vw,920px);max-height:88vh;width:100%;padding:12px;border-radius:12px;border:1px solid var(--divider-color,rgba(148,163,184,0.35));background:rgba(15,23,42,0.98);display:flex;flex-direction:column;gap:10px;}'
@@ -3398,6 +3525,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-commit-policy-chip{flex:0 0 auto;display:flex;align-items:baseline;gap:10px;padding:10px 14px;border-radius:12px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.12);margin-bottom:10px;}'
       + '.wizard-commit-policy-chip .muted{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.wizard-commit-policy-chip strong{font-size:14px;color:var(--primary-text-color);}'
+      + '.cleanup-impact-block{padding:12px;border-radius:14px;border:1px solid var(--divider-color,rgba(148,163,184,0.25));background:rgba(30,41,59,0.45);}'
+      + '.cleanup-impact-title{font-weight:700;font-size:13px;color:var(--primary-text-color);margin-bottom:8px;}'
+      + '.cleanup-impact-info{font-size:12px;line-height:1.5;color:var(--secondary-text-color);}'
+      + '.cleanup-impact-section{margin-top:8px;padding:8px 0;border-top:1px solid var(--divider-color,rgba(148,163,184,0.15));}'
+      + '.cleanup-impact-section-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;}'
+      + '.cleanup-impact-toggle{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;}'
+      + '.cleanup-impact-file{display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;color:var(--primary-text-color);}'
+      + '.cleanup-impact-file.untouched{color:var(--secondary-text-color);}'
+      + '.cleanup-impact-icon{font-size:13px;flex:0 0 auto;width:18px;text-align:center;}'
+      + '.cleanup-impact-stub-example{margin-top:10px;padding-top:8px;border-top:1px solid var(--divider-color,rgba(148,163,184,0.15));}'
+      + '.cleanup-impact-stub-content{padding:8px 10px;border-radius:8px;background:rgba(15,23,42,0.6);font-size:11px;line-height:1.6;color:var(--secondary-text-color);overflow-x:auto;}'
+      + '.cleanup-impact-stub-content code{font-family:monospace;font-size:11px;white-space:pre-wrap;color:var(--secondary-text-color);}'
       + '@media (max-width: 860px){.wizard-dialog{height:auto;max-height:94vh;}}'
       + '</style>';
     return overrideStyles + baseHtml;
@@ -3926,10 +4065,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         : '<div class="wizard-cleanup-policy-block">'
           + '<div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
           + '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (cleanupPolicyValue === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (cleanupPolicyValue === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (cleanupPolicyValue === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>'
-          + '<div class="muted">Applied to the staged source files after the publish completes.</div>'
           + '</div>'
           + '</div>')
       + '  </div>'
+      + '  <div class="wizard-panel-scroll">' + renderCleanupImpactPreview(this) + '</div>'
       + (isPublishing ? publishingBadge : '')
       + '</div>'
       + '<div class="wizard-panel">'
