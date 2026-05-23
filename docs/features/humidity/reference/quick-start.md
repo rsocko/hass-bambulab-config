@@ -134,7 +134,7 @@ Add before the AMS cards:
 
 ## Need More?
 
-See [README.md](README.md) for:
+See [README.md](../README.md) for:
 - Complete documentation
 - Advanced features
 - Automation examples
@@ -142,7 +142,7 @@ See [README.md](README.md) for:
 
 ## Quick Links
 
-- [Full Card Configuration](implementation-summary.md)
-- [Visual Guide](visual-guide.md)
+- [Full Card Configuration](../archive/implementation-summary.md)
+- [Visual Guide](../design/visual-guide.md)
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)
 

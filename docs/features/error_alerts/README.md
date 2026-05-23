@@ -43,10 +43,10 @@ Unified error detection, display, and alerting for Bambu Lab printers. Aggregate
 
 | File | Description |
 |------|-------------|
-| [error-alerts-unified-design.md](error-alerts-unified-design.md) | **Unified design:** Consolidates HMS + print errors into one "Error Alerts" system — phased implementation plan |
-| [hms-error-alert-implementation.md](hms-error-alert-implementation.md) | Technical implementation: architecture, card structure, template syntax, styling |
-| [hms-error-ui-mockup.md](hms-error-ui-mockup.md) | Visual mockup: layout diagrams, color scheme, responsive behavior |
-| [hms-error-testing-guide.md](hms-error-testing-guide.md) | Testing guide: prerequisites, test scenarios, troubleshooting |
+| [error-alerts-unified-design.md](design/error-alerts-unified-design.md) | **Unified design:** Consolidates HMS + print errors into one "Error Alerts" system — phased implementation plan |
+| [hms-error-alert-implementation.md](reference/hms-error-alert-implementation.md) | Technical implementation: architecture, card structure, template syntax, styling |
+| [hms-error-ui-mockup.md](design/hms-error-ui-mockup.md) | Visual mockup: layout diagrams, color scheme, responsive behavior |
+| [hms-error-testing-guide.md](reference/hms-error-testing-guide.md) | Testing guide: prerequisites, test scenarios, troubleshooting |
 
 ## Dependencies & Requirements
 

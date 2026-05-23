@@ -38,11 +38,11 @@ Alignment rule:
 | C2 (complete) | printer_led | High | docs/features/printer_led | Separate runbook/design/history docs | A |
 | C2 (complete) | logging | Medium | docs/features/logging | Keep integrations subtree, lane classify | A |
 | C3 (complete) | filament_catalog | Medium | docs/features/filament_catalog | Formalize planning/design/reference boundaries | A |
-| C3 | printer_dashboards | Medium | docs/features/printer_dashboards | Consolidate active references, archive stale docs | A |
-| C3 | printer_temps | Medium | docs/features/printer_temps | Archive version snapshots, preserve active references | A |
-| C3 | printer_controls | Medium | docs/features/printer_controls | Lane assignment and README reduction | A |
-| C3 | error_alerts | Medium | docs/features/error_alerts | Lane assignment and historical cleanup | A |
-| C3 | humidity | Medium | docs/features/humidity | Lane assignment and README reduction | A |
+| C3 (complete) | printer_dashboards | Medium | docs/features/printer_dashboards | Consolidate active references, archive stale docs | A |
+| C3 (complete) | printer_temps | Medium | docs/features/printer_temps | Archive version snapshots, preserve active references | A |
+| C3 (complete) | printer_controls | Medium | docs/features/printer_controls | Lane assignment and README reduction | A |
+| C3 (complete) | error_alerts | Medium | docs/features/error_alerts | Lane assignment and historical cleanup | A |
+| C3 (complete) | humidity | Medium | docs/features/humidity | Lane assignment and README reduction | A |
 | C3 (complete) | print_queue | Medium | docs/features/print_queue | Move mockups to design, retain current reference docs | A |
 | C4 | Small/stub feature group | Low-Med | print_progress, print_statistics, print_weight_and_cost, bambuddy_common, bambuddy_integration, core, common, api, notifications, filament_tag, power_monitoring, model_intake, openhasp_display, printer_maintenance | Minimal lane normalization and stub triage | A |
 | D | repo shared docs | Medium | docs/repo | Split into reference/design/planning/archive and relocate feature-owned docs | A |
@@ -95,6 +95,11 @@ Post-cleanup interpretation note (2026-05-23):
 |---|---:|---|
 | filament_catalog | 10 | docs/repo/planning/matrices/migration-matrix-batch3-filament_catalog.csv.md |
 | print_queue | 2 | docs/repo/planning/matrices/migration-matrix-batch3-print_queue.csv.md |
+| humidity | 4 | docs/repo/planning/matrices/migration-matrix-batch3-humidity.csv.md |
+| error_alerts | 5 | docs/repo/planning/matrices/migration-matrix-batch3-error_alerts.csv.md |
+| printer_dashboards | 9 | docs/repo/planning/matrices/migration-matrix-batch3-printer_dashboards.csv.md |
+| printer_temps | 8 | docs/repo/planning/matrices/migration-matrix-batch3-printer_temps.csv.md |
+| printer_controls | 6 | docs/repo/planning/matrices/migration-matrix-batch3-printer_controls.csv.md |
 
 ## Batch Execution Rules
 1. Execute one owner area per PR where practical.

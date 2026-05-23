@@ -28,11 +28,11 @@ Dashboard controls for printer operations: fan speed, print job actions, skip ob
 
 | File | Description |
 |------|-------------|
-| [fan-controls.md](fan-controls.md) | Fan control dashboard cards: auxiliary, chamber, cooling, bento box |
-| [fan-controls-visual.md](fan-controls-visual.md) | Visual guide: card layouts, icon states, responsive design |
-| [skip-objects.md](skip-objects.md) | Skip objects feature: Bambu Lab entities, service API, implementation |
-| [skip-objects-integration-options.md](skip-objects-integration-options.md) | Integration strategies for skip objects UI |
-| [printer-status-card-features.md](printer-status-card-features.md) | Print status card research and replication guide |
+| [fan-controls.md](reference/fan-controls.md) | Fan control dashboard cards: auxiliary, chamber, cooling, bento box |
+| [fan-controls-visual.md](design/fan-controls-visual.md) | Visual guide: card layouts, icon states, responsive design |
+| [skip-objects.md](reference/skip-objects.md) | Skip objects feature: Bambu Lab entities, service API, implementation |
+| [skip-objects-integration-options.md](planning/skip-objects-integration-options.md) | Integration strategies for skip objects UI |
+| [printer-status-card-features.md](reference/printer-status-card-features.md) | Print status card research and replication guide |
 
 ## Dependencies & Requirements
 

@@ -6,11 +6,11 @@ The 3D Printer dashboard features a redesigned top bar that provides at-a-glance
 
 <!-- SCREENSHOT: id=top-bar-desktop | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![Top bar — desktop 2-column grid during active print](../../screenshots/images/top-bar-desktop.png)
+![Top bar — desktop 2-column grid during active print](../../../screenshots/images/top-bar-desktop.png)
 
 <!-- SCREENSHOT: id=top-bar-mobile | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![Top bar — mobile single-column layout](../../screenshots/images/top-bar-mobile.png)
+![Top bar — mobile single-column layout](../../../screenshots/images/top-bar-mobile.png)
 
 ## Design Philosophy
 

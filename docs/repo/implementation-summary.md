@@ -192,9 +192,9 @@ Complete documentation provided in [docs/features/error_alerts/](../features/err
 
 - `homeassistant/packages/3d_printing/error_alerts/dashboard_cards/error-alert-section.yaml` - Unified error alert card (HMS + print errors)
 - `homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml` - Updated include reference
-- [docs/features/error_alerts/hms-error-alert-implementation.md](../features/error_alerts/hms-error-alert-implementation.md) - Technical documentation
-- [docs/features/error_alerts/hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) - Visual documentation
-- [docs/features/error_alerts/hms-error-testing-guide.md](../features/error_alerts/hms-error-testing-guide.md) - Testing guide
+- [docs/features/error_alerts/reference/hms-error-alert-implementation.md](../features/error_alerts/reference/hms-error-alert-implementation.md) - Technical documentation
+- [docs/features/error_alerts/design/hms-error-ui-mockup.md](../features/error_alerts/design/hms-error-ui-mockup.md) - Visual documentation
+- [docs/features/error_alerts/reference/hms-error-testing-guide.md](../features/error_alerts/reference/hms-error-testing-guide.md) - Testing guide
 
 ## 🎉 Result
 

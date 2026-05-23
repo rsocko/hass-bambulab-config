@@ -41,7 +41,7 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Main Files Created
 
-1. **[homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)**
+1. **[homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)**
    - Canonical YAML configuration extracted from `view_main.yaml`
    - Contains the active combined horizontal stack used by the dashboard
    - Included into `view_main.yaml` via `!include`
@@ -59,7 +59,7 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
    - Common issues and fixes
    - Layout options comparison
 
-4. **[printer-temps-visual-reference.md](printer-temps-visual-reference.md)** (7.8 KB)
+4. **[printer-temps-visual-reference.md](../design/printer-temps-visual-reference.md)** (7.8 KB)
    - Visual ASCII art examples showing card appearance in different states
    - Color palette reference
    - Icon reference table
@@ -67,7 +67,7 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Updated Files
 
-5. **[docs/features/printer_dashboards/README.md](../printer_dashboards/README.md)**
+5. **[docs/features/printer_dashboards/README.md](../../printer_dashboards/README.md)**
    - Added "Temperature Monitoring" section
   - Added `printer-temps.yaml` to file list
    - Links to documentation
@@ -134,7 +134,7 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 ### Quick Start (5 minutes)
 1. Install Mushroom Cards and card-mod from HACS
 2. Restart Home Assistant
-3. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
+3. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
 4. Copy the full horizontal stack card configuration
 5. Paste into Home Assistant dashboard (Edit Dashboard → Add Card → Manual Card)
 6. Save and enjoy!

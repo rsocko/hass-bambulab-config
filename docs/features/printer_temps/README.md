@@ -41,13 +41,13 @@ Real-time nozzle and bed temperature monitoring cards with color-coded heating/c
 
 | File | Description |
 |------|-------------|
-| [printer-temps-cards.md](printer-temps-cards.md) | Full feature documentation, customization, and troubleshooting |
-| [printer-temps-quick-start.md](printer-temps-quick-start.md) | 5-minute setup guide |
-| [printer-temps-visual-reference.md](printer-temps-visual-reference.md) | Visual examples and color palette reference |
-| [printer-temps-mockup.md](printer-temps-mockup.md) | ASCII mockups: desktop, mobile, and state transitions |
-| [printer-temps-implementation.md](printer-temps-implementation.md) | Implementation notes |
-| [printer-temps-v2-changes.md](printer-temps-v2-changes.md) | V2 changelog |
-| [printer-temps-v3-changes.md](printer-temps-v3-changes.md) | V3 changelog |
+| [printer-temps-cards.md](reference/printer-temps-cards.md) | Full feature documentation, customization, and troubleshooting |
+| [printer-temps-quick-start.md](reference/printer-temps-quick-start.md) | 5-minute setup guide |
+| [printer-temps-visual-reference.md](design/printer-temps-visual-reference.md) | Visual examples and color palette reference |
+| [printer-temps-mockup.md](design/printer-temps-mockup.md) | ASCII mockups: desktop, mobile, and state transitions |
+| [printer-temps-implementation.md](reference/printer-temps-implementation.md) | Implementation notes |
+| [printer-temps-v2-changes.md](archive/printer-temps-v2-changes.md) | V2 changelog |
+| [printer-temps-v3-changes.md](archive/printer-temps-v3-changes.md) | V3 changelog |
 
 ## Dependencies & Requirements
 

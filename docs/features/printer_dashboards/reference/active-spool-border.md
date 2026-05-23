@@ -207,7 +207,7 @@ return active ? 'inset 0 0 0 4px var(--primary-color), 0 0 10px var(--primary-co
 ## Files Modified
 
 - [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) - Main dashboard configuration containing all 9 spool button-cards
-- [docs/features/printer_dashboards/active-spool-border.md](active-spool-border.md) - This documentation file
+- [docs/features/printer_dashboards/reference/active-spool-border.md](active-spool-border.md) - This documentation file
 
 ## Technical Notes
 

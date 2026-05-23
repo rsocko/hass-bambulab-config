@@ -133,10 +133,10 @@ This is simple, efficient, and provides instant visual feedback.
 
 ## Files Updated
 
-1. [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml) - Canonical include-based card file
+1. [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml) - Canonical include-based card file
 2. `printer-temps-implementation.md` - Implementation notes
-3. [printer-temps-cards.md](printer-temps-cards.md) - Feature documentation
-4. [printer-temps-visual-reference.md](printer-temps-visual-reference.md) - Visual examples
+3. [printer-temps-cards.md](../reference/printer-temps-cards.md) - Feature documentation
+4. [printer-temps-visual-reference.md](../design/printer-temps-visual-reference.md) - Visual examples
 
 ## Migration
 

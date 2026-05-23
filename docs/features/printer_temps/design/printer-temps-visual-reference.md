@@ -6,7 +6,7 @@ This document shows visual examples of how the temperature cards appear in diffe
 
 <!-- SCREENSHOT: id=temp-visual-heating | format=png | version=1.0 | package=printer_temps | added=2026-03-15 | captured=2026-03-15 -->
 
-![Temperature cards — heating state (red tint, borders)](../../screenshots/images/temp-cards-heating.png)
+![Temperature cards — heating state (red tint, borders)](../../../screenshots/images/temp-cards-heating.png)
 
 <!-- SCREENSHOT: id=temp-visual-cooling | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
 <!-- Capture: Both cards in cooling state — blue tinted background, blue borders -->

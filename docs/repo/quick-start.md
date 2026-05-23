@@ -162,9 +162,9 @@ See `implementation-summary.md` for ideas on:
 ## 📚 More Information
 
 - **Full Details**: See `implementation-summary.md`
-- **Technical Docs**: See [docs/features/error_alerts/hms-error-alert-implementation.md](../features/error_alerts/hms-error-alert-implementation.md)
-- **Testing Guide**: See [docs/features/error_alerts/hms-error-testing-guide.md](../features/error_alerts/hms-error-testing-guide.md)
-- **Visual Examples**: See [docs/features/error_alerts/hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md)
+- **Technical Docs**: See [docs/features/error_alerts/reference/hms-error-alert-implementation.md](../features/error_alerts/reference/hms-error-alert-implementation.md)
+- **Testing Guide**: See [docs/features/error_alerts/reference/hms-error-testing-guide.md](../features/error_alerts/reference/hms-error-testing-guide.md)
+- **Visual Examples**: See [docs/features/error_alerts/design/hms-error-ui-mockup.md](../features/error_alerts/design/hms-error-ui-mockup.md)
 
 ## ✅ Checklist Before Using
 

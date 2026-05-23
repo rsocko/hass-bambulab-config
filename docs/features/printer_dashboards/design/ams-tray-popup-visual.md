@@ -7,15 +7,15 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 
 <!-- SCREENSHOT: id=ams-popup-full-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![AMS tray popup — full matched spool view](../../screenshots/images/ams-popup-full-matched.png)
+![AMS tray popup — full matched spool view](../../../screenshots/images/ams-popup-full-matched.png)
 
 <!-- SCREENSHOT: id=ams-popup-no-spool | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![AMS tray popup — fallback/no spool matched](../../screenshots/images/ams-popup-no-spool.png)
+![AMS tray popup — fallback/no spool matched](../../../screenshots/images/ams-popup-no-spool.png)
 
 <!-- SCREENSHOT: id=ams-popup-weight-warning | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![AMS tray popup — insufficient filament warning](../../screenshots/images/ams-popup-weight-warning.png)
+![AMS tray popup — insufficient filament warning](../../../screenshots/images/ams-popup-weight-warning.png)
 
 > **Note:** The current popup also includes a separate magenta mismatch warning under the Remaining/Spool Weight card when AMS `remain` and Spoolman remaining percentage differ by at least 15 percentage points. A dedicated screenshot for that state has not been captured yet.
 

@@ -15,7 +15,7 @@ This page tracks the status of dashboard YAML migration and known caveats for th
 
 ## Related Docs
 
-- [README.md](README.md)
-- [top-bar-layout.md](top-bar-layout.md)
-- [ams-tray-popup.md](ams-tray-popup.md)
-- [animation-design-notes.md](animation-design-notes.md)
+- [README.md](../README.md)
+- [top-bar-layout.md](../design/top-bar-layout.md)
+- [ams-tray-popup.md](../reference/ams-tray-popup.md)
+- [animation-design-notes.md](../design/animation-design-notes.md)

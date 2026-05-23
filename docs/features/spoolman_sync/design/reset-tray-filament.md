@@ -140,7 +140,7 @@ Uses `custom:button-card` styled as a full-width action button with `mdi:delete-
 |---|---|
 | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add `resetTrayAction` variable (confirmation popup); add Reset button to matched-spool bottom row; add Reset Tray card to no-spool popup |
 | `docs/features/spoolman_sync/design/ams-tray-assignment.md` | Reference this document in Phase 5 or add a new phase entry |
-| `docs/features/printer_dashboards/ams-tray-popup.md` | Document the new Reset Tray button in popup sections |
+| `docs/features/printer_dashboards/reference/ams-tray-popup.md` | Document the new Reset Tray button in popup sections |
 
 ---
 
