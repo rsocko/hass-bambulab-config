@@ -3482,8 +3482,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="body compact-full">'
       + '  <div class="compact-title-row">'
       + entityTypeBadge
-      + archivedBadge
-      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '    <h3 class="title">' + archivedBadge + this._escapeHtml(name) + '</h3>'
       + '  </div>'
       + '  <div class="metrics compact-metrics">'
       + this._renderModelMetric('Prints', linkedCount)
@@ -3503,8 +3502,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="body media-body">'
       + '  <div class="media-title-row">'
       + entityTypeBadge
-      + archivedBadge
-      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '    <h3 class="title">' + archivedBadge + this._escapeHtml(name) + '</h3>'
       + '  </div>'
       + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '  <div class="chip-row provenance-row">'
@@ -3534,8 +3532,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="list-top-row">'
       + '    <div class="list-title-block">'
       + entityTypeBadge
-      + archivedBadge
-      + '      <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '      <h3 class="title">' + archivedBadge + this._escapeHtml(name) + '</h3>'
       + '      <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip('+' + String(hiddenCollectionCount) + ' more', 'subtle-chip') : '') + '</div>'
       + '    </div>'
       + '    <div class="list-action-stack">'
@@ -4371,7 +4368,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-compact .compact-main{padding-top:46px;}'
       + '.compact-top-actions{position:absolute;top:14px;right:14px;display:flex;justify-content:flex-end;align-items:center;gap:8px;z-index:2;}'
       + '.compact-top-actions .advanced-menu-shell{margin-left:0;}'
-      + '.compact-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;}'
+      + '.compact-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0;}'
       + '.compact-last-printed{font-size:11px;font-weight:700;color:var(--secondary-text-color);padding-top:2px;}'
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
@@ -4383,7 +4380,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.queue-count-badge{position:absolute;top:-8px;right:-8px;width:18px;height:18px;min-width:18px;padding:0;border-radius:50%;background:#a07cff;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;box-sizing:border-box;pointer-events:none;border:1px solid rgba(15,23,42,0.6);}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
-      + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}'
+      + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;}'
       + '.media-footer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}'
       + '.media-actions-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}'
       + '.media-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;}'
@@ -4407,12 +4404,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.entity-type-pill{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:10px;font-weight:800;color:var(--secondary-text-color);}'
       + '.entity-type-pill.idea{background:rgba(250,204,21,0.18);border-color:rgba(250,204,21,0.34);color:#fef3c7;}'
       + '.entity-type-pill.working-group{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:#dbeafe;}'
-      + '.archived-pill{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);font-size:10px;font-weight:800;color:#94a3b8;width:fit-content;}'
+      + '.archived-pill{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);font-size:10px;font-weight:800;color:#94a3b8;width:fit-content;margin-right:6px;vertical-align:middle;}'
       + '.archived-pill ha-icon{--mdc-icon-size:12px;}'
-      + '.model-card.is-archived{background:linear-gradient(180deg,rgba(100,116,139,0.14),rgba(100,116,139,0.08));border-color:rgba(148,163,184,0.28);opacity:0.82;}'
-      + '.model-card.is-archived:hover{opacity:1;border-color:rgba(148,163,184,0.44);}'
-      + '.archived-banner{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:12px;border:1px solid rgba(148,163,184,0.28);background:rgba(148,163,184,0.10);color:#94a3b8;font-size:12px;font-weight:700;}'
-      + '.archived-banner ha-icon{--mdc-icon-size:18px;opacity:0.8;}'
+      + '.model-card.is-archived{border-left:3px solid rgba(148,163,184,0.38);opacity:0.72;}'
+      + '.model-card.is-archived:hover{opacity:1;}'
+
       + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:6px;}'
       + '.chip.file-kind-chip .icon-svg{width:16px;height:16px;flex-shrink:0;}'
       + '.chip.file-kind-chip .chip-label{font-weight:700;letter-spacing:.01em;}'
@@ -4546,7 +4542,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderFilterBar()
       + this._renderPageControlStrip()
       + '    </div>'
-      + (this._filters.show_archived ? '<div class="archived-banner"><ha-icon icon="mdi:archive-outline"></ha-icon><span>Viewing archived models · these are hidden from the default catalog view</span></div>' : '')
       + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + this._renderQueueDialog()
