@@ -77,6 +77,8 @@ Cross-system planning features may appear here before a Home Assistant package e
 
 ## Repo Docs
 
+- `repo/planning/documentation-organization-guidance-and-migration-plan.md` — Canonical documentation IA guidance, lifecycle lane definitions, and migration rules.
+- `repo/planning/documentation-migration-matrix.md` — Owner-area batch matrix and links to detailed Batch 1 row-level matrices.
 - `repo/deployment-workflow-reference.md` — End-to-end reference for the deploy workflow, auto-dispatch wrapper, allowlists, auto-deploy env file, and helper scripts under `.github/scripts/`.
 - `repo/deployment-structure.md` — Deployment profiles, package scope, and workflow safety guards.
 - `repo/dashboard-deployment-behavior.md` — Dashboard/reload behavior and JS cache-bust procedure.
