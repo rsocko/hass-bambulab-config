@@ -1147,6 +1147,7 @@ function renderValidationSummary(card) {
             if (matchSource) {
               fullWidthDetails.push({ key: 'Match source', value: matchSource });
             }
+            var conflictPathDisplayText = conflictPathForTable || matchSource || conflictFilename;
             if (finding.sha256) {
               fullWidthDetails.push({ key: 'SHA256', value: String(finding.sha256) });
             }
@@ -1161,7 +1162,7 @@ function renderValidationSummary(card) {
               + '  <div class="validation-match-header">' + escapeHtml(leftColumnHeader) + '</div>'
               + '  <div class="validation-match-header">' + escapeHtml(rightColumnHeader) + '</div>'
               + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(sourceFolderForTable || '(path unavailable)') + '</div>'
-              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathForTable || '(path unavailable)') + '</div>'
+              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathDisplayText || '(path unavailable)') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
               + '  <div class="validation-match-cell validation-match-preview">' + compareThumbMarkup(sourcePreviewUrl, (findingFilename || 'Source') + ' preview', findingKey, 'source', findingFilename) + '</div>'
