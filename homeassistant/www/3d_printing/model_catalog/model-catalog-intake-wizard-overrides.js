@@ -748,7 +748,7 @@ function renderValidationSummary(card) {
   function violationSeverityLabel(finding) {
     var rank = violationSeverityRank(finding);
     if (rank === 1) {
-      return 'Most exact';
+      return 'Hash match';
     }
     if (rank === 2) {
       return 'Exact name';
