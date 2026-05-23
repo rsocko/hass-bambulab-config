@@ -1,5 +1,12 @@
 # Issue #1207 Implementation Summary
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../ISSUE-1207-COMPLETION-SUMMARY.md
+Replaced By: none
+
+
 **Issue**: Phase 2: Update documentation for refactored model_catalog structure  
 **Status**: ✅ COMPLETE  
 **Completed**: 2026-05-02  
@@ -166,9 +173,9 @@ sidecars/model_catalog/
 - 📝 New service layer for business logic coordination
 
 ### For New Contributors
-- 📖 Start with [MODEL_CATALOG_ARCHITECTURE.md](docs/MODEL_CATALOG_ARCHITECTURE.md)
-- 📖 Check [app/README.md](sidecars/model_catalog/app/README.md) for module overview
-- 📖 Review [MIGRATION_GUIDE.md](docs/MODEL_CATALOG_MIGRATION_GUIDE.md) for patterns
+- 📖 Start with [MODEL_CATALOG_ARCHITECTURE.md](../../../../docs/MODEL_CATALOG_ARCHITECTURE.md)
+- 📖 Check [app/README.md](../../../../sidecars/model_catalog/app/README.md) for module overview
+- 📖 Review [MIGRATION_GUIDE.md](../../../../docs/MODEL_CATALOG_MIGRATION_GUIDE.md) for patterns
 
 ---
 
@@ -221,9 +228,9 @@ sidecars/model_catalog/
 
 ## References
 
-- Architecture: [MODEL_CATALOG_ARCHITECTURE.md](docs/MODEL_CATALOG_ARCHITECTURE.md)
-- Phase 2 Design: [MODEL_CATALOG_PHASE_2_DESIGN.md](docs/MODEL_CATALOG_PHASE_2_DESIGN.md)
-- Migration: [MODEL_CATALOG_MIGRATION_GUIDE.md](docs/MODEL_CATALOG_MIGRATION_GUIDE.md)
-- App Module: [sidecars/model_catalog/app/README.md](sidecars/model_catalog/app/README.md)
-- Main README: [sidecars/model_catalog/README.md](sidecars/model_catalog/README.md)
+- Architecture: [MODEL_CATALOG_ARCHITECTURE.md](../../../../docs/MODEL_CATALOG_ARCHITECTURE.md)
+- Phase 2 Design: [MODEL_CATALOG_PHASE_2_DESIGN.md](../../../../docs/MODEL_CATALOG_PHASE_2_DESIGN.md)
+- Migration: [MODEL_CATALOG_MIGRATION_GUIDE.md](../../../../docs/MODEL_CATALOG_MIGRATION_GUIDE.md)
+- App Module: [sidecars/model_catalog/app/README.md](../../../../sidecars/model_catalog/app/README.md)
+- Main README: [sidecars/model_catalog/README.md](../../../../sidecars/model_catalog/README.md)
 

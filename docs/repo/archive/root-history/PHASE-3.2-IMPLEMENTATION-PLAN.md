@@ -1,5 +1,12 @@
 # Phase 3.2 Implementation Plan: 3D Viewer & STL Loader
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../PHASE-3.2-IMPLEMENTATION-PLAN.md
+Replaced By: none
+
+
 **Target Date:** April 26 - May 3, 2026 (1 week)  
 **Dependencies:** Phase 3.1 ✅ Complete  
 **Successor:** Phase 3.3 (Cross-System Integration)
@@ -89,7 +96,7 @@ def get_geometry_endpoint(model_ref: str, file_id: str):
     }
 ```
 
-**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py#L152)
+**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L152)
 
 ### Task 2: STL Parser Implementation (Days 2-3)
 
@@ -183,7 +190,7 @@ class STLParser {
 }
 ```
 
-**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestSTLLoader](tests/phase3/test_phase3_2_3d_viewer.py#L9)
+**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestSTLLoader](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L9)
 
 ### Task 3: Three.js Scene Setup (Days 3-4)
 
@@ -273,7 +280,7 @@ class ModelViewer {
 }
 ```
 
-**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestGeometryRendering](tests/phase3/test_phase3_2_3d_viewer.py#L38)
+**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestGeometryRendering](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L38)
 
 ### Task 4: Build Volume Visualization (Days 4-5)
 
@@ -352,7 +359,7 @@ function generateFitMessage(fitResult) {
 }
 ```
 
-**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestBuildVolumeVisualization](tests/phase3/test_phase3_2_3d_viewer.py#L112)
+**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestBuildVolumeVisualization](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L112)
 
 ### Task 5: Camera Controls (Days 5-6)
 
@@ -418,7 +425,7 @@ class ViewerControls {
 }
 ```
 
-**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestCameraControls](tests/phase3/test_phase3_2_3d_viewer.py#L196)
+**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestCameraControls](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L196)
 
 ### Task 6: Dashboard Card Integration (Days 6-7)
 
@@ -475,7 +482,7 @@ class ModelDetail3DViewerCard extends HTMLElement {
 customElements.define('model-detail-3d-viewer', ModelDetail3DViewerCard);
 ```
 
-**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestGeometryEndpoint](tests/phase3/test_phase3_2_3d_viewer.py#L240)
+**Tests:** [tests/phase3/test_phase3_2_3d_viewer.py::TestGeometryEndpoint](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L240)
 
 ### Task 7: Resource Versioning (Day 7)
 
@@ -559,7 +566,7 @@ pytest tests/phase3/test_phase3_2_3d_viewer.py::TestBuildVolumeVisualization -v
 - `homeassistant/packages/3d_printing/model_catalog/rest_commands.yaml` (Add geometry command)
 
 ### Test Files
-- Existing: [tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py) (310 lines, 25 tests)
+- Existing: [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py) (310 lines, 25 tests)
 
 ## Dependencies
 

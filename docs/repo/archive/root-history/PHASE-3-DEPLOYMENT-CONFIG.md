@@ -1,5 +1,12 @@
 # Phase 3 Deployment Configuration & Environment Setup
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../PHASE-3-DEPLOYMENT-CONFIG.md
+Replaced By: none
+
+
 **Last Updated:** April 25, 2026
 
 ## Production Deployment
@@ -24,8 +31,8 @@ MODEL_CATALOG_REFRESH_TTL_SECONDS=900
 **Database:** `/data/model_catalog.db` (SQLite)
 
 **Configuration Files:**
-- [sidecars/model_catalog/Dockerfile](sidecars/model_catalog/Dockerfile)
-- [sidecars/model_catalog/README.md](sidecars/model_catalog/README.md)
+- [sidecars/model_catalog/Dockerfile](../../../../sidecars/model_catalog/Dockerfile)
+- [sidecars/model_catalog/README.md](../../../../sidecars/model_catalog/README.md)
 
 **Build & Deploy:**
 ```bash
@@ -491,7 +498,7 @@ console.error("STL parse error:", error);
 | [PHASE-3.2-IMPLEMENTATION-PLAN.md](PHASE-3.2-IMPLEMENTATION-PLAN.md) | 3D viewer implementation | 📋 Plan |
 | [PHASE-3.3-IMPLEMENTATION-PLAN.md](PHASE-3.3-IMPLEMENTATION-PLAN.md) | Cross-system implementation | 📋 Plan |
 | [test_phase3_endpoints.py](test_phase3_endpoints.py) | Integration test script | 🧪 Test |
-| [tests/phase3/](tests/phase3/) | Unit test suite (890 lines) | 🧪 Tests |
+| [tests/phase3/](../../../../tests/phase3/) | Unit test suite (890 lines) | 🧪 Tests |
 
 ---
 

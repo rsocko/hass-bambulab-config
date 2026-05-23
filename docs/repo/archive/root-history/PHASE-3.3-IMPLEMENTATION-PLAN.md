@@ -1,5 +1,12 @@
 # Phase 3.3 Implementation Plan: Cross-System Integration
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../PHASE-3.3-IMPLEMENTATION-PLAN.md
+Replaced By: none
+
+
 **Target Date:** May 3 - May 10, 2026 (1 week)  
 **Dependencies:** Phase 3.1 ✅ & Phase 3.2 ✅ Complete  
 **Successor:** None (Final Phase)
@@ -117,7 +124,7 @@ def extract_base_filename(filename: str) -> str:
     return name
 ```
 
-**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestModelArchiveLinking](tests/phase3/test_phase3_3_cross_system.py#L9)
+**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestModelArchiveLinking](../../../../tests/phase3/test_phase3_3_cross_system.py#L9)
 
 ### Task 2: Related Models Algorithm (Days 2-3)
 
@@ -206,7 +213,7 @@ def calculate_similarity_score(base: ManyfoldModelSummary, target: ManyfoldModel
     return score, reasons
 ```
 
-**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestRelatedModelsAlgorithm](tests/phase3/test_phase3_3_cross_system.py#L34)
+**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestRelatedModelsAlgorithm](../../../../tests/phase3/test_phase3_3_cross_system.py#L34)
 
 ### Task 3: Recommendation Engine (Days 3-4)
 
@@ -317,7 +324,7 @@ model_catalog_get_recommendations:
     limit: "{{ limit | default(5) }}"
 ```
 
-**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestRecommendationEngine](tests/phase3/test_phase3_3_cross_system.py#L95)
+**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestRecommendationEngine](../../../../tests/phase3/test_phase3_3_cross_system.py#L95)
 
 ### Task 4: Print Statistics Aggregation (Days 4-5)
 
@@ -395,7 +402,7 @@ class PrintStatistics:
         return usage
 ```
 
-**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestPrintStatistics](tests/phase3/test_phase3_3_cross_system.py#L131)
+**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestPrintStatistics](../../../../tests/phase3/test_phase3_3_cross_system.py#L131)
 
 ### Task 5: Export Functionality (Days 5-6)
 
@@ -491,7 +498,7 @@ model_catalog_export_csv:
     format: "csv"
 ```
 
-**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestExportFunctionality](tests/phase3/test_phase3_3_cross_system.py#L170)
+**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestExportFunctionality](../../../../tests/phase3/test_phase3_3_cross_system.py#L170)
 
 ### Task 6: Integration with Print History (Days 6-7)
 
@@ -559,7 +566,7 @@ actions:
 mode: parallel
 ```
 
-**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestAPIIntegration](tests/phase3/test_phase3_3_cross_system.py#L258)
+**Tests:** [tests/phase3/test_phase3_3_cross_system.py::TestAPIIntegration](../../../../tests/phase3/test_phase3_3_cross_system.py#L258)
 
 ### Task 7: Dashboard Card Updates (Days 6-7)
 
@@ -671,7 +678,7 @@ pytest tests/phase3/test_phase3_3_cross_system.py -v
 - `homeassistant/packages/3d_printing/print_history/automations.yaml` (Add trigger)
 
 ### Test Files
-- Existing: [tests/phase3/test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py) (360 lines, 35 tests)
+- Existing: [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py) (360 lines, 35 tests)
 
 ## Timeline
 

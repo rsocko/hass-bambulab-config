@@ -1,5 +1,12 @@
 # Phase 3.1 Deployment Validation Report
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../PHASE-3.1-VALIDATION-REPORT.md
+Replaced By: none
+
+
 **Date:** April 25, 2026  
 **Status:** ✅ DEPLOYED & CONFIGURED  
 **Sidecar Location:** https://model-catalog.socko.us
@@ -17,7 +24,7 @@ All four Phase 3.1 API endpoints have been deployed to the model-catalog sidecar
 
 ### ✅ HA Service Wiring Complete
 
-All Phase 3.1 services configured in Home Assistant ([services.yaml](homeassistant/packages/3d_printing/model_catalog/services.yaml)):
+All Phase 3.1 services configured in Home Assistant ([services.yaml](../../../../homeassistant/packages/3d_printing/model_catalog/services.yaml)):
 
 - `model_catalog.update_model` — PATCH endpoint wrapper
 - `model_catalog.upload_photo` — POST endpoint wrapper  
@@ -26,7 +33,7 @@ All Phase 3.1 services configured in Home Assistant ([services.yaml](homeassista
 
 ### ✅ REST Commands Configured
 
-All endpoint URLs mapped in ([rest_commands.yaml](homeassistant/packages/3d_printing/model_catalog/rest_commands.yaml)):
+All endpoint URLs mapped in ([rest_commands.yaml](../../../../homeassistant/packages/3d_printing/model_catalog/rest_commands.yaml)):
 
 ```yaml
 # Configured REST commands:
@@ -46,9 +53,9 @@ All endpoint URLs mapped in ([rest_commands.yaml](homeassistant/packages/3d_prin
 ### ✅ Test Coverage
 
 **Endpoint Tests Created:** 3 files with ~110 test methods
-- [tests/phase3/test_phase3_1_edit_form.py](tests/phase3/test_phase3_1_edit_form.py) — Edit form validation & conflicts
-- [tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py) — 3D viewer & STL loading
-- [tests/phase3/test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py) — Cross-system integration
+- [tests/phase3/test_phase3_1_edit_form.py](../../../../tests/phase3/test_phase3_1_edit_form.py) — Edit form validation & conflicts
+- [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py) — 3D viewer & STL loading
+- [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py) — Cross-system integration
 
 **Integration Test Script:** [test_phase3_endpoints.py](test_phase3_endpoints.py)
 - Tests all Phase 3.1 endpoints with realistic payloads
@@ -95,7 +102,7 @@ All endpoint URLs mapped in ([rest_commands.yaml](homeassistant/packages/3d_prin
 
 **Key Files:**
 - Endpoint: GET /api/models/{model_ref}/geometry/{file_id}
-- Test scaffold: [tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py)
+- Test scaffold: [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py)
 - Dashboard: 3D viewer card (new)
 
 ### Phase 3.3: Cross-System Integration (AFTER 3.2)
@@ -109,7 +116,7 @@ All endpoint URLs mapped in ([rest_commands.yaml](homeassistant/packages/3d_prin
 **Estimated Effort:** 1 week
 
 **Key Files:**
-- Tests: [tests/phase3/test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py)
+- Tests: [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py)
 - Endpoints: Related models, recommendations, statistics
 
 ## Issues & Blockers

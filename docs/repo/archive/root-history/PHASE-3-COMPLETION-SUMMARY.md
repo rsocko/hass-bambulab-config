@@ -1,5 +1,12 @@
 # Phase 3 Completion Summary & Next Steps
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../PHASE-3-COMPLETION-SUMMARY.md
+Replaced By: none
+
+
 **Session:** April 25, 2026  
 **Completed By:** GitHub Copilot  
 **Status:** ✅ Phase 3.1 Deployed | 🎯 Phase 3.2 & 3.3 Planned & Ready
@@ -26,7 +33,7 @@
 **Validation:**
 - ✅ Deployment validation report: [PHASE-3.1-VALIDATION-REPORT.md](PHASE-3.1-VALIDATION-REPORT.md)
 - ✅ Integration test script: [test_phase3_endpoints.py](test_phase3_endpoints.py)
-- ✅ 50+ unit tests: [tests/phase3/test_phase3_1_edit_form.py](tests/phase3/test_phase3_1_edit_form.py)
+- ✅ 50+ unit tests: [tests/phase3/test_phase3_1_edit_form.py](../../../../tests/phase3/test_phase3_1_edit_form.py)
 
 **Key Features:**
 - Form field validation (name, description, tags, enrichment)
@@ -50,7 +57,7 @@
 6. **Dashboard Card:** Integrated model detail viewer
 7. **Performance:** Support up to 500k triangles
 
-**Test Coverage:** 25 test methods in [tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py)
+**Test Coverage:** 25 test methods in [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py)
 
 **Key Decisions:**
 - Use Three.js with OrbitControls for camera manipulation
@@ -73,7 +80,7 @@
 5. **Export:** JSON & CSV with filtering
 6. **HA Integration:** Automation to link archives on print complete
 
-**Test Coverage:** 35 test methods in [tests/phase3/test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py)
+**Test Coverage:** 35 test methods in [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py)
 
 **Key Decisions:**
 - Archive matching: exact filename → fuzzy name → not found
@@ -273,9 +280,9 @@ Integration with:
 ## Support Resources
 
 ### Reference Documentation
-- [Print History Layer 1 Design](docs/features/print_history/browser/filter-sort-design.md)
-- [Model Catalog Implementation Plan](docs/features/model_catalog/implementation-plan.md)
-- [Phase 3.1-3.3 Roadmap](docs/features/model_catalog/phase-3.1-3.3-roadmap.md)
+- [Print History Layer 1 Design](../../../../docs/features/print_history/browser/filter-sort-design.md)
+- [Model Catalog Implementation Plan](../../../../docs/features/model_catalog/implementation-plan.md)
+- [Phase 3.1-3.3 Roadmap](../../../../docs/features/model_catalog/phase-3.1-3.3-roadmap.md)
 
 ### External Resources
 - Three.js Documentation: https://threejs.org/docs/

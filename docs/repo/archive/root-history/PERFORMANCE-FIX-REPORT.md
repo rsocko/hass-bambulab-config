@@ -1,5 +1,12 @@
 # Catalog View Performance Fix Report
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../PERFORMANCE-FIX-REPORT.md
+Replaced By: none
+
+
 ## Executive Summary
 
 Your Catalog view performance degradation is caused by **26+ instances of `config-template-card` wrappers** that re-evaluate Jinja2 templates on **every entity state change**, creating 220+ long tasks blocking the main thread for up to 1.3 seconds. The **model-catalog-browser-card is already deployed and available** as a performant alternative.

@@ -1,5 +1,12 @@
 # Issue #1223 Implementation - File Movement Verification
 
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../ISSUE-1223-FILE-MOVEMENT-VERIFICATION.md
+Replaced By: none
+
+
 ## Overview: File Movement Feature
 Files are now moved from source locations to the working files folder when grouped to a working group.
 

@@ -11,9 +11,9 @@ This file is a historical delivery snapshot and is not a canonical source for cu
 
 For current documentation navigation and lifecycle policy, use:
 
-- [docs/README.md](docs/README.md)
-- [docs/repo/planning/documentation-organization-guidance-and-migration-plan.md](docs/repo/planning/documentation-organization-guidance-and-migration-plan.md)
-- [docs/repo/planning/documentation-migration-matrix.md](docs/repo/planning/documentation-migration-matrix.md)
+- [docs/README.md](../../../../docs/README.md)
+- [docs/repo/planning/documentation-organization-guidance-and-migration-plan.md](../../../../docs/repo/planning/documentation-organization-guidance-and-migration-plan.md)
+- [docs/repo/planning/documentation-migration-matrix.md](../../../../docs/repo/planning/documentation-migration-matrix.md)
 
 **Session Date:** April 25, 2026  
 **Prepared By:** GitHub Copilot  
@@ -95,14 +95,14 @@ For current documentation navigation and lifecycle policy, use:
 
 ### Test Suite (3 files, 890+ lines, 110+ test methods)
 
-1. **[tests/phase3/test_phase3_1_edit_form.py](tests/phase3/test_phase3_1_edit_form.py)**
+1. **[tests/phase3/test_phase3_1_edit_form.py](../../../../tests/phase3/test_phase3_1_edit_form.py)**
    - Edit form validation tests (4 classes)
    - Conflict detection tests (3 classes)
    - Photo upload validation (2 classes)
    - HA service integration (2 classes)
    - **Lines:** 220 | **Tests:** 50+
 
-2. **[tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py)**
+2. **[tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py)**
    - STL loader tests (binary & ASCII)
    - Geometry rendering tests
    - Build volume visualization tests
@@ -110,7 +110,7 @@ For current documentation navigation and lifecycle policy, use:
    - Endpoint tests
    - **Lines:** 310 | **Tests:** 25+
 
-3. **[tests/phase3/test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py)**
+3. **[tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py)**
    - Archive-to-model linking tests
    - Related models algorithm tests
    - Recommendation engine tests
@@ -165,18 +165,18 @@ For current documentation navigation and lifecycle policy, use:
 
 ### Phase 3.1 Configuration (Already Deployed)
 
-**HA Service Definitions:** [services.yaml](homeassistant/packages/3d_printing/model_catalog/services.yaml)
+**HA Service Definitions:** [services.yaml](../../../../homeassistant/packages/3d_printing/model_catalog/services.yaml)
 - `model_catalog.update_model`
 - `model_catalog.upload_photo`
 - `model_catalog.navigate_to_model`
 - `model_catalog.queue_model_for_print`
 
-**REST Commands:** [rest_commands.yaml](homeassistant/packages/3d_printing/model_catalog/rest_commands.yaml)
+**REST Commands:** [rest_commands.yaml](../../../../homeassistant/packages/3d_printing/model_catalog/rest_commands.yaml)
 - 5 commands mapping to sidecar endpoints
 - Template support for dynamic parameters
 - Ready for Phase 3.2-3.3 additions
 
-**Dashboard Resources:** [_resources.yaml](homeassistant/packages/3d_printing/common/dashboards/_resources.yaml)
+**Dashboard Resources:** [_resources.yaml](../../../../homeassistant/packages/3d_printing/common/dashboards/_resources.yaml)
 - model-catalog-browser-card.js (v6)
 - (To add: geometry-parser, viewer, build-volume, controls, viewer card for Phase 3.2)
 - (To add: statistics card for Phase 3.3)
@@ -188,17 +188,17 @@ For current documentation navigation and lifecycle policy, use:
 ### Files to Review Before Phase 3.2 (April 26)
 1. [PHASE-3.2-IMPLEMENTATION-PLAN.md](PHASE-3.2-IMPLEMENTATION-PLAN.md) — Full implementation guide
 2. [PHASE-3-DEPLOYMENT-CONFIG.md](PHASE-3-DEPLOYMENT-CONFIG.md#phase-32-validation-checklist) — Validation procedures
-3. [tests/phase3/test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py) — Test scaffold
+3. [tests/phase3/test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py) — Test scaffold
 
 ### Files to Review Before Phase 3.3 (May 3)
 1. [PHASE-3.3-IMPLEMENTATION-PLAN.md](PHASE-3.3-IMPLEMENTATION-PLAN.md) — Full implementation guide
 2. [PHASE-3-DEPLOYMENT-CONFIG.md](PHASE-3-DEPLOYMENT-CONFIG.md#phase-33-validation-checklist) — Validation procedures
-3. [tests/phase3/test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py) — Test scaffold
+3. [tests/phase3/test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py) — Test scaffold
 
 ### Existing Files to Reference
-- [sidecars/model_catalog/README.md](sidecars/model_catalog/README.md) — Sidecar architecture
-- [docs/features/model_catalog/implementation-plan.md](docs/features/model_catalog/implementation-plan.md) — Project roadmap
-- [homeassistant/packages/3d_printing/model_catalog/](homeassistant/packages/3d_printing/model_catalog/) — HA package structure
+- [sidecars/model_catalog/README.md](../../../../sidecars/model_catalog/README.md) — Sidecar architecture
+- [docs/features/model_catalog/implementation-plan.md](../../../../docs/features/model_catalog/implementation-plan.md) — Project roadmap
+- [homeassistant/packages/3d_printing/model_catalog/](../../../../homeassistant/packages/3d_printing/model_catalog/) — HA package structure
 
 ---
 
@@ -264,7 +264,7 @@ Post-Phase 3: Future enhancements
 
 **Day 1-2: Preparation**
 1. Read [PHASE-3.2-IMPLEMENTATION-PLAN.md](PHASE-3.2-IMPLEMENTATION-PLAN.md) → Task 1-2
-2. Review [test_phase3_2_3d_viewer.py](tests/phase3/test_phase3_2_3d_viewer.py#L9) → TestSTLLoader
+2. Review [test_phase3_2_3d_viewer.py](../../../../tests/phase3/test_phase3_2_3d_viewer.py#L9) → TestSTLLoader
 3. Set up local environment per [PHASE-3-DEPLOYMENT-CONFIG.md](PHASE-3-DEPLOYMENT-CONFIG.md#local-testing-phase-32-33)
 
 **Day 3-7: Implementation**
@@ -278,7 +278,7 @@ Post-Phase 3: Future enhancements
 
 **Follow same pattern with:**
 - [PHASE-3.3-IMPLEMENTATION-PLAN.md](PHASE-3.3-IMPLEMENTATION-PLAN.md)
-- [test_phase3_3_cross_system.py](tests/phase3/test_phase3_3_cross_system.py)
+- [test_phase3_3_cross_system.py](../../../../tests/phase3/test_phase3_3_cross_system.py)
 - [PHASE-3-DEPLOYMENT-CONFIG.md](PHASE-3-DEPLOYMENT-CONFIG.md#phase-33-validation-checklist)
 
 ---

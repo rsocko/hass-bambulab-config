@@ -182,7 +182,7 @@ _applyCurrentMaterialColor() {
 
 ## References
 
-- **Phase 3.2 Completion**: [PHASE-3.2-3.3-TASK-3-TASK-2-COMPLETE.md](../../PHASE-3.2-3.3-TASK-3-TASK-2-COMPLETE.md)
+- **Phase 3.2 Completion**: [PHASE-3.2-3.3-TASK-3-TASK-2-COMPLETE.md](../../repo/archive/root-history/PHASE-3.2-3.3-TASK-3-TASK-2-COMPLETE.md)
 - **3D Viewer Implementation**: [Issue #1141](https://github.com/rsocko/hass-bambulab-config/issues/1141)
 - **Three.js Documentation**: https://threejs.org/docs/
 - **Color Metadata Source**: `extract_3mf_geometry()` in `sidecars/model_catalog/app/geometry_3mf.py`

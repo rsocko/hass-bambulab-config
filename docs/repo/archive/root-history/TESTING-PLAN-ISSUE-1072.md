@@ -1,4 +1,11 @@
 # Issue #1072 Testing & Validation Plan
+
+Status: Historical
+Last Reviewed: 2026-05-23
+Functional Owner: repo-docs
+Replaces: ../../../../TESTING-PLAN-ISSUE-1072.md
+Replaced By: none
+
 ## Phase 3: HA Filtered Backlog/Queue View
 
 **Issue**: Implement HA backlog/queue views powered by sidecar queue fields and ranking signals.
