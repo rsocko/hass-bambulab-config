@@ -111,13 +111,7 @@ Recommended additions:
 
 `archive_event_timeline` remains part of the normalized metadata model, but it is already present in the active Variant 3 store and should now be treated as an implemented prerequisite rather than a pending addition.
 
-The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/ui-media/archive-popup-timeline-design.md
-
-
-).
+The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../design/ui-media/archive-popup-timeline-design.md).
 
 Additional linkage guidance:
 

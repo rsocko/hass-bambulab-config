@@ -1,4 +1,4 @@
-﻿# Historical Archive Backfill From SD-Card Artifacts
+# Historical Archive Backfill From SD-Card Artifacts
 
 ## Purpose
 
@@ -33,29 +33,11 @@ That means historical backfill needs one extra layer ahead of the current design
 
 Use these documents together:
 
-- [archive-detection-recovery-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/recovery/archive-detection-recovery-design.md
-
-
-) for the replacement-archive model
+- [archive-detection-recovery-design.md](/docs/features/print_history/design/recovery/archive-detection-recovery-design.md) for the replacement-archive model
 - [archive-runtime-field-impact-matrix.md](../reference/archive-runtime-field-impact-matrix.md) for which runtime fields matter
 - [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md) for canonical timestamp repair limits
-- [archive-runtime-sidecar-api-and-compose.md](../
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md
-
-
-) for the current repair boundary
-- [archive-recovery-live-matrix-2026-04-04.md](../
-docs/features/print_history/archive/
-docs/features/print_history/archive/
-docs/features/print_history/archive/recovery/archive-recovery-live-matrix-2026-04-04.md
-
-
-) for evidence already collected from the SD backup analysis
+- [archive-runtime-sidecar-api-and-compose.md](/docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md) for the current repair boundary
+- [archive-recovery-live-matrix-2026-04-04.md](/docs/features/print_history/archive/recovery/archive-recovery-live-matrix-2026-04-04.md) for evidence already collected from the SD backup analysis
 
 ## What The Current Design Already Proves
 
@@ -504,8 +486,8 @@ Practical rule:
 Current live checkpoint:
 
 - archives `234` through `402` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
-- candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 Â½_ x 2 Â¾_ wall plates and smaller.3mf`) was reconciled to live archive `335`; historical-import provenance notes were added and runtime fields were repaired to `started_at: 2025-11-29T16:37:42Z`, `completed_at: 2025-11-29T19:43:16Z`, and `created_at: 2025-11-29T19:43:16Z`
-- candidate `A8EB3E6AF0CCC705A5F4AAF779C055AD9D94DA069EBF1BC23FC215E457750CC7` (`cache/Ã˜12x3mm  Magnet Version -0.2mm layer, arachne .3mf`) was reconciled to live archive `396`; historical-import provenance notes were added and runtime fields were repaired to `started_at: 2025-10-16T17:45:14Z`, `completed_at: 2025-10-16T20:58:10Z`, and `created_at: 2025-10-16T20:58:10Z`
+- candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`) was reconciled to live archive `335`; historical-import provenance notes were added and runtime fields were repaired to `started_at: 2025-11-29T16:37:42Z`, `completed_at: 2025-11-29T19:43:16Z`, and `created_at: 2025-11-29T19:43:16Z`
+- candidate `A8EB3E6AF0CCC705A5F4AAF779C055AD9D94DA069EBF1BC23FC215E457750CC7` (`cache/Ø12x3mm  Magnet Version -0.2mm layer, arachne .3mf`) was reconciled to live archive `396`; historical-import provenance notes were added and runtime fields were repaired to `started_at: 2025-10-16T17:45:14Z`, `completed_at: 2025-10-16T20:58:10Z`, and `created_at: 2025-10-16T20:58:10Z`
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
 - the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, `360`, `361`, `362`, `363`, `364`, `365`, `366`, `367`, `368`, `369`, `370`, `372`, `373`, `374`, `375`, `376`, `377`, `378`, `379`, `380`, `381`, `382`, and `383`
@@ -693,10 +675,10 @@ Current live checkpoint:
    - archive `395` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_plate_2.3mf`
    - archive `397` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_Plate 1.3mf`
    - archive `398` <- `cache/HomeRacker - Shelf v21 - 11x15_plate_2.3mf`
-   - archive `399` <- `cache/å¿«é€Ÿå¤¹å…·ï¼ˆæ— é¡»äº”é‡‘ä»¶ï¼‰.3mf`
+   - archive `399` <- `cache/快速夹具（无须五金件）.3mf`
    - archive `400` <- `cache/gridplates-158x225-Standard-58de9.stl.3mf`
    - archive `401` <- `cache/Heisman Trophy - Brick Man_Trophy - single color no AMS.3mf`
-   - archive `402` <- `cache/æ‹†ä»¶ç‰ˆ.3mf`
+   - archive `402` <- `cache/拆件版.3mf`
    - the final two `batch_ready` candidates both collapsed by exact `content_hash`, so the historical queue is exhausted without creating additional archives:
       - `B6BCB8C4AC5E4209762E5A0BBE750948A495CB95D26BD0790075D0ED975125FC` -> `cache/gridfinity-baseplate-250x220-446x338-5484a.stl_2.3mf` matched existing archive `8`
       - `AED394930768859ED4F96DE71D9C669F19D4C954F267706D4060599E2C219769` -> `cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_4.3mf` matched existing archive `17`
@@ -881,13 +863,7 @@ If a candidate or target archive would land in a duplicate chain where:
 
 do not auto-delete or auto-skip blindly.
 
-Mark the case as `suspicious_duplicate` and route it through the mismatch-review workflow documented in [archive-mismatch-repair-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/recovery/archive-mismatch-repair-design.md
-
-
-).
+Mark the case as `suspicious_duplicate` and route it through the mismatch-review workflow documented in [archive-mismatch-repair-design.md](/docs/features/print_history/design/recovery/archive-mismatch-repair-design.md).
 
 ## Phase 3: Upload only high-confidence canonical candidates
 

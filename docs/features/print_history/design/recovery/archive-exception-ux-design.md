@@ -9,7 +9,7 @@ This document covers presentation and interaction design only.
 Related documents:
 
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
-- [archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)
+- [archive-detection-implementation-plan.md](../../planning/recovery/archive-detection-implementation-plan.md)
 
 ## UX Goals
 

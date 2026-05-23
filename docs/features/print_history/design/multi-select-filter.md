@@ -1,4 +1,4 @@
-﻿# Print History Multi-Select Filter Design (Issue #784)
+# Print History Multi-Select Filter Design (Issue #784)
 
 Status: Active
 Last Reviewed: 2026-05-23
@@ -451,33 +451,9 @@ Issue `#784` is designed well enough for implementation when:
 Read these sources first:
 
 1. this document
-2. `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/browser/filter-sort-design.md
-
-
-
-`
-3. `
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/browser/top-controls-contract.md
-
-
-
-`
-4. `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/ui-media/archive-detail-popup-design.md
-
-
-
-`
+2. `/docs/features/print_history/design/browser/filter-sort-design.md`
+3. `/docs/features/print_history/reference/browser/top-controls-contract.md`
+4. `/docs/features/print_history/design/ui-media/archive-detail-popup-design.md`
 5. `homeassistant/custom_components/bambuddy/print_history/query.py`
 6. `homeassistant/custom_components/bambuddy/print_history/store.py`
 7. `homeassistant/www/3d_printing/print_history/print-history-browser-card.js`

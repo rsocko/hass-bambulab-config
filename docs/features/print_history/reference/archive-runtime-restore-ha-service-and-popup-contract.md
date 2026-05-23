@@ -1,4 +1,4 @@
-﻿# Archive Restore HA Service And Popup Contract
+# Archive Restore HA Service And Popup Contract
 
 Status: Active
 Last Reviewed: 2026-05-23
@@ -6,19 +6,7 @@ Functional Owner: print_history
 Replaces: docs/features/print_history/runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md
 Replaced By: none
 
-> Concrete companion to [archive-runtime-restore-ha-ux-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/runtime-repair/archive-runtime-restore-ha-ux-design.md
-
-
-) and [archive-runtime-restore-implementation-plan.md](../
-docs/features/print_history/planning/
-docs/features/print_history/planning/
-docs/features/print_history/planning/runtime-repair/archive-runtime-restore-implementation-plan.md
-
-
-).
+> Concrete companion to [archive-runtime-restore-ha-ux-design.md](/docs/features/print_history/design/runtime-repair/archive-runtime-restore-ha-ux-design.md) and [archive-runtime-restore-implementation-plan.md](/docs/features/print_history/planning/runtime-repair/archive-runtime-restore-implementation-plan.md).
 
 ## Purpose
 

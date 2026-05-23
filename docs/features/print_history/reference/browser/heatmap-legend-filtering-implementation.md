@@ -1,4 +1,4 @@
-﻿# Issue #1127 Implementation: Heatmap Legend Filtering
+# Issue #1127 Implementation: Heatmap Legend Filtering
 
 ## Summary
 Implemented the ability to click on heatmap legend swatches to filter the heatmap and results to only show days matching that legend value.
@@ -6,7 +6,7 @@ Implemented the ability to click on heatmap legend swatches to filter the heatma
 ## Architecture Overview
 
 ### Data Flow
-1. **Frontend (JavaScript Card)**: User clicks legend swatch â†’ Sets filter entity value
+1. **Frontend (JavaScript Card)**: User clicks legend swatch → Sets filter entity value
 2. **Helper Entity**: `input_select.print_history_filter_activity_metric` stores the selected filter value
 3. **WebSocket Query**: Heatmap card sends `activity_metric_filter` parameter to backend
 4. **Backend Processing**: Filter logic in `_matching_archive_ids()` filters archives based on metric
@@ -60,7 +60,7 @@ Options:
 - Added filtering logic for each supported activity mode:
 
 **Outcome Mode**:
-- Maps filter values to status codes: `"Complete" â†’ "completed"`, `"Failed" â†’ "failed"`, etc.
+- Maps filter values to status codes: `"Complete" → "completed"`, `"Failed" → "failed"`, etc.
 - Filters: `LOWER(a.status) = ?`
 
 **Single vs Multi-Color Mode**:
@@ -84,7 +84,7 @@ Options:
 
 #### 4. Resource Versioning
 - Updated `homeassistant/packages/3d_printing/common/dashboards/_resources.yaml`
-- Incremented heatmap card version: `v=58` â†’ `v=59`
+- Incremented heatmap card version: `v=58` → `v=59`
 
 ## Usage
 
@@ -98,13 +98,13 @@ Options:
 
 ### Filtering by Outcome
 1. Set activity metric to "Outcome"
-2. Legend shows: Cancelled/Failed â† â†’ Completed
+2. Legend shows: Cancelled/Failed ← → Completed
 3. Click the green swatch to see only completed prints
 4. Heatmap refilters to show only days with completed prints
 
 ### Filtering by Single vs Multi-Color
 1. Set activity metric to "Single vs Multi-Color Prints"
-2. Legend shows: More single-color â† â†’ More multi-color
+2. Legend shows: More single-color ← → More multi-color
 3. Click the purple swatch to see only multi-color prints
 4. Results update immediately
 
@@ -136,24 +136,8 @@ Options:
 
 ## Related Files
 
-- Design Documentation: `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/browser/heatmap-legend-filtering.md
-
-
-
-`
-- Filter Architecture: `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/browser/filter-sort-design.md
-
-
-
-`
+- Design Documentation: `/docs/features/print_history/design/browser/heatmap-legend-filtering.md`
+- Filter Architecture: `/docs/features/print_history/design/browser/filter-sort-design.md`
 - Archive Browser API: `homeassistant/custom_components/bambuddy/print_history/store.py`
 - Heatmap Card: `homeassistant/www/3d_printing/print_history/print-history-activity-heatmap-card.js`
 

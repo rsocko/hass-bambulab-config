@@ -1,4 +1,4 @@
-﻿# Print History Design Doc Review â€” 2026-04-16
+# Print History Design Doc Review — 2026-04-16
 
 Status: Archived
 Last Reviewed: 2026-05-23
@@ -55,47 +55,17 @@ This review separates:
 
 These docs appear directionally accurate and only need routine maintenance, not a status rewrite:
 
-- `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/ui-media/archive-detail-popup-design.md
-
-
-`
+- `/docs/features/print_history/design/ui-media/archive-detail-popup-design.md`
 - `../design/archive-compare-similar.md`
-- `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/browser/filter-sort-design.md
-
-
-`
-- `
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/browser/top-controls-contract.md
-
-
-`
-- `
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/ui-media/manual-photo-upload.md
-
-
-`
-- `
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/recovery/archive-exception-ux-design.md
-
-
-` (mostly accurate, though it should cross-link the shipped browser slice more prominently)
+- `/docs/features/print_history/design/browser/filter-sort-design.md`
+- `/docs/features/print_history/reference/browser/top-controls-contract.md`
+- `/docs/features/print_history/reference/ui-media/manual-photo-upload.md`
+- `/docs/features/print_history/design/recovery/archive-exception-ux-design.md` (mostly accurate, though it should cross-link the shipped browser slice more prominently)
 
 ## Recommended Next Actions
 
 1. Update `advanced-features-design.md` first, because it is the top-level phase map and currently gives the most misleading implementation snapshot.
-2. Update `photo-review-design.md` second, because it currently hides a meaningful amount of shipped functionality behind outdated â€œstill missingâ€ language.
+2. Update `photo-review-design.md` second, because it currently hides a meaningful amount of shipped functionality behind outdated “still missing” language.
 3. Reframe the `archive-detection-*` docs so Phase 1 is treated as partially/completely implemented and only recovery orchestration remains open.
 4. Refresh `metadata-implementation-roadmap.md` to acknowledge the local-store/event/review primitives that already landed.
 5. Leave compare, reprint, mismatch replacement, timelapse, and rescan/capability docs as active implementation design docs, because those still represent real pending work.
@@ -104,11 +74,11 @@ docs/features/print_history/design/recovery/archive-exception-ux-design.md
 
 Key implementation signals reviewed:
 
-- `custom_components/bambuddy/print_history/store.py` â€” shipped archive-error fields, event timeline, media review, review state, and repair-lineage tables
-- `custom_components/bambuddy/services.yaml` and `custom_components/bambuddy/__init__.py` â€” shipped service contracts for archive detail/query, event append, review state, media review, primary photo, photo delete, repair lineage, and partial-usage estimation
-- `custom_components/bambuddy/print_history/query.py` â€” active archive-error derivation and filter semantics
-- `packages/3d_printing/print_history/scripts/save_print_history_archive_popup_edits.yaml` â€” shipped popup editing including project assignment
-- `packages/3d_printing/common/dashboard_cards/card_templates/print_history_archive_popup*.yaml` â€” shipped popup actions including favorite toggle, save, re-enrich, and dismiss-review
-- `www/3d_printing/print_history/print-history-photo-gallery-card.js` â€” shipped Add Photo, Delete Photo, and Use In List View actions
-- `www/3d_printing/print_history/print-history-archive-actions-card.js` and `print-history-timelapse-card.js` â€” shipped timelapse scan/upload/viewer slice
+- `custom_components/bambuddy/print_history/store.py` — shipped archive-error fields, event timeline, media review, review state, and repair-lineage tables
+- `custom_components/bambuddy/services.yaml` and `custom_components/bambuddy/__init__.py` — shipped service contracts for archive detail/query, event append, review state, media review, primary photo, photo delete, repair lineage, and partial-usage estimation
+- `custom_components/bambuddy/print_history/query.py` — active archive-error derivation and filter semantics
+- `packages/3d_printing/print_history/scripts/save_print_history_archive_popup_edits.yaml` — shipped popup editing including project assignment
+- `packages/3d_printing/common/dashboard_cards/card_templates/print_history_archive_popup*.yaml` — shipped popup actions including favorite toggle, save, re-enrich, and dismiss-review
+- `www/3d_printing/print_history/print-history-photo-gallery-card.js` — shipped Add Photo, Delete Photo, and Use In List View actions
+- `www/3d_printing/print_history/print-history-archive-actions-card.js` and `print-history-timelapse-card.js` — shipped timelapse scan/upload/viewer slice
 

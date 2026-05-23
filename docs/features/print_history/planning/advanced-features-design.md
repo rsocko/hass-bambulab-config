@@ -2,13 +2,7 @@
 
 > Based on full archive API catalog: [bambuddy-archive-api-catalog.md](../bambuddy_common/bambuddy-archive-api-catalog.md)
 
-> **Integration point**: Advanced features add scripts/REST commands to `print_history/scripts/` and `print_history/rest_commands/`. Dashboard additions go in `print_history/dashboard_cards/` and are included from `print_history/dashboard_views/view_print_history.yaml`. Photo review scripts and popup are tracked separately in [photo-review-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/ui-media/photo-review-design.md
-
-
-).
+> **Integration point**: Advanced features add scripts/REST commands to `print_history/scripts/` and `print_history/rest_commands/`. Dashboard additions go in `print_history/dashboard_cards/` and are included from `print_history/dashboard_views/view_print_history.yaml`. Photo review scripts and popup are tracked separately in [photo-review-design.md](../design/ui-media/photo-review-design.md).
 >
 > **OpenAPI cross-check**: Re-validated against the live spec at `http://bambuddy.socko.us/openapi.json` on 2026-03-29. The scenarios below only use endpoints confirmed in the current API.
 
@@ -77,13 +71,7 @@ REST sensor polling `GET /archives/tags` â€” state is total unique tag coun
 
 ## Phase 2.05: Archive Detection and Recovery
 
-Detailed design is tracked in [archive-detection-recovery-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/recovery/archive-detection-recovery-design.md
-
-
-).
+Detailed design is tracked in [archive-detection-recovery-design.md](../design/recovery/archive-detection-recovery-design.md).
 
 ### Summary
 
@@ -252,13 +240,7 @@ Important caveat:
 
 - This feature assumes `content_hash` reflects the intended archived file.
 - Issue `#793` showed that same-hash grouping can still be correct technically while the archive record itself points to the wrong file.
-- Suspicious same-hash, different-name cases therefore need a separate review and repair path, documented in [archive-mismatch-repair-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/recovery/archive-mismatch-repair-design.md
-
-
-).
+- Suspicious same-hash, different-name cases therefore need a separate review and repair path, documented in [archive-mismatch-repair-design.md](../design/recovery/archive-mismatch-repair-design.md).
 
 1. **You've printed this before notification** â€” On `print_started`, if the archive has `duplicate_count > 0` or `GET /archives/{id}/similar` returns matches, send a notification:
    > "Starting 'Benchy' â€” you've printed this model 3 times before. Last result: completed (94.4% time accuracy). Best attempt: archive #145."
@@ -581,13 +563,7 @@ Still deferred within Phase 2.9:
 - dedicated timelapse review queue or shared media-review lifecycle work
 - post-process presets such as trim or speed workflows
 
-Authoritative implementation notes for the shipped slice live in `../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/ui-media/timelapse-actions-and-viewer.md
-
-
-`.
+Authoritative implementation notes for the shipped slice live in `/docs/features/print_history/design/ui-media/timelapse-actions-and-viewer.md`.
 
 ### API
 
@@ -710,13 +686,7 @@ Still deferred within Phase 2.10:
 
 ## Phase 2.11: Archive Detail Popup and Editing
 
-The phased interaction design for per-archive popup drilldown is tracked in [archive-detail-popup-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/ui-media/archive-detail-popup-design.md
-
-
-).
+The phased interaction design for per-archive popup drilldown is tracked in [archive-detail-popup-design.md](../design/ui-media/archive-detail-popup-design.md).
 
 ### Summary
 
@@ -737,13 +707,7 @@ docs/features/print_history/design/ui-media/archive-detail-popup-design.md
 
 ## Phase 2.12: Archive Mismatch Detection and Replacement
 
-Detailed design is tracked in [archive-mismatch-repair-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/recovery/archive-mismatch-repair-design.md
-
-
-).
+Detailed design is tracked in [archive-mismatch-repair-design.md](../design/recovery/archive-mismatch-repair-design.md).
 
 ### Summary
 
@@ -819,19 +783,7 @@ This stays in the roadmap as a fully assigned late phase rather than an unphased
 
 ## Phase 2.15: Source 3MF Image and Metadata Import
 
-Detailed design is tracked in [source-3mf-import-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/imports/source-3mf-import-design.md
-
-
-) and [source-3mf-import-implementation-plan.md](../
-docs/features/print_history/planning/
-docs/features/print_history/planning/
-docs/features/print_history/planning/imports/source-3mf-import-implementation-plan.md
-
-
-).
+Detailed design is tracked in [source-3mf-import-design.md](../design/imports/source-3mf-import-design.md) and [source-3mf-import-implementation-plan.md](./imports/source-3mf-import-implementation-plan.md).
 
 ### Summary
 

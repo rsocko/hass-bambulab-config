@@ -1,4 +1,4 @@
-﻿# Historical Archive Backfill From Earlier SD-Card Backup
+# Historical Archive Backfill From Earlier SD-Card Backup
 
 Status: Active
 Last Reviewed: 2026-05-23
@@ -10,13 +10,7 @@ Replaced By: none
 
 Run the same historical archive backfill workflow against the earlier printer SD-card backup without merging it into the existing April 3 manifest lane.
 
-This runbook keeps the ledger, batch outputs, and operator workflow separate while reusing the same manifest generator and backfill runner described in [archive-historical-backfill-from-sd-card.md](../
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/imports/archive-historical-backfill-from-sd-card.md
-
-
-).
+This runbook keeps the ledger, batch outputs, and operator workflow separate while reusing the same manifest generator and backfill runner described in [archive-historical-backfill-from-sd-card.md](/docs/features/print_history/reference/imports/archive-historical-backfill-from-sd-card.md).
 
 ## Source And State Files
 

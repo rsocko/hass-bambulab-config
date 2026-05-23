@@ -579,13 +579,7 @@ Use this if:
 
 **Goal:** Treat print history as a small archive application with HA as a client, automation plane, and dashboard host rather than the primary data-processing boundary.
 
-This extends naturally from the repair-oriented sidecar direction already described in `../
-docs/features/print_history/reference/
-docs/features/print_history/reference/
-docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md
-
-
-`.
+This extends naturally from the repair-oriented sidecar direction already described in `/docs/features/print_history/reference/runtime-repair/archive-runtime-sidecar-api-and-compose.md`.
 
 **Service responsibilities would expand to include:**
 

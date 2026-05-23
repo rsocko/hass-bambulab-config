@@ -1,4 +1,4 @@
-﻿# Manual Photo Upload
+# Manual Photo Upload
 
 ## Scope
 
@@ -74,20 +74,8 @@ The current file-picker path is already usable on desktop browsers, but a future
 
 This is now split into dedicated design docs:
 
-- [source-3mf-import-design.md](../
-docs/features/print_history/design/
-docs/features/print_history/design/
-docs/features/print_history/design/imports/source-3mf-import-design.md
-
-
-)
-- [source-3mf-import-implementation-plan.md](../
-docs/features/print_history/planning/
-docs/features/print_history/planning/
-docs/features/print_history/planning/imports/source-3mf-import-implementation-plan.md
-
-
-)
+- [source-3mf-import-design.md](/docs/features/print_history/design/imports/source-3mf-import-design.md)
+- [source-3mf-import-implementation-plan.md](/docs/features/print_history/planning/imports/source-3mf-import-implementation-plan.md)
 
 The agreed direction is:
 

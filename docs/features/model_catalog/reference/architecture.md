@@ -123,7 +123,7 @@ Use it only when:
 - you are comfortable treating each model as a folder-oriented unit
 - you accept that moved or renamed paths are not automatically relinked by Manyfold
 
-See [External Storage Behavior](../external-storage-behavior.md) for the source-verified rules.
+See [External Storage Behavior](./external-storage-behavior.md) for the source-verified rules.
 
 ## Manyfold Constraints That Shape The Architecture
 
