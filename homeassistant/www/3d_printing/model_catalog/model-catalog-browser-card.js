@@ -1236,6 +1236,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "bulk-archive") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkSetVisibility("archived");
+      return;
+    }
+
+    if (action === "bulk-unarchive") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkSetVisibility("active");
+      return;
+    }
+
     if (action === "open-model-history") {
       event.preventDefault();
       event.stopPropagation();
@@ -2171,6 +2185,54 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (failedRefs.length) {
       this._error = "Updated favorites with partial failure (" + String(failedRefs.length) + " failed).";
+    }
+
+    this._requestLoad(this._currentPage(), true);
+    this._render();
+  }
+
+  async _bulkSetVisibility(visibility) {
+    var selectedRefs = this.getSelectedModelRefs();
+    if (!selectedRefs.length || this._loading) {
+      return;
+    }
+
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      this._error = "Model sidecar URL not configured.";
+      this._render();
+      return;
+    }
+
+    var failedRefs = [];
+    this._error = "";
+
+    for (var i = 0; i < selectedRefs.length; i++) {
+      var modelRef = selectedRefs[i];
+      try {
+        var resp = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            enrichment: {
+              structured_metadata: {
+                catalog_signals: {
+                  catalog_visibility: visibility,
+                },
+              },
+            },
+          }),
+        });
+        if (!resp.ok) {
+          failedRefs.push(modelRef);
+        }
+      } catch (_error) {
+        failedRefs.push(modelRef);
+      }
+    }
+
+    if (failedRefs.length) {
+      this._error = "Set visibility with partial failure (" + String(failedRefs.length) + " of " + String(selectedRefs.length) + " failed).";
     }
 
     this._requestLoad(this._currentPage(), true);
@@ -3203,6 +3265,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-archive"><ha-icon icon="mdi:archive-arrow-down-outline"></ha-icon> Archive</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-unarchive"><ha-icon icon="mdi:archive-arrow-up-outline"></ha-icon> Unarchive</button>'
       + '  <select class="bulk-source-select" title="Set source for selected models">' + sourceOptionsHtml + '</select>'
       + '  <div class="ms-spacer"></div>'
       + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
