@@ -669,6 +669,25 @@ function renderValidationSummary(card) {
     return normalized;
   }
 
+  function tableFolderDisplay(pathValue, filename) {
+    var normalized = trimIntakeSourcePrefix(pathValue);
+    var fileNameText = String(filename || '').trim();
+    if (!normalized) {
+      return '';
+    }
+    if (fileNameText && normalized.toLowerCase().endsWith('/' + fileNameText.toLowerCase())) {
+      normalized = normalized.slice(0, Math.max(0, normalized.length - (fileNameText.length + 1)));
+    }
+    if (fileNameText && normalized.toLowerCase() === fileNameText.toLowerCase()) {
+      return '';
+    }
+    var parts = normalized.split('/').filter(Boolean);
+    if (!parts.length) {
+      return normalized;
+    }
+    return parts[parts.length - 1];
+  }
+
   function renderConflictItem(conflictItem) {
     if (conflictItem && typeof conflictItem === 'object') {
       var parentKind = String(conflictItem.parent_kind || '').trim().replace(/_/g, ' ');
@@ -828,9 +847,6 @@ function renderValidationSummary(card) {
           var group = grouped[groupKey];
           var firstFinding = group.violations.length ? (group.violations[0].finding || {}) : {};
           var sourceFolder = sourceFolderDisplay(group, firstFinding);
-          var sourcePathHtml = sourceFolder
-            ? '<div class="validation-source-path">Source folder: ' + escapeHtml(sourceFolder) + '</div>'
-            : '';
           var sortedViolations = group.violations.slice().sort(function (left, right) {
             var leftRank = violationSeverityRank(left && left.finding);
             var rightRank = violationSeverityRank(right && right.finding);
@@ -867,7 +883,8 @@ function renderValidationSummary(card) {
               var normalizedSourcePath = String(findingPath || '').replace(/\\/g, '/').trim();
               sourcePathForTable = trimIntakeSourcePrefix(normalizedSourcePath);
             }
-            var conflictPathForTable = conflictPathDisplay(conflictPath, conflictFilename);
+            var sourceFolderForTable = tableFolderDisplay(sourcePathForTable, findingFilename);
+            var conflictPathForTable = tableFolderDisplay(conflictPath, conflictFilename);
             var isInventoryMatch = String(check.key || '') === 'duplicate_scan';
             var leftColumnHeader = isInventoryMatch ? 'Source file (incoming)' : 'Source file';
             var rightColumnHeader = isInventoryMatch ? 'Inventory match (existing)' : 'Matched file';
@@ -912,10 +929,10 @@ function renderValidationSummary(card) {
               + '<div class="validation-match-table">'
               + '  <div class="validation-match-header">' + escapeHtml(leftColumnHeader) + '</div>'
               + '  <div class="validation-match-header">' + escapeHtml(rightColumnHeader) + '</div>'
+              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(sourceFolderForTable || '(path unavailable)') + '</div>'
+              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathForTable || '(path unavailable)') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(findingFilename || group.source_name || 'Source File') + '</div>'
               + '  <div class="validation-match-cell validation-match-name">' + escapeHtml(conflictFilename || 'Unknown match') + '</div>'
-              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(sourcePathForTable || '(path unavailable)') + '</div>'
-              + '  <div class="validation-match-cell validation-match-path">' + escapeHtml(conflictPathForTable || '(path unavailable)') + '</div>'
               + '</div>';
             return ''
               + '<div class="validation-violation-row ' + severityClass + '">'
@@ -3104,10 +3121,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .validation-severity-chip.severity-other{border-color:rgba(148,163,184,0.4);background:rgba(71,85,105,0.2);color:#e2e8f0;}'
       + '.wizard-dialog .validation-match-table{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--divider-color,rgba(148,163,184,0.25));border-radius:8px;overflow:hidden;}'
       + '.wizard-dialog .validation-match-header{padding:6px 8px;background:rgba(15,23,42,0.36);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.25));}'
-      + '.wizard-dialog .validation-match-cell{padding:6px 8px;font-size:12px;color:var(--primary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
+      + '.wizard-dialog .validation-match-cell{padding:6px 8px;font-size:12px;line-height:1.35;color:var(--primary-text-color);border-bottom:1px solid var(--divider-color,rgba(148,163,184,0.2));white-space:normal;overflow-wrap:anywhere;word-break:break-word;}'
       + '.wizard-dialog .validation-match-cell:nth-child(2n){border-left:1px solid var(--divider-color,rgba(148,163,184,0.2));}'
-      + '.wizard-dialog .validation-match-name{font-weight:700;}'
-      + '.wizard-dialog .validation-match-path{font-size:11px;color:var(--secondary-text-color);word-break:break-all;}'
+      + '.wizard-dialog .validation-match-name{font-weight:700;overflow-wrap:anywhere;word-break:break-word;}'
+      + '.wizard-dialog .validation-match-path{font-size:11px;color:var(--secondary-text-color);overflow-wrap:anywhere;word-break:break-word;}'
       + '.wizard-dialog .validation-status-chip{align-self:flex-start;justify-self:end;}'
       + '.wizard-dialog .validation-icon.fail{display:inline-grid;place-content:center;width:16px;height:16px;font-size:13px;line-height:1;color:#f87171;}'
       + '.wizard-dialog .validation-action-control{display:flex;flex-direction:column;gap:4px;justify-self:end;width:100%;max-width:220px;}'
