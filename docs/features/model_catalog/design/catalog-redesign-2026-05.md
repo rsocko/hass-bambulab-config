@@ -59,7 +59,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 4. **No `backlog` Queue state** — the Queue has `idea`/`up_next` but the operator concept of a "super-large backlog" / "I want this eventually" is not validated, and the Catalog cannot send things to that state distinctly.
 5. **Add-to-queue UX is inconsistent** — different patterns across card / popup / queue editor / intake; no single "what happens when I press Print" affordance.
 6. **History backfill is not catalog-discoverable** — operators can't initiate backfill from the model they're looking at. The CLI tools exist; the UI bridge does not.
-7. **Slicer launch from Catalog files is blocked** by browser policy ([working-files-local-launch-and-slicer-integration-design.md](../working-files-local-launch-and-slicer-integration-design.md)) — must be solved with a tokenized custom protocol handler before US-1's "open in Slicer" is honest. **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486))**; until then the corresponding affordance ships as `Download` (browser-served source file).
+7. **Slicer launch from Catalog files is blocked** by browser policy ([working-files-local-launch-and-slicer-integration-design.md](/docs/features/model_catalog/design/working-files-launch.md)) — must be solved with a tokenized custom protocol handler before US-1's "open in Slicer" is honest. **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486))**; until then the corresponding affordance ships as `Download` (browser-served source file).
 8. **Navigation is single-axis** — the catalog grid has no left rail for Projects / Collections / Tags drill-in; the catalog feels flat.
 
 ---
@@ -123,7 +123,7 @@ No enforced link. They stay orthogonal: Collection answers *"what curated tree d
 |---|---|---|---|---|
 | `model` | yes (3MF / STL / etc.) | shown | yes | terminal |
 | `idea` | no (concept only; optional links to external pages, sketches, notes) | hidden — `Show ideas` chip to surface | yes | promote to `model` or `working_group` when files arrive |
-| `working_group` | yes (working-files set staged for slicing/prep — see [working-groups-and-veneer.md](../working-groups-and-veneer.md)) | hidden — `Show working groups` chip to surface | yes | promote to `model` when ready to publish/share, or dissolve at project close |
+| `working_group` | yes (working-files set staged for slicing/prep — see [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)) | hidden — `Show working groups` chip to surface | yes | promote to `model` when ready to publish/share, or dissolve at project close |
 
 All three share the same membership / favorite / archive / popup machinery; the only differences are the default-visibility filter, the badge/pill shown on the card, and the available promotion actions in the popup.
 
@@ -171,7 +171,7 @@ Left rail (collapsible)        Main content
 
 **Popup additions**
 - **Hero action row** (already in popup redesign): `Print` · `Add to Queue` · `Open in Slicer` · `Download` · `★ Favorite` — all visible; no overflow on desktop. Until [#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486) ships in Phase 6, the `Open in Slicer` slot is collapsed and `Download` carries both intents.
-- **"Open in Slicer"** must work via tokenized custom-protocol handler (per [working-files-local-launch-and-slicer-integration-design.md](../working-files-local-launch-and-slicer-integration-design.md)). **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486)).** Phase 1 ships `Download` in its place; when #1486 lands the hero/card upgrades in-place to `Open in Slicer` with `Download` retained in overflow.
+- **"Open in Slicer"** must work via tokenized custom-protocol handler (per [working-files-local-launch-and-slicer-integration-design.md](/docs/features/model_catalog/design/working-files-launch.md)). **Deferred to Phase 6 ([#1486](https://github.com/rsocko/hass-bambulab-config/issues/1486)).** Phase 1 ships `Download` in its place; when #1486 lands the hero/card upgrades in-place to `Open in Slicer` with `Download` retained in overflow.
 
 **Linking print history back to model** (covered today by archive linkage flow but not visible enough): show on the Frequents card the count + a tiny `↪ History` glyph that opens the popup at the History tab.
 
@@ -369,7 +369,7 @@ Proposed:
 - Project membership *suggests* a folder under `assets/`; on-disk reorg is **opt-in** and runs as an Intake-side maintenance job (out of scope for this doc; tracked separately).
 
 **Storage management dashboard**
-- Surface existing sidecar storage stats: total size, count, top-10 largest, duplicate clusters (designed in [external-competitive-prioritized-implementation-backlog-2026-05-08.md](../external-competitive-prioritized-implementation-backlog-2026-05-08.md)).
+- Surface existing sidecar storage stats: total size, count, top-10 largest, duplicate clusters (designed in [external-competitive-prioritized-implementation-backlog-2026-05-08.md](/docs/features/model_catalog/planning/external-competitive-backlog.md)).
 - Linked from Catalog header overflow (`⚙ Storage & Maintenance`).
 
 ### US-7: Curate-then-pick (Project evaluation mode) (NEW)
@@ -462,7 +462,7 @@ After close, the Project transitions to `completed` (or `archived` if the operat
 
 **Data model addition:**
 - `entity_type = working_group` on the Catalog entry that represents a Working Group.
-- Existing Working-Files schema (per [working-groups-and-veneer.md](../working-groups-and-veneer.md)) is the underlying storage; the Catalog entry is a **lightweight projection** that exposes the WG to membership/favorite/popup machinery without duplicating files.
+- Existing Working-Files schema (per [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)) is the underlying storage; the Catalog entry is a **lightweight projection** that exposes the WG to membership/favorite/popup machinery without duplicating files.
 - Working Group Catalog entry inherits: title, member-file count, total size, last-modified timestamp; carries Project/Collection/Tag memberships independently.
 
 **Catalog UX**
@@ -766,17 +766,17 @@ The full set of GitHub issues opened on 2026-05-13/14 to track this redesign. Ea
 ### Source design docs consulted (kept as authoritative)
 
 - [architecture.md](../reference/architecture.md)
-- [post-manyfold-transition-plan-2026-04.md](../post-manyfold-transition-plan-2026-04.md)
-- [model-detail-popup-redesign-2026-05.md](../model-detail-popup-redesign-2026-05.md)
-- [projects-design.md](../projects-design.md)
+- [post-manyfold-transition-plan-2026-04.md](/docs/features/model_catalog/planning/post-manyfold-transition.md)
+- [model-detail-popup-redesign-2026-05.md](/docs/features/model_catalog/design/model-detail-popup.md)
+- [projects-design.md](/docs/features/model_catalog/design/projects.md)
 - [unified-queue.md](./unified-queue.md)
 - [unified-queue-state-transitions.md](../unified-queue-state-transitions.md)
-- [historical-print-backfill-via-model-catalog.md](../historical-print-backfill-via-model-catalog.md)
-- [phase-6-search-ranking-and-discovery-design.md](../phase-6-search-ranking-and-discovery-design.md)
-- [external-competitive-prioritized-implementation-backlog-2026-05-08.md](../external-competitive-prioritized-implementation-backlog-2026-05-08.md)
-- [working-files-local-launch-and-slicer-integration-design.md](../working-files-local-launch-and-slicer-integration-design.md)
-- [working-groups-and-veneer.md](../working-groups-and-veneer.md)
-- [storage-architecture-and-file-organization.md](../storage-architecture-and-file-organization.md)
+- [historical-print-backfill-via-model-catalog.md](/docs/features/model_catalog/design/print-history-backfill.md)
+- [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)
+- [external-competitive-prioritized-implementation-backlog-2026-05-08.md](/docs/features/model_catalog/planning/external-competitive-backlog.md)
+- [working-files-local-launch-and-slicer-integration-design.md](/docs/features/model_catalog/design/working-files-launch.md)
+- [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)
+- [storage-architecture-and-file-organization.md](/docs/features/model_catalog/reference/storage-architecture.md)
 
 ### Existing GitHub issues this redesign aligns with (not superseded; track work under)
 

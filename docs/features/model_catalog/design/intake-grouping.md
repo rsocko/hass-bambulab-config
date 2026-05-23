@@ -4,7 +4,7 @@
 **Status**: IMPLEMENTED ✅  
 **Scope**: Phase 1.5 — Intake Inbox & Bulk Ingestion  
 
-**2026-05-03 note**: The backend/storage behavior in this document remains valid, but the canonical operator-facing Organize semantics are now further constrained by issues #1288 and #1292. Use the Group / Split labels and wizard layout defined in [intake-inbox-design.md](../intake-inbox-design.md) and [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md) when implementing or revising the UI.
+**2026-05-03 note**: The backend/storage behavior in this document remains valid, but the canonical operator-facing Organize semantics are now further constrained by issues #1288 and #1292. Use the Group / Split labels and wizard layout defined in [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md) and [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md) when implementing or revising the UI.
 
 Additional 2026-05 note: the canonical wizard flow is now `Source -> Organize -> Choose Destination -> Validate -> Commit`. Destination choice and cleanup policy no longer belong inside Organize. Cleanup policy should be shown with friendly labels in the operator UI, even though backend values remain `keep`, `delete_on_verified`, and `replace_with_stub`.
 
@@ -478,9 +478,9 @@ No structural changes. `source_metadata_json` already captures:
 
 ## Related Documentation
 
-- [intake-inbox-design.md](../intake-inbox-design.md) — Overall intake workflow
-- [print-history/filter-sort-design.md](../print_history/browser/filter-sort-design.md) — Layer architecture (applies to models too)
-- [working-file-spec.md](../working-file-spec.md) — File organization standards
+- [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md) — Overall intake workflow
+- [print-history/filter-sort-design.md](/docs/features/print_history/design/browser/filter-sort-design.md) — Layer architecture (applies to models too)
+- [working-file-spec.md](working-file-spec.md) — File organization standards
 
 ## Testing Checklist
 
@@ -656,6 +656,6 @@ New validation check: `excluded_items_summary`
 
 ### Related Design Documents
 
-- [intake-source-selection-removal-design.md](../intake-source-selection-removal-design.md) — Source step UX and removal semantics
-- [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md) — Visual mockups showing partial indicators
-- [intake-validation-contract.md](../intake-validation-contract.md) — Validation checklist with exclusion summary
+- [intake-source-selection-removal-design.md](/docs/features/model_catalog/design/intake-source-selection.md) — Source step UX and removal semantics
+- [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md) — Visual mockups showing partial indicators
+- [intake-validation-contract.md](/docs/features/model_catalog/reference/intake-validation.md) — Validation checklist with exclusion summary

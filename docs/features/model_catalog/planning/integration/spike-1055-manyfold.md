@@ -474,5 +474,5 @@ Manyfold's REST API is **sufficient for the planned catalog workflows** in Phase
 
 - [Manyfold API Gap Analysis](../manyfold-gap-analysis.md)
 - [Manyfold Bambuddy Linkage Model](../../design/manyfold-bambuddy-linkage.md)
-- [API Reference](../api-reference.md)
+- [API Reference](../../reference/api-reference.md)
 - Manyfold upstream OpenAPI: `{manyfold_host}/api-docs`

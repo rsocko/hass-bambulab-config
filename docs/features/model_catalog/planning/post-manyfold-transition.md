@@ -14,7 +14,7 @@ Define the definitive migration plan from Manyfold-backed catalog authority to a
 - Manyfold role: retired from active operational path; optional read-only adapter only in future phases.
 - Phase handling: full sequential renumbering (new phase sequence below).
 - Issue migration: hybrid strategy (close deprecated Manyfold-blocked issues, retarget still-valid issues, split mixed issues).
-- **Persistence baseline**: Stay with SQLite for Phase 1-5. Plan SQLAlchemy ORM migration for Phase 6+ if multi-sidecar deployment emerges. See [Persistence Strategy and Database Graduation Path](../persistence-strategy-and-graduation.md) for detailed rationale, trigger criteria, and migration playbook.
+- **Persistence baseline**: Stay with SQLite for Phase 1-5. Plan SQLAlchemy ORM migration for Phase 6+ if multi-sidecar deployment emerges. See [Persistence Strategy and Database Graduation Path](/docs/features/model_catalog/reference/persistence-graduation.md) for detailed rationale, trigger criteria, and migration playbook.
 
 ## Scope
 

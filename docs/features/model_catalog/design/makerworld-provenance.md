@@ -10,7 +10,7 @@ Issue #1179 asks to link to or import MakerWorld information into the model cata
 
 The first technically defensible step is not iframe embedding or proxying the live MakerWorld page. It is extracting embedded provenance that already ships inside some `.3mf` files and normalizing it into sidecar-owned metadata.
 
-This document narrows the broader provenance design in [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md) into a concrete extraction contract for MakerWorld-adjacent fields found inside Bambu Studio `.3mf` packages.
+This document narrows the broader provenance design in [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md) into a concrete extraction contract for MakerWorld-adjacent fields found inside Bambu Studio `.3mf` packages.
 
 ## Evidence Summary
 

@@ -124,5 +124,5 @@ curl http://localhost:8314/api/models/gridfinity-bin/detail
 - Helpers: [homeassistant/packages/3d_printing/model_catalog/helpers/model_detail_popup.yaml](../../../homeassistant/packages/3d_printing/model_catalog/helpers/model_detail_popup.yaml)
 
 ## Design Reference
-- Full design document: [docs/features/model_catalog/phase-3-detail-view-design.md](../phase-3-detail-view-design.md)
+- Full design document: [docs/features/model_catalog/phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)
 - Print History reference implementation (similar popup pattern): [homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js](../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js)

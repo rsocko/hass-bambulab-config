@@ -3,8 +3,8 @@
 **Status**: Phase 3.3 enhancement specification  
 **Date**: 2026-04-30  
 **Related Documents**: 
-- [phase-3.3-implementation-guide.md](../phase-3.3-implementation-guide.md)
-- [phase-3.2-optional-enhancements.md](../phase-3.2-optional-enhancements.md)
+- [phase-3.3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md)
+- [phase-3.2-optional-enhancements.md](/docs/features/model_catalog/planning/phase-3.2-enhancements.md)
 
 ---
 
@@ -232,8 +232,8 @@ if (layerButton) {
 
 ## References
 
-- [phase-3.2-optional-enhancements.md](../phase-3.2-optional-enhancements.md) — Feature specs
-- [phase-3.3-implementation-guide.md](../phase-3.3-implementation-guide.md) — Phase 3.3 scope
+- [phase-3.2-optional-enhancements.md](/docs/features/model_catalog/planning/phase-3.2-enhancements.md) — Feature specs
+- [phase-3.3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md) — Phase 3.3 scope
 - [Issue #1141](https://github.com/rsocko/hass-bambulab-config/issues/1141) — 3D Viewer implementation
 - Three.js Documentation: https://threejs.org/docs/
 

@@ -192,8 +192,8 @@ Example reasoning strings:
 
 ## Related Documents
 
-- [phase-6-search-ranking-and-discovery-design.md](../phase-6-search-ranking-and-discovery-design.md)
-- [integration/archive-model-link-ha-service-and-popup-contract.md](../integration/archive-model-link-ha-service-and-popup-contract.md)
+- [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)
+- [integration/archive-model-link-ha-service-and-popup-contract.md](/docs/features/model_catalog/reference/integration/archive-model-link-contract.md)
 - [ADR-001-archive-linkage-target-and-graduation-identity.md](../ADR-001-archive-linkage-target-and-graduation-identity.md)
 
 ## Implementation Status — Issue #1114 Broadening

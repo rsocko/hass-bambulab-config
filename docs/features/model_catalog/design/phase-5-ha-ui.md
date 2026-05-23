@@ -7,7 +7,7 @@
 >
 > **Historical note (2026-05-01)**: This document describes the earlier hidden-subview plan. The shipped Home Assistant dashboard now keeps one top-level `Model Catalog` view and uses helper-backed internal workspace navigation instead of hidden child views.
 >
-> **Canonical intake note (2026-05-03)**: The intake-specific popup concepts below are superseded where they conflict with [intake-inbox-design.md](../intake-inbox-design.md) and [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md). Intake now follows one wizard-first `Source -> Organize -> Validate -> Commit` flow for both Browser Upload and Server Inbox, with a consistent left-actions/right-results layout.
+> **Canonical intake note (2026-05-03)**: The intake-specific popup concepts below are superseded where they conflict with [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md) and [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md). Intake now follows one wizard-first `Source -> Organize -> Validate -> Commit` flow for both Browser Upload and Server Inbox, with a consistent left-actions/right-results layout.
 
 ---
 
@@ -23,7 +23,7 @@ Define the Home Assistant operator surfaces for the first complete Phase 5 worki
 
 This document is intentionally implementation-facing. It covers the immediate Wave 4 UI slice and names the reusable components, surface contracts, and state patterns needed to build it.
 
-Future-facing publish, lineage, preview-promotion, and library-import surfaces are documented separately in [phase-5-end-state-ui-and-handoff-design.md](../phase-5-end-state-ui-and-handoff-design.md).
+Future-facing publish, lineage, preview-promotion, and library-import surfaces are documented separately in [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md).
 
 ---
 
@@ -212,7 +212,7 @@ This is the cleanest balance between native HA navigation, mobile stability, and
 - **#1145**: source mode, queue visibility, folder-selection controls, cleanup policy, result summaries
 - **#1169**: rework Working Files around `/assets/Model Working Files`, group-first navigation, and Explorer/launch actions
 
-Working Files redesign details for #1169 are tracked in [working-files-workflow-redesign-issue-1169.md](../working-files-workflow-redesign-issue-1169.md).
+Working Files redesign details for #1169 are tracked in [working-files-workflow-redesign-issue-1169.md](/docs/features/model_catalog/design/working-files-workflow.md).
 
 ### Near-Term End-State Drivers
 
@@ -464,7 +464,7 @@ It is **not** intended to be only a popup, and it is **not** intended to be a cu
 
 Collect submission inputs for both source modes without splitting the UX into two unrelated tools.
 
-This section is retained for Wave 4 history, but the canonical implementation target is now the wizard documented in [intake-inbox-design.md](../intake-inbox-design.md) and [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md).
+This section is retained for Wave 4 history, but the canonical implementation target is now the wizard documented in [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md) and [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md).
 
 ### Key Decisions
 
@@ -906,8 +906,8 @@ Suggested helpers:
 
 ## Related Docs
 
-- [intake-inbox-design.md](../intake-inbox-design.md)
-- [working-groups-and-veneer.md](../working-groups-and-veneer.md)
+- [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md)
+- [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)
 - [workflow-ingestion.md](../reference/workflow-ingestion.md)
-- [projects-design.md](../projects-design.md)
-- [phase-5-end-state-ui-and-handoff-design.md](../phase-5-end-state-ui-and-handoff-design.md)
+- [projects-design.md](/docs/features/model_catalog/design/projects.md)
+- [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md)

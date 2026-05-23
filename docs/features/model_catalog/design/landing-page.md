@@ -246,7 +246,7 @@ Content:
 - batches with warnings or cleanup follow-up
 - queue/job history summaries when a run recently completed
 
-Cards should reflect the canonical intake direction from [../intake-inbox-design.md](../intake-inbox-design.md): wizard-first, inbox demoted, Job History visible.
+Cards should reflect the canonical intake direction from [/docs/features/model_catalog/design/intake-inbox.md](/docs/features/model_catalog/design/intake-inbox.md): wizard-first, inbox demoted, Job History visible.
 
 Recommended sub-blocks:
 

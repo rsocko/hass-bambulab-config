@@ -546,8 +546,8 @@ Phase 1.5 is implementation-ready when all of the following are true:
 
 ## Related Docs
 
-- [Intake Inbox Design](../intake-inbox-design.md)
-- [ROADMAP-REVISED-WITH-BULK](../ROADMAP-REVISED-WITH-BULK.md)
+- [Intake Inbox Design](/docs/features/model_catalog/design/intake-inbox.md)
+- [ROADMAP-REVISED-WITH-BULK](/docs/features/model_catalog/planning/roadmap-revised.md)
 - [Workflow And Ingestion Guide](../reference/workflow-ingestion.md)
-- [Phase Delivery And Validation Tracker](../phase-delivery-and-validation.md)
-- [integration/HA Model Library Integration](../integration/ha-model-library-integration.md)
+- [Phase Delivery And Validation Tracker](/docs/features/model_catalog/planning/delivery-validation.md)
+- [integration/HA Model Library Integration](/docs/features/model_catalog/reference/integration/ha-library-integration.md)

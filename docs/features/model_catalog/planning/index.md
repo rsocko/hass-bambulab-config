@@ -3,45 +3,45 @@
 **Documentation Status**: Legacy Phase 3 UI guide set retained for implementation history. In the current post-Manyfold sequence, legacy Phases 3.1-3.3 map to **Phase 4: UI Continuity and In-Flight Preservation**.
 
 **Use First**:
-- [Post-Manyfold Transition Plan (2026-04)](../post-manyfold-transition-plan-2026-04.md) for the authoritative phase sequence
-- [phase-delivery-and-validation.md](../phase-delivery-and-validation.md) for current execution order and validation gates
+- [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md) for the authoritative phase sequence
+- [phase-delivery-and-validation.md](/docs/features/model_catalog/planning/delivery-validation.md) for current execution order and validation gates
 
 ---
 
 ## 📚 Documentation Quick Links
 
 ### 🎯 Get Started Here (First Time?)
-1. **[Post-Manyfold Transition Plan (2026-04)](../post-manyfold-transition-plan-2026-04.md)** ← Authoritative phase map
-2. **[phase-delivery-and-validation.md](../phase-delivery-and-validation.md)** ← Active execution tracker
-3. **[Phase 3.1-3.3 Roadmap](../phase-3.1-3.3-roadmap.md)** ← Legacy Phase 4 UI continuity roadmap
+1. **[Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md)** ← Authoritative phase map
+2. **[phase-delivery-and-validation.md](/docs/features/model_catalog/planning/delivery-validation.md)** ← Active execution tracker
+3. **[Phase 3.1-3.3 Roadmap](phase-3.1-3.3-roadmap.md)** ← Legacy Phase 4 UI continuity roadmap
 
 ### 🔎 Phase 6 Design Baseline
-- **[Phase 6 Search, Ranking, and Discovery Design](../phase-6-search-ranking-and-discovery-design.md)** ← Authoritative Phase 6 search/query/ranking/related-items contract
+- **[Phase 6 Search, Ranking, and Discovery Design](/docs/features/model_catalog/design/phase-6-search.md)** ← Authoritative Phase 6 search/query/ranking/related-items contract
 - **[Phase 6 Bulk Metadata Enrichment Design](../phase-6-bulk-metadata-enrichment-design.md)** ← Authoritative Phase 6 bulk analyze/enrich contract
 
 ### 🚀 Phase 5 Wave 1 (Current Execution)
 - **[Working-File Indexing And Grouping Feasibility](../working-file-indexing-feasibility.md)** ← Issue #1059
-- **[Working File Inventory And Normalization Spec](../working-file-spec.md)** ← Issue #1074
-- **[Working Files Workflow Redesign](../working-files-workflow-redesign-issue-1169.md)** ← Issue #1169
+- **[Working File Inventory And Normalization Spec](../design/working-file-spec.md)** ← Issue #1074
+- **[Working Files Workflow Redesign](/docs/features/model_catalog/design/working-files-workflow.md)** ← Issue #1169
 - **[Main.py Modularization Low-Risk Plan](../planning/main-py-modularization.md)** ← Deterministic decomposition plan for sidecar backend
 - **[Main.py Modularization Issue Map](../planning/main-py-modularization-map.md)** ← Epic + child issue sequence and acceptance gates
-- **[Working Files Local Launch And Slicer Integration Design](../working-files-local-launch-and-slicer-integration-design.md)** ← Local file, slicer protocol, companion, and replace-flow design
+- **[Working Files Local Launch And Slicer Integration Design](/docs/features/model_catalog/design/working-files-launch.md)** ← Local file, slicer protocol, companion, and replace-flow design
 - **[Print History Slicer Plan](./print-history-slicer-plan.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
-- **[Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
-- **[Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)** ← Local worker delivery slices and issue breakdown
-- **[Intake Flow States And Transitions](../intake-state-machine.md)** ← Issue #1079
-- **[Intake Wizard UX Mockups](../intake-wizard-ux-mockups.md)** ← Canonical split-pane intake layouts for #1282, #1288, and #1292
+- **[Print History Slicer UX Mockups](/docs/features/model_catalog/design/print-history-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
+- **[Print History Slicer Implementation Plan](/docs/features/model_catalog/planning/print-history-slicer-plan.md)** ← Local worker delivery slices and issue breakdown
+- **[Intake Flow States And Transitions](../reference/intake-state-machine.md)** ← Issue #1079
+- **[Intake Wizard UX Mockups](/docs/features/model_catalog/design/intake-wizard-mockups.md)** ← Canonical split-pane intake layouts for #1282, #1288, and #1292
 - **[Intake Drag And Drop Entry Design](../intake-drag-and-drop-entry-design.md)** ← Proposed entry-point contract for issue #1321 across Intake, Catalog, and Working
 - **[Intake Overlapping Server Selections Issue Drafts](../intake-overlapping-server-selections-issue-drafts.md)** ← Parent/child overlap issue-ready tracking for Server intake follow-up
 
 ### 🧭 Phase 5 Wave 4 UI Design (New)
-- **[Phase 5 Wave 4 HA UI Design](../phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
-- **[Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
+- **[Phase 5 Wave 4 HA UI Design](/docs/features/model_catalog/design/phase-5-ha-ui.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
+- **[Phase 5 End-State UI And Handoff Design](/docs/features/model_catalog/design/phase-5-end-state.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 
 ### 🧠 Unified Production Queue (Planning + Tracking)
 - **[Unified Queue Design](../design/unified-queue.md)** ← Approved operator-surface design and object model
-- **[Unified Production Queue Implementation Plan](../unified-production-queue-implementation-plan.md)** ← End-to-end backend/frontend implementation sequence
-- **[Unified Production Queue GitHub Issues](../unified-production-queue-github-issues.md)** ← Click-to-create issue links with prepopulated title/body
+- **[Unified Production Queue Implementation Plan](/docs/features/model_catalog/planning/unified-queue-plan.md)** ← End-to-end backend/frontend implementation sequence
+- **[Unified Production Queue GitHub Issues](/docs/features/model_catalog/planning/unified-queue-issues.md)** ← Click-to-create issue links with prepopulated title/body
 - **Mockups**:
   - [Production Queue (list view)](../design/mockups/production-queue.html) · [Add-to-queue](../design/mockups/production-queue-add.html) · [Entry detail popup](../design/mockups/production-queue-entry-detail.html)
   - [Kanban board view](../print_queue/mockups/kanban-board.html) ← NEW · vertical state columns w/ drag-and-drop, per-state color palette, prominent Time Remaining hero (excludes done plates). Lives under [`print_queue/mockups/`](../print_queue/mockups/index.html).
@@ -52,16 +52,16 @@
 - **[GitHub Work Items: Upload V2 + StreamDeck Integration](../integration/github-work-items-v2-upload-and-streamdeck.md)** ← Issue-ready implementation backlog with acceptance criteria
 
 ### 📖 Implementation Guides (For Developers)
-- **[Phase 3.1: Edit Mode & Photo Management](../phase-3.1-implementation-guide.md)** (30-35 hrs)
+- **[Phase 3.1: Edit Mode & Photo Management](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md)** (30-35 hrs)
   - Tasks: Edit form, conflict detection, photo gallery, services, endpoints
   - 15+ tests required
   
-- **[Phase 3.2: 3D Viewer with Three.js](../phase-3.2-implementation-guide.md)** (40-45 hrs)
+- **[Phase 3.2: 3D Viewer with Three.js](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md)** (40-45 hrs)
   - Tasks: Three.js setup, file loaders, rendering, build volume, controls
   - 12+ tests required
   - Performance targets: <500ms load, 60 FPS
 
-- **[Phase 3.3: Cross-System Integration](../phase-3.3-implementation-guide.md)** (25-30 hrs)
+- **[Phase 3.3: Cross-System Integration](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md)** (25-30 hrs)
   - Tasks: Archive linking, related models, navigation services
   - 10+ tests required
 
@@ -71,18 +71,18 @@
 - **[Phase 3.3 Issue Template](.././.github/ISSUE_TEMPLATE/phase-3-3-implementation.md)**
 
 ### 🎨 Design & Reference
-- **[Model Detail Popup Redesign (2026-05)](../model-detail-popup-redesign-2026-05.md)** ← Makerworld-inspired popup redesign with carousel, file/plate inspector, candidate-match review, related models, and supporting files
-- **[Phase 3 Design Document](../phase-3-detail-view-design.md)** ← UI/UX specifications
+- **[Model Detail Popup Redesign (2026-05)](/docs/features/model_catalog/design/model-detail-popup.md)** ← Makerworld-inspired popup redesign with carousel, file/plate inspector, candidate-match review, related models, and supporting files
+- **[Phase 3 Design Document](/docs/features/model_catalog/design/phase-3-detail-view.md)** ← UI/UX specifications
 - **[3MF Embedded Thumbnail Display Design](../3mf-embedded-thumbnail-display-design.md)** ← Automatic `.3mf` thumbnail behavior for cards and popup media
 - **[3MF Source Extraction (Source Tab + Intake)](../3mf-source-extraction-source-tab-and-intake-design.md)** ← Operator-triggered source/provenance extraction from attached `.3mf` files, including mixed-source conflict handling and intake reuse
 - **[Cache Roadmap And Invalidation Design](../planning/cache-roadmap.md)** ← Incremental cache plan (no-Redis first, Redis decision gates)
-- **[Phase 5 Wave 4 HA UI Design](../phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
-- **[Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
+- **[Phase 5 Wave 4 HA UI Design](/docs/features/model_catalog/design/phase-5-ha-ui.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
+- **[Phase 5 End-State UI And Handoff Design](/docs/features/model_catalog/design/phase-5-end-state.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 - **[Print History Slicer Plan](./print-history-slicer-plan.md)** ← Model Catalog to Print History source-3MF slicing orchestration
-- **[Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)** ← Low-fi validation, override, progress, and completion surfaces
-- **[Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)** ← Concrete local-worker execution slices
+- **[Print History Slicer UX Mockups](/docs/features/model_catalog/design/print-history-mockups.md)** ← Low-fi validation, override, progress, and completion surfaces
+- **[Print History Slicer Implementation Plan](/docs/features/model_catalog/planning/print-history-slicer-plan.md)** ← Concrete local-worker execution slices
 - **[Legacy Manyfold Photo Publication Design](../phase-6-manyfold-photo-publication-design.md)** ← Optional post-pivot Manyfold adapter work, now aligned to Phase 9 rather than an active core-path phase
-- **[Phase 3.0 Implementation Guide](../phase-3-implementation-guide.md)** ← Completed phase reference
+- **[Phase 3.0 Implementation Guide](/docs/features/model_catalog/planning/phase-3-guide.md)** ← Completed phase reference
 - **[Print History Features](../print_history/)** ← Related features
 - **[Bambuddy API Reference](../../../bambuddy/README.md)** ← Backend API
 
@@ -155,14 +155,14 @@ MODEL CATALOG PROJECT
 ## 🚀 Quick Start for Developers
 
 ### I want to work on Phase 3.1
-1. Read: [Phase 3.1 Implementation Guide](../phase-3.1-implementation-guide.md) (15 min)
+1. Read: [Phase 3.1 Implementation Guide](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md) (15 min)
 2. Review: `homeassistant/www/3d_printing/model_catalog/model-detail-edit-form.js` (boilerplate exists)
 3. Start: Task 1 (Edit Form Component)
 4. Code: Edit form validation + data binding
 5. Test: `pytest tests/phase3/test_edit_form.py`
 
 ### I want to work on Phase 3.2
-1. Read: [Phase 3.2 Implementation Guide](../phase-3.2-implementation-guide.md) (15 min)
+1. Read: [Phase 3.2 Implementation Guide](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md) (15 min)
 2. Review: `homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js` (boilerplate exists)
 3. Start: Task 1 (Three.js Setup)
 4. Code: Scene setup, render loop, lighting
@@ -170,7 +170,7 @@ MODEL CATALOG PROJECT
 6. Reference: https://threejs.org/docs/
 
 ### I want to work on Phase 3.3
-1. Read: [Phase 3.3 Implementation Guide](../phase-3.3-implementation-guide.md) (15 min)
+1. Read: [Phase 3.3 Implementation Guide](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md) (15 min)
 2. Review: Print history reference: `docs/features/print_history/`
 3. Start: Task 1 (Enhanced Archive Linking)
 4. Code: Archive grid UI with filters/sorting
@@ -238,34 +238,34 @@ sidecars/model_catalog/app/
 ## 🎯 Key Documents by Role
 
 ### Project Manager / Tech Lead
-- Start: [Phase 3 Quick Reference](../phase-3-quick-reference.md)
-- Then: [Phase 3.1-3.3 Roadmap](../phase-3.1-3.3-roadmap.md)
+- Start: [Phase 3 Quick Reference](/docs/features/model_catalog/planning/phase-3-quick-ref.md)
+- Then: [Phase 3.1-3.3 Roadmap](phase-3.1-3.3-roadmap.md)
 - Then: [Development Checklist](../phase-3.1-3.3-development-checklist.md)
 - Track: GitHub issues (use templates)
 
 ### Developer (Phase 3.1)
-- Start: [Phase 3.1 Implementation Guide](../phase-3.1-implementation-guide.md)
-- Reference: [Phase 3 Design Document](../phase-3-detail-view-design.md)
-- Reference: [Phase 3.0 Implementation Guide](../phase-3-implementation-guide.md)
+- Start: [Phase 3.1 Implementation Guide](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md)
+- Reference: [Phase 3 Design Document](/docs/features/model_catalog/design/phase-3-detail-view.md)
+- Reference: [Phase 3.0 Implementation Guide](/docs/features/model_catalog/planning/phase-3-guide.md)
 - Code: `homeassistant/www/3d_printing/model_catalog/`
 
 ### Developer (Phase 3.2)
-- Start: [Phase 3.2 Implementation Guide](../phase-3.2-implementation-guide.md)
+- Start: [Phase 3.2 Implementation Guide](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md)
 - Reference: https://threejs.org/docs/
-- Reference: [Phase 3 Design Document](../phase-3-detail-view-design.md)
+- Reference: [Phase 3 Design Document](/docs/features/model_catalog/design/phase-3-detail-view.md)
 - Code: `homeassistant/www/3d_printing/model_catalog/`
 
 ### Developer (Phase 3.3)
-- Start: [Phase 3.3 Implementation Guide](../phase-3.3-implementation-guide.md)
+- Start: [Phase 3.3 Implementation Guide](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md)
 - Reference: [Print History Reference](../print_history/)
 - Reference: [Bambuddy API](../../../bambuddy/README.md)
 - Code: `homeassistant/www/3d_printing/model_catalog/`
 
 ### QA / Tester
 - Checklist: [Development Checklist](../phase-3.1-3.3-development-checklist.md) (Manual Testing section)
-- Phase 3.1 Criteria: [phase-3.1-implementation-guide.md](../phase-3.1-implementation-guide.md#success-criteria)
-- Phase 3.2 Criteria: [phase-3.2-implementation-guide.md](../phase-3.2-implementation-guide.md#success-criteria)
-- Phase 3.3 Criteria: [phase-3.3-implementation-guide.md](../phase-3.3-implementation-guide.md#success-criteria)
+- Phase 3.1 Criteria: [phase-3.1-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md#success-criteria)
+- Phase 3.2 Criteria: [phase-3.2-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md#success-criteria)
+- Phase 3.3 Criteria: [phase-3.3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md#success-criteria)
 
 ---
 
@@ -347,11 +347,11 @@ Before deploying each phase:
 
 | Need | Link |
 |------|------|
-| 5-minute overview | [Phase 3 Quick Reference](../phase-3-quick-reference.md) |
-| Executive summary | [Phase 3.1-3.3 Roadmap](../phase-3.1-3.3-roadmap.md) |
+| 5-minute overview | [Phase 3 Quick Reference](/docs/features/model_catalog/planning/phase-3-quick-ref.md) |
+| Executive summary | [Phase 3.1-3.3 Roadmap](phase-3.1-3.3-roadmap.md) |
 | Execution plan | [Development Checklist](../phase-3.1-3.3-development-checklist.md) |
-| Phase 3.1 guide | [Implementation Guide](../phase-3.1-implementation-guide.md) |
-| Phase 3.2 guide | [Implementation Guide](../phase-3.2-implementation-guide.md) |
-| Phase 3.3 guide | [Implementation Guide](../phase-3.3-implementation-guide.md) |
-| Design specs | [Phase 3 Design](../phase-3-detail-view-design.md) |
-| Phase 3.0 ref | [Implementation Guide](../phase-3-implementation-guide.md) |
+| Phase 3.1 guide | [Implementation Guide](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md) |
+| Phase 3.2 guide | [Implementation Guide](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md) |
+| Phase 3.3 guide | [Implementation Guide](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md) |
+| Design specs | [Phase 3 Design](/docs/features/model_catalog/design/phase-3-detail-view.md) |
+| Phase 3.0 ref | [Implementation Guide](/docs/features/model_catalog/planning/phase-3-guide.md) |

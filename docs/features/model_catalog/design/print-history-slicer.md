@@ -6,12 +6,12 @@
 
 See also:
 
-- [Historical Print Backfill Via Model Catalog](../historical-print-backfill-via-model-catalog.md)
+- [Historical Print Backfill Via Model Catalog](/docs/features/model_catalog/design/print-history-backfill.md)
 - [3MF Analysis Cache Schema And API Draft](../planning/3mf-cache-draft.md)
-- [Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)
-- [Source 3MF Import Design](../print_history/imports/source-3mf-import-design.md)
-- [Filament Catalog - Design Document](../filament_catalog/filament-catalog.md)
-- [Working Files Local Launch And Slicer Integration Design](../working-files-local-launch-and-slicer-integration-design.md)
+- [Print History Slicer Implementation Plan](/docs/features/model_catalog/planning/print-history-slicer-plan.md)
+- [Source 3MF Import Design](/docs/features/print_history/design/imports/source-3mf-import-design.md)
+- [Filament Catalog - Design Document](/docs/features/filament_catalog/README.md)
+- [Working Files Local Launch And Slicer Integration Design](/docs/features/model_catalog/design/working-files-launch.md)
 
 ## Purpose
 

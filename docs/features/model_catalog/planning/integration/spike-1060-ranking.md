@@ -601,5 +601,5 @@ Archive-derived ranking signals are **fully viable for Phase 3 implementation**.
 
 - [Manyfold Bambuddy Linkage Model](../../design/manyfold-bambuddy-linkage.md)
 - [Archive Model Link HA Service Contract](.././archive-model-link-ha-service-and-popup-contract.md)
-- [Phase 3 Implementation Guide](../phase-3-implementation-guide.md)
-- Print History: [browser/filter-sort-design.md](../../print_history/browser/filter-sort-design.md)
+- [Phase 3 Implementation Guide](/docs/features/model_catalog/planning/phase-3-guide.md)
+- Print History: [browser/filter-sort-design.md](..//docs/features/print_history/design/browser/filter-sort-design.md)

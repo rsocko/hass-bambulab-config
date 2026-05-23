@@ -6,7 +6,7 @@
 
 ## Transition Authority Note
 
-This document contains historical architectural context and current-state boundaries, but the authoritative migration direction is now captured in [Post-Manyfold Transition Plan (2026-04)](../post-manyfold-transition-plan-2026-04.md).
+This document contains historical architectural context and current-state boundaries, but the authoritative migration direction is now captured in [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md).
 
 Final authority decision:
 
@@ -158,7 +158,7 @@ The preferred deployment shape is a same-stack sidecar:
 
 The baseline explicitly avoids treating direct Manyfold DB writes as a supported product path.
 
-See [Implementation Strategy Options](../implementation-strategy-options.md) and [Post-Manyfold Transition Plan (2026-04)](../post-manyfold-transition-plan-2026-04.md) for the active execution direction.
+See [Implementation Strategy Options](../implementation-strategy-options.md) and [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md) for the active execution direction.
 
 ## Working Groups
 
@@ -175,7 +175,7 @@ Recommended default:
 - logical/virtual grouping in the sidecar as the primary model
 - folder structure used as a hint, not a requirement
 
-See [Working Groups And Veneer](../working-groups-and-veneer.md) for the working data model and UX implications.
+See [Working Groups And Veneer](/docs/features/model_catalog/planning/working-groups-veneer.md) for the working data model and UX implications.
 
 ## Lifecycle Language
 

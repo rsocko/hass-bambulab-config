@@ -2,7 +2,7 @@
 
 > **Status**: Legacy pre-transition implementation plan retained for historical context.
 > **Last updated**: 2026-04-25
-> **Current roadmap**: Use [post-manyfold-transition-plan-2026-04.md](../post-manyfold-transition-plan-2026-04.md) for authoritative phase sequencing and [phase-delivery-and-validation.md](../phase-delivery-and-validation.md) for active execution tracking.
+> **Current roadmap**: Use [post-manyfold-transition-plan-2026-04.md](/docs/features/model_catalog/planning/post-manyfold-transition.md) for authoritative phase sequencing and [phase-delivery-and-validation.md](/docs/features/model_catalog/planning/delivery-validation.md) for active execution tracking.
 > **Scope below**: Historical Manyfold-first baseline and legacy phase names.
 
 ## Post-Manyfold Status Note
@@ -11,7 +11,7 @@ This file is no longer the authoritative sequencing document.
 
 - The active model-catalog direction is sidecar-owned authority.
 - The phase numbers below are preserved as historical implementation context.
-- When this file references legacy phases such as `Phase 1.25`, `Phase 1.5`, `Phase 3.5`, or `Phase 10`, use the crosswalk in [post-manyfold-transition-plan-2026-04.md](../post-manyfold-transition-plan-2026-04.md#legacy-to-new-phase-crosswalk) to map them into the current post-Manyfold sequence.
+- When this file references legacy phases such as `Phase 1.25`, `Phase 1.5`, `Phase 3.5`, or `Phase 10`, use the crosswalk in [post-manyfold-transition-plan-2026-04.md](/docs/features/model_catalog/planning/post-manyfold-transition.md#legacy-to-new-phase-crosswalk) to map them into the current post-Manyfold sequence.
 
 ## Goal
 
@@ -37,7 +37,7 @@ Open next or later work:
 - **Phase 1.5** intake and bulk-discovery flow
 - **Phase 3+** browse, Working, publish, enrichment, provenance, backfill, and upstream/project follow-on work
 
-Use this document as the baseline implementation plan. Use [phase-delivery-and-validation.md](../phase-delivery-and-validation.md) for the stricter current execution state and validation gates.
+Use this document as the baseline implementation plan. Use [phase-delivery-and-validation.md](/docs/features/model_catalog/planning/delivery-validation.md) for the stricter current execution state and validation gates.
 
 ## Implementation Principles
 
@@ -57,8 +57,8 @@ At the time this document was written, the GitHub phase track had not yet been r
 - `Phase 5` for publish-time preview and supporting-asset application
 - `Phase 7` for public-source provenance capture and online metadata refresh
 
-Current issue titles have since been realigned. See [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md) plus the post-Manyfold transition plan for the active mapping.
-See [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md) for the detailed capability review and extraction contract.
+Current issue titles have since been realigned. See [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md) plus the post-Manyfold transition plan for the active mapping.
+See [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md) for the detailed capability review and extraction contract.
 
 ## Phase Plan
 
@@ -89,7 +89,7 @@ Deliverables:
 - first implementation milestone chosen from the updated phases below
 
 
-Design handoff for preview promotion and supporting-asset behavior: [phase-5-publish-preview-and-supporting-assets-design.md](../phase-5-publish-preview-and-supporting-assets-design.md)
+Design handoff for preview promotion and supporting-asset behavior: [phase-5-publish-preview-and-supporting-assets-design.md](/docs/features/model_catalog/design/phase-5-publish.md)
 ### Phase 1: Sidecar Scaffold And Manyfold Read Baseline
 
 Status:

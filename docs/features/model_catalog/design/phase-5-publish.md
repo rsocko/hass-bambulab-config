@@ -13,8 +13,8 @@ Define the operator-reviewed behavior for preview promotion and supporting-asset
 
 This document closes the gap between:
 
-- the extraction contract in [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md)
-- the future UI shape in [phase-5-end-state-ui-and-handoff-design.md](../phase-5-end-state-ui-and-handoff-design.md)
+- the extraction contract in [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md)
+- the future UI shape in [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md)
 - the execution-sequence requirement that this Phase 5 slice be documented and ready for later implementation
 
 This is a behavior specification and UI handoff. It does not implement the publish engine itself.
@@ -292,7 +292,7 @@ The documented design is only considered complete if later implementation can be
 
 ## Related Docs
 
-- [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md)
-- [phase-5-end-state-ui-and-handoff-design.md](../phase-5-end-state-ui-and-handoff-design.md)
-- [working-groups-and-veneer.md](../working-groups-and-veneer.md)
-- [implementation-plan.md](../implementation-plan.md)
+- [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md)
+- [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md)
+- [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)
+- [implementation-plan.md](../planning/implementation-plan.md)

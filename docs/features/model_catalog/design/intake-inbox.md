@@ -19,9 +19,9 @@ This document is the canonical UX/design reference for:
 
 For flow and state details, also see:
 
-- [import-flow-diagrams.md](../import-flow-diagrams.md)
-- [intake-state-machine.md](../intake-state-machine.md)
-- [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md)
+- [import-flow-diagrams.md](/docs/features/model_catalog/reference/import-flows.md)
+- [intake-state-machine.md](../reference/intake-state-machine.md)
+- [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md)
 
 ## Canonical Design Position
 
@@ -285,7 +285,7 @@ Current shipped validation contract:
 - resolved file hashes do not collide with existing Working items
 - resolved plan contains at least one file to commit
 
-See [Intake Validation Contract](../intake-validation-contract.md) for the concrete state mapping, warning codes, and the checklist payload returned to the UI.
+See [Intake Validation Contract](/docs/features/model_catalog/reference/intake-validation.md) for the concrete state mapping, warning codes, and the checklist payload returned to the UI.
 
 Operator actions in this step:
 
@@ -536,7 +536,7 @@ Further intake implementation should treat the following as required artifacts, 
 - Validate-step result previews that reuse the same model grouping structure as Organize
 - Commit-step summaries that show the final resulting model/group destinations
 
-See [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md) for the low-fi reference layouts.
+See [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md) for the low-fi reference layouts.
 
 ## Grouping Strategies and Folder Structure Preservation
 
@@ -606,7 +606,7 @@ lithophanes/
 └── photo.3mf
 ```
 
-For detailed implementation, API contracts, and testing guidance, see [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](../INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md).
+For detailed implementation, API contracts, and testing guidance, see [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](/docs/features/model_catalog/design/intake-grouping.md).
 
 ### Metadata Storage
 

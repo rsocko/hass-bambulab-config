@@ -87,7 +87,7 @@ Summary
 - Self-hosted project/asset manager with printer/slicer adjacency and basic 3D preview flow.
 
 Code-level observations (already deep-reviewed)
-- Separate detailed report: [external-competitive-review-mmp-orynt-2026-05-08.md](../external-competitive-review-mmp-orynt-2026-05-08.md)
+- Separate detailed report: [external-competitive-review-mmp-orynt-2026-05-08.md](/docs/features/model_catalog/planning/external-competitor-review.md)
 - Key concerns include extension mapping and parser correctness issues in enrichment paths.
 
 Strengths

@@ -6,7 +6,7 @@
 
 ## Authoritative Roadmap Update
 
-The authoritative phase roadmap is now the sequential post-Manyfold plan in [Post-Manyfold Transition Plan (2026-04)](../post-manyfold-transition-plan-2026-04.md).
+The authoritative phase roadmap is now the sequential post-Manyfold plan in [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md).
 
 Use the following sequence for active execution:
 

@@ -10,9 +10,9 @@ Provide one authoritative wizard layout for intake so future implementation work
 
 This document complements, but does not replace:
 
-- [intake-inbox-design.md](../intake-inbox-design.md)
-- [import-flow-diagrams.md](../import-flow-diagrams.md)
-- [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](../INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md)
+- [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md)
+- [import-flow-diagrams.md](/docs/features/model_catalog/reference/import-flows.md)
+- [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](/docs/features/model_catalog/design/intake-grouping.md)
 
 ## Core UX Rule
 

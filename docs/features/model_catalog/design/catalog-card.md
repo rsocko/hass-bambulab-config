@@ -1,7 +1,7 @@
 # Model Catalog — Card Design (Compact / List / Media)
 
 > **Status:** Hi-fidelity design proposal.
-> **Scope:** Catalog Browser cards rendered by [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) for the three view modes the card already exposes (`compact`, `list`, `media`). This document supersedes the rough card sketches in [ux-concepts-and-mockups.md](../ux-concepts-and-mockups.md), which is retained as the low-fidelity index covering surrounding surfaces (Working Board, filter trays, etc.).
+> **Scope:** Catalog Browser cards rendered by [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) for the three view modes the card already exposes (`compact`, `list`, `media`). This document supersedes the rough card sketches in [ux-concepts-and-mockups.md](/docs/features/model_catalog/design/ux-concepts.md), which is retained as the low-fidelity index covering surrounding surfaces (Working Board, filter trays, etc.).
 > **Companion HTML mockups (Hi-Res, browser-viewable, fully self-contained):**
 > - [mockups/toolbar.html](mockups/toolbar.html) — toolbar/header patterns including scope toggle
 > - [mockups/compact.html](mockups/compact.html) — primary focus

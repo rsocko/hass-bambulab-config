@@ -30,8 +30,8 @@ Keep the split of responsibilities, but make Unified Queue the only planning/bac
 - add an **operator-facing unified production queue** as a sidecar-owned projection over Catalog, Working, and Ideas sources
 - keep Bambuddy queue and Print History as adjacent but separate execution/history systems
 - see [unified-queue.md](../design/unified-queue.md) for the joined operator model, plate tracking, and overnight-planning proposal
-- see [unified-production-queue-implementation-plan.md](../unified-production-queue-implementation-plan.md) for execution slices
-- see [unified-production-queue-github-issues.md](../unified-production-queue-github-issues.md) for issue creation links
+- see [unified-production-queue-implementation-plan.md](/docs/features/model_catalog/planning/unified-queue-plan.md) for execution slices
+- see [unified-production-queue-github-issues.md](/docs/features/model_catalog/planning/unified-queue-issues.md) for issue creation links
 
 ## Suggested Data Split
 
@@ -54,7 +54,7 @@ Active queue behavior for curated models now flows through unified queue entries
 
 Phase 6 note:
 
-- the authoritative facet and sort contract for backlog/search views now lives in [phase-6-search-ranking-and-discovery-design.md](../phase-6-search-ranking-and-discovery-design.md)
+- the authoritative facet and sort contract for backlog/search views now lives in [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)
 - this document remains the queue-state split and operator-surface rationale, not the primary query-model spec
 
 ### Bambuddy Queue

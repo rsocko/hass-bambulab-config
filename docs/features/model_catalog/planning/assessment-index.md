@@ -11,21 +11,21 @@ This assessment was written before the approved post-Manyfold renumbering.
 - Legacy `Phase 1.5` recommendations now map to current **Phase 5**.
 - Legacy `Phase 3.5` recommendations now map primarily to current **Phase 6**, with parser/provenance-heavy follow-on work deferred into current **Phase 9** where noted.
 - Legacy `Phase 10` project/navigation recommendations now map to current **Phase 9**.
-- Use [post-manyfold-transition-plan-2026-04.md](../post-manyfold-transition-plan-2026-04.md) for the authoritative current sequence.
+- Use [post-manyfold-transition-plan-2026-04.md](/docs/features/model_catalog/planning/post-manyfold-transition.md) for the authoritative current sequence.
 
 ---
 
 ## Quick Navigation
 
 ### Executive Summary
-→ **[BULK-INGESTION-SUMMARY.md](../BULK-INGESTION-SUMMARY.md)** (5 min read)
+→ **[BULK-INGESTION-SUMMARY.md](/docs/archive/model_catalog/bulk-ingestion-summary.md)** (5 min read)
 - Your question and whether it's answered
 - Gap summary table
 - Three critical gaps identified
 - Bottom-line assessment
 
 ### Detailed Assessment (Full Analysis)
-→ **[bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md)** (20 min read)
+→ **[bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md)** (20 min read)
 - Complete gap analysis
 - Your specific use case walkthrough (with examples)
 - Design decisions required
@@ -33,7 +33,7 @@ This assessment was written before the approved post-Manyfold renumbering.
 - Detailed implementation recommendations crosswalked to current Phases 5, 6, and 9
 
 ### Project Model Design (If Approved)
-→ **[projects-design.md](../projects-design.md)** (15 min read)
+→ **[projects-design.md](/docs/features/model_catalog/design/projects.md)** (15 min read)
 - Why Model Catalog projects are needed
 - Complete data model
 - API surface and HA integration
@@ -42,7 +42,7 @@ This assessment was written before the approved post-Manyfold renumbering.
 - Open questions for design review
 
 ### Updated Implementation Roadmap
-→ **[ROADMAP-REVISED-WITH-BULK.md](../ROADMAP-REVISED-WITH-BULK.md)** (10 min read)
+→ **[ROADMAP-REVISED-WITH-BULK.md](/docs/features/model_catalog/planning/roadmap-revised.md)** (10 min read)
 - Legacy revised roadmap with the post-Manyfold crosswalk called out at the top
 - Revised timeline and sequencing
 - Option A (Bulk-first, recommended) vs Option B (Browse-first)
@@ -369,8 +369,8 @@ The current Working Group design is solid. **Adding Phases 1.5, 3.5, and project
 ## Questions? 
 
 See the full assessment documents for:
-- **[BULK-INGESTION-SUMMARY.md](../BULK-INGESTION-SUMMARY.md)** — Quick overview (5 min)
-- **[bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md)** — Full analysis (20 min)
-- **[projects-design.md](../projects-design.md)** — Project model detail (15 min)
-- **[ROADMAP-REVISED-WITH-BULK.md](../ROADMAP-REVISED-WITH-BULK.md)** — Implementation roadmap (10 min)
+- **[BULK-INGESTION-SUMMARY.md](/docs/archive/model_catalog/bulk-ingestion-summary.md)** — Quick overview (5 min)
+- **[bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md)** — Full analysis (20 min)
+- **[projects-design.md](/docs/features/model_catalog/design/projects.md)** — Project model detail (15 min)
+- **[ROADMAP-REVISED-WITH-BULK.md](/docs/features/model_catalog/planning/roadmap-revised.md)** — Implementation roadmap (10 min)
 

@@ -241,5 +241,5 @@ Once Phase 2 (Projects/Collections) is complete, extend the above to support:
 
 ## References
 
-- [Catalog Redesign 2026-05](../../catalog-redesign-2026-05.md#59-entity-types)
+- [Catalog Redesign 2026-05](../design/catalog-redesign-2026-05.md#59-entity-types)
 - [Design Mockups](../../design/mockups/catalog-redesign-mockups.html)

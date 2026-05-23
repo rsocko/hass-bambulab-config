@@ -533,8 +533,8 @@ tests/e2e/
 
 ## References
 
-- **Phase 3.0 Implementation Guide**: [phase-3-implementation-guide.md](../phase-3-implementation-guide.md)
-- **Phase 3.0 Design Document**: [phase-3-detail-view-design.md](../phase-3-detail-view-design.md)
+- **Phase 3.0 Implementation Guide**: [phase-3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3-guide.md)
+- **Phase 3.0 Design Document**: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)
 - **Print History Reference** (similar patterns): [print-history-archive-actions-card.js](../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js)
 - **Bambuddy REST API Docs**: [bambuddy/README.md](../../../bambuddy/README.md)
 - **Three.js Documentation**: https://threejs.org/docs/

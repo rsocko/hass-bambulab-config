@@ -74,7 +74,7 @@ flowchart TD
 
 ## Canonical Intake State Machine (Intake to Terminal)
 
-This matches the explicit design contract in [intake-state-machine.md](../intake-state-machine.md).
+This matches the explicit design contract in [intake-state-machine.md](intake-state-machine.md).
 
 Active queue state semantics still exist for backend and compatibility paths, but inbox review is no longer the primary user-facing stage.
 

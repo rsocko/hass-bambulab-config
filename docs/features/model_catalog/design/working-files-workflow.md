@@ -331,7 +331,7 @@ Proposed code implementation order:
 
 ## Related Docs
 
-- [working-file-spec.md](../working-file-spec.md)
+- [working-file-spec.md](working-file-spec.md)
 - [workflow-ingestion.md](../reference/workflow-ingestion.md)
-- [ux-concepts-and-mockups.md](../ux-concepts-and-mockups.md)
-- [phase-5-wave-4-ha-ui-design.md](../phase-5-wave-4-ha-ui-design.md)
+- [ux-concepts-and-mockups.md](/docs/features/model_catalog/design/ux-concepts.md)
+- [phase-5-wave-4-ha-ui-design.md](/docs/features/model_catalog/design/phase-5-ha-ui.md)

@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Turn the design direction from [../3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md) into a sidecar-ready schema and API draft that fits the current implementation style.
+Turn the design direction from [/docs/features/model_catalog/design/3mf-resource-extraction.md](/docs/features/model_catalog/design/3mf-resource-extraction.md) into a sidecar-ready schema and API draft that fits the current implementation style.
 
 This draft is intentionally limited to the `#1135` scope:
 

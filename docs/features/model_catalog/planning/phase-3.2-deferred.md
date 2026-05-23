@@ -100,9 +100,9 @@ Display multi-part models with per-extruder colors from 3MF metadata.
 
 | Document | Content |
 |----------|---------|
-| [phase-3.2-optional-enhancements.md](../phase-3.2-optional-enhancements.md) | Detailed feature specs |
-| [phase-3.3-3d-viewer-enhancements.md](../phase-3.3-3d-viewer-enhancements.md) | Implementation details |
-| [Phase 3.3 Implementation Guide](../phase-3.3-implementation-guide.md) | Archive linking + more |
+| [phase-3.2-optional-enhancements.md](/docs/features/model_catalog/planning/phase-3.2-enhancements.md) | Detailed feature specs |
+| [phase-3.3-3d-viewer-enhancements.md](/docs/features/model_catalog/design/phase-3.3-viewer.md) | Implementation details |
+| [Phase 3.3 Implementation Guide](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md) | Archive linking + more |
 
 ---
 
@@ -129,8 +129,8 @@ Display multi-part models with per-extruder colors from 3MF metadata.
 
 ## References
 
-- **Implementation Guide**: [phase-3.3-3d-viewer-enhancements.md](../phase-3.3-3d-viewer-enhancements.md)
-- **Feature Specs**: [phase-3.2-optional-enhancements.md](../phase-3.2-optional-enhancements.md)
+- **Implementation Guide**: [phase-3.3-3d-viewer-enhancements.md](/docs/features/model_catalog/design/phase-3.3-viewer.md)
+- **Feature Specs**: [phase-3.2-optional-enhancements.md](/docs/features/model_catalog/planning/phase-3.2-enhancements.md)
 - **Related Issue**: [#1141](https://github.com/rsocko/hass-bambulab-config/issues/1141)
-- **Phase 3.3 Overview**: [phase-3.3-implementation-guide.md](../phase-3.3-implementation-guide.md)
+- **Phase 3.3 Overview**: [phase-3.3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md)
 

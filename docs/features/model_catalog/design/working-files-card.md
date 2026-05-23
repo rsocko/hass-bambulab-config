@@ -1,7 +1,7 @@
 # Working Files — Card Design (Groups / Files / Toolbar)
 
 > **Status:** Hi-fidelity design proposal.
-> **Scope:** Working Files explorer surface rendered today by [model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js). This document defines the redesigned UI; it complements (does not replace) the workflow contract in [working-files-workflow-redesign-issue-1169.md](../working-files-workflow-redesign-issue-1169.md) and reuses the visual grammar already established in [catalog-card.md](catalog-card.md).
+> **Scope:** Working Files explorer surface rendered today by [model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js). This document defines the redesigned UI; it complements (does not replace) the workflow contract in [working-files-workflow-redesign-issue-1169.md](/docs/features/model_catalog/design/working-files-workflow.md) and reuses the visual grammar already established in [catalog-card.md](catalog-card.md).
 > **Related issues:** #1215 (catalog list-view density / decisions), #1216 (catalog toolbar redesign). Working Files inherits both patterns where they apply, but **diverges in workflow** because the Working Files user is *organising and acting on files*, not browsing a curated index.
 > **Companion HTML mockups (browser-viewable, fully self-contained):**
 > - [mockups/working-files-groups.html](mockups/working-files-groups.html) — primary focus
@@ -188,7 +188,7 @@ The user-facing differentiator. Shows up to **5 model files** by default with a 
 - **Primary badge**: amber star pill for the file matching `group.primary_file_path`. Click acts as "Set Primary" for any other `.3mf`.
 - **Actions** (per row): `Slicer` (primary; visible only for `.3mf`), `⋯` overflow → Copy launch command, Copy explorer command, Remove from group, Open file detail.
 
-Per [working-files-local-launch-and-slicer-integration-design.md](../working-files-local-launch-and-slicer-integration-design.md), the `Slicer` button uses the tokenized download URL approach (Option B); `Copy launch command` is the manual fallback. **No raw `file:///` link is rendered**, consistent with the browser security boundary memo recorded in repo memory.
+Per [working-files-local-launch-and-slicer-integration-design.md](/docs/features/model_catalog/design/working-files-launch.md), the `Slicer` button uses the tokenized download URL approach (Option B); `Copy launch command` is the manual fallback. **No raw `file:///` link is rendered**, consistent with the browser security boundary memo recorded in repo memory.
 
 ### 3.8 Folders subview — relative tree (physical)
 
@@ -293,12 +293,12 @@ The catalog browser already renders a working Three.js viewer in a `browser_mod.
   - Files view: clicking the Name cell, or the per-row 3D viewer action in the `⋯` overflow.
 - **Payload shape:** the existing viewer takes a `model-ref` (path or hash). The working-files endpoint already returns `id`, `source_path_canonical`, `sha256_hash`, and `file_extension` per file — sufficient to drive the viewer the same way the catalog does.
 - **Eligibility:** STL and 3MF render directly. STEP / OBJ / unknown extensions disable the viewer affordance with the same disabled-state visual used for the Slicer button on STEP files.
-- **Browser security boundary:** the viewer fetches via the sidecar proxy URL, never `file:///` — consistent with the [working files local-launch design](../working-files-local-launch-and-slicer-integration-design.md) and the existing `file:///` browser-security memo. No new security surface is introduced.
+- **Browser security boundary:** the viewer fetches via the sidecar proxy URL, never `file:///` — consistent with the [working files local-launch design](/docs/features/model_catalog/design/working-files-launch.md) and the existing `file:///` browser-security memo. No new security surface is introduced.
 - **Implementation cost:** an action handler + tile/icon binding in the working-files card. No viewer code, no new sidecar endpoint.
 
 #### 4.4.2 Per-group detail / edit popup — *replaces the current `window.prompt` flows*
 
-The current explorer card uses `window.prompt(...)` for "New working group title" and "Enter destination group id" ([model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js#L418-L463)). That is an explicit design debt called out in §8 of this document and in [working-files-workflow-redesign-issue-1169.md](../working-files-workflow-redesign-issue-1169.md). The redesign replaces both with a single proper **Group details popup** opened on group-title click.
+The current explorer card uses `window.prompt(...)` for "New working group title" and "Enter destination group id" ([model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js#L418-L463)). That is an explicit design debt called out in §8 of this document and in [working-files-workflow-redesign-issue-1169.md](/docs/features/model_catalog/design/working-files-workflow.md). The redesign replaces both with a single proper **Group details popup** opened on group-title click.
 
 Mockup: [mockups/working-files-group-popup.html](mockups/working-files-group-popup.html).
 

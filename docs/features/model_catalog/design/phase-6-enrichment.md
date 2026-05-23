@@ -359,8 +359,8 @@ Phase 6 bulk enrichment design is implementation-ready when all of the following
 
 ## Related Documents
 
-- [bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md)
-- [ROADMAP-REVISED-WITH-BULK.md](../ROADMAP-REVISED-WITH-BULK.md)
+- [bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md)
+- [ROADMAP-REVISED-WITH-BULK.md](/docs/features/model_catalog/planning/roadmap-revised.md)
 - [planning/3mf-cache-draft.md](../planning/3mf-cache-draft.md)
-- [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md)
-- [phase-6-search-ranking-and-discovery-design.md](../phase-6-search-ranking-and-discovery-design.md)
+- [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md)
+- [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)

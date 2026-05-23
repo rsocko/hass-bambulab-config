@@ -365,7 +365,7 @@ Use iframes when upstream UX is already rich enough, and use HA APIs or services
 - archive-to-library navigation
 - selective write-back
 
-See [ha-model-library-integration.md](../integration/ha-model-library-integration.md) for the detailed HA direction.
+See [ha-model-library-integration.md](/docs/features/model_catalog/reference/integration/ha-library-integration.md) for the detailed HA direction.
 
 ## Intake Workflow Recommendation
 

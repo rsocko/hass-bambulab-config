@@ -405,6 +405,6 @@ If Phase 3.3 causes issues:
 
 ## References
 
-- Phase 3.0 Implementation: [phase-3-implementation-guide.md](../phase-3-implementation-guide.md)
+- Phase 3.0 Implementation: [phase-3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3-guide.md)
 - Print History Design: [../print_history/](../print_history/)
-- Design Document: [phase-3-detail-view-design.md](../phase-3-detail-view-design.md)
+- Design Document: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)

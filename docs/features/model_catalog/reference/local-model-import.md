@@ -269,6 +269,6 @@ Once imported:
 ## Related Documentation
 
 - [Local Model Authority (Phase 1)](../planning/phase-1-plan.md)
-- [Model Summary Blending (Phase 2)](../post-manyfold-transition-plan-2026-04.md)
+- [Model Summary Blending (Phase 2)](/docs/features/model_catalog/planning/post-manyfold-transition.md)
 - [Phase 3.1 Edit & Photos](../planning/phase-3.1-impl-guide.md)
-- [API Reference](../api-reference.md)
+- [API Reference](api-reference.md)

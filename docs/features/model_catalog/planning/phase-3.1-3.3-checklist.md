@@ -6,10 +6,10 @@
 
 ## Quick Links
 
-- 📋 **Roadmap**: [phase-3.1-3.3-roadmap.md](../phase-3.1-3.3-roadmap.md) (comprehensive planning)
-- 📚 **Phase 3.1 Guide**: [phase-3.1-implementation-guide.md](../phase-3.1-implementation-guide.md) (edit + photos)
-- 📚 **Phase 3.2 Guide**: [phase-3.2-implementation-guide.md](../phase-3.2-implementation-guide.md) (3D viewer)
-- 📚 **Phase 3.3 Guide**: [phase-3.3-implementation-guide.md](../phase-3.3-implementation-guide.md) (cross-system)
+- 📋 **Roadmap**: [phase-3.1-3.3-roadmap.md](phase-3.1-3.3-roadmap.md) (comprehensive planning)
+- 📚 **Phase 3.1 Guide**: [phase-3.1-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md) (edit + photos)
+- 📚 **Phase 3.2 Guide**: [phase-3.2-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md) (3D viewer)
+- 📚 **Phase 3.3 Guide**: [phase-3.3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md) (cross-system)
 - 🎫 **GitHub Issues**: [.github/ISSUE_TEMPLATE/](../.github/ISSUE_TEMPLATE/)
 
 ---
@@ -337,7 +337,7 @@ docs/features/model_catalog/
 - Browser DevTools
 
 ### Reference Materials
-- Phase 3 Design: [phase-3-detail-view-design.md](../phase-3-detail-view-design.md)
+- Phase 3 Design: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)
 - Bambuddy API: [../../bambuddy/README.md](../../bambuddy/README.md)
 - Print History: [../print_history/](../print_history/)
 - Three.js Docs: https://threejs.org/docs/

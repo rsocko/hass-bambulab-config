@@ -2,7 +2,7 @@
 
 > **Status**: Updated roadmap incorporating bulk-ingestion and projects assessment.
 > **Created**: 2026-04-24
-> **Basis**: [bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md), [projects-design.md](../projects-design.md)
+> **Basis**: [bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md), [projects-design.md](/docs/features/model_catalog/design/projects.md)
 
 ## Post-Manyfold Status Note
 
@@ -12,7 +12,7 @@ This roadmap is a legacy pre-transition sequencing document.
 - Legacy `Phase 1.5` now maps to current **Phase 5**.
 - Legacy `Phase 3.5` now maps primarily to current **Phase 6**, with parser/provenance-heavy follow-on work deferred into current **Phase 9**.
 - Legacy project/navigation work previously described under `Phase 10` now maps to current **Phase 9**.
-- Use [post-manyfold-transition-plan-2026-04.md](../post-manyfold-transition-plan-2026-04.md) and [phase-delivery-and-validation.md](../phase-delivery-and-validation.md) as the authoritative current sequencing documents.
+- Use [post-manyfold-transition-plan-2026-04.md](/docs/features/model_catalog/planning/post-manyfold-transition.md) and [phase-delivery-and-validation.md](/docs/features/model_catalog/planning/delivery-validation.md) as the authoritative current sequencing documents.
 
 ---
 
@@ -36,7 +36,7 @@ Current-sequence reading:
 - legacy `Phase 1.5` -> current `Phase 5`
 - legacy `Phase 3.5` -> current `Phase 6` / `Phase 9` split
 
-Use this roadmap for sequencing and scope boundaries. Use [phase-delivery-and-validation.md](../phase-delivery-and-validation.md) for the stricter current execution state.
+Use this roadmap for sequencing and scope boundaries. Use [phase-delivery-and-validation.md](/docs/features/model_catalog/planning/delivery-validation.md) for the stricter current execution state.
 
 Issue tracking note:
 
@@ -48,7 +48,7 @@ Issue tracking note:
 
 ## Summary of Changes to Original Plan
 
-The original [implementation-plan.md](../implementation-plan.md) assumed single-file workflows and did not account for:
+The original [implementation-plan.md](implementation-plan.md) assumed single-file workflows and did not account for:
 - Bulk file discovery and import from large existing collections
 - Project as a first-class concept linking working groups, curated models, and archives
 - Bulk metadata enrichment (color extraction, tag assignment)
@@ -272,8 +272,8 @@ Boundary note:
    - Example: scanning ~/3D Printing/ with 500+ files
 
 **Design references**:
-- See [bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md) "Phase 1.5" section for full specification
-- See [intake-inbox-design.md](../intake-inbox-design.md) for the operator intake model
+- See [bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md) "Phase 1.5" section for full specification
+- See [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md) for the operator intake model
 
 Deliverables:
 - Intake Inbox endpoints and review state
@@ -381,7 +381,7 @@ Boundary note:
    - Example workflows
 
 **Design references**:
-- See [bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md) "Phase 3.5" section for full specification
+- See [bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md) "Phase 3.5" section for full specification
 - See [planning/3mf-cache-draft.md](../planning/3mf-cache-draft.md) for the concrete sidecar schema and `/api/3mf-analysis/...` draft
 
 Deliverables:
@@ -706,8 +706,8 @@ Assuming single developer, ~40h/week committed:
 
 Still useful to extract or add before those later phases start:
 
-1. ✅ **Bulk Ingestion & Projects Assessment** — [bulk-ingestion-and-projects-assessment.md](../bulk-ingestion-and-projects-assessment.md)
-2. ✅ **Projects Design** — [projects-design.md](../projects-design.md)
+1. ✅ **Bulk Ingestion & Projects Assessment** — [bulk-ingestion-and-projects-assessment.md](/docs/features/model_catalog/planning/bulk-ingestion-assessment.md)
+2. ✅ **Projects Design** — [projects-design.md](/docs/features/model_catalog/design/projects.md)
 3. 🔲 **Working Groups Phase 1.5 Specification** — (sub-section of above, ready to extract)
 4. 🔲 **Bulk Enrichment Phase 3.5 Specification** — (sub-section of above, ready to extract)
 5. 🔲 **Cross-Feature Project Linkage Contract** — (new document for Phase 10)

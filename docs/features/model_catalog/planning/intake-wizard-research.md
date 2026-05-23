@@ -235,7 +235,7 @@ There is no automated "detect and offer to clean up" workflow in the UI.
 
 ## Area 5: Design Documentation Coverage
 
-### [intake-inbox-design.md](../intake-inbox-design.md)
+### [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md)
 
 The design document covers:
 - Wizard as the canonical intake experience (wizard-first, queue demoted to background)
@@ -250,13 +250,13 @@ The design document covers:
 - Whether there should be an automatic TTL-based cleanup for stale `queued` records
 - Recovery UI for abandoned wizard sessions
 
-### [intake-state-machine.md](../intake-state-machine.md)
+### [intake-state-machine.md](../reference/intake-state-machine.md)
 
 Covers the item-level state machine (`submitted` → `validated_ready` → `grouped_new`/`published_to_catalog`), but this is the **intake item** state machine, not the **queue upload** state machine. The queue upload state machine (`queued` → `uploading` → `verified` → ...) is defined in code only (`VALID_STATUS_TRANSITIONS` in `intake_queue.py`).
 
 The state machine document includes "Terminal State Recovery (Admin Override Only)" for reopening terminal items, but does not address queue upload record lifecycle or orphan handling.
 
-### [import-flow-diagrams.md](../import-flow-diagrams.md)
+### [import-flow-diagrams.md](/docs/features/model_catalog/reference/import-flows.md)
 
 Contains flow diagrams for the import process. References cleanup policy as part of wizard planning. Does not address interruption, cancellation, or orphan scenarios.
 

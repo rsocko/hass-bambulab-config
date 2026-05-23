@@ -7,7 +7,7 @@
 See also:
 
 - [Print History Slicer Plan](./print-history-slicer-plan.md)
-- [Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)
+- [Print History Slicer UX Mockups](/docs/features/model_catalog/design/print-history-mockups.md)
 - [3MF Analysis Cache Schema And API Draft](../planning/3mf-cache-draft.md)
 
 ## Purpose

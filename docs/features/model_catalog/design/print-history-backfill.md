@@ -6,9 +6,9 @@
 
 See also:
 
-- [Historical Print Backfill Via Model Catalog](../historical-print-backfill-via-model-catalog.md)
+- [Historical Print Backfill Via Model Catalog](/docs/features/model_catalog/design/print-history-backfill.md)
 - [Print History Slicer Plan](../planning/print-history-slicer-plan.md)
-- [Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)
+- [Print History Slicer UX Mockups](/docs/features/model_catalog/design/print-history-mockups.md)
 
 ## Purpose
 

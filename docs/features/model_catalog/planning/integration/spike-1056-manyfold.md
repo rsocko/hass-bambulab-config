@@ -463,6 +463,6 @@ Manyfold's PATCH API is **suitable for controlled enrichment workflows**. The ma
 ## Related Documentation
 
 - [Spike #1055: Upload and Add-File Flows](../spike-1055-manyfold-upload-add-file-validation.md)
-- [API Reference](../api-reference.md)
-- [Custom Fields Schema](../custom-fields-schema.md)
+- [API Reference](../../reference/api-reference.md)
+- [Custom Fields Schema](../../reference/custom-fields-schema.md)
 - Manyfold upstream API: `{manyfold_host}/api-docs`

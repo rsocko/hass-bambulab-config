@@ -536,7 +536,7 @@ Phase 1 does **not** include a cache-to-local import path. That work is intentio
 
 ## Related Documentation
 
-- [Post-Manyfold Transition Plan](../post-manyfold-transition-plan-2026-04.md) — Full roadmap
+- [Post-Manyfold Transition Plan](/docs/features/model_catalog/planning/post-manyfold-transition.md) — Full roadmap
 - [Issue #1129](https://github.com/rsocko/hass-bambulab-config/issues/1129) — Tracking
 - [ER Diagrams](../planning/er-diagrams.md) — Current schema context
-- [Persistence Strategy](../persistence-strategy-and-graduation.md) — Data store rationale
+- [Persistence Strategy](/docs/features/model_catalog/reference/persistence-graduation.md) — Data store rationale

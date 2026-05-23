@@ -15,7 +15,7 @@
 
 ### For Developers (Phase 3.1)
 
-1. Read [phase-3.1-implementation-guide.md](../phase-3.1-implementation-guide.md) (15 min)
+1. Read [phase-3.1-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.1-impl-guide.md) (15 min)
 2. Review existing files:
    - `homeassistant/www/3d_printing/model_catalog/model-detail-edit-form.js` (boilerplate exists)
    - `homeassistant/www/3d_printing/model_catalog/model-detail-popup-card.js` (enhance)
@@ -24,7 +24,7 @@
 
 ### For Developers (Phase 3.2)
 
-1. Read [phase-3.2-implementation-guide.md](../phase-3.2-implementation-guide.md) (15 min)
+1. Read [phase-3.2-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.2-impl-guide.md) (15 min)
 2. Review existing files:
    - `homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js` (boilerplate exists)
 3. Start with Task 1: Three.js Setup
@@ -32,7 +32,7 @@
 
 ### For Developers (Phase 3.3)
 
-1. Read [phase-3.3-implementation-guide.md](../phase-3.3-implementation-guide.md) (15 min)
+1. Read [phase-3.3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3.3-impl-guide.md) (15 min)
 2. Review print_history reference: `docs/features/print_history/`
 3. Start with Task 1: Enhanced Archive Linking
 4. Study archive data structure in existing code
@@ -206,9 +206,9 @@ Week 4: Phase 3.3 (Cross-System) [can start Day 9]
 ## 📊 Key Resources
 
 ### Documentation
-- **Roadmap**: [phase-3.1-3.3-roadmap.md](../phase-3.1-3.3-roadmap.md)
-- **Design**: [phase-3-detail-view-design.md](../phase-3-detail-view-design.md)
-- **Phase 3.0 Reference**: [phase-3-implementation-guide.md](../phase-3-implementation-guide.md)
+- **Roadmap**: [phase-3.1-3.3-roadmap.md](phase-3.1-3.3-roadmap.md)
+- **Design**: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)
+- **Phase 3.0 Reference**: [phase-3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3-guide.md)
 
 ### Code References
 - **Main Card**: `homeassistant/www/3d_printing/model_catalog/model-detail-popup-card.js`

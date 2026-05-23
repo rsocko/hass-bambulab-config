@@ -13,7 +13,7 @@
    - 5-min executive overview, validation checklist, next steps
 
 ### 2. **Extension Points API** (For Feature Leads)
-   - [popup-extension-points.md](.././popup-extension-points.md)
+   - [popup-extension-points.md](../design/popup-extension-points.md)
    - 8 extension slots, TypeScript contracts, dependency resolution
    - **Review**: Feature teams #1494, #1495, #1483, #1499
 

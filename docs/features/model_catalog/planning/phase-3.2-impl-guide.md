@@ -365,5 +365,5 @@ tests/e2e/
 - Three.js Documentation: https://threejs.org/docs/
 - Three.js OrbitControls: https://threejs.org/examples/#misc_controls_orbit
 - STL Format Spec: https://en.wikipedia.org/wiki/STL_(file_format)
-- Phase 3.0 Implementation: [phase-3-implementation-guide.md](../phase-3-implementation-guide.md)
-- Design Document: [phase-3-detail-view-design.md](../phase-3-detail-view-design.md)
+- Phase 3.0 Implementation: [phase-3-implementation-guide.md](/docs/features/model_catalog/planning/phase-3-guide.md)
+- Design Document: [phase-3-detail-view-design.md](/docs/features/model_catalog/design/phase-3-detail-view.md)

@@ -514,7 +514,7 @@ class IntakeItem(BaseModel):
 - [Issue #1282](https://github.com/rsocko/hass-bambulab-config/issues/1282): Wizard-first intake, inbox demotion
 - [Issue #1288](https://github.com/rsocko/hass-bambulab-config/issues/1288): Shared Browser + Server wizard design
 - [Issue #1292](https://github.com/rsocko/hass-bambulab-config/issues/1292): Organize step grouping redesign
-- [intake-inbox-design.md](../intake-inbox-design.md): Canonical wizard flow
-- [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md): Detailed UX mockups (to be updated)
-- [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](../INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md): Grouping strategy contract (to be updated)
-- [intake-validation-contract.md](../intake-validation-contract.md): Validation rules (to be updated)
+- [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md): Canonical wizard flow
+- [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md): Detailed UX mockups (to be updated)
+- [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](/docs/features/model_catalog/design/intake-grouping.md): Grouping strategy contract (to be updated)
+- [intake-validation-contract.md](/docs/features/model_catalog/reference/intake-validation.md): Validation rules (to be updated)

@@ -5,7 +5,7 @@
 
 ## Decision Update
 
-This document now serves as historical context. The active strategy is recorded in [Post-Manyfold Transition Plan (2026-04)](../post-manyfold-transition-plan-2026-04.md):
+This document now serves as historical context. The active strategy is recorded in [Post-Manyfold Transition Plan (2026-04)](/docs/features/model_catalog/planning/post-manyfold-transition.md):
 
 - sidecar-owned custom catalog authority
 - Manyfold retired from active operational path

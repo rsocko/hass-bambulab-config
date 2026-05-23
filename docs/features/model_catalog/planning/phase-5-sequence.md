@@ -3,7 +3,7 @@
 > **Status**: Execution sequencing document
 > **Created**: 2026-04-30
 > **Scope**: Post-Manyfold model-catalog Phase 5 — 20 GitHub issues organized by dependency and delivery order
-> **Authority**: [Post-Manyfold Transition Plan](../post-manyfold-transition-plan-2026-04.md) + [Phase Delivery And Validation](../phase-delivery-and-validation.md)
+> **Authority**: [Post-Manyfold Transition Plan](/docs/features/model_catalog/planning/post-manyfold-transition.md) + [Phase Delivery And Validation](/docs/features/model_catalog/planning/delivery-validation.md)
 >
 > **Historical note (2026-05-01)**: Any references in this sequencing document to hidden Model Catalog child views should now be read as design history. The shipped Home Assistant dashboard uses a single top-level `Model Catalog` view with internal workspace navigation.
 
@@ -270,8 +270,8 @@ Recommended add-on work items for Wave 4:
 - move bulk discovery/import out of the current stacked `Model Catalog` browser view and into the new intake-owned child views
 
 **Design docs for this wave**:
-- [Phase 5 Wave 4 HA UI Design](../phase-5-wave-4-ha-ui-design.md)
-- [Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)
+- [Phase 5 Wave 4 HA UI Design](/docs/features/model_catalog/design/phase-5-ha-ui.md)
+- [Phase 5 End-State UI And Handoff Design](/docs/features/model_catalog/design/phase-5-end-state.md)
 
 #### 1️⃣1️⃣ #1077 (HA component): HA UI - working groups and link management
   - HA service `model_catalog.create_working_group` (simple wrapper)
@@ -322,7 +322,7 @@ Recommended add-on work items for Wave 4:
 Lay groundwork for Phase 6 publish workflow. Document operations and deployment.
 
 **End-state UI companion**:
-- [Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)
+- [Phase 5 End-State UI And Handoff Design](/docs/features/model_catalog/design/phase-5-end-state.md)
 
 #### 1️⃣4️⃣ #1163 + #1137: Phase 5 3MF Publish Workflow — Preview Promotion & Supporting-Asset Import
   - Design doc for publish workflow behavior

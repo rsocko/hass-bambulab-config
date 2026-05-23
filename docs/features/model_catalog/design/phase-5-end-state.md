@@ -363,7 +363,7 @@ The Wave 4 component system should be built so these future additions remain add
 ### UI-Adjacent Docs That Should Link Here
 
 - deployment/runtime guide for queue volume and remote-client flows
-- [phase-5-publish-preview-and-supporting-assets-design.md](../phase-5-publish-preview-and-supporting-assets-design.md)
+- [phase-5-publish-preview-and-supporting-assets-design.md](/docs/features/model_catalog/design/phase-5-publish.md)
 - enhanced Working/lineage design doc when created
 
 ### What This Doc Does Not Require Yet
@@ -411,8 +411,8 @@ Those can still evolve as long as the surface boundaries in this document remain
 
 ## Related Docs
 
-- [phase-5-wave-4-ha-ui-design.md](../phase-5-wave-4-ha-ui-design.md)
-- [projects-design.md](../projects-design.md)
-- [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md)
-- [phase-5-publish-preview-and-supporting-assets-design.md](../phase-5-publish-preview-and-supporting-assets-design.md)
+- [phase-5-wave-4-ha-ui-design.md](/docs/features/model_catalog/design/phase-5-ha-ui.md)
+- [projects-design.md](/docs/features/model_catalog/design/projects.md)
+- [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md)
+- [phase-5-publish-preview-and-supporting-assets-design.md](/docs/features/model_catalog/design/phase-5-publish.md)
 - [workflow-ingestion.md](../reference/workflow-ingestion.md)

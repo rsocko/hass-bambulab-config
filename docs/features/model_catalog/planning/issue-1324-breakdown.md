@@ -677,7 +677,7 @@ Before merge:
 
 ## Related Documents
 
-- [intake-source-selection-removal-design.md](../intake-source-selection-removal-design.md) — Design spec
-- [intake-wizard-ux-mockups.md](../intake-wizard-ux-mockups.md) — UX mockups
-- [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](../INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md) — Grouping logic
-- [intake-validation-contract.md](../intake-validation-contract.md) — Validation spec
+- [intake-source-selection-removal-design.md](/docs/features/model_catalog/design/intake-source-selection.md) — Design spec
+- [intake-wizard-ux-mockups.md](/docs/features/model_catalog/design/intake-wizard-mockups.md) — UX mockups
+- [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](/docs/features/model_catalog/design/intake-grouping.md) — Grouping logic
+- [intake-validation-contract.md](/docs/features/model_catalog/reference/intake-validation.md) — Validation spec
