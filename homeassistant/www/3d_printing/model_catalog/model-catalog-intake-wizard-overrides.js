@@ -1558,13 +1558,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         ? '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
         : '')
       + '</div>'
-      + (groupingValue === 'flat' && titleSource === 'custom'
-        ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Optional overrides. Leave blank to use the cleaned filename-derived model name.</div></div></div>'
-            + this._renderSharedPerFileNameRows(entries, {
-              inputAction: perFileTitleAction,
-              pathAttribute: settings.perFilePathAttribute || 'data-path',
-            })
-        : '')
       + '</article>';
   };
 
@@ -3217,7 +3210,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
               + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
               + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
               + '</div>'
-            : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>')
+            : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>'
+              + (fileBatchGrouping === 'flat' && fileBatchTitleSource === 'custom' && !isArchive && fileKind(entry.path) === 'model'
+                ? '<div class="field"><label>Custom Model Name</label><input class="input" type="text" value="' + escapeHtml(String(entry.group_title || '').trim()) + '" data-action="selection-file-model-title" data-path="' + escapeHtml(entry.path) + '" placeholder="' + escapeHtml(displayTitleFromPath(entry.path) || 'Model') + '"></div>'
+                : ''))
           + '</article>';
       }, this).join('') + '</div>';
   };
