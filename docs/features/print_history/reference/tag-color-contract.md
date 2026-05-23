@@ -1,5 +1,11 @@
 # Print History Tag Color Contract
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/ui-media/tag-color-contract.md
+Replaced By: none
+
 ## Purpose
 
 Document how archive tag colors are assigned in the current print-history UI, where the logic lives, and what tradeoffs the current approach makes.

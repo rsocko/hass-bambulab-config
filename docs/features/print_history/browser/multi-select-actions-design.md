@@ -240,4 +240,4 @@ Do not regress these behaviors:
 
 - Use `filter-sort-design.md` for the broader browser architecture and layering contract.
 - Use `top-controls-contract.md` for row-order, icon-selector, and mobile guardrails for the shared toolbar component.
-- Use `archive-compare-similar-design.md` for compare-oriented multi-selection ideas that are broader than this shipped bulk-mutation slice.
+- Use `../design/archive-compare-similar.md` for compare-oriented multi-selection ideas that are broader than this shipped bulk-mutation slice.

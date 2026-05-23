@@ -34,8 +34,8 @@ That means historical backfill needs one extra layer ahead of the current design
 Use these documents together:
 
 - [archive-detection-recovery-design.md](../recovery/archive-detection-recovery-design.md) for the replacement-archive model
-- [archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md) for which runtime fields matter
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md) for canonical timestamp repair limits
+- [archive-runtime-field-impact-matrix.md](../reference/archive-runtime-field-impact-matrix.md) for which runtime fields matter
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md) for canonical timestamp repair limits
 - [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md) for the current repair boundary
 - [archive-recovery-live-matrix-2026-04-04.md](../recovery/archive-recovery-live-matrix-2026-04-04.md) for evidence already collected from the SD backup analysis
 

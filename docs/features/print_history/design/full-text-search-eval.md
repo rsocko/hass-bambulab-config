@@ -1,5 +1,11 @@
 # Print History Full-Text Search Evaluation
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/browser/full-text-search-evaluation.md
+Replaced By: none
+
 > **Issue**: `#840`  
 > **Question**: should the print-history browser use Bambuddy's `/api/v1/archives/search` full-text endpoint, and should the existing search box expose a toggle between standard search and full-text search?
 

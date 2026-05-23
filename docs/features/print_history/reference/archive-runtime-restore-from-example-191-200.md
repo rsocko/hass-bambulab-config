@@ -1,5 +1,11 @@
 # `restore_from` Example: Archive `191` To `200`
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/runtime-repair/archive-runtime-restore-from-example-191-200.md
+Replaced By: none
+
 ## Purpose
 
 Show a concrete dry-run example for the proposed sidecar endpoint:

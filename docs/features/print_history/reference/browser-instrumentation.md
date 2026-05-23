@@ -1,5 +1,11 @@
 # Browser Instrumentation
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/browser/browser-instrumentation.md
+Replaced By: none
+
 ## Purpose
 
 The print-history browser and activity heatmap now include optional instrumentation intended for future debugging and performance analysis.

@@ -1,5 +1,11 @@
 # Bambuddy Archive Runtime Field Impact Matrix
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/runtime-repair/archive-runtime-field-impact-matrix.md
+Replaced By: none
+
 ## Purpose
 
 Map which Bambuddy behaviors are affected by repairing `created_at`, `started_at`, and `completed_at` so runtime-field repair can be scoped correctly.

@@ -19,7 +19,7 @@ This review separates:
 
 | Component | Current implementation state | Recommendation |
 | --- | --- | --- |
-| Compare and related-print workflows (`archive-compare-similar-design.md`, Advanced Features 2.2) | Not shipped. No popup `Related` or `Compare` actions, no HA-native compare modal, no related-candidate query path beyond the base browser query. | Keep as active implementation work. Build on-demand integration/websocket endpoints before any UI wiring. |
+| Compare and related-print workflows (`../design/archive-compare-similar.md`, Advanced Features 2.2) | Not shipped. No popup `Related` or `Compare` actions, no HA-native compare modal, no related-candidate query path beyond the base browser query. | Keep as active implementation work. Build on-demand integration/websocket endpoints before any UI wiring. |
 | Duplicate follow-on workflows (Advanced Features 2.3) | Partial. Compact duplicate metadata and duplicate filtering are shipped, but duplicate-member drilldown, compare entry points, reprint lineage UX, and notifications are not. | Leave design direction intact, but restate this phase as follow-on work after the shipped duplicate filter slice. |
 | Archive detection and recovery beyond visibility (`archive-detection-*`) | Partial. Detection and visibility are shipped in the browser/popup path, but there is no dedicated exception card, no operator-facing manual recovery action in the popup/browser, and no automated recovery orchestration. | Re-scope remaining work to Phase 2 and Phase 3 only. Treat Phase 1 detection as implemented. |
 | Photo review follow-on (`photo-review-design.md`) | Partial. Add photo, delete photo, dismiss review, primary-photo selection, media-review store state, and popup wiring are shipped. Replace flow, chip-target prioritization policy, timeout/auto-dismiss lifecycle, and stronger local cleanup handling are still open. | Keep the doc, but narrow it to the remaining workflow gaps instead of describing the whole review loop as missing. |
@@ -50,7 +50,7 @@ This review separates:
 These docs appear directionally accurate and only need routine maintenance, not a status rewrite:
 
 - `ui-media/archive-detail-popup-design.md`
-- `archive-compare-similar-design.md`
+- `../design/archive-compare-similar.md`
 - `browser/filter-sort-design.md`
 - `browser/top-controls-contract.md`
 - `ui-media/manual-photo-upload.md`

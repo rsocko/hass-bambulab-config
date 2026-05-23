@@ -16,7 +16,7 @@ Manual phone-photo upload is documented in `ui-media/manual-photo-upload.md`.
 
 Timelapse scan/upload/viewer behavior is documented in `ui-media/timelapse-actions-and-viewer.md`.
 
-Tag color assignment for archive tags is documented in `ui-media/tag-color-contract.md`.
+Tag color assignment for archive tags is documented in `reference/tag-color-contract.md`.
 
 Source `.3mf` import workflow and long-term storage policy are documented in:
 
@@ -42,9 +42,9 @@ For the active print-history control-strip structure and mobile pagination guard
 
 The print-history docs are grouped by sub-area so implementation notes, roadmap work, and recovery runbooks do not all live in one flat directory.
 
-- `api-reference.md` - API contract entry point for print_history integrations and Bambuddy/OpenAPI references
-
-- `browser/` - browser, filtering, pagination, and instrumentation design docs
+- `reference/` - API contracts and canonical operational/reference docs
+- `design/` - implementation designs and feature workflow proposals
+- `browser/` - browser, filtering, pagination, and browser UX docs
 - `ui-media/` - popup, viewer, photo capture, photo review, and tag/media UX docs
 - `recovery/` - fallback archive detection, mismatch handling, exception UX, and recovery planning
 - `runtime-repair/` - canonical runtime repair and sidecar-backed restore contracts
@@ -75,13 +75,13 @@ Historical design notes:
 
 For fallback-archive canonical timestamp repair and adjacent orchestration design, see:
 
-- `runtime-repair/archive-runtime-db-repair-guide.md`
-- `runtime-repair/archive-runtime-field-impact-matrix.md`
+- `reference/archive-runtime-db-repair-guide.md`
+- `reference/archive-runtime-field-impact-matrix.md`
 - `runtime-repair/archive-runtime-repair-deployment-options.md`
 - `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
 - `runtime-repair/archive-runtime-ha-contract.md`
 - `runtime-repair/archive-runtime-restore-implementation-plan.md`
-- `runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md`
+- `reference/archive-runtime-restore-ha-service-and-popup-contract.md`
 - `runtime-repair/archive-runtime-restore-ha-ux-design.md`
 - `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
 - `imports/archive-historical-backfill-from-sd-card.md`
@@ -143,7 +143,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 If you have strong timing evidence, use the existing runtime repair tooling after upload. See:
 
-- `runtime-repair/archive-runtime-db-repair-guide.md`
+- `reference/archive-runtime-db-repair-guide.md`
 - `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
 - `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
 
@@ -504,10 +504,10 @@ For detailed design of the two major subsystems, see:
 - **[filter-sort-design.md](browser/filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[multi-select-actions-design.md](browser/multi-select-actions-design.md)** — Issue #919 shipped browser multi-select mode, toolbar/card coordination, and bulk action semantics
 - **[archive-detail-popup-design.md](ui-media/archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
-- **[archive-compare-similar-design.md](archive-compare-similar-design.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
+- **[archive-compare-similar.md](design/archive-compare-similar.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
 - **[archive-runtime-restore-ha-ux-design.md](runtime-repair/archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
 - **[archive-runtime-restore-implementation-plan.md](runtime-repair/archive-runtime-restore-implementation-plan.md)** — Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
-- **[archive-runtime-restore-ha-service-and-popup-contract.md](runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
+- **[archive-runtime-restore-ha-service-and-popup-contract.md](reference/archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
 - **[archive-metadata-correction-design.md](runtime-repair/archive-metadata-correction-design.md)** — Issue #953 design for sidecar-backed single-archive metadata correction, warning UX, derived-field policy, and local audit history
 - **[advanced-features-design.md](planning/advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](recovery/archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
@@ -553,7 +553,7 @@ For detailed design of the two major subsystems, see:
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
 - **Browser refinements** — See [filter-sort-design.md](browser/filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/list card layouts.
-- **Configurable browser instrumentation** — See [browser-instrumentation.md](browser/browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
+- **Configurable browser instrumentation** — See [browser-instrumentation.md](reference/browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
 - **Heatmap backend unification** — See [filter-sort-design.md](browser/filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
 - **Photo review actions** — See [photo-review-design.md](ui-media/photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
 - **Timelapse lifecycle + media review** — See [advanced-features-design.md](planning/advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
@@ -579,7 +579,7 @@ The print history browser now includes optional, helper-controlled instrumentati
 - UI toggle: debug row in the Print History settings popup opened from the browser header cog button
 - Output: browser console plus `window.__printHistoryDebug`
 
-See [browser-instrumentation.md](browser/browser-instrumentation.md) for the full workflow and payload description.
+See [browser-instrumentation.md](reference/browser-instrumentation.md) for the full workflow and payload description.
 
 ### Thumbnail Images Require Local Network Access
 

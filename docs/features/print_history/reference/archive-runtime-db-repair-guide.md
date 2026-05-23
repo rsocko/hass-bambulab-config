@@ -1,5 +1,11 @@
 # Bambuddy Archive Runtime DB Repair Guide
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/runtime-repair/archive-runtime-db-repair-guide.md
+Replaced By: none
+
 ## Purpose
 
 Document the direct-database repair path for Bambuddy archive runtime fields that are not writable through the public archive API.

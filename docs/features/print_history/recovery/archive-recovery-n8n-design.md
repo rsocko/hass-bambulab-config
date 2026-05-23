@@ -10,7 +10,7 @@ Related documents:
 
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
 - [archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
 - [archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 - [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
@@ -230,7 +230,7 @@ Therefore the workflow must preserve original runtime values separately if they 
 
 If preserving runtime values in notes is not sufficient for the deployment, use the separate canonical repair path documented in:
 
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 
 ## Stage 7: Lineage annotation

@@ -1,5 +1,11 @@
 # Print History API Reference
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/api-reference.md
+Replaced By: none
+
 Issue alignment: #1123 (API documentation and swagger-type landing page)
 
 This feature does not expose its own standalone OpenAPI server. It integrates with Bambuddy APIs via Home Assistant services, commands, and custom integration flows.

@@ -11,8 +11,8 @@ Related documents:
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
 - [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
 - [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
-- [archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](../reference/archive-runtime-field-impact-matrix.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 - [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 - [../../repo/bambuddy-archive-recovery-approach.md](../../repo/bambuddy-archive-recovery-approach.md)
@@ -34,7 +34,7 @@ Goal: allow a user to trigger repair through an external recovery runner without
 
 This phase now includes the optional canonical-runtime repair path for recovered or manually corrected archives. See:
 
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 
 ### Phase 3: Automated recovery orchestration

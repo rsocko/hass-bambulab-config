@@ -1,5 +1,11 @@
 # Archive Compare And Similar Workflow Design (Issue #757)
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/archive-compare-similar-design.md
+Replaced By: none
+
 ## Purpose
 
 Define how Home Assistant should expose Bambuddy archive comparison and related-print discovery without overloading the existing browser payload contract or depending on unstable upstream frontend routes.

@@ -26,7 +26,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 ### Not shipped yet
 
-- compare/deep-link actions and future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`; issue `#757` compare/similar workflow design now lives in `archive-compare-similar-design.md`
+- compare/deep-link actions and future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`; issue `#757` compare/similar workflow design now lives in `../design/archive-compare-similar.md`
 - origin/provenance badges that distinguish native Bambuddy archives from recovered replacements or historical imports
 - duplicate-review actions and suspicious-same-hash workflows in the popup action area
 - inferred-timing review and `update to inferred times` actions for imports or recovered records
@@ -268,7 +268,7 @@ Recommended sequencing:
 
 1. refine the current helper-backed edit UX and verify it remains reliable for longer user notes/tags
 2. add compact provenance and duplicate-review context so recovered/imported records are visibly distinct from native captures
-3. add compare/deep-link actions and any higher-value archive follow-on workflows after that provenance contract is stable; issue `#757` now has a dedicated workflow design in `archive-compare-similar-design.md`
+3. add compare/deep-link actions and any higher-value archive follow-on workflows after that provenance contract is stable; issue `#757` now has a dedicated workflow design in `../design/archive-compare-similar.md`
 4. return to Phase 0 only if the dashboard template-loading model is being changed anyway, or if feature-local template ownership becomes operationally important enough to justify the refactor on its own
 
 That keeps the next work aligned with the shipped UX while preserving the ownership refactor as a cleanup/architecture follow-on rather than a blocker.

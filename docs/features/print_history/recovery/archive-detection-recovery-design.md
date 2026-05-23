@@ -4,8 +4,8 @@
 
 Related documents:
 
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
-- [archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](../reference/archive-runtime-field-impact-matrix.md)
 - [archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 - [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
@@ -116,7 +116,7 @@ A dedicated sidecar service is deferred until there is evidence that recovery be
 
 For the current canonical runtime-repair options that sit alongside this detection-and-recovery design, see:
 
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
 - [archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
 - [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 
@@ -271,12 +271,12 @@ Implication:
 - the best current recovery behavior is to preserve original `started_at`, `completed_at`, and `actual_time_seconds` in machine-parseable notes
 - if canonical timestamp restoration becomes a requirement, that needs either a Bambuddy code change to widen the update schema or a direct database repair path outside the supported API
 
-If a future direct-DB sidecar adds source-to-target restore support, it should use field-aware merge rules rather than a blind copy. The replacement archive should keep parser-derived `.3mf` metadata, while original runtime fields and selected user metadata copy forward only when present on the source archive. The current proposed merge semantics for that mode are documented in [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md), and the concrete field-by-field policy table lives in [archive-runtime-restore-from-field-matrix.md](../runtime-repair/archive-runtime-restore-from-field-matrix.md).
+If a future direct-DB sidecar adds source-to-target restore support, it should use field-aware merge rules rather than a blind copy. The replacement archive should keep parser-derived `.3mf` metadata, while original runtime fields and selected user metadata copy forward only when present on the source archive. The current proposed merge semantics for that mode are documented in [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md), and the concrete field-by-field policy table lives in [archive-runtime-restore-from-field-matrix.md](../reference/archive-runtime-restore-from-field-matrix.md).
 
 The direct DB repair path, affected field surfaces, and adjacent deployment options are documented in:
 
-- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
-- [archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md)
+- [archive-runtime-db-repair-guide.md](../reference/archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](../reference/archive-runtime-field-impact-matrix.md)
 - [archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
 
 ### Source project fallback viability

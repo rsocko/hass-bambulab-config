@@ -1,5 +1,11 @@
 # Archive Runtime `restore_from` Field Matrix
 
+Status: Active
+Last Reviewed: 2026-05-23
+Functional Owner: print_history
+Replaces: docs/features/print_history/runtime-repair/archive-runtime-restore-from-field-matrix.md
+Replaced By: none
+
 ## Purpose
 
 Define the default field-by-field policy for a future sidecar endpoint that merges a source archive into a recovered target archive.

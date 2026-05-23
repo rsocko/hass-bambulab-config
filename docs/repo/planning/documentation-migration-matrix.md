@@ -1,6 +1,6 @@
 # Documentation Migration Matrix
 
-Status: Planned
+Status: In Progress
 Last Reviewed: 2026-05-23
 Functional Owner: repo-docs
 Replaces: none
@@ -31,7 +31,7 @@ Alignment rule:
 | A (complete) | repo root navigation files | High | README.md, DELIVERABLES-INDEX.md | Align nav to lane model and migration flow | none |
 | B (complete) | repo-root historical markdown | Medium | PHASE/ISSUE/test summary docs | Move historical docs into archive lanes | A |
 | C1 (in progress) | model_catalog | Very High | docs/features/model_catalog | Full lane split, root simplification, phase archive moves | A |
-| C1 | print_history | Very High | docs/features/print_history | Preserve subdomains, enforce lifecycle placement, trim parent README | A |
+| C1 (in progress) | print_history | Very High | docs/features/print_history | Preserve subdomains, enforce lifecycle placement, trim parent README | A |
 | C1 | spoolman_sync | High | docs/features/spoolman_sync | Split mixed root docs into lifecycle lanes | A |
 | C2 | wled | High | docs/features/wled | Hardware/reference/design separation | A |
 | C2 | air_quality | High | docs/features/air_quality | README de-bloat, lane migration | A |

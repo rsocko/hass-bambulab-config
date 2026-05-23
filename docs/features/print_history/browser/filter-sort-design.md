@@ -44,7 +44,7 @@ The active local search contract includes:
 
 Bambuddy's `/archives/search` endpoint is not a drop-in replacement for that helper because it searches a different field set, notably adding `filename` and `notes` but not preserving all of the current ID/printer/project/failure lookup behavior.
 
-Issue `#840` was reviewed against the active browser architecture. Current recommendation: keep the existing text box on the local search path and do not add a primary-browser full-text toggle unless a separate advanced search mode is intentionally designed. See [full-text-search-evaluation.md](full-text-search-evaluation.md) for the detailed evaluation.
+Issue `#840` was reviewed against the active browser architecture. Current recommendation: keep the existing text box on the local search path and do not add a primary-browser full-text toggle unless a separate advanced search mode is intentionally designed. See [../design/full-text-search-eval.md](../design/full-text-search-eval.md) for the detailed evaluation.
 
 ## Duplicate Filter Contract
 
