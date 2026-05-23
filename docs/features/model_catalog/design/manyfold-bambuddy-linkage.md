@@ -449,5 +449,5 @@ That gives you clean archive linking without needing Manyfold to support native 
 
 ## Related Docs
 
-- [implementation-plan.md](../c:\dev\hass-bambulab-config\docs\features\model_catalog\implementation-plan.md)
-- [api-cache-sync-flow.md](../c:\dev\hass-bambulab-config\docs\features\model_catalog\api-cache-sync-flow.md)
+- [implementation-plan.md](../planning/implementation-plan.md)
+- [api-cache-sync-flow.md](./api-cache-sync.md)

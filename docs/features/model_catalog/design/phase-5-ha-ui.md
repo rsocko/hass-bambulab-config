@@ -3,7 +3,7 @@
 > **Status**: Implementation-facing UI design
 > **Created**: 2026-04-30
 > **Scope**: Phase 5 Wave 4 operator surfaces for issues #1077, #1082, and #1145
-> **Authority**: [PHASE-5-EXECUTION-SEQUENCE](../PHASE-5-EXECUTION-SEQUENCE.md), [phase-delivery-and-validation](../phase-delivery-and-validation.md), [workflow-and-ingestion-guide](../workflow-and-ingestion-guide.md)
+> **Authority**: [phase-5-sequence](../planning/phase-5-sequence.md), [delivery-validation](../planning/delivery-validation.md), [workflow-ingestion](../reference/workflow-ingestion.md)
 >
 > **Historical note (2026-05-01)**: This document describes the earlier hidden-subview plan. The shipped Home Assistant dashboard now keeps one top-level `Model Catalog` view and uses helper-backed internal workspace navigation instead of hidden child views.
 >
@@ -908,6 +908,6 @@ Suggested helpers:
 
 - [intake-inbox-design.md](../intake-inbox-design.md)
 - [working-groups-and-veneer.md](../working-groups-and-veneer.md)
-- [workflow-and-ingestion-guide.md](../workflow-and-ingestion-guide.md)
+- [workflow-ingestion.md](../reference/workflow-ingestion.md)
 - [projects-design.md](../projects-design.md)
 - [phase-5-end-state-ui-and-handoff-design.md](../phase-5-end-state-ui-and-handoff-design.md)

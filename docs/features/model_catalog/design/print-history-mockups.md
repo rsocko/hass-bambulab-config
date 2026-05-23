@@ -6,7 +6,7 @@
 
 See also:
 
-- [Print History Slicer Integration Design](../print-history-slicer-integration-design.md)
+- [Print History Slicer Plan](../planning/print-history-slicer-plan.md)
 - [Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)
 - [Historical Print Backfill Via Model Catalog](../historical-print-backfill-via-model-catalog.md)
 - [UX Concepts And Mockups](../ux-concepts-and-mockups.md)

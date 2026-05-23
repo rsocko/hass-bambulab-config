@@ -29,7 +29,7 @@ Keep the split of responsibilities, but make Unified Queue the only planning/bac
 - preserve the backend split above
 - add an **operator-facing unified production queue** as a sidecar-owned projection over Catalog, Working, and Ideas sources
 - keep Bambuddy queue and Print History as adjacent but separate execution/history systems
-- see [unified-production-queue-design.md](../unified-production-queue-design.md) for the joined operator model, plate tracking, and overnight-planning proposal
+- see [unified-queue.md](../design/unified-queue.md) for the joined operator model, plate tracking, and overnight-planning proposal
 - see [unified-production-queue-implementation-plan.md](../unified-production-queue-implementation-plan.md) for execution slices
 - see [unified-production-queue-github-issues.md](../unified-production-queue-github-issues.md) for issue creation links
 

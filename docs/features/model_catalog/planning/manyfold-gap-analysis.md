@@ -428,4 +428,4 @@ For your actual goal, that is manageable. Manyfold's API is already good enough 
 
 ## Related Docs
 
-- [manyfold-bambuddy-linkage-model.md](../c:\dev\hass-bambulab-config\docs\features\model_catalog\manyfold-bambuddy-linkage-model.md)
+- [manyfold-bambuddy-linkage-model.md](../design/manyfold-bambuddy-linkage.md)

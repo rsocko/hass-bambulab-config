@@ -94,7 +94,7 @@ Self-contained HTML mockups for proposed UI evolutions live under
   `done`. The original list-style queue mockup remains under
   [`docs/features/model_catalog/design/mockups/production-queue.html`](../model_catalog/design/mockups/production-queue.html);
   rationale for the underlying data model lives in
-  [`unified-production-queue-design.md`](../model_catalog/unified-production-queue-design.md).
+  [`unified-queue.md`](../model_catalog/design/unified-queue.md).
 
 ## Dashboard Cards
 

@@ -6,7 +6,7 @@
 
 See also:
 
-- [Print History Slicer Integration Design](../print-history-slicer-integration-design.md)
+- [Print History Slicer Plan](./print-history-slicer-plan.md)
 - [Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)
 - [3MF Analysis Cache Schema And API Draft](../planning/3mf-cache-draft.md)
 

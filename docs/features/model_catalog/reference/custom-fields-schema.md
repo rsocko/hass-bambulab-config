@@ -8,7 +8,7 @@
 
 Manyfold does not provide a native custom-field system. The REST API and native UI expose a fixed set of built-in fields only. Fields that are useful for personal catalog management but are not native Manyfold fields must be stored in the sidecar database, keyed by Manyfold model URL or public ID.
 
-For the full API gap analysis that confirms this, see [Manyfold API Gap Analysis](../manyfold-api-gap-analysis-2026-04-21.md).
+For the full API gap analysis that confirms this, see [Manyfold API Gap Analysis](../planning/manyfold-gap-analysis.md).
 
 ## Manyfold Native Fields — Reference, Do Not Replicate
 
@@ -120,7 +120,7 @@ Records where a model was originally found before entering the local library. Su
 
 These fields are set at ingestion time and are rarely changed.
 
-For full channel and adapter behavior (URL paste, browser extension, Stream Deck, and collection migration), see [External Source Intake Design](../external-source-intake-design.md).
+For full channel and adapter behavior (URL paste, browser extension, Stream Deck, and collection migration), see [External Source Intake Design](../design/external-source-intake.md).
 
 UI contract:
 
@@ -239,8 +239,8 @@ Historical behavior note:
 
 Migration/deprecation references:
 
-- [unified-queue-cutover-runbook.md](../unified-queue-cutover-runbook.md)
-- [unified-queue-deprecation-timeline.md](../unified-queue-deprecation-timeline.md)
+- [unified-queue-cutover-runbook.md](../planning/unified-queue-runbook.md)
+- [unified-queue-deprecation-timeline.md](../planning/unified-queue-deprecation.md)
 
 ### Unified Production Queue fields (sidecar-owned, not Manyfold custom fields)
 
@@ -383,7 +383,7 @@ Per US-2a design, "Needs photos shared" may trigger a suggestion banner in Catal
 ## Archive Linkage Fields
 
 
-Archive linkage is NOT stored in `model_catalog_model_fields`. It uses the dedicated `model_catalog_links` table defined in [Manyfold-Bambuddy Linkage Model](../manyfold-bambuddy-linkage-model.md).
+Archive linkage is NOT stored in `model_catalog_model_fields`. It uses the dedicated `model_catalog_links` table defined in [Manyfold-Bambuddy Linkage Model](../design/manyfold-bambuddy-linkage.md).
 
 This keeps the archive relationship in a proper relational structure with confidence, review state, match provenance, and audit history rather than as a flattened JSON field.
 

@@ -4,7 +4,7 @@
 
 The import system allows you to populate the local model catalog with test models by placing files in the server inbox directory (`/assets/model inbox`) or using the local import script.
 
-> **Note on Model IDs**: Each imported model is automatically assigned a unique `local_model_id` in the format `{name-slug}--{shortid}` (e.g., `gridfinity-bin--a1b2c3d4`). This ID is immutable and used as the folder name for model assets. See [LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md](../LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md) for details on the naming convention and why model folder names don't change when you edit a model's display name.
+> **Note on Model IDs**: Each imported model is automatically assigned a unique `local_model_id` in the format `{name-slug}--{shortid}` (e.g., `gridfinity-bin--a1b2c3d4`). This ID is immutable and used as the folder name for model assets. See [local-model-storage.md](../design/local-model-storage.md) for details on the naming convention and why model folder names don't change when you edit a model's display name.
 
 ## Two Import Methods
 
@@ -268,7 +268,7 @@ Once imported:
 
 ## Related Documentation
 
-- [Local Model Authority (Phase 1)](../phase-1-implementation-plan.md)
+- [Local Model Authority (Phase 1)](../planning/phase-1-plan.md)
 - [Model Summary Blending (Phase 2)](../post-manyfold-transition-plan-2026-04.md)
-- [Phase 3.1 Edit & Photos](../phase-3.1-implementation-guide.md)
+- [Phase 3.1 Edit & Photos](../planning/phase-3.1-impl-guide.md)
 - [API Reference](../api-reference.md)

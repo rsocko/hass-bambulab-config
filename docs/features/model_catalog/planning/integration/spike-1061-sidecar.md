@@ -726,5 +726,5 @@ Same-stack deployment is **highly feasible and recommended**. Service networking
 
 ## Related Documentation
 
-- [Persistence and Backup Strategy](../persistence-and-backup-strategy.md)
+- [Persistence and Backup Strategy](../../reference/backup-strategy.md)
 - Sidecar README: [c:/dev/hass-bambulab-config/sidecars/model_catalog/README.md](../../../sidecars/model_catalog/README.md)

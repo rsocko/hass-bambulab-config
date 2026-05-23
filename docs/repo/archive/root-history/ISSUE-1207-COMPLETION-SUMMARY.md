@@ -173,9 +173,9 @@ sidecars/model_catalog/
 - 📝 New service layer for business logic coordination
 
 ### For New Contributors
-- 📖 Start with [MODEL_CATALOG_ARCHITECTURE.md](../../../../docs/MODEL_CATALOG_ARCHITECTURE.md)
+- 📖 Start with [MODEL_CATALOG_ARCHITECTURE.md](../../../../docs/features/model_catalog/reference/architecture.md)
 - 📖 Check [app/README.md](../../../../sidecars/model_catalog/app/README.md) for module overview
-- 📖 Review [MIGRATION_GUIDE.md](../../../../docs/MODEL_CATALOG_MIGRATION_GUIDE.md) for patterns
+- 📖 Review [MIGRATION_GUIDE.md](../../../../docs/features/model_catalog/reference/model-catalog-migration-guide.md) for patterns
 
 ---
 
@@ -228,9 +228,9 @@ sidecars/model_catalog/
 
 ## References
 
-- Architecture: [MODEL_CATALOG_ARCHITECTURE.md](../../../../docs/MODEL_CATALOG_ARCHITECTURE.md)
-- Phase 2 Design: [MODEL_CATALOG_PHASE_2_DESIGN.md](../../../../docs/MODEL_CATALOG_PHASE_2_DESIGN.md)
-- Migration: [MODEL_CATALOG_MIGRATION_GUIDE.md](../../../../docs/MODEL_CATALOG_MIGRATION_GUIDE.md)
+- Architecture: [MODEL_CATALOG_ARCHITECTURE.md](../../../../docs/features/model_catalog/reference/architecture.md)
+- Phase 2 Design: [MODEL_CATALOG_PHASE_2_DESIGN.md](../../../../docs/features/model_catalog/planning/model-catalog-phase-2-design.md)
+- Migration: [MODEL_CATALOG_MIGRATION_GUIDE.md](../../../../docs/features/model_catalog/reference/model-catalog-migration-guide.md)
 - App Module: [sidecars/model_catalog/app/README.md](../../../../sidecars/model_catalog/app/README.md)
 - Main README: [sidecars/model_catalog/README.md](../../../../sidecars/model_catalog/README.md)
 

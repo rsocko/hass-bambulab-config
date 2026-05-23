@@ -917,8 +917,8 @@ uploaded_by: "user@example.com" (optional)
 
 ## References
 
-- [Phase 2 Refactoring Design](MODEL_CATALOG_PHASE_2_DESIGN.md)
-- [Archive Linking Design](features/archive_linking/README.md) (Phase 2.5)
-- [Model Export Specification](features/model_export/README.md) (Phase 2.6)
-- [Local Model Storage & Naming Convention](LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md)
+- [Phase 2 Refactoring Design](../planning/model-catalog-phase-2-design.md)
+- Archive Linking Design (Phase 2.5, deferred)
+- Model Export Specification (Phase 2.6, deferred)
+- [Local Model Storage & Naming Convention](../design/local-model-storage.md)
 

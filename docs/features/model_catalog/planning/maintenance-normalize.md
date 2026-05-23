@@ -3,7 +3,7 @@
 > **Status**: Design, ready for implementation
 > **Priority**: Low (optional maintenance, not blocking normal operation)
 > **Created**: 2026-05-02
-> **Related**: [LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md](../LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md)
+> **Related**: [local-model-storage.md](../design/local-model-storage.md)
 
 ## Overview
 

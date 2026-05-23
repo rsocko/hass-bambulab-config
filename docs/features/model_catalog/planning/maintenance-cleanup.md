@@ -422,7 +422,7 @@ The CLI uses the same `load_settings()` function as the FastAPI app, so it respe
 
 ## See Also
 
-- [LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md](../LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md) — Asset storage and folder naming
+- [local-model-storage.md](../design/local-model-storage.md) — Asset storage and folder naming
 - [MAINTENANCE-NORMALIZE-MODEL-FOLDERS.md](../MAINTENANCE-NORMALIZE-MODEL-FOLDERS.md) — One-time folder normalization utility
-- [Persistence And Backup Strategy](../persistence-and-backup-strategy.md) — Backup/restore runbook
+- [Persistence And Backup Strategy](../reference/backup-strategy.md) — Backup/restore runbook
 - [Model Catalog Sidecar README](../../sidecars/model_catalog/README.md) — Sidecar deployment and configuration

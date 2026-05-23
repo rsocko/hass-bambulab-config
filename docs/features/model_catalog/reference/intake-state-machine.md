@@ -9,7 +9,7 @@
 
 Define the state model that governs intake items from submission through validation and conversion to Working/Curated outcomes. This contract is used by sidecar API endpoints, queue processing, and HA operator surfaces.
 
-For a visual walkthrough of the same flow, plus a state/action cheat sheet and a separate current-implementation flow, see [import-flow-diagrams.md](../c:\dev\hass-bambulab-config\docs\features\model_catalog\import-flow-diagrams.md).
+For a visual walkthrough of the same flow, plus a state/action cheat sheet and a separate current-implementation flow, see [import-flow-diagrams.md](./import-flows.md).
 
 ## Scope Boundary
 

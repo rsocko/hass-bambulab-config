@@ -50,7 +50,7 @@ Additionally, **the "project" concept currently exists only in Print History (Ba
    - Planned fields: `id`, `title`, `slug`, `notes`, `stage`, `primary_file_path`, `source_urls`, `related_manyfold_model_id`
 
 2. **Single-File Publish Flow** — Working → Catalog ✅
-   - Described in [Workflow And Ingestion Guide](../workflow-and-ingestion-guide.md)
+  - Described in [Workflow And Ingestion Guide](../reference/workflow-ingestion.md)
    - Publish to catalog when stable
    - Canonical revision tracking planned
    - Reconciliation checks for duplicates

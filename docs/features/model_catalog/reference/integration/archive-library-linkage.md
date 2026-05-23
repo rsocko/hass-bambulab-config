@@ -1,7 +1,7 @@
 # Archive To Library Linkage
 
 > **Status**: Proposed contract only. This was the original linkage schema proposal from the model_library design phase.
-> **Superseded by**: [Manyfold-Bambuddy Linkage Model](../manyfold-bambuddy-linkage-model.md) for the current, refined schema and identity model.
+> **Superseded by**: [Manyfold-Bambuddy Linkage Model](../../design/manyfold-bambuddy-linkage.md) for the current, refined schema and identity model.
 
 ## Purpose
 

@@ -415,4 +415,4 @@ Those can still evolve as long as the surface boundaries in this document remain
 - [projects-design.md](../projects-design.md)
 - [3mf-resource-extraction-and-online-provenance-design.md](../3mf-resource-extraction-and-online-provenance-design.md)
 - [phase-5-publish-preview-and-supporting-assets-design.md](../phase-5-publish-preview-and-supporting-assets-design.md)
-- [workflow-and-ingestion-guide.md](../workflow-and-ingestion-guide.md)
+- [workflow-ingestion.md](../reference/workflow-ingestion.md)

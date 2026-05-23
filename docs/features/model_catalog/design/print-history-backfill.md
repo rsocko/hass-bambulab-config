@@ -7,7 +7,7 @@
 See also:
 
 - [Historical Print Backfill Via Model Catalog](../historical-print-backfill-via-model-catalog.md)
-- [Print History Slicer Integration Design](../print-history-slicer-integration-design.md)
+- [Print History Slicer Plan](../planning/print-history-slicer-plan.md)
 - [Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)
 
 ## Purpose

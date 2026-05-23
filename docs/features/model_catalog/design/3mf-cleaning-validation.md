@@ -1289,8 +1289,8 @@ working/
 
 - [3MFresh Repository](https://github.com/brossow/3MFresh)
 - [3MF File Format Specification](https://3mf.io/3mf-specification/)
-- [Model Catalog Architecture](.././MODEL_CATALOG_ARCHITECTURE.md)
-- [Working Groups Design](.././working-groups-and-veneer.md)
+- [Model Catalog Architecture](../reference/architecture.md)
+- [Working Groups Design](../planning/working-groups-veneer.md)
 - [Issue #1327: Add Clean 3MF functionality to server](https://github.com/rsocko/hass-bambulab-config/issues/1327)
 
 ---

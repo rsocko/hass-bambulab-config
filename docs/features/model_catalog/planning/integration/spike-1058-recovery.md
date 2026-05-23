@@ -433,4 +433,4 @@ Recovery after file restoration is **predictable and operationally manageable** 
 
 - [Spike #1057: Rescan Behavior](../spike-1057-manyfold-rescan-behavior-validation.md)
 - [External Storage Behavior](../external-storage-behavior.md)
-- [Persistence and Backup Strategy](../persistence-and-backup-strategy.md)
+- [Persistence and Backup Strategy](../../reference/backup-strategy.md)

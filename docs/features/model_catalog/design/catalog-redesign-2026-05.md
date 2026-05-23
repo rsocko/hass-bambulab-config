@@ -765,11 +765,11 @@ The full set of GitHub issues opened on 2026-05-13/14 to track this redesign. Ea
 
 ### Source design docs consulted (kept as authoritative)
 
-- [architecture-overview.md](../architecture-overview.md)
+- [architecture.md](../reference/architecture.md)
 - [post-manyfold-transition-plan-2026-04.md](../post-manyfold-transition-plan-2026-04.md)
 - [model-detail-popup-redesign-2026-05.md](../model-detail-popup-redesign-2026-05.md)
 - [projects-design.md](../projects-design.md)
-- [unified-production-queue-design.md](../unified-production-queue-design.md)
+- [unified-queue.md](./unified-queue.md)
 - [unified-queue-state-transitions.md](../unified-queue-state-transitions.md)
 - [historical-print-backfill-via-model-catalog.md](../historical-print-backfill-via-model-catalog.md)
 - [phase-6-search-ranking-and-discovery-design.md](../phase-6-search-ranking-and-discovery-design.md)

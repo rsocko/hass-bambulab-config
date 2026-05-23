@@ -304,7 +304,7 @@ Boundary note:
 
 Design reference:
 
-- [Print History Slicer Integration Design](../print-history-slicer-integration-design.md)
+- [Print History Slicer Integration Design](../planning/print-history-slicer-plan.md)
 
 ## Source of Truth
 

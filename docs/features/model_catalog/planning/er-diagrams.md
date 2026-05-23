@@ -529,7 +529,7 @@ The model_catalog sidecar integrates with Manyfold via:
 
 ## Related Documentation
 
-- [Architecture Overview](../architecture-overview.md) — High-level topology and ownership boundaries
-- [Manyfold-Bambuddy Linkage Model](../manyfold-bambuddy-linkage-model.md) — Data contract for archive-to-model relationships
+- [Architecture Overview](../reference/architecture.md) — High-level topology and ownership boundaries
+- [Manyfold-Bambuddy Linkage Model](../design/manyfold-bambuddy-linkage.md) — Data contract for archive-to-model relationships
 - [Custom Fields Schema](../custom-fields-schema.md) — Detailed semantics of supported custom fields
 - [Implementation Plan](../implementation-plan.md) — Phased delivery roadmap

@@ -378,6 +378,6 @@ Manyfold's rescan behavior is **underdocumented in REST API** but **predictable 
 ## Related Documentation
 
 - [Spike #1056: PATCH Behavior](../spike-1056-manyfold-patch-behavior-validation.md)
-- [Manyfold API Gap Analysis](../manyfold-api-gap-analysis-2026-04-21.md)
+- [Manyfold API Gap Analysis](../manyfold-gap-analysis.md)
 - [Intake Inbox Design](../intake-inbox-design.md)
 - Manyfold upstream: ScanLibraryJob and library controllers

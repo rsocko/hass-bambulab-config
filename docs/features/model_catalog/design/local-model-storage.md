@@ -2,7 +2,7 @@
 
 > **Status**: Approved, implemented 2026-05-02
 > **Scope**: Folder naming convention, asset storage structure, and rename behavior for local catalog models
-> **Related**: [LOCAL-MODEL-IMPORT-GUIDE.md](../LOCAL-MODEL-IMPORT-GUIDE.md), [architecture-overview.md](../architecture-overview.md)
+> **Related**: [local-model-import.md](../reference/local-model-import.md), [architecture.md](../reference/architecture.md)
 
 ## Overview
 

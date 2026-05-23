@@ -4,7 +4,7 @@
 > **Tracking issue:** [#1174](https://github.com/rsocko/hass-bambulab-config/issues/1174)
 > **Scope:** A dynamic Home Assistant-first landing surface for the model catalog domain that summarizes operational state across Catalog, Working Files, Intake, External Imports, and the Unified Production Queue, then routes the operator into the correct detailed tab or popup to complete work.
 > **Companion mockups:** [mockups/landing-dashboard.html](mockups/landing-dashboard.html), [mockups/landing-dashboard-compact.html](mockups/landing-dashboard-compact.html), [mockups/landing-dashboard-analytics.html](mockups/landing-dashboard-analytics.html)
-> **Related design docs:** [catalog-card.md](catalog-card.md), [working-files-card.md](working-files-card.md), [../unified-production-queue-design.md](../unified-production-queue-design.md), [../external-source-intake-design.md](../external-source-intake-design.md), [../intake-inbox-design.md](../intake-inbox-design.md), [../architecture-overview.md](../architecture-overview.md)
+> **Related design docs:** [catalog-card.md](catalog-card.md), [working-files-card.md](working-files-card.md), [unified-queue.md](unified-queue.md), [external-source-intake.md](external-source-intake.md), [intake-inbox.md](intake-inbox.md), [../reference/architecture.md](../reference/architecture.md)
 
 ---
 
@@ -101,7 +101,7 @@ The landing page must never trap the operator in a shallow half-workflow.
 - advanced model actions
 - archive repair or print-history-native workflows
 
-This preserves the approved Home Assistant-first hybrid architecture from [../architecture-overview.md](../architecture-overview.md).
+This preserves the approved Home Assistant-first hybrid architecture from [../reference/architecture.md](../reference/architecture.md).
 
 ---
 
@@ -231,7 +231,7 @@ Primary actions:
 - `Send to Queue`
 - `Jump to Queue Planner`
 
-The landing page only previews queue candidates. Full reordering and planner optimization remain in [../unified-production-queue-design.md](../unified-production-queue-design.md).
+The landing page only previews queue candidates. Full reordering and planner optimization remain in [unified-queue.md](unified-queue.md).
 
 ## 5.3 Inbox / Intake Waiting
 
@@ -293,7 +293,7 @@ Content:
 - collection migration jobs
 - provider/channel health diagnostics
 
-This section should reflect [../external-source-intake-design.md](../external-source-intake-design.md): the landing page is where the operator notices pending external work, not where they perform full provider-aware review.
+This section should reflect [external-source-intake.md](external-source-intake.md): the landing page is where the operator notices pending external work, not where they perform full provider-aware review.
 
 Primary actions:
 

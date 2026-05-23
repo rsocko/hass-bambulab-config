@@ -2,9 +2,9 @@
 
 > **Status**: Historical context and design rationale. This was the initial strategy document before the model_catalog design was finalized.
 > **Do not use for current design or implementation decisions**: this document is retained for background only and is superseded by the active model_catalog docs.
-> **Current architecture**: See [Architecture Overview](../architecture-overview.md) for the settled design and component topology.
-> **Important note**: terminology in this historical document such as "promote" or earlier assumptions about storage flows should be read as historical context only. The current lifecycle language and Manyfold capability constraints are defined in [Workflow And Ingestion Guide](../workflow-and-ingestion-guide.md) and [External Storage Behavior](../external-storage-behavior.md).
-> **Use these instead for active work**: [Architecture Overview](../architecture-overview.md), [Implementation Plan](../implementation-plan.md), [Workflow And Ingestion Guide](../workflow-and-ingestion-guide.md), and [External Storage Behavior](../external-storage-behavior.md).
+> **Current architecture**: See [Architecture Overview](./architecture.md) for the settled design and component topology.
+> **Important note**: terminology in this historical document such as "promote" or earlier assumptions about storage flows should be read as historical context only. The current lifecycle language and Manyfold capability constraints are defined in [Workflow And Ingestion Guide](./workflow-ingestion.md) and [External Storage Behavior](./external-storage-behavior.md).
+> **Use these instead for active work**: [Architecture Overview](./architecture.md), [Implementation Plan](../planning/implementation-plan.md), [Workflow And Ingestion Guide](./workflow-ingestion.md), and [External Storage Behavior](./external-storage-behavior.md).
 > **Last updated**: 2026-04-21
 
 ## Problem Statement
@@ -19,9 +19,9 @@ The current repo already has strong archive-centric capabilities through Bambudd
 
 The main design tension is that Bambuddy and Manyfold overlap in some library-adjacent capabilities, but they are optimized for different jobs.
 
-For the short day-to-day operator rules, see [Model Library Operator Workflow](../operator-workflow.md).
+For the short day-to-day operator rules, see [Model Library Operator Workflow](./operator-workflow.md).
 
-For the broader alternatives pass, see [External Services Design Review](../external-services-design-review-2026-04.md).
+For the broader alternatives pass, see [External Services Design Review](../design/external-services-review.md).
 
 ## Current Upstream Findings
 

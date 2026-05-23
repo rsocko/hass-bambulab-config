@@ -220,7 +220,7 @@ model_catalog_entries:
 - Part of print outcome, not library
 
 **Not stored in this sidecar** — this is Bambuddy's responsibility  
-See [source-3mf-storage-strategy.md](../print_history/imports/source-3mf-storage-strategy.md)
+See [source-3mf-storage-strategy.md](../../print_history/design/imports/source-3mf-storage-strategy.md)
 
 ---
 
@@ -481,6 +481,6 @@ restic restore latest --target /mnt/restore/
 
 ## References
 
-- [persistence-and-backup-strategy.md](../persistence-and-backup-strategy.md) — Database backup details
-- [operator-workflow.md](../operator-workflow.md) — User-facing file organization guidance
-- [source-3mf-storage-strategy.md](../print_history/imports/source-3mf-storage-strategy.md) — Print archive storage
+- [persistence-and-backup-strategy.md](./backup-strategy.md) - Database backup details
+- [operator-workflow.md](./operator-workflow.md) - User-facing file organization guidance
+- [source-3mf-storage-strategy.md](../../print_history/design/imports/source-3mf-storage-strategy.md) - Print archive storage

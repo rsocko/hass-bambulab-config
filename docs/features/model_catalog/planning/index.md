@@ -26,7 +26,7 @@
 - **[Main.py Modularization Low-Risk Plan](../planning/main-py-modularization.md)** ← Deterministic decomposition plan for sidecar backend
 - **[Main.py Modularization Issue Map](../planning/main-py-modularization-map.md)** ← Epic + child issue sequence and acceptance gates
 - **[Working Files Local Launch And Slicer Integration Design](../working-files-local-launch-and-slicer-integration-design.md)** ← Local file, slicer protocol, companion, and replace-flow design
-- **[Print History Slicer Integration Design](../print-history-slicer-integration-design.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
+- **[Print History Slicer Plan](./print-history-slicer-plan.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
 - **[Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
 - **[Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)** ← Local worker delivery slices and issue breakdown
 - **[Intake Flow States And Transitions](../intake-state-machine.md)** ← Issue #1079
@@ -39,7 +39,7 @@
 - **[Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 
 ### 🧠 Unified Production Queue (Planning + Tracking)
-- **[Unified Production Queue Design](../unified-production-queue-design.md)** ← Approved operator-surface design and object model
+- **[Unified Queue Design](../design/unified-queue.md)** ← Approved operator-surface design and object model
 - **[Unified Production Queue Implementation Plan](../unified-production-queue-implementation-plan.md)** ← End-to-end backend/frontend implementation sequence
 - **[Unified Production Queue GitHub Issues](../unified-production-queue-github-issues.md)** ← Click-to-create issue links with prepopulated title/body
 - **Mockups**:
@@ -78,7 +78,7 @@
 - **[Cache Roadmap And Invalidation Design](../planning/cache-roadmap.md)** ← Incremental cache plan (no-Redis first, Redis decision gates)
 - **[Phase 5 Wave 4 HA UI Design](../phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
 - **[Phase 5 End-State UI And Handoff Design](../phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
-- **[Print History Slicer Integration Design](../print-history-slicer-integration-design.md)** ← Model Catalog to Print History source-3MF slicing orchestration
+- **[Print History Slicer Plan](./print-history-slicer-plan.md)** ← Model Catalog to Print History source-3MF slicing orchestration
 - **[Print History Slicer UX Mockups](../print-history-slicer-ux-mockups.md)** ← Low-fi validation, override, progress, and completion surfaces
 - **[Print History Slicer Implementation Plan](../print-history-slicer-implementation-plan.md)** ← Concrete local-worker execution slices
 - **[Legacy Manyfold Photo Publication Design](../phase-6-manyfold-photo-publication-design.md)** ← Optional post-pivot Manyfold adapter work, now aligned to Phase 9 rather than an active core-path phase
