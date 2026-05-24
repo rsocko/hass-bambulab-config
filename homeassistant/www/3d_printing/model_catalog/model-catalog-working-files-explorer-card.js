@@ -524,6 +524,7 @@
       this._groupSubViews = {};
       this._groupFolderTypeFilters = {};
       this._groupFolderBrowsePaths = {};
+      this._loadingGroupFiles = {};
       this._thumbnailSize = 'small';
       this._backgroundReindexInFlight = false;
       this._lastAppliedScopeStamp = 0;
@@ -701,7 +702,7 @@
             return;
           }
           if (!Object.prototype.hasOwnProperty.call(this._collapsedGroups, id)) {
-            this._collapsedGroups[id] = false;
+            this._collapsedGroups[id] = true;
           }
           if (!Object.prototype.hasOwnProperty.call(this._groupSubViews, id)) {
             this._groupSubViews[id] = 'files';
@@ -711,6 +712,9 @@
           }
           if (!Object.prototype.hasOwnProperty.call(this._groupFolderBrowsePaths, id)) {
             this._groupFolderBrowsePaths[id] = this._defaultGroupFolderPath(group);
+          }
+          if (!Object.prototype.hasOwnProperty.call(this._loadingGroupFiles, id)) {
+            this._loadingGroupFiles[id] = false;
           }
         }, this);
 
@@ -1135,11 +1139,12 @@
     _groupPathFootprint(group) {
       var files = this._groupFiles(group);
       if (!files.length) {
+        var inferredStorage = storageRelativePath(group && group.folder_hint ? group.folder_hint : '').storage || 'Unknown';
         return {
           common_prefix: '',
           folder_count: 0,
-          file_count: 0,
-          storage_label: 'Unknown',
+          file_count: Number(group && group.counts && group.counts.total) || 0,
+          storage_label: inferredStorage,
         };
       }
       var relPaths = files.map(function (entry) {
@@ -1195,11 +1200,80 @@
         }
         return this._resolvePreviewUrl('/' + candidate.replace(/^\.?\//, ''));
       }
-      return '';
+      var fallbackPath = this._entryPath(entry);
+      var fallbackExt = this._entryExtension(entry);
+      if (!fallbackPath || !/(\.3mf|\.png|\.jpe?g|\.webp|\.gif|\.svg|\.bmp)$/i.test(fallbackExt)) {
+        return '';
+      }
+      var sidecarBaseUrl = this._resolveSidecarUrl();
+      var previewPath = '/api/working-files/preview?path=' + encodeURIComponent(fallbackPath);
+      return sidecarBaseUrl ? sidecarBaseUrl.replace(/\/$/, '') + previewPath : previewPath;
     }
 
     _groupFiles(group) {
       return Array.isArray(group && group.files) ? group.files : [];
+    }
+
+    _findGroupById(groupId) {
+      var targetId = Number(groupId || 0);
+      if (!targetId) {
+        return null;
+      }
+      return this._groups.find(function (group) {
+        return Number(group && group.id) === targetId;
+      }) || null;
+    }
+
+    async _ensureGroupFilesLoaded(groupId) {
+      var targetId = Number(groupId || 0);
+      if (!targetId || !this._hass) {
+        return;
+      }
+      var group = this._findGroupById(targetId);
+      if (!group || group.files_loaded || this._loadingGroupFiles[targetId]) {
+        return;
+      }
+      this._loadingGroupFiles[targetId] = true;
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_get_working_group', {
+          group_id: targetId,
+        });
+        var detailGroup = response && response.group && typeof response.group === 'object' ? response.group : null;
+        var items = Array.isArray(detailGroup && detailGroup.items) ? detailGroup.items : [];
+        group.files = items.map(function (item) {
+          var sourcePath = String(item && item.file_path || '');
+          return {
+            source_path_canonical: sourcePath,
+            source_path_raw: sourcePath,
+            file_path: sourcePath,
+            file_size_bytes: Number(item && item.file_size || 0),
+            source_mtime: item && item.updated_at ? item.updated_at : '',
+            source_metadata: item && typeof item.source_metadata === 'object' ? item.source_metadata : {},
+            launch: item && item.launch ? item.launch : null,
+            group_memberships: item && Array.isArray(item.group_memberships) ? item.group_memberships : [],
+          };
+        });
+        group.files_loaded = true;
+        if (!group.counts || !Number(group.counts.total)) {
+          var modelCount = group.files.filter(function (entry) {
+            return this._entryExtension(entry) === '.3mf';
+          }, this).length;
+          group.counts = {
+            total: group.files.length,
+            count_3mf: modelCount,
+            count_other: Math.max(0, group.files.length - modelCount),
+          };
+        }
+        if (!String(this._groupFolderBrowsePaths[targetId] || '').trim()) {
+          this._groupFolderBrowsePaths[targetId] = this._defaultGroupFolderPath(group);
+        }
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not load files for this group.';
+      } finally {
+        this._loadingGroupFiles[targetId] = false;
+        this._render();
+      }
     }
 
     _latestGroupFile(group) {
@@ -1495,8 +1569,12 @@
       if (action === 'toggle-group-collapsed') {
         var collapseGroupId = Number(target.getAttribute('data-group-id') || 0);
         if (collapseGroupId) {
-          this._collapsedGroups[collapseGroupId] = !this._collapsedGroups[collapseGroupId];
+          var nextCollapsed = !this._collapsedGroups[collapseGroupId];
+          this._collapsedGroups[collapseGroupId] = nextCollapsed;
           this._render();
+          if (!nextCollapsed) {
+            this._ensureGroupFilesLoaded(collapseGroupId);
+          }
         }
         return;
       }
@@ -1617,7 +1695,11 @@
         var groupInitials = initialsFromTitle(group.title || 'WG');
         var groupStyle = this._groupIconStyle(group, queueState);
         var modelRowsHtml = '';
-        if (!visibleFiles.length) {
+        if (!group.files_loaded && this._loadingGroupFiles[groupId]) {
+          modelRowsHtml = '<div class="state-row">Loading group files...</div>';
+        } else if (!group.files_loaded) {
+          modelRowsHtml = '<div class="state-row">Expand to load files for this group.</div>';
+        } else if (!visibleFiles.length) {
           modelRowsHtml = '<div class="state-row">No files match this type filter.</div>';
         } else {
           modelRowsHtml = '<div class="file-list">' + visibleFiles.map(function (entry) {

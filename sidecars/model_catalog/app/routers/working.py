@@ -1239,7 +1239,7 @@ def explore_working_files(request: Request,
 
     where_sql = " AND ".join(where_clauses)
     preferred_roots = _configured_working_files_roots(state.settings)
-    light_mode = view_mode == "groups" and _coerce_bool(lightweight)
+    light_mode = view_mode == "groups" and _coerce_bool(lightweight) and not (q and q.strip())
 
     scoped_where_sql = where_sql
     scoped_params: list[Any] = list(params)
@@ -1364,6 +1364,60 @@ def explore_working_files(request: Request,
         ).fetchall()
         groups = []
         for group_row in group_rows:
+            if light_mode:
+                group_id = int(group_row["id"])
+                title = str(group_row["title"] or "")
+                notes = str(group_row["notes"] or "")
+                folder_hint = str(group_row["folder_hint"] or "")
+                if q and q.strip():
+                    query_text = q.strip().lower()
+                    haystack = " ".join([title, notes, folder_hint]).lower()
+                    if query_text not in haystack:
+                        continue
+
+                counts_row = connection.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total,
+                        COALESCE(SUM(CASE WHEN LOWER(file_path) LIKE '%.3mf' THEN 1 ELSE 0 END), 0) AS count_3mf
+                    FROM working_items
+                    WHERE working_group_id = ?
+                    """,
+                    (group_id,),
+                ).fetchone()
+                total_count = int(counts_row["total"] or 0) if counts_row else 0
+                count_3mf = int(counts_row["count_3mf"] or 0) if counts_row else 0
+
+                primary_file_path = str(group_row["primary_file_path"] or "")
+                discovery_source_folder = str(group_row["discovery_source_folder"] or "")
+                effective_folder_path = folder_hint or (str(Path(primary_file_path).parent) if primary_file_path else "") or discovery_source_folder
+                groups.append(
+                    {
+                        "id": group_id,
+                        "slug": group_row["slug"],
+                        "title": title,
+                        "stage": group_row["stage"],
+                        "notes": group_row["notes"],
+                        "folder_hint": group_row["folder_hint"],
+                        "launch": {
+                            "assets_root_host": str(getattr(state.settings, "assets_root_host", "") or "").strip(),
+                            "windows_launch_enabled": _windows_launch_enabled(state.settings),
+                            "primary": _launch_context_for_path(primary_file_path, state.settings),
+                            "folder": _launch_context_for_path(effective_folder_path, state.settings),
+                        },
+                        "primary_file_path": group_row["primary_file_path"],
+                        "updated_at": group_row["updated_at"],
+                        "counts": {
+                            "total": total_count,
+                            "count_3mf": count_3mf,
+                            "count_other": max(0, total_count - count_3mf),
+                        },
+                        "files_loaded": False,
+                        "files": [],
+                    }
+                )
+                continue
+
             serialized_group = _serialize_working_group(connection, group_row, state.settings)
             sorted_items = sorted(
                 serialized_group.get("items") or [],
@@ -1423,6 +1477,7 @@ def explore_working_files(request: Request,
                         "count_3mf": count_3mf,
                         "count_other": max(0, len(sorted_items) - count_3mf),
                     },
+                    "files_loaded": True,
                     "files": sorted_items,
                 }
             )
