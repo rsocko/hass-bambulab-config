@@ -1,5 +1,6 @@
 (function () {
   var VIEW_OPTIONS = ["groups", "all", "ungrouped"];
+  var lastExplorerSnapshot = null;
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -539,7 +540,7 @@
       var initialQuery = config && config.initial_query ? String(config.initial_query).trim() : '';
       this._config = {
         title: config && config.title ? String(config.title) : 'Working Files',
-        per_page: config && config.per_page ? Number(config.per_page) : 200,
+        per_page: config && config.per_page ? Number(config.per_page) : 120,
         auto_reindex_on_initial_load: !!(config && config.auto_reindex_on_initial_load === true),
         initial_group_id: normalizedInitialGroupId,
         initial_query: initialQuery,
@@ -633,18 +634,37 @@
       }
       var shouldForceReindex = !!(options && options.forceReindex);
       var skipInitialReindex = !!(options && options.skipInitialReindex);
+      var requestSignature = JSON.stringify({
+        view: this._view,
+        q: this._query || '',
+        extension: this._extension || '',
+        limit: this._config.per_page,
+      });
+      var hadRenderableData = (this._view === 'groups')
+        ? !!(Array.isArray(this._groups) && this._groups.length)
+        : !!(Array.isArray(this._files) && this._files.length);
+
+      if (!hadRenderableData && !shouldForceReindex && lastExplorerSnapshot && lastExplorerSnapshot.signature === requestSignature) {
+        this._summary = lastExplorerSnapshot.summary || {};
+        this._groups = Array.isArray(lastExplorerSnapshot.groups) ? lastExplorerSnapshot.groups : [];
+        this._files = Array.isArray(lastExplorerSnapshot.files) ? lastExplorerSnapshot.files : [];
+        hadRenderableData = (this._view === 'groups')
+          ? !!this._groups.length
+          : !!this._files.length;
+      }
+
       this._hasLoadedExplorer = true;
       this._loading = true;
       this._loadingPhase = shouldForceReindex ? 'Reindexing files...' : 'Loading Working Files...';
       this._error = '';
-      this._status = '';
+      this._status = hadRenderableData ? 'Updating results...' : '';
       this._render();
 
       var shared = window.ModelCatalogIntakeShared;
       var stampSnapshot = shared && typeof shared.getModelCatalogScopeStamp === 'function'
         ? shared.getModelCatalogScopeStamp(this._catalogScope || 'working')
         : 0;
-      var shouldRunInitialReindex = !skipInitialReindex && !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
+      var shouldRunInitialReindex = false;
 
       try {
         if (shouldForceReindex) {
@@ -661,12 +681,19 @@
           view: this._view,
           q: this._query || undefined,
           extension: this._extension || undefined,
+          lightweight: this._view === 'groups' ? true : undefined,
           limit: this._config.per_page,
           offset: 0,
         });
         this._summary = response.summary || {};
         this._groups = Array.isArray(response.groups) ? response.groups : [];
         this._files = Array.isArray(response.files) ? response.files : [];
+        lastExplorerSnapshot = {
+          signature: requestSignature,
+          summary: this._summary,
+          groups: this._groups,
+          files: this._files,
+        };
 
         this._groups.forEach(function (group) {
           var id = Number(group && group.id);
@@ -717,9 +744,6 @@
         this._render();
       }
 
-      if (!shouldForceReindex && shouldRunInitialReindex) {
-        this._runBackgroundInitialReindex();
-      }
     }
 
     _openLocalPath(pathValue) {
@@ -1711,7 +1735,10 @@
 
       var summary = this._summary || {};
       var bodyHtml = '';
-      if (this._loading) {
+      var hasRenderableData = (this._view === 'groups')
+        ? !!(Array.isArray(this._groups) && this._groups.length)
+        : !!(Array.isArray(this._files) && this._files.length);
+      if (this._loading && !hasRenderableData) {
         bodyHtml = this._renderLoadingState();
       } else if (this._error) {
         bodyHtml = '<div class="state-row">' + escapeHtml(this._error) + '</div>';

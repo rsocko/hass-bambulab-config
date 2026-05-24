@@ -22,8 +22,9 @@ import sqlite3
 from pathlib import Path, PureWindowsPath
 from sqlite3 import connect
 from typing import Any
+from urllib.parse import quote
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from ..settings import Settings
 from ..state import AppState
@@ -119,6 +120,8 @@ _WORKING_INLINE_IMAGE_MAX_BYTES = 2 * 1024 * 1024
 _WORKING_INLINE_3MF_MAX_BYTES = 300 * 1024 * 1024
 _WORKING_THUMB_CACHE_MAX = 256
 _WORKING_THUMB_CACHE: dict[str, str] = {}
+_WORKING_PREVIEW_MAX_IMAGE_BYTES = 5 * 1024 * 1024
+_WORKING_PREVIEW_MAX_3MF_BYTES = 300 * 1024 * 1024
 
 
 def _detect_image_mime(payload: bytes) -> str | None:
@@ -194,6 +197,164 @@ def _working_thumbnail_data_url(file_path: str | None) -> str | None:
         _WORKING_THUMB_CACHE.pop(oldest_key, None)
 
     return data_url_value
+
+
+def _working_preview_url(file_path: str | None) -> str | None:
+    path_text = str(file_path or "").strip()
+    if not path_text:
+        return None
+    suffix = Path(path_text).suffix.lower()
+    if suffix not in LOCAL_IMPORT_IMAGE_EXTENSIONS and suffix != ".3mf":
+        return None
+    return f"/api/working-files/preview?path={quote(path_text, safe='')}"
+
+
+@router.get("/api/working-files/preview")
+def working_files_preview(request: Request, path: str | None = None) -> Any:
+    """Return a lazy-loaded preview image for working files allowlisted roots."""
+    state: AppState = request.app.state.model_catalog
+
+    path_value = str(path or "").strip()
+    if not path_value:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "missing_path",
+                "message": "Query parameter 'path' is required.",
+            },
+        )
+
+    try:
+        resolved_path = Path(path_value).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_path",
+                "message": "Could not resolve preview path.",
+            },
+        )
+
+    allowlisted_roots = _configured_working_files_roots(state.settings)
+    if not _is_path_within_roots(resolved_path, allowlisted_roots):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "success": False,
+                "error": "path_not_allowed",
+                "message": "Preview path is outside allowed working roots.",
+            },
+        )
+
+    if not resolved_path.exists() or not resolved_path.is_file():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Preview file not found.",
+            },
+        )
+
+    suffix = str(resolved_path.suffix or "").lower()
+
+    if suffix in LOCAL_IMPORT_IMAGE_EXTENSIONS:
+        file_size = resolved_path.stat().st_size
+        if file_size > _WORKING_PREVIEW_MAX_IMAGE_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "success": False,
+                    "error": "preview_too_large",
+                    "message": "Image preview exceeds max size (5 MB).",
+                },
+            )
+
+        try:
+            content = resolved_path.read_bytes()
+        except (OSError, PermissionError):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "preview_read_failed",
+                    "message": "Could not read preview file.",
+                },
+            )
+
+        if suffix == ".svg":
+            media_type = "image/svg+xml"
+        elif suffix in {".jpg", ".jpeg"}:
+            media_type = "image/jpeg"
+        elif suffix == ".png":
+            media_type = "image/png"
+        elif suffix == ".webp":
+            media_type = "image/webp"
+        elif suffix == ".gif":
+            media_type = "image/gif"
+        else:
+            media_type = "application/octet-stream"
+
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=600"},
+        )
+
+    if suffix == ".3mf":
+        file_size = resolved_path.stat().st_size
+        if file_size > _WORKING_PREVIEW_MAX_3MF_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "success": False,
+                    "error": "model_file_too_large",
+                    "message": "3MF file exceeds max size for preview extraction.",
+                },
+            )
+
+        try:
+            thumbnail_bytes = extract_3mf_thumbnail(resolved_path.read_bytes())
+        except (OSError, PermissionError):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "preview_read_failed",
+                    "message": "Could not read model file for preview extraction.",
+                },
+            )
+
+        if thumbnail_bytes is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "thumbnail_not_found",
+                    "message": "No embedded thumbnail found in 3MF file.",
+                },
+            )
+
+        mime_type = "image/png"
+        if thumbnail_bytes[:3] == b"\xff\xd8\xff":
+            mime_type = "image/jpeg"
+
+        return Response(
+            content=thumbnail_bytes,
+            media_type=mime_type,
+            headers={"Cache-Control": "public, max-age=600"},
+        )
+
+    return JSONResponse(
+        status_code=415,
+        content={
+            "success": False,
+            "error": "preview_unsupported_type",
+            "message": "Preview is supported for images and .3mf files only.",
+        },
+    )
 
 
 # ==================== HELPER FUNCTIONS: FILE OPERATIONS ====================
@@ -1047,6 +1208,7 @@ def explore_working_files(request: Request,
     q: str | None = None,
     extension: str | None = None,
     path_contains: str | None = None,
+    lightweight: bool | None = None,
     limit: int | None = None,
     offset: int | None = None,
 ) -> Any:
@@ -1077,74 +1239,101 @@ def explore_working_files(request: Request,
 
     where_sql = " AND ".join(where_clauses)
     preferred_roots = _configured_working_files_roots(state.settings)
+    light_mode = view_mode == "groups" and _coerce_bool(lightweight, default=False)
+
+    scoped_where_sql = where_sql
+    scoped_params: list[Any] = list(params)
+    if preferred_roots:
+        placeholders = ", ".join("?" for _ in preferred_roots)
+        scoped_where_sql = f"{where_sql} AND root_path IN ({placeholders})"
+        scoped_params.extend([str(root) for root in preferred_roots])
+
     connection = connect(state.settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
-        inventory_rows = connection.execute(
-            f"""
-            SELECT *
-            FROM working_file_inventory
-            WHERE {where_sql}
-            ORDER BY
-                CASE
-                    WHEN file_extension = '.3mf' THEN 0
-                    WHEN file_extension IN ('.stl', '.step', '.stp', '.obj') THEN 1
-                    WHEN file_extension = '.zip' THEN 2
-                    ELSE 3
-                END ASC,
-                file_name_base_hint ASC,
-                source_path_canonical ASC
-            """,
-            params,
-        ).fetchall()
+        memberships_by_key: dict[str, list[dict[str, Any]]] = {}
+        all_files: list[dict[str, Any]] = []
+        ungrouped_files: list[dict[str, Any]] = []
+        summary_all_count = 0
+        summary_ungrouped_count = 0
 
-        if preferred_roots:
-            inventory_rows = [
-                row
+        if view_mode in {"all", "ungrouped"} or not light_mode:
+            inventory_rows = connection.execute(
+                f"""
+                SELECT *
+                FROM working_file_inventory
+                WHERE {scoped_where_sql}
+                ORDER BY
+                    CASE
+                        WHEN file_extension = '.3mf' THEN 0
+                        WHEN file_extension IN ('.stl', '.step', '.stp', '.obj') THEN 1
+                        WHEN file_extension = '.zip' THEN 2
+                        ELSE 3
+                    END ASC,
+                    file_name_base_hint ASC,
+                    source_path_canonical ASC
+                """,
+                scoped_params,
+            ).fetchall()
+
+            path_keys = {
+                _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
                 for row in inventory_rows
-                if _working_file_path_within_roots(
-                    str(row["source_path_canonical"] or row["source_path_raw"] or ""),
-                    preferred_roots,
+                if _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
+            }
+            memberships_by_key = _file_membership_map(connection, path_keys=path_keys)
+
+            for row in inventory_rows:
+                canonical_path = str(row["source_path_canonical"] or row["source_path_raw"] or "")
+                compare_key = _normalize_path_compare_key(canonical_path)
+                memberships = memberships_by_key.get(compare_key, [])
+                all_files.append(
+                    {
+                        "id": int(row["id"]),
+                        "source_path_raw": row["source_path_raw"],
+                        "source_path_canonical": row["source_path_canonical"],
+                        "source_path_compare_key": row["source_path_compare_key"],
+                        "file_name_raw": row["file_name_raw"],
+                        "file_name_base_hint": row["file_name_base_hint"],
+                        "file_extension": row["file_extension"],
+                        "file_size_bytes": int(row["file_size_bytes"] or 0),
+                        "sha256_hash": row["sha256_hash"],
+                        "source_mtime": row["source_mtime"],
+                        "source_ctime": row["source_ctime"],
+                        "source_birthtime": row["source_birthtime"],
+                        "validation_state": row["validation_state"],
+                        "warnings": json.loads(str(row["warnings_json"] or "[]")),
+                        "detected_at": row["detected_at"],
+                        "last_seen_at": row["last_seen_at"],
+                        "root_path": row["root_path"],
+                        "launch": _launch_context_for_path(canonical_path, state.settings),
+                        "group_memberships": memberships,
+                    }
                 )
-            ]
 
-        path_keys = {
-            _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
-            for row in inventory_rows
-            if _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
-        }
-        memberships_by_key = _file_membership_map(connection, path_keys=path_keys)
-
-        all_files = []
-        for row in inventory_rows:
-            canonical_path = str(row["source_path_canonical"] or row["source_path_raw"] or "")
-            compare_key = _normalize_path_compare_key(canonical_path)
-            memberships = memberships_by_key.get(compare_key, [])
-            all_files.append(
-                {
-                    "id": int(row["id"]),
-                    "source_path_raw": row["source_path_raw"],
-                    "source_path_canonical": row["source_path_canonical"],
-                    "source_path_compare_key": row["source_path_compare_key"],
-                    "file_name_raw": row["file_name_raw"],
-                    "file_name_base_hint": row["file_name_base_hint"],
-                    "file_extension": row["file_extension"],
-                    "file_size_bytes": int(row["file_size_bytes"] or 0),
-                    "sha256_hash": row["sha256_hash"],
-                    "source_mtime": row["source_mtime"],
-                    "source_ctime": row["source_ctime"],
-                    "source_birthtime": row["source_birthtime"],
-                    "validation_state": row["validation_state"],
-                    "warnings": json.loads(str(row["warnings_json"] or "[]")),
-                    "detected_at": row["detected_at"],
-                    "last_seen_at": row["last_seen_at"],
-                    "root_path": row["root_path"],
-                    "launch": _launch_context_for_path(canonical_path, state.settings),
-                    "group_memberships": memberships,
-                }
-            )
-
-        ungrouped_files = [entry for entry in all_files if not entry["group_memberships"]]
+            ungrouped_files = [entry for entry in all_files if not entry["group_memberships"]]
+            summary_all_count = len(all_files)
+            summary_ungrouped_count = len(ungrouped_files)
+        else:
+            summary_row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS all_count,
+                    COALESCE(SUM(CASE
+                        WHEN NOT EXISTS (
+                            SELECT 1
+                            FROM working_group_items wgi
+                            WHERE wgi.file_path_compare_key = working_file_inventory.source_path_compare_key
+                        ) THEN 1
+                        ELSE 0
+                    END), 0) AS ungrouped_count
+                FROM working_file_inventory
+                WHERE {scoped_where_sql}
+                """,
+                scoped_params,
+            ).fetchone()
+            summary_all_count = int(summary_row["all_count"] or 0) if summary_row else 0
+            summary_ungrouped_count = int(summary_row["ungrouped_count"] or 0) if summary_row else 0
 
         if view_mode in {"all", "ungrouped"}:
             scoped_files = all_files if view_mode == "all" else ungrouped_files
@@ -1153,8 +1342,8 @@ def explore_working_files(request: Request,
                 "success": True,
                 "view": view_mode,
                 "summary": {
-                    "all_count": len(all_files),
-                    "ungrouped_count": len(ungrouped_files),
+                    "all_count": summary_all_count,
+                    "ungrouped_count": summary_ungrouped_count,
                 },
                 "pagination": {
                     "limit": limit_value,
@@ -1196,12 +1385,12 @@ def explore_working_files(request: Request,
                     for field in ("thumbnail_url", "preview_url", "image_url", "embedded_thumbnail_url", "thumb_url")
                 )
                 if not has_thumbnail:
-                    data_url_value = _working_thumbnail_data_url(file_path)
-                    if data_url_value:
-                        source_metadata["thumbnail_url"] = data_url_value
-                        source_metadata["image_url"] = data_url_value
+                    preview_url = _working_preview_url(file_path)
+                    if preview_url:
+                        source_metadata["thumbnail_url"] = preview_url
+                        source_metadata["image_url"] = preview_url
                         if Path(file_path).suffix.lower() == ".3mf":
-                            source_metadata["embedded_thumbnail_url"] = data_url_value
+                            source_metadata["embedded_thumbnail_url"] = preview_url
                         item["source_metadata"] = source_metadata
 
             if q and q.strip():
@@ -1245,8 +1434,8 @@ def explore_working_files(request: Request,
             "success": True,
             "view": "groups",
             "summary": {
-                "all_count": len(all_files),
-                "ungrouped_count": len(ungrouped_files),
+                "all_count": summary_all_count,
+                "ungrouped_count": summary_ungrouped_count,
                 "group_count": total_groups,
             },
             "pagination": {
