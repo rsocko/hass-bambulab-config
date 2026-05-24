@@ -405,10 +405,22 @@
     + '.updated strong{color:var(--primary-text-color);}'
     + '.expander{border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.3);color:#cbd5e1;border-radius:10px;min-width:40px;height:40px;cursor:pointer;font-size:18px;font-weight:900;line-height:1;display:inline-flex;align-items:center;justify-content:center;}'
     + '.strip{margin-top:10px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.24);border-radius:12px;padding:10px;display:grid;gap:8px;}'
-    + '.strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color);font-weight:700;}'
+    + '.strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--secondary-text-color);}'
+    + '.strip-head-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}'
+    + '.strip-title{font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;}'
     + '.subview-toggle{display:inline-flex;padding:2px;border:1px solid rgba(148,163,184,0.24);border-radius:999px;background:rgba(15,23,42,0.35);}'
     + '.subview-toggle button{border:0;background:transparent;color:var(--secondary-text-color);font-size:10px;padding:4px 10px;border-radius:999px;cursor:pointer;}'
     + '.subview-toggle button.active{background:rgba(94,234,212,0.18);color:#99f6e4;}'
+    + '.folder-type-filters.inline{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center;}'
+    + '.type-chip{min-height:24px;padding:4px 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);color:var(--secondary-text-color);font-size:10px;font-weight:700;cursor:pointer;}'
+    + '.type-chip.active{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);}'
+    + '.type-chip.type-all.active{background:rgba(94,234,212,0.18);border-color:rgba(94,234,212,0.34);color:#99f6e4;}'
+    + '.type-chip.type-models{background:rgba(0,137,123,0.12);border-color:rgba(125,211,200,0.22);color:#7dd3c8;}'
+    + '.type-chip.type-models.active{background:rgba(0,137,123,0.16);border-color:rgba(125,211,200,0.30);color:#7dd3c8;}'
+    + '.type-chip.type-images{background:rgba(37,99,235,0.12);border-color:rgba(147,197,253,0.24);color:#93c5fd;}'
+    + '.type-chip.type-images.active{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;}'
+    + '.type-chip.type-other{background:rgba(245,158,11,0.12);border-color:rgba(252,211,77,0.24);color:#fcd34d;}'
+    + '.type-chip.type-other.active{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;}'
     + '.file-list{display:grid;gap:4px;}'
     + '.file-row{display:grid;grid-template-columns:38px minmax(0,1fr)92px 192px 96px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
     + '.file-row:hover{background:rgba(255,255,255,0.03);}'
@@ -454,6 +466,7 @@
     + '.browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}'
     + '.browser-row.file:hover{background:rgba(255,255,255,0.03);}'
     + '.browser-icon{display:flex;align-items:center;justify-content:center;width:42px;height:28px;border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
+    + '.browser-icon img{width:100%;height:100%;object-fit:cover;display:block;}'
     + '.browser-row.folder .browser-icon{font-size:14px;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}'
     + '.browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-self:start;text-align:left;}'
     + '.browser-size,.browser-modified{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}'
@@ -1185,11 +1198,11 @@
     _renderFileTypeFilters(groupFiles, groupId, typeFilter) {
       var counts = this._folderTypeCounts(groupFiles);
       return ''
-        + '<div class="folder-type-filters">'
-        + '<button class="button' + (typeFilter === 'all' ? ' primary' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="all">All ' + String(counts.all) + '</button>'
-        + '<button class="button' + (typeFilter === 'models' ? ' primary' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">Models ' + String(counts.models) + '</button>'
-        + '<button class="button' + (typeFilter === 'images' ? ' primary' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">Images ' + String(counts.images) + '</button>'
-        + '<button class="button' + (typeFilter === 'other' ? ' primary' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="other">Other Files ' + String(counts.other) + '</button>'
+        + '<div class="folder-type-filters inline">'
+        + '<button class="type-chip type-all' + (typeFilter === 'all' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="all">All ' + String(counts.all) + '</button>'
+        + '<button class="type-chip type-models' + (typeFilter === 'models' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">Models ' + String(counts.models) + '</button>'
+        + '<button class="type-chip type-images' + (typeFilter === 'images' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">Images ' + String(counts.images) + '</button>'
+        + '<button class="type-chip type-other' + (typeFilter === 'other' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="other">Other Files ' + String(counts.other) + '</button>'
         + '</div>';
     }
 
@@ -1293,10 +1306,15 @@
           + fileEntries.map(function (entry) {
             var pathValue = this._entryPath(entry);
             var extension = this._entryExtension(entry);
+            var thumbnailUrl = this._entryThumbnailUrl(entry);
             var selected = !!this._selectedPaths[pathValue];
             return ''
               + '<div class="browser-row file">'
-              + '<span class="browser-icon">' + escapeHtml(extensionBadge(extension)) + '</span>'
+              + '<span class="browser-icon">'
+              + (thumbnailUrl
+                ? '<img src="' + escapeHtml(thumbnailUrl) + '" loading="lazy" alt="thumb">'
+                : escapeHtml(extensionBadge(extension)))
+              + '</span>'
               + '<span class="browser-name">' + escapeHtml(basename(pathValue)) + '</span>'
               + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
@@ -1312,7 +1330,6 @@
         + '<span class="subtitle">Folder explorer</span>'
         + '</div>'
         + '<div class="folder-breadcrumbs">' + breadcrumbs + '</div>'
-        + this._renderFileTypeFilters(groupFiles, groupId, typeFilter)
         + folderRows
         + '</div>';
     }
@@ -1521,7 +1538,7 @@
 
         var stripBody = subView === 'folders'
           ? this._renderFolderExplorer(files, group, groupId)
-          : this._renderFileTypeFilters(files, groupId, typeFilter) + modelRowsHtml;
+          : modelRowsHtml;
 
         return ''
           + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '" style="' + escapeHtml(groupStyle) + '">'
@@ -1537,7 +1554,7 @@
           + '  </div>'
           + (collapsed ? '' : ''
             + '<div class="strip">'
-            + '  <div class="strip-head"><span>Working group files</span><span class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></span></div>'
+            + '  <div class="strip-head"><span class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</span><span class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></span></div>'
             + stripBody
             + '</div>'
             + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button><button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
