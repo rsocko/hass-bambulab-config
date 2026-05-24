@@ -540,7 +540,7 @@
       this._config = {
         title: config && config.title ? String(config.title) : 'Working Files',
         per_page: config && config.per_page ? Number(config.per_page) : 200,
-        auto_reindex_on_initial_load: !(config && config.auto_reindex_on_initial_load === false),
+        auto_reindex_on_initial_load: !!(config && config.auto_reindex_on_initial_load === true),
         initial_group_id: normalizedInitialGroupId,
         initial_query: initialQuery,
       };
@@ -644,9 +644,9 @@
       var stampSnapshot = shared && typeof shared.getModelCatalogScopeStamp === 'function'
         ? shared.getModelCatalogScopeStamp(this._catalogScope || 'working')
         : 0;
+      var shouldRunInitialReindex = !skipInitialReindex && !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
 
       try {
-        var shouldRunInitialReindex = !skipInitialReindex && !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
         if (shouldForceReindex) {
           try {
             await this._reindexWorkingFiles();
@@ -1138,9 +1138,13 @@
         if (!candidate) {
           continue;
         }
-        if (/^(https?:|\/|data:)/i.test(candidate)) {
+        if (/^(javascript:|vbscript:)/i.test(candidate)) {
+          continue;
+        }
+        if (/^(https?:|\/|data:|blob:)/i.test(candidate)) {
           return candidate;
         }
+        return '/' + candidate.replace(/^\.?\//, '');
       }
       return '';
     }
