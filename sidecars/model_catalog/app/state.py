@@ -14,6 +14,9 @@ from .settings import Settings
 class AppState:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self.local_action_tokens: dict[str, dict[str, object]] = {}
+        self.local_action_token_ttl_seconds = 300
+        self.local_action_tokens_last_pruned_at = time.time()
         self.working_file_slicer_tokens: dict[str, dict[str, object]] = {}
         self.working_file_slicer_token_ttl_seconds = 300
         self.working_file_slicer_tokens_last_pruned_at = time.time()

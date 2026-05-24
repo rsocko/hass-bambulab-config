@@ -775,37 +775,15 @@
     }
 
     _openLocalPath(pathValue) {
-      var uri = toFileUri(pathValue);
-      if (!uri) {
-        this._error = 'Launch path is empty.';
-        this._render();
-        return;
-      }
+      this._launchLocalHelperAction('open_local', pathValue);
+    }
 
-      var opened = null;
-      try {
-        opened = window.open(uri, '_blank', 'noopener');
-      } catch (_error) {
-        opened = null;
-      }
-
-      if (opened) {
-        this._status = 'Opened: ' + uri;
-        this._error = '';
-        this._render();
-        return;
-      }
-
-      fireBrowserModEvent(this, 'browser_mod.javascript', {
-        code: 'window.open(' + JSON.stringify(uri) + ', "_blank", "noopener");',
-      });
-      this._status = 'Requested open via Browser Mod: ' + uri;
-      this._error = '';
-      this._render();
+    _openFolderPath(pathValue) {
+      this._launchLocalHelperAction('open_folder', pathValue);
     }
 
     _openExplorer(pathValue) {
-      this._openLocalPath(dirname(pathValue));
+      this._openFolderPath(dirname(pathValue));
     }
 
     _togglePathSelection(pathValue) {
@@ -1173,6 +1151,33 @@
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
+    }
+
+    async _launchLocalHelperAction(action, pathValue) {
+      var normalizedPath = String(pathValue || '').trim();
+      if (!normalizedPath) {
+        this._error = 'Launch path is empty.';
+        this._render();
+        return;
+      }
+      this._status = action === 'open_folder' ? 'Opening folder locally...' : 'Opening file locally...';
+      this._error = '';
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_create_working_file_local_action_token', {
+          action: action,
+          path: normalizedPath,
+        });
+        var launchUrl = String(response && response.launch_url ? response.launch_url : '').trim();
+        if (!launchUrl) {
+          throw new Error('No helper launch URL was returned.');
+        }
+        this._openWindow(launchUrl, '_self');
+        this._showCopyToast(action === 'open_folder' ? 'Requested local folder open...' : 'Requested local file open...');
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not launch the local helper action.';
+        this._render();
+      }
     }
 
     async _openFileInSlicer(pathValue) {
@@ -1602,6 +1607,7 @@
               + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="browser-actions">'
+              + '<button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open Local</button>'
               + (isSlicerLaunchableExtension(extension)
                 ? '<button class="button" data-action="open-in-slicer" data-file-path="' + escapeHtml(pathValue) + '">Open in Slicer</button>'
                 : '')
@@ -1784,7 +1790,7 @@
         return;
       }
       if (action === 'open-group-folder') {
-        this._openLocalPath(String(target.getAttribute('data-path') || ''));
+        this._openFolderPath(String(target.getAttribute('data-path') || ''));
         return;
       }
       if (action === 'open-in-slicer') {
@@ -1907,6 +1913,7 @@
               + '<span class="file-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
+              + '<span class="copy-slot"><button class="copy-action" title="Open local file" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open Local</button></span>'
               + (isSlicerLaunchableExtension(ext) ? '<span class="copy-slot"><button class="copy-action" title="Open in slicer" data-action="open-in-slicer" data-file-path="' + escapeHtml(pathValue) + '">Open in Slicer</button></span>' : '')
               + (entry.launch && entry.launch.windows_path ? '<span class="copy-slot"><button class="copy-action" title="Copy file path" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button></span>' : '')
               + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'

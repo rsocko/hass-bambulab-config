@@ -242,6 +242,57 @@ def _prune_working_file_slicer_tokens(state: AppState) -> None:
     state.working_file_slicer_tokens_last_pruned_at = now
 
 
+def _prune_local_action_tokens(state: AppState) -> None:
+    now = time.time()
+    last_pruned = float(getattr(state, "local_action_tokens_last_pruned_at", 0.0) or 0.0)
+    if now - last_pruned < 30:
+        return
+    token_map = getattr(state, "local_action_tokens", {})
+    expired = [
+        token
+        for token, payload in token_map.items()
+        if float(payload.get("expires_at", 0.0) or 0.0) <= now
+    ]
+    for token in expired:
+        token_map.pop(token, None)
+    state.local_action_tokens_last_pruned_at = now
+
+
+def _store_local_action_token(*, state: AppState, action: str, file_path: Path) -> str:
+    _prune_local_action_tokens(state)
+    token = secrets.token_urlsafe(24)
+    token_map = getattr(state, "local_action_tokens", {})
+    token_map[token] = {
+        "action": action,
+        "path": str(file_path),
+        "expires_at": time.time() + float(getattr(state, "local_action_token_ttl_seconds", 300) or 300),
+    }
+    return token
+
+
+def _consume_local_action_token(state: AppState, token: str) -> dict[str, object] | None:
+    _prune_local_action_tokens(state)
+    token_map = getattr(state, "local_action_tokens", {})
+    payload = token_map.pop(token, None)
+    if not isinstance(payload, dict):
+        return None
+    if float(payload.get("expires_at", 0.0) or 0.0) <= time.time():
+        return None
+    return payload
+
+
+def _one_drive_consumer_relative_path(windows_path: str | None) -> str | None:
+    normalized = str(windows_path or "").strip().replace("/", "\\")
+    if not normalized:
+        return None
+    marker = "\\OneDrive\\"
+    marker_index = normalized.lower().find(marker.lower())
+    if marker_index < 0:
+        return None
+    relative = normalized[marker_index + len("\\OneDrive") :].lstrip("\\")
+    return relative or None
+
+
 def _store_working_file_slicer_token(*, state: AppState, file_path: Path) -> str:
     _prune_working_file_slicer_tokens(state)
     token = secrets.token_urlsafe(24)
@@ -499,6 +550,107 @@ def download_working_file_for_slicer(request: Request, token: str, filename: str
                 "message": "Could not read working file for slicer download.",
             },
         )
+
+
+@router.post("/api/working-files/local-action-token")
+def create_working_file_local_action_token(request: Request, payload: dict[str, Any] | None = None) -> Any:
+    state: AppState = request.app.state.model_catalog
+    action = str((payload or {}).get("action") or "").strip().lower()
+    if action not in {"open_local", "open_folder"}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_action",
+                "message": "action must be one of open_local or open_folder.",
+            },
+        )
+    path_value = str((payload or {}).get("path") or "").strip()
+    resolved_path = _resolve_working_file_path(settings=state.settings, path_value=path_value)
+    if resolved_path is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "path_not_allowed",
+                "message": "Working path is outside allowed roots or could not be resolved.",
+            },
+        )
+    if action == "open_local" and (not resolved_path.exists() or not resolved_path.is_file()):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Working file not found.",
+            },
+        )
+    if action == "open_folder" and not resolved_path.exists():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Working folder not found.",
+            },
+        )
+    token = _store_local_action_token(state=state, action=action, file_path=resolved_path)
+    protocol_action = "open-local" if action == "open_local" else "open-folder"
+    return {
+        "success": True,
+        "token": token,
+        "launch_url": f"modelcatalog://{protocol_action}?token={quote(token, safe='')}",
+        "action": action,
+    }
+
+
+@router.post("/api/local-actions/resolve")
+def resolve_local_action(request: Request, payload: dict[str, Any] | None = None) -> Any:
+    state: AppState = request.app.state.model_catalog
+    token = str((payload or {}).get("token") or "").strip()
+    if not token:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "missing_token",
+                "message": "token is required.",
+            },
+        )
+    token_payload = _consume_local_action_token(state, token)
+    if not token_payload:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "invalid_or_expired_token",
+                "message": "Local action token is invalid or expired.",
+            },
+        )
+    resolved_path = _resolve_working_file_path(settings=state.settings, path_value=str(token_payload.get("path") or ""))
+    if resolved_path is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Working path could not be resolved.",
+            },
+        )
+    launch_context = _launch_context_for_path(str(resolved_path), state.settings)
+    windows_path = str(launch_context.get("windows_path") or "").strip() or None
+    return {
+        "success": True,
+        "action": str(token_payload.get("action") or ""),
+        "path": {
+            "container_path": str(resolved_path),
+            "windows_path": windows_path,
+            "one_drive_consumer_relative_path": _one_drive_consumer_relative_path(windows_path),
+            "is_file": resolved_path.is_file(),
+            "is_dir": resolved_path.is_dir(),
+            "name": resolved_path.name,
+        },
+    }
 
 
 # ==================== HELPER FUNCTIONS: FILE OPERATIONS ====================

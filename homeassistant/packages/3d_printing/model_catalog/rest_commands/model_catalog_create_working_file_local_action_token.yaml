@@ -1,0 +1,15 @@
+model_catalog_create_working_file_local_action_token:
+  url: >-
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/working-files/local-action-token
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {
+      "action": {{ (action | default('')) | tojson }},
+      "path": {{ (path | default('')) | tojson }}
+    }
