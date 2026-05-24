@@ -253,13 +253,14 @@ def _store_working_file_slicer_token(*, state: AppState, file_path: Path) -> str
     return token
 
 
-def _consume_working_file_slicer_token(state: AppState, token: str) -> dict[str, object] | None:
+def _read_working_file_slicer_token(state: AppState, token: str) -> dict[str, object] | None:
     _prune_working_file_slicer_tokens(state)
     token_map = getattr(state, "working_file_slicer_tokens", {})
-    payload = token_map.pop(token, None)
+    payload = token_map.get(token)
     if not isinstance(payload, dict):
         return None
     if float(payload.get("expires_at", 0.0) or 0.0) <= time.time():
+        token_map.pop(token, None)
         return None
     return payload
 
@@ -457,7 +458,7 @@ def create_working_file_slicer_token(request: Request, payload: dict[str, Any] |
 @router.get("/api/working-files/dl/{token}/{filename}")
 def download_working_file_for_slicer(request: Request, token: str, filename: str) -> Any:
     state: AppState = request.app.state.model_catalog
-    payload = _consume_working_file_slicer_token(state, str(token or "").strip())
+    payload = _read_working_file_slicer_token(state, str(token or "").strip())
     if not payload:
         return JSONResponse(
             status_code=404,
