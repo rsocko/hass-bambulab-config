@@ -92,6 +92,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._perfSamples = [];
     this._lastLoadPerf = null;
     this._lastRenderPerf = null;
+    this._pendingNavPerf = null;
+    this._lastNavPerf = null;
   }
 
   _defaultFilters() {
@@ -770,6 +772,64 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
   }
 
+  _perfNow() {
+    return (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+  }
+
+  _beginNavPerf(action, targetPage) {
+    this._pendingNavPerf = {
+      action: String(action || "unknown"),
+      targetPage: Math.max(1, Number(targetPage || 1)),
+      clickStartMs: this._perfNow(),
+      requestStartMs: 0,
+      loadStartMs: 0,
+      searchEndMs: 0,
+      queueEndMs: 0,
+      loadEndMs: 0,
+      renderEndMs: 0,
+      completedPage: 0,
+      searchMs: 0,
+      queueMs: 0,
+      loadMs: 0,
+      clickToLoadStartMs: 0,
+      clickToRenderMs: 0,
+      clickToLoadEndMs: 0,
+      pendingWhileLoading: false,
+      timestamp: Date.now(),
+    };
+  }
+
+  _commitNavPerfFromLoad(loadPerf) {
+    if (!this._pendingNavPerf || !loadPerf || typeof loadPerf !== "object") {
+      return;
+    }
+    this._pendingNavPerf.searchMs = Math.max(0, Number(loadPerf.searchMs || 0));
+    this._pendingNavPerf.queueMs = Math.max(0, Number(loadPerf.queueMs || 0));
+    this._pendingNavPerf.loadMs = Math.max(0, Number(loadPerf.totalMs || 0));
+    this._pendingNavPerf.completedPage = Math.max(1, Number(loadPerf.page || 1));
+    if (this._pendingNavPerf.clickStartMs > 0 && this._pendingNavPerf.loadStartMs > 0) {
+      this._pendingNavPerf.clickToLoadStartMs = Math.max(0, Math.round(this._pendingNavPerf.loadStartMs - this._pendingNavPerf.clickStartMs));
+    }
+    if (this._pendingNavPerf.clickStartMs > 0 && this._pendingNavPerf.loadEndMs > 0) {
+      this._pendingNavPerf.clickToLoadEndMs = Math.max(0, Math.round(this._pendingNavPerf.loadEndMs - this._pendingNavPerf.clickStartMs));
+    }
+  }
+
+  _finalizeNavPerfAfterRender() {
+    if (!this._pendingNavPerf || this._loading) {
+      return;
+    }
+    this._pendingNavPerf.renderEndMs = this._perfNow();
+    if (this._pendingNavPerf.clickStartMs > 0) {
+      this._pendingNavPerf.clickToRenderMs = Math.max(0, Math.round(this._pendingNavPerf.renderEndMs - this._pendingNavPerf.clickStartMs));
+    }
+    this._lastNavPerf = Object.assign({}, this._pendingNavPerf, {
+      timestamp: Date.now(),
+    });
+    this._recordPerfSample("nav", this._lastNavPerf);
+    this._pendingNavPerf = null;
+  }
+
   _shouldProgressiveResultsRender(visibleResults) {
     if (this._loading || this._browserScope === "collections" || this._viewMode === "media") {
       return false;
@@ -808,7 +868,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!this._hass) {
       return;
     }
+    if (this._pendingNavPerf && !this._pendingNavPerf.requestStartMs) {
+      this._pendingNavPerf.requestStartMs = this._perfNow();
+    }
     if (this._loading) {
+      if (this._pendingNavPerf) {
+        this._pendingNavPerf.pendingWhileLoading = true;
+      }
       this._pendingLoad = { page: targetPage, refresh: !!refresh };
       return;
     }
@@ -868,6 +934,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._loading = true;
     this._error = "";
+    if (this._pendingNavPerf) {
+      this._pendingNavPerf.loadStartMs = perfStart;
+    }
     this._doRender();
 
     var shared = window.ModelCatalogIntakeShared;
@@ -898,6 +967,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
       var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
       searchEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+      if (this._pendingNavPerf) {
+        this._pendingNavPerf.searchEndMs = searchEnd;
+      }
       this._results = Array.isArray(data && data.results) ? data.results : [];
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
       var responseVisibility = data && data.visibility && typeof data.visibility === "object" ? data.visibility : {};
@@ -943,6 +1015,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       queueStart = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
       this._refreshUnifiedQueueIndex().then(function (queueIndexChanged) {
         queueEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+        if (this._pendingNavPerf) {
+          this._pendingNavPerf.queueEndMs = queueEnd;
+        }
         if (this._loading) {
           return;
         }
@@ -968,6 +1043,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._loading = false;
       this._refreshSpin = false;
       var perfEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
+      if (this._pendingNavPerf) {
+        this._pendingNavPerf.loadEndMs = perfEnd;
+      }
       this._lastLoadPerf = {
         page: Math.max(1, Number(page || 1)),
         searchMs: Math.max(0, Math.round(searchEnd - searchStart)),
@@ -976,6 +1054,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         resultCount: Array.isArray(this._results) ? this._results.length : 0,
         timestamp: Date.now(),
       };
+      this._commitNavPerfFromLoad(this._lastLoadPerf);
       this._recordPerfSample("load", this._lastLoadPerf);
       this._render();
       if (this._pendingLoad) {
@@ -1517,24 +1596,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "first-page") {
       this._syncFormIntoFilters();
+      this._beginNavPerf("first-page", 1);
       this._requestLoad(1, false);
       return;
     }
 
     if (action === "prev-page" && this._currentPage() > 1) {
       this._syncFormIntoFilters();
+      this._beginNavPerf("prev-page", this._currentPage() - 1);
       this._requestLoad(this._currentPage() - 1, false);
       return;
     }
 
     if (action === "next-page" && this._currentPage() < this._pageCount()) {
       this._syncFormIntoFilters();
+      this._beginNavPerf("next-page", this._currentPage() + 1);
       this._requestLoad(this._currentPage() + 1, false);
       return;
     }
 
     if (action === "last-page") {
       this._syncFormIntoFilters();
+      this._beginNavPerf("last-page", this._pageCount());
       this._requestLoad(this._pageCount(), false);
       return;
     }
@@ -4735,9 +4818,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       progressiveRemainder: progressiveRemainder ? progressiveRemainder.length : 0,
       viewMode: this._viewMode,
       browserScope: this._browserScope,
+      navPerf: this._pendingNavPerf ? {
+        action: this._pendingNavPerf.action,
+        targetPage: this._pendingNavPerf.targetPage,
+      } : null,
       timestamp: Date.now(),
     };
     this._recordPerfSample("render", this._lastRenderPerf);
+    this._finalizeNavPerfAfterRender();
   }
 }
 
