@@ -1413,11 +1413,16 @@
         return '';
       }
       var windowsPath = normalized.replace(/\//g, '\\');
-      var match = windowsPath.match(/^[a-zA-Z]:\\[^\\]+\\OneDrive(\\.*)?$/i);
-      if (!match) {
+      var marker = '\\OneDrive\\';
+      var markerIndex = windowsPath.toLowerCase().indexOf(marker.toLowerCase());
+      if (markerIndex < 0) {
         return windowsPath;
       }
-      return '%OneDriveConsumer%' + String(match[1] || '');
+      var relativePath = windowsPath.slice(markerIndex + '\\OneDrive'.length);
+      if (!relativePath || relativePath.charAt(0) !== '\\') {
+        relativePath = '\\' + relativePath.replace(/^\\+/, '');
+      }
+      return '%OneDriveConsumer%' + relativePath;
     }
 
     _buildFolderBrowserIndex(groupFiles, group) {
