@@ -1407,6 +1407,19 @@
       return normalized.slice(0, normalized.lastIndexOf('/'));
     }
 
+    _portableLocalPath(pathValue) {
+      var normalized = String(pathValue || '').trim();
+      if (!normalized) {
+        return '';
+      }
+      var windowsPath = normalized.replace(/\//g, '\\');
+      var match = windowsPath.match(/^[a-zA-Z]:\\[^\\]+\\OneDrive(\\.*)?$/i);
+      if (!match) {
+        return windowsPath;
+      }
+      return '%OneDriveConsumer%' + String(match[1] || '');
+    }
+
     _buildFolderBrowserIndex(groupFiles, group) {
       var index = { '': { folders: {}, files: [], windowsPath: '' } };
       groupFiles.forEach(function (entry) {
@@ -1706,25 +1719,33 @@
       if (!command) {
         return;
       }
+      var copiedValue = String(command);
+      if (commandType === 'file-path' || commandType === 'folder-path') {
+        copiedValue = this._portableLocalPath(command);
+      }
       var tooltip = '';
       if (commandType === 'file-path') {
-        tooltip = 'File path copied! Paste into Win+R or Explorer to open it.';
+        tooltip = copiedValue !== String(command)
+          ? 'File path copied with %OneDriveConsumer%. Paste into Win+R or Explorer.'
+          : 'File path copied! Paste into Win+R or Explorer to open it.';
       } else if (commandType === 'folder-path') {
-        tooltip = 'Folder path copied! Paste into Win+R or Explorer to open it.';
+        tooltip = copiedValue !== String(command)
+          ? 'Folder path copied with %OneDriveConsumer%. Paste into Win+R or Explorer.'
+          : 'Folder path copied! Paste into Win+R or Explorer to open it.';
       } else {
         tooltip = 'Path copied!';
       }
       
       try {
-        navigator.clipboard.writeText(command).then(function () {
+        navigator.clipboard.writeText(copiedValue).then(function () {
           this._showCopyToast(tooltip);
         }.bind(this)).catch(function (err) {
           console.warn('Copy failed, trying fallback:', err);
-          this._copyToastViaExecCommand(command, tooltip);
+          this._copyToastViaExecCommand(copiedValue, tooltip);
         }.bind(this));
       } catch (err) {
         console.warn('Clipboard API unavailable, trying fallback:', err);
-        this._copyToastViaExecCommand(command, tooltip);
+        this._copyToastViaExecCommand(copiedValue, tooltip);
       }
     }
 
