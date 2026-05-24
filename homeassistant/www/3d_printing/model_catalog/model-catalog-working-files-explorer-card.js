@@ -1408,10 +1408,11 @@
     }
 
     _buildFolderBrowserIndex(groupFiles, group) {
-      var index = { '': { folders: {}, files: [], containerPath: '' } };
+      var index = { '': { folders: {}, files: [], windowsPath: '' } };
       groupFiles.forEach(function (entry) {
         var rel = this._normalizeRelativePath(entry, group);
-        var absolutePath = this._entryPath(entry);
+        var launchContext = entry && entry.launch && typeof entry.launch === 'object' ? entry.launch : {};
+        var windowsPath = String(launchContext.windows_path || '').trim();
         if (!rel) {
           return;
         }
@@ -1424,34 +1425,26 @@
           var folderName = parts[i];
           var nextPath = this._joinFolderPath(currentPath, folderName);
           if (!index[currentPath]) {
-            index[currentPath] = { folders: {}, files: [], containerPath: '' };
+            index[currentPath] = { folders: {}, files: [], windowsPath: '' };
           }
           if (!index[nextPath]) {
-            index[nextPath] = { folders: {}, files: [], containerPath: '' };
+            index[nextPath] = { folders: {}, files: [], windowsPath: '' };
           }
           index[currentPath].folders[folderName] = nextPath;
-          if (!index[nextPath].containerPath) {
-            index[nextPath].containerPath = dirname(absolutePath).replace(/\\/g, '/');
+          if (!index[nextPath].windowsPath && windowsPath) {
+            index[nextPath].windowsPath = dirname(windowsPath).replace(/\\/g, '/');
           }
           currentPath = nextPath;
         }
         if (!index[currentPath]) {
-          index[currentPath] = { folders: {}, files: [], containerPath: '' };
+          index[currentPath] = { folders: {}, files: [], windowsPath: '' };
         }
-        if (!index[currentPath].containerPath) {
-          index[currentPath].containerPath = dirname(absolutePath).replace(/\\/g, '/');
+        if (!index[currentPath].windowsPath && windowsPath) {
+          index[currentPath].windowsPath = dirname(windowsPath).replace(/\\/g, '/');
         }
         index[currentPath].files.push(entry);
       }, this);
       return index;
-    }
-
-    _folderCommandForPath(pathValue) {
-      var normalized = String(pathValue || '').trim();
-      if (!normalized) {
-        return '';
-      }
-      return 'explorer.exe "' + normalized.replace(/\//g, '\\') + '"';
     }
 
     _renderFolderExplorer(groupFiles, group, groupId) {
@@ -1465,7 +1458,7 @@
         }
         this._groupFolderBrowsePaths[groupId] = currentPath;
       }
-      var currentNode = browserIndex[currentPath] || { folders: {}, files: [], containerPath: '' };
+      var currentNode = browserIndex[currentPath] || { folders: {}, files: [], windowsPath: '' };
       var folderEntries = Object.keys(currentNode.folders).sort();
       var fileEntries = currentNode.files.filter(function (entry) {
         return this._entryMatchesFolderType(entry, typeFilter);
@@ -1490,15 +1483,15 @@
         folderRows = '<div class="folder-browser-list">'
           + folderEntries.map(function (folderName) {
             var nextPath = currentNode.folders[folderName];
-            var childNode = browserIndex[nextPath] || { folders: {}, files: [], containerPath: '' };
+            var childNode = browserIndex[nextPath] || { folders: {}, files: [], windowsPath: '' };
             var childCount = childNode.files.length;
             return ''
               + '<div class="browser-row folder">'
               + '<span class="browser-icon">📁</span>'
               + '<span class="browser-name"><span class="name-main">' + escapeHtml(folderName) + '</span><span class="sub">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span></span>'
               + '<span class="browser-actions"><button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">Open</button>'
-              + (childNode.containerPath
-                ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(this._folderCommandForPath(childNode.containerPath)) + '">Copy</button>'
+              + (childNode.windowsPath
+                ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(childNode.windowsPath) + '">Copy Path</button>'
                 : '')
               + '</span>'
               + '</div>';
@@ -1518,9 +1511,9 @@
               + '<span class="browser-name">' + escapeHtml(basename(pathValue)) + '</span>'
               + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
-              + '<span class="browser-actions"><button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open</button>'
-              + (entry.launch && entry.launch.explorer_command
-                ? '<button class="button" data-action="copy-command" data-command-type="explorer" data-command="' + escapeHtml(entry.launch.explorer_command) + '">Copy</button>'
+              + '<span class="browser-actions">'
+              + (entry.launch && entry.launch.windows_path
+                ? '<button class="button" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button>'
                 : '')
               + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
@@ -1532,8 +1525,8 @@
         + '<div class="folder-explorer">'
         + '<div class="folder-head-row">'
         + '<span class="subtitle">Folder explorer</span>'
-        + (currentNode.containerPath
-          ? '<span class="spacer"></span><button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(this._folderCommandForPath(currentNode.containerPath)) + '">Copy Current Folder</button>'
+        + (currentNode.windowsPath
+          ? '<span class="spacer"></span><button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(currentNode.windowsPath) + '">Copy Current Folder Path</button>'
           : '')
         + '</div>'
         + '<div class="folder-breadcrumbs">' + breadcrumbs + '</div>'
@@ -1699,11 +1692,13 @@
       }
       if (action === 'open-group-folder') {
         this._openLocalPath(String(target.getAttribute('data-path') || ''));
+        return;
       }
       if (action === 'copy-command') {
         var commandType = String(target.getAttribute('data-command-type') || 'explorer');
         var command = String(target.getAttribute('data-command') || '');
         this._copyToClipboard(command, commandType);
+        return;
       }
     }
 
@@ -1712,12 +1707,12 @@
         return;
       }
       var tooltip = '';
-      if (commandType === 'explorer') {
-        tooltip = 'Explorer command copied! Paste in PowerShell or Cmd.';
-      } else if (commandType === 'folder') {
-        tooltip = 'Folder command copied! Paste in PowerShell or Cmd.';
+      if (commandType === 'file-path') {
+        tooltip = 'File path copied! Paste into Win+R or Explorer to open it.';
+      } else if (commandType === 'folder-path') {
+        tooltip = 'Folder path copied! Paste into Win+R or Explorer to open it.';
       } else {
-        tooltip = 'Command copied!';
+        tooltip = 'Path copied!';
       }
       
       try {
@@ -1744,7 +1739,7 @@
         this._showCopyToast(tooltip);
       } catch (err) {
         console.error('Copy failed:', err);
-        this._showCopyToast('Failed to copy command.');
+        this._showCopyToast('Failed to copy path.');
       }
     }
 
@@ -1807,7 +1802,7 @@
               + '<span class="file-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
-              + (entry.launch && entry.launch.explorer_command ? '<span class="copy-slot"><button class="copy-action" title="Copy file launch command" data-action="copy-command" data-command-type="explorer" data-command="' + escapeHtml(entry.launch.explorer_command) + '">📋 Copy</button></span>' : '')
+              + (entry.launch && entry.launch.windows_path ? '<span class="copy-slot"><button class="copy-action" title="Copy file path" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button></span>' : '')
               + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('') + '</div>';
@@ -1833,7 +1828,7 @@
             + '  <div class="strip-head"><div class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</div><div class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></div></div>'
             + stripBody
             + '</div>'
-            + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button>' + (group.launch && group.launch.folder && group.launch.folder.folder_command ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(group.launch.folder.folder_command) + '">Copy Folder Command</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
+            + '<div class="group-actions">' + (group.launch && group.launch.folder && group.launch.folder.windows_path ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(group.launch.folder.windows_path) + '">Copy Folder Path</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
