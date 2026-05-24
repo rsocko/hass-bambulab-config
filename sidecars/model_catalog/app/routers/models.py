@@ -41,6 +41,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from sqlite3 import connect
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -189,6 +190,7 @@ _GEOMETRY_LOD_CACHE_TOTAL_BYTES: int = 0
 MODEL_SEARCH_CACHE_TTL_SECONDS = 8.0
 MODEL_SEARCH_CACHE_MAX_ENTRIES = 64
 _MODEL_SEARCH_CACHE: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
+MODEL_SEARCH_PROJECTION_REFRESH_TTL_SECONDS = 15.0
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
@@ -450,6 +452,558 @@ def _model_search_cache_put(cache_key: str, payload: dict[str, Any], *, now: flo
 
     while len(_MODEL_SEARCH_CACHE) > MODEL_SEARCH_CACHE_MAX_ENTRIES:
         _MODEL_SEARCH_CACHE.popitem(last=False)
+
+
+def _search_projection_meta_get(*, db_path: Any, key: str) -> str | None:
+    connection = connect(str(db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            """
+            SELECT meta_value
+            FROM model_catalog_search_projection_meta
+            WHERE meta_key = ?
+            """,
+            (key,),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return None
+    return str(row["meta_value"])
+
+
+def _search_projection_meta_set(*, db_path: Any, key: str, value: str) -> None:
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    connection = connect(str(db_path))
+    try:
+        connection.execute(
+            """
+            INSERT INTO model_catalog_search_projection_meta (meta_key, meta_value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(meta_key)
+            DO UPDATE SET
+                meta_value = excluded.meta_value,
+                updated_at = excluded.updated_at
+            """,
+            (key, value, now_iso),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _search_projection_source_fingerprint(*, db_path: Any) -> str:
+    connection = connect(str(db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM model_summary_cache) AS summary_count,
+                (SELECT COUNT(*) FROM model_catalog_entries WHERE archived_at IS NULL) AS local_count,
+                (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_entries) AS local_updated_at,
+                (SELECT COALESCE(MAX(updated_at), '')
+                 FROM model_catalog_custom_fields
+                 WHERE entity_type = 'catalog_model' AND field_namespace = 'model_catalog') AS custom_fields_updated_at,
+                (SELECT COALESCE(MAX(refreshed_at), '') FROM model_catalog_model_ranking) AS ranking_refreshed_at,
+                (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_links) AS links_updated_at
+            """
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if row is None:
+        return "0|0||||"
+    return "|".join(
+        [
+            str(int(row["summary_count"] or 0)),
+            str(int(row["local_count"] or 0)),
+            str(row["local_updated_at"] or ""),
+            str(row["custom_fields_updated_at"] or ""),
+            str(row["ranking_refreshed_at"] or ""),
+            str(row["links_updated_at"] or ""),
+        ]
+    )
+
+
+def _search_projection_tokens_for_summary(summary: CatalogModelSummary) -> set[str]:
+    tokens: set[str] = set()
+    tokens.update(_normalize_tokens(summary.name or ""))
+    tokens.update(_normalize_tokens(summary.creator_name or ""))
+    for collection_name in summary.collection_names:
+        tokens.update(_normalize_tokens(str(collection_name or "")))
+    for keyword in summary.keyword_names:
+        tokens.update(_normalize_tokens(str(keyword or "")))
+    return {token for token in tokens if token}
+
+
+def _rebuild_search_projection(*, request: Request, settings: Settings, client: object, refresh_runtime_cache: bool) -> None:
+    summaries, _source, _refresh_status = _load_runtime_summaries(
+        settings=settings,
+        client=client,
+        refresh=refresh_runtime_cache,
+    )
+    ranking_by_url = read_all_model_ranking(db_path=settings.db_path)
+    link_counts_by_url = read_model_link_counts(db_path=settings.db_path)
+    local_asset_kind_counts = _read_local_asset_kind_counts_bulk(db_path=settings.db_path)
+
+    model_refs_for_fields = [
+        str(summary.public_id or summary.model_id or summary.model_url)
+        for summary in summaries
+        if str(summary.public_id or summary.model_id or summary.model_url).strip()
+    ]
+    fields_by_model_ref = _read_model_fields_bulk(
+        db_path=settings.db_path,
+        model_refs=model_refs_for_fields,
+    )
+
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    projection_rows: list[tuple[Any, ...]] = []
+    token_rows: list[tuple[str, str]] = []
+
+    for summary in summaries:
+        model_ref = str(summary.public_id or summary.model_id or summary.model_url)
+        if not model_ref:
+            continue
+
+        custom_fields = fields_by_model_ref.get(model_ref, {})
+        structured_metadata = _structured_detail_metadata(custom_fields)
+        catalog_signals = structured_metadata.get("catalog_signals") if isinstance(structured_metadata, dict) else None
+        if not isinstance(catalog_signals, dict):
+            catalog_signals = {}
+
+        model_favorite = _coerce_boolish(catalog_signals.get("model_favorite"))
+        catalog_visibility = _normalize_catalog_visibility(catalog_signals.get("catalog_visibility")) or "active"
+
+        local_other_files_count = 0
+        if _is_local_summary(summary) and summary.public_id:
+            local_other_files_count = int(local_asset_kind_counts.get(str(summary.public_id), {}).get("other", 0) or 0)
+
+        temp_payload = {
+            "custom_fields": custom_fields,
+            "structured_metadata": structured_metadata,
+            "other_files_count": local_other_files_count,
+        }
+        has_other_files = _model_has_other_files(temp_payload)
+
+        ranking = ranking_by_url.get(summary.model_url)
+        linked_archive_count = int(link_counts_by_url.get(summary.model_url, 0))
+
+        projection_rows.append(
+            (
+                model_ref,
+                str(summary.model_url or ""),
+                str(summary.public_id or "") or None,
+                str(summary.model_id or "") or None,
+                str(summary.entity_type or "model"),
+                str(summary.name or ""),
+                str(summary.name or "").lower(),
+                str(summary.creator_name or "") or None,
+                str(summary.creator_name or "").lower(),
+                str(summary.preview_url or "") or None,
+                json.dumps(list(summary.collection_names)),
+                json.dumps(list(summary.keyword_names)),
+                " ".join(str(item or "").lower() for item in summary.collection_names),
+                " ".join(str(item or "").lower() for item in summary.keyword_names),
+                catalog_visibility,
+                1 if bool(model_favorite) else 0,
+                str(custom_fields.get("to_print_status") or "") or None,
+                _coerce_int(custom_fields.get("to_print_priority")),
+                1 if has_other_files else 0,
+                linked_archive_count,
+                ranking.last_printed_at if ranking is not None else None,
+                int(ranking.print_count) if ranking is not None and ranking.print_count is not None else 0,
+                float(ranking.recent_score) if ranking is not None and ranking.recent_score is not None else None,
+                float(ranking.frequent_score) if ranking is not None and ranking.frequent_score is not None else None,
+                float(ranking.common_score) if ranking is not None and ranking.common_score is not None else None,
+                "local" if _is_local_summary(summary) else "catalog",
+                now_iso,
+            )
+        )
+
+        for token in _search_projection_tokens_for_summary(summary):
+            token_rows.append((model_ref, token))
+
+    connection = connect(str(settings.db_path))
+    try:
+        connection.execute("DELETE FROM model_catalog_search_projection")
+        connection.execute("DELETE FROM model_catalog_search_tokens")
+        connection.executemany(
+            """
+            INSERT INTO model_catalog_search_projection (
+                model_ref,
+                model_url,
+                model_public_id,
+                model_id,
+                entity_type,
+                model_name,
+                model_name_lc,
+                creator_name,
+                creator_name_lc,
+                preview_url,
+                collection_names_json,
+                keyword_names_json,
+                collection_blob_lc,
+                keyword_blob_lc,
+                catalog_visibility,
+                model_favorite,
+                to_print_status,
+                to_print_priority,
+                has_other_files,
+                linked_archive_count,
+                last_printed_at,
+                print_count,
+                recent_score,
+                frequent_score,
+                common_score,
+                source_authority,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            projection_rows,
+        )
+        connection.executemany(
+            """
+            INSERT OR IGNORE INTO model_catalog_search_tokens (model_ref, token)
+            VALUES (?, ?)
+            """,
+            token_rows,
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    _search_projection_meta_set(db_path=settings.db_path, key="fingerprint", value=_search_projection_source_fingerprint(db_path=settings.db_path))
+    _search_projection_meta_set(db_path=settings.db_path, key="rebuilt_at_epoch", value=str(time.time()))
+
+
+def _refresh_search_projection_if_needed(*, request: Request, settings: Settings, client: object, refresh: bool) -> None:
+    should_rebuild = bool(refresh)
+    now = time.time()
+    rebuilt_at_raw = _search_projection_meta_get(db_path=settings.db_path, key="rebuilt_at_epoch")
+    try:
+        rebuilt_at = float(rebuilt_at_raw) if rebuilt_at_raw is not None else 0.0
+    except (TypeError, ValueError):
+        rebuilt_at = 0.0
+
+    if (now - rebuilt_at) > MODEL_SEARCH_PROJECTION_REFRESH_TTL_SECONDS:
+        should_rebuild = True
+
+    current_fingerprint = _search_projection_source_fingerprint(db_path=settings.db_path)
+    stored_fingerprint = _search_projection_meta_get(db_path=settings.db_path, key="fingerprint")
+    if stored_fingerprint != current_fingerprint:
+        should_rebuild = True
+
+    if should_rebuild:
+        _rebuild_search_projection(
+            request=request,
+            settings=settings,
+            client=client,
+            refresh_runtime_cache=bool(refresh),
+        )
+
+
+def _search_models_from_projection(
+    *,
+    request: Request,
+    q: str | None,
+    collection: str | None,
+    creator: str | None,
+    tag: str | None,
+    to_print_status: str | None,
+    to_print_priority: int | None,
+    to_print_priority_min: int | None,
+    to_print_priority_max: int | None,
+    favorites_only: bool,
+    frequents_only: bool,
+    frequent_window_days: int,
+    frequent_min_prints: int,
+    frequent_backfill_weight: float,
+    has_other_files: bool,
+    show_archived: bool,
+    show_ideas: bool,
+    show_working_groups: bool,
+    sort: str,
+    refresh: bool,
+    page: int,
+    per_page: int,
+) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
+    resolved_min_prints = _normalize_frequents_min_prints(frequent_min_prints)
+    resolved_backfill_weight = _normalize_frequents_backfill_weight(frequent_backfill_weight)
+
+    base_clauses: list[str] = []
+    base_params: list[Any] = []
+    q_tokens = sorted(_normalize_tokens(q or ""))
+    if q_tokens:
+        placeholders = ",".join(["?"] * len(q_tokens))
+        base_clauses.append(
+            f"""
+            EXISTS (
+                SELECT 1
+                FROM model_catalog_search_tokens tok
+                WHERE tok.model_ref = p.model_ref
+                  AND tok.token IN ({placeholders})
+            )
+            """
+        )
+        base_params.extend(q_tokens)
+
+    collection_value = str(collection or "").strip().lower()
+    if collection_value:
+        base_clauses.append("p.collection_blob_lc LIKE ?")
+        base_params.append(f"%{collection_value}%")
+
+    creator_value = str(creator or "").strip().lower()
+    if creator_value:
+        base_clauses.append("p.creator_name_lc LIKE ?")
+        base_params.append(f"%{creator_value}%")
+
+    tag_value = str(tag or "").strip().lower()
+    if tag_value:
+        base_clauses.append("p.keyword_blob_lc LIKE ?")
+        base_params.append(f"%{tag_value}%")
+
+    if to_print_status:
+        base_clauses.append("COALESCE(p.to_print_status, '') = ?")
+        base_params.append(str(to_print_status))
+    if to_print_priority is not None:
+        base_clauses.append("p.to_print_priority = ?")
+        base_params.append(int(to_print_priority))
+    if to_print_priority_min is not None:
+        base_clauses.append("p.to_print_priority >= ?")
+        base_params.append(int(to_print_priority_min))
+    if to_print_priority_max is not None:
+        base_clauses.append("p.to_print_priority <= ?")
+        base_params.append(int(to_print_priority_max))
+
+    if favorites_only:
+        base_clauses.append("p.model_favorite = 1")
+    if frequents_only:
+        base_clauses.append("COALESCE(p.frequent_score, 0) >= ?")
+        base_params.append(float(resolved_min_prints))
+    if has_other_files:
+        base_clauses.append("p.has_other_files = 1")
+
+    entity_clauses: list[str] = []
+    entity_params: list[Any] = []
+    if not show_ideas:
+        entity_clauses.append("p.entity_type <> 'idea'")
+    if not show_working_groups:
+        entity_clauses.append("p.entity_type <> 'working_group'")
+
+    visibility_clause = ""
+    visibility_params: list[Any] = []
+    if not show_archived:
+        visibility_clause = "p.catalog_visibility <> 'archived'"
+
+    def _where_sql(clauses: list[str]) -> str:
+        if not clauses:
+            return ""
+        return "WHERE " + " AND ".join(f"({clause.strip()})" for clause in clauses)
+
+    normalized_sort = str(sort or "best").strip().lower()
+    if normalized_sort == "recent":
+        order_sql = "ORDER BY p.last_printed_at DESC, p.model_name_lc ASC"
+    elif normalized_sort == "frequent":
+        order_sql = "ORDER BY COALESCE(p.frequent_score, 0) DESC, p.model_name_lc ASC"
+    elif normalized_sort == "common":
+        order_sql = "ORDER BY COALESCE(p.common_score, 0) DESC, p.model_name_lc ASC"
+    elif normalized_sort == "name":
+        order_sql = "ORDER BY p.model_name_lc ASC"
+    elif normalized_sort == "priority":
+        order_sql = "ORDER BY p.to_print_priority DESC, p.model_name_lc ASC"
+    else:
+        if q_tokens:
+            placeholders = ",".join(["?"] * len(q_tokens))
+            order_sql = (
+                "ORDER BY ("
+                "SELECT COUNT(*) FROM model_catalog_search_tokens tok "
+                "WHERE tok.model_ref = p.model_ref AND tok.token IN ("
+                + placeholders
+                + ")"
+                ") DESC, p.model_name_lc ASC"
+            )
+        else:
+            order_sql = "ORDER BY p.model_name_lc ASC"
+
+    base_where = _where_sql(base_clauses)
+    entity_where = _where_sql(base_clauses + entity_clauses)
+    full_clauses = list(base_clauses + entity_clauses)
+    if visibility_clause:
+        full_clauses.append(visibility_clause)
+        visibility_params = []
+    full_where = _where_sql(full_clauses)
+
+    connection = connect(str(state.settings.db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        entity_rows = connection.execute(
+            f"""
+            SELECT p.entity_type, COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {base_where}
+            GROUP BY p.entity_type
+            """,
+            base_params,
+        ).fetchall()
+        entity_type_counts = {"model": 0, "idea": 0, "working_group": 0}
+        for row in entity_rows:
+            key = str(row["entity_type"] or "model")
+            entity_type_counts[key] = int(row["cnt"] or 0)
+
+        visibility_rows = connection.execute(
+            f"""
+            SELECT p.catalog_visibility, COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {entity_where}
+            GROUP BY p.catalog_visibility
+            """,
+            [*base_params, *entity_params],
+        ).fetchall()
+        visibility_counts = {"active": 0, "archived": 0}
+        for row in visibility_rows:
+            key = str(row["catalog_visibility"] or "active")
+            if key in visibility_counts:
+                visibility_counts[key] = int(row["cnt"] or 0)
+
+        total_row = connection.execute(
+            f"""
+            SELECT COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {full_where}
+            """,
+            [*base_params, *entity_params, *visibility_params],
+        ).fetchone()
+        total = int(total_row["cnt"] if total_row is not None else 0)
+
+        offset = max(0, (max(1, page) - 1) * per_page)
+        order_params: list[Any] = q_tokens if (normalized_sort == "best" and q_tokens) else []
+        rows = connection.execute(
+            f"""
+            SELECT
+                p.model_ref,
+                p.model_url,
+                p.model_public_id,
+                p.model_id,
+                p.entity_type,
+                p.model_name,
+                p.creator_name,
+                p.preview_url,
+                p.collection_names_json,
+                p.keyword_names_json,
+                p.catalog_visibility,
+                p.model_favorite,
+                p.linked_archive_count,
+                p.last_printed_at,
+                p.print_count,
+                p.recent_score,
+                p.frequent_score,
+                p.common_score
+            FROM model_catalog_search_projection p
+            {full_where}
+            {order_sql}
+            LIMIT ? OFFSET ?
+            """,
+            [*base_params, *entity_params, *visibility_params, *order_params, int(per_page), int(offset)],
+        ).fetchall()
+    finally:
+        connection.close()
+
+    model_refs = [str(row["model_ref"] or "") for row in rows if str(row["model_ref"] or "")]
+    fields_by_model_ref = _read_model_fields_bulk(db_path=state.settings.db_path, model_refs=model_refs)
+    preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        model_ref = str(row["model_ref"] or "")
+        summary = CatalogModelSummary(
+            model_url=str(row["model_url"] or ""),
+            public_id=str(row["model_public_id"] or "") or None,
+            model_id=str(row["model_id"] or "") or None,
+            name=str(row["model_name"] or ""),
+            preview_url=str(row["preview_url"] or "") or None,
+            creator_name=str(row["creator_name"] or "") or None,
+            collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
+            keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
+            entity_type=str(row["entity_type"] or "model"),
+        )
+        custom_fields = fields_by_model_ref.get(model_ref, {})
+        ranking_obj = SimpleNamespace(
+            last_printed_at=str(row["last_printed_at"] or "") or None,
+            linked_archive_count=int(row["linked_archive_count"] or 0),
+            print_count=int(row["print_count"] or 0),
+            recent_score=float(row["recent_score"]) if row["recent_score"] is not None else None,
+            frequent_score=float(row["frequent_score"]) if row["frequent_score"] is not None else None,
+            common_score=float(row["common_score"]) if row["common_score"] is not None else None,
+            refreshed_at=None,
+        )
+        payload = _serialize_model_summary(
+            summary,
+            custom_fields=custom_fields,
+            ranking_by_url={summary.model_url: ranking_obj},
+            link_counts_by_url={summary.model_url: int(row["linked_archive_count"] or 0)},
+            preview_proxy_base_url=preview_proxy_base_url,
+            request=request,
+            settings=state.settings,
+        )
+        weighted_print_count = float(row["frequent_score"]) if row["frequent_score"] is not None else 0.0
+        _apply_frequents_layer2_derivation(
+            payload,
+            weighted_print_count=weighted_print_count,
+            window_print_count=int(max(0, int(weighted_print_count))),
+            window_backfill_count=0,
+            frequent_min_prints=resolved_min_prints,
+            frequent_window_days=resolved_window_days,
+            frequent_backfill_weight=resolved_backfill_weight,
+        )
+        results.append(payload)
+
+    total_pages = (total + per_page - 1) // per_page if per_page > 0 else 0
+    return {
+        "success": True,
+        "contract": "model-search.v1alpha1",
+        "query": q or "",
+        "refresh_status": {
+            "refresh_requested": bool(refresh),
+            "outcome": "projection",
+            "preserved_cache": False,
+            "authority_mode": _normalized_authority_mode(state.settings),
+        },
+        "filters": {
+            "collection": collection,
+            "creator": creator,
+            "tag": tag,
+            "to_print_status": to_print_status,
+            "to_print_priority": to_print_priority,
+            "to_print_priority_min": to_print_priority_min,
+            "to_print_priority_max": to_print_priority_max,
+            "favorites_only": favorites_only,
+            "frequents_only": frequents_only,
+            "frequent_window_days": resolved_window_days,
+            "frequent_min_prints": resolved_min_prints,
+            "frequent_backfill_weight": resolved_backfill_weight,
+            "has_other_files": has_other_files,
+            "show_archived": bool(show_archived),
+            "show_ideas": bool(show_ideas),
+            "show_working_groups": bool(show_working_groups),
+        },
+        "visibility": {
+            "show_archived": bool(show_archived),
+            "counts": visibility_counts,
+        },
+        "entity_type_counts": entity_type_counts,
+        "sort": normalized_sort,
+        "pagination": {
+            "page": max(1, int(page)),
+            "per_page": int(per_page),
+            "total": total,
+            "total_pages": total_pages,
+        },
+        "results": results,
+    }
 
 
 def _client_accepts_geometry_binary(request: Request) -> bool:
@@ -2763,6 +3317,51 @@ def search_models(
                 elapsed_ms,
             )
             return cached_response
+
+    _archive_picker = str(context or "").strip().lower() == "archive_picker"
+    use_projection_path = not debug_collection_lookup and not _archive_picker
+    if use_projection_path:
+        _refresh_search_projection_if_needed(
+            request=request,
+            settings=state.settings,
+            client=client,
+            refresh=bool(refresh),
+        )
+        response_payload = _search_models_from_projection(
+            request=request,
+            q=q,
+            collection=collection,
+            creator=creator,
+            tag=tag,
+            to_print_status=to_print_status,
+            to_print_priority=to_print_priority,
+            to_print_priority_min=to_print_priority_min,
+            to_print_priority_max=to_print_priority_max,
+            favorites_only=bool(favorites_only),
+            frequents_only=bool(frequents_only),
+            frequent_window_days=frequent_window_days,
+            frequent_min_prints=frequent_min_prints,
+            frequent_backfill_weight=frequent_backfill_weight,
+            has_other_files=bool(has_other_files),
+            show_archived=bool(show_archived),
+            show_ideas=bool(show_ideas),
+            show_working_groups=bool(show_working_groups),
+            sort=sort,
+            refresh=bool(refresh),
+            page=page,
+            per_page=per_page,
+        )
+        if not refresh:
+            _model_search_cache_put(cache_key, response_payload)
+        elapsed_ms = int((time.perf_counter() - perf_start) * 1000)
+        logger.debug(
+            "model_search projection page=%s per_page=%s q=%r total_ms=%sms",
+            page,
+            per_page,
+            (q or "")[:80],
+            elapsed_ms,
+        )
+        return response_payload
 
     summaries_load_start = time.perf_counter()
     summaries, _source, refresh_status = _load_runtime_summaries(

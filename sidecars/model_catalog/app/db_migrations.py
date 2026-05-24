@@ -979,6 +979,108 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        28,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_search_projection (
+            model_ref TEXT PRIMARY KEY,
+            model_url TEXT NOT NULL,
+            model_public_id TEXT,
+            model_id TEXT,
+            entity_type TEXT NOT NULL DEFAULT 'model',
+            model_name TEXT NOT NULL,
+            model_name_lc TEXT NOT NULL,
+            creator_name TEXT,
+            creator_name_lc TEXT NOT NULL DEFAULT '',
+            preview_url TEXT,
+            collection_names_json TEXT NOT NULL DEFAULT '[]',
+            keyword_names_json TEXT NOT NULL DEFAULT '[]',
+            collection_blob_lc TEXT NOT NULL DEFAULT '',
+            keyword_blob_lc TEXT NOT NULL DEFAULT '',
+            catalog_visibility TEXT NOT NULL DEFAULT 'active',
+            model_favorite INTEGER NOT NULL DEFAULT 0,
+            to_print_status TEXT,
+            to_print_priority INTEGER,
+            has_other_files INTEGER NOT NULL DEFAULT 0,
+            linked_archive_count INTEGER NOT NULL DEFAULT 0,
+            last_printed_at TEXT,
+            print_count INTEGER NOT NULL DEFAULT 0,
+            recent_score REAL,
+            frequent_score REAL,
+            common_score REAL,
+            source_authority TEXT NOT NULL,
+            refreshed_at TEXT NOT NULL
+        )
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_search_tokens (
+            model_ref TEXT NOT NULL,
+            token TEXT NOT NULL,
+            PRIMARY KEY (model_ref, token)
+        )
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_search_projection_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_name
+        ON model_catalog_search_projection(model_name_lc)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_creator
+        ON model_catalog_search_projection(creator_name_lc)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_entity
+        ON model_catalog_search_projection(entity_type)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_visibility
+        ON model_catalog_search_projection(catalog_visibility)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_favorite
+        ON model_catalog_search_projection(model_favorite)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_priority
+        ON model_catalog_search_projection(to_print_priority)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_recent
+        ON model_catalog_search_projection(last_printed_at)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_frequent
+        ON model_catalog_search_projection(frequent_score)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_tokens_token
+        ON model_catalog_search_tokens(token)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_tokens_model_ref
+        ON model_catalog_search_tokens(model_ref)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_links_search
+        ON model_catalog_links(is_active, review_state, model_url, updated_at)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_custom_fields_lookup
+        ON model_catalog_custom_fields(entity_type, field_namespace, entity_id)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_custom_fields_updated
+        ON model_catalog_custom_fields(entity_type, field_namespace, updated_at)
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
