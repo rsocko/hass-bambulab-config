@@ -8,11 +8,23 @@ model_catalog_update_working_group:
   method: PATCH
   content_type: application/json
   payload: >-
-    {{ {
-      'title': (title | default('', true) | string),
-      'stage': (stage | default('', true) | string),
-      'notes': (notes | default('', true) | string),
-      'primary_file_path': (primary_file_path | default('', true) | string),
-      'folder_hint': (folder_hint | default('', true) | string),
-      'project_id': (project_id | default(None, true))
-    } | tojson }}
+    {%- set ns = namespace(payload={}) -%}
+    {%- if title is defined -%}
+      {%- set ns.payload = ns.payload | combine({'title': (title | string)}) -%}
+    {%- endif -%}
+    {%- if stage is defined -%}
+      {%- set ns.payload = ns.payload | combine({'stage': (stage | string)}) -%}
+    {%- endif -%}
+    {%- if notes is defined -%}
+      {%- set ns.payload = ns.payload | combine({'notes': (notes | string)}) -%}
+    {%- endif -%}
+    {%- if primary_file_path is defined -%}
+      {%- set ns.payload = ns.payload | combine({'primary_file_path': (primary_file_path | string)}) -%}
+    {%- endif -%}
+    {%- if folder_hint is defined -%}
+      {%- set ns.payload = ns.payload | combine({'folder_hint': (folder_hint | string)}) -%}
+    {%- endif -%}
+    {%- if project_id is defined -%}
+      {%- set ns.payload = ns.payload | combine({'project_id': project_id}) -%}
+    {%- endif -%}
+    {{ ns.payload | tojson }}

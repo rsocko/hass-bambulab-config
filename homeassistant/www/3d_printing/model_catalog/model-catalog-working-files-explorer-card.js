@@ -370,6 +370,9 @@
     + '.toolbar,.section{border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.14);padding:14px;}'
     + '.toolbar-row,.button-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}'
     + '.tab-row{display:inline-flex;gap:8px;flex-wrap:wrap;}'
+    + '.thumb-size-toggle{display:inline-flex;padding:2px;border:1px solid rgba(148,163,184,0.24);border-radius:999px;background:rgba(15,23,42,0.35);}'
+    + '.thumb-size-toggle button{border:0;background:transparent;color:var(--secondary-text-color);font-size:10px;padding:4px 10px;border-radius:999px;cursor:pointer;}'
+    + '.thumb-size-toggle button.active{background:rgba(167,139,250,0.20);color:#ddd6fe;}'
     + '.tab{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);font-size:12px;font-weight:700;cursor:pointer;}'
     + '.tab.active{background:rgba(20,184,166,0.2);border-color:rgba(94,234,212,0.36);color:#99f6e4;}'
     + '.button{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
@@ -412,20 +415,17 @@
     + '.subview-toggle button{border:0;background:transparent;color:var(--secondary-text-color);font-size:10px;padding:4px 10px;border-radius:999px;cursor:pointer;}'
     + '.subview-toggle button.active{background:rgba(94,234,212,0.18);color:#99f6e4;}'
     + '.folder-type-filters.inline{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center;}'
-    + '.type-chip{min-height:24px;padding:4px 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);color:var(--secondary-text-color);font-size:10px;font-weight:700;cursor:pointer;}'
+    + '.type-chip{min-height:24px;padding:4px 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.08);color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;}'
     + '.type-chip.active{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);}'
-    + '.type-chip.type-all.active{background:rgba(94,234,212,0.18);border-color:rgba(94,234,212,0.34);color:#99f6e4;}'
-    + '.type-chip.type-models{background:rgba(0,137,123,0.12);border-color:rgba(125,211,200,0.22);color:#7dd3c8;}'
-    + '.type-chip.type-models.active{background:rgba(0,137,123,0.16);border-color:rgba(125,211,200,0.30);color:#7dd3c8;}'
-    + '.type-chip.type-images{background:rgba(37,99,235,0.12);border-color:rgba(147,197,253,0.24);color:#93c5fd;}'
-    + '.type-chip.type-images.active{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;}'
-    + '.type-chip.type-other{background:rgba(245,158,11,0.12);border-color:rgba(252,211,77,0.24);color:#fcd34d;}'
-    + '.type-chip.type-other.active{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;}'
+    + '.type-chip.type-all:hover,.type-chip.type-all:focus-visible,.type-chip.type-all.active{background:rgba(167,139,250,0.20);border-color:rgba(196,181,253,0.34);color:#ddd6fe;outline:none;}'
+    + '.type-chip.type-models:hover,.type-chip.type-models:focus-visible,.type-chip.type-models.active{background:rgba(0,137,123,0.16);border-color:rgba(125,211,200,0.30);color:#7dd3c8;outline:none;}'
+    + '.type-chip.type-images:hover,.type-chip.type-images:focus-visible,.type-chip.type-images.active{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;outline:none;}'
+    + '.type-chip.type-other:hover,.type-chip.type-other:focus-visible,.type-chip.type-other.active{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;outline:none;}'
     + '.file-list{display:grid;gap:4px;}'
-    + '.file-row{display:grid;grid-template-columns:38px minmax(0,1fr)92px 192px 96px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
+    + '.file-row{display:grid;grid-template-columns:var(--file-thumb-col,38px) minmax(0,1fr)92px 192px 96px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
     + '.file-row:hover{background:rgba(255,255,255,0.03);}'
     + '.file-row.primary{background:rgba(245,194,66,0.08);border:1px solid rgba(245,194,66,0.22);}'
-    + '.file-thumb{width:34px;height:34px;border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
+    + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
     + '.file-thumb img{width:100%;height:100%;object-fit:cover;display:block;}'
     + '.ext-badge{width:26px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
     + '.ext-badge.x-3mf{color:#5eead4;border-color:rgba(94,234,212,0.3);background:rgba(94,234,212,0.12);}'
@@ -461,11 +461,11 @@
     + '.breadcrumb-link.current{font-weight:700;color:var(--primary-text-color);}'
     + '.crumb-sep{font-size:12px;color:var(--secondary-text-color);opacity:.7;padding:0 2px;}'
     + '.folder-browser-list{display:grid;gap:6px;}'
-    + '.browser-row{display:grid;grid-template-columns:46px minmax(0,1fr) 92px 192px auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
+    + '.browser-row{display:grid;grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr) 92px 192px auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
     + '.browser-row.folder{cursor:pointer;background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.26);}'
     + '.browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}'
     + '.browser-row.file:hover{background:rgba(255,255,255,0.03);}'
-    + '.browser-icon{display:flex;align-items:center;justify-content:center;width:42px;height:28px;border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
+    + '.browser-icon{display:flex;align-items:center;justify-content:center;width:var(--browser-icon-width,42px);height:var(--browser-icon-height,28px);border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
     + '.browser-icon img{width:100%;height:100%;object-fit:cover;display:block;}'
     + '.browser-row.folder .browser-icon{font-size:14px;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}'
     + '.browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-self:start;text-align:left;}'
@@ -488,6 +488,9 @@
     + '.validation{font-size:11px;color:#86efac;}'
     + '.validation.warn{color:#fca5a5;}'
     + '.right{text-align:right;}'
+    + '.shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;}'
+    + '.shell.thumb-medium{--thumb-size:46px;--file-thumb-col:50px;--browser-icon-col:54px;--browser-icon-width:50px;--browser-icon-height:34px;}'
+    + '.shell.thumb-large{--thumb-size:58px;--file-thumb-col:62px;--browser-icon-col:66px;--browser-icon-width:62px;--browser-icon-height:42px;}'
     + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)84px;}.file-row .file-size,.file-row .file-modified,.file-row .primary-slot{display:none;}.browser-row{grid-template-columns:46px minmax(0,1fr)auto;}.browser-row .browser-size,.browser-row .browser-modified{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
@@ -513,6 +516,7 @@
       this._groupSubViews = {};
       this._groupFolderTypeFilters = {};
       this._groupFolderBrowsePaths = {};
+      this._thumbnailSize = 'small';
       this._lastAppliedScopeStamp = 0;
       this._catalogScope = 'working';
       this._boundClick = this._handleClick.bind(this);
@@ -564,6 +568,10 @@
       }
     }
 
+      if (this._view === 'groups') {
+        this._setThumbnailSize(String(target.getAttribute('data-size') || 'small'));
+        return;
+      }
     disconnectedCallback() {
       if (this.shadowRoot) {
         this.shadowRoot.removeEventListener('click', this._boundClick);
@@ -955,6 +963,18 @@
       this._loadExplorer();
     }
 
+    _setThumbnailSize(size) {
+      var normalized = String(size || '').trim().toLowerCase();
+      if (['small', 'medium', 'large'].indexOf(normalized) < 0) {
+        return;
+      }
+      if (normalized === this._thumbnailSize) {
+        return;
+      }
+      this._thumbnailSize = normalized;
+      this._render();
+    }
+
     _readFilters() {
       var root = this.shadowRoot;
       if (!root) {
@@ -1200,8 +1220,8 @@
       return ''
         + '<div class="folder-type-filters inline">'
         + '<button class="type-chip type-all' + (typeFilter === 'all' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="all">All ' + String(counts.all) + '</button>'
-        + '<button class="type-chip type-models' + (typeFilter === 'models' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">Models ' + String(counts.models) + '</button>'
         + '<button class="type-chip type-images' + (typeFilter === 'images' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">Images ' + String(counts.images) + '</button>'
+        + '<button class="type-chip type-models' + (typeFilter === 'models' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">Models ' + String(counts.models) + '</button>'
         + '<button class="type-chip type-other' + (typeFilter === 'other' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="other">Other Files ' + String(counts.other) + '</button>'
         + '</div>';
     }
@@ -1378,6 +1398,10 @@
       }
       if (action === 'set-view') {
         this._setView(String(target.getAttribute('data-view') || 'groups'));
+        return;
+      }
+      if (action === 'set-thumbnail-size') {
+        this._setThumbnailSize(String(target.getAttribute('data-size') || 'small'));
         return;
       }
       if (action === 'select-group') {
@@ -1652,7 +1676,7 @@
       this.shadowRoot.innerHTML = ''
         + '<style>' + sharedStyles + '</style>'
         + '<ha-card>'
-        + '  <div class="shell">'
+        + '  <div class="shell thumb-' + escapeHtml(this._thumbnailSize || 'small') + '">'
         + '    <div class="title-row">'
         + '      <div>'
         + '        <div class="title">' + escapeHtml(this._config.title) + '</div>'
@@ -1669,7 +1693,7 @@
         + '          <button class="tab ' + (this._view === 'all' ? 'active' : '') + '" data-action="set-view" data-view="all">All Files</button>'
         + '          <button class="tab ' + (this._view === 'ungrouped' ? 'active' : '') + '" data-action="set-view" data-view="ungrouped">Ungrouped</button>'
         + '        </div>'
-        + '        <div class="button-row"><button class="button" data-action="refresh">Refresh</button></div>'
+        + '        <div class="button-row"><span class="thumb-size-toggle"><button data-action="set-thumbnail-size" data-size="small" class="' + (this._thumbnailSize === 'small' ? 'active' : '') + '">Small</button><button data-action="set-thumbnail-size" data-size="medium" class="' + (this._thumbnailSize === 'medium' ? 'active' : '') + '">Medium</button><button data-action="set-thumbnail-size" data-size="large" class="' + (this._thumbnailSize === 'large' ? 'active' : '') + '">Large</button></span><button class="button" data-action="refresh">Refresh</button></div>'
         + '      </div>'
         + '      <div class="toolbar-row">'
         + '        <div class="field grow"><label for="working-files-query">Search</label><input id="working-files-query" class="input" type="text" value="' + escapeHtml(this._query) + '" placeholder="name, path, notes"></div>'
