@@ -447,11 +447,13 @@ def create_working_file_slicer_token(request: Request, payload: dict[str, Any] |
         )
 
     token = _store_working_file_slicer_token(state=state, file_path=resolved_path)
+    relative_download_url = f"/api/working-files/dl/{quote(token, safe='')}/{quote(resolved_path.name, safe='')}"
+    base_url = str(getattr(state.settings, "catalog_base_url", "") or "").strip().rstrip("/")
     return {
         "success": True,
         "token": token,
         "filename": resolved_path.name,
-        "download_url": f"/api/working-files/dl/{quote(token, safe='')}/{quote(resolved_path.name, safe='')}",
+        "download_url": f"{base_url}{relative_download_url}" if base_url else relative_download_url,
     }
 
 
