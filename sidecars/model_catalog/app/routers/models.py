@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import copy
 import gc
 import hashlib
 import html as html_module
@@ -184,6 +185,9 @@ GEOMETRY_LOD_CACHE_MAX_ENTRIES = 64
 GEOMETRY_LOD_CACHE_MAX_BYTES = 256 * 1024 * 1024
 _GEOMETRY_LOD_CACHE: "OrderedDict[tuple[str, str, str], dict[str, Any]]" = OrderedDict()
 _GEOMETRY_LOD_CACHE_TOTAL_BYTES: int = 0
+MODEL_SEARCH_CACHE_TTL_SECONDS = 2.0
+MODEL_SEARCH_CACHE_MAX_ENTRIES = 64
+_MODEL_SEARCH_CACHE: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
@@ -403,6 +407,48 @@ def _reset_geometry_lod_cache() -> None:
     global _GEOMETRY_LOD_CACHE_TOTAL_BYTES
     _GEOMETRY_LOD_CACHE.clear()
     _GEOMETRY_LOD_CACHE_TOTAL_BYTES = 0
+
+
+def _model_search_cache_key(payload: dict[str, Any]) -> str:
+    """Stable cache key for search payloads."""
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _model_search_cache_get(cache_key: str, *, now: float | None = None) -> dict[str, Any] | None:
+    ts = now if now is not None else time.time()
+    entry = _MODEL_SEARCH_CACHE.get(cache_key)
+    if not entry:
+        return None
+
+    created_at = float(entry.get("created_at") or 0.0)
+    if (ts - created_at) > MODEL_SEARCH_CACHE_TTL_SECONDS:
+        _MODEL_SEARCH_CACHE.pop(cache_key, None)
+        return None
+
+    _MODEL_SEARCH_CACHE.move_to_end(cache_key)
+    payload = entry.get("payload")
+    return copy.deepcopy(payload) if isinstance(payload, dict) else None
+
+
+def _model_search_cache_put(cache_key: str, payload: dict[str, Any], *, now: float | None = None) -> None:
+    ts = now if now is not None else time.time()
+    _MODEL_SEARCH_CACHE[cache_key] = {
+        "created_at": ts,
+        "payload": copy.deepcopy(payload),
+    }
+    _MODEL_SEARCH_CACHE.move_to_end(cache_key)
+
+    # Opportunistic pruning of expired and overflow entries.
+    expired_keys = []
+    for key, entry in _MODEL_SEARCH_CACHE.items():
+        created_at = float(entry.get("created_at") or 0.0)
+        if (ts - created_at) > MODEL_SEARCH_CACHE_TTL_SECONDS:
+            expired_keys.append(key)
+    for key in expired_keys:
+        _MODEL_SEARCH_CACHE.pop(key, None)
+
+    while len(_MODEL_SEARCH_CACHE) > MODEL_SEARCH_CACHE_MAX_ENTRIES:
+        _MODEL_SEARCH_CACHE.popitem(last=False)
 
 
 def _client_accepts_geometry_binary(request: Request) -> bool:
@@ -2669,16 +2715,61 @@ def search_models(
     """
     state: AppState = request.app.state.model_catalog
     client: object = request.app.state.catalog_client
+    perf_start = time.perf_counter()
     
     # Clamp pagination parameters
     page = max(1, page)
     per_page = max(1, min(per_page, 100))
     
+    cache_key_payload = {
+        "db_path": str(state.settings.db_path),
+        "q": q or "",
+        "collection": collection or "",
+        "creator": creator or "",
+        "tag": tag or "",
+        "to_print_status": to_print_status or "",
+        "to_print_priority": to_print_priority,
+        "to_print_priority_min": to_print_priority_min,
+        "to_print_priority_max": to_print_priority_max,
+        "favorites_only": bool(favorites_only),
+        "frequents_only": bool(frequents_only),
+        "frequent_window_days": int(frequent_window_days),
+        "frequent_min_prints": int(frequent_min_prints),
+        "frequent_backfill_weight": float(frequent_backfill_weight),
+        "has_other_files": bool(has_other_files),
+        "show_archived": bool(show_archived),
+        "show_ideas": bool(show_ideas),
+        "show_working_groups": bool(show_working_groups),
+        "sort": sort or "best",
+        "page": int(page),
+        "per_page": int(per_page),
+        "context": context or "",
+        "archive_name": archive_name or "",
+        "source_file_name": source_file_name or "",
+        "source_hash": source_hash or "",
+        "debug_collection_lookup": bool(debug_collection_lookup),
+    }
+    cache_key = _model_search_cache_key(cache_key_payload)
+    if not refresh:
+        cached_response = _model_search_cache_get(cache_key)
+        if cached_response is not None:
+            elapsed_ms = int((time.perf_counter() - perf_start) * 1000)
+            logger.debug(
+                "model_search cache_hit page=%s per_page=%s q=%r total_ms=%sms",
+                page,
+                per_page,
+                (q or "")[:80],
+                elapsed_ms,
+            )
+            return cached_response
+
+    summaries_load_start = time.perf_counter()
     summaries, _source, refresh_status = _load_runtime_summaries(
         settings=state.settings,
         client=client,
         refresh=refresh,
     )
+    summaries_load_ms = int((time.perf_counter() - summaries_load_start) * 1000)
 
     # Parse search query into tokens
     query_tokens = _normalize_tokens(q or "")
@@ -2691,6 +2782,7 @@ def search_models(
     _archive_source_hash_lower = str(source_hash or "").strip().lower() if _archive_picker and source_hash else ""
     
     # Get ranking and link count data
+    metadata_load_start = time.perf_counter()
     ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
     link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
     resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
@@ -2702,6 +2794,7 @@ def search_models(
         window_days=resolved_window_days,
         backfill_weight=resolved_backfill_weight,
     )
+    metadata_load_ms = int((time.perf_counter() - metadata_load_start) * 1000)
     preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
 
     collection_diagnostics = None
@@ -2725,6 +2818,7 @@ def search_models(
     scored_models: list[tuple[float, dict[str, Any]]] = []
     visibility_counts = {"active": 0, "archived": 0}
     entity_type_counts = {"model": 0, "idea": 0, "working_group": 0}
+    loop_start = time.perf_counter()
     for summary in summaries:
         # Apply filters
         if not _matches_filters(summary, collection, creator, tag):
@@ -2847,6 +2941,9 @@ def search_models(
         
         scored_models.append((score, model_payload))
 
+    loop_ms = int((time.perf_counter() - loop_start) * 1000)
+
+    sort_start = time.perf_counter()
     normalized_sort = str(sort or "best").strip().lower()
     if normalized_sort == "best":
         # Keep score-first relevance ordering for explicit text search queries
@@ -2859,6 +2956,8 @@ def search_models(
     else:
         scored_models.sort(key=lambda item: _sort_value(item[1], normalized_sort))
     
+    sort_ms = int((time.perf_counter() - sort_start) * 1000)
+
     # Paginate results
     total = len(scored_models)
     start_idx = (page - 1) * per_page
@@ -2913,6 +3012,23 @@ def search_models(
 
     if collection_diagnostics is not None:
         response_payload["collection_lookup_diagnostics"] = collection_diagnostics
+
+    if not refresh:
+        _model_search_cache_put(cache_key, response_payload)
+
+    total_ms = int((time.perf_counter() - perf_start) * 1000)
+    logger.debug(
+        "model_search cache_miss page=%s per_page=%s q=%r total_ms=%sms summaries_ms=%sms metadata_ms=%sms loop_ms=%sms sort_ms=%sms results=%s",
+        page,
+        per_page,
+        (q or "")[:80],
+        total_ms,
+        summaries_load_ms,
+        metadata_load_ms,
+        loop_ms,
+        sort_ms,
+        len(response_payload.get("results") or []),
+    )
 
     return response_payload
 
