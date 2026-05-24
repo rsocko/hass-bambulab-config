@@ -9,7 +9,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=147
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js?v=13
+- url: /local/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js?v=14
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=5
   type: module

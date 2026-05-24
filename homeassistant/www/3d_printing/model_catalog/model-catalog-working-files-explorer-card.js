@@ -386,6 +386,11 @@
     + '.select option,.select optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
     + '.grow{flex:1 1 220px;}'
     + '.state-row{padding:18px;border-radius:14px;border:1px dashed rgba(148,163,184,0.28);text-align:center;color:var(--secondary-text-color);}'
+    + '.loading-shell{display:grid;gap:10px;}'
+    + '.loading-title{font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
+    + '.skeleton-list{display:grid;gap:8px;}'
+    + '.skeleton-row{height:44px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:linear-gradient(90deg, rgba(30,41,59,0.5) 0%, rgba(71,85,105,0.32) 50%, rgba(30,41,59,0.5) 100%);background-size:220% 100%;animation:mcwf-shimmer 1.25s linear infinite;}'
+    + '@keyframes mcwf-shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}'
     + '.bulk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border:1px solid rgba(94,234,212,0.3);background:rgba(94,234,212,0.08);border-radius:12px;color:#99f6e4;font-size:12px;}'
     + '.bulk-bar .spacer{flex:1;}'
     + '.groups{display:grid;gap:10px;}'
@@ -500,6 +505,7 @@
       this._hass = null;
       this._config = null;
       this._loading = false;
+      this._loadingPhase = '';
       this._error = '';
       this._status = '';
       this._view = 'groups';
@@ -517,6 +523,7 @@
       this._groupFolderTypeFilters = {};
       this._groupFolderBrowsePaths = {};
       this._thumbnailSize = 'small';
+      this._backgroundReindexInFlight = false;
       this._lastAppliedScopeStamp = 0;
       this._catalogScope = 'working';
       this._boundClick = this._handleClick.bind(this);
@@ -599,13 +606,35 @@
       });
     }
 
+    async _runBackgroundInitialReindex() {
+      if (this._backgroundReindexInFlight) {
+        return;
+      }
+      this._backgroundReindexInFlight = true;
+      this._status = 'Refreshing file index in background...';
+      this._render();
+      try {
+        await this._reindexWorkingFiles();
+        this._status = 'Index refreshed. Updating view...';
+        this._render();
+        await this._loadExplorer({ skipInitialReindex: true });
+      } catch (_error) {
+        this._status = 'Background reindex failed; showing current index.';
+        this._render();
+      } finally {
+        this._backgroundReindexInFlight = false;
+      }
+    }
+
     async _loadExplorer(options) {
       if (!this._hass || this._loading) {
         return;
       }
       var shouldForceReindex = !!(options && options.forceReindex);
+      var skipInitialReindex = !!(options && options.skipInitialReindex);
       this._hasLoadedExplorer = true;
       this._loading = true;
+      this._loadingPhase = shouldForceReindex ? 'Reindexing files...' : 'Loading Working Files...';
       this._error = '';
       this._status = '';
       this._render();
@@ -616,16 +645,15 @@
         : 0;
 
       try {
-        var shouldRunInitialReindex = !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
-        if (shouldForceReindex || shouldRunInitialReindex) {
-          this._hasAttemptedInitialReindex = true;
+        var shouldRunInitialReindex = !skipInitialReindex && !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
+        if (shouldForceReindex) {
           try {
             await this._reindexWorkingFiles();
           } catch (_reindexError) {
-            if (shouldForceReindex) {
-              this._status = 'Reindex failed; showing last indexed results.';
-            }
+            this._status = 'Reindex failed; showing last indexed results.';
           }
+        } else if (shouldRunInitialReindex) {
+          this._hasAttemptedInitialReindex = true;
         }
 
         var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_explore_working_files', {
@@ -684,7 +712,12 @@
         this._error = error && error.message ? String(error.message) : 'Could not load Working Files explorer.';
       } finally {
         this._loading = false;
+        this._loadingPhase = '';
         this._render();
+      }
+
+      if (!shouldForceReindex && shouldRunInitialReindex) {
+        this._runBackgroundInitialReindex();
       }
     }
 
@@ -1652,6 +1685,20 @@
         + '</section>';
     }
 
+    _renderLoadingState() {
+      var phase = String(this._loadingPhase || 'Loading Working Files...');
+      return ''
+        + '<section class="section loading-shell">'
+        + '  <div class="loading-title">' + escapeHtml(phase) + '</div>'
+        + '  <div class="skeleton-list">'
+        + '    <div class="skeleton-row"></div>'
+        + '    <div class="skeleton-row"></div>'
+        + '    <div class="skeleton-row"></div>'
+        + '    <div class="skeleton-row"></div>'
+        + '  </div>'
+        + '</section>';
+    }
+
     _render() {
       if (!this.shadowRoot || !this._config) {
         return;
@@ -1660,7 +1707,7 @@
       var summary = this._summary || {};
       var bodyHtml = '';
       if (this._loading) {
-        bodyHtml = '<div class="state-row">Loading Working Files...</div>';
+        bodyHtml = this._renderLoadingState();
       } else if (this._error) {
         bodyHtml = '<div class="state-row">' + escapeHtml(this._error) + '</div>';
       } else if (this._view === 'groups') {
