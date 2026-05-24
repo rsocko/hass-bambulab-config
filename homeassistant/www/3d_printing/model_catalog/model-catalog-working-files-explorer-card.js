@@ -1089,6 +1089,31 @@
       }
       var bytes = entry.file_size_bytes;
       if (!Number.isFinite(Number(bytes))) {
+
+    _resolveSidecarUrl() {
+      if (this._hass && this._hass.states) {
+        var baseUrlEntity = this._hass.states['input_text.model_catalog_sidecar_base_url'];
+        if (baseUrlEntity && baseUrlEntity.state) {
+          return String(baseUrlEntity.state).trim();
+        }
+      }
+      return '';
+    }
+
+    _resolvePreviewUrl(candidateUrl) {
+      var candidate = String(candidateUrl || '').trim();
+      if (!candidate) {
+        return '';
+      }
+      if (!/^\/api\/(working-files|intake)\/preview/i.test(candidate)) {
+        return candidate;
+      }
+      var sidecarBaseUrl = this._resolveSidecarUrl();
+      if (!sidecarBaseUrl) {
+        return candidate;
+      }
+      return sidecarBaseUrl.replace(/\/$/, '') + candidate;
+    }
         bytes = entry.file_size;
       }
       return Number(bytes || 0);
@@ -1166,9 +1191,9 @@
           continue;
         }
         if (/^(https?:|\/|data:|blob:)/i.test(candidate)) {
-          return candidate;
+          return this._resolvePreviewUrl(candidate);
         }
-        return '/' + candidate.replace(/^\.?\//, '');
+        return this._resolvePreviewUrl('/' + candidate.replace(/^\.?\//, ''));
       }
       return '';
     }
