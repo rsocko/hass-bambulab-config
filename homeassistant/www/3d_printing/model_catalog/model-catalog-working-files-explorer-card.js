@@ -76,6 +76,24 @@
     return String(Math.floor(seconds / 604800)) + "w ago";
   }
 
+  function formatDateTime(value) {
+    var parsed = parseIsoDate(value);
+    if (!parsed) {
+      return "-";
+    }
+    try {
+      return parsed.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (_error) {
+      return parsed.toISOString();
+    }
+  }
+
   function normalizePath(pathValue) {
     return String(pathValue || "").replace(/\\/g, "/");
   }
@@ -98,6 +116,52 @@
     return String(extension || "").replace(/^\./, "").toUpperCase() || "FILE";
   }
 
+  function storageRelativePath(pathValue) {
+    var normalized = normalizePath(pathValue);
+    if (!normalized) {
+      return { relative: "", storage: "Unknown" };
+    }
+    var lowered = normalized.toLowerCase();
+    var markers = [
+      { token: "/assets/model working files/", storage: "Working Files" },
+      { token: "/assets/model inbox/", storage: "Model Inbox" },
+      { token: "/model working files/", storage: "Working Files" },
+      { token: "/model inbox/", storage: "Model Inbox" },
+    ];
+    for (var i = 0; i < markers.length; i += 1) {
+      var marker = markers[i];
+      var markerIndex = lowered.indexOf(marker.token);
+      if (markerIndex >= 0) {
+        return {
+          relative: normalized.slice(markerIndex + marker.token.length).replace(/^\/+/, ""),
+          storage: marker.storage,
+        };
+      }
+    }
+    return { relative: normalized.replace(/^\/+/, ""), storage: "Unknown" };
+  }
+
+  function commonPathPrefix(paths) {
+    var splitPaths = (paths || []).map(function (pathValue) {
+      return String(pathValue || "").split("/").filter(Boolean);
+    }).filter(function (parts) {
+      return parts.length > 1;
+    });
+    if (!splitPaths.length) {
+      return "";
+    }
+    var prefix = splitPaths[0].slice(0, splitPaths[0].length - 1);
+    for (var i = 1; i < splitPaths.length && prefix.length; i += 1) {
+      var next = splitPaths[i].slice(0, splitPaths[i].length - 1);
+      var cursor = 0;
+      while (cursor < prefix.length && cursor < next.length && prefix[cursor].toLowerCase() === next[cursor].toLowerCase()) {
+        cursor += 1;
+      }
+      prefix = prefix.slice(0, cursor);
+    }
+    return prefix.join("/");
+  }
+
   function stageClassName(stage) {
     var normalized = String(stage || "draft").toLowerCase();
     if (normalized === "ready_to_publish") {
@@ -107,6 +171,76 @@
       return "in_progress";
     }
     return "draft";
+  }
+
+  function queueStateBorderColor(state) {
+    var palette = {
+      backlog: "#7a6a57",
+      up_next: "#a07cff",
+      preparing: "#ff9a3c",
+      ready: "#e6d84a",
+      in_progress: "#3aa9ff",
+      blocked: "#ff6b6b",
+      done: "#4fcf75",
+    };
+    return palette[state] || palette.up_next;
+  }
+
+  function normalizeQueueState(state) {
+    var normalized = String(state || "").trim().toLowerCase();
+    return ["backlog", "up_next", "preparing", "ready", "in_progress", "blocked", "done"].indexOf(normalized) >= 0
+      ? normalized
+      : "none";
+  }
+
+  function stageToQueueState(stage) {
+    var normalized = String(stage || "").trim().toLowerCase();
+    if (normalized === "ready_to_publish") {
+      return "ready";
+    }
+    if (normalized === "in_progress") {
+      return "in_progress";
+    }
+    return "backlog";
+  }
+
+  function initialsFromTitle(value) {
+    var title = String(value || "").trim();
+    if (!title) {
+      return "WG";
+    }
+    var words = title
+      .replace(/[^a-zA-Z0-9\s]+/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!words.length) {
+      return title.slice(0, 2).toUpperCase();
+    }
+    if (words.length === 1) {
+      return words[0].slice(0, 2).toUpperCase();
+    }
+    return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+  }
+
+  function hexToRgb(hexValue) {
+    var raw = String(hexValue || "").trim().replace("#", "");
+    if (raw.length === 3) {
+      raw = raw.split("").map(function (char) { return char + char; }).join("");
+    }
+    if (!/^[0-9a-fA-F]{6}$/.test(raw)) {
+      return { r: 122, g: 106, b: 87 };
+    }
+    return {
+      r: parseInt(raw.slice(0, 2), 16),
+      g: parseInt(raw.slice(2, 4), 16),
+      b: parseInt(raw.slice(4, 6), 16),
+    };
+  }
+
+  function rgbaFromHex(hexValue, alpha) {
+    var rgb = hexToRgb(hexValue);
+    return "rgba(" + String(rgb.r) + ", " + String(rgb.g) + ", " + String(rgb.b) + ", " + String(alpha) + ")";
   }
 
   function toFileUri(pathValue) {
@@ -252,31 +386,35 @@
     + '.bulk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border:1px solid rgba(94,234,212,0.3);background:rgba(94,234,212,0.08);border-radius:12px;color:#99f6e4;font-size:12px;}'
     + '.bulk-bar .spacer{flex:1;}'
     + '.groups{display:grid;gap:10px;}'
-    + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;}'
+    + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;--queue-border-color:#7a6a57;--group-icon-bg:rgba(122,106,87,0.26);--group-icon-fg:#f8fafc;--group-icon-ring:rgba(122,106,87,0.5);}'
     + '.group-row.active{border-color:rgba(94,234,212,0.34);background:rgba(20,184,166,0.08);}'
-    + '.group-row .ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;background:#64748b;}'
-    + '.group-row.stage-in_progress .ribbon{background:#f59e0b;}'
-    + '.group-row.stage-ready_to_publish .ribbon{background:#2e7d32;}'
+    + '.group-row .ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;background:var(--queue-border-color);box-shadow:0 0 0 1px color-mix(in srgb, var(--queue-border-color) 55%, transparent);}'
     + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
-    + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--secondary-text-color);background:rgba(15,23,42,0.35);}'
+    + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid var(--group-icon-ring);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;letter-spacing:.04em;color:var(--group-icon-fg);background:var(--group-icon-bg);text-transform:uppercase;}'
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
     + '.folder-hint{font-size:11px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.path-summary{margin-top:6px;font-size:10px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;display:flex;gap:8px;flex-wrap:wrap;}'
+    + '.path-summary strong{color:#93c5fd;font-weight:700;}'
     + '.group-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;color:var(--secondary-text-color);font-size:11px;}'
-    + '.stage-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.3);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}'
-    + '.stage-chip.in_progress{border-color:rgba(252,211,77,0.3);color:#fde68a;background:rgba(245,158,11,0.16);}'
-    + '.stage-chip.ready_to_publish{border-color:rgba(134,239,172,0.3);color:#86efac;background:rgba(46,125,50,0.18);}'
+    + '.stage-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.3);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(100,116,139,0.2);color:#dbe7f2;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);}'
+    + '.stage-chip.draft{border-color:rgba(148,163,184,0.44);background:rgba(71,85,105,0.34);color:#e2e8f0;}'
+    + '.stage-chip.in_progress{border-color:rgba(252,211,77,0.5);color:#fef3c7;background:rgba(245,158,11,0.32);}'
+    + '.stage-chip.ready_to_publish{border-color:rgba(134,239,172,0.5);color:#dcfce7;background:rgba(46,125,50,0.36);}'
     + '.group-right{text-align:right;display:grid;gap:6px;justify-items:end;}'
     + '.updated{font-size:11px;color:var(--secondary-text-color);}'
-    + '.expander{border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.25);color:var(--secondary-text-color);border-radius:8px;min-width:28px;height:28px;cursor:pointer;}'
+    + '.updated strong{color:var(--primary-text-color);}'
+    + '.expander{border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.3);color:#cbd5e1;border-radius:10px;min-width:40px;height:40px;cursor:pointer;font-size:18px;font-weight:900;line-height:1;display:inline-flex;align-items:center;justify-content:center;}'
     + '.strip{margin-top:10px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.24);border-radius:12px;padding:10px;display:grid;gap:8px;}'
     + '.strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color);font-weight:700;}'
     + '.subview-toggle{display:inline-flex;padding:2px;border:1px solid rgba(148,163,184,0.24);border-radius:999px;background:rgba(15,23,42,0.35);}'
     + '.subview-toggle button{border:0;background:transparent;color:var(--secondary-text-color);font-size:10px;padding:4px 10px;border-radius:999px;cursor:pointer;}'
     + '.subview-toggle button.active{background:rgba(94,234,212,0.18);color:#99f6e4;}'
     + '.file-list{display:grid;gap:4px;}'
-    + '.file-row{display:grid;grid-template-columns:26px minmax(0,1fr)72px 72px auto auto;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
+    + '.file-row{display:grid;grid-template-columns:38px minmax(0,1fr)84px 180px auto auto;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
     + '.file-row:hover{background:rgba(255,255,255,0.03);}'
     + '.file-row.primary{background:rgba(245,194,66,0.08);border:1px solid rgba(245,194,66,0.22);}'
+    + '.file-thumb{width:34px;height:34px;border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
+    + '.file-thumb img{width:100%;height:100%;object-fit:cover;display:block;}'
     + '.ext-badge{width:26px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
     + '.ext-badge.x-3mf{color:#5eead4;border-color:rgba(94,234,212,0.3);background:rgba(94,234,212,0.12);}'
     + '.ext-badge.x-stl,.ext-badge.x-step,.ext-badge.x-stp,.ext-badge.x-obj{color:#93c5fd;border-color:rgba(96,165,250,0.32);background:rgba(96,165,250,0.12);}'
@@ -284,6 +422,7 @@
     + '.file-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.file-path{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
     + '.file-num{font-size:11px;color:var(--secondary-text-color);text-align:right;}'
+    + '.file-num .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}'
     + '.primary-pill{display:inline-flex;padding:2px 7px;border-radius:999px;background:rgba(245,194,66,0.15);border:1px solid rgba(245,194,66,0.33);color:#f5c242;font-size:10px;font-weight:700;}'
     + '.selector{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);}'
     + '.group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);}'
@@ -323,7 +462,7 @@
     + '.validation{font-size:11px;color:#86efac;}'
     + '.validation.warn{color:#fca5a5;}'
     + '.right{text-align:right;}'
-    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:26px minmax(0,1fr)auto;}.file-row .file-num,.file-row .primary-pill{display:none;}}';
+    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)auto;}.file-row .file-num,.file-row .primary-pill{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
     constructor() {
@@ -831,12 +970,73 @@
     }
 
     _entryRelativePath(entry, group) {
-      var fullPath = normalizePath(this._entryPath(entry));
-      var groupRoot = normalizePath(group && group.folder_hint ? group.folder_hint : '');
-      if (groupRoot && fullPath.toLowerCase().indexOf(groupRoot.toLowerCase()) === 0) {
-        return fullPath.slice(groupRoot.length).replace(/^\/+/, '');
+      var storageRelative = storageRelativePath(this._entryPath(entry)).relative;
+      return storageRelative || basename(this._entryPath(entry));
+    }
+
+    _groupPathFootprint(group) {
+      var files = this._groupFiles(group);
+      if (!files.length) {
+        return {
+          common_prefix: '',
+          folder_count: 0,
+          file_count: 0,
+          storage_label: 'Unknown',
+        };
       }
-      return fullPath;
+      var relPaths = files.map(function (entry) {
+        return storageRelativePath(this._entryPath(entry));
+      }, this);
+      var relativeOnly = relPaths.map(function (entry) {
+        return entry.relative;
+      }).filter(Boolean);
+      var folderSet = {};
+      relPaths.forEach(function (entry) {
+        var folder = dirname(entry.relative || '');
+        if (folder) {
+          folderSet[folder.toLowerCase()] = true;
+        }
+      });
+      var storageCounts = {};
+      relPaths.forEach(function (entry) {
+        var key = String(entry.storage || 'Unknown');
+        storageCounts[key] = Number(storageCounts[key] || 0) + 1;
+      });
+      var dominantStorage = Object.keys(storageCounts).sort(function (a, b) {
+        return storageCounts[b] - storageCounts[a];
+      })[0] || 'Unknown';
+      return {
+        common_prefix: commonPathPrefix(relativeOnly),
+        folder_count: Object.keys(folderSet).length,
+        file_count: files.length,
+        storage_label: dominantStorage,
+      };
+    }
+
+    _entryThumbnailUrl(entry) {
+      var sourceMetadata = entry && entry.source_metadata && typeof entry.source_metadata === 'object'
+        ? entry.source_metadata
+        : {};
+      var candidates = [
+        sourceMetadata.thumbnail_url,
+        sourceMetadata.preview_url,
+        sourceMetadata.image_url,
+        sourceMetadata.embedded_thumbnail_url,
+        sourceMetadata.thumb_url,
+      ];
+      for (var i = 0; i < candidates.length; i += 1) {
+        var candidate = String(candidates[i] || '').trim();
+        if (!candidate) {
+          continue;
+        }
+        if (/^(https?:|\/|data:|file:)/i.test(candidate)) {
+          return candidate;
+        }
+      }
+      if (isImageExtension(this._entryExtension(entry))) {
+        return toFileUri(this._entryPath(entry));
+      }
+      return '';
     }
 
     _groupFiles(group) {
@@ -856,6 +1056,30 @@
         }
       }, this);
       return latest;
+    }
+
+    _groupQueueState(group) {
+      var candidates = [
+        group && group.queue_state,
+        group && group.print_queue_state,
+        group && group.status,
+      ];
+      for (var i = 0; i < candidates.length; i += 1) {
+        var normalized = normalizeQueueState(candidates[i]);
+        if (normalized !== 'none') {
+          return normalized;
+        }
+      }
+      return stageToQueueState(group && group.stage);
+    }
+
+    _groupIconStyle(group, queueState) {
+      var borderColor = queueStateBorderColor(queueState);
+      return ''
+        + '--queue-border-color:' + borderColor + ';'
+        + '--group-icon-bg:' + rgbaFromHex(borderColor, 0.24) + ';'
+        + '--group-icon-fg:#f8fafc;'
+        + '--group-icon-ring:' + rgbaFromHex(borderColor, 0.52) + ';';
     }
 
     _entryMatchesFolderType(entry, typeFilter) {
@@ -1016,7 +1240,7 @@
               + '<div class="browser-row file">'
               + '<span class="browser-icon">' + escapeHtml(extensionBadge(extension)) + '</span>'
               + '<span class="browser-name">' + escapeHtml(basename(pathValue)) + '</span>'
-              + '<span class="browser-meta">' + escapeHtml(formatBytes(this._entrySize(entry))) + ' · ' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</span>'
+              + '<span class="browser-meta">' + escapeHtml(formatBytes(this._entrySize(entry))) + ' · ' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '<br>' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span>'
               + '<span class="browser-actions"><button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open</button><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('')
@@ -1185,13 +1409,17 @@
         var subView = this._groupSubViews[groupId] === 'folders' ? 'folders' : 'files';
         var counts = group.counts || {};
         var stageClass = stageClassName(group.stage);
+        var queueState = this._groupQueueState(group);
         var files = this._groupFiles(group);
+        var pathFootprint = this._groupPathFootprint(group);
         var typeFilter = String(this._groupFolderTypeFilters[groupId] || 'models');
         var visibleFiles = files.filter(function (entry) {
           return this._entryMatchesFolderType(entry, typeFilter);
         }, this);
         var latest = this._latestGroupFile(group);
         var latestName = latest ? basename(this._entryPath(latest)) : '';
+        var groupInitials = initialsFromTitle(group.title || 'WG');
+        var groupStyle = this._groupIconStyle(group, queueState);
         var modelRowsHtml = '';
         if (!visibleFiles.length) {
           modelRowsHtml = '<div class="state-row">No files match this type filter.</div>';
@@ -1204,10 +1432,14 @@
             var selected = !!this._selectedPaths[pathValue];
             return ''
               + '<div class="file-row' + (isPrimary ? ' primary' : '') + '">' 
-              + '<span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(ext)) + '</span>'
+              + '<span class="file-thumb">'
+              + (this._entryThumbnailUrl(entry)
+                ? '<img src="' + escapeHtml(this._entryThumbnailUrl(entry)) + '" loading="lazy" alt="thumb">'
+                : '<span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(ext)) + '</span>')
+              + '</span>'
               + '<span class="file-main"><div class="file-name">' + escapeHtml(basename(pathValue)) + '</div><div class="file-path">' + escapeHtml(this._entryRelativePath(entry, group)) + '</div></span>'
               + '<span class="file-num">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
-              + '<span class="file-num">' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</span>'
+              + '<span class="file-num"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span>' + (isPrimary ? '<span class="primary-pill">Primary</span>' : '') + '</span>'
               + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label>'
               + '</div>';
@@ -1219,16 +1451,17 @@
           : this._renderFileTypeFilters(files, groupId, typeFilter) + modelRowsHtml;
 
         return ''
-          + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '">'
+          + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '" style="' + escapeHtml(groupStyle) + '">'
           + '  <span class="ribbon"></span>'
           + '  <div class="group-header">'
-          + '    <div class="thumb">' + escapeHtml(extensionBadge(this._entryExtension(latest || {}))) + '</div>'
+          + '    <div class="thumb" title="' + escapeHtml(formatStage(group.stage || 'draft')) + '">' + escapeHtml(groupInitials) + '</div>'
           + '    <div>'
           + '      <div class="group-title" data-action="select-group" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div>'
-          + '      <div class="folder-hint">' + escapeHtml(group.folder_hint || group.notes || '') + '</div>'
+          + '      <div class="folder-hint">' + escapeHtml(pathFootprint.common_prefix || storageRelativePath(group.folder_hint || '').relative || group.notes || '') + '</div>'
+          + '      <div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div>'
           + '      <div class="group-meta"><span>Model ' + String(counts.count_3mf || 0) + '</span><span>Other ' + String(counts.count_other || 0) + '</span><span>Total ' + String(counts.total || 0) + '</span><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '    </div>'
-          + '    <div class="group-right"><span class="updated">' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
+          + '    <div class="group-right"><span class="updated">Latest file change</span><span class="updated"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + '</strong> · ' + escapeHtml(formatDateTime(this._entryMtime(latest || {}))) + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
           + '  </div>'
           + (collapsed ? '' : ''
             + '<div class="strip">'
@@ -1286,9 +1519,9 @@
               + '<tr' + (selected ? ' class="selected"' : '') + '>'
               + '<td><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '></td>'
               + '<td><span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(ext)) + '</span></td>'
-              + '<td><div class="row-name"><div class="row-name-text"><div class="row-name-title">' + escapeHtml(entry.file_name_raw || basename(pathValue)) + '</div><div class="row-name-sub">' + escapeHtml(dirname(pathValue)) + '</div></div></div></td>'
+              + '<td><div class="row-name"><div class="row-name-text"><div class="row-name-title">' + escapeHtml(entry.file_name_raw || basename(pathValue)) + '</div><div class="row-name-sub">' + escapeHtml(dirname(storageRelativePath(pathValue).relative || pathValue)) + '</div></div></div></td>'
               + '<td class="right">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</td>'
-              + '<td class="right">' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</td>'
+              + '<td class="right">' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '<div class="row-name-sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</div></td>'
               + '<td><div class="group-chips">'
               + (memberships.length
                 ? memberships.map(function (membership) {
