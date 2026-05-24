@@ -433,6 +433,7 @@
     + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
     + '.file-thumb img{width:100%;height:100%;object-fit:cover;display:block;}'
     + '.ext-badge{width:26px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
+    + '.file-thumb .ext-badge{width:var(--thumb-badge-width,26px);height:var(--thumb-badge-height,24px);font-size:var(--thumb-badge-font,9px);border:0;box-shadow:none;}'
     + '.ext-badge.x-3mf{color:#5eead4;border-color:rgba(94,234,212,0.3);background:rgba(94,234,212,0.12);}'
     + '.ext-badge.x-stl,.ext-badge.x-step,.ext-badge.x-stp,.ext-badge.x-obj{color:#93c5fd;border-color:rgba(96,165,250,0.32);background:rgba(96,165,250,0.12);}'
     + '.file-main{min-width:0;}'
@@ -493,9 +494,9 @@
     + '.validation{font-size:11px;color:#86efac;}'
     + '.validation.warn{color:#fca5a5;}'
     + '.right{text-align:right;}'
-    + '.shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;}'
-    + '.shell.thumb-medium{--thumb-size:58px;--file-thumb-col:62px;--browser-icon-col:66px;--browser-icon-width:62px;--browser-icon-height:42px;}'
-    + '.shell.thumb-large{--thumb-size:116px;--file-thumb-col:124px;--browser-icon-col:132px;--browser-icon-width:124px;--browser-icon-height:84px;}'
+    + '.shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;--thumb-badge-width:22px;--thumb-badge-height:20px;--thumb-badge-font:9px;}'
+    + '.shell.thumb-medium{--thumb-size:58px;--file-thumb-col:62px;--browser-icon-col:66px;--browser-icon-width:62px;--browser-icon-height:42px;--thumb-badge-width:34px;--thumb-badge-height:30px;--thumb-badge-font:12px;}'
+    + '.shell.thumb-large{--thumb-size:116px;--file-thumb-col:124px;--browser-icon-col:132px;--browser-icon-width:124px;--browser-icon-height:84px;--thumb-badge-width:68px;--thumb-badge-height:60px;--thumb-badge-font:20px;}'
     + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)84px;}.file-row .file-size,.file-row .file-modified,.file-row .primary-slot{display:none;}.browser-row{grid-template-columns:46px minmax(0,1fr)auto;}.browser-row .browser-size,.browser-row .browser-modified{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
@@ -557,7 +558,7 @@
       if (this.isConnected && !this._loading && !this._hasLoadedExplorer) {
         this._loadExplorer();
       } else if (this.isConnected && !this._loading && this._isScopeStale()) {
-        this._loadExplorer({ forceReindex: true });
+        this._loadExplorer();
       }
     }
 
@@ -570,7 +571,7 @@
         if (!this._hasLoadedExplorer) {
           this._loadExplorer();
         } else if (this._isScopeStale()) {
-          this._loadExplorer({ forceReindex: true });
+          this._loadExplorer();
         }
       }
     }
@@ -1025,7 +1026,7 @@
       if (stamp) {
         this._lastAppliedScopeStamp = stamp;
       }
-      this._loadExplorer({ forceReindex: true });
+      this._loadExplorer();
     }
 
     _isScopeStale() {
