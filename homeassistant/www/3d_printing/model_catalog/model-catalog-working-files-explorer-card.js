@@ -398,7 +398,7 @@
     + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;--queue-border-color:#7a6a57;--group-icon-bg:rgba(122,106,87,0.26);--group-icon-fg:#f8fafc;--group-icon-ring:rgba(122,106,87,0.5);}'
     + '.group-row.active{border-color:rgba(94,234,212,0.34);background:rgba(20,184,166,0.08);}'
     + '.group-row::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);pointer-events:none;}'
-    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;cursor:pointer;}'
+    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
     + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid var(--group-icon-ring);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;letter-spacing:.04em;color:var(--group-icon-fg);background:var(--group-icon-bg);text-transform:uppercase;}'
     + '.group-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}'
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
@@ -1591,19 +1591,6 @@
         this._setThumbnailSize(String(target.getAttribute('data-size') || 'small'));
         return;
       }
-      if (action === 'toggle-group-header') {
-        var headerGroupId = Number(target.getAttribute('data-group-id') || 0);
-        if (headerGroupId) {
-          this._selectedGroupId = headerGroupId;
-          var nextHeaderCollapsed = !this._collapsedGroups[headerGroupId];
-          this._collapsedGroups[headerGroupId] = nextHeaderCollapsed;
-          this._render();
-          if (!nextHeaderCollapsed) {
-            this._ensureGroupFilesLoaded(headerGroupId);
-          }
-        }
-        return;
-      }
       if (action === 'select-group') {
         this._selectedGroupId = Number(target.getAttribute('data-group-id') || 0);
         this._render();
@@ -1832,10 +1819,10 @@
 
         return ''
           + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '" style="' + escapeHtml(groupStyle) + '">'
-          + '  <div class="group-header" data-action="toggle-group-header" data-group-id="' + String(groupId) + '">'
+          + '  <div class="group-header">'
           + '    <div class="thumb" title="' + escapeHtml(formatStage(group.stage || 'draft')) + '">' + escapeHtml(groupInitials) + '</div>'
           + '    <div>'
-          + '      <div class="group-title-row"><div class="group-title">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
+          + '      <div class="group-title-row"><div class="group-title" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '      <div class="folder-hint">' + escapeHtml(pathFootprint.common_prefix || storageRelativePath(group.folder_hint || '').relative || group.notes || '') + '</div>'
           + '      <div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div>'
           + '    </div>'
@@ -1843,7 +1830,7 @@
           + '  </div>'
           + (collapsed ? '' : ''
             + '<div class="strip">'
-            + '  <div class="strip-head"><span class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</span><span class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></span></div>'
+            + '  <div class="strip-head"><div class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</div><div class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></div></div>'
             + stripBody
             + '</div>'
             + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button>' + (group.launch && group.launch.folder && group.launch.folder.folder_command ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(group.launch.folder.folder_command) + '">Copy Folder Command</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
