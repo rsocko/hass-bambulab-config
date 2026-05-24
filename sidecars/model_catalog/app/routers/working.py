@@ -1239,7 +1239,7 @@ def explore_working_files(request: Request,
 
     where_sql = " AND ".join(where_clauses)
     preferred_roots = _configured_working_files_roots(state.settings)
-    light_mode = view_mode == "groups" and _coerce_bool(lightweight, default=False)
+    light_mode = view_mode == "groups" and _coerce_bool(lightweight)
 
     scoped_where_sql = where_sql
     scoped_params: list[Any] = list(params)
