@@ -173,6 +173,9 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
     elif not windows_path:
         reason = "path_outside_assets_mount"
 
+    explorer_command = f'explorer.exe /select,"{windows_path}"' if windows_path else ""
+    folder_command = f'explorer.exe "{windows_path}"' if windows_path else ""
+
     return {
         "container_path": container_path,
         "assets_root_host": assets_root_host,
@@ -181,6 +184,8 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
         "can_open_in_explorer": bool(windows_path),
         "windows_path": windows_path,
         "reason": reason,
+        "explorer_command": explorer_command,
+        "folder_command": folder_command,
     }
 
 

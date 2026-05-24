@@ -398,7 +398,7 @@
     + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;--queue-border-color:#7a6a57;--group-icon-bg:rgba(122,106,87,0.26);--group-icon-fg:#f8fafc;--group-icon-ring:rgba(122,106,87,0.5);}'
     + '.group-row.active{border-color:rgba(94,234,212,0.34);background:rgba(20,184,166,0.08);}'
     + '.group-row::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);pointer-events:none;}'
-    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
+    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;cursor:pointer;}'
     + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid var(--group-icon-ring);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;letter-spacing:.04em;color:var(--group-icon-fg);background:var(--group-icon-bg);text-transform:uppercase;}'
     + '.group-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}'
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
@@ -472,7 +472,7 @@
     + '.folder-browser-list{display:grid;gap:6px;}'
     + '.browser-row{display:grid;grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr) 92px 192px auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
     + '.browser-row.folder{cursor:pointer;background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.26);}'
-    + '.browser-row.folder{grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr);}'
+    + '.browser-row.folder{grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr) auto;}'
     + '.browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}'
     + '.browser-row.file:hover{background:rgba(255,255,255,0.03);}'
     + '.browser-icon{display:flex;align-items:center;justify-content:center;width:var(--browser-icon-width,42px);height:var(--browser-icon-height,28px);border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
@@ -1408,9 +1408,10 @@
     }
 
     _buildFolderBrowserIndex(groupFiles, group) {
-      var index = { '': { folders: {}, files: [] } };
+      var index = { '': { folders: {}, files: [], containerPath: '' } };
       groupFiles.forEach(function (entry) {
         var rel = this._normalizeRelativePath(entry, group);
+        var absolutePath = this._entryPath(entry);
         if (!rel) {
           return;
         }
@@ -1423,20 +1424,34 @@
           var folderName = parts[i];
           var nextPath = this._joinFolderPath(currentPath, folderName);
           if (!index[currentPath]) {
-            index[currentPath] = { folders: {}, files: [] };
+            index[currentPath] = { folders: {}, files: [], containerPath: '' };
           }
           if (!index[nextPath]) {
-            index[nextPath] = { folders: {}, files: [] };
+            index[nextPath] = { folders: {}, files: [], containerPath: '' };
           }
           index[currentPath].folders[folderName] = nextPath;
+          if (!index[nextPath].containerPath) {
+            index[nextPath].containerPath = dirname(absolutePath).replace(/\\/g, '/');
+          }
           currentPath = nextPath;
         }
         if (!index[currentPath]) {
-          index[currentPath] = { folders: {}, files: [] };
+          index[currentPath] = { folders: {}, files: [], containerPath: '' };
+        }
+        if (!index[currentPath].containerPath) {
+          index[currentPath].containerPath = dirname(absolutePath).replace(/\\/g, '/');
         }
         index[currentPath].files.push(entry);
       }, this);
       return index;
+    }
+
+    _folderCommandForPath(pathValue) {
+      var normalized = String(pathValue || '').trim();
+      if (!normalized) {
+        return '';
+      }
+      return 'explorer.exe "' + normalized.replace(/\//g, '\\') + '"';
     }
 
     _renderFolderExplorer(groupFiles, group, groupId) {
@@ -1450,7 +1465,7 @@
         }
         this._groupFolderBrowsePaths[groupId] = currentPath;
       }
-      var currentNode = browserIndex[currentPath] || { folders: {}, files: [] };
+      var currentNode = browserIndex[currentPath] || { folders: {}, files: [], containerPath: '' };
       var folderEntries = Object.keys(currentNode.folders).sort();
       var fileEntries = currentNode.files.filter(function (entry) {
         return this._entryMatchesFolderType(entry, typeFilter);
@@ -1475,13 +1490,18 @@
         folderRows = '<div class="folder-browser-list">'
           + folderEntries.map(function (folderName) {
             var nextPath = currentNode.folders[folderName];
-            var childNode = browserIndex[nextPath] || { folders: {}, files: [] };
+            var childNode = browserIndex[nextPath] || { folders: {}, files: [], containerPath: '' };
             var childCount = childNode.files.length;
             return ''
-              + '<button class="browser-row folder" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">'
+              + '<div class="browser-row folder">'
               + '<span class="browser-icon">📁</span>'
               + '<span class="browser-name"><span class="name-main">' + escapeHtml(folderName) + '</span><span class="sub">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span></span>'
-              + '</button>';
+              + '<span class="browser-actions"><button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">Open</button>'
+              + (childNode.containerPath
+                ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(this._folderCommandForPath(childNode.containerPath)) + '">Copy</button>'
+                : '')
+              + '</span>'
+              + '</div>';
           }).join('')
           + fileEntries.map(function (entry) {
             var pathValue = this._entryPath(entry);
@@ -1498,7 +1518,11 @@
               + '<span class="browser-name">' + escapeHtml(basename(pathValue)) + '</span>'
               + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
-              + '<span class="browser-actions"><button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open</button><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
+              + '<span class="browser-actions"><button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open</button>'
+              + (entry.launch && entry.launch.explorer_command
+                ? '<button class="button" data-action="copy-command" data-command-type="explorer" data-command="' + escapeHtml(entry.launch.explorer_command) + '">Copy</button>'
+                : '')
+              + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('')
           + '</div>';
@@ -1508,6 +1532,9 @@
         + '<div class="folder-explorer">'
         + '<div class="folder-head-row">'
         + '<span class="subtitle">Folder explorer</span>'
+        + (currentNode.containerPath
+          ? '<span class="spacer"></span><button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(this._folderCommandForPath(currentNode.containerPath)) + '">Copy Current Folder</button>'
+          : '')
         + '</div>'
         + '<div class="folder-breadcrumbs">' + breadcrumbs + '</div>'
         + folderRows
@@ -1562,6 +1589,19 @@
       }
       if (action === 'set-thumbnail-size') {
         this._setThumbnailSize(String(target.getAttribute('data-size') || 'small'));
+        return;
+      }
+      if (action === 'toggle-group-header') {
+        var headerGroupId = Number(target.getAttribute('data-group-id') || 0);
+        if (headerGroupId) {
+          this._selectedGroupId = headerGroupId;
+          var nextHeaderCollapsed = !this._collapsedGroups[headerGroupId];
+          this._collapsedGroups[headerGroupId] = nextHeaderCollapsed;
+          this._render();
+          if (!nextHeaderCollapsed) {
+            this._ensureGroupFilesLoaded(headerGroupId);
+          }
+        }
         return;
       }
       if (action === 'select-group') {
@@ -1792,10 +1832,10 @@
 
         return ''
           + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '" style="' + escapeHtml(groupStyle) + '">'
-          + '  <div class="group-header">'
+          + '  <div class="group-header" data-action="toggle-group-header" data-group-id="' + String(groupId) + '">'
           + '    <div class="thumb" title="' + escapeHtml(formatStage(group.stage || 'draft')) + '">' + escapeHtml(groupInitials) + '</div>'
           + '    <div>'
-          + '      <div class="group-title-row"><div class="group-title" data-action="select-group" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
+          + '      <div class="group-title-row"><div class="group-title">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '      <div class="folder-hint">' + escapeHtml(pathFootprint.common_prefix || storageRelativePath(group.folder_hint || '').relative || group.notes || '') + '</div>'
           + '      <div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div>'
           + '    </div>'
@@ -1806,7 +1846,7 @@
             + '  <div class="strip-head"><span class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</span><span class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></span></div>'
             + stripBody
             + '</div>'
-            + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button>' + (group.launch && group.launch.folder_command ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(group.launch.folder_command) + '">Copy Folder Command</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
+            + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button>' + (group.launch && group.launch.folder && group.launch.folder.folder_command ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(group.launch.folder.folder_command) + '">Copy Folder Command</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
