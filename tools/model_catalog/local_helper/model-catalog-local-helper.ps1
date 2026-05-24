@@ -13,7 +13,13 @@ function Show-HelperError {
 }
 
 function Get-HelperRoot {
-    Split-Path -Parent $MyInvocation.MyCommand.Path
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        return $PSScriptRoot
+    }
+    if (-not [string]::IsNullOrWhiteSpace($PSCommandPath)) {
+        return Split-Path -Parent $PSCommandPath
+    }
+    throw 'Could not determine helper script root.'
 }
 
 function Get-Config {
