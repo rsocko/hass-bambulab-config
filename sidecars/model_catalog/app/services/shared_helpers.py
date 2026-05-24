@@ -270,3 +270,61 @@ def _serialize_working_group(connection: Any, group_row: Any, settings: Settings
         "created_at": group_row["created_at"],
         "updated_at": group_row["updated_at"],
     }
+
+
+def _refresh_working_group_cached_counts(connection: Any, group_id: int) -> dict[str, int]:
+    """Recompute and persist cached file/folder counts for a working group."""
+    rows = connection.execute(
+        "SELECT file_path FROM working_items WHERE working_group_id = ?",
+        (int(group_id),),
+    ).fetchall()
+    model_exts = {".3mf", ".stl", ".step", ".stp", ".obj"}
+    image_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".bmp"}
+
+    total = 0
+    model_count = 0
+    image_count = 0
+    other_count = 0
+    folder_keys: set[str] = set()
+
+    for row in rows:
+        path_value = str(row["file_path"] or "").strip().replace("\\", "/")
+        if not path_value:
+            continue
+        total += 1
+        suffix = Path(path_value).suffix.lower()
+        if suffix in model_exts:
+            model_count += 1
+        elif suffix in image_exts:
+            image_count += 1
+        else:
+            other_count += 1
+
+        slash_index = path_value.rfind("/")
+        if slash_index > 0:
+            folder_value = path_value[:slash_index].strip().lower()
+            if folder_value:
+                folder_keys.add(folder_value)
+
+    folder_count = len(folder_keys)
+    connection.execute(
+        """
+        UPDATE working_groups
+        SET
+            cached_total_files = ?,
+            cached_model_files = ?,
+            cached_image_files = ?,
+            cached_other_files = ?,
+            cached_folder_count = ?
+        WHERE id = ?
+        """,
+        (total, model_count, image_count, other_count, folder_count, int(group_id)),
+    )
+
+    return {
+        "total": total,
+        "models": model_count,
+        "images": image_count,
+        "other": other_count,
+        "folders": folder_count,
+    }

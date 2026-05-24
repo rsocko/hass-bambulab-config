@@ -20,7 +20,7 @@ from .._helpers import (
     _normalize_path_compare_key,
 )
 from ..settings import Settings
-from .shared_helpers import _serialize_working_group, _sha256_file
+from .shared_helpers import _refresh_working_group_cached_counts, _serialize_working_group, _sha256_file
 
 
 def _working_files_destination_root(settings: Settings) -> Path | None:
@@ -216,6 +216,7 @@ def batch_add_working_group_memberships_service(*, settings: Settings, payload: 
         elif inserted_count:
             connection.execute("UPDATE working_groups SET updated_at = ? WHERE id = ?", (now_iso, group_id))
 
+        _refresh_working_group_cached_counts(connection, group_id)
         refreshed_group = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         connection.commit()
         return {
@@ -281,6 +282,7 @@ def batch_remove_working_group_memberships_service(*, settings: Settings, payloa
             ((replacement["file_path"] if replacement else None), _bulk_utc_now_iso(), group_id),
         )
 
+        _refresh_working_group_cached_counts(connection, group_id)
         refreshed_group = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         connection.commit()
         return {
@@ -556,6 +558,8 @@ def reorganize_working_group_service(
                 now_iso,
             ),
         )
+
+        _refresh_working_group_cached_counts(connection, group_id)
 
         connection.commit()
         refreshed = refresh_inventory() if refresh_inventory else {}

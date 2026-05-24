@@ -1093,6 +1093,10 @@
       }
       var bytes = entry.file_size_bytes;
       if (!Number.isFinite(Number(bytes))) {
+        bytes = entry.file_size;
+      }
+      return Number(bytes || 0);
+    }
 
     _resolveSidecarUrl() {
       if (this._hass && this._hass.states) {
@@ -1117,10 +1121,6 @@
         return candidate;
       }
       return sidecarBaseUrl.replace(/\/$/, '') + candidate;
-    }
-        bytes = entry.file_size;
-      }
-      return Number(bytes || 0);
     }
 
     _entryRelativePath(entry, group) {
