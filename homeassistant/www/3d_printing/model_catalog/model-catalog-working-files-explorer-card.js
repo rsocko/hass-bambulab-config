@@ -388,7 +388,7 @@
     + '.groups{display:grid;gap:10px;}'
     + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;--queue-border-color:#7a6a57;--group-icon-bg:rgba(122,106,87,0.26);--group-icon-fg:#f8fafc;--group-icon-ring:rgba(122,106,87,0.5);}'
     + '.group-row.active{border-color:rgba(94,234,212,0.34);background:rgba(20,184,166,0.08);}'
-    + '.group-row .ribbon{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;background:var(--queue-border-color);box-shadow:0 0 0 1px color-mix(in srgb, var(--queue-border-color) 55%, transparent);}'
+    + '.group-row::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);pointer-events:none;}'
     + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
     + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid var(--group-icon-ring);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;letter-spacing:.04em;color:var(--group-icon-fg);background:var(--group-icon-bg);text-transform:uppercase;}'
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
@@ -437,13 +437,13 @@
     + '.folder-breadcrumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}'
     + '.crumb-sep{font-size:11px;color:var(--secondary-text-color);}'
     + '.folder-browser-list{display:grid;gap:6px;}'
-    + '.browser-row{display:grid;grid-template-columns:46px minmax(0,1fr) minmax(120px,auto) auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);}'
+    + '.browser-row{display:grid;grid-template-columns:46px minmax(0,1fr) minmax(120px,auto) auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
     + '.browser-row.folder{cursor:pointer;background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.26);}'
     + '.browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}'
     + '.browser-row.file:hover{background:rgba(255,255,255,0.03);}'
     + '.browser-icon{display:flex;align-items:center;justify-content:center;width:42px;height:28px;border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
     + '.browser-row.folder .browser-icon{font-size:14px;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}'
-    + '.browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-self:start;text-align:left;}'
     + '.browser-meta{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}'
     + '.browser-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
     + '.files-table{border:1px solid rgba(148,163,184,0.18);border-radius:12px;overflow:auto;background:rgba(15,23,42,0.1);}'
@@ -624,7 +624,7 @@
             this._groupFolderTypeFilters[id] = 'models';
           }
           if (!Object.prototype.hasOwnProperty.call(this._groupFolderBrowsePaths, id)) {
-            this._groupFolderBrowsePaths[id] = '';
+            this._groupFolderBrowsePaths[id] = this._defaultGroupFolderPath(group);
           }
         }, this);
 
@@ -1082,6 +1082,14 @@
         + '--group-icon-ring:' + rgbaFromHex(borderColor, 0.52) + ';';
     }
 
+    _defaultGroupFolderPath(group) {
+      var footprint = this._groupPathFootprint(group);
+      if (Number(footprint.folder_count || 0) === 1 && String(footprint.common_prefix || '').trim()) {
+        return String(footprint.common_prefix).trim();
+      }
+      return '';
+    }
+
     _entryMatchesFolderType(entry, typeFilter) {
       var normalized = String(typeFilter || 'all').trim().toLowerCase();
       var category = this._entryTypeCategory(entry);
@@ -1198,8 +1206,11 @@
       var browserIndex = this._buildFolderBrowserIndex(groupFiles, group);
       var currentPath = String(this._groupFolderBrowsePaths[groupId] || '');
       if (!Object.prototype.hasOwnProperty.call(browserIndex, currentPath)) {
-        currentPath = '';
-        this._groupFolderBrowsePaths[groupId] = '';
+        currentPath = this._defaultGroupFolderPath(group);
+        if (!Object.prototype.hasOwnProperty.call(browserIndex, currentPath)) {
+          currentPath = '';
+        }
+        this._groupFolderBrowsePaths[groupId] = currentPath;
       }
       var currentNode = browserIndex[currentPath] || { folders: {}, files: [] };
       var folderEntries = Object.keys(currentNode.folders).sort();
@@ -1322,7 +1333,14 @@
         var subViewGroupId = Number(target.getAttribute('data-group-id') || 0);
         var nextSubView = String(target.getAttribute('data-subview') || 'files');
         if (subViewGroupId) {
-          this._groupSubViews[subViewGroupId] = nextSubView === 'folders' ? 'folders' : 'files';
+          var resolvedSubView = nextSubView === 'folders' ? 'folders' : 'files';
+          this._groupSubViews[subViewGroupId] = resolvedSubView;
+          if (resolvedSubView === 'folders' && !String(this._groupFolderBrowsePaths[subViewGroupId] || '').trim()) {
+            var selectedGroup = this._groups.find(function (candidate) {
+              return Number(candidate && candidate.id) === subViewGroupId;
+            });
+            this._groupFolderBrowsePaths[subViewGroupId] = this._defaultGroupFolderPath(selectedGroup);
+          }
           this._render();
         }
         return;
@@ -1452,7 +1470,6 @@
 
         return ''
           + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '" style="' + escapeHtml(groupStyle) + '">'
-          + '  <span class="ribbon"></span>'
           + '  <div class="group-header">'
           + '    <div class="thumb" title="' + escapeHtml(formatStage(group.stage || 'draft')) + '">' + escapeHtml(groupInitials) + '</div>'
           + '    <div>'

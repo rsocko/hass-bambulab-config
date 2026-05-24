@@ -686,6 +686,120 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return this._normalizeServiceResponse(payload);
   }
 
+  _buildModelSearchRequestUrl(requestPayload) {
+    var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!/^https?:\/\//i.test(base)) {
+      return "";
+    }
+    var payload = requestPayload && typeof requestPayload === "object" ? requestPayload : {};
+    var params = [];
+    var addText = function (key) {
+      var value = Object.prototype.hasOwnProperty.call(payload, key) ? String(payload[key] || "").trim() : "";
+      if (!value) {
+        return;
+      }
+      params.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+    };
+    var addBool = function (key) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) {
+        return;
+      }
+      params.push(encodeURIComponent(key) + "=" + (payload[key] ? "true" : "false"));
+    };
+    var addInt = function (key) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) {
+        return;
+      }
+      var num = Number(payload[key]);
+      if (!Number.isFinite(num)) {
+        return;
+      }
+      params.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(Math.trunc(num))));
+    };
+    var addFloat = function (key) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) {
+        return;
+      }
+      var num = Number(payload[key]);
+      if (!Number.isFinite(num)) {
+        return;
+      }
+      params.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(num)));
+    };
+
+    addText("q");
+    addText("collection");
+    addText("creator");
+    addText("tag");
+    addText("sort");
+    addBool("favorites_only");
+    addBool("frequents_only");
+    addInt("frequent_window_days");
+    addInt("frequent_min_prints");
+    addFloat("frequent_backfill_weight");
+    addBool("has_other_files");
+    addBool("show_archived");
+    addBool("show_ideas");
+    addBool("show_working_groups");
+    addBool("refresh");
+    addText("context");
+    addText("archive_name");
+    addText("source_file_name");
+    addText("source_hash");
+    addInt("page");
+    addInt("per_page");
+
+    var query = params.length ? ("?" + params.join("&")) : "";
+    return base + "/api/models/search" + query;
+  }
+
+  async _searchModelsFast(requestPayload) {
+    var directUrl = this._buildModelSearchRequestUrl(requestPayload);
+    if (!directUrl) {
+      return this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
+    }
+
+    var timeoutHandle = null;
+    var controller = (typeof AbortController === "function") ? new AbortController() : null;
+    try {
+      if (controller) {
+        timeoutHandle = window.setTimeout(function () {
+          controller.abort();
+        }, 12000);
+      }
+      var response = await fetch(directUrl, {
+        method: "GET",
+        headers: await this._authHeaders(false),
+        credentials: "omit",
+        signal: controller ? controller.signal : undefined,
+      });
+
+      if (response.status === 401) {
+        response = await fetch(directUrl, {
+          method: "GET",
+          headers: await this._authHeaders(true),
+          credentials: "omit",
+          signal: controller ? controller.signal : undefined,
+        });
+      }
+
+      if (response.ok) {
+        var payload = await response.json();
+        if (payload && typeof payload === "object") {
+          return payload;
+        }
+      }
+    } catch (_directError) {
+      // Fall through to the HA rest_command path for reliability.
+    } finally {
+      if (timeoutHandle) {
+        window.clearTimeout(timeoutHandle);
+      }
+    }
+
+    return this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
+  }
+
   _syncFormIntoFilters() {
     var root = this.shadowRoot;
     if (!root) {
@@ -965,7 +1079,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         per_page: this._pagination.per_page,
       };
 
-      var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
+      var data = await this._searchModelsFast(requestPayload);
       searchEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
       if (this._pendingNavPerf) {
         this._pendingNavPerf.searchEndMs = searchEnd;
