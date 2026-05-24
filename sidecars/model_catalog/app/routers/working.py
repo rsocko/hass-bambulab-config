@@ -12,6 +12,7 @@ This router handles:
 - Bulk discovery and bulk import workflows
 """
 from __future__ import annotations
+import base64
 import hashlib
 import json
 import os
@@ -26,6 +27,7 @@ from fastapi.responses import JSONResponse
 
 from ..settings import Settings
 from ..state import AppState
+from ..geometry_3mf import extract_3mf_thumbnail
 from .._helpers import (
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_path_source_metadata,
@@ -112,6 +114,86 @@ VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "cleanup_failed": {"cleanup_pending"},
     "failed": set(),
 }
+
+_WORKING_INLINE_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+_WORKING_INLINE_3MF_MAX_BYTES = 300 * 1024 * 1024
+_WORKING_THUMB_CACHE_MAX = 256
+_WORKING_THUMB_CACHE: dict[str, str] = {}
+
+
+def _detect_image_mime(payload: bytes) -> str | None:
+    if payload.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if payload.startswith(b"GIF87a") or payload.startswith(b"GIF89a"):
+        return "image/gif"
+    if payload.startswith(b"RIFF") and payload[8:12] == b"WEBP":
+        return "image/webp"
+    if payload.startswith(b"BM"):
+        return "image/bmp"
+    return None
+
+
+def _data_url(mime: str, payload: bytes) -> str:
+    encoded = base64.b64encode(payload).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _working_thumbnail_data_url(file_path: str | None) -> str | None:
+    path_text = str(file_path or "").strip()
+    if not path_text:
+        return None
+    try:
+        resolved = Path(path_text).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+    if not resolved.exists() or not resolved.is_file():
+        return None
+
+    try:
+        stat_result = resolved.stat()
+    except OSError:
+        return None
+
+    cache_key = f"{_normalize_path_compare_key(str(resolved))}|{int(stat_result.st_mtime)}|{int(stat_result.st_size)}"
+    cached = _WORKING_THUMB_CACHE.get(cache_key)
+    if cached is not None:
+        return cached or None
+
+    suffix = resolved.suffix.lower()
+    data_url_value: str | None = None
+
+    try:
+        if suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}:
+            if int(stat_result.st_size) <= _WORKING_INLINE_IMAGE_MAX_BYTES:
+                payload = resolved.read_bytes()
+                mime = _detect_image_mime(payload)
+                if mime:
+                    data_url_value = _data_url(mime, payload)
+        elif suffix == ".svg":
+            if int(stat_result.st_size) <= _WORKING_INLINE_IMAGE_MAX_BYTES:
+                payload = resolved.read_bytes()
+                data_url_value = _data_url("image/svg+xml", payload)
+        elif suffix == ".3mf":
+            if int(stat_result.st_size) <= _WORKING_INLINE_3MF_MAX_BYTES:
+                package_bytes = resolved.read_bytes()
+                thumbnail_bytes = extract_3mf_thumbnail(package_bytes)
+                if thumbnail_bytes:
+                    mime = _detect_image_mime(thumbnail_bytes)
+                    if mime:
+                        data_url_value = _data_url(mime, thumbnail_bytes)
+    except OSError:
+        data_url_value = None
+    except Exception:
+        data_url_value = None
+
+    _WORKING_THUMB_CACHE[cache_key] = data_url_value or ""
+    if len(_WORKING_THUMB_CACHE) > _WORKING_THUMB_CACHE_MAX:
+        oldest_key = next(iter(_WORKING_THUMB_CACHE))
+        _WORKING_THUMB_CACHE.pop(oldest_key, None)
+
+    return data_url_value
 
 
 # ==================== HELPER FUNCTIONS: FILE OPERATIONS ====================
@@ -1106,6 +1188,21 @@ def explore_working_files(request: Request,
                 file_path = str(item.get("file_path") or "")
                 membership_key = _normalize_path_compare_key(file_path)
                 item["group_memberships"] = memberships_by_key.get(membership_key, [])
+                source_metadata = item.get("source_metadata")
+                if not isinstance(source_metadata, dict):
+                    source_metadata = {}
+                has_thumbnail = any(
+                    str(source_metadata.get(field) or "").strip()
+                    for field in ("thumbnail_url", "preview_url", "image_url", "embedded_thumbnail_url", "thumb_url")
+                )
+                if not has_thumbnail:
+                    data_url_value = _working_thumbnail_data_url(file_path)
+                    if data_url_value:
+                        source_metadata["thumbnail_url"] = data_url_value
+                        source_metadata["image_url"] = data_url_value
+                        if Path(file_path).suffix.lower() == ".3mf":
+                            source_metadata["embedded_thumbnail_url"] = data_url_value
+                        item["source_metadata"] = source_metadata
 
             if q and q.strip():
                 query_text = q.strip().lower()

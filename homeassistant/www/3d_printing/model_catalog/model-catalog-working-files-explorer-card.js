@@ -410,7 +410,7 @@
     + '.subview-toggle button{border:0;background:transparent;color:var(--secondary-text-color);font-size:10px;padding:4px 10px;border-radius:999px;cursor:pointer;}'
     + '.subview-toggle button.active{background:rgba(94,234,212,0.18);color:#99f6e4;}'
     + '.file-list{display:grid;gap:4px;}'
-    + '.file-row{display:grid;grid-template-columns:38px minmax(0,1fr)84px 180px auto auto;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
+    + '.file-row{display:grid;grid-template-columns:38px minmax(0,1fr)92px 192px 96px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
     + '.file-row:hover{background:rgba(255,255,255,0.03);}'
     + '.file-row.primary{background:rgba(245,194,66,0.08);border:1px solid rgba(245,194,66,0.22);}'
     + '.file-thumb{width:34px;height:34px;border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
@@ -421,9 +421,16 @@
     + '.file-main{min-width:0;}'
     + '.file-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.file-path{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
-    + '.file-num{font-size:11px;color:var(--secondary-text-color);text-align:right;}'
-    + '.file-num .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}'
+    + '.file-size,.file-modified{font-size:11px;color:var(--secondary-text-color);text-align:right;white-space:nowrap;}'
+    + '.file-modified strong{font-weight:700;}'
+    + '.file-modified .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}'
+    + '.primary-slot{display:flex;justify-content:center;}'
+    + '.selector-slot{display:flex;justify-content:flex-end;}'
     + '.primary-pill{display:inline-flex;padding:2px 7px;border-radius:999px;background:rgba(245,194,66,0.15);border:1px solid rgba(245,194,66,0.33);color:#f5c242;font-size:10px;font-weight:700;}'
+    + '.primary-action{min-width:94px;min-height:28px;padding:0 10px;border-radius:999px;border:1px dashed rgba(148,163,184,0.32);background:rgba(15,23,42,0.24);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;}'
+    + '.primary-action:hover,.primary-action:focus-visible{border-style:solid;border-color:rgba(96,165,250,0.46);background:rgba(96,165,250,0.14);color:#dbeafe;outline:none;}'
+    + '.primary-action.is-current{border-style:solid;border-color:rgba(245,194,66,0.42);background:rgba(245,194,66,0.16);color:#f5c242;cursor:default;}'
+    + '.primary-action.is-current:hover,.primary-action.is-current:focus-visible{background:rgba(245,194,66,0.16);color:#f5c242;}'
     + '.selector{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);}'
     + '.group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);}'
     + '.group-actions .spacer{flex:1;}'
@@ -434,17 +441,23 @@
     + '.folder-explorer{display:grid;gap:8px;}'
     + '.folder-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}'
     + '.folder-type-filters{display:flex;gap:6px;flex-wrap:wrap;}'
-    + '.folder-breadcrumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}'
-    + '.crumb-sep{font-size:11px;color:var(--secondary-text-color);}'
+    + '.folder-breadcrumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}'
+    + '.breadcrumb-up{appearance:none;border:0;background:transparent;padding:2px 6px;margin:0;border-radius:6px;color:var(--secondary-text-color);font-size:14px;font-weight:800;cursor:pointer;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;min-width:22px;}'
+    + '.breadcrumb-up:hover,.breadcrumb-up:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);outline:none;}'
+    + '.breadcrumb-link{appearance:none;border:0;background:transparent;padding:2px 6px;margin:0;border-radius:6px;color:var(--secondary-text-color);font-size:12px;cursor:pointer;line-height:1.4;}'
+    + '.breadcrumb-link:hover,.breadcrumb-link:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);outline:none;}'
+    + '.breadcrumb-link.current{font-weight:700;color:var(--primary-text-color);}'
+    + '.crumb-sep{font-size:12px;color:var(--secondary-text-color);opacity:.7;padding:0 2px;}'
     + '.folder-browser-list{display:grid;gap:6px;}'
-    + '.browser-row{display:grid;grid-template-columns:46px minmax(0,1fr) minmax(120px,auto) auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
+    + '.browser-row{display:grid;grid-template-columns:46px minmax(0,1fr) 92px 192px auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
     + '.browser-row.folder{cursor:pointer;background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.26);}'
     + '.browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}'
     + '.browser-row.file:hover{background:rgba(255,255,255,0.03);}'
     + '.browser-icon{display:flex;align-items:center;justify-content:center;width:42px;height:28px;border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
     + '.browser-row.folder .browser-icon{font-size:14px;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}'
     + '.browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-self:start;text-align:left;}'
-    + '.browser-meta{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}'
+    + '.browser-size,.browser-modified{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}'
+    + '.browser-modified .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}'
     + '.browser-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
     + '.files-table{border:1px solid rgba(148,163,184,0.18);border-radius:12px;overflow:auto;background:rgba(15,23,42,0.1);}'
     + '.files-table table{width:100%;border-collapse:collapse;min-width:860px;}'
@@ -462,7 +475,7 @@
     + '.validation{font-size:11px;color:#86efac;}'
     + '.validation.warn{color:#fca5a5;}'
     + '.right{text-align:right;}'
-    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)auto;}.file-row .file-num,.file-row .primary-pill{display:none;}}';
+    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)84px;}.file-row .file-size,.file-row .file-modified,.file-row .primary-slot{display:none;}.browser-row{grid-template-columns:46px minmax(0,1fr)auto;}.browser-row .browser-size,.browser-row .browser-modified{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
     constructor() {
@@ -890,6 +903,31 @@
       }
     }
 
+    async _setGroupPrimaryFile(groupId, filePath) {
+      var resolvedGroupId = Number(groupId || 0);
+      var resolvedFilePath = String(filePath || '').trim();
+      if (!resolvedGroupId || !resolvedFilePath) {
+        return;
+      }
+
+      this._loading = true;
+      this._error = '';
+      this._status = '';
+      this._render();
+      try {
+        await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_update_working_group', {
+          group_id: resolvedGroupId,
+          primary_file_path: resolvedFilePath,
+        });
+        this._status = 'Primary file updated.';
+        await this._loadExplorer();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not set primary file.';
+        this._loading = false;
+        this._render();
+      }
+    }
+
     _setView(nextView) {
       var normalized = String(nextView || '').trim().toLowerCase();
       if (VIEW_OPTIONS.indexOf(normalized) < 0) {
@@ -974,6 +1012,14 @@
       return storageRelative || basename(this._entryPath(entry));
     }
 
+    _entryRelativeDirectory(entry, group) {
+      var relPath = this._entryRelativePath(entry, group);
+      if (!relPath || relPath.indexOf('/') < 0) {
+        return '';
+      }
+      return dirname(relPath);
+    }
+
     _groupPathFootprint(group) {
       var files = this._groupFiles(group);
       if (!files.length) {
@@ -1029,12 +1075,9 @@
         if (!candidate) {
           continue;
         }
-        if (/^(https?:|\/|data:|file:)/i.test(candidate)) {
+        if (/^(https?:|\/|data:)/i.test(candidate)) {
           return candidate;
         }
-      }
-      if (isImageExtension(this._entryExtension(entry))) {
-        return toFileUri(this._entryPath(entry));
       }
       return '';
     }
@@ -1221,10 +1264,13 @@
       var breadcrumbs = '';
       var crumbPath = '';
       var parts = currentPath ? currentPath.split('/').filter(Boolean) : [];
-      breadcrumbs += '<button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="">Root</button>';
+      if (currentPath) {
+        breadcrumbs += '<button class="breadcrumb-up" data-action="folder-up" data-group-id="' + String(groupId) + '" title="Up one level" aria-label="Up one level">↑</button><span class="crumb-sep">|</span>';
+      }
+      breadcrumbs += '<button class="breadcrumb-link' + (parts.length ? '' : ' current') + '" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="">Root</button>';
       parts.forEach(function (segment) {
         crumbPath = this._joinFolderPath(crumbPath, segment);
-        breadcrumbs += '<span class="crumb-sep">/</span><button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(crumbPath) + '">' + escapeHtml(segment) + '</button>';
+        breadcrumbs += '<span class="crumb-sep">&gt;</span><button class="breadcrumb-link' + (crumbPath === currentPath ? ' current' : '') + '" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(crumbPath) + '">' + escapeHtml(segment) + '</button>';
       }, this);
 
       var folderRows = '';
@@ -1240,7 +1286,8 @@
               + '<button class="browser-row folder" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">'
               + '<span class="browser-icon">📁</span>'
               + '<span class="browser-name">' + escapeHtml(folderName) + '</span>'
-              + '<span class="browser-meta">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span>'
+              + '<span class="browser-size">-</span>'
+              + '<span class="browser-modified">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span>'
               + '</button>';
           }).join('')
           + fileEntries.map(function (entry) {
@@ -1251,7 +1298,8 @@
               + '<div class="browser-row file">'
               + '<span class="browser-icon">' + escapeHtml(extensionBadge(extension)) + '</span>'
               + '<span class="browser-name">' + escapeHtml(basename(pathValue)) + '</span>'
-              + '<span class="browser-meta">' + escapeHtml(formatBytes(this._entrySize(entry))) + ' · ' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '<br>' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span>'
+              + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
+              + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="browser-actions"><button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open</button><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('')
@@ -1262,7 +1310,6 @@
         + '<div class="folder-explorer">'
         + '<div class="folder-head-row">'
         + '<span class="subtitle">Folder explorer</span>'
-        + (currentPath ? '<button class="button" data-action="folder-up" data-group-id="' + String(groupId) + '">Up One Level</button>' : '')
         + '</div>'
         + '<div class="folder-breadcrumbs">' + breadcrumbs + '</div>'
         + this._renderFileTypeFilters(groupFiles, groupId, typeFilter)
@@ -1411,6 +1458,13 @@
         this._runReorganize(Number(target.getAttribute('data-group-id') || 0));
         return;
       }
+      if (action === 'set-group-primary-file') {
+        this._setGroupPrimaryFile(
+          Number(target.getAttribute('data-group-id') || 0),
+          String(target.getAttribute('data-file-path') || ''),
+        );
+        return;
+      }
       if (action === 'open-group-folder') {
         this._openLocalPath(String(target.getAttribute('data-path') || ''));
       }
@@ -1448,6 +1502,7 @@
             var ext = this._entryExtension(entry);
             var extClass = 'x-' + ext.replace(/^\./, '');
             var selected = !!this._selectedPaths[pathValue];
+            var primaryLabel = isPrimary ? 'Primary' : 'Make primary';
             return ''
               + '<div class="file-row' + (isPrimary ? ' primary' : '') + '">' 
               + '<span class="file-thumb">'
@@ -1455,11 +1510,11 @@
                 ? '<img src="' + escapeHtml(this._entryThumbnailUrl(entry)) + '" loading="lazy" alt="thumb">'
                 : '<span class="ext-badge ' + escapeHtml(extClass) + '">' + escapeHtml(extensionBadge(ext)) + '</span>')
               + '</span>'
-              + '<span class="file-main"><div class="file-name">' + escapeHtml(basename(pathValue)) + '</div><div class="file-path">' + escapeHtml(this._entryRelativePath(entry, group)) + '</div></span>'
-              + '<span class="file-num">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
-              + '<span class="file-num"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
-              + '<span>' + (isPrimary ? '<span class="primary-pill">Primary</span>' : '') + '</span>'
-              + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label>'
+              + '<span class="file-main"><div class="file-name">' + escapeHtml(basename(pathValue)) + '</div><div class="file-path">' + escapeHtml(this._entryRelativeDirectory(entry, group)) + '</div></span>'
+              + '<span class="file-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
+              + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
+              + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
+              + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('') + '</div>';
         }
@@ -1494,7 +1549,7 @@
       var selectedCount = this._selectedPathList().length;
       return ''
         + '<section class="section">'
-        + '  <div class="title-row"><div><div class="title">Groups</div><div class="subtitle">Expanded rows show model files, modification timing, and reorganize actions without opening popups.</div></div><div class="status">Selected files ' + String(selectedCount) + '</div></div>'
+        + '  <div class="title-row"><div><div class="title">Groups</div></div><div class="status">Selected files ' + String(selectedCount) + '</div></div>'
         + (selectedCount
           ? '<div class="bulk-bar"><span>' + String(selectedCount) + ' file(s) selected</span><button class="button primary" data-action="add-selection-to-group">Add To Group</button><button class="button" data-action="create-group-from-selection">Create Group</button><span class="spacer"></span><button class="button warn" data-action="remove-selection-from-group">Remove From Active Group</button></div>'
           : '')

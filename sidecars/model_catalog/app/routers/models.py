@@ -942,7 +942,7 @@ def _search_models_from_projection(
         )
         payload = _serialize_model_summary(
             summary,
-            custom_fields=custom_fields,
+            custom_fields=_compact_summary_custom_fields(custom_fields),
             ranking_by_url={summary.model_url: ranking_obj},
             link_counts_by_url={summary.model_url: int(row["linked_archive_count"] or 0)},
             preview_proxy_base_url=preview_proxy_base_url,
@@ -1873,6 +1873,16 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
         return datetime.fromisoformat(normalized.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError:
         return None
+
+
+def _compact_summary_custom_fields(custom_fields: dict[str, object] | None) -> dict[str, object]:
+    """Trim heavyweight detail-only fields from list/search payloads."""
+    fields = custom_fields or {}
+    if not isinstance(fields, dict):
+        return {}
+    compact = dict(fields)
+    compact.pop("extracted_3mf_metadata", None)
+    return compact
 
 
 def _coerce_boolish(value: object | None) -> bool | None:
@@ -3484,7 +3494,7 @@ def search_models(
         # Build model payload
         model_payload = _serialize_model_summary(
             summary,
-            custom_fields=custom_fields,
+            custom_fields=_compact_summary_custom_fields(custom_fields),
             ranking_by_url=ranking_by_url,
             link_counts_by_url=link_counts_by_url,
             preview_proxy_base_url=preview_proxy_base_url,
