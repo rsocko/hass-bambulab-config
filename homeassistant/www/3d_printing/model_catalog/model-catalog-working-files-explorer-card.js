@@ -1503,9 +1503,10 @@
     }
 
     _buildFolderBrowserIndex(groupFiles, group) {
-      var index = { '': { folders: {}, files: [], windowsPath: '' } };
+      var index = { '': { folders: {}, files: [], windowsPath: '', containerPath: '' } };
       groupFiles.forEach(function (entry) {
         var rel = this._normalizeRelativePath(entry, group);
+        var containerPath = this._entryPath(entry);
         var launchContext = entry && entry.launch && typeof entry.launch === 'object' ? entry.launch : {};
         var windowsPath = String(launchContext.windows_path || '').trim();
         if (!rel) {
@@ -1520,22 +1521,28 @@
           var folderName = parts[i];
           var nextPath = this._joinFolderPath(currentPath, folderName);
           if (!index[currentPath]) {
-            index[currentPath] = { folders: {}, files: [], windowsPath: '' };
+            index[currentPath] = { folders: {}, files: [], windowsPath: '', containerPath: '' };
           }
           if (!index[nextPath]) {
-            index[nextPath] = { folders: {}, files: [], windowsPath: '' };
+            index[nextPath] = { folders: {}, files: [], windowsPath: '', containerPath: '' };
           }
           index[currentPath].folders[folderName] = nextPath;
           if (!index[nextPath].windowsPath && windowsPath) {
             index[nextPath].windowsPath = dirname(windowsPath).replace(/\\/g, '/');
           }
+          if (!index[nextPath].containerPath && containerPath) {
+            index[nextPath].containerPath = dirname(containerPath).replace(/\\/g, '/');
+          }
           currentPath = nextPath;
         }
         if (!index[currentPath]) {
-          index[currentPath] = { folders: {}, files: [], windowsPath: '' };
+          index[currentPath] = { folders: {}, files: [], windowsPath: '', containerPath: '' };
         }
         if (!index[currentPath].windowsPath && windowsPath) {
           index[currentPath].windowsPath = dirname(windowsPath).replace(/\\/g, '/');
+        }
+        if (!index[currentPath].containerPath && containerPath) {
+          index[currentPath].containerPath = dirname(containerPath).replace(/\\/g, '/');
         }
         index[currentPath].files.push(entry);
       }, this);
@@ -1553,7 +1560,7 @@
         }
         this._groupFolderBrowsePaths[groupId] = currentPath;
       }
-      var currentNode = browserIndex[currentPath] || { folders: {}, files: [], windowsPath: '' };
+      var currentNode = browserIndex[currentPath] || { folders: {}, files: [], windowsPath: '', containerPath: '' };
       var folderEntries = Object.keys(currentNode.folders).sort();
       var fileEntries = currentNode.files.filter(function (entry) {
         return this._entryMatchesFolderType(entry, typeFilter);
@@ -1578,13 +1585,16 @@
         folderRows = '<div class="folder-browser-list">'
           + folderEntries.map(function (folderName) {
             var nextPath = currentNode.folders[folderName];
-            var childNode = browserIndex[nextPath] || { folders: {}, files: [], windowsPath: '' };
+            var childNode = browserIndex[nextPath] || { folders: {}, files: [], windowsPath: '', containerPath: '' };
             var childCount = childNode.files.length;
             return ''
-              + '<div class="browser-row folder">'
+              + '<div class="browser-row folder" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">'
               + '<span class="browser-icon">📁</span>'
               + '<span class="browser-name"><span class="name-main">' + escapeHtml(folderName) + '</span><span class="sub">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span></span>'
-              + '<span class="browser-actions"><button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">Open</button>'
+              + '<span class="browser-actions"><button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">Open in Web</button>'
+              + (childNode.containerPath
+                ? '<button class="button" data-action="open-group-folder" data-path="' + escapeHtml(childNode.containerPath) + '">Open Folder on Desktop</button>'
+                : '')
               + (childNode.windowsPath
                 ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(childNode.windowsPath) + '">Copy Path</button>'
                 : '')
@@ -1941,7 +1951,7 @@
             + '  <div class="strip-head"><div class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</div><div class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></div></div>'
             + stripBody
             + '</div>'
-            + '<div class="group-actions">' + (group.launch && group.launch.folder && group.launch.folder.windows_path ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(group.launch.folder.windows_path) + '">Copy Folder Path</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
+            + '<div class="group-actions">' + (group.folder_hint ? '<button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint) + '">Open Folder on Desktop</button>' : '') + (group.launch && group.launch.folder && group.launch.folder.windows_path ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(group.launch.folder.windows_path) + '">Copy Folder Path</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
