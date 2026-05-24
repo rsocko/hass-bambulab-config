@@ -185,7 +185,8 @@ GEOMETRY_LOD_CACHE_MAX_ENTRIES = 64
 GEOMETRY_LOD_CACHE_MAX_BYTES = 256 * 1024 * 1024
 _GEOMETRY_LOD_CACHE: "OrderedDict[tuple[str, str, str], dict[str, Any]]" = OrderedDict()
 _GEOMETRY_LOD_CACHE_TOTAL_BYTES: int = 0
-MODEL_SEARCH_CACHE_TTL_SECONDS = 2.0
+# Keep short-lived request cache warm across quick page flips/filter toggles.
+MODEL_SEARCH_CACHE_TTL_SECONDS = 8.0
 MODEL_SEARCH_CACHE_MAX_ENTRIES = 64
 _MODEL_SEARCH_CACHE: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
