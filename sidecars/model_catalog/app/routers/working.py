@@ -613,6 +613,27 @@ def _container_assets_path_to_windows(path_value: str | None, settings: Settings
     return str(target)
 
 
+def _generate_commands_for_path(windows_path: str | None) -> dict[str, str]:
+    """Generate Windows shell commands for a file or folder path."""
+    if not windows_path:
+        return {"explorer_command": "", "folder_command": ""}
+    
+    # Normalize the path
+    normalized = str(windows_path).strip()
+    if not normalized:
+        return {"explorer_command": "", "folder_command": ""}
+    
+    # For a file: explorer.exe /select,"C:\path\to\file.ext"
+    # For a folder: explorer.exe "C:\path\to\folder"
+    explorer_select = f'explorer.exe /select,"{normalized}"'
+    explorer_open = f'explorer.exe "{normalized}"'
+    
+    return {
+        "explorer_command": explorer_select,  # Use /select for files, open for folders
+        "folder_command": explorer_open,      # Always available for opening folder
+    }
+
+
 def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict[str, Any]:
     """Generate launch context for a file path (Windows file opening)."""
     container_path = str(path_value or "").strip()
@@ -626,6 +647,8 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
     elif not windows_path:
         reason = "path_outside_assets_mount"
 
+    commands = _generate_commands_for_path(windows_path)
+
     return {
         "container_path": container_path,
         "assets_root_host": assets_root_host,
@@ -634,6 +657,8 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
         "can_open_in_explorer": bool(windows_path),
         "windows_path": windows_path,
         "reason": reason,
+        "explorer_command": commands.get("explorer_command", ""),
+        "folder_command": commands.get("folder_command", ""),
     }
 
 

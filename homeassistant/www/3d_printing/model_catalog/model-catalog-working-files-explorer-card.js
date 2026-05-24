@@ -400,11 +400,11 @@
     + '.group-row::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);pointer-events:none;}'
     + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
     + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid var(--group-icon-ring);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;letter-spacing:.04em;color:var(--group-icon-fg);background:var(--group-icon-bg);text-transform:uppercase;}'
+    + '.group-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}'
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
     + '.folder-hint{font-size:11px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.path-summary{margin-top:6px;font-size:10px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;display:flex;gap:8px;flex-wrap:wrap;}'
     + '.path-summary strong{color:#93c5fd;font-weight:700;}'
-    + '.group-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;color:var(--secondary-text-color);font-size:11px;}'
     + '.stage-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.3);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(100,116,139,0.2);color:#dbe7f2;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);}'
     + '.stage-chip.draft{border-color:rgba(148,163,184,0.44);background:rgba(71,85,105,0.34);color:#e2e8f0;}'
     + '.stage-chip.in_progress{border-color:rgba(252,211,77,0.5);color:#fef3c7;background:rgba(245,158,11,0.32);}'
@@ -460,22 +460,27 @@
     + '.folder-explorer{display:grid;gap:8px;}'
     + '.folder-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}'
     + '.folder-type-filters{display:flex;gap:6px;flex-wrap:wrap;}'
-    + '.folder-breadcrumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}'
-    + '.breadcrumb-up{appearance:none;border:0;background:transparent;padding:2px 6px;margin:0;border-radius:6px;color:var(--secondary-text-color);font-size:14px;font-weight:800;cursor:pointer;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;min-width:22px;}'
+    + '.folder-breadcrumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}'
+    + '.breadcrumb-up{appearance:none;border:0;background:transparent;padding:0;margin:0;border-radius:6px;color:var(--secondary-text-color);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;}'
     + '.breadcrumb-up:hover,.breadcrumb-up:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);outline:none;}'
-    + '.breadcrumb-link{appearance:none;border:0;background:transparent;padding:2px 6px;margin:0;border-radius:6px;color:var(--secondary-text-color);font-size:12px;cursor:pointer;line-height:1.4;}'
+    + '.breadcrumb-up ha-icon{--mdc-icon-size:17px;}'
+    + '.breadcrumb-link{appearance:none;border:0;background:transparent;padding:2px 8px;margin:0;border-radius:6px;color:var(--secondary-text-color);font-size:12px;cursor:pointer;line-height:1.4;min-height:24px;display:inline-flex;align-items:center;}'
     + '.breadcrumb-link:hover,.breadcrumb-link:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);outline:none;}'
     + '.breadcrumb-link.current{font-weight:700;color:var(--primary-text-color);}'
-    + '.crumb-sep{font-size:12px;color:var(--secondary-text-color);opacity:.7;padding:0 2px;}'
+    + '.crumb-sep{display:inline-flex;align-items:center;justify-content:center;width:14px;height:24px;color:var(--secondary-text-color);opacity:.8;}'
+    + '.crumb-sep ha-icon{--mdc-icon-size:14px;}'
     + '.folder-browser-list{display:grid;gap:6px;}'
     + '.browser-row{display:grid;grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr) 92px 192px auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}'
     + '.browser-row.folder{cursor:pointer;background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.26);}'
+    + '.browser-row.folder{grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr);}'
     + '.browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}'
     + '.browser-row.file:hover{background:rgba(255,255,255,0.03);}'
     + '.browser-icon{display:flex;align-items:center;justify-content:center;width:var(--browser-icon-width,42px);height:var(--browser-icon-height,28px);border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}'
     + '.browser-icon img{width:100%;height:100%;object-fit:cover;display:block;}'
-    + '.browser-row.folder .browser-icon{font-size:14px;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}'
+    + '.browser-row.folder .browser-icon{font-size:var(--browser-folder-icon-font,16px);line-height:1;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}'
     + '.browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-self:start;text-align:left;}'
+    + '.browser-name .name-main{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.browser-name .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.9;font-weight:400;line-height:1.25;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.browser-size,.browser-modified{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}'
     + '.browser-modified .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}'
     + '.browser-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
@@ -495,9 +500,9 @@
     + '.validation{font-size:11px;color:#86efac;}'
     + '.validation.warn{color:#fca5a5;}'
     + '.right{text-align:right;}'
-    + '.shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;--thumb-badge-width:22px;--thumb-badge-height:20px;--thumb-badge-font:9px;}'
-    + '.shell.thumb-medium{--thumb-size:58px;--file-thumb-col:62px;--browser-icon-col:66px;--browser-icon-width:62px;--browser-icon-height:42px;--thumb-badge-width:34px;--thumb-badge-height:30px;--thumb-badge-font:12px;}'
-    + '.shell.thumb-large{--thumb-size:116px;--file-thumb-col:124px;--browser-icon-col:132px;--browser-icon-width:124px;--browser-icon-height:84px;--thumb-badge-width:68px;--thumb-badge-height:60px;--thumb-badge-font:20px;}'
+    + '.shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;--browser-folder-icon-font:16px;--thumb-badge-width:22px;--thumb-badge-height:20px;--thumb-badge-font:9px;}'
+    + '.shell.thumb-medium{--thumb-size:58px;--file-thumb-col:62px;--browser-icon-col:66px;--browser-icon-width:62px;--browser-icon-height:42px;--browser-folder-icon-font:24px;--thumb-badge-width:34px;--thumb-badge-height:30px;--thumb-badge-font:12px;}'
+    + '.shell.thumb-large{--thumb-size:116px;--file-thumb-col:124px;--browser-icon-col:132px;--browser-icon-width:124px;--browser-icon-height:84px;--browser-folder-icon-font:46px;--thumb-badge-width:68px;--thumb-badge-height:60px;--thumb-badge-font:20px;}'
     + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)84px;}.file-row .file-size,.file-row .file-modified,.file-row .primary-slot{display:none;}.browser-row{grid-template-columns:46px minmax(0,1fr)auto;}.browser-row .browser-size,.browser-row .browser-modified{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
@@ -1377,8 +1382,8 @@
       return ''
         + '<div class="folder-type-filters inline">'
         + '<button class="type-chip type-all' + (typeFilter === 'all' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="all">All ' + String(counts.all) + '</button>'
-        + '<button class="type-chip type-images' + (typeFilter === 'images' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">Images ' + String(counts.images) + '</button>'
         + '<button class="type-chip type-models' + (typeFilter === 'models' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">Models ' + String(counts.models) + '</button>'
+        + '<button class="type-chip type-images' + (typeFilter === 'images' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">Images ' + String(counts.images) + '</button>'
         + '<button class="type-chip type-other' + (typeFilter === 'other' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="other">Other Files ' + String(counts.other) + '</button>'
         + '</div>';
     }
@@ -1455,12 +1460,12 @@
       var crumbPath = '';
       var parts = currentPath ? currentPath.split('/').filter(Boolean) : [];
       if (currentPath) {
-        breadcrumbs += '<button class="breadcrumb-up" data-action="folder-up" data-group-id="' + String(groupId) + '" title="Up one level" aria-label="Up one level">↑</button><span class="crumb-sep">|</span>';
+        breadcrumbs += '<button class="breadcrumb-up" data-action="folder-up" data-group-id="' + String(groupId) + '" title="Up one level" aria-label="Up one level"><ha-icon icon="mdi:arrow-up"></ha-icon></button><span class="crumb-sep" aria-hidden="true"><ha-icon icon="mdi:chevron-right"></ha-icon></span>';
       }
       breadcrumbs += '<button class="breadcrumb-link' + (parts.length ? '' : ' current') + '" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="">Root</button>';
       parts.forEach(function (segment) {
         crumbPath = this._joinFolderPath(crumbPath, segment);
-        breadcrumbs += '<span class="crumb-sep">&gt;</span><button class="breadcrumb-link' + (crumbPath === currentPath ? ' current' : '') + '" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(crumbPath) + '">' + escapeHtml(segment) + '</button>';
+        breadcrumbs += '<span class="crumb-sep" aria-hidden="true"><ha-icon icon="mdi:chevron-right"></ha-icon></span><button class="breadcrumb-link' + (crumbPath === currentPath ? ' current' : '') + '" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(crumbPath) + '">' + escapeHtml(segment) + '</button>';
       }, this);
 
       var folderRows = '';
@@ -1475,9 +1480,7 @@
             return ''
               + '<button class="browser-row folder" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">'
               + '<span class="browser-icon">📁</span>'
-              + '<span class="browser-name">' + escapeHtml(folderName) + '</span>'
-              + '<span class="browser-size">-</span>'
-              + '<span class="browser-modified">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span>'
+              + '<span class="browser-name"><span class="name-main">' + escapeHtml(folderName) + '</span><span class="sub">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span></span>'
               + '</button>';
           }).join('')
           + fileEntries.map(function (entry) {
@@ -1670,6 +1673,63 @@
       if (action === 'open-group-folder') {
         this._openLocalPath(String(target.getAttribute('data-path') || ''));
       }
+      if (action === 'copy-command') {
+        var commandType = String(target.getAttribute('data-command-type') || 'explorer');
+        var command = String(target.getAttribute('data-command') || '');
+        this._copyToClipboard(command, commandType);
+      }
+    }
+
+    _copyToClipboard(command, commandType) {
+      if (!command) {
+        return;
+      }
+      var tooltip = '';
+      if (commandType === 'explorer') {
+        tooltip = 'Explorer command copied! Paste in PowerShell or Cmd.';
+      } else if (commandType === 'folder') {
+        tooltip = 'Folder command copied! Paste in PowerShell or Cmd.';
+      } else {
+        tooltip = 'Command copied!';
+      }
+      
+      try {
+        navigator.clipboard.writeText(command).then(function () {
+          this._showCopyToast(tooltip);
+        }.bind(this)).catch(function (err) {
+          console.warn('Copy failed, trying fallback:', err);
+          this._copyToastViaExecCommand(command, tooltip);
+        }.bind(this));
+      } catch (err) {
+        console.warn('Clipboard API unavailable, trying fallback:', err);
+        this._copyToastViaExecCommand(command, tooltip);
+      }
+    }
+
+    _copyToastViaExecCommand(command, tooltip) {
+      try {
+        var textArea = document.createElement('textarea');
+        textArea.value = command;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        this._showCopyToast(tooltip);
+      } catch (err) {
+        console.error('Copy failed:', err);
+        this._showCopyToast('Failed to copy command.');
+      }
+    }
+
+    _showCopyToast(message) {
+      this._status = message;
+      this._render();
+      setTimeout(function () {
+        if (this._status === message) {
+          this._status = '';
+          this._render();
+        }
+      }.bind(this), 3000);
     }
 
     _renderGroupsPane() {
@@ -1720,6 +1780,7 @@
               + '<span class="file-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
+              + (entry.launch && entry.launch.explorer_command ? '<span class="copy-slot"><button class="copy-action" title="Copy file launch command" data-action="copy-command" data-command-type="explorer" data-command="' + escapeHtml(entry.launch.explorer_command) + '">📋 Copy</button></span>' : '')
               + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('') + '</div>';
@@ -1734,10 +1795,9 @@
           + '  <div class="group-header">'
           + '    <div class="thumb" title="' + escapeHtml(formatStage(group.stage || 'draft')) + '">' + escapeHtml(groupInitials) + '</div>'
           + '    <div>'
-          + '      <div class="group-title" data-action="select-group" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div>'
+          + '      <div class="group-title-row"><div class="group-title" data-action="select-group" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '      <div class="folder-hint">' + escapeHtml(pathFootprint.common_prefix || storageRelativePath(group.folder_hint || '').relative || group.notes || '') + '</div>'
           + '      <div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div>'
-          + '      <div class="group-meta"><span>Model ' + String(counts.count_3mf || 0) + '</span><span>Other ' + String(counts.count_other || 0) + '</span><span>Total ' + String(counts.total || 0) + '</span><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '    </div>'
           + '    <div class="group-right"><span class="updated">Latest file change' + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><span class="updated"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + '</strong> · ' + escapeHtml(formatDateTime(this._entryMtime(latest || {}))) + '</span><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
           + '  </div>'
@@ -1746,7 +1806,7 @@
             + '  <div class="strip-head"><span class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</span><span class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></span></div>'
             + stripBody
             + '</div>'
-            + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button><button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
+            + '<div class="group-actions"><button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.folder_hint || '') + '">Open Folder</button>' + (group.launch && group.launch.folder_command ? '<button class="button" data-action="copy-command" data-command-type="folder" data-command="' + escapeHtml(group.launch.folder_command) + '">Copy Folder Command</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
