@@ -190,7 +190,9 @@ _GEOMETRY_LOD_CACHE_TOTAL_BYTES: int = 0
 MODEL_SEARCH_CACHE_TTL_SECONDS = 8.0
 MODEL_SEARCH_CACHE_MAX_ENTRIES = 64
 _MODEL_SEARCH_CACHE: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
-MODEL_SEARCH_PROJECTION_REFRESH_TTL_SECONDS = 15.0
+# Keep projection rebuilds infrequent; source fingerprint handles most change detection.
+# A longer TTL avoids expensive projection rewrites during rapid paging/filtering.
+MODEL_SEARCH_PROJECTION_REFRESH_TTL_SECONDS = 1800.0
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
@@ -506,7 +508,6 @@ def _search_projection_source_fingerprint(*, db_path: Any) -> str:
                 (SELECT COALESCE(MAX(updated_at), '')
                  FROM model_catalog_custom_fields
                  WHERE entity_type = 'catalog_model' AND field_namespace = 'model_catalog') AS custom_fields_updated_at,
-                (SELECT COALESCE(MAX(refreshed_at), '') FROM model_catalog_model_ranking) AS ranking_refreshed_at,
                 (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_links) AS links_updated_at
             """
         ).fetchone()
@@ -521,7 +522,6 @@ def _search_projection_source_fingerprint(*, db_path: Any) -> str:
             str(int(row["local_count"] or 0)),
             str(row["local_updated_at"] or ""),
             str(row["custom_fields_updated_at"] or ""),
-            str(row["ranking_refreshed_at"] or ""),
             str(row["links_updated_at"] or ""),
         ]
     )
