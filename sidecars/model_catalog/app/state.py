@@ -5,6 +5,8 @@ without creating a circular dependency back into main.py.
 """
 from __future__ import annotations
 
+import time
+
 from .db_profiles import bootstrap_profile_databases, seed_test_database_from_prod
 from .settings import Settings
 
@@ -12,6 +14,9 @@ from .settings import Settings
 class AppState:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self.working_file_slicer_tokens: dict[str, dict[str, object]] = {}
+        self.working_file_slicer_token_ttl_seconds = 300
+        self.working_file_slicer_tokens_last_pruned_at = time.time()
         self.db_seed_result: dict[str, object] | None = None
         if settings.seed_test_db_from_prod_on_start:
             self.db_seed_result = seed_test_database_from_prod(

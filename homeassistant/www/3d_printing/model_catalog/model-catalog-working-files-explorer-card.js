@@ -117,6 +117,10 @@
     return String(extension || "").replace(/^\./, "").toUpperCase() || "FILE";
   }
 
+  function isSlicerLaunchableExtension(extension) {
+    return String(extension || '').toLowerCase() === '.3mf';
+  }
+
   function storageRelativePath(pathValue) {
     var normalized = normalizePath(pathValue);
     if (!normalized) {
@@ -295,6 +299,21 @@
       }
     }
     return payload && typeof payload === "object" ? payload : {};
+  }
+
+  function absoluteUrl(baseUrl, pathValue) {
+    var pathText = String(pathValue || '').trim();
+    if (!pathText) {
+      return '';
+    }
+    if (/^https?:\/\//i.test(pathText)) {
+      return pathText;
+    }
+    var base = String(baseUrl || '').trim();
+    if (!base) {
+      return pathText;
+    }
+    return base.replace(/\/$/, '') + (pathText.charAt(0) === '/' ? pathText : '/' + pathText);
   }
 
   async function callServiceWithResponse(hass, domain, service, data) {
@@ -1128,6 +1147,59 @@
       return sidecarBaseUrl.replace(/\/$/, '') + candidate;
     }
 
+    _buildSlicerLaunchUrl(downloadUrl) {
+      var normalized = String(downloadUrl || '').trim();
+      if (!normalized) {
+        return '';
+      }
+      var platform = String(navigator.platform || '').toLowerCase();
+      var userAgent = String(navigator.userAgent || '').toLowerCase();
+      if (platform.indexOf('mac') >= 0 || userAgent.indexOf('mac') >= 0) {
+        return 'bambustudioopen://' + encodeURIComponent(normalized);
+      }
+      return 'bambustudio://open?file=' + normalized;
+    }
+
+    _openWindow(url, target) {
+      var normalized = String(url || '').trim();
+      if (!normalized) {
+        return;
+      }
+      var anchor = document.createElement('a');
+      anchor.href = normalized;
+      anchor.target = target || '_self';
+      anchor.rel = 'noopener noreferrer';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    }
+
+    async _openFileInSlicer(pathValue) {
+      var normalizedPath = String(pathValue || '').trim();
+      if (!normalizedPath) {
+        return;
+      }
+      this._status = 'Preparing slicer launch...';
+      this._error = '';
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_create_working_file_slicer_token', {
+          path: normalizedPath,
+        });
+        var downloadUrl = absoluteUrl(this._resolveSidecarUrl(), response && response.download_url ? response.download_url : '');
+        var launchUrl = this._buildSlicerLaunchUrl(downloadUrl);
+        if (!launchUrl) {
+          throw new Error('No slicer launch URL was returned for this file.');
+        }
+        this._openWindow(launchUrl, '_self');
+        this._showCopyToast('Opening in slicer...');
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not open the file in slicer.';
+        this._render();
+      }
+    }
+
     _entryRelativePath(entry, group) {
       var storageRelative = storageRelativePath(this._entryPath(entry)).relative;
       return storageRelative || basename(this._entryPath(entry));
@@ -1530,6 +1602,9 @@
               + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="browser-actions">'
+              + (isSlicerLaunchableExtension(extension)
+                ? '<button class="button" data-action="open-in-slicer" data-file-path="' + escapeHtml(pathValue) + '">Open in Slicer</button>'
+                : '')
               + (entry.launch && entry.launch.windows_path
                 ? '<button class="button" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button>'
                 : '')
@@ -1712,6 +1787,10 @@
         this._openLocalPath(String(target.getAttribute('data-path') || ''));
         return;
       }
+      if (action === 'open-in-slicer') {
+        this._openFileInSlicer(String(target.getAttribute('data-file-path') || ''));
+        return;
+      }
       if (action === 'copy-command') {
         var commandType = String(target.getAttribute('data-command-type') || 'explorer');
         var command = String(target.getAttribute('data-command') || '');
@@ -1828,6 +1907,7 @@
               + '<span class="file-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
+              + (isSlicerLaunchableExtension(ext) ? '<span class="copy-slot"><button class="copy-action" title="Open in slicer" data-action="open-in-slicer" data-file-path="' + escapeHtml(pathValue) + '">Open in Slicer</button></span>' : '')
               + (entry.launch && entry.launch.windows_path ? '<span class="copy-slot"><button class="copy-action" title="Copy file path" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button></span>' : '')
               + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';

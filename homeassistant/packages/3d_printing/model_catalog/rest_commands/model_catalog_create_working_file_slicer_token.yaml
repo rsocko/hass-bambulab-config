@@ -1,0 +1,14 @@
+model_catalog_create_working_file_slicer_token:
+  url: >-
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/working-files/slicer-token
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {
+      "path": {{ (path | default('')) | tojson }}
+    }

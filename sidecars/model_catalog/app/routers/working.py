@@ -15,10 +15,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import mimetypes
 import os
 import re
+import secrets
 import shutil
 import sqlite3
+import time
 from pathlib import Path, PureWindowsPath
 from sqlite3 import connect
 from typing import Any
@@ -209,6 +212,58 @@ def _working_preview_url(file_path: str | None) -> str | None:
     return f"/api/working-files/preview?path={quote(path_text, safe='')}"
 
 
+def _resolve_working_file_path(*, settings: Settings, path_value: str | None) -> Path | None:
+    candidate = str(path_value or "").strip()
+    if not candidate:
+        return None
+    try:
+        resolved = Path(candidate).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+    allowlisted_roots = _configured_working_files_roots(settings)
+    if not _is_path_within_roots(resolved, allowlisted_roots):
+        return None
+    return resolved
+
+
+def _prune_working_file_slicer_tokens(state: AppState) -> None:
+    now = time.time()
+    last_pruned = float(getattr(state, "working_file_slicer_tokens_last_pruned_at", 0.0) or 0.0)
+    if now - last_pruned < 30:
+        return
+    token_map = getattr(state, "working_file_slicer_tokens", {})
+    expired = [
+        token
+        for token, payload in token_map.items()
+        if float(payload.get("expires_at", 0.0) or 0.0) <= now
+    ]
+    for token in expired:
+        token_map.pop(token, None)
+    state.working_file_slicer_tokens_last_pruned_at = now
+
+
+def _store_working_file_slicer_token(*, state: AppState, file_path: Path) -> str:
+    _prune_working_file_slicer_tokens(state)
+    token = secrets.token_urlsafe(24)
+    token_map = getattr(state, "working_file_slicer_tokens", {})
+    token_map[token] = {
+        "path": str(file_path),
+        "expires_at": time.time() + float(getattr(state, "working_file_slicer_token_ttl_seconds", 300) or 300),
+    }
+    return token
+
+
+def _consume_working_file_slicer_token(state: AppState, token: str) -> dict[str, object] | None:
+    _prune_working_file_slicer_tokens(state)
+    token_map = getattr(state, "working_file_slicer_tokens", {})
+    payload = token_map.pop(token, None)
+    if not isinstance(payload, dict):
+        return None
+    if float(payload.get("expires_at", 0.0) or 0.0) <= time.time():
+        return None
+    return payload
+
+
 @router.get("/api/working-files/preview")
 def working_files_preview(request: Request, path: str | None = None) -> Any:
     """Return a lazy-loaded preview image for working files allowlisted roots."""
@@ -355,6 +410,92 @@ def working_files_preview(request: Request, path: str | None = None) -> Any:
             "message": "Preview is supported for images and .3mf files only.",
         },
     )
+
+
+@router.post("/api/working-files/slicer-token")
+def create_working_file_slicer_token(request: Request, payload: dict[str, Any] | None = None) -> Any:
+    state: AppState = request.app.state.model_catalog
+    path_value = str((payload or {}).get("path") or "").strip()
+    resolved_path = _resolve_working_file_path(settings=state.settings, path_value=path_value)
+    if resolved_path is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "path_not_allowed",
+                "message": "Working file path is outside allowed roots or could not be resolved.",
+            },
+        )
+    if not resolved_path.exists() or not resolved_path.is_file():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Working file not found.",
+            },
+        )
+    if resolved_path.suffix.lower() != ".3mf":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "unsupported_file_type",
+                "message": "Open in Slicer is supported for .3mf files only.",
+            },
+        )
+
+    token = _store_working_file_slicer_token(state=state, file_path=resolved_path)
+    return {
+        "success": True,
+        "token": token,
+        "filename": resolved_path.name,
+        "download_url": f"/api/working-files/dl/{quote(token, safe='')}/{quote(resolved_path.name, safe='')}",
+    }
+
+
+@router.get("/api/working-files/dl/{token}/{filename}")
+def download_working_file_for_slicer(request: Request, token: str, filename: str) -> Any:
+    state: AppState = request.app.state.model_catalog
+    payload = _consume_working_file_slicer_token(state, str(token or "").strip())
+    if not payload:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "invalid_or_expired_token",
+                "message": "Slicer download token is invalid or expired.",
+            },
+        )
+    resolved_path = _resolve_working_file_path(settings=state.settings, path_value=str(payload.get("path") or ""))
+    if resolved_path is None or not resolved_path.exists() or not resolved_path.is_file():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Working file not found.",
+            },
+        )
+    media_type = mimetypes.guess_type(resolved_path.name)[0] or "application/octet-stream"
+    try:
+        return Response(
+            content=resolved_path.read_bytes(),
+            media_type=media_type,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'attachment; filename="{resolved_path.name}"',
+            },
+        )
+    except (OSError, PermissionError):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "success": False,
+                "error": "download_read_failed",
+                "message": "Could not read working file for slicer download.",
+            },
+        )
 
 
 # ==================== HELPER FUNCTIONS: FILE OPERATIONS ====================
