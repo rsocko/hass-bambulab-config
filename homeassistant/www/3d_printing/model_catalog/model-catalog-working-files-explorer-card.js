@@ -568,10 +568,6 @@
       }
     }
 
-      if (this._view === 'groups') {
-        this._setThumbnailSize(String(target.getAttribute('data-size') || 'small'));
-        return;
-      }
     disconnectedCallback() {
       if (this.shadowRoot) {
         this.shadowRoot.removeEventListener('click', this._boundClick);
