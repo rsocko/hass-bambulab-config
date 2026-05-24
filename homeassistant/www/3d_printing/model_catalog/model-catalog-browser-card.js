@@ -1028,7 +1028,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
           this._scheduleDeferredRender(70);
           return;
         }
-        this._render();
+        this._renderNow();
       }.bind(this));
     } catch (error) {
       this._results = [];
@@ -1056,7 +1056,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       };
       this._commitNavPerfFromLoad(this._lastLoadPerf);
       this._recordPerfSample("load", this._lastLoadPerf);
-      this._render();
+      this._renderNow();
       if (this._pendingLoad) {
         var pendingLoad = this._pendingLoad;
         this._pendingLoad = null;
@@ -4437,6 +4437,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._renderRAFId = null;
       this._doRender();
     }.bind(this));
+  }
+
+  _renderNow() {
+    if (this._renderRAFId) {
+      cancelAnimationFrame(this._renderRAFId);
+      this._renderRAFId = null;
+    }
+    this._doRender();
   }
 
   _doRender() {
