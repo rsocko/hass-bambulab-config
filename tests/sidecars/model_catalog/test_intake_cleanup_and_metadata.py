@@ -169,29 +169,28 @@ def test_publish_persists_source_and_import_timestamps(tmp_path: Path) -> None:
             json={"title": "Timestamp Group"},
         )
         assert publish_working.status_code == 200
-        working_group_id = int(publish_working.json()["working_group_id"])
+        publish_payload = publish_working.json()
+        working_folder_slug = str(publish_payload.get("working_folder_slug") or "").strip()
+        assert working_folder_slug, "publish-to-working should return working_folder_slug"
 
-        with sqlite3.connect(db_path) as connection:
-            connection.row_factory = sqlite3.Row
-            group_row = connection.execute(
-                "SELECT discovery_metadata_json FROM working_groups WHERE id = ?",
-                (working_group_id,),
-            ).fetchone()
-            assert group_row is not None
-            group_metadata = json.loads(str(group_row["discovery_metadata_json"] or "{}"))
-            assert str(group_metadata.get("imported_at") or "")
-            timestamp_summary = group_metadata.get("source_timestamp_summary") or {}
-            assert str(timestamp_summary.get("earliest_source_mtime") or "")
-            assert str(timestamp_summary.get("latest_source_ctime") or "")
+        created_groups = publish_payload.get("created_groups") or []
+        assert created_groups, "publish-to-working should return at least one created group"
+        folder_path = Path(str(created_groups[0]["folder_path"]))
+        assert folder_path.is_dir()
 
-            item_row = connection.execute(
-                "SELECT source_metadata_json FROM working_items WHERE working_group_id = ?",
-                (working_group_id,),
-            ).fetchone()
-            assert item_row is not None
-            source_metadata = json.loads(str(item_row["source_metadata_json"] or "{}"))
-            assert str(source_metadata.get("source_mtime") or "")
-            assert str(source_metadata.get("source_ctime") or "")
+        modelmeta_path = folder_path / ".modelmeta.json"
+        assert modelmeta_path.is_file(), ".modelmeta.json sidecar must exist"
+        modelmeta = json.loads(modelmeta_path.read_text(encoding="utf-8"))
+        assert str(modelmeta.get("imported_at") or "")
+        timestamp_summary = modelmeta.get("source_timestamp_summary") or {}
+        assert str(timestamp_summary.get("earliest_source_mtime") or "")
+        assert str(timestamp_summary.get("latest_source_ctime") or "")
+
+        modelmeta_files = modelmeta.get("files") or []
+        assert modelmeta_files, ".modelmeta.json should record per-file metadata"
+        first_file_meta = modelmeta_files[0]
+        assert str(first_file_meta.get("source_mtime") or "")
+        assert str(first_file_meta.get("source_ctime") or "")
 
         source_file_2 = source_root / "timestamped-local.3mf"
         source_file_2.write_bytes(b"timestamp-local")
@@ -268,8 +267,21 @@ def test_browser_upload_preserves_original_last_modified_metadata(tmp_path: Path
             json={"group_destinations": [{"destination": "working", "title": "Browser Metadata"}]},
         )
         assert publish_response.status_code == 200
-        working_group_id = int((publish_response.json().get("working_group_ids") or [0])[0])
-        assert working_group_id > 0
+        publish_payload = publish_response.json()
+        working_folder_slugs = publish_payload.get("working_folder_slugs") or []
+        assert working_folder_slugs, "publish-by-destination should return working_folder_slugs"
+
+        created_groups = publish_payload.get("group_results") or []
+        assert created_groups, "publish-by-destination should return at least one group_result"
+        folder_path = Path(str(created_groups[0]["folder_path"]))
+        assert folder_path.is_dir()
+
+        modelmeta_path = folder_path / ".modelmeta.json"
+        assert modelmeta_path.is_file()
+        modelmeta = json.loads(modelmeta_path.read_text(encoding="utf-8"))
+        modelmeta_files = modelmeta.get("files") or []
+        assert modelmeta_files, ".modelmeta.json should record per-file metadata"
+        source_metadata = modelmeta_files[0]
 
         with sqlite3.connect(db_path) as connection:
             connection.row_factory = sqlite3.Row
@@ -282,13 +294,6 @@ def test_browser_upload_preserves_original_last_modified_metadata(tmp_path: Path
             assert isinstance(source_entries, list) and source_entries
             staged_source_path = Path(str(source_entries[0].get("path") or ""))
             staged_upload_dir = staged_source_path.parent.parent
-
-            item_row = connection.execute(
-                "SELECT source_metadata_json FROM working_items WHERE working_group_id = ?",
-                (working_group_id,),
-            ).fetchone()
-            assert item_row is not None
-            source_metadata = json.loads(str(item_row["source_metadata_json"] or "{}"))
 
         # Browser client timestamp should be captured as source_mtime rather than staging mtime.
         expected_source_mtime = (

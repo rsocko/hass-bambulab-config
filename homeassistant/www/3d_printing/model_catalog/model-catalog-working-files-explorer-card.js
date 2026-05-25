@@ -112,6 +112,33 @@
     return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
   }
 
+  // Deterministic 0..N-1 color index from a slug string.
+  var THUMB_COLOR_COUNT = 8;
+  function colorIndexFromSlug(value) {
+    var str = String(value || '');
+    var hash = 5381;
+    for (var i = 0; i < str.length; i += 1) {
+      hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+    }
+    return hash % THUMB_COLOR_COUNT;
+  }
+
+  // Image / 3MF extensions eligible for backend lazy preview endpoint.
+  function isPreviewEligibleExtension(extension) {
+    var ext = String(extension || '').toLowerCase();
+    if (ext === '.3mf') return true;
+    return isImageExtension(ext);
+  }
+
+  // Join two path-like segments with '/', skipping empties.
+  function joinFolderPath(base, segment) {
+    var a = String(base || '').replace(/\/+$/, '');
+    var b = String(segment || '').replace(/^\/+/, '');
+    if (!a) return b;
+    if (!b) return a;
+    return a + '/' + b;
+  }
+
   // ─── HA service plumbing ────────────────────────────────────────────────
   async function authHeaders(hass, forceRefresh) {
     var auth = hass && hass.auth ? hass.auth : null;
@@ -221,6 +248,15 @@
     + '.group-thumb{width:52px;height:52px;border-radius:10px;border:1px solid rgba(96,165,250,0.28);background:linear-gradient(135deg,rgba(96,165,250,0.18),rgba(96,165,250,0.06));color:#bfdbfe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;letter-spacing:0.02em;flex-shrink:0;}'
     + '.group-thumb.no-sidecar{background:rgba(252,165,165,0.10);border-color:rgba(252,165,165,0.28);color:#fca5a5;}'
     + '.group-thumb.virtual{background:rgba(148,163,184,0.08);border-color:var(--border);color:var(--text-muted);font-weight:400;}'
+    /* Per-slug color palette (applied only when sidecar exists and not virtual/loose) */
+    + '.group-thumb.gc0{background:linear-gradient(135deg,rgba(96,165,250,0.22),rgba(96,165,250,0.06));border-color:rgba(96,165,250,0.32);color:#bfdbfe;}'
+    + '.group-thumb.gc1{background:linear-gradient(135deg,rgba(167,139,250,0.22),rgba(167,139,250,0.06));border-color:rgba(167,139,250,0.32);color:#ddd6fe;}'
+    + '.group-thumb.gc2{background:linear-gradient(135deg,rgba(94,234,212,0.22),rgba(94,234,212,0.06));border-color:rgba(94,234,212,0.32);color:#a7f3d0;}'
+    + '.group-thumb.gc3{background:linear-gradient(135deg,rgba(245,194,66,0.22),rgba(245,194,66,0.06));border-color:rgba(245,194,66,0.32);color:#fde68a;}'
+    + '.group-thumb.gc4{background:linear-gradient(135deg,rgba(244,114,182,0.22),rgba(244,114,182,0.06));border-color:rgba(244,114,182,0.32);color:#fbcfe8;}'
+    + '.group-thumb.gc5{background:linear-gradient(135deg,rgba(248,113,113,0.22),rgba(248,113,113,0.06));border-color:rgba(248,113,113,0.32);color:#fecaca;}'
+    + '.group-thumb.gc6{background:linear-gradient(135deg,rgba(132,204,22,0.22),rgba(132,204,22,0.06));border-color:rgba(132,204,22,0.32);color:#d9f99d;}'
+    + '.group-thumb.gc7{background:linear-gradient(135deg,rgba(56,189,248,0.22),rgba(56,189,248,0.06));border-color:rgba(56,189,248,0.32);color:#bae6fd;}'
     + '.group-thumb.virtual .stack{display:grid;gap:2px;}'
     + '.group-thumb.virtual .stack span{display:block;width:22px;height:4px;border-radius:2px;background:rgba(148,163,184,0.45);}'
     + '.group-thumb.virtual .stack span:nth-child(2){background:rgba(148,163,184,0.32);width:18px;}'
@@ -280,6 +316,29 @@
     + '.type-chip.active{background:rgba(94,234,212,0.14);border-color:rgba(94,234,212,0.32);color:var(--accent);}'
     + '.type-chip .ct{color:var(--text-muted);font-weight:600;}'
     + '.type-chip.active .ct{color:var(--accent);}'
+    /* Files|Folders view-mode toggle */
+    + '.view-toggle{display:inline-flex;padding:2px;background:rgba(15,19,26,0.6);border:1px solid var(--border);border-radius:999px;}'
+    + '.view-toggle button{background:transparent;border:0;color:var(--text-secondary);padding:4px 11px;font-size:10.5px;font-weight:700;border-radius:999px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;min-height:24px;display:inline-flex;align-items:center;gap:5px;}'
+    + '.view-toggle button.active{background:rgba(96,165,250,0.20);color:#bfdbfe;}'
+    /* Breadcrumb + folder rows */
+    + '.folder-breadcrumbs{margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--text-secondary);font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;}'
+    + '.breadcrumb-up{width:24px;height:24px;padding:0;border-radius:6px;background:rgba(148,163,184,0.10);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;}'
+    + '.breadcrumb-up:hover:not(:disabled){background:rgba(148,163,184,0.20);}'
+    + '.breadcrumb-up:disabled{opacity:0.4;cursor:not-allowed;}'
+    + '.breadcrumb-link{background:transparent;border:0;color:var(--accent-blue);cursor:pointer;font:inherit;padding:0 2px;border-radius:4px;}'
+    + '.breadcrumb-link:hover{text-decoration:underline;}'
+    + '.crumb-sep{color:var(--text-muted);}'
+    + '.crumb-current{color:var(--text);font-weight:600;}'
+    + '.folder-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 110px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(96,165,250,0.04);border:1px solid var(--border);cursor:pointer;transition:background 100ms ease;}'
+    + '.folder-row:hover{background:rgba(96,165,250,0.10);}'
+    + '.folder-row .folder-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(96,165,250,0.10);color:var(--accent-blue);border:1px solid rgba(96,165,250,0.28);}'
+    + '.folder-row .folder-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.folder-row .folder-sub{margin-top:2px;font-size:10.5px;color:var(--text-muted);font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.folder-row .folder-count{font-size:11.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums;text-align:right;}'
+    /* Lazy preview image inside file thumb */
+    + '.file-thumb img.preview-img{width:100%;height:100%;object-fit:cover;border-radius:7px;display:block;opacity:0;transition:opacity 150ms ease;}'
+    + '.file-thumb img.preview-img.loaded{opacity:1;}'
+    + '.file-thumb.has-preview{padding:0;overflow:hidden;background:rgba(15,19,26,0.55);border-color:var(--border);}'
     /* File rows */
     + '.group-row[data-thumb="small"]{--thumb-size:34px;--row-pad:6px 8px;}'
     + '.group-row[data-thumb="medium"]{--thumb-size:58px;--row-pad:8px 10px;}'
@@ -335,6 +394,11 @@
       this._overflowMenuSlug = '';
       this._catalogScope = 'working';
       this._lastAppliedScopeStamp = 0;
+      // Folder-navigation view-mode state (per non-loose group)
+      this._groupViewMode = {};         // slug -> 'files'|'folders'
+      this._groupFolderPath = {};       // slug -> current subfolder path under group root
+      this._groupFolders = {};          // slug -> { folders: [{path,file_count,files}], loadedAt }
+      this._previewObserver = null;
       this._boundClick = this._handleClick.bind(this);
       this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
     }
@@ -358,6 +422,7 @@
     connectedCallback() {
       if (this.shadowRoot) this.shadowRoot.addEventListener('click', this._boundClick);
       window.addEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
+      this._ensurePreviewObserver();
       if (this._hass && !this._loading && this._tree === null) {
         this._loadTree();
       }
@@ -366,6 +431,10 @@
     disconnectedCallback() {
       if (this.shadowRoot) this.shadowRoot.removeEventListener('click', this._boundClick);
       window.removeEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
+      if (this._previewObserver) {
+        try { this._previewObserver.disconnect(); } catch (_e) { /* ignore */ }
+        this._previewObserver = null;
+      }
     }
 
     getCardSize() { return 16; }
@@ -497,6 +566,10 @@
             pagination: filesResp && filesResp.pagination ? filesResp.pagination : null,
             error: '',
           };
+          // If user is currently viewing in folders mode, also (re)fetch folders payload.
+          if (this._groupViewMode[normalized] === 'folders') {
+            this._loadGroupFolders(normalized, { force: true });
+          }
         }
       } catch (error) {
         this._groupDetails[normalized] = Object.assign({}, this._groupDetails[normalized] || {}, {
@@ -505,6 +578,103 @@
         });
       } finally {
         this._render();
+      }
+    }
+
+    async _loadGroupFolders(slug, options) {
+      var normalized = String(slug || '');
+      if (!normalized || normalized === LOOSE_SLUG || !this._hass) return;
+      var force = !!(options && options.force);
+      var cached = this._groupFolders[normalized];
+      if (cached && cached.loading) return;
+      if (cached && !force && Array.isArray(cached.folders)) return;
+      this._groupFolders[normalized] = Object.assign({}, cached || {}, { loading: true, error: '' });
+      this._render();
+      try {
+        var resp = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_working_files_group_files', {
+          folder_slug: normalized,
+          mode: 'folders',
+          limit: 500,
+          offset: 0,
+        });
+        this._groupFolders[normalized] = {
+          loading: false,
+          folders: Array.isArray(resp && resp.folders) ? resp.folders : [],
+          error: '',
+        };
+      } catch (error) {
+        this._groupFolders[normalized] = {
+          loading: false,
+          folders: [],
+          error: error && error.message ? String(error.message) : 'Could not load folders.',
+        };
+      } finally {
+        this._render();
+      }
+    }
+
+    // ─── Sidecar / preview URL helpers ────────────────────────────────────
+    _resolveSidecarUrl() {
+      var configured = this._config && this._config.model_sidecar_url ? String(this._config.model_sidecar_url) : '';
+      var hass = this._hass;
+      var state = '';
+      if (hass && hass.states && hass.states['input_text.model_catalog_sidecar_base_url']) {
+        state = String(hass.states['input_text.model_catalog_sidecar_base_url'].state || '');
+      }
+      var resolved = state && ['unknown', 'unavailable', 'none', ''].indexOf(state.toLowerCase()) < 0
+        ? state
+        : configured;
+      return String(resolved || '').replace(/\/+$/, '');
+    }
+
+    _filePreviewUrl(entry) {
+      if (!entry || typeof entry !== 'object') return '';
+      var ext = String(entry.file_extension || extensionFromPath(entry.source_path_canonical || entry.path || '')).toLowerCase();
+      if (!isPreviewEligibleExtension(ext)) return '';
+      var canonical = String(entry.source_path_canonical || '').trim();
+      if (!canonical) return '';
+      var base = this._resolveSidecarUrl();
+      if (!base) return '';
+      return base + '/api/working-files/preview?path=' + encodeURIComponent(canonical);
+    }
+
+    _ensurePreviewObserver() {
+      if (this._previewObserver) return this._previewObserver;
+      if (typeof IntersectionObserver !== 'function') return null;
+      var self = this;
+      this._previewObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (record) {
+          if (!record.isIntersecting) return;
+          var img = record.target;
+          var src = img && img.dataset ? img.dataset.lazySrc : '';
+          if (src && !img.src) {
+            img.src = src;
+          }
+          self._previewObserver.unobserve(img);
+        });
+      }, { rootMargin: '120px 0px', threshold: 0.01 });
+      return this._previewObserver;
+    }
+
+    _attachLazyPreviews() {
+      if (!this.shadowRoot) return;
+      var observer = this._ensurePreviewObserver();
+      var nodes = this.shadowRoot.querySelectorAll('img[data-lazy-src]:not([data-lazy-bound])');
+      for (var i = 0; i < nodes.length; i += 1) {
+        var img = nodes[i];
+        img.dataset.lazyBound = '1';
+        img.addEventListener('load', function () { this.classList.add('loaded'); });
+        img.addEventListener('error', function () {
+          var thumb = this.parentNode;
+          if (thumb && thumb.classList) thumb.classList.remove('has-preview');
+          if (thumb) thumb.removeChild(this);
+        });
+        if (observer) {
+          observer.observe(img);
+        } else {
+          // Fallback: load immediately if no IntersectionObserver
+          img.src = img.dataset.lazySrc;
+        }
       }
     }
 
@@ -805,7 +975,9 @@
       var displayTitle = detail ? this._modelmetaDisplayTitle(detail) : '';
       var title = displayTitle || group.name || slug;
       var hasSidecar = group.has_modelmeta || group.has_readme;
-      var thumbClass = hasSidecar ? '' : 'no-sidecar';
+      var thumbClass = hasSidecar
+        ? ('gc' + colorIndexFromSlug(slug))
+        : 'no-sidecar';
       var folderHint = (this._tree && this._tree.root_path)
         ? String(this._tree.root_path) + '/' + String(group.name || slug) + '/'
         : String(group.name || slug) + '/';
@@ -894,6 +1066,15 @@
       var counts = this._typeCounts(files);
       var current = this._typeFilters[slug] || 'all';
       var labels = { all: 'All', models: 'Models', images: 'Images', other: 'Other' };
+      var viewToggleHtml = '';
+      if (slug !== LOOSE_SLUG) {
+        var viewMode = this._groupViewMode[slug] === 'folders' ? 'folders' : 'files';
+        viewToggleHtml = ''
+          + '<div class="view-toggle" role="group" aria-label="View mode">'
+          + '<button class="' + (viewMode === 'files' ? 'active' : '') + '" data-action="set-group-view" data-slug="' + escapeHtml(slug) + '" data-view="files" title="Flat file list">FILES</button>'
+          + '<button class="' + (viewMode === 'folders' ? 'active' : '') + '" data-action="set-group-view" data-slug="' + escapeHtml(slug) + '" data-view="folders" title="Folder navigation">FOLDERS</button>'
+          + '</div>';
+      }
       return ''
         + '<div class="type-bar"><div class="type-chips">'
         + TYPE_FILTERS.map(function (filter) {
@@ -901,13 +1082,16 @@
               + ' data-action="set-type-filter" data-slug="' + escapeHtml(slug) + '" data-type="' + filter + '">'
               + escapeHtml(labels[filter]) + ' <span class="ct">' + String(counts[filter] || 0) + '</span></button>';
           }).join('')
-        + '</div></div>';
+        + '</div>'
+        + viewToggleHtml
+        + '</div>';
     }
 
     _renderFileRow(slug, entry) {
       var pathValue = this._entryPath(entry);
       var extension = this._entryExtension(entry);
       var thumbCls = fileThumbClass(extension);
+      var previewUrl = this._filePreviewUrl(entry);
       var launch = entry && entry.launch && typeof entry.launch === 'object' ? entry.launch : {};
       var canLaunch = !!launch.can_launch_file;
       var canExplore = !!launch.can_open_in_explorer;
@@ -941,7 +1125,11 @@
 
       return ''
         + '<div class="file-row">'
-        + '<div class="file-thumb ' + thumbCls + '">' + escapeHtml(extensionBadge(extension)) + '</div>'
+        + '<div class="file-thumb ' + thumbCls + (previewUrl ? ' has-preview' : '') + '">'
+        + (previewUrl
+            ? '<img class="preview-img" data-lazy-src="' + escapeHtml(previewUrl) + '" loading="lazy" decoding="async" alt="" />'
+            : escapeHtml(extensionBadge(extension)))
+        + '</div>'
         + '<div class="file-main">'
         + '<div class="file-name">' + escapeHtml(basename(pathValue)) + '</div>'
         + '<div class="file-path">' + escapeHtml(relPath || pathValue) + '</div>'
@@ -964,23 +1152,124 @@
       var detail = entry.detail || null;
       var files = Array.isArray(entry.files) ? entry.files : [];
       var typeFilter = this._typeFilters[slug] || 'all';
-      var visibleFiles = files;
-      if (typeFilter !== 'all') {
-        visibleFiles = files.filter(function (f) { return this._entryCategory(f) === typeFilter; }, this);
-      }
-      var listHtml;
-      if (!visibleFiles.length) {
-        listHtml = '<div class="empty-row">No files match this type filter.</div>';
+      var viewMode = (slug !== LOOSE_SLUG && this._groupViewMode[slug] === 'folders') ? 'folders' : 'files';
+
+      var bodyHtml;
+      if (viewMode === 'folders') {
+        bodyHtml = this._renderFoldersView(slug, typeFilter);
       } else {
-        listHtml = '<div class="file-list">'
-          + visibleFiles.map(function (e) { return this._renderFileRow(slug, e); }, this).join('')
-          + '</div>';
+        var visibleFiles = files;
+        if (typeFilter !== 'all') {
+          visibleFiles = files.filter(function (f) { return this._entryCategory(f) === typeFilter; }, this);
+        }
+        if (!visibleFiles.length) {
+          bodyHtml = '<div class="empty-row">No files match this type filter.</div>';
+        } else {
+          bodyHtml = '<div class="file-list">'
+            + visibleFiles.map(function (e) { return this._renderFileRow(slug, e); }, this).join('')
+            + '</div>';
+        }
       }
       return ''
         + '<div class="group-body">'
         + this._renderSidecar(group, detail)
         + this._renderTypeBar(slug, files)
-        + listHtml
+        + bodyHtml
+        + '</div>';
+    }
+
+    _renderFoldersView(slug, typeFilter) {
+      var folderState = this._groupFolders[slug];
+      if (!folderState || folderState.loading) {
+        // Kick off async load if not already loaded
+        if (!folderState) this._loadGroupFolders(slug);
+        return '<div class="body-loading">Loading folders…</div>';
+      }
+      if (folderState.error) {
+        return '<div class="banner error">' + escapeHtml(folderState.error) + '</div>';
+      }
+      var allFolders = Array.isArray(folderState.folders) ? folderState.folders : [];
+      var currentPath = String(this._groupFolderPath[slug] || '');
+
+      // Build direct subfolders + direct files at current path
+      var directFolderMap = {}; // childName -> { fileCount, subPath }
+      var directFiles = [];
+      allFolders.forEach(function (folder) {
+        var fpath = String(folder.path || '');
+        var fcount = Number(folder.file_count || 0);
+        var ffiles = Array.isArray(folder.files) ? folder.files : [];
+        if (fpath === currentPath) {
+          // Files directly at currentPath
+          ffiles.forEach(function (f) { directFiles.push(f); });
+          return;
+        }
+        // Is fpath a descendant of currentPath?
+        var prefix = currentPath ? currentPath + '/' : '';
+        if (currentPath && fpath.indexOf(prefix) !== 0) return;
+        var relative = fpath.slice(prefix.length);
+        if (!relative) return;
+        var firstSeg = relative.split('/')[0];
+        if (!firstSeg) return;
+        var childPath = joinFolderPath(currentPath, firstSeg);
+        if (!directFolderMap[firstSeg]) {
+          directFolderMap[firstSeg] = { name: firstSeg, path: childPath, fileCount: 0 };
+        }
+        directFolderMap[firstSeg].fileCount += fcount;
+      });
+
+      // Apply type filter to direct files
+      if (typeFilter !== 'all') {
+        directFiles = directFiles.filter(function (f) { return this._entryCategory(f) === typeFilter; }, this);
+      }
+
+      var folderNames = Object.keys(directFolderMap).sort(function (a, b) {
+        return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0);
+      });
+
+      var folderRowsHtml = folderNames.map(function (name) {
+        var info = directFolderMap[name];
+        return ''
+          + '<div class="folder-row" data-action="folder-enter" data-slug="' + escapeHtml(slug) + '" data-path="' + escapeHtml(info.path) + '">'
+          + '<div class="folder-thumb">📁</div>'
+          + '<div class="folder-main">'
+          + '<div class="folder-name">' + escapeHtml(name) + '</div>'
+          + '<div class="folder-sub">' + escapeHtml(info.path) + '/</div>'
+          + '</div>'
+          + '<div class="folder-count">' + String(info.fileCount) + ' files</div>'
+          + '<div class="file-actions"><span style="color:var(--text-muted);font-size:14px;">›</span></div>'
+          + '</div>';
+      }).join('');
+
+      var fileRowsHtml = directFiles.map(function (e) { return this._renderFileRow(slug, e); }, this).join('');
+
+      var emptyHtml = (!folderNames.length && !directFiles.length)
+        ? '<div class="empty-row">This folder is empty.</div>'
+        : '';
+
+      return ''
+        + this._renderBreadcrumb(slug, currentPath)
+        + '<div class="file-list">' + folderRowsHtml + fileRowsHtml + '</div>'
+        + emptyHtml;
+    }
+
+    _renderBreadcrumb(slug, currentPath) {
+      var atRoot = !currentPath;
+      var segments = currentPath ? currentPath.split('/').filter(Boolean) : [];
+      var crumbs = [];
+      crumbs.push('<button class="breadcrumb-link" data-action="folder-nav" data-slug="' + escapeHtml(slug) + '" data-path="">root</button>');
+      var accum = '';
+      segments.forEach(function (seg, idx) {
+        accum = accum ? (accum + '/' + seg) : seg;
+        if (idx === segments.length - 1) {
+          crumbs.push('<span class="crumb-current">' + escapeHtml(seg) + '</span>');
+        } else {
+          crumbs.push('<button class="breadcrumb-link" data-action="folder-nav" data-slug="' + escapeHtml(slug) + '" data-path="' + escapeHtml(accum) + '">' + escapeHtml(seg) + '</button>');
+        }
+      });
+      return ''
+        + '<div class="folder-breadcrumbs">'
+        + '<button class="breadcrumb-up" data-action="folder-up" data-slug="' + escapeHtml(slug) + '"' + (atRoot ? ' disabled' : '') + ' title="Up one level">↑</button>'
+        + crumbs.join('<span class="crumb-sep">›</span>')
         + '</div>';
     }
 
@@ -1050,6 +1339,8 @@
         + content
         + '</div>'
         + '</ha-card>';
+      // Attach IntersectionObserver to any newly rendered lazy preview images.
+      this._attachLazyPreviews();
     }
 
     // ─── Event handling ───────────────────────────────────────────────────
@@ -1158,6 +1449,39 @@
         this._overflowMenuSlug = '';
         this._fileActionMenuKey = '';
         this._copyToClipboard(String(target.getAttribute('data-path') || ''));
+        return;
+      }
+      if (action === 'set-group-view') {
+        var gvSlug = String(target.getAttribute('data-slug') || '');
+        var gvView = String(target.getAttribute('data-view') || 'files');
+        if (!gvSlug) return;
+        if (gvView !== 'files' && gvView !== 'folders') gvView = 'files';
+        if (this._groupViewMode[gvSlug] === gvView) return;
+        this._groupViewMode[gvSlug] = gvView;
+        // Reset breadcrumb when switching modes; only fetch folders payload when needed.
+        if (gvView === 'folders') {
+          if (typeof this._groupFolderPath[gvSlug] !== 'string') this._groupFolderPath[gvSlug] = '';
+          this._loadGroupFolders(gvSlug);
+        }
+        this._render();
+        return;
+      }
+      if (action === 'folder-enter' || action === 'folder-nav') {
+        var feSlug = String(target.getAttribute('data-slug') || '');
+        var fePath = String(target.getAttribute('data-path') || '');
+        if (!feSlug) return;
+        this._groupFolderPath[feSlug] = fePath;
+        this._render();
+        return;
+      }
+      if (action === 'folder-up') {
+        var fuSlug = String(target.getAttribute('data-slug') || '');
+        if (!fuSlug) return;
+        var current = String(this._groupFolderPath[fuSlug] || '');
+        if (!current) return;
+        var idx = current.lastIndexOf('/');
+        this._groupFolderPath[fuSlug] = idx >= 0 ? current.slice(0, idx) : '';
+        this._render();
         return;
       }
     }

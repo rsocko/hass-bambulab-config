@@ -815,9 +815,17 @@ def test_intake_plan_merges_all_none_strategy_into_single_batch(tmp_path: Path) 
         assert payload["plan_summary"]["planned_model_count"] == 1
         assert payload["plan_summary"]["grouping_strategy"] == "flat"
 
-        created_group = payload["created_groups"][0]["group"]
-        assert created_group["title"] == "Adapter Variants - body"
-        assert len(created_group["items"]) == 2
+        created_group = payload["created_groups"][0]
+        # Folder-first Working Files uses the explicit user-supplied title verbatim
+        # for the folder display title (no primary-file basename suffix).
+        assert created_group["title"] == "Adapter Variants"
+        assert created_group["added_items"] == 2
+        assert created_group["folder_slug"]
+        folder_path = Path(created_group["folder_path"])
+        assert folder_path.is_dir()
+        # .modelmeta.json sidecar must be present per folder-first Working Files design.
+        modelmeta = folder_path / ".modelmeta.json"
+        assert modelmeta.is_file()
     finally:
         client.__exit__(None, None, None)
 

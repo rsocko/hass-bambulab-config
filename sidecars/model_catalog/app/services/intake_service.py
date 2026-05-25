@@ -92,6 +92,25 @@ def get_working_items_hashes(db_path: Path | str) -> set[str]:
         connection.close()
 
 
+def get_working_file_inventory_hashes(db_path: Path | str) -> set[str]:
+    """
+    Read all file hashes from the folder-first working file inventory.
+
+    Used so duplicate-validation also covers files published to the
+    folder-first Working Files store (not just legacy working_items rows).
+    """
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT sha256_hash FROM working_file_inventory WHERE sha256_hash IS NOT NULL AND TRIM(sha256_hash) != ''"
+        ).fetchall()
+        return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
+    except sqlite3.OperationalError:
+        return set()
+    finally:
+        connection.close()
+
+
 def get_catalog_asset_hashes(db_path: Path | str) -> set[str]:
     """
     Read all file hashes from published catalog assets.
@@ -148,9 +167,10 @@ def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
         Set of SHA256 hex strings (lowercase) from inventory + in-flight
     """
     working_hashes = get_working_items_hashes(db_path)
+    inventory_hashes = get_working_file_inventory_hashes(db_path)
     catalog_hashes = get_catalog_asset_hashes(db_path)
     inflight_hashes = get_all_intake_queue_hashes(db_path)
-    return working_hashes | catalog_hashes | inflight_hashes
+    return working_hashes | inventory_hashes | catalog_hashes | inflight_hashes
 
 
 def detect_duplicate_files(
