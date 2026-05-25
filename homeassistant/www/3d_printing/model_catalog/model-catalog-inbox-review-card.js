@@ -148,7 +148,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     this._error = '';
     this._status = '';
     this._items = [];
-    this._workingGroups = [];
     this._stateFilter = '';
     this._selectMode = false;
     this._selectedIds = {};
@@ -288,7 +287,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       buttons.push('<button class="button' + (!buttons.length ? ' primary' : '') + '" data-action="open-curated-section" data-local-model-id="' + escapeHtml(localModelIds[0]) + '">Open Curated</button>');
     }
     if (workingGroupIds.length) {
-      buttons.push('<button class="button' + (!buttons.length ? ' primary' : '') + '" data-action="open-working-section" data-working-group-ids="' + escapeHtml(workingGroupIds.join(',')) + '">Open Working</button>');
+      buttons.push('<span class="chip" title="Legacy working-group reference">Legacy: ' + escapeHtml(workingGroupIds.join(', ')) + '</span>');
     }
     buttons.push('<button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>');
     return buttons.join('');
@@ -308,11 +307,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
         state_filter: this._stateFilter || undefined,
       });
       this._items = Array.isArray(itemsResponse.items) ? itemsResponse.items : [];
-      var groupsResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_working_groups', {
-        limit: 200,
-        offset: 0,
-      });
-      this._workingGroups = Array.isArray(groupsResponse.groups) ? groupsResponse.groups : [];
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not load inbox review state.';
     } finally {
@@ -481,68 +475,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       await this._refresh();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not delete intake item.';
-      this._loading = false;
-      this._render();
-    }
-  }
-
-  async _createGroup(itemId, sourceEntry) {
-    var title = window.prompt('Working group title', suggestedGroupTitle(sourceEntry));
-    if (!title) {
-      return;
-    }
-    this._loading = true;
-    this._error = '';
-    this._status = '';
-    this._render();
-    try {
-      await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_group_intake_item', {
-        item_id: itemId,
-        action: 'create_working_group',
-        title: title,
-        stage: 'draft',
-      });
-      this._status = 'Item sent to working files.';
-      fireModelCatalogDataChanged(['working'], { reason: 'create-group', itemId: itemId });
-      this._loading = false;
-      await this._refresh();
-    } catch (error) {
-      this._error = error && error.message ? String(error.message) : 'Could not send intake item to working files.';
-      this._loading = false;
-      this._render();
-    }
-  }
-
-  async _attachExisting(itemId) {
-    var options = this._workingGroups.map(function (group) {
-      return String(group.id) + ': ' + (group.title || 'Untitled Group');
-    }).join('\n');
-    var answer = window.prompt('Attach to existing working group. Enter the numeric group ID.\n\n' + options, this._workingGroups.length ? String(this._workingGroups[0].id) : '');
-    if (!answer) {
-      return;
-    }
-    var groupId = Number(answer);
-    if (!Number.isFinite(groupId) || groupId <= 0) {
-      this._error = 'A valid working group ID is required.';
-      this._render();
-      return;
-    }
-    this._loading = true;
-    this._error = '';
-    this._status = '';
-    this._render();
-    try {
-      await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_group_intake_item', {
-        item_id: itemId,
-        action: 'attach_existing_working_group',
-        working_group_id: groupId,
-      });
-      this._status = 'Intake item attached to existing working group.';
-      fireModelCatalogDataChanged(['working'], { reason: 'attach-existing', itemId: itemId, groupId: groupId });
-      this._loading = false;
-      await this._refresh();
-    } catch (error) {
-      this._error = error && error.message ? String(error.message) : 'Could not attach intake item to working group.';
       this._loading = false;
       this._render();
     }
@@ -719,24 +651,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
           continue;
         }
 
-        if (action === 'create-group') {
-          var title = suggestedGroupTitle(sourceEntry);
-          await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_group_intake_item', {
-            item_id: item.item_id,
-            action: 'create_working_group',
-            title: title,
-            stage: 'draft',
-          });
-              changedScopes.working = true;
-          results.push({
-            item_id: item.item_id,
-            label: basename(sourceEntry.path || item.item_id),
-            outcome: 'succeeded',
-            message: 'sent to working files as ' + title,
-          });
-          continue;
-        }
-
         if (action === 'defer') {
           await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_defer_intake_item', { item_id: item.item_id, note: note || 'Deferred by operator (batch)' });
           results.push({
@@ -860,10 +774,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       this._runBatchAction('publish-curated');
       return;
     }
-    if (action === 'batch-create-group') {
-      this._runBatchAction('create-group');
-      return;
-    }
     if (action === 'batch-defer') {
       this._runBatchAction('defer');
       return;
@@ -903,26 +813,12 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       );
       return;
     }
-    if (action === 'open-working-section') {
-      this._navigateToSection(
-        this._config.workingSection,
-        'Opened Working for result ' + String(target.getAttribute('data-working-group-ids') || '') + '.'
-      );
-      return;
-    }
     if (action === 'open-curated-section') {
       this._navigateToSection(
         this._config.curatedSection,
         'Opened Curated for model ' + String(target.getAttribute('data-local-model-id') || '') + '.'
       );
       return;
-    }
-    if (action === 'create-group') {
-      this._createGroup(itemId, { path: sourcePath, type: String(target.getAttribute('data-source-type') || '') || 'file', group_title: String(target.getAttribute('data-group-title') || '') });
-      return;
-    }
-    if (action === 'attach-existing') {
-      this._attachExisting(itemId);
     }
   }
 
@@ -971,7 +867,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       + '    ' + viewToolbar
       + '    ' + (isActiveQueueView ? '<section class="toolbar-row"><div class="field"><label for="inbox-state-filter">State Filter</label><select id="inbox-state-filter" class="select"><option value="">All</option><option value="submitted"' + (this._stateFilter === 'submitted' ? ' selected' : '') + '>Submitted</option><option value="validated_ready"' + (this._stateFilter === 'validated_ready' ? ' selected' : '') + '>Validated Ready</option><option value="validated_warning"' + (this._stateFilter === 'validated_warning' ? ' selected' : '') + '>Validated Warning</option><option value="deferred"' + (this._stateFilter === 'deferred' ? ' selected' : '') + '>Deferred</option></select></div></div></section>' : '')
       + '    <section class="toolbar-row"><div class="status">Items: ' + String(visibleItems.length) + (this._selectMode && canSelect ? ' / Selected: ' + String(selectedCount) : '') + '</div></section>'
-      + '    ' + (this._selectMode && canSelect ? '<section class="batch-toolbar"><div class="title-row"><div><div class="title">' + String(selectedCount) + ' selected</div><div class="subtitle">Batch review keeps curated publish and working-file handoff as distinct destination actions.</div></div></div><div class="button-row"><button class="button primary" data-action="batch-validate"' + (!selectedCount ? ' disabled' : '') + '>Validate</button><button class="button primary" data-action="batch-publish-curated"' + (!selectedCount ? ' disabled' : '') + '>Publish Curated</button><button class="button primary" data-action="batch-create-group"' + (!selectedCount ? ' disabled' : '') + '>Send To Working Files</button><button class="button warn" data-action="batch-defer"' + (!selectedCount ? ' disabled' : '') + '>Defer</button><button class="button danger" data-action="batch-reject"' + (!selectedCount ? ' disabled' : '') + '>Reject</button><button class="button danger" data-action="batch-delete"' + (!selectedCount ? ' disabled' : '') + '>Delete</button><button class="button" data-action="toggle-select-mode">Cancel</button></div></section>' : '')
+      + '    ' + (this._selectMode && canSelect ? '<section class="batch-toolbar"><div class="title-row"><div><div class="title">' + String(selectedCount) + ' selected</div><div class="subtitle">Batch review actions for queued intake items.</div></div></div><div class="button-row"><button class="button primary" data-action="batch-validate"' + (!selectedCount ? ' disabled' : '') + '>Validate</button><button class="button primary" data-action="batch-publish-curated"' + (!selectedCount ? ' disabled' : '') + '>Publish Curated</button><button class="button warn" data-action="batch-defer"' + (!selectedCount ? ' disabled' : '') + '>Defer</button><button class="button danger" data-action="batch-reject"' + (!selectedCount ? ' disabled' : '') + '>Reject</button><button class="button danger" data-action="batch-delete"' + (!selectedCount ? ' disabled' : '') + '>Delete</button><button class="button" data-action="toggle-select-mode">Cancel</button></div></section>' : '')
       + '    ' + (this._batchResult ? '<section class="result-summary"><div class="title-row"><div><div class="title">Batch Result Summary</div><div class="subtitle">' + escapeHtml(batchActionLabel(this._batchResult.action)) + ' across ' + String(this._batchResult.total) + ' item(s).</div></div><button class="button" data-action="clear-batch-result">Dismiss</button></div><div class="button-row"><span class="chip ok">Succeeded ' + String(this._batchResult.succeeded) + '</span><span class="chip warn">Partial ' + String(this._batchResult.partial) + '</span><span class="chip error">Failed ' + String(this._batchResult.failed) + '</span></div><div class="entries">' + this._batchResult.results.map(function (result) { return '<div class="result-line"><span>' + escapeHtml(result.label || result.item_id) + '</span><span>' + escapeHtml(result.message || result.outcome) + '</span></div>'; }).join('') + '</div></section>' : '')
       + '    ' + (this._loading && !visibleItems.length ? '<div class="state-row">Loading intake items...</div>' : '')
       + '    ' + (!this._loading && !visibleItems.length ? '<div class="state-row">No intake items match the current view.</div>' : '')
@@ -991,11 +887,11 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
           var isTerminal = this._currentView === 'job_history';
           var actionButtons = isTerminal 
             ? this._historyActionButtons(item, deleteDisabled, proposedTitle)
-            : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '" data-source-type="' + escapeHtml(sourceEntry.type || '') + '" data-group-title="' + escapeHtml(sourceEntry.group_title || '') + '">Send To Working Files</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
+            : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
           return ''
             + '<article class="entry-row' + (isSelected ? ' selected' : '') + '">'
             + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode && canSelect ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel((isTerminal ? terminalDisplayAction(item) : (item.terminal_action || item.state || item.status)) || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
-            + '  ' + (isTerminal ? this._terminalSummaryMarkup(item, proposedTitle) : '<div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Working Group Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>')
+            + '  ' + (isTerminal ? this._terminalSummaryMarkup(item, proposedTitle) : '<div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Suggested Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>')
             + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
             + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')
             + (validationActionText ? '<div class="muted">Saved review actions: ' + escapeHtml(validationActionText) + '</div>' : '')

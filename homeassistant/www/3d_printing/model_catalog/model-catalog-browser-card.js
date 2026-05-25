@@ -38,10 +38,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       initialized: false,
     };
     this._visibilityCounts = { active: 0, archived: 0 };
-    this._serverEntityTypeCounts = { model: 0, idea: 0, working_group: 0 };
+    this._serverEntityTypeCounts = { model: 0, idea: 0 };
     this._entityTypeFilters = {
       showIdeas: false,
-      showWorkingGroups: false,
     };
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
@@ -112,7 +111,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _normalizedEntityType(value) {
     var normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "idea" || normalized === "working_group" || normalized === "model") {
+    if (normalized === "idea" || normalized === "model") {
       return normalized;
     }
     return "model";
@@ -138,9 +137,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (normalized === "idea") {
       return !!this._entityTypeFilters.showIdeas;
     }
-    if (normalized === "working_group") {
-      return !!this._entityTypeFilters.showWorkingGroups;
-    }
     return true;
   }
 
@@ -148,7 +144,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._serverEntityTypeCounts) {
       return this._serverEntityTypeCounts;
     }
-    var counts = { model: 0, idea: 0, working_group: 0 };
+    var counts = { model: 0, idea: 0 };
     for (var i = 0; i < this._results.length; i++) {
       var entityType = this._entityTypeForModel(this._results[i]);
       counts[entityType] = (counts[entityType] || 0) + 1;
@@ -185,9 +181,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _promotionTargets(fromType) {
     var normalized = this._normalizedEntityType(fromType);
     if (normalized === "idea") {
-      return ["model", "working_group"];
-    }
-    if (normalized === "working_group") {
       return ["model"];
     }
     return [];
@@ -198,35 +191,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (normalized === "idea") {
       return "Idea";
     }
-    if (normalized === "working_group") {
-      return "Working Group";
-    }
     return "";
-  }
-
-  _workingGroupIdForModel(model) {
-    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
-    var candidates = [
-      fields.working_group_id,
-      fields.published_from_group_id,
-      model && model.working_group_id,
-    ];
-    for (var i = 0; i < candidates.length; i++) {
-      var candidate = Number(candidates[i] || 0);
-      if (Number.isFinite(candidate) && candidate > 0) {
-        return Math.round(candidate);
-      }
-    }
-
-    var sourceOriginUrl = String(fields.source_origin_url || model && model.source_origin_url || "").trim();
-    var match = sourceOriginUrl.match(/working-group:\/\/(\d+)/i);
-    if (match) {
-      var parsed = Number(match[1] || 0);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return Math.round(parsed);
-      }
-    }
-    return 0;
   }
 
   _slugifyName(value) {
@@ -740,7 +705,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     addBool("has_other_files");
     addBool("show_archived");
     addBool("show_ideas");
-    addBool("show_working_groups");
     addBool("refresh");
     addText("context");
     addText("archive_name");
@@ -1073,7 +1037,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
         show_ideas: !!this._entityTypeFilters.showIdeas,
-        show_working_groups: !!this._entityTypeFilters.showWorkingGroups,
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
         per_page: this._pagination.per_page,
@@ -1096,7 +1059,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._serverEntityTypeCounts = {
         model: Math.max(0, Number(responseEntityTypeCounts.model || 0) || 0),
         idea: Math.max(0, Number(responseEntityTypeCounts.idea || 0) || 0),
-        working_group: Math.max(0, Number(responseEntityTypeCounts.working_group || 0) || 0),
       };
       this._visibilityCounts = {
         active: Math.max(0, Number(responseVisibilityCounts.active || 0) || 0),
@@ -1151,7 +1113,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.total_pages = 0;
       this._unifiedQueueByModelRef = {};
       this._visibilityCounts = { active: 0, archived: 0 };
-      this._serverEntityTypeCounts = { model: 0, idea: 0, working_group: 0 };
+      this._serverEntityTypeCounts = { model: 0, idea: 0 };
       this._error = error && error.message ? String(error.message) : "Could not load model catalog.";
     } finally {
       this._loading = false;
@@ -1579,13 +1541,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
-    if (action === "toggle-show-working-groups-filter") {
-      this._entityTypeFilters.showWorkingGroups = !this._entityTypeFilters.showWorkingGroups;
-      this._requestLoad(1, false);
-      this._render();
-      return;
-    }
-
     if (action === "toggle-show-media") {
       this._showMedia = !this._showMedia;
       this._render();
@@ -1795,16 +1750,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = error && error.message ? String(error.message) : "Could not promote entity.";
         this._render();
       }
-      return;
-    }
-
-    if (action === "open-working-files") {
-      event.preventDefault();
-      event.stopPropagation();
-      var groupId = Number(target.getAttribute("data-working-group-id") || 0);
-      var groupTitle = String(target.getAttribute("data-model-name") || "Working Files").trim();
-      this._activeActionMenu = "";
-      this._openWorkingFilesExplorer(groupId, groupTitle);
       return;
     }
 
@@ -3517,7 +3462,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="filter-chip toggle-chip' + (this._filters.frequents_only ? ' active frequent' : '') + '" type="button" data-action="toggle-frequents-filter" aria-pressed="' + (this._filters.frequents_only ? 'true' : 'false') + '">Frequents only</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
       + '  <button class="filter-chip toggle-chip' + (this._entityTypeFilters.showIdeas ? ' active idea' : '') + '" type="button" data-action="toggle-show-ideas-filter" aria-pressed="' + (this._entityTypeFilters.showIdeas ? 'true' : 'false') + '">&#128161; Show ideas (' + this._escapeHtml(String(typeCounts.idea || 0)) + ')</button>'
-      + '  <button class="filter-chip toggle-chip' + (this._entityTypeFilters.showWorkingGroups ? ' active working-group' : '') + '" type="button" data-action="toggle-show-working-groups-filter" aria-pressed="' + (this._entityTypeFilters.showWorkingGroups ? 'true' : 'false') + '">&#129529; Show working groups (' + this._escapeHtml(String(typeCounts.working_group || 0)) + ')</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active archived' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
       + '  <label class="inline-select" for="mc-frequent-window">Freq window'
       + '    <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
@@ -3663,7 +3607,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var entityType = this._entityTypeForModel(model);
     var entityTypeBadgeText = this._entityTypeBadgeLabel(entityType);
     var entityTypeBadge = entityTypeBadgeText
-      ? '<span class="entity-type-pill ' + this._escapeHtml(entityType === "working_group" ? "working-group" : entityType) + '">' + this._escapeHtml(entityTypeBadgeText) + '</span>'
+      ? '<span class="entity-type-pill ' + this._escapeHtml(entityType) + '">' + this._escapeHtml(entityTypeBadgeText) + '</span>'
       : '';
     var isArchived = String((structured && structured.catalog_signals && structured.catalog_signals.catalog_visibility) || model.catalog_visibility || "").trim().toLowerCase() === "archived";
     var archivedBadge = isArchived
@@ -3807,14 +3751,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       promotionActions = '  <div class="advanced-group-label">Promote</div>';
       for (var p = 0; p < promotionTargets.length; p++) {
         var promoteTarget = promotionTargets[p];
-        var promoteLabel = promoteTarget === "working_group" ? "Promote to Working Group" : "Promote to Model";
+        var promoteLabel = "Promote to Model";
         promotionActions += '  <button class="advanced-action" type="button" data-action="promote-entity" data-local-model-id="' + this._escapeHtml(localModelId) + '" data-from-entity-type="' + this._escapeHtml(entityType) + '" data-to-entity-type="' + this._escapeHtml(promoteTarget) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:arrow-up-bold-circle-outline"></ha-icon><span>' + this._escapeHtml(promoteLabel) + '</span></button>';
       }
-    }
-    var workingGroupId = this._workingGroupIdForModel(model);
-    var workingGroupActions = '';
-    if (entityType === "working_group") {
-      workingGroupActions = '  <button class="advanced-action" type="button" data-action="open-working-files" data-model-name="' + this._escapeHtml(name) + '" data-working-group-id="' + this._escapeHtml(String(workingGroupId || 0)) + '"><ha-icon icon="mdi:folder-open-outline"></ha-icon><span>Open in Working Files</span></button>';
     }
     var advancedActions = ''
       + '<div class="advanced-menu-shell">'
@@ -3822,7 +3761,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
           + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
           + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
-          + workingGroupActions
           + promotionActions
           + deleteButton
           + '</div>'
@@ -4396,17 +4334,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     });
   }
 
-  _openWorkingFilesExplorer(groupId, groupTitle) {
-    this._fireBrowserModEvent("browser_mod.popup", {
-      title: groupTitle ? (groupTitle + " - Working Files") : "Working Files",
-      size: "wide",
-      content: {
-        type: "custom:model-catalog-working-files-explorer-card",
-        initial_group_id: Number.isFinite(Number(groupId)) && Number(groupId) > 0 ? Math.round(Number(groupId)) : 0,
-      },
-    });
-  }
-
   _fireBrowserModEvent(service, data) {
     var event = new CustomEvent("ll-custom", {
       bubbles: true,
@@ -4771,7 +4698,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.filter-chip.frequent.active{background:rgba(16,185,129,0.20);border-color:rgba(16,185,129,0.44);color:#6ee7b7;}'
       + '.filter-chip.docs.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.34);color:#93c5fd;}'
       + '.filter-chip.idea.active{background:rgba(250,204,21,0.20);border-color:rgba(250,204,21,0.44);color:#fde68a;}'
-      + '.filter-chip.working-group.active{background:rgba(96,165,250,0.20);border-color:rgba(96,165,250,0.44);color:#dbeafe;}'
       + '.filter-chip.archived.active{background:rgba(148,163,184,0.20);border-color:rgba(148,163,184,0.44);color:#cbd5e1;}'
       + '.page-control-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);}'
       + '.toolbar-group{display:inline-flex;align-items:center;gap:8px;min-width:0;}'
@@ -4888,7 +4814,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.chip.source-chip{max-width:100%;}'
       + '.entity-type-pill{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:10px;font-weight:800;color:var(--secondary-text-color);}'
       + '.entity-type-pill.idea{background:rgba(250,204,21,0.18);border-color:rgba(250,204,21,0.34);color:#fef3c7;}'
-      + '.entity-type-pill.working-group{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:#dbeafe;}'
       + '.archived-pill{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);font-size:10px;font-weight:800;color:#94a3b8;width:fit-content;margin-right:6px;vertical-align:middle;}'
       + '.archived-pill ha-icon{--mdc-icon-size:12px;}'
       + '.model-card.is-archived{border:2px solid rgba(148,163,184,0.55);opacity:0.72;}'

@@ -695,7 +695,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _fileBatchResolvedTitle() {
     var fileEntries = this._fileSelectionEntries();
     if (!fileEntries.length) {
-      return 'Working Group';
+      return 'Folder';
     }
     return this._resolvedGroupTitle(fileEntries[0]);
   }
@@ -789,27 +789,27 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   _defaultBrowserBatchTitle() {
     if (!this._browserFiles.length) {
-      return 'Working Group';
+      return 'Folder';
     }
     if (this._browserGroupingStrategy() === 'flat') {
       var flatFirstEntry = this._browserFiles[0];
-      return displayTitleFromPath(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || basename(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || 'Working Group';
+      return displayTitleFromPath(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || basename(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || 'Folder';
     }
     var titleSource = this._browserBatchTitleSource();
     var topFolders = this._browserTopLevelFolders();
     if (titleSource === 'custom') {
-      return String(this._browserFiles[0] && this._browserFiles[0].group_title || '').trim() || 'Working Group';
+      return String(this._browserFiles[0] && this._browserFiles[0].group_title || '').trim() || 'Folder';
     }
     if (titleSource === 'folder' && topFolders.length === 1) {
       return topFolders[0];
     }
     var firstEntry = this._browserFiles[0];
-    return displayTitleFromPath(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || basename(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || 'Working Group';
+    return displayTitleFromPath(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || basename(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || 'Folder';
   }
 
   _browserBatchResolvedTitle() {
     if (!this._browserFiles.length) {
-      return 'Working Group';
+      return 'Folder';
     }
     var explicitTitle = String(this._browserFiles[0] && this._browserFiles[0].group_title || '').trim();
     if (explicitTitle) {
@@ -842,7 +842,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _defaultGroupTitle(entry, proposals) {
     var titleSource = this._selectionTitleSource(entry);
     if (titleSource === 'custom') {
-      return String(entry && entry.group_title || '').trim() || displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
+      return String(entry && entry.group_title || '').trim() || displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Folder';
     }
     if (titleSource === 'first-file') {
       if (Array.isArray(proposals) && proposals.length) {
@@ -856,11 +856,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         }
       }
       if (entry && entry.type === 'folder') {
-        return 'Working Group';
+        return 'Folder';
       }
-      return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
+      return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Folder';
     }
-    return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
+    return displayTitleFromPath(entry && entry.path || '') || basename(entry && entry.path || '') || 'Folder';
   }
 
   _resolvedGroupTitle(entry, proposals) {
@@ -1304,42 +1304,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var plainSelections = [];
       for (var si = 0; si < payloadSelections.length; si += 1) {
         var sel = payloadSelections[si];
-        var selState = this._selected[sel.path] || {};
-        if (sel.type === "folder" && selState.grouping_strategy && selState.grouping_strategy !== "none") {
-          try {
-            var discoverRequest = {
-              folder_path: sel.path,
-              grouping_strategy: selState.grouping_strategy,
-            };
-            var discoverResponse = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_bulk_discover_working_groups", discoverRequest);
-            var proposals = Array.isArray(discoverResponse && discoverResponse.proposals) ? discoverResponse.proposals : [];
-            proposals.forEach(function (proposal) {
-              (proposal.files || []).forEach(function (fileEntry) {
-                if (fileEntry.path) {
-                  var expandedTitleSource = this._selectionTitleSource(selState);
-                  var expandedSelection = {
-                    type: "file",
-                    path: String(fileEntry.path),
-                    group_title_source: expandedTitleSource,
-                  };
-                  if (expandedTitleSource === 'custom') {
-                    expandedSelection.group_title = this._resolvedGroupTitle(selState, proposals);
-                  }
-                  expandedSelections.push({
-                    type: expandedSelection.type,
-                    path: expandedSelection.path,
-                    group_title_source: expandedSelection.group_title_source,
-                    group_title: expandedSelection.group_title,
-                  });
-                }
-              }, this);
-            }, this);
-          } catch (_discoverError) {
-            plainSelections.push(sel);
-          }
-        } else {
-          plainSelections.push(sel);
-        }
+        plainSelections.push(sel);
       }
       var finalSelections = plainSelections.concat(expandedSelections);
       var response;
@@ -1406,7 +1371,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         cleanup_policy: response.cleanup_policy || cleanupPolicy,
         publish_status: publishResponse && publishResponse.status ? publishResponse.status : null,
         local_model_id: publishResponse && publishResponse.local_model_id ? publishResponse.local_model_id : null,
-        working_group_id: publishResponse && publishResponse.working_group_id ? publishResponse.working_group_id : null,
       };
       if (this._commitMode === 'execute_now') {
         if (publishResponse) {
@@ -1419,7 +1383,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             reason: 'execute-now-publish',
             uploadId: response.upload_id,
             localModelId: publishResponse.local_model_id || null,
-            workingGroupId: publishResponse.working_group_id || null,
           });
         } else {
           this._status = "Validation produced warnings, so the batch remains in the background queue for follow-up review.";
@@ -1597,7 +1560,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
             : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-          + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+          + '    <div class="field"><label>Folder Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Folder Title"></div>'
           + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. ZIP archives are expanded in the browser into browsable folder trees before upload, so the wizard can treat them like a container instead of a flat file.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Catalog.' : '') + '</div>'
         : '')
       + '</div>';
@@ -1659,7 +1622,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">Applies to all individually selected files in this queue batch.</div></div><div class="button-row"><span class="chip">' + String(fileEntries.length) + ' files</span></div></div>'
           + '<div class="item-grid">'
           + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source-files"><option value="first-file"' + (fileBatchTitleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (fileBatchTitleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-          + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(fileBatchResolvedTitle) + '" data-action="selection-group-title-files" placeholder="Working Group"></div>'
+          + '<div class="field"><label>Folder Title</label><input class="input" type="text" value="' + escapeHtml(fileBatchResolvedTitle) + '" data-action="selection-group-title-files" placeholder="Folder Title"></div>'
           + '<div class="muted">This title is copied to the queued file entries and becomes the default group title for follow-up working actions.</div>'
           + '</div>'
           + '</article>'
@@ -1682,7 +1645,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
               ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
               : '')
             + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-            + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
+            + '<div class="field"><label>Folder Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Folder Title"></div>'
             + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
             + '</div>'
           : (entry.type === 'folder'
@@ -1742,7 +1705,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._wizardStep === 1) {
         return ''
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Preview And Group Defaults</div><div class="subtitle">Review the queued entries and edit the default Working Group title before committing the batch.</div></div></div>'
+          + '  <div class="title-row"><div><div class="title">Preview And Folder Defaults</div><div class="subtitle">Review the queued entries and edit the default folder title before committing the batch.</div></div></div>'
           + (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
           + '  <div class="muted">Folder imports keep the title basis and custom title you set here. File rows now request server-side previews for image and 3MF paths when available.</div>'
           + '  <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '.</div>'
@@ -1757,7 +1720,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._wizardStep === 2) {
         return ''
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Preview And Group Defaults</div><div class="subtitle">Review the queued entries and edit the default Working Group title before committing to Inbox.</div></div></div>'
+          + '  <div class="title-row"><div><div class="title">Preview And Folder Defaults</div><div class="subtitle">Review the queued entries and edit the default folder title before committing to Inbox.</div></div></div>'
           + '  <div class="result-summary"><div class="result-line"><span>Selected entries</span><strong>' + String(this._selectedList().length) + '</strong></div><div class="result-line"><span>Estimated files</span><strong>' + String(this._selectedList().length) + ' or more</strong></div></div>'
           + '  <div class="muted">Folder imports keep the title basis and custom title you set here. You can still override the title later from Inbox. File rows now request server-side previews for image and 3MF paths when available.</div>'
           + '  <div class="wizard-selection-scroll">' + this._renderServerSelectionRows(true) + '</div>'

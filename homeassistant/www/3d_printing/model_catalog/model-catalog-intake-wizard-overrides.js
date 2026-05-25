@@ -253,7 +253,7 @@ function getBrowserTreeNode(root, pathValue) {
 
 function titleForStrategy(card, strategy, key) {
   if (!key || key === '__loose__') {
-    return card._wizardMode === 'browser' ? card._browserBatchResolvedTitle() : 'Working Group';
+    return card._wizardMode === 'browser' ? card._browserBatchResolvedTitle() : 'Folder';
   }
   if (strategy === 'flat') {
     return key;
@@ -435,7 +435,7 @@ function buildBrowserPlanPreview(card) {
   if (looseFiles.length) {
     looseFiles.forEach(function (entry) {
       var relativePath = String(entry.relative_path || entry.name || '');
-      var looseTitle = basename(relativePath).replace(/\.[^.]+$/, '') || 'Working Group';
+      var looseTitle = basename(relativePath).replace(/\.[^.]+$/, '') || 'Model';
       groups = groups.concat(groupsForSection(
         [entry],
         entry.grouping_strategy,
@@ -664,10 +664,9 @@ function renderPlanSummary(card, options) {
     var destinationMarkup = '';
     var files = renderFileTreeBlock(model.files || [], { flatten: model.preserve_folder_structure === false });
     if (destinationPlan) {
-      var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
       destinationMarkup = ''
-        + '<div class="button-row"><span class="chip">' + escapeHtml(destinationLabel) + '</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
+        + '<div class="button-row"><span class="chip">Catalog</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
         + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
     }
     return ''
@@ -1644,9 +1643,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return explicitTitle;
     }
     if (this._browserRootTitleSource(entry) === 'first-file') {
-      return basename(String(entry && (entry.relative_path || entry.name) || '')).replace(/\.[^.]+$/, '') || rootKey || 'Working Group';
+      return basename(String(entry && (entry.relative_path || entry.name) || '')).replace(/\.[^.]+$/, '') || rootKey || 'Folder';
     }
-    return rootKey || 'Working Group';
+    return rootKey || 'Folder';
   };
 
   proto._browserLooseTitleSource = function () {
@@ -1664,19 +1663,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   proto._browserLooseResolvedTitle = function () {
     var files = this._browserLooseFiles();
     if (!files.length) {
-      return 'Working Group';
+      return 'Folder';
     }
     var explicitTitle = String(files[0].group_title || '').trim();
     if (explicitTitle) {
       return explicitTitle;
     }
-    return basename(String(files[0].relative_path || files[0].name || '')).replace(/\.[^.]+$/, '') || 'Working Group';
+    return basename(String(files[0].relative_path || files[0].name || '')).replace(/\.[^.]+$/, '') || 'Folder';
   };
 
   proto._renderBrowserLooseFileCard = function (entry) {
     var relativePath = String(entry && (entry.relative_path || entry.name) || '');
     var displayName = basename(relativePath) || relativePath || 'upload.bin';
-    var defaultTitle = displayName.replace(/\.[^.]+$/, '') || 'Working Group';
+    var defaultTitle = displayName.replace(/\.[^.]+$/, '') || 'Folder';
     var groupingValue = normalizeGroupingStrategy(entry && entry.grouping_strategy || 'none', { allowFolderStrategies: false });
     var titleSource = String(entry && entry.group_title_source || '').trim().toLowerCase() === 'custom' ? 'custom' : 'first-file';
     var resolvedTitle = String(entry && entry.group_title || '').trim() || defaultTitle;
@@ -1698,7 +1697,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '    <div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-loose-file-grouping" data-relative-path="' + escapeHtml(relativePath) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
       + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-loose-file-title-source" data-relative-path="' + escapeHtml(relativePath) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
       + (titleSource === 'custom'
-        ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-loose-file-group-title" data-relative-path="' + escapeHtml(relativePath) + '" placeholder="Working Group"></div>'
+        ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-loose-file-group-title" data-relative-path="' + escapeHtml(relativePath) + '" placeholder="Folder"></div>'
         : '')
       + '  </div>'
       + '</article>';
@@ -1756,7 +1755,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var entries = settings.entries || [];
     var groupingValue = String(settings.groupingValue || 'none').trim().toLowerCase();
     var titleSource = String(settings.titleSource || 'first-file').trim().toLowerCase();
-    var resolvedTitle = String(settings.resolvedTitle || 'Working Group');
+    var resolvedTitle = String(settings.resolvedTitle || 'Folder');
     var groupingAction = String(settings.groupingAction || '');
     var titleSourceAction = String(settings.titleSourceAction || '');
     var groupTitleAction = String(settings.groupTitleAction || '');
@@ -1771,7 +1770,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
       + '<div class="field"><label>Title Basis</label><select class="select" data-action="' + escapeHtml(titleSourceAction) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
       + (showBatchTitleField
-        ? '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
+        ? '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Folder"></div>'
         : '')
       + '</div>'
       + '</article>';
@@ -1826,7 +1825,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="browser-root-preserve-structure" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (representative.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
           : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
         + '<div class="field"><label>Title Basis</label><select class="select" data-action="browser-root-title-source" data-root="' + escapeHtml(rootKey) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-        + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Working Group"></div>'
+        + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Folder"></div>'
         + '<div class="muted" style="grid-column:1 / -1;">These options apply only to the folder ' + escapeHtml(rootKey) + '.</div>'
         + '</div>'
         + '</article>');
@@ -1879,7 +1878,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         ? '<div class="result-summary">'
           + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedFileCount > 0 ? ', ' + String(excludedFileCount) + ' excluded' : '') + '</strong></div>'
           + (groupingStrategy !== 'flat'
-            ? '  <div class="result-line"><span>Model/Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
+            ? '  <div class="result-line"><span>Model/Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Folder') + '</strong></div>'
             : '')
           + '</div>'
         : chipMarkup)
@@ -1893,7 +1892,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             : (folderCount ? '    <div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>' : ''))
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source">' + titleSourceOptions + '</select></div>'
           + (groupingStrategy !== 'flat'
-            ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+            ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Folder"></div>'
             : '')
           + '  </div>'
           + ((groupingStrategy === 'flat' && titleSource === 'custom')
@@ -2030,7 +2029,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         destination: 'curated',
         match_mode: 'new',
         model_ref: '',
-        working_group_id: null,
         lookup_query: '',
         lookup_results: [],
         lookup_loading: false,
@@ -2064,15 +2062,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var plan = plans[index] || {};
       var destination = String(plan.destination || 'curated').trim().toLowerCase();
       var matchMode = String(plan.match_mode || 'new').trim().toLowerCase();
-      if (destination !== 'curated' && destination !== 'working') {
+      if (destination !== 'curated') {
         return false;
       }
       if (matchMode === 'existing') {
-        if (destination === 'working') {
-          if (!(Number(plan.working_group_id) > 0)) {
-            return false;
-          }
-        } else if (!String(plan.model_ref || '').trim()) {
+        if (!String(plan.model_ref || '').trim()) {
           return false;
         }
       }
@@ -2088,33 +2082,24 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         match_mode: String(plan.match_mode || 'new').trim().toLowerCase(),
       };
       if (payload.match_mode === 'existing') {
-        if (payload.destination === 'working') {
-          payload.working_group_id = Number(plan.working_group_id || 0);
-        } else {
-          payload.model_ref = String(plan.model_ref || '').trim();
-        }
+        payload.model_ref = String(plan.model_ref || '').trim();
       }
       return payload;
     });
   };
 
   proto._destinationSelectionSummary = function (plan) {
-    var destination = String(plan && plan.destination ? plan.destination : 'curated').trim().toLowerCase();
     var matchMode = String(plan && plan.match_mode ? plan.match_mode : 'new').trim().toLowerCase();
     var selected = plan && plan.selected_summary ? plan.selected_summary : null;
     if (matchMode !== 'existing') {
-      return destination === 'working'
-        ? 'Create a new Working Files group.'
-        : 'Create a new Catalog model.';
+      return 'Create a new Catalog model.';
     }
     if (selected) {
       return String(selected.primary || '')
         + (selected.secondary ? ' - ' + String(selected.secondary) : '')
-        + (destination === 'working' ? ' - existing group title preserved' : ' - existing model name preserved');
+        + ' - existing model name preserved';
     }
-    return destination === 'working'
-      ? 'Select an existing Working Files group. Existing group title is preserved.'
-      : 'Select an existing Catalog model. Existing model name is preserved.';
+    return 'Select an existing Catalog model. Existing model name is preserved.';
   };
 
   proto._curatedLookupResultMeta = function (result) {
@@ -2134,7 +2119,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var itemCount = Array.isArray(result && result.items) ? result.items.length : 0;
     return {
       id: String(result && result.id ? result.id : '').trim(),
-      primary: String((result && result.title) || 'Working Group').trim(),
+      primary: String((result && result.title) || 'Folder').trim(),
       secondary: [
         result && result.stage ? String(result.stage) : '',
         project,
@@ -2169,30 +2154,16 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     });
     this._render();
     try {
-      var response;
-      if (String(plan.destination || 'curated') === 'working') {
-        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_working_groups', {
-          q: query,
-          limit: 8,
-          offset: 0,
-        });
-        this._updateGroupDestinationState(groupIndex, {
-          lookup_loading: false,
-          lookup_error: '',
-          lookup_results: Array.isArray(response && response.groups) ? response.groups : [],
-        });
-      } else {
-        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_search_models', {
-          q: query,
-          page: 1,
-          per_page: 8,
-        });
-        this._updateGroupDestinationState(groupIndex, {
-          lookup_loading: false,
-          lookup_error: '',
-          lookup_results: Array.isArray(response && response.results) ? response.results : [],
-        });
-      }
+      var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_search_models', {
+        q: query,
+        page: 1,
+        per_page: 8,
+      });
+      this._updateGroupDestinationState(groupIndex, {
+        lookup_loading: false,
+        lookup_error: '',
+        lookup_results: Array.isArray(response && response.results) ? response.results : [],
+      });
     } catch (error) {
       this._updateGroupDestinationState(groupIndex, {
         lookup_loading: false,
@@ -2214,21 +2185,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return;
     }
     var result = results[resultIndex];
-    if (String(plan.destination || 'curated') === 'working') {
-      var workingMeta = this._workingLookupResultMeta(result);
-      this._updateGroupDestinationState(groupIndex, {
-        working_group_id: Number(workingMeta.id || 0),
-        model_ref: '',
-        selected_summary: workingMeta,
-      });
-    } else {
-      var curatedMeta = this._curatedLookupResultMeta(result);
-      this._updateGroupDestinationState(groupIndex, {
-        model_ref: curatedMeta.id,
-        working_group_id: null,
-        selected_summary: curatedMeta,
-      });
-    }
+    var curatedMeta = this._curatedLookupResultMeta(result);
+    this._updateGroupDestinationState(groupIndex, {
+      model_ref: curatedMeta.id,
+      selected_summary: curatedMeta,
+    });
     this._render();
   };
 
@@ -2271,21 +2232,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
-      var destination = String(plan.destination || 'curated');
       var matchMode = String(plan.match_mode || 'new');
-      var isWorking = destination === 'working';
       var resultRows = '';
       if (matchMode === 'existing') {
         if (plan.lookup_loading) {
-          resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files groups' : 'Catalog models') + '...</div>';
+          resultRows = '<div class="muted">Searching existing Catalog models...</div>';
         } else if (plan.lookup_error) {
           resultRows = '<div class="muted">' + escapeHtml(plan.lookup_error) + '</div>';
         } else if (Array.isArray(plan.lookup_results) && plan.lookup_results.length) {
           resultRows = '<div class="entries">' + plan.lookup_results.map(function (result, resultIndex) {
-            var meta = isWorking ? this._workingLookupResultMeta(result) : this._curatedLookupResultMeta(result);
-            var isSelected = isWorking
-              ? Number(plan.working_group_id || 0) === Number(meta.id || 0)
-              : String(plan.model_ref || '') === String(meta.id || '');
+            var meta = this._curatedLookupResultMeta(result);
+            var isSelected = String(plan.model_ref || '') === String(meta.id || '');
             return ''
               + '<article class="entry-row">'
               + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(meta.primary) + '</div><div class="entry-path">' + escapeHtml(meta.secondary || '') + '</div></div><div class="button-row"><button class="button' + (isSelected ? ' primary' : '') + '" data-action="select-destination-result" data-group-index="' + String(index) + '" data-result-index="' + String(resultIndex) + '">' + (isSelected ? 'Selected' : 'Use This') + '</button></div></div>'
@@ -2299,17 +2256,16 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.archive_file_count || 0) + ' archive, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
         + '  <div class="item-grid">'
-        + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
         + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '"><option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>New</option><option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option></select></div>'
         + '    <div class="field"><label>Selection</label><div class="muted">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div>'
         + '  </div>'
         + (matchMode === 'existing'
           ? '  <div class="item-grid">'
-            + '    <div class="field"><label>' + escapeHtml(isWorking ? 'Find Working Group' : 'Find Catalog Model') + '</label><input class="input" type="text" value="' + escapeHtml(plan.lookup_query || '') + '" data-action="group-lookup-query" data-group-index="' + String(index) + '" placeholder="Search by name or id"></div>'
+            + '    <div class="field"><label>Find Catalog Model</label><input class="input" type="text" value="' + escapeHtml(plan.lookup_query || '') + '" data-action="group-lookup-query" data-group-index="' + String(index) + '" placeholder="Search by name or id"></div>'
             + '    <div class="field"><label>&nbsp;</label><button class="button" data-action="run-destination-search" data-group-index="' + String(index) + '"' + (plan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
             + '  </div>'
             + resultRows
-          : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files group.' : 'Catalog model.') + '</div>')
+          : '<div class="muted">This group will create a new Catalog model.</div>')
         + '</article>';
     }, this).join('') + '</div>';
   };
@@ -2324,11 +2280,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
-      var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchMode = String(plan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(destination) + '</span><span class="chip">' + escapeHtml(matchMode) + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div><div class="button-row"><span class="chip">Catalog</span><span class="chip">' + escapeHtml(matchMode) + '</span></div></div>'
         + '</article>';
     }, this).join('') + '</div>';
   };
@@ -3434,8 +3389,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
                 ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
                 : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
               + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-              + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-              + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
+              + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Folder"></div>'
+              + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is committed.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
               + '</div>'
             : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>'
               + (fileBatchGrouping === 'flat' && fileBatchTitleSource === 'custom' && !isArchive && fileKind(entry.path) === 'model'
@@ -4247,7 +4202,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Each planned group is committed to the Catalog. Organize stays fixed here.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
@@ -4375,9 +4330,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       if (Array.isArray(publishResponse && publishResponse.curated_model_ids) && publishResponse.curated_model_ids.length) {
         changedCollections.push('curated');
       }
-      if (Array.isArray(publishResponse && publishResponse.working_group_ids) && publishResponse.working_group_ids.length) {
-        changedCollections.push('working');
-      }
       this._result = {
         upload_id: uploadId,
         upload_status: publishResponse && publishResponse.status ? publishResponse.status : 'validated',
@@ -4388,7 +4340,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         cleanup_policy: this._wizardMode === 'browser' ? 'delete_on_verified' : this._cleanupPolicy(),
         publish_status: publishResponse && publishResponse.status ? publishResponse.status : null,
         curated_model_ids: publishResponse && Array.isArray(publishResponse.curated_model_ids) ? publishResponse.curated_model_ids : [],
-        working_group_ids: publishResponse && Array.isArray(publishResponse.working_group_ids) ? publishResponse.working_group_ids : [],
         group_results: publishResponse && Array.isArray(publishResponse.group_results) ? publishResponse.group_results : [],
       };
       this._status = 'Validated upload published successfully.';
@@ -4397,7 +4348,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           reason: 'publish-by-destination',
           uploadId: uploadId,
           curatedModelIds: publishResponse.curated_model_ids || [],
-          workingGroupIds: publishResponse.working_group_ids || [],
         });
       }
       this._preparedUploadId = null;
@@ -4731,27 +4681,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._refreshWizardPreview();
       return;
     }
-    if (action === 'group-destination') {
-      var destinationIndex = Number(target.getAttribute('data-group-index') || -1);
-      this._updateGroupDestinationState(destinationIndex, {
-        destination: String(target.value || 'curated').trim().toLowerCase(),
-        model_ref: '',
-        working_group_id: null,
-        lookup_query: '',
-        lookup_results: [],
-        lookup_error: '',
-        lookup_loading: false,
-        selected_summary: null,
-      });
-      this._render();
-      return;
-    }
     if (action === 'group-match-mode') {
       var matchIndex = Number(target.getAttribute('data-group-index') || -1);
       this._updateGroupDestinationState(matchIndex, {
         match_mode: String(target.value || 'new').trim().toLowerCase(),
         model_ref: '',
-        working_group_id: null,
         lookup_query: '',
         lookup_results: [],
         lookup_error: '',
