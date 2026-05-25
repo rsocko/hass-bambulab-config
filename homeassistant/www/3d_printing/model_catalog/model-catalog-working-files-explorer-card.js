@@ -387,6 +387,7 @@
     + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;}'
     + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
     + '.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
+    + '.title-row-actions{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}'
     + '.title{font-size:18px;font-weight:800;line-height:1.2;}'
     + '.subtitle{font-size:12px;color:var(--secondary-text-color);}'
     + '.status{font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
@@ -454,7 +455,7 @@
     + '.type-chip.type-images:hover,.type-chip.type-images:focus-visible,.type-chip.type-images.active{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;outline:none;}'
     + '.type-chip.type-other:hover,.type-chip.type-other:focus-visible,.type-chip.type-other.active{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;outline:none;}'
     + '.file-list{display:grid;gap:4px;}'
-    + '.file-row{display:grid;grid-template-columns:var(--file-thumb-col,38px) minmax(0,1fr)92px 192px 96px 136px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
+    + '.file-row{display:grid;grid-template-columns:var(--file-thumb-col,38px) minmax(0,1fr) 92px 192px 96px 136px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
     + '.file-row:hover{background:rgba(255,255,255,0.03);}'
     + '.file-row.primary{background:rgba(245,194,66,0.08);border:1px solid rgba(245,194,66,0.22);}'
     + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
@@ -2242,7 +2243,6 @@
               + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
               + '<span class="copy-slot">' + this._renderFileActionSplit(pathValue, ext, entry && entry.launch ? entry.launch.windows_path : '') + '</span>'
-              + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('') + '</div>';
         }
@@ -2267,7 +2267,7 @@
             + '  <div class="strip-head"><div class="strip-head-left">' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</div><div class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></div></div>'
             + stripBody
             + '</div>'
-            + '<div class="group-actions"><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
+            + '<div class="group-actions"><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
@@ -2276,7 +2276,6 @@
       var selectedCount = this._selectedPathList().length;
       return ''
         + '<section class="section">'
-        + '  <div class="title-row section-head"><div><div class="title">Groups</div></div></div>'
         + (selectedCount
           ? '<div class="bulk-bar"><span>' + String(selectedCount) + ' file(s) selected</span><button class="button primary" data-action="add-selection-to-group">Add To Group</button><button class="button" data-action="create-group-from-selection">Create Group</button><span class="spacer"></span><button class="button warn" data-action="remove-selection-from-group">Remove From Active Group</button></div>'
           : '')
@@ -2385,15 +2384,14 @@
         + '      <div>'
         + '        <div class="title">' + escapeHtml(this._config.title) + '</div>'
         + '      </div>'
-        +      (workingRootAction ? this._renderFolderActionSplit(workingRootAction.path, workingRootAction.windowsPath, 'Open Working Files Folder on Desktop') : '')
+        + '      <div class="title-row-actions">'
+        + '        <span class="thumb-size-toggle"><button data-action="set-thumbnail-size" data-size="small" class="' + (this._thumbnailSize === 'small' ? 'active' : '') + '">Small</button><button data-action="set-thumbnail-size" data-size="medium" class="' + (this._thumbnailSize === 'medium' ? 'active' : '') + '">Medium</button><button data-action="set-thumbnail-size" data-size="large" class="' + (this._thumbnailSize === 'large' ? 'active' : '') + '">Large</button></span>'
+        + '        <button class="button" data-action="refresh">Re-index</button>'
+        +        (workingRootAction ? this._renderFolderActionSplit(workingRootAction.path, workingRootAction.windowsPath, 'Open Working Files Folder on Desktop') : '')
+        + '      </div>'
         + '    </div>'
         + '    ' + (this._status && this._status !== 'Updating results...' ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
         + '    ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
-        + '    <section class="toolbar">'
-        + '      <div class="title-row">'
-        + '        <div class="button-row"><span class="thumb-size-toggle"><button data-action="set-thumbnail-size" data-size="small" class="' + (this._thumbnailSize === 'small' ? 'active' : '') + '">Small</button><button data-action="set-thumbnail-size" data-size="medium" class="' + (this._thumbnailSize === 'medium' ? 'active' : '') + '">Medium</button><button data-action="set-thumbnail-size" data-size="large" class="' + (this._thumbnailSize === 'large' ? 'active' : '') + '">Large</button></span><button class="button" data-action="refresh">Re-index</button></div>'
-        + '      </div>'
-        + '    </section>'
         + bodyHtml
         + (this._reorganizeDialog && this._reorganizeDialog.open ? this._renderReorganizeDialog() : '')
         + '  </div>'
