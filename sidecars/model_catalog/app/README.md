@@ -40,7 +40,7 @@ app/
 ├── db_common.py                 (Common schema/queries)
 ├── db_intake.py                 (Intake context schema)
 ├── db_models.py                 (Models context schema)
-├── db_working.py                (Working context schema)
+├── db_working.py                (Working files context marker — legacy tables dropped in PR E.1)
 ├── db_archive_links.py          (Archive links context schema)
 ├── db_migrations.py             (Schema initialization & versioning)
 │
@@ -90,7 +90,7 @@ Business logic, workflows, and orchestration. Each service:
 - `intake_cleanup_service.py` — Source cleanup policies
 - `model_search_service.py` — Search/filter/ranking logic
 - `model_media_service.py` — Photo and media management
-- `working_groups_service.py` — Group operations and linking
+- ~~`working_groups_service.py`~~ — DROPPED (working_groups deprecation PR E.1)
 - `working_discovery_service.py` — Folder discovery patterns
 
 ### Database Layer (`db_*.py`)
@@ -100,7 +100,7 @@ SQLite schema, migrations, and CRUD operations organized by **bounded context**:
 - `db_migrations.py` — Schema initialization and versioning
 - `db_intake.py` — Upload queue, validation state
 - `db_models.py` — Model catalog, assets, custom fields
-- `db_working.py` — Working groups, projects, inventory
+- `db_working.py` — Working files context marker (legacy working_groups/items/inventory tables dropped in PR E.1)
 - `db_archive_links.py` — Archive↔model relationships
 - `db_common.py` — Shared schema patterns
 - `db.py` — Connection factory and common utilities
@@ -218,7 +218,7 @@ See `settings.py` for the authoritative list:
 - ✓ Updated all imports across codebase
 
 ### Phase 2.4: Working Router Optimization 🔄 IN PROGRESS
-- ⏳ Extract `working_groups_service.py`
+- ❌ ~~Extract `working_groups_service.py`~~ — DROPPED (working_groups deprecation PR E.1)
 - ⏳ Extract `working_discovery_service.py`
 - ⏳ Update `working.py` to delegate to services
 - ⏳ Refactor serialization helpers

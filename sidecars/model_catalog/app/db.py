@@ -12,7 +12,7 @@ Structure:
   db_migrations.py - Schema statements and migrations
   db_archive_links.py - Archive linking operations
   db_models.py - Model catalog and custom fields
-  db_working.py - Working groups (schema only)
+  db_working.py - Working files context marker (legacy tables removed in PR E.1)
   db_intake.py - Intake queue (schema only)
 """
 

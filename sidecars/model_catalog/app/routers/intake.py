@@ -323,7 +323,11 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
         else:
             from .._helpers import _collect_intake_source_files_in_folder
             recurse = _coerce_bool(entry.get("recurse", True))
-            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse)
+            # include_unsupported=True so the per-file unsupported_type warning
+            # below also fires for files discovered inside folders (issue #1563).
+            candidate_paths = _collect_intake_source_files_in_folder(
+                source_path, recurse=recurse, include_unsupported=True
+            )
 
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())

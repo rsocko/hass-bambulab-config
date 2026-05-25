@@ -308,7 +308,15 @@ def _collect_intake_source_files_in_folder(
     folder: Path,
     *,
     recurse: bool,
+    include_unsupported: bool = False,
 ) -> list[Path]:
+    """Walk a folder and return candidate intake files.
+
+    By default returns only files whose suffix is in
+    :data:`SUPPORTED_INTAKE_FILE_EXTENSIONS`. Pass ``include_unsupported=True``
+    to also return files whose suffix is not supported, so callers can surface
+    per-file warnings instead of silently dropping them (issue #1563).
+    """
     results: list[Path] = []
     try:
         for item in sorted(folder.iterdir()):
@@ -316,13 +324,17 @@ def _collect_intake_source_files_in_folder(
                 continue
             try:
                 if item.is_file():
-                    if item.suffix.lower() in SUPPORTED_INTAKE_FILE_EXTENSIONS:
+                    if (
+                        include_unsupported
+                        or item.suffix.lower() in SUPPORTED_INTAKE_FILE_EXTENSIONS
+                    ):
                         results.append(item)
                 elif item.is_dir() and recurse:
                     results.extend(
                         _collect_intake_source_files_in_folder(
                             item,
                             recurse=True,
+                            include_unsupported=include_unsupported,
                         )
                     )
             except (OSError, PermissionError):

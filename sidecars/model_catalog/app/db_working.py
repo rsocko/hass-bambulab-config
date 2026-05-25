@@ -1,15 +1,9 @@
-"""Working groups schema.
+"""Working files schema (post working-groups deprecation).
 
-This module documents the working groups context. The actual query logic
-resides in the routers since working group operations are more complex and
-leverage local file discovery and working group hierarchies.
+The legacy working_groups / working_items / working_file_inventory /
+working_group_model_links tables were removed by PR E.1 of the
+working-groups deprecation. The working-files context is now a thin
+filesystem-only browser surfaced by routers/working.py; no schema lives here.
 
-Tables:
-- working_groups: Group definitions with discovery metadata
-- working_items: Individual files within groups
-- working_file_inventory: File discovery cache
-- working_group_model_links: Links between groups and models
+This module is retained as a marker for the bounded context.
 """
-
-# This module is organized by bounded context for schema clarity.
-# Most query/mutation logic resides in routers/working.py

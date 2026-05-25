@@ -326,7 +326,11 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             candidate_paths = [source_path]
         else:
             recurse = _coerce_bool(entry.get("recurse", True))
-            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse)
+            # include_unsupported=True so the per-file unsupported_type warning
+            # below also fires for files discovered inside folders (issue #1563).
+            candidate_paths = _collect_intake_source_files_in_folder(
+                source_path, recurse=recurse, include_unsupported=True
+            )
 
         # Track how many files this specific entry contributes so we can emit a
         # diagnostic warning when an explicit folder/file selection yields zero

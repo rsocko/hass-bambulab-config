@@ -49,7 +49,7 @@ Responsibilities: FastAPI app creation, lifespan (AppState init/teardown), CORS 
 | `db_migrations.py` | **Schema initialization and versioning** (centralized) |
 | `db_intake.py` | **Intake context**: Upload queue, validation state |
 | `db_models.py` | **Models context**: Catalog entries, assets, custom fields |
-| `db_working.py` | **Working context**: Groups, items, model links |
+| `db_working.py` | **Working files context marker** (legacy working_groups/items tables dropped in PR E.1) |
 | `db_archive_links.py` | **Archive context**: Model↔archive relationships |
 | `db_common.py` | **Shared patterns**: Common schema, queries |
 
@@ -83,7 +83,7 @@ Responsibilities: FastAPI app creation, lifespan (AppState init/teardown), CORS 
 | `shared_helpers.py` | Shared utilities (slugify, hash, serialize) |
 | **Planned Phase 2.1**: `intake_queue_service.py`, `intake_verification_service.py`, `intake_cleanup_service.py` |
 | **Planned Phase 2.2**: `model_search_service.py`, `model_media_service.py` |
-| **Planned Phase 2.4**: `working_groups_service.py`, `working_discovery_service.py` |
+| **Phase 2.4 (working_groups_service): DROPPED** — working_groups tables removed in PR E.1 (filesystem-only browser remains) |
 
 ## Quick Start
 
@@ -123,8 +123,6 @@ tables = [
 	"model_catalog_assets",
 	"model_catalog_custom_fields",
 	"intake_queue_uploads",
-	"working_items",
-	"working_groups",
 	"model_catalog_events",
 	"model_catalog_links",
 	"model_catalog_model_ranking",
