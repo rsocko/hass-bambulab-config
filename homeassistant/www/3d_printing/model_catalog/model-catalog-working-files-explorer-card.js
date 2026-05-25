@@ -313,9 +313,16 @@
     + '.type-bar{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
     + '.type-chips{display:inline-flex;gap:5px;flex-wrap:wrap;}'
     + '.type-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;}'
-    + '.type-chip.active{background:rgba(94,234,212,0.14);border-color:rgba(94,234,212,0.32);color:var(--accent);}'
     + '.type-chip .ct{color:var(--text-muted);font-weight:600;}'
-    + '.type-chip.active .ct{color:var(--accent);}'
+    /* Per-category colors mirror model-catalog-browser-card compact file-kind chips */
+    + '.type-chip.cat-all.active{background:rgba(139,92,246,0.16);border-color:rgba(167,139,250,0.34);color:#c4b5fd;}'
+    + '.type-chip.cat-all.active .ct{color:#c4b5fd;}'
+    + '.type-chip.cat-models.active{background:rgba(0,137,123,0.16);border-color:rgba(125,211,200,0.30);color:#7dd3c8;}'
+    + '.type-chip.cat-models.active .ct{color:#7dd3c8;}'
+    + '.type-chip.cat-images.active{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;}'
+    + '.type-chip.cat-images.active .ct{color:#93c5fd;}'
+    + '.type-chip.cat-other.active{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;}'
+    + '.type-chip.cat-other.active .ct{color:#fcd34d;}'
     /* Files|Folders view-mode toggle */
     + '.view-toggle{display:inline-flex;padding:2px;background:rgba(15,19,26,0.6);border:1px solid var(--border);border-radius:999px;}'
     + '.view-toggle button{background:transparent;border:0;color:var(--text-secondary);padding:4px 11px;font-size:10.5px;font-weight:700;border-radius:999px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;min-height:24px;display:inline-flex;align-items:center;gap:5px;}'
@@ -331,7 +338,7 @@
     + '.crumb-current{color:var(--text);font-weight:600;}'
     + '.folder-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 110px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(96,165,250,0.04);border:1px solid var(--border);cursor:pointer;transition:background 100ms ease;}'
     + '.folder-row:hover{background:rgba(96,165,250,0.10);}'
-    + '.folder-row .folder-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(96,165,250,0.10);color:var(--accent-blue);border:1px solid rgba(96,165,250,0.28);}'
+    + '.folder-row .folder-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:calc(var(--thumb-size,34px) * 0.55);line-height:1;background:rgba(96,165,250,0.10);color:var(--accent-blue);border:1px solid rgba(96,165,250,0.28);}'
     + '.folder-row .folder-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.folder-row .folder-sub{margin-top:2px;font-size:10.5px;color:var(--text-muted);font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.folder-row .folder-count{font-size:11.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums;text-align:right;}'
@@ -346,7 +353,7 @@
     + '.file-list{margin-top:10px;display:grid;gap:4px;}'
     + '.file-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 90px 110px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(255,255,255,0.015);border:1px solid transparent;transition:background 100ms ease;}'
     + '.file-row:hover{background:rgba(255,255,255,0.045);border-color:var(--border);}'
-    + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;letter-spacing:-0.02em;background:rgba(94,234,212,0.10);color:var(--accent);border:1px solid rgba(94,234,212,0.28);}'
+    + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--thumb-size,34px) * 0.32);line-height:1;letter-spacing:-0.02em;background:rgba(94,234,212,0.10);color:var(--accent);border:1px solid rgba(94,234,212,0.28);}'
     + '.file-thumb.stl{background:rgba(96,165,250,0.10);color:var(--accent-blue);border-color:rgba(96,165,250,0.28);}'
     + '.file-thumb.step{background:rgba(167,139,250,0.10);color:var(--accent-violet);border-color:rgba(167,139,250,0.28);}'
     + '.file-thumb.img{background:rgba(245,194,66,0.10);color:var(--primary-amber);border-color:rgba(245,194,66,0.28);}'
@@ -974,10 +981,9 @@
       var detail = this._groupDetails[slug] && this._groupDetails[slug].detail;
       var displayTitle = detail ? this._modelmetaDisplayTitle(detail) : '';
       var title = displayTitle || group.name || slug;
-      var hasSidecar = group.has_modelmeta || group.has_readme;
-      var thumbClass = hasSidecar
-        ? ('gc' + colorIndexFromSlug(slug))
-        : 'no-sidecar';
+      // Folder thumb color is always randomized per-slug. Sidecar presence/absence
+      // is conveyed by the two status dots next to the title, not by the thumb color.
+      var thumbClass = 'gc' + colorIndexFromSlug(slug);
       var folderHint = (this._tree && this._tree.root_path)
         ? String(this._tree.root_path) + '/' + String(group.name || slug) + '/'
         : String(group.name || slug) + '/';
@@ -1075,12 +1081,13 @@
           + '<button class="' + (viewMode === 'folders' ? 'active' : '') + '" data-action="set-group-view" data-slug="' + escapeHtml(slug) + '" data-view="folders" title="Folder navigation">FOLDERS</button>'
           + '</div>';
       }
+      var catClassFor = { all: 'cat-all', models: 'cat-models', images: 'cat-images', other: 'cat-other' };
       return ''
         + '<div class="type-bar"><div class="type-chips">'
         + TYPE_FILTERS.map(function (filter) {
-            return '<button class="type-chip' + (current === filter ? ' active' : '') + '"'
+            return '<button class="type-chip ' + (catClassFor[filter] || '') + (current === filter ? ' active' : '') + '"'
               + ' data-action="set-type-filter" data-slug="' + escapeHtml(slug) + '" data-type="' + filter + '">'
-              + escapeHtml(labels[filter]) + ' <span class="ct">' + String(counts[filter] || 0) + '</span></button>';
+              + escapeHtml(labels[filter]) + ' <span class="ct">· ' + String(counts[filter] || 0) + '</span></button>';
           }).join('')
         + '</div>'
         + viewToggleHtml
@@ -1256,7 +1263,16 @@
       var atRoot = !currentPath;
       var segments = currentPath ? currentPath.split('/').filter(Boolean) : [];
       var crumbs = [];
-      crumbs.push('<button class="breadcrumb-link" data-action="folder-nav" data-slug="' + escapeHtml(slug) + '" data-path="">root</button>');
+      // Root label = the group's folder name (e.g. "college-pennants") rather than literal "root"
+      var rootLabel = slug;
+      var groups = (this._tree && Array.isArray(this._tree.groups)) ? this._tree.groups : [];
+      for (var gi = 0; gi < groups.length; gi += 1) {
+        if (String(groups[gi].slug || '') === slug) {
+          rootLabel = String(groups[gi].name || slug);
+          break;
+        }
+      }
+      crumbs.push('<button class="breadcrumb-link" data-action="folder-nav" data-slug="' + escapeHtml(slug) + '" data-path="">' + escapeHtml(rootLabel) + '</button>');
       var accum = '';
       segments.forEach(function (seg, idx) {
         accum = accum ? (accum + '/' + seg) : seg;
