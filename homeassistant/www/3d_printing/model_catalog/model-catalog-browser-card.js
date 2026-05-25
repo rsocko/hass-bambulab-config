@@ -1168,9 +1168,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return false;
     }
     try {
+      // Omit source_kind so the index includes both catalog_model and idea
+      // entries. Idea-style entries added from the Model Catalog page still
+      // reference the catalog model via source_id, and the card's left-border
+      // queue ribbon needs to light up for those too.
       var queuePayload = await this._callServiceWithResponse("rest_command", "model_catalog_list_unified_queue_entries", {
         printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
-        source_kind: "catalog_model",
         sort: "rank:asc",
         limit: 200,
         offset: 0,
@@ -1179,7 +1182,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var byModelRef = {};
       for (var i = 0; i < entries.length; i++) {
         var entry = entries[i] || {};
-        if (String(entry.source_kind || "").toLowerCase() !== "catalog_model") {
+        var entrySourceKind = String(entry.source_kind || "").toLowerCase();
+        if (entrySourceKind !== "catalog_model" && entrySourceKind !== "idea") {
           continue;
         }
         var modelRef = String(entry.source_id || entry.source_ref || "").trim();
@@ -2265,6 +2269,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       });
       this._closeQueueDialog();
       this._error = "";
+      // Invalidate the unified queue index cache so the next load picks up the
+      // freshly added entry (TTL-based skip would otherwise mask the new state
+      // and leave the card's left-border queue ribbon unlit).
+      this._unifiedQueueIndexLastFetchedAt = 0;
       await this._loadPage(this._currentPage(), false);
     } catch (error) {
       this._queueDialogSubmitting = false;
@@ -2274,15 +2282,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   async _listUnifiedQueueEntriesForModel(modelRef) {
+    // Omit source_kind so the lookup includes both catalog_model and idea
+    // entries (an Idea added from the Model Catalog page records source_kind
+    // "idea" but still points at the catalog model via source_id).
     var payload = await this._callServiceWithResponse("rest_command", "model_catalog_list_unified_queue_entries", {
       printer_id: this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1",
-      source_kind: "catalog_model",
       sort: "rank:asc",
       limit: 200,
       offset: 0,
     });
     var entries = Array.isArray(payload && payload.entries) ? payload.entries : [];
     return entries.filter(function (entry) {
+      var kind = String((entry && entry.source_kind) || "").toLowerCase();
+      if (kind !== "catalog_model" && kind !== "idea") {
+        return false;
+      }
       var sourceRef = String((entry && (entry.source_id || entry.source_ref)) || "").trim();
       return sourceRef === modelRef;
     });
