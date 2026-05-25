@@ -3,6 +3,7 @@
 > Status: Design proposal for approval
 > Last updated: 2026-05-01
 > Scope: Operator launch actions for Working Files, including browser-safe slicer launch, optional local companion integration, capability detection, and edited-file replacement flows.
+> Deferred companion follow-on: [working-files-local-helper-tray-heartbeat.md](working-files-local-helper-tray-heartbeat.md)
 
 ## Purpose
 
@@ -691,6 +692,9 @@ Frontend launch shape:
 - define local companion protocol and security contract
 - implement companion health signal and HA capability gating
 - add `Open Local File` and `Open Folder`
+- migrate `Open in Slicer` to the same local helper path for true in-place `.3mf` opens when helper support exists
+
+See deferred tray/heartbeat follow-on: [working-files-local-helper-tray-heartbeat.md](working-files-local-helper-tray-heartbeat.md)
 
 ### Phase 3
 

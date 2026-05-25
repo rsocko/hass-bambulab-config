@@ -556,13 +556,13 @@ def download_working_file_for_slicer(request: Request, token: str, filename: str
 def create_working_file_local_action_token(request: Request, payload: dict[str, Any] | None = None) -> Any:
     state: AppState = request.app.state.model_catalog
     action = str((payload or {}).get("action") or "").strip().lower()
-    if action not in {"open_local", "open_folder"}:
+    if action not in {"open_local", "open_folder", "open_in_slicer"}:
         return JSONResponse(
             status_code=400,
             content={
                 "success": False,
                 "error": "invalid_action",
-                "message": "action must be one of open_local or open_folder.",
+                "message": "action must be one of open_local, open_folder, or open_in_slicer.",
             },
         )
     path_value = str((payload or {}).get("path") or "").strip()
@@ -576,13 +576,22 @@ def create_working_file_local_action_token(request: Request, payload: dict[str, 
                 "message": "Working path is outside allowed roots or could not be resolved.",
             },
         )
-    if action == "open_local" and (not resolved_path.exists() or not resolved_path.is_file()):
+    if action in {"open_local", "open_in_slicer"} and (not resolved_path.exists() or not resolved_path.is_file()):
         return JSONResponse(
             status_code=404,
             content={
                 "success": False,
                 "error": "path_not_found",
                 "message": "Working file not found.",
+            },
+        )
+    if action == "open_in_slicer" and resolved_path.suffix.lower() != ".3mf":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "unsupported_file_type",
+                "message": "Open in Slicer is supported for .3mf files only.",
             },
         )
     if action == "open_folder" and not resolved_path.exists():
@@ -595,7 +604,11 @@ def create_working_file_local_action_token(request: Request, payload: dict[str, 
             },
         )
     token = _store_local_action_token(state=state, action=action, file_path=resolved_path)
-    protocol_action = "open-local" if action == "open_local" else "open-folder"
+    protocol_action = {
+        "open_local": "open-local",
+        "open_folder": "open-folder",
+        "open_in_slicer": "open-in-slicer",
+    }[action]
     return {
         "success": True,
         "token": token,

@@ -1,3 +1,4 @@
 {
-  "sidecarBaseUrl": "http://model-catalog.socko.us"
+  "sidecarBaseUrl": "http://model-catalog.socko.us",
+  "slicerExecutablePath": ""
 }

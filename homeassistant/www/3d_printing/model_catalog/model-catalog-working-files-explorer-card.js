@@ -469,6 +469,11 @@
     + '.primary-action:hover,.primary-action:focus-visible{border-style:solid;border-color:rgba(96,165,250,0.46);background:rgba(96,165,250,0.14);color:#dbeafe;outline:none;}'
     + '.primary-action.is-current{border-style:solid;border-color:rgba(245,194,66,0.42);background:rgba(245,194,66,0.16);color:#f5c242;cursor:default;}'
     + '.primary-action.is-current:hover,.primary-action.is-current:focus-visible{background:rgba(245,194,66,0.16);color:#f5c242;}'
+    + '.file-action-split{position:relative;display:inline-flex;align-items:center;justify-content:flex-end;}'
+    + '.file-action-main{min-width:92px;border-top-right-radius:0;border-bottom-right-radius:0;padding:0 12px;}'
+    + '.file-action-toggle{min-width:32px;padding:0 8px;border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-1px;font-size:10px;line-height:1;}'
+    + '.file-action-menu{position:absolute;top:calc(100% + 6px);right:0;display:grid;gap:4px;min-width:184px;padding:8px;border-radius:12px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.98);box-shadow:0 12px 24px rgba(2,6,23,0.42);z-index:20;}'
+    + '.file-action-menu .button{justify-content:flex-start;text-align:left;}'
     + '.selector{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);}'
     + '.group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);}'
     + '.group-actions .spacer{flex:1;}'
@@ -550,6 +555,7 @@
       this._groupFolderBrowsePaths = {};
       this._loadingGroupFiles = {};
       this._thumbnailSize = 'small';
+      this._fileActionMenuPath = '';
       this._backgroundReindexInFlight = false;
       this._lastAppliedScopeStamp = 0;
       this._catalogScope = 'working';
@@ -784,6 +790,35 @@
 
     _openExplorer(pathValue) {
       this._openFolderPath(dirname(pathValue));
+    }
+
+    _toggleFileActionMenu(pathValue) {
+      var normalized = String(pathValue || '').trim();
+      if (!normalized) {
+        return;
+      }
+      this._fileActionMenuPath = this._fileActionMenuPath === normalized ? '' : normalized;
+      this._render();
+    }
+
+    _renderFileActionSplit(pathValue, extension, windowsPath) {
+      var normalizedPath = String(pathValue || '').trim();
+      if (!normalizedPath) {
+        return '';
+      }
+      var menuOpen = this._fileActionMenuPath === normalizedPath;
+      return ''
+        + '<span class="file-action-split">'
+        + '<button class="button file-action-main" data-action="open-file-path" data-path="' + escapeHtml(normalizedPath) + '">Open</button>'
+        + '<button class="button file-action-toggle" aria-label="More open actions" aria-expanded="' + (menuOpen ? 'true' : 'false') + '" data-action="toggle-file-action-menu" data-file-path="' + escapeHtml(normalizedPath) + '">▾</button>'
+        + (menuOpen
+          ? '<span class="file-action-menu">'
+            + '<button class="button" data-action="open-file-path" data-path="' + escapeHtml(normalizedPath) + '">Open in Desktop</button>'
+            + (windowsPath ? '<button class="button" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(windowsPath) + '">Copy Path</button>' : '')
+            + (isSlicerLaunchableExtension(extension) ? '<button class="button" data-action="open-in-slicer" data-file-path="' + escapeHtml(normalizedPath) + '">Open in Slicer</button>' : '')
+            + '</span>'
+          : '')
+        + '</span>';
     }
 
     _togglePathSelection(pathValue) {
@@ -1160,7 +1195,9 @@
         this._render();
         return;
       }
-      this._status = action === 'open_folder' ? 'Opening folder locally...' : 'Opening file locally...';
+      this._status = action === 'open_folder'
+        ? 'Opening folder locally...'
+        : (action === 'open_in_slicer' ? 'Opening local file in slicer...' : 'Opening file locally...');
       this._error = '';
       this._render();
       try {
@@ -1173,7 +1210,11 @@
           throw new Error('No helper launch URL was returned.');
         }
         this._openWindow(launchUrl, '_self');
-        this._showCopyToast(action === 'open_folder' ? 'Requested local folder open...' : 'Requested local file open...');
+        this._showCopyToast(
+          action === 'open_folder'
+            ? 'Requested local folder open...'
+            : (action === 'open_in_slicer' ? 'Requested local slicer open...' : 'Requested local file open...')
+        );
       } catch (error) {
         this._error = error && error.message ? String(error.message) : 'Could not launch the local helper action.';
         this._render();
@@ -1181,28 +1222,7 @@
     }
 
     async _openFileInSlicer(pathValue) {
-      var normalizedPath = String(pathValue || '').trim();
-      if (!normalizedPath) {
-        return;
-      }
-      this._status = 'Preparing slicer launch...';
-      this._error = '';
-      this._render();
-      try {
-        var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_create_working_file_slicer_token', {
-          path: normalizedPath,
-        });
-        var downloadUrl = absoluteUrl(this._resolveSidecarUrl(), response && response.download_url ? response.download_url : '');
-        var launchUrl = this._buildSlicerLaunchUrl(downloadUrl);
-        if (!launchUrl) {
-          throw new Error('No slicer launch URL was returned for this file.');
-        }
-        this._openWindow(launchUrl, '_self');
-        this._showCopyToast('Opening in slicer...');
-      } catch (error) {
-        this._error = error && error.message ? String(error.message) : 'Could not open the file in slicer.';
-        this._render();
-      }
+      this._launchLocalHelperAction('open_in_slicer', pathValue);
     }
 
     _entryRelativePath(entry, group) {
@@ -1617,13 +1637,7 @@
               + '<span class="browser-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="browser-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="browser-actions">'
-              + '<button class="button" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open Local</button>'
-              + (isSlicerLaunchableExtension(extension)
-                ? '<button class="button" data-action="open-in-slicer" data-file-path="' + escapeHtml(pathValue) + '">Open in Slicer</button>'
-                : '')
-              + (entry.launch && entry.launch.windows_path
-                ? '<button class="button" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button>'
-                : '')
+              + this._renderFileActionSplit(pathValue, extension, entry && entry.launch ? entry.launch.windows_path : '')
               + '<label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('')
@@ -1668,6 +1682,10 @@
     _handleClick(event) {
       var target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
       if (!target) {
+        if (this._fileActionMenuPath) {
+          this._fileActionMenuPath = '';
+          this._render();
+        }
         return;
       }
       var action = String(target.getAttribute('data-action') || '');
@@ -1753,7 +1771,12 @@
         return;
       }
       if (action === 'open-file-path') {
+        this._fileActionMenuPath = '';
         this._openLocalPath(String(target.getAttribute('data-path') || ''));
+        return;
+      }
+      if (action === 'toggle-file-action-menu') {
+        this._toggleFileActionMenu(String(target.getAttribute('data-file-path') || ''));
         return;
       }
       if (action === 'toggle-select-path') {
@@ -1800,14 +1823,17 @@
         return;
       }
       if (action === 'open-group-folder') {
+        this._fileActionMenuPath = '';
         this._openFolderPath(String(target.getAttribute('data-path') || ''));
         return;
       }
       if (action === 'open-in-slicer') {
+        this._fileActionMenuPath = '';
         this._openFileInSlicer(String(target.getAttribute('data-file-path') || ''));
         return;
       }
       if (action === 'copy-command') {
+        this._fileActionMenuPath = '';
         var commandType = String(target.getAttribute('data-command-type') || 'explorer');
         var command = String(target.getAttribute('data-command') || '');
         this._copyToClipboard(command, commandType);
@@ -1923,9 +1949,7 @@
               + '<span class="file-size">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</span>'
               + '<span class="file-modified"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></span>'
               + '<span class="primary-slot"><button class="primary-action' + (isPrimary ? ' is-current' : '') + '" data-action="set-group-primary-file" data-group-id="' + String(groupId) + '" data-file-path="' + escapeHtml(pathValue) + '"' + (isPrimary ? ' aria-current="true"' : '') + '>' + escapeHtml(primaryLabel) + '</button></span>'
-              + '<span class="copy-slot"><button class="copy-action" title="Open local file" data-action="open-file-path" data-path="' + escapeHtml(pathValue) + '">Open Local</button></span>'
-              + (isSlicerLaunchableExtension(ext) ? '<span class="copy-slot"><button class="copy-action" title="Open in slicer" data-action="open-in-slicer" data-file-path="' + escapeHtml(pathValue) + '">Open in Slicer</button></span>' : '')
-              + (entry.launch && entry.launch.windows_path ? '<span class="copy-slot"><button class="copy-action" title="Copy file path" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(entry.launch.windows_path) + '">Copy Path</button></span>' : '')
+              + '<span class="copy-slot">' + this._renderFileActionSplit(pathValue, ext, entry && entry.launch ? entry.launch.windows_path : '') + '</span>'
               + '<span class="selector-slot"><label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(pathValue) + '"' + (selected ? ' checked' : '') + '>Select</label></span>'
               + '</div>';
           }, this).join('') + '</div>';

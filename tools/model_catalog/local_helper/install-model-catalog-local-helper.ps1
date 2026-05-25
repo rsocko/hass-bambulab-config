@@ -1,5 +1,6 @@
 param(
-    [string]$SidecarBaseUrl = 'http://model-catalog.socko.us'
+    [string]$SidecarBaseUrl = 'http://model-catalog.socko.us',
+    [string]$SlicerExecutablePath = ''
 )
 
 Set-StrictMode -Version Latest
@@ -9,7 +10,7 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $helperPath = Join-Path $root 'model-catalog-local-helper.ps1'
 $configPath = Join-Path $root 'config.json'
 
-$config = @{ sidecarBaseUrl = $SidecarBaseUrl.TrimEnd('/') } | ConvertTo-Json
+$config = @{ sidecarBaseUrl = $SidecarBaseUrl.TrimEnd('/'); slicerExecutablePath = $SlicerExecutablePath } | ConvertTo-Json
 Set-Content -LiteralPath $configPath -Value $config -Encoding UTF8
 
 $schemeKey = 'HKCU:\Software\Classes\modelcatalog'

@@ -26,6 +26,7 @@
 - **[Main.py Modularization Low-Risk Plan](../planning/main-py-modularization.md)** ← Deterministic decomposition plan for sidecar backend
 - **[Main.py Modularization Issue Map](../planning/main-py-modularization-map.md)** ← Epic + child issue sequence and acceptance gates
 - **[Working Files Local Launch And Slicer Integration Design](/docs/features/model_catalog/design/working-files-launch.md)** ← Local file, slicer protocol, companion, and replace-flow design
+- **[Working Files Local Helper Tray And Heartbeat Design](/docs/features/model_catalog/design/working-files-local-helper-tray-heartbeat.md)** ← Deferred companion tray-mode, heartbeat, and capability gating design
 - **[Print History Slicer Plan](./print-history-slicer-plan.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
 - **[Print History Slicer UX Mockups](/docs/features/model_catalog/design/print-history-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
 - **[Print History Slicer Implementation Plan](/docs/features/model_catalog/planning/print-history-slicer-plan.md)** ← Local worker delivery slices and issue breakdown

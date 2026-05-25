@@ -33,7 +33,8 @@ function Get-Config {
     if ([string]::IsNullOrWhiteSpace($baseUrl)) {
         throw 'Helper config sidecarBaseUrl is empty.'
     }
-    return @{ sidecarBaseUrl = $baseUrl.TrimEnd('/') }
+    $slicerExecutablePath = [string]($raw.slicerExecutablePath)
+    return @{ sidecarBaseUrl = $baseUrl.TrimEnd('/'); slicerExecutablePath = $slicerExecutablePath }
 }
 
 function Get-ProtocolRequest {
@@ -106,6 +107,32 @@ function Invoke-OpenLocalFile {
     Start-Process -FilePath $ResolvedPath | Out-Null
 }
 
+function Invoke-OpenInSlicer {
+    param(
+        [string]$ResolvedPath,
+        $PathPayload,
+        $Config
+    )
+    if (-not [bool]$PathPayload.is_file) {
+        throw 'Resolved slicer action is not a file.'
+    }
+    if (-not (Test-Path -LiteralPath $ResolvedPath)) {
+        throw "File path does not exist: $ResolvedPath"
+    }
+    if ([System.IO.Path]::GetExtension($ResolvedPath).ToLowerInvariant() -ne '.3mf') {
+        throw 'Open in slicer is supported for .3mf files only.'
+    }
+    $slicerExecutablePath = [string]($Config.slicerExecutablePath)
+    if (-not [string]::IsNullOrWhiteSpace($slicerExecutablePath)) {
+        if (-not (Test-Path -LiteralPath $slicerExecutablePath)) {
+            throw "Configured slicer executable was not found: $slicerExecutablePath"
+        }
+        Start-Process -FilePath $slicerExecutablePath -ArgumentList ('"' + $ResolvedPath + '"') | Out-Null
+        return
+    }
+    Start-Process -FilePath $ResolvedPath | Out-Null
+}
+
 try {
     $config = Get-Config
     $request = Get-ProtocolRequest -UriText $ProtocolUri
@@ -118,6 +145,7 @@ try {
     switch ([string]$resolved.action) {
         'open_folder' { Invoke-OpenFolder -ResolvedPath $clientPath -PathPayload $pathPayload }
         'open_local' { Invoke-OpenLocalFile -ResolvedPath $clientPath -PathPayload $pathPayload }
+        'open_in_slicer' { Invoke-OpenInSlicer -ResolvedPath $clientPath -PathPayload $pathPayload -Config $config }
         default { throw "Unsupported local action: $($resolved.action)" }
     }
 } catch {
