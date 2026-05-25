@@ -1,12 +1,13 @@
-"""Promotion logic for catalog entities (Ideas → Models, Working Groups → Models).
+"""Promotion logic for catalog entities (Ideas → Models).
 
 This module handles the state transitions defined in #1490:
 - Idea → Model: when concept materializes with 3MF/STL files
-- Idea → Working Group: when idea becomes a prep/staging set
-- Working Group → Model: when working group is ready to publish/share
-- Dissolve: when working group reaches project completion
 
 Authority: Sidecar owns the Catalog schema and promotion state machine.
+
+PR E.3 cleanup: Working Group entity_type promotions and the ``dissolve_working_group``
+marker were removed as part of the working-groups deprecation (see
+``docs/features/model_catalog/planning/working-groups-deprecation.md``).
 """
 
 from __future__ import annotations
@@ -15,43 +16,18 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .db import utc_now_iso
 from .local_models import (
     read_local_model,
     update_local_model,
     LocalModelEntry,
 )
-from .db import connect
 
 logger = logging.getLogger(__name__)
 
 # Valid promotion paths per entity type
-PROMOTION_PATHS = {
-    "idea": ["model", "working_group"],
-    "working_group": ["model"],
+PROMOTION_PATHS: dict[str, list[str]] = {
+    "idea": ["model"],
     "model": [],  # Terminal state
-}
-
-# Validation constraints for promotion
-PROMOTION_CONSTRAINTS = {
-    "idea_to_model": {
-        "description": "Promote idea to model (requires files)",
-        "requires_files": True,
-        "source_entity_type": "idea",
-        "target_entity_type": "model",
-    },
-    "idea_to_working_group": {
-        "description": "Promote idea to working group (requires working files)",
-        "requires_files": True,
-        "source_entity_type": "idea",
-        "target_entity_type": "working_group",
-    },
-    "working_group_to_model": {
-        "description": "Promote working group to model (requires canonical 3MF)",
-        "requires_files": True,
-        "source_entity_type": "working_group",
-        "target_entity_type": "model",
-    },
 }
 
 
@@ -76,7 +52,7 @@ def promote_entity(
     Args:
         db_path: Path to SQLite database
         local_model_id: Entity to promote
-        from_entity_type: Current entity type ('idea', 'working_group', 'model')
+        from_entity_type: Current entity type ('idea', 'model')
         to_entity_type: Target entity type
         **promotion_metadata: Additional context (unused at v1; reserved for future use)
     
@@ -115,31 +91,3 @@ def promote_entity(
         local_model_id=local_model_id,
         entity_type=to_entity_type,
     )
-
-
-def dissolve_working_group(
-    *,
-    db_path: Path,
-    working_group_id: str,
-    return_files_unassigned: bool = True,
-) -> bool:
-    """Dissolve a working group (used at project close per US-10).
-    
-    At v1, this is a marker function. Full dissolve behavior (file movement,
-    membership cleanup) is deferred pending the working-groups reorg.
-    
-    Args:
-        db_path: Path to SQLite database
-        working_group_id: Working group to dissolve
-        return_files_unassigned: Whether to mark files as unassigned (v1: marker only)
-    
-    Returns:
-        True if dissolution begun, False if working group not found
-    """
-    # TODO: Implement full dissolve when working-groups schema is finalized.
-    # For now, this is a documented entry point for future expansion.
-    logger.info(
-        f"Marking working group {working_group_id} for dissolution "
-        f"(return_files_unassigned={return_files_unassigned})"
-    )
-    return True

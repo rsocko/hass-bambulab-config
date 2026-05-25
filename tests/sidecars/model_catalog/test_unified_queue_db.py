@@ -57,7 +57,7 @@ def test_unified_queue_crud_round_trip_for_entry_file_and_plate_units(tmp_path: 
     entry = create_unified_queue_entry(
         db_path=db_path,
         queue_entry_id="uqe-001",
-        source_kind="working_group",
+        source_kind="working_file",
         source_ref="wg-42",
         title="Cable Clip Batch",
         state="preparing",

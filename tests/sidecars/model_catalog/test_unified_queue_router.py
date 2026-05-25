@@ -35,7 +35,7 @@ def test_unified_queue_entry_crud_happy_path(tmp_path: Path) -> None:
         create_response = client.post(
             "/api/unified-queue/entries",
             json={
-                "source_kind": "working_group",
+                "source_kind": "working_file",
                 "source_id": "wg-001",
                 "title": "Bracket Batch",
                 "copies": 2,
@@ -217,7 +217,7 @@ def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
                 "duration_bucket": "quick",
             },
             {
-                "source_kind": "working_group",
+                "source_kind": "working_file",
                 "source_id": "wg-1",
                 "title": "WG One",
                 "state": "ready",
@@ -248,7 +248,7 @@ def test_queue_entries_v1_filters_sort_and_pagination(tmp_path: Path) -> None:
             "/api/v1/queues/printer-main/entries",
             params={
                 "state": "preparing,ready",
-                "source_kind": "catalog_model,working_group",
+                "source_kind": "catalog_model,working_file",
                 "sort": "rank:asc",
                 "limit": 10,
                 "offset": 0,
@@ -1029,7 +1029,7 @@ def test_update_entry_selection_updates_units_and_selection_mode(tmp_path: Path)
         create_response = client.post(
             "/api/unified-queue/entries",
             json={
-                "source_kind": "working_group",
+                "source_kind": "working_file",
                 "source_id": "wg-selection-save",
                 "title": "Selection save test",
             },
@@ -1198,7 +1198,7 @@ def test_archive_match_v1_medium_confidence_filename_or_tag_subset(tmp_path: Pat
         create_response = client.post(
             "/api/v1/queues/p1/add",
             json={
-                "source_kind": "working_group",
+                "source_kind": "working_file",
                 "source_id": "wg-1",
                 "rank": 0,
             },
@@ -1351,7 +1351,7 @@ def test_archive_completion_v1_medium_suggested_then_reject_and_remap(tmp_path: 
         suggested_create = client.post(
             "/api/v1/queues/p1/add",
             json={
-                "source_kind": "working_group",
+                "source_kind": "working_file",
                 "source_id": "wg-medium",
             },
         )
@@ -1361,7 +1361,7 @@ def test_archive_completion_v1_medium_suggested_then_reject_and_remap(tmp_path: 
         remap_target_create = client.post(
             "/api/v1/queues/p1/add",
             json={
-                "source_kind": "working_group",
+                "source_kind": "working_file",
                 "source_id": "wg-target",
             },
         )
@@ -1986,7 +1986,7 @@ def test_unified_queue_up_next_state_transitions_issue_1481(tmp_path: Path) -> N
         # Test that up_next allows transitions to backlog (fallback scenario)
         up_next_entry_response = client.post(
             "/api/unified-queue/entries",
-            json={"source_kind": "working_group", "source_id": "wg-test", "title": "WG Test", "state": "up_next", "copies": 1},
+            json={"source_kind": "working_file", "source_id": "wg-test", "title": "WG Test", "state": "up_next", "copies": 1},
         )
         assert up_next_entry_response.status_code == 200
         up_next_entry_id = up_next_entry_response.json()["entry"]["queue_entry_id"]

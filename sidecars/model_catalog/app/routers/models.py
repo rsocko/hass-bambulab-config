@@ -722,7 +722,6 @@ def _search_models_from_projection(
     has_other_files: bool,
     show_archived: bool,
     show_ideas: bool,
-    show_working_groups: bool,
     sort: str,
     refresh: bool,
     page: int,
@@ -790,8 +789,6 @@ def _search_models_from_projection(
     entity_params: list[Any] = []
     if not show_ideas:
         entity_clauses.append("p.entity_type <> 'idea'")
-    if not show_working_groups:
-        entity_clauses.append("p.entity_type <> 'working_group'")
 
     visibility_clause = ""
     visibility_params: list[Any] = []
@@ -848,7 +845,7 @@ def _search_models_from_projection(
             """,
             base_params,
         ).fetchall()
-        entity_type_counts = {"model": 0, "idea": 0, "working_group": 0}
+        entity_type_counts = {"model": 0, "idea": 0}
         for row in entity_rows:
             key = str(row["entity_type"] or "model")
             entity_type_counts[key] = int(row["cnt"] or 0)
@@ -987,7 +984,6 @@ def _search_models_from_projection(
             "has_other_files": has_other_files,
             "show_archived": bool(show_archived),
             "show_ideas": bool(show_ideas),
-            "show_working_groups": bool(show_working_groups),
         },
         "visibility": {
             "show_archived": bool(show_archived),
@@ -2132,7 +2128,7 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     }
 
 
-_VALID_LOCAL_ENTITY_TYPES = {"model", "idea", "working_group"}
+_VALID_LOCAL_ENTITY_TYPES = {"model", "idea"}
 _IDEA_METADATA_FIELD_KEYS = ("external_links", "notes", "sketch_image")
 
 
@@ -2798,24 +2794,6 @@ def _bulk_group_title(root_path: Path, group_key: str, file_path: Path, strategy
     return parent.name or group_key
 
 
-def _existing_working_slugs(connection: Any) -> set[str]:
-    rows = connection.execute("SELECT slug FROM working_groups").fetchall()
-    return {str(row[0] or "").strip() for row in rows if str(row[0] or "").strip()}
-
-
-def _unique_slug(connection: Any, title: str) -> str:
-    base = _slugify_title(title)
-    existing = _existing_working_slugs(connection)
-    if base not in existing:
-        return base
-    counter = 2
-    while True:
-        candidate = f"{base}-{counter}"
-        if candidate not in existing:
-            return candidate
-        counter += 1
-
-
 def _normalize_compare_key(path_value: Path) -> str:
     return str(path_value).replace("\\", "/").lower()
 
@@ -2904,10 +2882,6 @@ def _working_files_destination_root(settings: Settings) -> Path | None:
     if not preferred_roots:
         return None
     return preferred_roots[0]
-
-
-def _working_group_allowed_source_roots(settings: Settings) -> list[Path]:
-    return _dedupe_paths(_configured_intake_source_roots(settings) + _configured_working_files_roots(settings))
 
 
 def _normalize_file_name_hint(file_name: str) -> str:
@@ -3260,7 +3234,6 @@ def search_models(
     has_other_files: bool = False,
     show_archived: bool = False,
     show_ideas: bool = True,
-    show_working_groups: bool = True,
     sort: str = "best",
     refresh: bool = False,
     page: int = 1,
@@ -3303,7 +3276,6 @@ def search_models(
         "has_other_files": bool(has_other_files),
         "show_archived": bool(show_archived),
         "show_ideas": bool(show_ideas),
-        "show_working_groups": bool(show_working_groups),
         "sort": sort or "best",
         "page": int(page),
         "per_page": int(per_page),
@@ -3354,7 +3326,6 @@ def search_models(
             has_other_files=bool(has_other_files),
             show_archived=bool(show_archived),
             show_ideas=bool(show_ideas),
-            show_working_groups=bool(show_working_groups),
             sort=sort,
             refresh=bool(refresh),
             page=page,
@@ -3426,7 +3397,7 @@ def search_models(
     candidate_models: list[tuple[float, dict[str, Any]]] = []
     scored_models: list[tuple[float, dict[str, Any]]] = []
     visibility_counts = {"active": 0, "archived": 0}
-    entity_type_counts = {"model": 0, "idea": 0, "working_group": 0}
+    entity_type_counts = {"model": 0, "idea": 0}
     loop_start = time.perf_counter()
     for summary in summaries:
         # Apply filters
@@ -3540,8 +3511,6 @@ def search_models(
 
         if entity_type == "idea" and not show_ideas:
             continue
-        if entity_type == "working_group" and not show_working_groups:
-            continue
 
         catalog_visibility = _model_catalog_visibility(model_payload)
         visibility_counts[catalog_visibility] = int(visibility_counts.get(catalog_visibility, 0)) + 1
@@ -3594,7 +3563,6 @@ def search_models(
             "has_other_files": has_other_files,
             "show_archived": bool(show_archived),
             "show_ideas": bool(show_ideas),
-            "show_working_groups": bool(show_working_groups),
         },
         "visibility": {
             "show_archived": bool(show_archived),
@@ -4087,12 +4055,12 @@ def delete_model_asset_endpoint(request: Request, local_model_id: str, asset_id:
 
 @router.put("/api/local/models/{local_model_id}/promote")
 def promote_entity_endpoint(request: Request, local_model_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Promote an entity to a new type (Idea → Model/WG, WG → Model).
-    
+    """Promote an entity to a new type (Idea → Model).
+
     Body schema:
     {
-        "from_entity_type": "idea" | "working_group",
-        "to_entity_type": "model" | "working_group" | "idea"
+        "from_entity_type": "idea",
+        "to_entity_type": "model"
     }
     """
     state: AppState = request.app.state.model_catalog

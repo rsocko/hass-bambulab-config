@@ -348,7 +348,6 @@ def _normalize_terminal_result(terminal_action: object | None, terminal_result_i
         "kind": "none",
         "primary_result_id": None,
         "local_model_ids": [],
-        "working_group_ids": [],
         "group_results": [],
         "raw": terminal_result_id,
     }
@@ -357,11 +356,6 @@ def _normalize_terminal_result(terminal_action: object | None, terminal_result_i
         local_model_ids = [
             str(value).strip()
             for value in (payload.get("curated_model_ids") or payload.get("curated") or [])
-            if str(value).strip()
-        ]
-        working_group_ids = [
-            str(value).strip()
-            for value in (payload.get("working_group_ids") or payload.get("working") or [])
             if str(value).strip()
         ]
         group_results: list[dict[str, Any]] = []
@@ -373,15 +367,11 @@ def _normalize_terminal_result(terminal_action: object | None, terminal_result_i
             result_id = str(
                 item.get("result_id")
                 or item.get("local_model_id")
-                or item.get("working_group_id")
                 or ""
             ).strip()
             outcome_action = str(item.get("action") or "").strip().lower()
-            if not outcome_action:
-                if destination == "curated":
-                    outcome_action = "published_to_catalog"
-                elif destination == "working":
-                    outcome_action = "grouped_existing" if match_mode == "existing" else "grouped_new"
+            if not outcome_action and destination == "curated":
+                outcome_action = "published_to_catalog"
             group_results.append(
                 {
                     "destination": destination,
@@ -391,13 +381,12 @@ def _normalize_terminal_result(terminal_action: object | None, terminal_result_i
                 }
             )
 
-        primary_result_id = local_model_ids[0] if local_model_ids else (working_group_ids[0] if working_group_ids else None)
+        primary_result_id = local_model_ids[0] if local_model_ids else None
         result.update(
             {
                 "kind": "destination_publish",
                 "primary_result_id": primary_result_id,
                 "local_model_ids": local_model_ids,
-                "working_group_ids": working_group_ids,
                 "group_results": group_results,
             }
         )
@@ -414,26 +403,6 @@ def _normalize_terminal_result(terminal_action: object | None, terminal_result_i
         )
         return result
 
-    if action in {"grouped_new", "grouped_existing"}:
-        working_group_ids = _split_terminal_result_ids(raw_value)
-        result.update(
-            {
-                "kind": "working_groups",
-                "primary_result_id": working_group_ids[0] if working_group_ids else None,
-                "working_group_ids": working_group_ids,
-                "group_results": [
-                    {
-                        "destination": "working",
-                        "match_mode": "existing" if action == "grouped_existing" else "new",
-                        "result_id": result_id,
-                        "action": action,
-                    }
-                    for result_id in working_group_ids
-                ],
-            }
-        )
-        return result
-
     return result
 
 
@@ -444,21 +413,9 @@ def _derive_terminal_display_action(terminal_action: object | None, terminal_res
 
     normalized_result = _normalize_terminal_result(action, terminal_result_id)
     local_model_ids = normalized_result.get("local_model_ids") or []
-    working_group_ids = normalized_result.get("working_group_ids") or []
-    group_results = normalized_result.get("group_results") or []
 
-    if local_model_ids and not working_group_ids:
+    if local_model_ids:
         return "published_to_catalog"
-
-    if working_group_ids and not local_model_ids:
-        working_actions = {
-            str(item.get("action") or "").strip().lower()
-            for item in group_results
-            if str(item.get("destination") or "").strip().lower() == "working"
-        }
-        working_actions.discard("")
-        if len(working_actions) == 1:
-            return next(iter(working_actions))
 
     return "completed"
 
