@@ -144,10 +144,39 @@
   .group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);margin-top:8px;}
   .group-actions .spacer{flex:1;}
 
-  .shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--thumb-badge-width:22px;--thumb-badge-height:20px;--thumb-badge-font:9px;}
+  .shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;--browser-folder-icon-font:16px;--thumb-badge-width:22px;--thumb-badge-height:20px;--thumb-badge-font:9px;}
+
+  /* ── Folders subview (folder-explorer) — copied verbatim from sharedStyles ── */
+  .folder-explorer{display:grid;gap:8px;}
+  .folder-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .folder-head-row .spacer{flex:1;}
+  .folder-breadcrumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
+  .breadcrumb-up{appearance:none;border:0;background:transparent;padding:0;margin:0;border-radius:6px;color:var(--secondary-text-color);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;}
+  .breadcrumb-up:hover,.breadcrumb-up:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);outline:none;}
+  .breadcrumb-link{appearance:none;border:0;background:transparent;padding:2px 8px;margin:0;border-radius:6px;color:var(--secondary-text-color);font-size:12px;cursor:pointer;line-height:1.4;min-height:24px;display:inline-flex;align-items:center;}
+  .breadcrumb-link:hover,.breadcrumb-link:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);outline:none;}
+  .breadcrumb-link.current{font-weight:700;color:var(--primary-text-color);}
+  .crumb-sep{display:inline-flex;align-items:center;justify-content:center;width:14px;height:24px;color:var(--secondary-text-color);opacity:.8;}
+  .folder-browser-list{display:grid;gap:6px;}
+  .browser-row{display:grid;grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr) 92px 192px auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.24);text-align:left;}
+  .browser-row.folder{cursor:pointer;background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.26);grid-template-columns:var(--browser-icon-col,46px) minmax(0,1fr) auto;}
+  .browser-row.folder:hover{background:rgba(96,165,250,0.16);border-color:rgba(96,165,250,0.36);}
+  .browser-row.file:hover{background:rgba(255,255,255,0.03);}
+  .browser-icon{display:flex;align-items:center;justify-content:center;width:var(--browser-icon-width,42px);height:var(--browser-icon-height,28px);border-radius:8px;border:1px solid rgba(148,163,184,0.24);font-size:10px;font-weight:800;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}
+  .browser-row.folder .browser-icon{font-size:var(--browser-folder-icon-font,16px);line-height:1;color:#bfdbfe;border-color:rgba(96,165,250,0.34);background:rgba(96,165,250,0.14);}
+  .browser-name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-self:start;text-align:left;}
+  .browser-name .name-main{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .browser-name .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.9;font-weight:400;line-height:1.25;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .browser-size,.browser-modified{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}
+  .browser-modified .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}
+  .browser-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
 
   /* annotation chip in the header tells the reviewer this is a snapshot, not live */
   .snapshot-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.30);color:#fcd34d;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+  .section-divider{max-width:1280px;margin:28px auto 0;border:0;border-top:1px dashed rgba(148,163,184,0.22);}
+  .section-callout{max-width:1280px;margin:18px auto 8px;color:var(--secondary-text-color);font-size:12px;line-height:1.55;}
+  .section-callout h2{margin:0 0 6px;font-size:16px;color:var(--primary-text-color);letter-spacing:-0.01em;}
+  .section-callout code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:#93c5fd;}
 </style>
 </head>
 <body>
@@ -443,6 +472,259 @@
               </div>
             </article>
 
+          </div>
+        </section>
+
+      </div>
+    </ha-card>
+  </div>
+
+  <hr class="section-divider" />
+  <div class="section-callout">
+    <h2>Folders subview — same expanded group, <code>Folders</code> tab active</h2>
+    <p>
+      Second snapshot below shows the alternate strip-body produced by <code>_renderFolderExplorer()</code>
+      when the user clicks the <strong>Folders</strong> button in the <code>.subview-toggle</code>. Same first group
+      (Gridfinity Bin Set — Workshop Drawer 4), same in-progress stage, same toolbar/header/group-actions —
+      only the body content swaps. Shows breadcrumb navigation (Root › subfolder), folder rows (with nested
+      count + per-folder split <em>Open Folder on Desktop</em> action), and file rows that match the active
+      type filter (Models). DOM/CSS lifted verbatim from the same commit <code>3ff31ea1</code>.
+    </p>
+  </div>
+
+  <div class="frame">
+    <ha-card>
+      <div class="shell thumb-small">
+
+        <section class="section">
+          <div class="groups">
+
+            <!-- ── Same Group #1 — expanded, active, in_progress — but Folders subview ── -->
+            <article class="group-row stage-in_progress active"
+                     style="--queue-border-color:#f59e0b;--group-icon-bg:rgba(245,158,11,0.26);--group-icon-fg:#fff7ed;--group-icon-ring:rgba(245,158,11,0.5);">
+              <div class="group-header">
+                <div class="thumb" title="In Progress">GFB</div>
+                <div>
+                  <div class="group-title-row">
+                    <div class="group-title">Gridfinity Bin Set — Workshop Drawer 4</div>
+                    <span class="stage-chip in_progress">In Progress</span>
+                  </div>
+                  <div class="folder-hint">working-files/gridfinity/bin-set-drawer-4</div>
+                  <div class="summary-row">
+                    <div class="path-summary">
+                      <span><strong>Storage:</strong> /mnt/working-files/gridfinity/bin-set-drawer-4</span>
+                      <span><strong>Files:</strong> 6</span>
+                      <span><strong>Folders:</strong> 2</span>
+                    </div>
+                    <button class="button primary compact" data-action="reorganize-group" data-group-id="1">Reorganize</button>
+                  </div>
+                </div>
+                <div class="group-right">
+                  <div class="group-right-meta">
+                    <span class="updated">Latest file change · gridfinity-bin-2x3.3mf</span>
+                    <span class="updated"><strong>14m ago</strong> · May 25, 2026 11:42</span>
+                  </div>
+                  <button class="expander" data-action="toggle-group-collapsed" data-group-id="1">▾</button>
+                </div>
+              </div>
+
+              <div class="strip">
+                <div class="strip-head">
+                  <div class="strip-head-left">
+                    <span class="strip-title">Working group files</span>
+                    <span class="folder-type-filters inline">
+                      <button class="type-chip type-all">All (6)</button>
+                      <button class="type-chip type-models active">Models (4)</button>
+                      <button class="type-chip type-images">Images (1)</button>
+                      <button class="type-chip type-other">Other (1)</button>
+                    </span>
+                  </div>
+                  <div class="subview-toggle">
+                    <button data-action="set-group-subview" data-subview="files">Files</button>
+                    <button class="active" data-action="set-group-subview" data-subview="folders">Folders</button>
+                  </div>
+                </div>
+
+                <!-- ── _renderFolderExplorer() output ── -->
+                <div class="folder-explorer">
+                  <div class="folder-head-row">
+                    <span class="subtitle">Folder explorer</span>
+                    <span class="spacer"></span>
+                    <button class="button" data-action="copy-command" data-command-type="folder-path"
+                            data-command="Z:\working-files\gridfinity\bin-set-drawer-4">Copy Current Folder Path</button>
+                  </div>
+
+                  <!-- Breadcrumb: at Root (no "up" button visible because currentPath === '') -->
+                  <div class="folder-breadcrumbs">
+                    <button class="breadcrumb-link current" data-action="set-group-folder-path"
+                            data-group-id="1" data-folder-path="">Root</button>
+                  </div>
+
+                  <div class="folder-browser-list">
+
+                    <!-- ── Folder rows (sorted alphabetically) ── -->
+                    <div class="browser-row folder" data-action="set-group-folder-path"
+                         data-group-id="1" data-folder-path="parts">
+                      <span class="browser-icon">📁</span>
+                      <span class="browser-name">
+                        <span class="name-main">parts</span>
+                        <span class="sub">0 folder(s) · 1 file(s)</span>
+                      </span>
+                      <span class="browser-actions">
+                        <span class="file-action-split">
+                          <button class="button file-action-main" data-action="open-group-folder"
+                                  data-path="/mnt/working-files/gridfinity/bin-set-drawer-4/parts">Open Folder on Desktop</button>
+                          <button class="button file-action-toggle" aria-haspopup="true"
+                                  aria-label="More folder actions">▾</button>
+                        </span>
+                      </span>
+                    </div>
+
+                    <div class="browser-row folder" data-action="set-group-folder-path"
+                         data-group-id="1" data-folder-path="source">
+                      <span class="browser-icon">📁</span>
+                      <span class="browser-name">
+                        <span class="name-main">source</span>
+                        <span class="sub">0 folder(s) · 1 file(s)</span>
+                      </span>
+                      <span class="browser-actions">
+                        <span class="file-action-split">
+                          <button class="button file-action-main" data-action="open-group-folder"
+                                  data-path="/mnt/working-files/gridfinity/bin-set-drawer-4/source">Open Folder on Desktop</button>
+                          <button class="button file-action-toggle" aria-haspopup="true"
+                                  aria-label="More folder actions">▾</button>
+                        </span>
+                      </span>
+                    </div>
+
+                    <!-- ── File rows in the current (Root) folder, filtered by Models type-chip ── -->
+                    <div class="browser-row file">
+                      <span class="browser-icon">3MF</span>
+                      <span class="browser-name">gridfinity-bin-2x3.3mf</span>
+                      <span class="browser-size">2.4 MB</span>
+                      <span class="browser-modified">
+                        <strong>14m ago</strong>
+                        <span class="sub">May 25, 2026 11:42</span>
+                      </span>
+                      <span class="browser-actions">
+                        <span class="file-action-split">
+                          <button class="button file-action-main">Open</button>
+                          <button class="button file-action-toggle" aria-haspopup="true">▾</button>
+                        </span>
+                        <label class="selector"><input type="checkbox" checked>Select</label>
+                      </span>
+                    </div>
+
+                    <div class="browser-row file">
+                      <span class="browser-icon">3MF</span>
+                      <span class="browser-name">gridfinity-bin-1x2.3mf</span>
+                      <span class="browser-size">1.1 MB</span>
+                      <span class="browser-modified">
+                        <strong>2h ago</strong>
+                        <span class="sub">May 25, 2026 09:51</span>
+                      </span>
+                      <span class="browser-actions">
+                        <span class="file-action-split">
+                          <button class="button file-action-main">Open</button>
+                          <button class="button file-action-toggle" aria-haspopup="true">▾</button>
+                        </span>
+                        <label class="selector"><input type="checkbox">Select</label>
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <div class="group-actions">
+                <button class="button warn" data-action="remove-selection-from-row-group" data-group-id="1">Remove Selected</button>
+                <span class="spacer"></span>
+                <label class="selector"><input type="radio" name="active-group-folders" checked>Active group</label>
+              </div>
+            </article>
+
+          </div>
+        </section>
+
+        <!-- ── Same group again, but drilled into the `parts/` subfolder ── -->
+        <section class="section">
+          <div class="groups">
+            <article class="group-row stage-in_progress active"
+                     style="--queue-border-color:#f59e0b;--group-icon-bg:rgba(245,158,11,0.26);--group-icon-fg:#fff7ed;--group-icon-ring:rgba(245,158,11,0.5);">
+              <div class="group-header">
+                <div class="thumb" title="In Progress">GFB</div>
+                <div>
+                  <div class="group-title-row">
+                    <div class="group-title">Gridfinity Bin Set — Workshop Drawer 4</div>
+                    <span class="stage-chip in_progress">In Progress</span>
+                    <span class="snapshot-chip" style="margin-left:8px;">Drilled into <code style="font-family:ui-monospace,monospace;color:inherit;">parts/</code></span>
+                  </div>
+                  <div class="folder-hint">working-files/gridfinity/bin-set-drawer-4/parts</div>
+                </div>
+                <div class="group-right">
+                  <button class="expander" data-action="toggle-group-collapsed" data-group-id="1">▾</button>
+                </div>
+              </div>
+
+              <div class="strip">
+                <div class="strip-head">
+                  <div class="strip-head-left">
+                    <span class="strip-title">Working group files</span>
+                    <span class="folder-type-filters inline">
+                      <button class="type-chip type-all">All (6)</button>
+                      <button class="type-chip type-models active">Models (4)</button>
+                      <button class="type-chip type-images">Images (1)</button>
+                      <button class="type-chip type-other">Other (1)</button>
+                    </span>
+                  </div>
+                  <div class="subview-toggle">
+                    <button data-action="set-group-subview" data-subview="files">Files</button>
+                    <button class="active" data-action="set-group-subview" data-subview="folders">Folders</button>
+                  </div>
+                </div>
+
+                <div class="folder-explorer">
+                  <div class="folder-head-row">
+                    <span class="subtitle">Folder explorer</span>
+                    <span class="spacer"></span>
+                    <button class="button" data-action="copy-command" data-command-type="folder-path"
+                            data-command="Z:\working-files\gridfinity\bin-set-drawer-4\parts">Copy Current Folder Path</button>
+                  </div>
+
+                  <!-- Breadcrumb: drilled in → "up" arrow + Root › parts -->
+                  <div class="folder-breadcrumbs">
+                    <button class="breadcrumb-up" data-action="folder-up" data-group-id="1"
+                            title="Up one level" aria-label="Up one level">↑</button>
+                    <span class="crumb-sep" aria-hidden="true">›</span>
+                    <button class="breadcrumb-link" data-action="set-group-folder-path"
+                            data-group-id="1" data-folder-path="">Root</button>
+                    <span class="crumb-sep" aria-hidden="true">›</span>
+                    <button class="breadcrumb-link current" data-action="set-group-folder-path"
+                            data-group-id="1" data-folder-path="parts">parts</button>
+                  </div>
+
+                  <div class="folder-browser-list">
+                    <!-- One file in this subfolder -->
+                    <div class="browser-row file">
+                      <span class="browser-icon">STL</span>
+                      <span class="browser-name">divider-insert.stl</span>
+                      <span class="browser-size">512 KB</span>
+                      <span class="browser-modified">
+                        <strong>1d ago</strong>
+                        <span class="sub">May 24, 2026 18:03</span>
+                      </span>
+                      <span class="browser-actions">
+                        <span class="file-action-split">
+                          <button class="button file-action-main">Open</button>
+                          <button class="button file-action-toggle" aria-haspopup="true">▾</button>
+                        </span>
+                        <label class="selector"><input type="checkbox" checked>Select</label>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
           </div>
         </section>
 
