@@ -33,7 +33,10 @@ function Get-Config {
     if ([string]::IsNullOrWhiteSpace($baseUrl)) {
         throw 'Helper config sidecarBaseUrl is empty.'
     }
-    $slicerExecutablePath = [string]($raw.slicerExecutablePath)
+    $slicerExecutablePath = ''
+    if ($raw -and $raw.PSObject.Properties.Match('slicerExecutablePath').Count -gt 0) {
+        $slicerExecutablePath = [string]($raw.slicerExecutablePath)
+    }
     return @{ sidecarBaseUrl = $baseUrl.TrimEnd('/'); slicerExecutablePath = $slicerExecutablePath }
 }
 

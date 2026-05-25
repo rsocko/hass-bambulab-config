@@ -447,7 +447,7 @@
     + '.type-chip.type-images:hover,.type-chip.type-images:focus-visible,.type-chip.type-images.active{background:rgba(37,99,235,0.16);border-color:rgba(147,197,253,0.34);color:#93c5fd;outline:none;}'
     + '.type-chip.type-other:hover,.type-chip.type-other:focus-visible,.type-chip.type-other.active{background:rgba(245,158,11,0.16);border-color:rgba(252,211,77,0.34);color:#fcd34d;outline:none;}'
     + '.file-list{display:grid;gap:4px;}'
-    + '.file-row{display:grid;grid-template-columns:var(--file-thumb-col,38px) minmax(0,1fr)92px 192px 96px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
+    + '.file-row{display:grid;grid-template-columns:var(--file-thumb-col,38px) minmax(0,1fr)92px 192px 96px 136px 84px;gap:8px;align-items:center;padding:6px;border-radius:8px;}'
     + '.file-row:hover{background:rgba(255,255,255,0.03);}'
     + '.file-row.primary{background:rgba(245,194,66,0.08);border:1px solid rgba(245,194,66,0.22);}'
     + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;border:1px solid rgba(148,163,184,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.04);font-size:9px;font-weight:800;color:var(--secondary-text-color);}'
@@ -463,6 +463,7 @@
     + '.file-modified strong{font-weight:700;}'
     + '.file-modified .sub{display:block;font-size:10px;color:var(--secondary-text-color);opacity:.85;}'
     + '.primary-slot{display:flex;justify-content:center;}'
+    + '.copy-slot{display:flex;justify-content:center;}'
     + '.selector-slot{display:flex;justify-content:flex-end;}'
     + '.primary-pill{display:inline-flex;padding:2px 7px;border-radius:999px;background:rgba(245,194,66,0.15);border:1px solid rgba(245,194,66,0.33);color:#f5c242;font-size:10px;font-weight:700;}'
     + '.primary-action{min-width:94px;min-height:28px;padding:0 10px;border-radius:999px;border:1px dashed rgba(148,163,184,0.32);background:rgba(15,23,42,0.24);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;}'
@@ -527,7 +528,7 @@
     + '.shell.thumb-small{--thumb-size:34px;--file-thumb-col:38px;--browser-icon-col:46px;--browser-icon-width:42px;--browser-icon-height:28px;--browser-folder-icon-font:16px;--thumb-badge-width:22px;--thumb-badge-height:20px;--thumb-badge-font:9px;}'
     + '.shell.thumb-medium{--thumb-size:58px;--file-thumb-col:62px;--browser-icon-col:66px;--browser-icon-width:62px;--browser-icon-height:42px;--browser-folder-icon-font:24px;--thumb-badge-width:34px;--thumb-badge-height:30px;--thumb-badge-font:12px;}'
     + '.shell.thumb-large{--thumb-size:116px;--file-thumb-col:124px;--browser-icon-col:132px;--browser-icon-width:124px;--browser-icon-height:84px;--browser-folder-icon-font:46px;--thumb-badge-width:68px;--thumb-badge-height:60px;--thumb-badge-font:20px;}'
-    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)84px;}.file-row .file-size,.file-row .file-modified,.file-row .primary-slot{display:none;}.browser-row{grid-template-columns:46px minmax(0,1fr)auto;}.browser-row .browser-size,.browser-row .browser-modified{display:none;}}';
+    + '@media (max-width: 980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:38px minmax(0,1fr)136px;}.file-row .file-size,.file-row .file-modified,.file-row .primary-slot,.file-row .selector-slot{display:none;}.browser-row{grid-template-columns:46px minmax(0,1fr)auto;}.browser-row .browser-size,.browser-row .browser-modified{display:none;}}';
 
   class ModelCatalogWorkingFilesExplorerCard extends HTMLElement {
     constructor() {
@@ -816,6 +817,25 @@
             + '<button class="button" data-action="open-file-path" data-path="' + escapeHtml(normalizedPath) + '">Open in Desktop</button>'
             + (windowsPath ? '<button class="button" data-action="copy-command" data-command-type="file-path" data-command="' + escapeHtml(windowsPath) + '">Copy Path</button>' : '')
             + (isSlicerLaunchableExtension(extension) ? '<button class="button" data-action="open-in-slicer" data-file-path="' + escapeHtml(normalizedPath) + '">Open in Slicer</button>' : '')
+            + '</span>'
+          : '')
+        + '</span>';
+    }
+
+    _renderFolderActionSplit(containerPath, windowsPath) {
+      var normalizedPath = String(containerPath || '').trim();
+      if (!normalizedPath) {
+        return '';
+      }
+      var menuOpen = this._fileActionMenuPath === normalizedPath;
+      return ''
+        + '<span class="file-action-split">'
+        + '<button class="button file-action-main" data-action="open-group-folder" data-path="' + escapeHtml(normalizedPath) + '">Open Folder on Desktop</button>'
+        + '<button class="button file-action-toggle" aria-label="More folder actions" aria-expanded="' + (menuOpen ? 'true' : 'false') + '" data-action="toggle-file-action-menu" data-file-path="' + escapeHtml(normalizedPath) + '">▾</button>'
+        + (menuOpen
+          ? '<span class="file-action-menu">'
+            + '<button class="button" data-action="open-group-folder" data-path="' + escapeHtml(normalizedPath) + '">Open Folder on Desktop</button>'
+            + (windowsPath ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(windowsPath) + '">Copy Path</button>' : '')
             + '</span>'
           : '')
         + '</span>';
@@ -1611,14 +1631,7 @@
               + '<div class="browser-row folder" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">'
               + '<span class="browser-icon">📁</span>'
               + '<span class="browser-name"><span class="name-main">' + escapeHtml(folderName) + '</span><span class="sub">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span></span>'
-              + '<span class="browser-actions"><button class="button" data-action="set-group-folder-path" data-group-id="' + String(groupId) + '" data-folder-path="' + escapeHtml(nextPath) + '">Open in Web</button>'
-              + (childNode.containerPath
-                ? '<button class="button" data-action="open-group-folder" data-path="' + escapeHtml(childNode.containerPath) + '">Open Folder on Desktop</button>'
-                : '')
-              + (childNode.windowsPath
-                ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(childNode.windowsPath) + '">Copy Path</button>'
-                : '')
-              + '</span>'
+              + '<span class="browser-actions">' + this._renderFolderActionSplit(childNode.containerPath, childNode.windowsPath) + '</span>'
               + '</div>';
           }).join('')
           + fileEntries.map(function (entry) {
