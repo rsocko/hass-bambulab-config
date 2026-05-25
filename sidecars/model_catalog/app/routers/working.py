@@ -126,6 +126,7 @@ _WORKING_THUMB_CACHE_MAX = 256
 _WORKING_THUMB_CACHE: dict[str, str] = {}
 _WORKING_PREVIEW_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _WORKING_PREVIEW_MAX_3MF_BYTES = 300 * 1024 * 1024
+_WORKING_INVENTORY_EXTENSIONS = SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS
 
 
 def _detect_image_mime(payload: bytes) -> str | None:
@@ -683,7 +684,7 @@ def _scan_files_under_roots(*, roots: list[Path], recurse: bool = True) -> list[
             if not candidate.is_file():
                 continue
             suffix = candidate.suffix.lower()
-            if suffix not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            if suffix not in _WORKING_INVENTORY_EXTENSIONS:
                 continue
             try:
                 stat_result = candidate.stat()
@@ -1516,7 +1517,7 @@ def reindex_working_files(request: Request, payload: dict[str, Any] | None = Non
             if not file_item.is_file() or file_item.name.startswith("."):
                 continue
             suffix = file_item.suffix.lower()
-            if suffix not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            if suffix not in _WORKING_INVENTORY_EXTENSIONS:
                 continue
             try:
                 stat_result = file_item.stat()

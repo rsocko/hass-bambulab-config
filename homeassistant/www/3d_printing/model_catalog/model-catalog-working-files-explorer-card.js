@@ -1028,46 +1028,46 @@
       this._loading = true;
       this._error = '';
       this._status = '';
+      this._setReorganizeDialog({
+        open: true,
+        phase: 'planning',
+        groupId: Number(group.id || 0),
+        groupTitle: String(group.title || 'Working Files Group'),
+        targetFolder: String(group.folder_hint || ''),
+      });
       this._render();
       try {
         var dryRun = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_reorganize_working_group', {
           group_id: group.id,
           execute: false,
         });
-        var moveCount = Array.isArray(dryRun.plan)
-          ? dryRun.plan.filter(function (entry) { return entry.action === 'move'; }).length
-          : 0;
-        var conflictCount = Array.isArray(dryRun.conflicts) ? dryRun.conflicts.length : 0;
-        if (!moveCount) {
-          this._status = 'Reorganize dry-run: no files need to move.';
-          this._loading = false;
-          this._render();
-          return;
+        var dialog = this._normalizeReorganizePayload(group, dryRun, 'confirm');
+        if (!dialog.moveCount && !dialog.duplicateCount) {
+          dialog.phase = 'result';
+        } else if (!dialog.canExecute) {
+          dialog.phase = 'blocked';
         }
-        if (conflictCount) {
-          this._error = 'Reorganize blocked: ' + String(conflictCount) + ' conflict(s) found.';
-          this._loading = false;
-          this._render();
-          return;
-        }
-
-        var confirmText = 'Move ' + String(moveCount) + ' file(s) into:\n' + String(dryRun.target_folder || '(unknown)') + '\n\nContinue?';
-        if (!window.confirm(confirmText)) {
-          this._loading = false;
-          this._status = 'Reorganize cancelled.';
-          this._render();
-          return;
-        }
-
-        var executed = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_reorganize_working_group', {
-          group_id: group.id,
-          execute: true,
-        });
-        this._status = 'Reorganized ' + String(executed.moved_count || 0) + ' file(s).';
-        this._selectedPaths = {};
-        await this._loadExplorer();
+        this._loading = false;
+        this._setReorganizeDialog(dialog);
       } catch (error) {
-        this._error = error && error.message ? String(error.message) : 'Could not reorganize group files.';
+        this._loading = false;
+        this._setReorganizeDialog({
+          open: true,
+          phase: 'blocked',
+          groupId: Number(group.id || 0),
+          groupTitle: String(group.title || 'Working Files Group'),
+          targetFolder: String(group.folder_hint || ''),
+          moveCount: 0,
+          movedCount: 0,
+          collisionCount: 0,
+          duplicateCount: 0,
+          operationPlan: [],
+          collisionRenames: [],
+          duplicateSkips: [],
+          canExecute: false,
+          raw: { message: error && error.message ? String(error.message) : 'Could not reorganize group files.' },
+        });
+        this._error = '';
         this._loading = false;
         this._render();
       }
@@ -1897,6 +1897,14 @@
         this._runReorganize(Number(target.getAttribute('data-group-id') || 0));
         return;
       }
+      if (action === 'close-reorganize-dialog') {
+        this._closeReorganizeDialog();
+        return;
+      }
+      if (action === 'confirm-reorganize-dialog') {
+        this._confirmReorganizeDialog();
+        return;
+      }
       if (action === 'set-group-primary-file') {
         this._setGroupPrimaryFile(
           Number(target.getAttribute('data-group-id') || 0),
@@ -2222,7 +2230,7 @@
           + '    <div>'
           + '      <div class="group-title-row"><div class="group-title">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '      <div class="folder-hint">' + escapeHtml(pathFootprint.common_prefix || storageRelativePath(group.folder_hint || '').relative || group.notes || '') + '</div>'
-          + '      <div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div>'
+          + '      <div class="summary-row"><div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div><button class="button primary compact" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button></div>'
           + '    </div>'
           + '    <div class="group-right"><div class="group-right-meta"><span class="updated">Latest file change' + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><span class="updated"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + '</strong> · ' + escapeHtml(formatDateTime(this._entryMtime(latest || {}))) + '</span></div><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
           + '  </div>'
@@ -2231,7 +2239,7 @@
             + '  <div class="strip-head"><div class="strip-head-left"><span class="strip-title">Working group files</span>' + this._renderFileTypeFilters(files, groupId, typeFilter) + '</div><div class="subview-toggle"><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="files" class="' + (subView === 'files' ? 'active' : '') + '">Files</button><button data-action="set-group-subview" data-group-id="' + String(groupId) + '" data-subview="folders" class="' + (subView === 'folders' ? 'active' : '') + '">Folders</button></div></div>'
             + stripBody
             + '</div>'
-            + '<div class="group-actions">' + (group.launch && group.launch.folder && group.launch.folder.container_path ? '<button class="button" data-action="open-group-folder" data-path="' + escapeHtml(group.launch.folder.container_path) + '">Open Folder on Desktop</button>' : '') + (group.launch && group.launch.folder && group.launch.folder.windows_path ? '<button class="button" data-action="copy-command" data-command-type="folder-path" data-command="' + escapeHtml(group.launch.folder.windows_path) + '">Copy Folder Path</button>' : '') + '<button class="button primary" data-action="reorganize-group" data-group-id="' + String(groupId) + '">Reorganize</button><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
+            + '<div class="group-actions"><button class="button warn" data-action="remove-selection-from-row-group" data-group-id="' + String(groupId) + '">Remove Selected</button><span class="spacer"></span><label class="selector"><input type="radio" name="working-group-active" data-action="select-group" data-group-id="' + String(groupId) + '"' + (active ? ' checked' : '') + '>Active group</label></div>')
           + '</article>';
       }, this).join('') + '</div>';
     }
@@ -2354,9 +2362,9 @@
         + '    <section class="toolbar">'
         + '      <div class="title-row">'
         + '        <div class="tab-row">'
-        + '          <button class="tab ' + (this._view === 'groups' ? 'active' : '') + '" data-action="set-view" data-view="groups">Groups ' + String(summary.group_count || this._groups.length || 0) + '</button>'
-        + '          <button class="tab ' + (this._view === 'all' ? 'active' : '') + '" data-action="set-view" data-view="all">All Files ' + String(summary.all_count || 0) + '</button>'
-        + '          <button class="tab ' + (this._view === 'ungrouped' ? 'active' : '') + '" data-action="set-view" data-view="ungrouped">Ungrouped ' + String(summary.ungrouped_count || 0) + '</button>'
+        + '          <button class="tab ' + (this._view === 'groups' ? 'active' : '') + '" data-action="set-view" data-view="groups">' + escapeHtml(formatCountLabel('Groups', summary.group_count || this._groups.length || 0)) + '</button>'
+        + '          <button class="tab ' + (this._view === 'all' ? 'active' : '') + '" data-action="set-view" data-view="all">' + escapeHtml(formatCountLabel('All Files', summary.all_count || 0)) + '</button>'
+        + '          <button class="tab ' + (this._view === 'ungrouped' ? 'active' : '') + '" data-action="set-view" data-view="ungrouped">' + escapeHtml(formatCountLabel('Ungrouped', summary.ungrouped_count || 0)) + '</button>'
         + '        </div>'
         + '        <div class="button-row"><span class="thumb-size-toggle"><button data-action="set-thumbnail-size" data-size="small" class="' + (this._thumbnailSize === 'small' ? 'active' : '') + '">Small</button><button data-action="set-thumbnail-size" data-size="medium" class="' + (this._thumbnailSize === 'medium' ? 'active' : '') + '">Medium</button><button data-action="set-thumbnail-size" data-size="large" class="' + (this._thumbnailSize === 'large' ? 'active' : '') + '">Large</button></span><button class="button" data-action="refresh">Refresh</button></div>'
         + '      </div>'
@@ -2367,6 +2375,7 @@
         + '      </div>'
         + '    </section>'
         + bodyHtml
+        + (this._reorganizeDialog && this._reorganizeDialog.open ? this._renderReorganizeDialog() : '')
         + '  </div>'
         + '</ha-card>';
 
