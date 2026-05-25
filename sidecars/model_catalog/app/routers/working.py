@@ -1712,6 +1712,8 @@ def explore_working_files(request: Request,
 
     where_sql = " AND ".join(where_clauses)
     preferred_roots = _configured_working_files_roots(state.settings)
+    working_root_path = str(preferred_roots[0]) if preferred_roots else ""
+    working_root_launch = _launch_context_for_path(working_root_path, state.settings) if working_root_path else {}
     light_mode = view_mode == "groups" and _coerce_bool(lightweight) and not (q and q.strip())
 
     scoped_where_sql = where_sql
@@ -1817,6 +1819,8 @@ def explore_working_files(request: Request,
                 "summary": {
                     "all_count": summary_all_count,
                     "ungrouped_count": summary_ungrouped_count,
+                    "working_root_path": working_root_path,
+                    "working_root_launch": working_root_launch,
                 },
                 "pagination": {
                     "limit": limit_value,
@@ -1979,6 +1983,8 @@ def explore_working_files(request: Request,
                 "all_count": summary_all_count,
                 "ungrouped_count": summary_ungrouped_count,
                 "group_count": total_groups,
+                "working_root_path": working_root_path,
+                "working_root_launch": working_root_launch,
             },
             "pagination": {
                 "limit": limit_value,

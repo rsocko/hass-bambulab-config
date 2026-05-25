@@ -856,15 +856,16 @@
         + '</span>';
     }
 
-    _renderFolderActionSplit(containerPath, windowsPath) {
+    _renderFolderActionSplit(containerPath, windowsPath, mainLabel) {
       var normalizedPath = String(containerPath || '').trim();
       if (!normalizedPath) {
         return '';
       }
       var menuOpen = this._fileActionMenuPath === normalizedPath;
+      var primaryLabel = String(mainLabel || 'Open Folder on Desktop');
       return ''
         + '<span class="file-action-split">'
-        + '<button class="button file-action-main" data-action="open-group-folder" data-path="' + escapeHtml(normalizedPath) + '">Open Folder on Desktop</button>'
+        + '<button class="button file-action-main" data-action="open-group-folder" data-path="' + escapeHtml(normalizedPath) + '">' + escapeHtml(primaryLabel) + '</button>'
         + '<button class="button file-action-toggle" aria-label="More folder actions" aria-expanded="' + (menuOpen ? 'true' : 'false') + '" data-action="toggle-file-action-menu" data-file-path="' + escapeHtml(normalizedPath) + '">▾</button>'
         + (menuOpen
           ? '<span class="file-action-menu">'
@@ -873,6 +874,33 @@
             + '</span>'
           : '')
         + '</span>';
+    }
+
+    _workingRootActionTarget() {
+      var summary = this._summary && typeof this._summary === 'object' ? this._summary : {};
+      var rootPath = String(summary.working_root_path || '').trim();
+      var launchContext = summary.working_root_launch && typeof summary.working_root_launch === 'object'
+        ? summary.working_root_launch
+        : {};
+      var windowsPath = String(launchContext.windows_path || '').trim();
+      if (rootPath) {
+        return { path: rootPath, windowsPath: windowsPath };
+      }
+
+      var rootCandidates = [];
+      (this._files || []).forEach(function (entry) {
+        var candidateRoot = String(entry && entry.root_path || '').trim();
+        if (candidateRoot) {
+          rootCandidates.push({
+            path: candidateRoot,
+            windowsPath: String(entry && entry.launch && entry.launch.windows_path || '').trim(),
+          });
+        }
+      });
+      if (rootCandidates.length) {
+        return rootCandidates[0];
+      }
+      return null;
     }
 
     _togglePathSelection(pathValue) {
@@ -2334,6 +2362,7 @@
       }
 
       var summary = this._summary || {};
+      var workingRootAction = this._workingRootActionTarget();
       var bodyHtml = '';
       var hasRenderableData = (this._view === 'groups')
         ? !!(Array.isArray(this._groups) && this._groups.length)
@@ -2353,8 +2382,9 @@
         + '<ha-card>'
         + '  <div class="shell thumb-' + escapeHtml(this._thumbnailSize || 'small') + '">'
         + '    <div class="title-row">'
-        + '      <div>'
+        + '      <div class="group-title-row">'
         + '        <div class="title">' + escapeHtml(this._config.title) + '</div>'
+        +          (workingRootAction ? this._renderFolderActionSplit(workingRootAction.path, workingRootAction.windowsPath, 'Open') : '')
         + '      </div>'
         + '    </div>'
         + '    ' + (this._status && this._status !== 'Updating results...' ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')

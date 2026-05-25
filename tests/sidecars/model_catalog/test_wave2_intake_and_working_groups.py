@@ -176,9 +176,48 @@ def test_working_groups_explorer_launch_folder_uses_common_parent(tmp_path: Path
     assert groups_response.status_code == 200
     payload = groups_response.json()
     assert payload["success"] is True
+    assert payload["summary"]["working_root_path"] == str(working_root)
+    assert payload["summary"]["working_root_launch"]["container_path"] == str(working_root)
     group = next(group for group in payload["groups"] if group["id"] == group_id)
     assert group["launch"]["folder"]["container_path"] == str(root_folder)
     assert group["launch"]["primary"]["container_path"] == str(clemson_file)
+
+
+def test_working_files_explorer_summary_includes_working_root_launch_context(tmp_path: Path) -> None:
+    working_root = tmp_path / "Model Working Files"
+    working_root.mkdir(parents=True, exist_ok=True)
+    file_path = working_root / "fixture-part.3mf"
+    file_path.write_bytes(b"fixture")
+
+    client = _create_client(tmp_path, working_root)
+    try:
+        reindex_response = client.post(
+            "/api/working-files/reindex",
+            json={"compute_hashes": True, "recurse": True},
+        )
+        assert reindex_response.status_code == 200
+
+        groups_response = client.get(
+            "/api/working-files/explorer",
+            params={"view": "groups", "lightweight": "true"},
+        )
+        all_response = client.get(
+            "/api/working-files/explorer",
+            params={"view": "all"},
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+    assert groups_response.status_code == 200
+    groups_payload = groups_response.json()
+    assert groups_payload["summary"]["working_root_path"] == str(working_root)
+    assert groups_payload["summary"]["working_root_launch"]["container_path"] == str(working_root)
+
+    assert all_response.status_code == 200
+    all_payload = all_response.json()
+    assert all_payload["summary"]["working_root_path"] == str(working_root)
+    assert all_payload["summary"]["working_root_launch"]["container_path"] == str(working_root)
+    assert all_payload["files"][0]["root_path"] == str(working_root)
 
 
 def test_intake_submit_validate_and_group(tmp_path: Path) -> None:
@@ -1392,12 +1431,14 @@ def test_working_files_explorer_views_include_group_memberships(tmp_path: Path) 
         assert all_response.status_code == 200
         all_payload = all_response.json()
         assert all_payload["summary"]["all_count"] == 2
+        assert all_payload["summary"]["working_root_path"] == str(source_root)
         assert any(len(file_row["group_memberships"]) == 1 for file_row in all_payload["files"])
 
         ungrouped_response = client.get("/api/working-files/explorer", params={"view": "ungrouped"})
         assert ungrouped_response.status_code == 200
         ungrouped_payload = ungrouped_response.json()
         assert ungrouped_payload["summary"]["ungrouped_count"] == 1
+        assert ungrouped_payload["summary"]["working_root_path"] == str(source_root)
         assert ungrouped_payload["pagination"]["total"] == 1
 
         groups_response = client.get("/api/working-files/explorer", params={"view": "groups"})
@@ -1457,12 +1498,14 @@ def test_working_files_explorer_all_and_ungrouped_ignore_inbox_inventory(tmp_pat
     all_paths = {file_row["source_path_canonical"] for file_row in all_payload["files"]}
     assert str(inbox_file.resolve()) not in all_paths
     assert all_payload["summary"]["all_count"] == 2
+    assert all_payload["summary"]["working_root_path"] == str(working_root)
     assert all_payload["pagination"]["total"] == 2
 
     ungrouped_paths = {file_row["source_path_canonical"] for file_row in ungrouped_payload["files"]}
     assert str(inbox_file.resolve()) not in ungrouped_paths
     assert ungrouped_paths == {str(working_ungrouped_file.resolve())}
     assert ungrouped_payload["summary"]["ungrouped_count"] == 1
+    assert ungrouped_payload["summary"]["working_root_path"] == str(working_root)
     assert ungrouped_payload["pagination"]["total"] == 1
 
 
