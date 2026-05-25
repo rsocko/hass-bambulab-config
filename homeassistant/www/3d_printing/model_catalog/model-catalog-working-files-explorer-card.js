@@ -2140,6 +2140,42 @@
         + bodyHtml
         + '  </div>'
         + '</ha-card>';
+
+      var root = this.shadowRoot;
+      if (root) {
+        root.querySelectorAll('[data-action="set-group-file-type"]').forEach(function (button) {
+          button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var folderTypeGroupId = Number(button.getAttribute('data-group-id') || 0);
+            var nextFolderType = String(button.getAttribute('data-file-type') || 'models').trim().toLowerCase();
+            if (folderTypeGroupId) {
+              this._groupFolderTypeFilters[folderTypeGroupId] = nextFolderType || 'models';
+              this._render();
+            }
+          }.bind(this));
+        }, this);
+
+        root.querySelectorAll('[data-action="set-group-subview"]').forEach(function (button) {
+          button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var subViewGroupId = Number(button.getAttribute('data-group-id') || 0);
+            var nextSubView = String(button.getAttribute('data-subview') || 'files');
+            if (subViewGroupId) {
+              var resolvedSubView = nextSubView === 'folders' ? 'folders' : 'files';
+              this._groupSubViews[subViewGroupId] = resolvedSubView;
+              if (resolvedSubView === 'folders' && !String(this._groupFolderBrowsePaths[subViewGroupId] || '').trim()) {
+                var selectedGroup = this._groups.find(function (candidate) {
+                  return Number(candidate && candidate.id) === subViewGroupId;
+                });
+                this._groupFolderBrowsePaths[subViewGroupId] = this._defaultGroupFolderPath(selectedGroup);
+              }
+              this._render();
+            }
+          }.bind(this));
+        }, this);
+      }
     }
   }
 
