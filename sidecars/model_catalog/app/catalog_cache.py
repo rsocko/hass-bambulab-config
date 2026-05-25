@@ -67,7 +67,7 @@ def canonicalize_model_url(base_url: str, model_url: str, *, fallback_model_id: 
     # Normalize local:// URLs — ensure the model/ path segment is present.
     if normalized.startswith("local://"):
         suffix = normalized[len("local://"):]
-        if not suffix.startswith("model/") and not suffix.startswith("working-group/"):
+        if not suffix.startswith("model/"):
             return f"local://model/{suffix}"
         return normalized
     if normalized.startswith("/"):

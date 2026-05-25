@@ -22,7 +22,6 @@ from .routers.system import router as system_router
 from .routers.unified_queue import router as unified_queue_router
 from .routers.working import router as working_router
 from .services.intake_service import reject_orphaned_uploads
-from .services.working_catalog_service import sync_all_working_group_projections
 from .services.shared_helpers import _sha256_file as _shared_sha256_file
 from .services.shared_helpers import _resolve_local_asset_storage_path as _shared_resolve_local_asset_storage_path
 from .settings import Settings, load_settings
@@ -55,16 +54,6 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         # Reject any intake uploads left in active states from a previous
         # process — they are definitionally orphaned on startup.
         reject_orphaned_uploads(resolved_settings.db_path)
-
-        # Ensure every working group has a correct model_catalog_entries
-        # projection with entity_type='working_group'.  Handles groups
-        # created before the projection code or entity_type column existed.
-        try:
-            synced = sync_all_working_group_projections(settings=resolved_settings)
-            if synced:
-                logger.info("Startup: synced %d working group projection(s)", synced)
-        except Exception:
-            logger.warning("Startup: working group projection sync failed", exc_info=True)
 
         try:
             yield

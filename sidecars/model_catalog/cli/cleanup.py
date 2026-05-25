@@ -17,8 +17,6 @@ TABLE_DELETE_ORDER = [
     "model_catalog_assets",
     "model_catalog_custom_fields",
     "intake_queue_uploads",
-    "working_items",
-    "working_groups",
     "model_catalog_events",
     "model_catalog_links",
     "model_catalog_model_ranking",

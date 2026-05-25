@@ -19,7 +19,6 @@ from .archive_links import (
     _normalized_model_url,
     _parse_iso_datetime,
     _read_local_catalog_for_matching,
-    _read_working_groups_for_matching,
 )
 
 log = logging.getLogger(__name__)
@@ -82,8 +81,8 @@ def refresh_model_candidates_endpoint(request: Request, model_ref: str, payload:
     max_candidates_per_archive = int(payload.get("max_candidates_per_archive") or 1)
 
     # Resolve model_ref to its CachedCatalogModel
+    # PR E.1 removed working groups; local catalog is the only source.
     all_models = _read_local_catalog_for_matching(db_path=state.settings.db_path)
-    all_models.extend(_read_working_groups_for_matching(db_path=state.settings.db_path))
 
     target_model = None
     for cached_model in all_models:

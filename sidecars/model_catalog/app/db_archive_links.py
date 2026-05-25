@@ -24,7 +24,7 @@ def _local_url_variants(model_url: str) -> tuple[str, str]:
     """
     if model_url.startswith("local://model/"):
         return model_url, "local://" + model_url[len("local://model/"):]
-    if model_url.startswith("local://") and not model_url.startswith("local://working-group/"):
+    if model_url.startswith("local://"):
         return model_url, "local://model/" + model_url[len("local://"):]
     return model_url, model_url
 
@@ -705,39 +705,6 @@ def read_archive_links(*, db_path: Path, archive_id: int, active_only: bool = Tr
         )
         for row in rows
     ]
-
-
-def migrate_links_for_graduation(
-    *,
-    db_path: Path,
-    group_id: int,
-    new_local_model_id: str,
-) -> int:
-    """Rewrite archive links from ``local://working-group/{group_id}`` to
-    ``local://model/{new_local_model_id}`` after a working group is published
-    to the local catalog.
-
-    Returns the number of link rows updated.
-    """
-    old_url = f"local://working-group/{group_id}"
-    new_url = f"local://model/{new_local_model_id}"
-    now = utc_now_iso()
-    connection = connect(db_path)
-    try:
-        cursor = connection.execute(
-            """
-            UPDATE model_catalog_links
-            SET model_url = ?,
-                model_public_id = COALESCE(model_public_id, ?),
-                updated_at = ?
-            WHERE model_url = ?
-            """,
-            (new_url, new_local_model_id, now, old_url),
-        )
-        connection.commit()
-        return cursor.rowcount
-    finally:
-        connection.close()
 
 
 def repair_canonical_model_urls(

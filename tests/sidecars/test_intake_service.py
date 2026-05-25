@@ -40,56 +40,17 @@ def _build_settings(tmp_path: Path) -> Settings:
     )
 
 
-def test_get_working_items_hashes_reads_from_working_items_table(tmp_path: Path) -> None:
-    """Test that get_working_items_hashes correctly reads hashes from working_items."""
+def test_get_working_items_hashes_is_noop_after_pr_e1(tmp_path: Path) -> None:
+    """working_groups + working_items were dropped in PR E.1.
+
+    `get_working_items_hashes` was reduced to a no-op shim that returns an
+    empty set so legacy callers keep working without referencing the dropped
+    tables.
+    """
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
-    
-    connection = sqlite3.connect(settings.db_path)
-    try:
-        now = "2026-04-30T00:00:00Z"
-        # Create a working group
-        connection.execute(
-            """
-            INSERT INTO working_groups (
-                slug, title, stage, notes, primary_file_path, folder_hint,
-                related_model_id, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            ("test_group", "Test Group", "draft", None, "/tmp/test.3mf", "/tmp", None, now, now),
-        )
-        group_id = int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
-        
-        # Add working items with hashes
-        hash1 = "abc123def456"
-        hash2 = "xyz789uvw012"
-        connection.execute(
-            """
-            INSERT INTO working_items (
-                working_group_id, file_path, item_role, created_at, updated_at,
-                file_hash, file_size, source_metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (group_id, "/tmp/test1.3mf", "primary", now, now, hash1, 1000, "{}"),
-        )
-        connection.execute(
-            """
-            INSERT INTO working_items (
-                working_group_id, file_path, item_role, created_at, updated_at,
-                file_hash, file_size, source_metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (group_id, "/tmp/test2.3mf", "supporting", now, now, hash2, 2000, "{}"),
-        )
-        connection.commit()
-    finally:
-        connection.close()
-    
-    # Test the function
-    hashes = get_working_items_hashes(settings.db_path)
-    assert hash1.lower() in hashes
-    assert hash2.lower() in hashes
-    assert len(hashes) == 2
+
+    assert get_working_items_hashes(settings.db_path) == set()
 
 
 def test_get_all_intake_queue_hashes_reads_inflight_only(tmp_path: Path) -> None:
@@ -248,6 +209,7 @@ def test_get_catalog_asset_hashes_reads_published_assets(tmp_path: Path) -> None
     assert len(hashes) == 1
 
 
+@pytest.mark.skip(reason="Working groups deprecated (PR E). Tables dropped in PR E.1 schema migration; routes removed in PR E.2; tests deleted in PR E.3.")
 def test_get_all_indexed_file_hashes_combines_inventory_and_inflight(tmp_path: Path) -> None:
     """Test that get_all_indexed_file_hashes combines working items, catalog assets, and in-flight queue hashes."""
     settings = _build_settings(tmp_path)
@@ -311,6 +273,7 @@ def test_get_all_indexed_file_hashes_combines_inventory_and_inflight(tmp_path: P
     assert len(all_hashes) == 2
 
 
+@pytest.mark.skip(reason="Working groups deprecated (PR E). Tables dropped in PR E.1 schema migration; routes removed in PR E.2; tests deleted in PR E.3.")
 def test_detect_duplicate_files_catches_indexed_collisions(tmp_path: Path) -> None:
     """Test that detect_duplicate_files identifies hashes that exist in indexed files."""
     settings = _build_settings(tmp_path)
@@ -453,6 +416,7 @@ def test_build_dedup_collision_warning_formats_correctly(tmp_path: Path) -> None
     assert "current batch" in warning2["message"]
 
 
+@pytest.mark.skip(reason="Working groups deprecated (PR E). /working-groups/bulk-discover removed in PR E.2; test deleted in PR E.3.")
 def test_bulk_discover_detects_queue_duplicates(tmp_path: Path) -> None:
     """Integration test: bulk discover should detect duplicates in intake queue."""
     from sidecars.model_catalog.app.main import create_app
@@ -517,6 +481,7 @@ def test_bulk_discover_detects_queue_duplicates(tmp_path: Path) -> None:
     assert proposal["files"][0]["duplicate_hash"] is True
 
 
+@pytest.mark.skip(reason="Working groups deprecated (PR E). /working-groups/bulk-import removed in PR E.2; test deleted in PR E.3.")
 def test_bulk_import_deduplicates_against_queue(tmp_path: Path) -> None:
     """Integration test: bulk import should skip files that are in intake queue."""
     from sidecars.model_catalog.app.main import create_app

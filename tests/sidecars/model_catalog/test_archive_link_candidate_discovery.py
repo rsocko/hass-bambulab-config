@@ -1,12 +1,8 @@
 """Tests for #1114 — broadened archive link candidate discovery.
 
 Covers:
-- _working_group_url() identity construction
 - _extract_asset_hash_map() file-level hash→asset mapping
 - _build_candidate_match() scoring, deterministic detection, asset-level resolution
-- _read_working_groups_for_matching() DB query with stage filtering
-- _read_working_group_summaries() DB query for link display
-- migrate_links_for_graduation() URL rewrite from WG to local model
 - refresh_archive_link_candidates() relationship_type + model_asset_id passthrough
 """
 
@@ -26,9 +22,8 @@ from app.routers.archive_links import (
     _build_candidate_match,
     _extract_asset_hash_map,
     _signal_strength,
-    _working_group_url,
 )
-from app.db_archive_links import migrate_links_for_graduation, refresh_archive_link_candidates
+from app.db_archive_links import refresh_archive_link_candidates
 from app.db_common import connect
 
 
@@ -100,56 +95,9 @@ def _init_links_schema(db_path: Path) -> None:
         conn.close()
 
 
-def _init_working_groups_schema(db_path: Path) -> None:
-    """Create working_groups + working_items tables."""
-    conn = connect(db_path)
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS working_groups (
-                id INTEGER PRIMARY KEY,
-                slug TEXT NOT NULL UNIQUE,
-                title TEXT NOT NULL,
-                stage TEXT NOT NULL,
-                notes TEXT,
-                primary_file_path TEXT,
-                folder_hint TEXT,
-                related_manyfold_model_id TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS working_items (
-                id INTEGER PRIMARY KEY,
-                working_group_id INTEGER NOT NULL,
-                file_path TEXT NOT NULL,
-                item_role TEXT NOT NULL DEFAULT 'supporting',
-                file_hash TEXT,
-                file_size INTEGER,
-                source_metadata_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (working_group_id) REFERENCES working_groups(id)
-            )
-        """)
-        conn.commit()
-    finally:
-        conn.close()
-
 
 NOW = "2026-05-18T00:00:00Z"
 
-
-# ═════════════════════════════════════════════════════════════════════════
-# 1. _working_group_url
-# ═════════════════════════════════════════════════════════════════════════
-
-class TestWorkingGroupUrl:
-    def test_returns_local_scheme_with_group_id(self):
-        assert _working_group_url(42) == "local://working-group/42"
-
-    def test_zero_id(self):
-        assert _working_group_url(0) == "local://working-group/0"
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -443,209 +391,7 @@ class TestBuildCandidateMatch:
         assert result.match_confidence == "low"
 
 
-# ═════════════════════════════════════════════════════════════════════════
-# 4. _read_working_groups_for_matching (DB integration)
-# ═════════════════════════════════════════════════════════════════════════
 
-class TestReadWorkingGroupsForMatching:
-    """Integration tests for WG candidate discovery from the database."""
-
-    @pytest.fixture
-    def wg_db(self, tmp_path) -> Path:
-        db_path = tmp_path / "test_wg.db"
-        _init_working_groups_schema(db_path)
-        return db_path
-
-    def _seed_group(self, db_path: Path, *, group_id: int, title: str, stage: str, items: list[dict[str, str]] | None = None) -> None:
-        conn = connect(db_path)
-        try:
-            conn.execute(
-                "INSERT INTO working_groups (id, slug, title, stage, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (group_id, f"slug-{group_id}", title, stage, NOW, NOW),
-            )
-            for item in (items or []):
-                conn.execute(
-                    "INSERT INTO working_items (working_group_id, file_path, file_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                    (group_id, item["file_path"], item.get("file_hash"), NOW, NOW),
-                )
-            conn.commit()
-        finally:
-            conn.close()
-
-    def test_active_groups_returned(self, wg_db):
-        from app.routers.archive_links import _read_working_groups_for_matching
-
-        self._seed_group(wg_db, group_id=1, title="Active Project", stage="drafting")
-        results = _read_working_groups_for_matching(wg_db)
-        assert len(results) == 1
-        assert results[0].summary.model_url == "local://working-group/1"
-        assert results[0].summary.entity_type == "working_group"
-        assert results[0].summary.name == "Active Project"
-
-    def test_archived_groups_excluded(self, wg_db):
-        from app.routers.archive_links import _read_working_groups_for_matching
-
-        self._seed_group(wg_db, group_id=1, title="Old Group", stage="archived")
-        results = _read_working_groups_for_matching(wg_db)
-        assert len(results) == 0
-
-    def test_published_groups_excluded(self, wg_db):
-        from app.routers.archive_links import _read_working_groups_for_matching
-
-        self._seed_group(wg_db, group_id=1, title="Published Group", stage="published")
-        results = _read_working_groups_for_matching(wg_db)
-        assert len(results) == 0
-
-    def test_items_included_in_payload(self, wg_db):
-        from app.routers.archive_links import _read_working_groups_for_matching
-
-        self._seed_group(
-            wg_db,
-            group_id=1,
-            title="Group With Files",
-            stage="drafting",
-            items=[
-                {"file_path": "/models/part.3mf", "file_hash": "abc"},
-                {"file_path": "/models/support.stl", "file_hash": "def"},
-            ],
-        )
-        results = _read_working_groups_for_matching(wg_db)
-        assert len(results) == 1
-        files = results[0].raw_payload["files"]
-        assert len(files) == 2
-        # filename should be basename only
-        assert files[0]["filename"] == "part.3mf"
-        assert files[0]["content_hash"] == "abc"
-        assert files[1]["filename"] == "support.stl"
-
-    def test_multiple_active_groups(self, wg_db):
-        from app.routers.archive_links import _read_working_groups_for_matching
-
-        self._seed_group(wg_db, group_id=1, title="Project A", stage="drafting")
-        self._seed_group(wg_db, group_id=2, title="Project B", stage="reviewing")
-        self._seed_group(wg_db, group_id=3, title="Old Project", stage="archived")
-        results = _read_working_groups_for_matching(wg_db)
-        assert len(results) == 2
-        names = {r.summary.name for r in results}
-        assert names == {"Project A", "Project B"}
-
-
-# ═════════════════════════════════════════════════════════════════════════
-# 5. _read_working_group_summaries (DB integration)
-# ═════════════════════════════════════════════════════════════════════════
-
-class TestReadWorkingGroupSummaries:
-    @pytest.fixture
-    def wg_db(self, tmp_path) -> Path:
-        db_path = tmp_path / "test_wg_summary.db"
-        _init_working_groups_schema(db_path)
-        return db_path
-
-    def test_returns_all_groups_including_archived(self, wg_db):
-        """Summaries are used for link display — include all groups so
-        historical links to archived/published WGs still resolve."""
-        from app.routers.archive_links import _read_working_group_summaries
-
-        conn = connect(wg_db)
-        try:
-            conn.execute(
-                "INSERT INTO working_groups (id, slug, title, stage, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (1, "active", "Active", "drafting", NOW, NOW),
-            )
-            conn.execute(
-                "INSERT INTO working_groups (id, slug, title, stage, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (2, "old", "Old", "archived", NOW, NOW),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-        summaries = _read_working_group_summaries(wg_db)
-        assert len(summaries) == 2
-        assert all(s.entity_type == "working_group" for s in summaries)
-        urls = {s.model_url for s in summaries}
-        assert "local://working-group/1" in urls
-        assert "local://working-group/2" in urls
-
-
-# ═════════════════════════════════════════════════════════════════════════
-# 6. migrate_links_for_graduation (DB integration)
-# ═════════════════════════════════════════════════════════════════════════
-
-class TestMigrateLinksForGraduation:
-    @pytest.fixture
-    def link_db(self, tmp_path) -> Path:
-        db_path = tmp_path / "test_migrate.db"
-        _init_links_schema(db_path)
-        return db_path
-
-    def _insert_link(self, db_path: Path, *, archive_id: int, model_url: str, model_public_id: str | None = None) -> int:
-        conn = connect(db_path)
-        try:
-            cursor = conn.execute(
-                """INSERT INTO model_catalog_links
-                   (model_url, model_public_id, bambuddy_archive_id, relationship_type, link_role, match_method, match_confidence, review_state, is_active, created_at, updated_at)
-                   VALUES (?, ?, ?, 'model_printed_in_archive', 'candidate', 'auto', 'high', 'accepted', 1, ?, ?)""",
-                (model_url, model_public_id, archive_id, NOW, NOW),
-            )
-            conn.commit()
-            return cursor.lastrowid
-        finally:
-            conn.close()
-
-    def test_rewrites_wg_url_to_local_model(self, link_db):
-        self._insert_link(link_db, archive_id=100, model_url="local://working-group/5")
-        new_uuid = str(uuid.uuid4())
-        count = migrate_links_for_graduation(db_path=link_db, group_id=5, new_local_model_id=new_uuid)
-        assert count == 1
-
-        conn = connect(link_db)
-        try:
-            row = conn.execute("SELECT model_url, model_public_id FROM model_catalog_links WHERE bambuddy_archive_id = 100").fetchone()
-        finally:
-            conn.close()
-        assert row["model_url"] == f"local://model/{new_uuid}"
-        assert row["model_public_id"] == new_uuid
-
-    def test_does_not_touch_other_urls(self, link_db):
-        self._insert_link(link_db, archive_id=100, model_url="local://working-group/5")
-        self._insert_link(link_db, archive_id=200, model_url="local://model/existing-uuid")
-        self._insert_link(link_db, archive_id=300, model_url="local://working-group/99")
-
-        count = migrate_links_for_graduation(db_path=link_db, group_id=5, new_local_model_id="new-id")
-        assert count == 1
-
-        conn = connect(link_db)
-        try:
-            rows = conn.execute("SELECT bambuddy_archive_id, model_url FROM model_catalog_links ORDER BY bambuddy_archive_id").fetchall()
-        finally:
-            conn.close()
-        assert rows[0]["model_url"] == "local://model/new-id"
-        assert rows[1]["model_url"] == "local://model/existing-uuid"
-        assert rows[2]["model_url"] == "local://working-group/99"
-
-    def test_multiple_links_same_wg(self, link_db):
-        self._insert_link(link_db, archive_id=100, model_url="local://working-group/5")
-        self._insert_link(link_db, archive_id=200, model_url="local://working-group/5")
-        count = migrate_links_for_graduation(db_path=link_db, group_id=5, new_local_model_id="grad-uuid")
-        assert count == 2
-
-    def test_zero_when_no_matching_links(self, link_db):
-        self._insert_link(link_db, archive_id=100, model_url="local://model/something")
-        count = migrate_links_for_graduation(db_path=link_db, group_id=999, new_local_model_id="unused")
-        assert count == 0
-
-    def test_preserves_existing_public_id(self, link_db):
-        """COALESCE should keep existing model_public_id if already set."""
-        self._insert_link(link_db, archive_id=100, model_url="local://working-group/5", model_public_id="keep-me")
-        migrate_links_for_graduation(db_path=link_db, group_id=5, new_local_model_id="new-uuid")
-
-        conn = connect(link_db)
-        try:
-            row = conn.execute("SELECT model_public_id FROM model_catalog_links WHERE bambuddy_archive_id = 100").fetchone()
-        finally:
-            conn.close()
-        assert row["model_public_id"] == "keep-me"
 
 
 # ═════════════════════════════════════════════════════════════════════════

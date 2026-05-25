@@ -44,7 +44,6 @@ from .db_archive_links import (
     create_archive_link,
     deactivate_archive_link,
     delete_archive_links,
-    migrate_links_for_graduation,
     read_all_model_ranking,
     read_archive_links,
     read_archive_links_for_model,

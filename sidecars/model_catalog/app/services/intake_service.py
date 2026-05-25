@@ -73,27 +73,12 @@ def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
 
 
 def get_working_items_hashes(db_path: Path | str) -> set[str]:
+    """Compat shim — the ``working_items`` table was dropped in PR E.1.
+
+    Retained as a no-op for callers that still pass through the dedup
+    union; will be removed entirely once those callers are simplified.
     """
-    Read all file hashes from working items.
-    
-    Args:
-        db_path: Path to SQLite database
-        
-    Returns:
-        Set of SHA256 hex strings (lowercase) from working items
-    """
-    connection = connect(db_path)
-    try:
-        rows = connection.execute(
-            "SELECT file_hash FROM working_items WHERE file_hash IS NOT NULL AND TRIM(file_hash) != ''"
-        ).fetchall()
-        return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
-    except sqlite3.OperationalError:
-        # PR E.1: working_items table has been dropped. Function body is
-        # removed entirely in PR E.2 alongside its callers.
-        return set()
-    finally:
-        connection.close()
+    return set()
 
 
 def get_working_file_inventory_hashes(db_path: Path | str) -> set[str]:

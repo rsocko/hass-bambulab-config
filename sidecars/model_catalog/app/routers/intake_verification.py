@@ -470,15 +470,8 @@ def _source_timestamp_summary(files: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _read_existing_working_hashes(db_path: Path) -> set[str]:
-    """Get all file hashes from existing working items."""
-    connection = connect(db_path)
-    try:
-        rows = connection.execute(
-            "SELECT file_hash FROM working_items WHERE file_hash IS NOT NULL AND TRIM(file_hash) != ''"
-        ).fetchall()
-        return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
-    finally:
-        connection.close()
+    """Deprecated stub — working_items table dropped in PR E.1."""
+    return set()
 
 
 def _normalized_duplicate_name(filename: str) -> str:
@@ -662,43 +655,6 @@ def _read_indexed_filename_maps(
 
     connection = connect(db_path)
     try:
-        try:
-            rows = connection.execute(
-                """
-                SELECT wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
-                FROM working_items wi
-                LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
-                WHERE wi.file_path IS NOT NULL AND TRIM(wi.file_path) != ''
-                """
-            ).fetchall()
-        except sqlite3.OperationalError:
-            # PR E.1: working_items / working_groups tables dropped.
-            # Removed wholesale in PR E.2.
-            rows = []
-        for row in rows:
-            full_path = str(row[0] or "").strip().replace("\\", "/")
-            file_name = Path(full_path).name or full_path
-            group_title = str(row[1] or "").strip()
-            wi_file_size = row[2] if len(row) > 2 else None
-            wi_source_mtime = None
-            if len(row) > 3 and row[3]:
-                try:
-                    wi_meta = json.loads(str(row[3]))
-                    wi_source_mtime = str(wi_meta.get("source_mtime") or "").strip() or None
-                except (json.JSONDecodeError, ValueError):
-                    pass
-            context_item: dict[str, Any] = {
-                "scope": "indexed",
-                "parent_kind": "working_group",
-                "parent_name": group_title,
-                "path": full_path,
-                "filename": file_name,
-                "label": (f"Working group '{group_title}'" if group_title else "Working files") + (f" -> {full_path}" if full_path else ""),
-                "size_bytes": wi_file_size,
-                "source_mtime": wi_source_mtime,
-            }
-            _add_filename(row[0], context_item)
-
         if exclude_upload_id:
             queue_rows = connection.execute(
                 f"""
@@ -830,46 +786,6 @@ def _read_indexed_hash_match_contexts(
 
     connection = connect(db_path)
     try:
-        try:
-            working_rows = connection.execute(
-                """
-                SELECT wi.file_hash, wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
-                FROM working_items wi
-                LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
-                WHERE wi.file_hash IS NOT NULL
-                  AND TRIM(wi.file_hash) != ''
-                """
-            ).fetchall()
-        except sqlite3.OperationalError:
-            # PR E.1: working_items / working_groups tables dropped.
-            # Surrounding loop is removed wholesale in PR E.2.
-            working_rows = []
-        for row in working_rows:
-            full_path = str(row[1] or "").strip().replace("\\", "/")
-            file_name = Path(full_path).name or full_path
-            group_title = str(row[2] or "").strip()
-            wi_file_size = row[3] if len(row) > 3 else None
-            wi_source_mtime = None
-            if len(row) > 4 and row[4]:
-                try:
-                    wi_meta = json.loads(str(row[4]))
-                    wi_source_mtime = str(wi_meta.get("source_mtime") or "").strip() or None
-                except (json.JSONDecodeError, ValueError):
-                    pass
-            _add_context(
-                row[0],
-                {
-                    "scope": "indexed",
-                    "parent_kind": "working_group",
-                    "parent_name": group_title,
-                    "path": full_path,
-                    "filename": file_name,
-                    "label": (f"Working group '{group_title}'" if group_title else "Working files") + (f" -> {full_path}" if full_path else ""),
-                    "size_bytes": wi_file_size,
-                    "source_mtime": wi_source_mtime,
-                },
-            )
-
         try:
             asset_rows = connection.execute(
                 """
@@ -1385,9 +1301,8 @@ def _intake_item_state_from_upload_status(status: str) -> str:
 
 
 def _existing_working_slugs(connection: Any) -> set[str]:
-    """Get all existing working group slugs."""
-    rows = connection.execute("SELECT slug FROM working_groups").fetchall()
-    return {str(row[0] or "").strip() for row in rows if str(row[0] or "").strip()}
+    """Deprecated stub — working_groups table dropped in PR E.1."""
+    return set()
 
 
 def _unique_slug(connection: Any, title: str) -> str:
@@ -1909,42 +1824,6 @@ def _group_files_by_strategy(
     return groups_by_key
 
 
-def _move_files_to_working_group(
-    *, 
-    expanded_files: list[dict[str, Any]], 
-    working_group_id: int,
-    working_group_slug: str | None,
-    settings: Any,
-    preserve_folder_structure: bool = True
-) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
-    """
-    Move files from their source locations to the working files folder.
-    
-    Args:
-        expanded_files: List of file items from _expand_intake_source_entries
-        working_group_id: Working group database ID
-        working_group_slug: Working group slug for folder naming
-        settings: Application settings
-        preserve_folder_structure: If True, recreate folder hierarchy using relative_path.
-                                   If False, flatten all files into group_folder.
-    
-    Returns:
-        (moved_files, errors) where:
-        - moved_files: List of (source_path, destination_path) tuples for successfully moved files
-        - errors: List of error dicts with 'path' and 'message' keys
-    """
-    moved_files: list[tuple[str, str]] = []
-    errors: list[dict[str, Any]] = []
-    
-    # Get working files root directory
-    working_files_roots = _configured_working_files_roots(settings)
-    if not working_files_roots:
-        errors.append({
-            "code": "no_working_files_root",
-            "message": "No working files root configured in settings"
-        })
-        return moved_files, errors
-    
     working_files_root = working_files_roots[0]
     folder_name = str(working_group_slug or "").strip() or str(working_group_id)
     group_folder = working_files_root / folder_name
@@ -2966,325 +2845,19 @@ def reject_intake_item(request: Request, item_id: str, payload: dict[str, Any] |
 
 @router.post("/api/intake/items/{item_id}/group")
 def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | None = None) -> Any:
-    """
-    Group an intake item into working group(s) (terminal state).
-    
-    Supports multi-group decomposition based on grouping_strategy:
-    - none: all files in one group
-    - by-folder: one group per unique folder (respects folder hierarchy)
-    - by-root: one group per root selection
-    - flat: one group per file (not recommended)
-    
-    Also supports folder structure preservation via preserve_folder_structure flag.
-    
-    Allowed states: validated_ready (always), validated_warning (with override=true).
-    Terminal states: returns 409 Conflict.
-    """
-    state: AppState = request.app.state.model_catalog
-    payload = payload or {}
-    action = str(payload.get("action") or "create_working_group").strip().lower()
-    if action not in {"create_working_group", "attach_existing_working_group"}:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "invalid_action",
-                "message": "action must be create_working_group or attach_existing_working_group",
+    """PR E.1 removed working groups. This endpoint is permanently gone."""
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=410,
+        content={
+            "ok": False,
+            "error": {
+                "code": "endpoint_removed",
+                "message": (
+                    "Working groups were removed in PR E.1. "
+                    "Use the local catalog (POST /api/local/models) to record intake instead."
+                ),
             },
-        )
-
-    # Fetch current item
-    item_row = _get_intake_item_row(state.settings.db_path, item_id)
-    if item_row is None:
-        return JSONResponse(
-            status_code=404,
-            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
-        )
-
-    # Map action to eligibility constant
-    eligibility_action = ActionEligibility.GROUP_NEW if action == "create_working_group" else ActionEligibility.GROUP_EXISTING
-    
-    # Check action eligibility (includes override requirement for warning states)
-    override = _coerce_bool(payload.get("override", False))
-    is_eligible, reason_code = _check_action_eligibility(item_row, eligibility_action, override=override)
-    if not is_eligible:
-        return JSONResponse(
-            status_code=409,
-            content={
-                "success": False,
-                "error": reason_code,
-                "message": f"Cannot group item in state '{item_row.get('inbox_state')}': {reason_code}",
-                "item_id": item_id,
-                "current_state": item_row.get("inbox_state"),
-                **_build_intake_item_response(item_row),
-            },
-        )
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    response_payload: dict[str, Any] | None = None
-    event_payload: dict[str, Any] | None = None
-    try:
-        source_entries = _canonical_source_entries(json.loads(str(item_row.get("source_entries_json") or "[]")))
-        expanded_files, expansion_warnings = _expand_intake_source_entries(
-            source_entries=source_entries
-        )
-        if not expanded_files:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "no_files",
-                    "message": "Intake item has no resolved files to group",
-                    "warnings": expansion_warnings,
-                },
-            )
-
-        # Extract excluded_items from payload and filter out excluded files
-        excluded_items = payload.get("excluded_items", [])
-        if excluded_items and isinstance(excluded_items, list):
-            expanded_files = _prefilter_excluded_items(expanded_files, excluded_items)
-
-        plan = _plan_intake_groups(source_entries=source_entries, expanded_files=expanded_files)
-        plan_summary = dict(plan.get("summary") or {})
-
-        if action == "create_working_group":
-            planned_models = list(plan.get("groups") or [])
-        else:
-            planned_models = [{
-                "title": "Existing",
-                "files": expanded_files,
-                "strategy": "none",
-                "preserve_folder_structure": True,
-                "source_entries": list(source_entries),
-            }]
-
-        now_iso = _bulk_utc_now_iso()
-        created_groups: list[dict[str, Any]] = []
-        total_added_items = 0
-        total_duplicate_items = 0
-        
-        for group_info in planned_models:
-            group_files = group_info.get("files", [])
-            if not group_files:
-                continue
-            group_strategy = str(group_info.get("strategy") or "none").strip() or "none"
-            group_preserve_folder_structure = _coerce_bool(group_info.get("preserve_folder_structure", True))
-            
-            if action == "create_working_group":
-                # Create new working group
-                title = str(payload.get("title") or "").strip() or group_info.get("title") or _default_group_title(source_entries, group_files)
-                stage = str(payload.get("stage") or "draft").strip() or "draft"
-                folder_hint = str(payload.get("folder_hint") or Path(str(group_files[0]["path"])).parent).strip() or None
-                notes = str(payload.get("notes") or "Imported from intake workflow").strip() or None
-                slug = _unique_slug(connection, title)
-                group_timestamp_summary = _source_timestamp_summary(group_files)
-                connection.execute(
-                    """
-                    INSERT INTO working_groups (
-                        slug, title, stage, notes, primary_file_path, folder_hint,
-                        related_model_id, created_at, updated_at,
-                        discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        slug,
-                        title,
-                        stage,
-                        notes,
-                        None,
-                        folder_hint,
-                        None,
-                        now_iso,
-                        now_iso,
-                        folder_hint,
-                        group_strategy,
-                        now_iso,
-                        json.dumps({
-                            "source": "intake",
-                            "upload_id": item_id,
-                            "imported_at": now_iso,
-                            "source_timestamp_summary": group_timestamp_summary,
-                            "grouping_strategy": group_strategy,
-                            "preserve_folder_structure": group_preserve_folder_structure,
-                        }),
-                    ),
-                )
-                group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
-                group_slug = slug
-            else:
-                # Attach to existing group
-                group_id = int(payload.get("working_group_id") or 0)
-                if group_id <= 0:
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "success": False,
-                            "error": "invalid_payload",
-                            "message": "working_group_id is required for attach_existing_working_group",
-                        },
-                    )
-                existing_group = connection.execute("SELECT id, slug FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-                if existing_group is None:
-                    return JSONResponse(
-                        status_code=404,
-                        content={
-                            "success": False,
-                            "error": "working_group_not_found",
-                            "message": f"Working group not found: {group_id}",
-                        },
-                    )
-                group_slug = str(existing_group["slug"] or "").strip() or None
-
-            # Move files to working files folder
-            moved_files, move_errors = _move_files_to_working_group(
-                expanded_files=group_files,
-                working_group_id=group_id,
-                working_group_slug=group_slug,
-                settings=state.settings,
-                preserve_folder_structure=group_preserve_folder_structure
-            )
-            
-            # Build a map of source -> destination paths
-            source_to_dest = dict(moved_files)
-            
-            # Record move errors in expansion_warnings
-            for error in move_errors:
-                expansion_warnings.append(error)
-
-            added_items = 0
-            duplicate_items = 0
-            primary_file_path: str | None = None
-            for index, file_item in enumerate(group_files):
-                original_path = str(file_item["path"])
-                # Use the moved path if available, otherwise use original path
-                file_path = source_to_dest.get(original_path, original_path)
-                file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
-                existing_item = connection.execute(
-                    "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",
-                    (group_id, file_path),
-                ).fetchone()
-                if existing_item is not None:
-                    duplicate_items += 1
-                    continue
-                if file_hash:
-                    existing_hash_match = connection.execute(
-                        "SELECT id FROM working_items WHERE file_hash = ?",
-                        (file_hash,),
-                    ).fetchone()
-                    if existing_hash_match is not None:
-                        duplicate_items += 1
-                        continue
-                item_role = "primary" if index == 0 and action == "create_working_group" else "supporting"
-                if item_role == "primary" and primary_file_path is None:
-                    primary_file_path = file_path
-                connection.execute(
-                    """
-                    INSERT INTO working_items (
-                        working_group_id, file_path, item_role, created_at, updated_at,
-                        file_hash, file_size, source_metadata_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        group_id,
-                        file_path,
-                        item_role,
-                        now_iso,
-                        now_iso,
-                        file_hash,
-                        int(file_item.get("size_bytes") or 0) or None,
-                        json.dumps(file_item.get("source_metadata") or {}),
-                    ),
-                )
-                added_items += 1
-
-            if action == "create_working_group" and primary_file_path:
-                connection.execute(
-                    "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
-                    (primary_file_path, now_iso, group_id),
-                )
-
-            group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-            serialized_group = _serialize_working_group(connection, group_row, state.settings)
-            created_groups.append({
-                "working_group_id": group_id,
-                "group": serialized_group,
-                "added_items": added_items,
-                "duplicate_items": duplicate_items,
-            })
-            total_added_items += added_items
-            total_duplicate_items += duplicate_items
-
-        # Set to terminal state with metadata
-        terminal_action = "grouped_new" if action == "create_working_group" else "grouped_existing"
-        group_ids_str = ",".join(str(g["working_group_id"]) for g in created_groups)
-        connection.execute(
-            """
-            UPDATE intake_queue_uploads 
-            SET inbox_state = ?, decision_note = ?, updated_at = ?,
-                terminal_action = ?, terminal_at = ?, terminal_actor = ?,
-                terminal_result_id = ?
-            WHERE upload_id = ?
-            """,
-            (
-                terminal_action,
-                f"Grouped to working_group_id(s)={group_ids_str}",
-                now_iso,
-                terminal_action,
-                now_iso,
-                "queue_processed",
-                group_ids_str,
-                item_id,
-            ),
-        )
-        connection.commit()
-
-        event_payload = {
-            "upload_id": item_id,
-            "action": action,
-            "grouping_strategy": plan_summary.get("grouping_strategy", "none"),
-            "preserve_folder_structure": plan_summary.get("preserve_folder_structure"),
-            "created_groups": [
-                {
-                    "working_group_id": g["working_group_id"],
-                    "added_items": g["added_items"],
-                    "duplicate_items": g["duplicate_items"],
-                } for g in created_groups
-            ],
-            "total_added_items": total_added_items,
-            "total_duplicate_items": total_duplicate_items,
-            "warnings": expansion_warnings,
-        }
-        response_payload = {
-            "success": True,
-            "item_id": item_id,
-            "state": terminal_action,
-            "terminal": True,
-            "working_group_id": created_groups[0]["working_group_id"] if created_groups else None,
-            "grouping_strategy": plan_summary.get("grouping_strategy", "none"),
-            "preserve_folder_structure": plan_summary.get("preserve_folder_structure"),
-            "plan_summary": plan_summary,
-            "created_groups": created_groups,
-            "total_added_items": total_added_items,
-            "total_duplicate_items": total_duplicate_items,
-            "added_items": created_groups[0]["added_items"] if len(created_groups) == 1 else total_added_items,
-            "duplicate_items": created_groups[0]["duplicate_items"] if len(created_groups) == 1 else total_duplicate_items,
-            "group": created_groups[0]["group"] if created_groups else None,
-            "warnings": expansion_warnings,
-        }
-
-        # Browser uploads stage into GUID directories; remove staging after files
-        # are successfully moved and grouped.
-        for stage_dir in _browser_upload_stage_directories(state.settings, source_entries):
-            shutil.rmtree(stage_dir, ignore_errors=True)
-    finally:
-        connection.close()
-
-    if event_payload is not None:
-        _record_queue_event(
-            request=request,
-            upload_id=item_id,
-            event_type="intake_item_grouped",
-            payload=event_payload,
-        )
-    return response_payload
+        },
+    )

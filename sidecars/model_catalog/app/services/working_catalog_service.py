@@ -20,7 +20,7 @@ from .._helpers import (
     _is_path_within_roots,
     _model_photo_storage_root,
 )
-from ..db import delete_model_field, migrate_links_for_graduation, read_model_field, read_model_fields, set_model_field
+from ..db import delete_model_field, read_model_field, read_model_fields, set_model_field
 from ..local_models import (
     create_local_model,
     delete_local_model,
@@ -217,28 +217,8 @@ def _sync_working_group_projection(*, settings: Settings, group_row: Any) -> Non
 
 
 def sync_all_working_group_projections(*, settings: Settings) -> int:
-    """Re-sync projections for every existing working group.
-
-    Called at startup to ensure projections exist with the correct
-    ``entity_type='working_group'`` value, even for groups created before
-    the entity_type column or projection code was in place.
-
-    Returns the number of groups synced.
-    """
-    import sqlite3
-    connection = connect(settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        try:
-            rows = connection.execute("SELECT * FROM working_groups").fetchall()
-        except sqlite3.OperationalError:
-            # PR E.1: working_groups table dropped. Function deleted in PR E.2.
-            return 0
-    finally:
-        connection.close()
-    for row in rows:
-        _sync_working_group_projection(settings=settings, group_row=row)
-    return len(rows)
+    """No-op — the ``working_groups`` table was dropped in PR E.1."""
+    return 0
 
 
 def _archive_working_group_projection(*, settings: Settings, group_id: int) -> None:
@@ -925,12 +905,9 @@ def publish_working_group_to_local_service(*, settings: Settings, group_id: int,
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="published_from_group_id", field_value=group_id)
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="publish_outcome", field_value=publish_outcome)
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="lineage", field_value=lineage_payload)
-    # ADR-001: migrate any archive links from WG identity to catalog identity
-    migrated_link_count = migrate_links_for_graduation(
-        db_path=settings.db_path,
-        group_id=group_id,
-        new_local_model_id=target_model_ref,
-    )
+    # PR E.1: working_groups schema dropped; legacy WG→catalog link migration
+    # is no longer required because no WG-identity links can exist.
+    migrated_link_count = 0
     publish_history = _append_intake_publish_history(
         db_path=settings.db_path,
         model_ref=target_model_ref,
