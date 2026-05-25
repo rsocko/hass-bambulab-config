@@ -2,6 +2,13 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Validate Before Sync",
+      "dependsOn": [
+        "Run Lovelace Resource Cache-Bust Check"
+      ],
+      "dependsOrder": "sequence"
+    },
+    {
       "label": "Run Lovelace Resource Cache-Bust Check",
       "type": "shell",
       "command": "python",
@@ -19,6 +26,7 @@
       },
       "presentation": {
         "reveal": "always",
+        "revealProblems": "onProblem",
         "panel": "shared",
         "clear": true
       },

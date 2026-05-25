@@ -11,22 +11,25 @@ fi
 
 git fetch --no-tags "$remote_name" "$default_branch" >/dev/null 2>&1 || true
 
+python_cmd=""
 if command -v python3 >/dev/null 2>&1; then
-  python3 .github/scripts/check_lovelace_resource_versions.py \
-    --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
-    --base-ref "$remote_name/$default_branch" \
-    --mode fail
+  python_cmd="python3"
 elif command -v python >/dev/null 2>&1; then
-  python .github/scripts/check_lovelace_resource_versions.py \
-    --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
-    --base-ref "$remote_name/$default_branch" \
-    --mode fail
+  python_cmd="python"
 elif command -v py >/dev/null 2>&1; then
-  py -3 .github/scripts/check_lovelace_resource_versions.py \
-    --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
-    --base-ref "$remote_name/$default_branch" \
-    --mode fail
+  python_cmd="py -3"
 else
   echo "Python is required to run the Lovelace resource cache-bust pre-push hook." >&2
+  exit 1
+fi
+
+if ! $python_cmd .github/scripts/check_lovelace_resource_versions.py \
+  --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
+  --base-ref "$remote_name/$default_branch" \
+  --mode fail; then
+  echo >&2
+  echo "Push blocked by the Lovelace resource cache-bust check." >&2
+  echo "In VS Code, run the task 'Run Lovelace Resource Cache-Bust Check' to see clickable Problems entries." >&2
+  echo "If Sync still looks generic, open View > Output and switch to the Git channel for the full hook output." >&2
   exit 1
 fi
