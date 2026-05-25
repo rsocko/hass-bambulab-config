@@ -889,13 +889,21 @@ def _publish_group_to_working_destination(
 
     Per docs/features/model_catalog/design/working-files.md the Working Files store
     is folder-first: a folder under MODEL_CATALOG_WORKING_FILES_ROOT *is* the group.
-    There is no working_groups / working_items DB table identity. Every wizard
-    publish creates a fresh, uniquely-named folder under the root and (optionally)
-    a `.modelmeta.json` sidecar carrying display_title / tags / origin / primary_file.
-    Notes from the destination plan are written to `README.md`.
+    There is no working_groups / working_items DB table identity.
 
-    The function intentionally drops the legacy "append into existing working_group_id"
-    branch — that affordance no longer exists in the new design.
+    Two modes are supported:
+
+    * **New folder** (default): create a fresh, uniquely-named folder under the
+      root and write a `.modelmeta.json` sidecar carrying display_title / tags /
+      origin / primary_file. Notes from the destination plan are written to
+      `README.md`.
+
+    * **Append to existing folder**: when ``destination_plan["target_folder_slug"]``
+      is set, copy files into the existing folder, merge new entries into the
+      sidecar's ``files[]`` list (preserving the original ``display_title``,
+      ``imported_at``, ``primary_file``, ``tags``, and ``origin_url``), record
+      a ``last_import_at`` timestamp, and append an ``import_history[]`` entry.
+      The existing ``README.md`` is never overwritten in append mode.
     """
     group_files = list(group.get("files") or [])
     if not group_files:
@@ -921,20 +929,61 @@ def _publish_group_to_working_destination(
     else:
         requested_tags = []
 
-    # Resolve a unique folder slug on disk (no DB lookup; folder existence is authoritative).
-    slug_base = _slugify_title(group_title) or f"import-{upload_id[:8]}"
-    candidate_slug = slug_base
-    counter = 0
-    while (working_root / candidate_slug).exists():
-        counter += 1
-        candidate_slug = f"{slug_base}-{counter}"
+    # Append-mode: caller has selected an existing folder under the working root.
+    target_folder_slug = str(destination_plan.get("target_folder_slug") or "").strip()
+    append_mode = bool(target_folder_slug)
+    existing_sidecar: dict[str, Any] = {}
+    existing_hashes: set[str] = set()
+    existing_files_entries: list[dict[str, Any]] = []
 
-    group_dir = working_root / candidate_slug
-    group_dir.mkdir(parents=True, exist_ok=True)
+    if append_mode:
+        # Validate slug safety (single top-level folder name, no traversal).
+        if (
+            "/" in target_folder_slug
+            or "\\" in target_folder_slug
+            or target_folder_slug.startswith(".")
+            or target_folder_slug in {"..", "."}
+        ):
+            raise ValueError(f"Invalid target_folder_slug: {target_folder_slug!r}")
+        candidate_slug = target_folder_slug
+        group_dir = working_root / candidate_slug
+        if not group_dir.is_dir():
+            raise LookupError(f"Working folder '{target_folder_slug}' does not exist under the working-files root.")
+
+        existing_modelmeta = group_dir / ".modelmeta.json"
+        if existing_modelmeta.is_file():
+            try:
+                loaded = json.loads(existing_modelmeta.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    existing_sidecar = loaded
+                    raw_files = loaded.get("files")
+                    if isinstance(raw_files, list):
+                        for entry in raw_files:
+                            if not isinstance(entry, dict):
+                                continue
+                            existing_files_entries.append(entry)
+                            h = str(entry.get("sha256") or "").strip().lower()
+                            if h:
+                                existing_hashes.add(h)
+            except (OSError, json.JSONDecodeError):
+                existing_sidecar = {}
+                existing_files_entries = []
+                existing_hashes = set()
+    else:
+        # Resolve a unique folder slug on disk (no DB lookup; folder existence is authoritative).
+        slug_base = _slugify_title(group_title) or f"import-{upload_id[:8]}"
+        candidate_slug = slug_base
+        counter = 0
+        while (working_root / candidate_slug).exists():
+            counter += 1
+            candidate_slug = f"{slug_base}-{counter}"
+
+        group_dir = working_root / candidate_slug
+        group_dir.mkdir(parents=True, exist_ok=True)
 
     added_items = 0
     duplicate_items = 0
-    seen_hashes: set[str] = set()
+    seen_hashes: set[str] = set(existing_hashes)
     primary_file_relative: str | None = None
     primary_file_abs: str | None = None
     file_metadata_entries: list[dict[str, Any]] = []
@@ -981,34 +1030,89 @@ def _publish_group_to_working_destination(
     timestamp_summary = _source_timestamp_summary(group_files)
     imported_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-    # Write .modelmeta.json sidecar (best-effort; never fatal).
-    modelmeta_payload: dict[str, Any] = {
-        "$schema": "https://hass-bambulab-config/schemas/modelmeta.v1.json",
-        "display_title": group_title,
-        "imported_at": imported_at,
-        "source_timestamp_summary": timestamp_summary,
-    }
-    if file_metadata_entries:
-        modelmeta_payload["files"] = file_metadata_entries
-    if primary_file_relative:
-        modelmeta_payload["primary_file"] = primary_file_relative
-    if requested_tags:
-        modelmeta_payload["tags"] = requested_tags
-    if requested_origin:
-        modelmeta_payload["origin_url"] = requested_origin
-    modelmeta_path = group_dir / ".modelmeta.json"
+    if append_mode:
+        # Merge into existing sidecar without clobbering original metadata.
+        modelmeta_payload: dict[str, Any] = dict(existing_sidecar) if existing_sidecar else {}
+        modelmeta_payload.setdefault("$schema", "https://hass-bambulab-config/schemas/modelmeta.v1.json")
+        # Preserve existing display_title; fall back to the (existing or new) title only if missing.
+        modelmeta_payload.setdefault("display_title", existing_sidecar.get("display_title") or group_title)
+        # Preserve original imported_at; record this batch's timestamp separately.
+        if not modelmeta_payload.get("imported_at"):
+            modelmeta_payload["imported_at"] = imported_at
+        modelmeta_payload["last_import_at"] = imported_at
+
+        merged_files = list(existing_files_entries)
+        merged_files.extend(file_metadata_entries)
+        if merged_files:
+            modelmeta_payload["files"] = merged_files
+
+        # Append to import history (cap to last 20 entries).
+        history_raw = modelmeta_payload.get("import_history")
+        history_list = [entry for entry in history_raw if isinstance(entry, dict)] if isinstance(history_raw, list) else []
+        history_list.append(
+            {
+                "imported_at": imported_at,
+                "added_file_count": added_items,
+                "duplicate_file_count": duplicate_items,
+                "source_timestamp_summary": timestamp_summary,
+            }
+        )
+        modelmeta_payload["import_history"] = history_list[-20:]
+
+        # primary_file: only set if it was missing from the existing sidecar.
+        if not modelmeta_payload.get("primary_file") and primary_file_relative:
+            modelmeta_payload["primary_file"] = primary_file_relative
+        # tags: union with existing.
+        if requested_tags:
+            existing_tags = modelmeta_payload.get("tags")
+            existing_tag_list = [str(t).strip() for t in existing_tags if str(t).strip()] if isinstance(existing_tags, list) else []
+            for tag in requested_tags:
+                if tag and tag not in existing_tag_list:
+                    existing_tag_list.append(tag)
+            if existing_tag_list:
+                modelmeta_payload["tags"] = existing_tag_list
+        # origin_url: only set if missing.
+        if requested_origin and not modelmeta_payload.get("origin_url"):
+            modelmeta_payload["origin_url"] = requested_origin
+    else:
+        # Write fresh .modelmeta.json sidecar for the new folder.
+        modelmeta_payload = {
+            "$schema": "https://hass-bambulab-config/schemas/modelmeta.v1.json",
+            "display_title": group_title,
+            "imported_at": imported_at,
+            "source_timestamp_summary": timestamp_summary,
+        }
+        if file_metadata_entries:
+            modelmeta_payload["files"] = file_metadata_entries
+        if primary_file_relative:
+            modelmeta_payload["primary_file"] = primary_file_relative
+        if requested_tags:
+            modelmeta_payload["tags"] = requested_tags
+        if requested_origin:
+            modelmeta_payload["origin_url"] = requested_origin
+
+    modelmeta_path: Path | None = group_dir / ".modelmeta.json"
     try:
-        modelmeta_path.write_text(
+        modelmeta_path.write_text(  # type: ignore[union-attr]
             json.dumps(modelmeta_payload, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
     except OSError:
-        modelmeta_path = None  # type: ignore[assignment]
+        modelmeta_path = None
 
-    # Write README.md from notes (best-effort).
+    # README.md handling: in append mode preserve existing; otherwise write notes if provided.
     readme_path: Path | None = None
-    if requested_notes:
-        candidate_readme = group_dir / "README.md"
+    candidate_readme = group_dir / "README.md"
+    if append_mode:
+        if candidate_readme.is_file():
+            readme_path = candidate_readme
+        elif requested_notes:
+            try:
+                candidate_readme.write_text(requested_notes.rstrip() + "\n", encoding="utf-8")
+                readme_path = candidate_readme
+            except OSError:
+                readme_path = None
+    elif requested_notes:
         try:
             candidate_readme.write_text(requested_notes.rstrip() + "\n", encoding="utf-8")
             readme_path = candidate_readme
@@ -1030,7 +1134,7 @@ def _publish_group_to_working_destination(
     return (
         {
             "destination": "working",
-            "match_mode": "new",
+            "match_mode": "appended" if append_mode else "new",
             "group_title": group_title,
             "grouping_strategy": group_strategy,
             "preserve_folder_structure": preserve_folder_structure,
@@ -2308,6 +2412,8 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     requested_title = str(payload.get("title") or "").strip()
     requested_stage = str(payload.get("stage") or "draft").strip() or "draft"
     requested_notes = str(payload.get("notes") or "").strip()
+    # Optional: append into an existing working folder rather than creating a new one.
+    requested_target_folder_slug = str(payload.get("target_folder_slug") or "").strip()
 
     # Generate default title from source entries
     default_title = requested_title or _default_group_title(source_entries, expanded_files) or f"Import from {upload_id}"
@@ -2360,6 +2466,8 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                 "title": group_title,
                 "notes": requested_notes,
             }
+            if requested_target_folder_slug:
+                destination_plan["target_folder_slug"] = requested_target_folder_slug
             group_result, group_rows, _group_failures = _publish_group_to_working_destination(
                 state=state,
                 upload_id=upload_id,

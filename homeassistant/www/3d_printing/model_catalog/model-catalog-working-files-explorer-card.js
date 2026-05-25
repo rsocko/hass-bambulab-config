@@ -807,6 +807,30 @@
       return basename(full);
     }
 
+    // Display path for a file row: the subfolder the file lives in, relative to its
+    // group folder. Returns '/' if the file sits directly in the group root, otherwise
+    // '/sub/' or '/sub/nested/'. Filename is intentionally excluded (shown above).
+    _entryGroupSubpath(slug, entry) {
+      var rel = this._entryRelative(entry);
+      if (slug && slug !== LOOSE_SLUG) {
+        var groups = (this._tree && Array.isArray(this._tree.groups)) ? this._tree.groups : [];
+        var groupName = '';
+        for (var i = 0; i < groups.length; i += 1) {
+          if (String(groups[i].slug || '') === slug) {
+            groupName = String(groups[i].name || '');
+            break;
+          }
+        }
+        if (groupName && rel.toLowerCase().indexOf(groupName.toLowerCase() + '/') === 0) {
+          rel = rel.slice(groupName.length + 1);
+        }
+      }
+      var segs = rel.split('/').filter(Boolean);
+      segs.pop(); // drop filename
+      if (!segs.length) return '/';
+      return '/' + segs.join('/') + '/';
+    }
+
     _modelmetaDisplayTitle(detail) {
       if (!detail || !detail.sidecar || !detail.sidecar.modelmeta) return '';
       var meta = detail.sidecar.modelmeta;
@@ -1105,26 +1129,35 @@
       var winPath = String(launch.windows_path || '');
       var menuKey = slug + '|' + pathValue;
       var menuOpen = this._fileActionMenuKey === menuKey;
-      var relPath = this._entryRelative(entry);
-      var openLabel = isSlicerLaunchableExtension(extension) ? 'Open in Slicer' : 'Open';
+      var subPath = this._entryGroupSubpath(slug, entry);
+      var slicerEligible = isSlicerLaunchableExtension(extension);
 
-      var primaryAction = isSlicerLaunchableExtension(extension) ? 'open-in-slicer' : 'open-local';
+      // Split-button contract (mirrors mockup): primary action always "Open" → open-local.
+      // Dropdown carries the alternates: Open in Slicer (when eligible) + Copy Path.
+      // Rendered whenever we have either launch support or a copyable windows path.
       var actionsHtml = '';
-      if (canLaunch) {
+      var hasCopy = !!winPath;
+      if (canLaunch || hasCopy) {
+        var menuItems = '';
+        if (canLaunch && slicerEligible) {
+          menuItems += '<button data-action="open-in-slicer" data-path="' + escapeHtml(pathValue) + '">Open in Slicer</button>';
+        }
+        if (hasCopy) {
+          menuItems += '<button data-action="copy-path" data-path="' + escapeHtml(winPath) + '">Copy Path</button>';
+        }
+        var primaryBtn = canLaunch
+          ? '<button class="open-main" data-action="open-local" data-path="' + escapeHtml(pathValue) + '" title="Open in Desktop">Open</button>'
+          : '<button class="open-main" data-action="copy-path" data-path="' + escapeHtml(winPath) + '" title="Copy Path">Copy</button>';
         actionsHtml += ''
           + '<span class="file-action-split">'
-          + '<button class="open-main" data-action="' + primaryAction + '" data-path="' + escapeHtml(pathValue) + '">' + escapeHtml(openLabel) + '</button>'
-          + '<button class="file-action-toggle" data-action="toggle-file-menu" data-menu-key="' + escapeHtml(menuKey) + '" aria-label="More open actions" aria-expanded="' + (menuOpen ? 'true' : 'false') + '">▾</button>'
-          + (menuOpen
-              ? '<span class="file-action-menu">'
-                + '<button data-action="open-local" data-path="' + escapeHtml(pathValue) + '">Open in Desktop</button>'
-                + (isSlicerLaunchableExtension(extension) ? '<button data-action="open-in-slicer" data-path="' + escapeHtml(pathValue) + '">Open in Slicer</button>' : '')
-                + (winPath ? '<button data-action="copy-path" data-path="' + escapeHtml(winPath) + '">Copy Path</button>' : '')
-                + '</span>'
+          + primaryBtn
+          + (menuItems
+              ? '<button class="file-action-toggle" data-action="toggle-file-menu" data-menu-key="' + escapeHtml(menuKey) + '" aria-label="More open actions" aria-expanded="' + (menuOpen ? 'true' : 'false') + '">▾</button>'
+              : '')
+          + (menuOpen && menuItems
+              ? '<span class="file-action-menu">' + menuItems + '</span>'
               : '')
           + '</span>';
-      } else if (isImageExtension(extension)) {
-        actionsHtml += '<button class="btn-ghost" data-action="copy-path" data-path="' + escapeHtml(pathValue) + '">Copy Path</button>';
       }
       if (canExplore) {
         actionsHtml += '<button class="btn-ghost" data-action="open-folder" data-path="' + escapeHtml(dirname(pathValue)) + '" title="Open containing folder">⋯</button>';
@@ -1139,7 +1172,7 @@
         + '</div>'
         + '<div class="file-main">'
         + '<div class="file-name">' + escapeHtml(basename(pathValue)) + '</div>'
-        + '<div class="file-path">' + escapeHtml(relPath || pathValue) + '</div>'
+        + '<div class="file-path" title="Subfolder within group">' + escapeHtml(subPath) + '</div>'
         + '</div>'
         + '<div class="file-meta">' + escapeHtml(formatBytes(this._entrySize(entry))) + '<span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></div>'
         + '<div class="file-meta">' + escapeHtml(extensionBadge(extension)) + '<span class="sub">' + escapeHtml(fileTypeLabel(extension)) + '</span></div>'

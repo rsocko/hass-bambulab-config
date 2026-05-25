@@ -781,3 +781,195 @@ def test_normalize_indexed_conflicts_preserves_preview_url() -> None:
     assert len(normalized) == 1
     conflict = normalized[0]
     assert conflict.get("preview_url") == "/api/models/soundwave-transformers--94944ffc/files/instructions-torso-0386f557/download"
+
+
+def _seed_initial_working_folder(client: TestClient, source_root: Path, *, filename: str, content: bytes, title: str) -> tuple[str, Path]:
+    """Helper: publish a single file to working files and return (folder_slug, folder_path)."""
+    seed_file = source_root / filename
+    seed_file.write_bytes(content)
+    enqueue = client.post(
+        "/api/intake/uploads",
+        json={
+            "cleanup_policy": "keep",
+            "source_entries": [{"type": "file", "path": str(seed_file)}],
+        },
+    )
+    assert enqueue.status_code == 200, enqueue.text
+    upload_id = enqueue.json()["upload_id"]
+    publish = client.post(
+        f"/api/intake/uploads/{upload_id}/publish-to-working",
+        json={"title": title},
+    )
+    assert publish.status_code == 200, publish.text
+    payload = publish.json()
+    slug = str(payload.get("working_folder_slug") or "").strip()
+    assert slug
+    folder_path = Path(str((payload.get("created_groups") or [{}])[0].get("folder_path") or ""))
+    assert folder_path.is_dir()
+    return slug, folder_path
+
+
+def test_publish_to_existing_working_folder_appends_files_and_merges_sidecar(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        slug, folder_path = _seed_initial_working_folder(
+            client, source_root, filename="seed.3mf", content=b"seed-data", title="Append Target"
+        )
+        original_sidecar = json.loads((folder_path / ".modelmeta.json").read_text(encoding="utf-8"))
+        original_imported_at = str(original_sidecar.get("imported_at") or "")
+        assert original_imported_at
+        original_display_title = str(original_sidecar.get("display_title") or "")
+        original_primary = str(original_sidecar.get("primary_file") or "")
+        assert len(original_sidecar.get("files") or []) == 1
+
+        # Second publish: append a new file into the existing folder.
+        append_file = source_root / "addition.stl"
+        append_file.write_bytes(b"addition-data")
+        enqueue2 = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(append_file)}],
+            },
+        )
+        assert enqueue2.status_code == 200
+        upload_id2 = enqueue2.json()["upload_id"]
+
+        publish2 = client.post(
+            f"/api/intake/uploads/{upload_id2}/publish-to-working",
+            json={"title": "Should Be Ignored", "target_folder_slug": slug},
+        )
+        assert publish2.status_code == 200, publish2.text
+        payload2 = publish2.json()
+        assert payload2.get("working_folder_slug") == slug
+        created_groups2 = payload2.get("created_groups") or []
+        assert created_groups2 and created_groups2[0].get("folder_slug") == slug
+        assert int(created_groups2[0].get("added_items") or 0) == 1
+
+        # Sidecar should now have both files and preserved metadata.
+        merged_sidecar = json.loads((folder_path / ".modelmeta.json").read_text(encoding="utf-8"))
+        assert merged_sidecar.get("display_title") == original_display_title
+        assert merged_sidecar.get("imported_at") == original_imported_at
+        assert merged_sidecar.get("primary_file") == original_primary
+        assert str(merged_sidecar.get("last_import_at") or "")
+        files_entries = merged_sidecar.get("files") or []
+        assert len(files_entries) == 2
+        filenames = {Path(str(entry.get("path") or "")).name for entry in files_entries}
+        assert "seed.3mf" in filenames
+        assert "addition.stl" in filenames
+
+        import_history = merged_sidecar.get("import_history") or []
+        assert len(import_history) == 1
+        assert int(import_history[0].get("added_file_count") or 0) == 1
+
+        # Both files are physically present.
+        present = {p.name for p in folder_path.rglob("*") if p.is_file()}
+        assert "seed.3mf" in present
+        assert "addition.stl" in present
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_publish_by_destination_target_folder_slug_appends_into_existing_folder(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        slug, folder_path = _seed_initial_working_folder(
+            client, source_root, filename="origin.3mf", content=b"origin", title="Existing Group"
+        )
+
+        new_file = source_root / "extra.3mf"
+        new_file.write_bytes(b"extra")
+        enqueue = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(new_file)}],
+            },
+        )
+        assert enqueue.status_code == 200
+        upload_id = enqueue.json()["upload_id"]
+
+        publish = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-by-destination",
+            json={
+                "cleanup_policy": "keep",
+                "group_destinations": [
+                    {
+                        "destination": "working",
+                        "title": "Anything",
+                        "target_folder_slug": slug,
+                    }
+                ],
+            },
+        )
+        assert publish.status_code == 200, publish.text
+        body = publish.json()
+        group_results = body.get("group_results") or []
+        assert group_results and group_results[0].get("folder_slug") == slug
+        assert group_results[0].get("match_mode") == "appended"
+
+        merged_sidecar = json.loads((folder_path / ".modelmeta.json").read_text(encoding="utf-8"))
+        assert len(merged_sidecar.get("files") or []) == 2
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_working_files_folders_endpoint_lists_and_filters_folders(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        alpha_slug, _ = _seed_initial_working_folder(
+            client, source_root, filename="alpha-bracket.3mf", content=b"alpha", title="Alpha Bracket"
+        )
+        beta_slug, _ = _seed_initial_working_folder(
+            client, source_root, filename="beta-widget.3mf", content=b"beta", title="Beta Widget"
+        )
+
+        list_all = client.get("/api/working-files/folders")
+        assert list_all.status_code == 200
+        all_body = list_all.json()
+        assert all_body.get("success") is True
+        folders = all_body.get("folders") or []
+        assert len(folders) >= 2
+        slugs = {str(f.get("slug") or "") for f in folders}
+        assert alpha_slug in slugs
+        assert beta_slug in slugs
+        # Each entry exposes the minimum picker fields.
+        first = folders[0]
+        for key in ("slug", "name", "display_title", "folder_path", "has_modelmeta"):
+            assert key in first
+
+        filtered = client.get("/api/working-files/folders", params={"q": "alpha"})
+        assert filtered.status_code == 200
+        filtered_slugs = {str(f.get("slug") or "") for f in filtered.json().get("folders") or []}
+        assert alpha_slug in filtered_slugs
+        assert beta_slug not in filtered_slugs
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_publish_to_existing_working_folder_rejects_unknown_slug(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        source_file = source_root / "lonely.3mf"
+        source_file.write_bytes(b"lonely")
+        enqueue = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(source_file)}],
+            },
+        )
+        assert enqueue.status_code == 200
+        upload_id = enqueue.json()["upload_id"]
+
+        publish = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-working",
+            json={"title": "Whatever", "target_folder_slug": "nope-does-not-exist"},
+        )
+        assert publish.status_code == 500
+        body = publish.json()
+        assert body.get("success") is False
+        assert "nope-does-not-exist" in str(body.get("message") or "")
+    finally:
+        client.__exit__(None, None, None)
+

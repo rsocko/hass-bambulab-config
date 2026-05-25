@@ -1,0 +1,14 @@
+model_catalog_list_working_folders:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if q is defined and (q | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['q=' ~ ((q | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(25)) | int(25) | string)] -%}
+    {%- set ns.params = ns.params + ['offset=' ~ ((offset | default(0)) | int(0) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/working-files/folders?{{ ns.params | join('&') }}
+  method: GET

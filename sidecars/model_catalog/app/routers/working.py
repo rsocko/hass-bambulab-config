@@ -1941,6 +1941,91 @@ def working_files_loose(
     }
 
 
+@router.get("/api/working-files/folders")
+def working_files_folders_list(
+    request: Request,
+    q: str = "",
+    limit: int = 25,
+    offset: int = 0,
+) -> Any:
+    """Lightweight folder picker for the intake wizard's "append to existing" branch.
+
+    Enumerates top-level folders under the configured working-files root, optionally
+    filtered by a case-insensitive substring matching either the folder slug or the
+    sidecar ``display_title``. Each entry includes minimal metadata sufficient for
+    the wizard to render a result row and POST a ``target_folder_slug``.
+    """
+    state: AppState = request.app.state.model_catalog
+    root = _primary_working_root(state.settings)
+    if root is None:
+        return {
+            "success": True,
+            "folders": [],
+            "total": 0,
+            "limit": int(limit or 25),
+            "offset": int(offset or 0),
+        }
+
+    needle = (q or "").strip().lower()
+    try:
+        safe_limit = max(1, min(int(limit or 25), 200))
+    except (TypeError, ValueError):
+        safe_limit = 25
+    try:
+        safe_offset = max(0, int(offset or 0))
+    except (TypeError, ValueError):
+        safe_offset = 0
+
+    matches: list[dict[str, Any]] = []
+    try:
+        entries = sorted(root.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        entries = []
+
+    for entry in entries:
+        if not entry.is_dir():
+            continue
+        slug = entry.name
+        if slug.startswith(".") or slug in {"..", "."}:
+            continue
+        sidecar = _read_folder_sidecar(entry)
+        modelmeta = sidecar.get("modelmeta") if isinstance(sidecar.get("modelmeta"), dict) else None
+        display_title = (modelmeta or {}).get("display_title") if modelmeta else None
+        primary_file = (modelmeta or {}).get("primary_file") if modelmeta else None
+        tags_raw = (modelmeta or {}).get("tags") if modelmeta else None
+        tags = [str(t).strip() for t in tags_raw if str(t).strip()] if isinstance(tags_raw, list) else []
+        files_raw = (modelmeta or {}).get("files") if modelmeta else None
+        file_count = len(files_raw) if isinstance(files_raw, list) else None
+
+        haystack = f"{slug}\n{display_title or ''}".lower()
+        if needle and needle not in haystack:
+            continue
+
+        matches.append(
+            {
+                "slug": slug,
+                "name": slug,
+                "display_title": str(display_title) if display_title else None,
+                "folder_path": str(entry),
+                "primary_file": str(primary_file) if primary_file else None,
+                "file_count": file_count,
+                "tags": tags,
+                "has_modelmeta": modelmeta is not None,
+                "has_readme": sidecar.get("readme") is not None,
+            }
+        )
+
+    total = len(matches)
+    page = matches[safe_offset : safe_offset + safe_limit]
+    return {
+        "success": True,
+        "folders": page,
+        "total": total,
+        "limit": safe_limit,
+        "offset": safe_offset,
+    }
+
+
 @router.get("/api/working-files/groups/{folder_slug}")
 def working_files_group_detail(request: Request, folder_slug: str) -> Any:
     """Group detail: file count, folder tree, sidecar contents.

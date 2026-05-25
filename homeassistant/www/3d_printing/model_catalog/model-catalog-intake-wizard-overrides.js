@@ -2067,7 +2067,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       if (matchMode === 'existing') {
         if (destination === 'working') {
-          if (!(Number(plan.working_group_id) > 0)) {
+          if (!String(plan.target_folder_slug || '').trim()) {
             return false;
           }
         } else if (!String(plan.model_ref || '').trim()) {
@@ -2087,7 +2087,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       };
       if (payload.match_mode === 'existing') {
         if (payload.destination === 'working') {
-          payload.working_group_id = Number(plan.working_group_id || 0);
+          payload.target_folder_slug = String(plan.target_folder_slug || '').trim();
         } else {
           payload.model_ref = String(plan.model_ref || '').trim();
         }
@@ -2128,15 +2128,15 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   };
 
   proto._workingLookupResultMeta = function (result) {
-    var project = result && result.project && result.project.title ? String(result.project.title) : '';
-    var itemCount = Array.isArray(result && result.items) ? result.items.length : 0;
+    var slug = String((result && result.slug) || '').trim();
+    var displayTitle = String((result && (result.display_title || result.name)) || 'Folder').trim();
+    var fileCount = result && result.file_count != null ? Number(result.file_count) : null;
     return {
-      id: String(result && result.id ? result.id : '').trim(),
-      primary: String((result && result.title) || 'Folder').trim(),
+      id: slug,
+      primary: displayTitle,
       secondary: [
-        result && result.stage ? String(result.stage) : '',
-        project,
-        itemCount ? String(itemCount) + ' items' : '',
+        slug && slug !== displayTitle ? slug : '',
+        fileCount != null ? String(fileCount) + ' files' : '',
       ].filter(Boolean).join(' - '),
     };
   };
@@ -2169,7 +2169,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     try {
       var response;
       if (String(plan.destination || 'curated') === 'working') {
-        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_working_groups', {
+        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_working_folders', {
           q: query,
           limit: 8,
           offset: 0,
@@ -2177,7 +2177,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         this._updateGroupDestinationState(groupIndex, {
           lookup_loading: false,
           lookup_error: '',
-          lookup_results: Array.isArray(response && response.groups) ? response.groups : [],
+          lookup_results: Array.isArray(response && response.folders) ? response.folders : [],
         });
       } else {
         response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_search_models', {
@@ -2215,7 +2215,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (String(plan.destination || 'curated') === 'working') {
       var workingMeta = this._workingLookupResultMeta(result);
       this._updateGroupDestinationState(groupIndex, {
-        working_group_id: Number(workingMeta.id || 0),
+        target_folder_slug: String(workingMeta.id || '').trim(),
+        working_group_id: null,
         model_ref: '',
         selected_summary: workingMeta,
       });
@@ -2223,6 +2224,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var curatedMeta = this._curatedLookupResultMeta(result);
       this._updateGroupDestinationState(groupIndex, {
         model_ref: curatedMeta.id,
+        target_folder_slug: '',
         working_group_id: null,
         selected_summary: curatedMeta,
       });
@@ -2282,7 +2284,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           resultRows = '<div class="entries">' + plan.lookup_results.map(function (result, resultIndex) {
             var meta = isWorking ? this._workingLookupResultMeta(result) : this._curatedLookupResultMeta(result);
             var isSelected = isWorking
-              ? Number(plan.working_group_id || 0) === Number(meta.id || 0)
+              ? String(plan.target_folder_slug || '') === String(meta.id || '')
               : String(plan.model_ref || '') === String(meta.id || '');
             return ''
               + '<article class="entry-row">'
@@ -4730,6 +4732,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         destination: String(target.value || 'curated').trim().toLowerCase(),
         model_ref: '',
         working_group_id: null,
+        target_folder_slug: '',
         lookup_query: '',
         lookup_results: [],
         lookup_error: '',
@@ -4745,6 +4748,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         match_mode: String(target.value || 'new').trim().toLowerCase(),
         model_ref: '',
         working_group_id: null,
+        target_folder_slug: '',
         lookup_query: '',
         lookup_results: [],
         lookup_error: '',
