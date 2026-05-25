@@ -26,7 +26,9 @@ from .._helpers import (
     _bulk_utc_now_iso,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
+    _configured_intake_browse_roots,
     _configured_intake_source_roots,
+    _configured_working_files_roots,
     _is_path_within_roots,
 )
 from ..services.intake_consolidation import _consolidate_overlapping_selections
@@ -69,9 +71,11 @@ def list_source_filesystems(request: Request) -> Any:
     Returns metadata for each root including accessibility and item counts.
     """
     state: AppState = request.app.state.model_catalog
-    roots = _configured_intake_source_roots(state.settings)
-    root_entries = []
-    for root in roots:
+    intake_roots = _configured_intake_source_roots(state.settings)
+    working_roots = _configured_working_files_roots(state.settings)
+    root_entries: list[dict[str, Any]] = []
+
+    def _build_entry(root: Path, kind: str, name_override: str | None = None) -> dict[str, Any]:
         accessible = root.exists() and root.is_dir()
         child_count: int | None = None
         if accessible:
@@ -81,14 +85,28 @@ def list_source_filesystems(request: Request) -> Any:
                 )
             except (OSError, PermissionError):
                 child_count = None
-        root_entries.append(
-            {
-                "path": str(root),
-                "name": root.name or str(root),
-                "accessible": accessible,
-                "child_count": child_count,
-            }
-        )
+        return {
+            "path": str(root),
+            "name": name_override or root.name or str(root),
+            "kind": kind,
+            "accessible": accessible,
+            "child_count": child_count,
+        }
+
+    seen_keys: set[str] = set()
+    for root in intake_roots:
+        key = str(root).replace("\\", "/").lower()
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        root_entries.append(_build_entry(root, "intake"))
+    for root in working_roots:
+        key = str(root).replace("\\", "/").lower()
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        root_entries.append(_build_entry(root, "working", name_override="Working Files"))
+
     return {
         "success": True,
         "roots": root_entries,
@@ -106,25 +124,50 @@ def browse_source_filesystem(request: Request, path: str | None = None) -> Any:
     - Enforces allowlist; rejects traversal outside configured roots.
     """
     state: AppState = request.app.state.model_catalog
-    roots = _configured_intake_source_roots(state.settings)
+    intake_roots = _configured_intake_source_roots(state.settings)
+    working_roots = _configured_working_files_roots(state.settings)
+    roots = _configured_intake_browse_roots(state.settings)
 
     if not path or path.strip() in {"", "/"}:
-        # Virtual root: show configured roots
+        # Virtual root: show configured roots (inbox + working files)
+        virtual_entries: list[dict[str, Any]] = []
+        seen_keys: set[str] = set()
+        for root in intake_roots:
+            key = str(root).replace("\\", "/").lower()
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            virtual_entries.append(
+                {
+                    "path": str(root),
+                    "name": root.name or str(root),
+                    "kind": "intake",
+                    "type": "folder",
+                    "accessible": root.exists() and root.is_dir(),
+                    "has_children": root.is_dir() if root.exists() else False,
+                }
+            )
+        for root in working_roots:
+            key = str(root).replace("\\", "/").lower()
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            virtual_entries.append(
+                {
+                    "path": str(root),
+                    "name": "Working Files",
+                    "kind": "working",
+                    "type": "folder",
+                    "accessible": root.exists() and root.is_dir(),
+                    "has_children": root.is_dir() if root.exists() else False,
+                }
+            )
         return {
             "success": True,
             "path": "/",
             "is_root": True,
             "type": "virtual_root",
-            "entries": [
-                {
-                    "path": str(root),
-                    "name": root.name or str(root),
-                    "type": "folder",
-                    "accessible": root.exists() and root.is_dir(),
-                    "has_children": root.is_dir() if root.exists() else False,
-                }
-                for root in roots
-            ],
+            "entries": virtual_entries,
         }
 
     browse_path = None
@@ -388,7 +431,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
     - Returns upload_id for tracking.
     """
     state: AppState = request.app.state.model_catalog
-    roots = _configured_intake_source_roots(state.settings)
+    roots = _configured_intake_browse_roots(state.settings)
     if not roots:
         return JSONResponse(
             status_code=400,

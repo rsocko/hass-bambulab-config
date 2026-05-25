@@ -88,6 +88,24 @@ def _configured_working_files_roots(settings: Settings) -> list[Path]:
     return []
 
 
+def _configured_intake_browse_roots(settings: Settings) -> list[Path]:
+    """Roots allowed for the Intake wizard's browse + selection surface.
+
+    Issue: the Intake wizard may start the user inside the Working Files root as
+    well as the inbox roots. The browse endpoint and the submit-time path gate
+    both consult this combined allowlist so a user can queue files that already
+    live under the Working Files root (e.g., a folder picked from the Working
+    Files explorer card).
+
+    Prod/test isolation is still preserved because both root sets are resolved
+    via the active DB profile (``_env_for_profile``).
+    """
+    return _dedupe_paths(
+        _configured_intake_source_roots(settings)
+        + _configured_working_files_roots(settings)
+    )
+
+
 def _model_photo_storage_root(settings: Settings) -> Path:
     if settings.model_catalog_assets_root:
         return settings.model_catalog_assets_root.resolve()
@@ -177,7 +195,7 @@ def _enforce_source_entries_within_intake_roots(
     otherwise returns a single human-readable error string suitable for use as
     the ``message`` field of a 403 JSON response.
     """
-    roots = _configured_intake_source_roots(settings)
+    roots = _configured_intake_browse_roots(settings)
     if not isinstance(source_entries, list):
         return None
 
