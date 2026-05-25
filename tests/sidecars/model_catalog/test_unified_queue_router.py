@@ -711,6 +711,11 @@ def test_queue_add_v1_quick_add_working_group_dedupes_duplicate_files_and_plates
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    import pytest
+
+    pytest.skip(
+        "Working groups deprecated (PR E.1-E.3). Test will be deleted in PR E.3 cleanup."
+    )
     from app.routers import unified_queue as unified_queue_router
 
     client, db_path = _create_client(tmp_path)

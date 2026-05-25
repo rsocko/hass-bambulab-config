@@ -662,14 +662,19 @@ def _read_indexed_filename_maps(
 
     connection = connect(db_path)
     try:
-        rows = connection.execute(
-            """
-            SELECT wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
-            FROM working_items wi
-            LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
-            WHERE wi.file_path IS NOT NULL AND TRIM(wi.file_path) != ''
-            """
-        ).fetchall()
+        try:
+            rows = connection.execute(
+                """
+                SELECT wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
+                FROM working_items wi
+                LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
+                WHERE wi.file_path IS NOT NULL AND TRIM(wi.file_path) != ''
+                """
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # PR E.1: working_items / working_groups tables dropped.
+            # Removed wholesale in PR E.2.
+            rows = []
         for row in rows:
             full_path = str(row[0] or "").strip().replace("\\", "/")
             file_name = Path(full_path).name or full_path
@@ -825,15 +830,20 @@ def _read_indexed_hash_match_contexts(
 
     connection = connect(db_path)
     try:
-        working_rows = connection.execute(
-            """
-            SELECT wi.file_hash, wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
-            FROM working_items wi
-            LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
-            WHERE wi.file_hash IS NOT NULL
-              AND TRIM(wi.file_hash) != ''
-            """
-        ).fetchall()
+        try:
+            working_rows = connection.execute(
+                """
+                SELECT wi.file_hash, wi.file_path, wg.title, wi.file_size, wi.source_metadata_json
+                FROM working_items wi
+                LEFT JOIN working_groups wg ON wg.id = wi.working_group_id
+                WHERE wi.file_hash IS NOT NULL
+                  AND TRIM(wi.file_hash) != ''
+                """
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # PR E.1: working_items / working_groups tables dropped.
+            # Surrounding loop is removed wholesale in PR E.2.
+            working_rows = []
         for row in working_rows:
             full_path = str(row[1] or "").strip().replace("\\", "/")
             file_name = Path(full_path).name or full_path

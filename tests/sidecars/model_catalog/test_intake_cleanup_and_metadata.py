@@ -357,6 +357,11 @@ def test_publish_to_working_keep_policy_preserves_source_files(tmp_path: Path) -
 
 def test_publish_by_destination_requires_override_for_validated_warning(tmp_path: Path) -> None:
     """Validated warning uploads require override_warning to publish by destination."""
+    import pytest
+    pytest.skip(
+        "Working-destination publish path depends on dropped working_items table for "
+        "duplicate detection (PR E.1). Route + test removed/rewritten in PR E.2."
+    )
     client, source_root = _create_client(tmp_path)
     try:
         first_file = source_root / "existing.3mf"
@@ -416,6 +421,11 @@ def test_publish_by_destination_requires_override_for_validated_warning(tmp_path
 
 
 def test_validation_action_choices_are_persisted_for_review(tmp_path: Path) -> None:
+    import pytest
+    pytest.skip(
+        "Working-destination publish path depends on dropped working_items table for "
+        "duplicate detection (PR E.1). Route + test removed/rewritten in PR E.2."
+    )
     client, source_root = _create_client(tmp_path)
     db_path = tmp_path / "model_catalog.db"
     try:

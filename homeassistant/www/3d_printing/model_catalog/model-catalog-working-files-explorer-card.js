@@ -372,10 +372,12 @@
     + '.file-meta .sub{display:block;font-size:10px;color:var(--text-muted);margin-top:1px;white-space:nowrap;}'
     + '.file-meta strong{display:block;color:var(--text);font-weight:700;}'
     + '.file-actions{display:inline-flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;}'
-    + '.file-action-split{position:relative;display:inline-flex;align-items:stretch;border:1px solid rgba(94,234,212,0.32);border-radius:8px;overflow:hidden;background:rgba(94,234,212,0.10);}'
+    + '.file-action-split{position:relative;display:inline-flex;align-items:stretch;border:1px solid rgba(94,234,212,0.32);border-radius:8px;background:rgba(94,234,212,0.10);}'
     + '.file-action-split button{background:transparent;border:0;color:var(--accent);padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}'
+    + '.file-action-split .open-main{border-radius:7px 0 0 7px;}'
+    + '.file-action-split .open-main:only-child{border-radius:7px;}'
     + '.file-action-split .open-main:hover{background:rgba(94,234,212,0.18);}'
-    + '.file-action-split .file-action-toggle{padding:5px 7px;border-left:1px solid rgba(94,234,212,0.32);font-size:10px;}'
+    + '.file-action-split .file-action-toggle{padding:5px 7px;border-left:1px solid rgba(94,234,212,0.32);font-size:10px;border-radius:0 7px 7px 0;}'
     + '.file-action-split .file-action-toggle:hover{background:rgba(94,234,212,0.18);}'
     + '.file-action-menu{position:absolute;right:0;top:calc(100% + 4px);background:rgba(20,24,32,0.98);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.45);padding:4px;min-width:180px;z-index:10;display:flex;flex-direction:column;gap:2px;}'
     + '.file-action-menu button{background:transparent;border:0;color:var(--text);padding:6px 10px;font-size:11.5px;cursor:pointer;border-radius:6px;text-align:left;}'
@@ -1004,7 +1006,7 @@
         + '</div>'
         + '<div class="group-right">'
         + '<div class="updated"><strong>' + escapeHtml(formatRelativeTime(lastSeen)) + '</strong>' + escapeHtml(formatDateTime(lastSeen)) + '</div>'
-        + '<button class="expander" data-action="toggle-group" data-slug="' + escapeHtml(slug) + '" title="' + (collapsed ? 'Expand' : 'Collapse') + '">' + (collapsed ? '▾' : '▴') + '</button>'
+        + '<button class="expander" data-action="toggle-group" data-slug="' + escapeHtml(slug) + '" title="' + (collapsed ? 'Expand' : 'Collapse') + '">' + (collapsed ? '▸' : '▾') + '</button>'
         + '</div>'
         + '</div>';
     }
@@ -1067,7 +1069,7 @@
         + '</div>'
         + groupSplitHtml
         + '<button class="overflow-btn" data-action="toggle-overflow" data-slug="' + escapeHtml(slug) + '" title="Group actions">⋯</button>'
-        + '<button class="expander" data-action="toggle-group" data-slug="' + escapeHtml(slug) + '" title="' + (collapsed ? 'Expand' : 'Collapse') + '">' + (collapsed ? '▾' : '▴') + '</button>'
+        + '<button class="expander" data-action="toggle-group" data-slug="' + escapeHtml(slug) + '" title="' + (collapsed ? 'Expand' : 'Collapse') + '">' + (collapsed ? '▸' : '▾') + '</button>'
         + '</div>'
         + '</div>';
     }
@@ -1083,9 +1085,6 @@
         + '<button data-action="run-intake-wizard" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>🪄</span> Run Intake Wizard from this folder…</button>'
         + '<button data-action="add-to-project" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>📁</span> Add to Project…</button>'
         + '<button data-action="add-to-collection" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>🗂️</span> Add to Collection…</button>'
-        + '<div class="sep"></div>'
-        + '<button data-action="open-folder" data-path="' + escapeHtml(folderPath) + '"><span>↗</span> Open folder in file manager</button>'
-        + (folderPath ? '<button data-action="copy-path" data-path="' + escapeHtml(folderPath) + '"><span>📋</span> Copy folder path</button>' : '')
         + '</div>';
     }
 
@@ -1195,9 +1194,7 @@
               : '')
           + '</span>';
       }
-      if (canExplore) {
-        actionsHtml += '<button class="btn-ghost row-more" data-action="open-folder" data-path="' + escapeHtml(dirname(pathValue)) + '" title="Open containing folder">⋯</button>';
-      }
+
 
       return ''
         + '<div class="file-row">'

@@ -88,6 +88,10 @@ def get_working_items_hashes(db_path: Path | str) -> set[str]:
             "SELECT file_hash FROM working_items WHERE file_hash IS NOT NULL AND TRIM(file_hash) != ''"
         ).fetchall()
         return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
+    except sqlite3.OperationalError:
+        # PR E.1: working_items table has been dropped. Function body is
+        # removed entirely in PR E.2 alongside its callers.
+        return set()
     finally:
         connection.close()
 

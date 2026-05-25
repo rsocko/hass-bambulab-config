@@ -1081,6 +1081,43 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        29,
+        (
+            # --- PR E.1: Drop the legacy working_groups / working_items /
+            # working_group_model_links tables. The Working Files store is
+            # now folder-first (see docs/features/model_catalog/design/
+            # working-files.md); these DB-backed identities are obsolete.
+            #
+            # Operators MUST have already run the PR B export script
+            # (cli/export_working_groups_to_sidecars.py) before this
+            # migration is applied. Any rows left in these tables at this
+            # point will be permanently discarded.
+            #
+            # The FK on model_catalog_print_history_jobs.working_group_id
+            # becomes a dangling reference, which is benign in SQLite as
+            # long as no code inserts a non-NULL value (verified — only
+            # legacy working_catalog_service NULLs that column on group
+            # deletion, and that path is unreachable after the table is
+            # gone). The column itself is removed in a later PR E phase
+            # alongside the dead Python code paths.
+            """
+        PRAGMA foreign_keys = OFF
+        """,
+            """
+        DROP TABLE IF EXISTS working_group_model_links
+        """,
+            """
+        DROP TABLE IF EXISTS working_items
+        """,
+            """
+        DROP TABLE IF EXISTS working_groups
+        """,
+            """
+        PRAGMA foreign_keys = ON
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:

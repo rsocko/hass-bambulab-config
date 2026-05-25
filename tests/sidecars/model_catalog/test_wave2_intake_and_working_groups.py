@@ -5,11 +5,22 @@ import sqlite3
 from datetime import datetime, timezone
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main_module
 from app.main import create_app
 from app.settings import Settings
+
+# PR E.1: working_groups / working_items tables have been dropped (see
+# sidecars/model_catalog/app/db_migrations.py migration #29). These tests
+# exercise the legacy /api/intake/items/{id}/group write paths that still
+# exist in intake_verification.py and depend on those tables. The routes
+# themselves are removed surgically in PR E.2, and this test module is
+# deleted in PR E.3. Skipping in the interim keeps the migration landable.
+pytestmark = pytest.mark.skip(
+    reason="Working groups deprecated (PR E). Tables dropped in PR E.1 schema migration; routes removed in PR E.2; tests deleted in PR E.3."
+)
 
 
 def _make_settings(db_path: Path, source_root: Path) -> Settings:

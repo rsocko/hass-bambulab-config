@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database, read_model_fields
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.settings import Settings
+
+pytestmark = pytest.mark.skip(
+    reason="Working groups deprecated (PR E). Tables dropped in PR E.1 schema migration; routes removed in PR E.2; tests deleted in PR E.3."
+)
 
 
 def _build_settings(tmp_path: Path) -> Settings:

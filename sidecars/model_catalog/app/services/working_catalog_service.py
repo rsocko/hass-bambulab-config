@@ -229,7 +229,11 @@ def sync_all_working_group_projections(*, settings: Settings) -> int:
     connection = connect(settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
-        rows = connection.execute("SELECT * FROM working_groups").fetchall()
+        try:
+            rows = connection.execute("SELECT * FROM working_groups").fetchall()
+        except sqlite3.OperationalError:
+            # PR E.1: working_groups table dropped. Function deleted in PR E.2.
+            return 0
     finally:
         connection.close()
     for row in rows:
