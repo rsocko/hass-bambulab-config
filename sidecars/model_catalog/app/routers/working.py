@@ -830,6 +830,8 @@ def _refresh_working_file_inventory(*, db_path: Path, roots: list[Path], compute
             )
             removed = len(stale_keys)
 
+        repaired_group_paths = _repair_stale_working_group_paths(connection, now_iso=now_iso)
+
         connection.commit()
     finally:
         connection.close()
@@ -840,9 +842,123 @@ def _refresh_working_file_inventory(*, db_path: Path, roots: list[Path], compute
         "updated": updated,
         "removed": removed,
         "hashed": hashed,
+        "repaired_group_paths": repaired_group_paths,
         "roots": [str(root) for root in roots],
         "refreshed_at": now_iso,
     }
+
+
+def _repair_stale_working_group_paths(connection: sqlite3.Connection, *, now_iso: str) -> int:
+    inventory_rows = [dict(row) for row in connection.execute(
+        """
+        SELECT id, source_path_raw, source_path_canonical, source_path_compare_key,
+               file_name_raw, file_size_bytes, sha256_hash,
+               source_mtime, source_ctime, source_birthtime
+        FROM working_file_inventory
+        """
+    ).fetchall()]
+    inventory_by_key = {
+        str(row.get("source_path_compare_key") or ""): row
+        for row in inventory_rows
+        if str(row.get("source_path_compare_key") or "")
+    }
+    inventory_by_hash = {
+        str(row.get("sha256_hash") or "").strip().lower(): row
+        for row in inventory_rows
+        if str(row.get("sha256_hash") or "").strip()
+    }
+    candidate_rows_by_name_size: dict[tuple[str, int | None], list[dict[str, Any]]] = {}
+    for row in inventory_rows:
+        candidate_key = (
+            str(row.get("file_name_raw") or "").strip().lower(),
+            int(row["file_size_bytes"]) if row.get("file_size_bytes") is not None else None,
+        )
+        candidate_rows_by_name_size.setdefault(candidate_key, []).append(row)
+
+    stale_item_rows = connection.execute(
+        """
+        SELECT wi.id, wi.working_group_id, wi.file_path, wi.item_role, wi.file_hash, wi.file_size,
+               wi.source_metadata_json, wg.primary_file_path
+        FROM working_items wi
+        JOIN working_groups wg ON wg.id = wi.working_group_id
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM working_file_inventory wfi
+            WHERE wfi.source_path_compare_key = LOWER(REPLACE(wi.file_path, '\\', '/'))
+        )
+        ORDER BY wi.id ASC
+        """
+    ).fetchall()
+
+    repaired = 0
+    for item_row in stale_item_rows:
+        current_path = str(item_row["file_path"] or "").strip()
+        if not current_path:
+            continue
+
+        item_hash = str(item_row["file_hash"] or "").strip().lower()
+        replacement_row = inventory_by_hash.get(item_hash) if item_hash else None
+        if replacement_row is None and item_hash:
+            candidate_key = (
+                Path(current_path).name.strip().lower(),
+                int(item_row["file_size"]) if item_row["file_size"] is not None else None,
+            )
+            for candidate in candidate_rows_by_name_size.get(candidate_key, []):
+                candidate_hash = str(candidate.get("sha256_hash") or "").strip().lower()
+                if not candidate_hash:
+                    candidate_path = str(candidate.get("source_path_canonical") or candidate.get("source_path_raw") or "").strip()
+                    if not candidate_path:
+                        continue
+                    try:
+                        candidate_hash = _sha256_file(Path(candidate_path)).lower()
+                    except (OSError, PermissionError):
+                        continue
+                    candidate["sha256_hash"] = candidate_hash
+                    inventory_by_hash[candidate_hash] = candidate
+                    connection.execute(
+                        "UPDATE working_file_inventory SET sha256_hash = ? WHERE id = ?",
+                        (candidate_hash, int(candidate["id"])),
+                    )
+                if candidate_hash == item_hash:
+                    replacement_row = candidate
+                    break
+
+        if replacement_row is None:
+            continue
+
+        next_path = str(replacement_row.get("source_path_canonical") or replacement_row.get("source_path_raw") or "").strip()
+        next_key = _normalize_path_compare_key(next_path)
+        current_key = _normalize_path_compare_key(current_path)
+        if not next_path or not next_key or next_key == current_key:
+            continue
+
+        raw_source_metadata = str(item_row["source_metadata_json"] or "{}").strip() or "{}"
+        try:
+            source_metadata = json.loads(raw_source_metadata)
+        except json.JSONDecodeError:
+            source_metadata = {}
+        if not isinstance(source_metadata, dict):
+            source_metadata = {}
+        source_metadata["source_path"] = next_path
+        for field_name in ("source_mtime", "source_ctime", "source_birthtime"):
+            field_value = str(replacement_row.get(field_name) or "").strip()
+            if field_value:
+                source_metadata[field_name] = field_value
+            else:
+                source_metadata.pop(field_name, None)
+
+        connection.execute(
+            "UPDATE working_items SET file_path = ?, updated_at = ?, source_metadata_json = ? WHERE id = ?",
+            (next_path, now_iso, json.dumps(source_metadata), int(item_row["id"])),
+        )
+        if _normalize_path_compare_key(item_row["primary_file_path"]) == current_key:
+            connection.execute(
+                "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
+                (next_path, now_iso, int(item_row["working_group_id"])),
+            )
+        repaired += 1
+
+    return repaired
 
 
 def _read_existing_working_hashes(db_path: Path) -> set[str]:

@@ -417,7 +417,7 @@
     + '.group-row{position:relative;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.1);border-radius:14px;padding:12px 12px 10px 14px;--queue-border-color:#7a6a57;--group-icon-bg:rgba(122,106,87,0.26);--group-icon-fg:#f8fafc;--group-icon-ring:rgba(122,106,87,0.5);}'
     + '.group-row.active{border-color:rgba(94,234,212,0.34);background:rgba(20,184,166,0.08);}'
     + '.group-row::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 var(--queue-border-color,#a07cff);pointer-events:none;}'
-    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;}'
+    + '.group-header{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;cursor:pointer;}'
     + '.thumb{width:52px;height:52px;border-radius:10px;border:1px solid var(--group-icon-ring);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;letter-spacing:.04em;color:var(--group-icon-fg);background:var(--group-icon-bg);text-transform:uppercase;}'
     + '.group-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}'
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
@@ -428,7 +428,8 @@
     + '.stage-chip.draft{border-color:rgba(148,163,184,0.44);background:rgba(71,85,105,0.34);color:#e2e8f0;}'
     + '.stage-chip.in_progress{border-color:rgba(252,211,77,0.5);color:#fef3c7;background:rgba(245,158,11,0.32);}'
     + '.stage-chip.ready_to_publish{border-color:rgba(134,239,172,0.5);color:#dcfce7;background:rgba(46,125,50,0.36);}'
-    + '.group-right{text-align:right;display:grid;gap:6px;justify-items:end;}'
+    + '.group-right{text-align:right;display:flex;align-items:center;gap:10px;justify-content:flex-end;}'
+    + '.group-right-meta{display:grid;gap:6px;justify-items:end;}'
     + '.updated{font-size:11px;color:var(--secondary-text-color);}'
     + '.updated strong{color:var(--primary-text-color);}'
     + '.expander{border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.3);color:#cbd5e1;border-radius:10px;min-width:40px;height:40px;cursor:pointer;font-size:18px;font-weight:900;line-height:1;display:inline-flex;align-items:center;justify-content:center;}'
@@ -478,6 +479,7 @@
     + '.selector{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);}'
     + '.group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);}'
     + '.group-actions .spacer{flex:1;}'
+    + '.section-head{padding-bottom:8px;}'
     + '.other-strip{border:1px dashed rgba(148,163,184,0.26);border-radius:10px;padding:8px;display:grid;gap:6px;}'
     + '.other-head{display:flex;justify-content:space-between;font-size:10px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}'
     + '.other-chips{display:flex;gap:5px;flex-wrap:wrap;}'
@@ -689,7 +691,7 @@
       this._loading = true;
       this._loadingPhase = shouldForceReindex ? 'Reindexing files...' : 'Loading Working Files...';
       this._error = '';
-      this._status = hadRenderableData ? 'Updating results...' : '';
+      this._status = '';
       this._render();
 
       var shared = window.ModelCatalogIntakeShared;
@@ -1986,14 +1988,14 @@
 
         return ''
           + '<article class="group-row stage-' + escapeHtml(stageClass) + (active ? ' active' : '') + '" style="' + escapeHtml(groupStyle) + '">'
-          + '  <div class="group-header">'
+          + '  <div class="group-header" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">'
           + '    <div class="thumb" title="' + escapeHtml(formatStage(group.stage || 'draft')) + '">' + escapeHtml(groupInitials) + '</div>'
           + '    <div>'
-          + '      <div class="group-title-row"><div class="group-title" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
+          + '      <div class="group-title-row"><div class="group-title">' + escapeHtml(group.title || 'Untitled Group') + '</div><span class="stage-chip ' + escapeHtml(stageClass) + '">' + escapeHtml(formatStage(group.stage || 'draft')) + '</span></div>'
           + '      <div class="folder-hint">' + escapeHtml(pathFootprint.common_prefix || storageRelativePath(group.folder_hint || '').relative || group.notes || '') + '</div>'
           + '      <div class="path-summary"><span><strong>Storage:</strong> ' + escapeHtml(pathFootprint.storage_label) + '</span><span><strong>Files:</strong> ' + String(pathFootprint.file_count) + '</span><span><strong>Folders:</strong> ' + String(pathFootprint.folder_count) + '</span></div>'
           + '    </div>'
-          + '    <div class="group-right"><span class="updated">Latest file change' + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><span class="updated"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + '</strong> · ' + escapeHtml(formatDateTime(this._entryMtime(latest || {}))) + '</span><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
+          + '    <div class="group-right"><div class="group-right-meta"><span class="updated">Latest file change' + (latestName ? ' · ' + escapeHtml(latestName) : '') + '</span><span class="updated"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(latest || {}))) + '</strong> · ' + escapeHtml(formatDateTime(this._entryMtime(latest || {}))) + '</span></div><button class="expander" data-action="toggle-group-collapsed" data-group-id="' + String(groupId) + '">' + (collapsed ? '▸' : '▾') + '</button></div>'
           + '  </div>'
           + (collapsed ? '' : ''
             + '<div class="strip">'
@@ -2009,7 +2011,7 @@
       var selectedCount = this._selectedPathList().length;
       return ''
         + '<section class="section">'
-        + '  <div class="title-row"><div><div class="title">Groups</div></div><div class="status">Selected files ' + String(selectedCount) + '</div></div>'
+        + '  <div class="title-row section-head"><div><div class="title">Groups</div></div></div>'
         + (selectedCount
           ? '<div class="bulk-bar"><span>' + String(selectedCount) + ' file(s) selected</span><button class="button primary" data-action="add-selection-to-group">Add To Group</button><button class="button" data-action="create-group-from-selection">Create Group</button><span class="spacer"></span><button class="button warn" data-action="remove-selection-from-group">Remove From Active Group</button></div>'
           : '')
@@ -2116,18 +2118,16 @@
         + '    <div class="title-row">'
         + '      <div>'
         + '        <div class="title">' + escapeHtml(this._config.title) + '</div>'
-        + '        <div class="subtitle">Root-first Working Files explorer with Groups, All Files, and Ungrouped views.</div>'
         + '      </div>'
-        + '      <div class="status">All ' + String(summary.all_count || 0) + ' / Ungrouped ' + String(summary.ungrouped_count || 0) + ' / Groups ' + String(summary.group_count || this._groups.length || 0) + '</div>'
         + '    </div>'
-        + '    ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+        + '    ' + (this._status && this._status !== 'Updating results...' ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
         + '    ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
         + '    <section class="toolbar">'
         + '      <div class="title-row">'
         + '        <div class="tab-row">'
-        + '          <button class="tab ' + (this._view === 'groups' ? 'active' : '') + '" data-action="set-view" data-view="groups">Groups</button>'
-        + '          <button class="tab ' + (this._view === 'all' ? 'active' : '') + '" data-action="set-view" data-view="all">All Files</button>'
-        + '          <button class="tab ' + (this._view === 'ungrouped' ? 'active' : '') + '" data-action="set-view" data-view="ungrouped">Ungrouped</button>'
+        + '          <button class="tab ' + (this._view === 'groups' ? 'active' : '') + '" data-action="set-view" data-view="groups">Groups ' + String(summary.group_count || this._groups.length || 0) + '</button>'
+        + '          <button class="tab ' + (this._view === 'all' ? 'active' : '') + '" data-action="set-view" data-view="all">All Files ' + String(summary.all_count || 0) + '</button>'
+        + '          <button class="tab ' + (this._view === 'ungrouped' ? 'active' : '') + '" data-action="set-view" data-view="ungrouped">Ungrouped ' + String(summary.ungrouped_count || 0) + '</button>'
         + '        </div>'
         + '        <div class="button-row"><span class="thumb-size-toggle"><button data-action="set-thumbnail-size" data-size="small" class="' + (this._thumbnailSize === 'small' ? 'active' : '') + '">Small</button><button data-action="set-thumbnail-size" data-size="medium" class="' + (this._thumbnailSize === 'medium' ? 'active' : '') + '">Medium</button><button data-action="set-thumbnail-size" data-size="large" class="' + (this._thumbnailSize === 'large' ? 'active' : '') + '">Large</button></span><button class="button" data-action="refresh">Refresh</button></div>'
         + '      </div>'

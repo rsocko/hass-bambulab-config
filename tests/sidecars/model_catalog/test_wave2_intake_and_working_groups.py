@@ -1550,6 +1550,58 @@ def test_reorganize_working_group_dry_run_and_execute(tmp_path: Path) -> None:
         client.__exit__(None, None, None)
 
 
+def test_reindex_repairs_working_group_item_paths_after_file_move(tmp_path: Path) -> None:
+    working_root = tmp_path / "Model Working Files"
+    group_root = working_root / "widget-kit"
+    original_folder = group_root / "v1"
+    moved_folder = group_root / "v2"
+    original_folder.mkdir(parents=True, exist_ok=True)
+    moved_folder.mkdir(parents=True, exist_ok=True)
+    source_file = original_folder / "Widget.3mf"
+    source_file.write_bytes(b"widget-bytes")
+
+    client = _create_client(tmp_path, working_root)
+    try:
+        create_group = client.post("/api/working-groups", json={"title": "Widget Kit", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+
+        add_item = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(source_file), "item_role": "primary"},
+        )
+        assert add_item.status_code == 200
+
+        moved_file = moved_folder / source_file.name
+        source_file.rename(moved_file)
+
+        reindex_response = client.post(
+            "/api/working-files/reindex",
+            json={"compute_hashes": False, "recurse": True},
+        )
+        assert reindex_response.status_code == 200
+        reindex_payload = reindex_response.json()
+        assert reindex_payload["success"] is True
+        assert reindex_payload["repaired_group_paths"] == 1
+
+        group_response = client.get(f"/api/working-groups/{group_id}")
+        assert group_response.status_code == 200
+        group_payload = group_response.json()
+        assert group_payload["group"]["primary_file_path"] == str(moved_file)
+        assert group_payload["group"]["items"][0]["file_path"] == str(moved_file)
+
+        explorer_response = client.get(
+            "/api/working-files/explorer",
+            params={"view": "groups"},
+        )
+        assert explorer_response.status_code == 200
+        explorer_group = next(group for group in explorer_response.json()["groups"] if int(group["id"]) == group_id)
+        assert explorer_group["primary_file_path"] == str(moved_file)
+        assert explorer_group["files"][0]["file_path"] == str(moved_file)
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_reorganize_working_group_renames_when_destination_file_exists(tmp_path: Path) -> None:
     source_root = tmp_path / "working"
     source_root.mkdir(parents=True, exist_ok=True)
