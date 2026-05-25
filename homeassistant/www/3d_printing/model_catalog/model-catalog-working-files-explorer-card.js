@@ -343,7 +343,7 @@
     + '.breadcrumb-link:hover{text-decoration:underline;}'
     + '.crumb-sep{color:var(--text-muted);}'
     + '.crumb-current{color:var(--text);font-weight:600;}'
-    + '.folder-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 110px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(96,165,250,0.04);border:1px solid var(--border);cursor:pointer;transition:background 100ms ease;}'
+    + '.folder-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 90px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(96,165,250,0.04);border:1px solid var(--border);cursor:pointer;transition:background 100ms ease;}'
     + '.folder-row:hover{background:rgba(96,165,250,0.10);}'
     + '.folder-row .folder-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:calc(var(--thumb-size,34px) * 0.55);line-height:1;background:rgba(96,165,250,0.10);color:var(--accent-blue);border:1px solid rgba(96,165,250,0.28);}'
     + '.folder-row .folder-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
@@ -1020,6 +1020,24 @@
       var thumbClass = 'gc' + colorIndexFromSlug(slug);
       // Show group folder name only (root path is implicit context).
       var folderHint = String(group.name || slug) + '/';
+      var groupAbsPath = (this._tree && this._tree.root_path)
+        ? String(this._tree.root_path) + '/' + String(group.name || slug)
+        : '';
+      var groupMenuKey = 'group|' + slug;
+      var groupMenuOpen = this._fileActionMenuKey === groupMenuKey;
+      var groupSplitHtml = groupAbsPath
+        ? ''
+          + '<span class="file-action-split">'
+          + '<button class="open-main" data-action="open-folder" data-path="' + escapeHtml(groupAbsPath) + '" title="Open folder in desktop file manager">Open Folder in Desktop</button>'
+          + '<button class="file-action-toggle" data-action="toggle-file-menu" data-menu-key="' + escapeHtml(groupMenuKey) + '" aria-label="More folder actions" aria-expanded="' + (groupMenuOpen ? 'true' : 'false') + '">▾</button>'
+          + (groupMenuOpen
+              ? '<span class="file-action-menu">'
+                + '<button data-action="toggle-group" data-slug="' + escapeHtml(slug) + '">Open</button>'
+                + '<button data-action="copy-path" data-path="' + escapeHtml(groupAbsPath) + '">Copy Path</button>'
+                + '</span>'
+              : '')
+          + '</span>'
+        : '';
 
       var dotsHtml = '<span class="sidecar-dots" title="Sidecar status">'
         + '<span class="sidecar-dot ' + (group.has_modelmeta ? 'on' : '') + '" title=".modelmeta.json ' + (group.has_modelmeta ? 'present' : 'missing') + '"></span>'
@@ -1047,6 +1065,7 @@
         + '<span class="updated latest-label">Last file changed' + (group.latest_file_name ? ' · ' + escapeHtml(String(group.latest_file_name)) : '') + '</span>'
         + '<span class="updated"><strong>' + escapeHtml(formatRelativeTime(group.last_seen_at)) + '</strong><span class="sep">·</span>' + escapeHtml(formatDateTime(group.last_seen_at)) + '</span>'
         + '</div>'
+        + groupSplitHtml
         + '<button class="overflow-btn" data-action="toggle-overflow" data-slug="' + escapeHtml(slug) + '" title="Group actions">⋯</button>'
         + '<button class="expander" data-action="toggle-group" data-slug="' + escapeHtml(slug) + '" title="' + (collapsed ? 'Expand' : 'Collapse') + '">' + (collapsed ? '▾' : '▴') + '</button>'
         + '</div>'
@@ -1147,12 +1166,15 @@
       var slicerEligible = isSlicerLaunchableExtension(extension);
 
       // Split-button contract (mirrors mockup): primary action always "Open" → open-local.
-      // Dropdown carries the alternates: Open in Slicer (when eligible) + Copy Path.
+      // Dropdown always carries Open + Copy Path; Open in Slicer when eligible (3MF / GCODE / STL).
       // Rendered whenever we have either launch support or a copyable windows path.
       var actionsHtml = '';
       var hasCopy = !!winPath;
       if (canLaunch || hasCopy) {
         var menuItems = '';
+        if (canLaunch) {
+          menuItems += '<button data-action="open-local" data-path="' + escapeHtml(pathValue) + '">Open</button>';
+        }
         if (canLaunch && slicerEligible) {
           menuItems += '<button data-action="open-in-slicer" data-path="' + escapeHtml(pathValue) + '">Open in Slicer</button>';
         }
@@ -1280,8 +1302,29 @@
         return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0);
       });
 
+      var rootPath = (this._tree && this._tree.root_path) ? String(this._tree.root_path) : '';
+      var groupMeta = (this._tree && Array.isArray(this._tree.groups))
+        ? this._tree.groups.find(function (g) { return String(g && g.slug || '') === slug; })
+        : null;
+      var groupName = groupMeta ? String(groupMeta.name || slug) : slug;
+      var groupAbsRoot = rootPath ? (rootPath + '/' + groupName) : '';
+
       var folderRowsHtml = folderNames.map(function (name) {
         var info = directFolderMap[name];
+        var absPath = groupAbsRoot ? (groupAbsRoot + '/' + info.path) : info.path;
+        var folderMenuKey = 'folder|' + slug + '|' + info.path;
+        var folderMenuOpen = this._fileActionMenuKey === folderMenuKey;
+        var folderActions = ''
+          + '<span class="file-action-split">'
+          + '<button class="open-main" data-action="open-folder" data-path="' + escapeHtml(absPath) + '" title="Open folder in desktop file manager">Open Folder in Desktop</button>'
+          + '<button class="file-action-toggle" data-action="toggle-file-menu" data-menu-key="' + escapeHtml(folderMenuKey) + '" aria-label="More folder actions" aria-expanded="' + (folderMenuOpen ? 'true' : 'false') + '">▾</button>'
+          + (folderMenuOpen
+              ? '<span class="file-action-menu">'
+                + '<button data-action="folder-enter" data-slug="' + escapeHtml(slug) + '" data-path="' + escapeHtml(info.path) + '">Open</button>'
+                + '<button data-action="copy-path" data-path="' + escapeHtml(absPath) + '">Copy Path</button>'
+                + '</span>'
+              : '')
+          + '</span>';
         return ''
           + '<div class="folder-row" data-action="folder-enter" data-slug="' + escapeHtml(slug) + '" data-path="' + escapeHtml(info.path) + '">'
           + '<div class="folder-thumb">📁</div>'
@@ -1290,9 +1333,9 @@
           + '<div class="folder-sub">' + escapeHtml(info.path) + '/</div>'
           + '</div>'
           + '<div class="folder-count">' + String(info.fileCount) + ' files</div>'
-          + '<div class="file-actions"><span style="color:var(--text-muted);font-size:14px;">›</span></div>'
+          + '<div class="file-actions">' + folderActions + '</div>'
           + '</div>';
-      }).join('');
+      }, this).join('');
 
       var fileRowsHtml = directFiles.map(function (e) { return this._renderFileRow(slug, e); }, this).join('');
 
