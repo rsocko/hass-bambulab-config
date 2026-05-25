@@ -2216,7 +2216,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var workingMeta = this._workingLookupResultMeta(result);
       this._updateGroupDestinationState(groupIndex, {
         target_folder_slug: String(workingMeta.id || '').trim(),
-        working_group_id: null,
         model_ref: '',
         selected_summary: workingMeta,
       });
@@ -2225,7 +2224,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._updateGroupDestinationState(groupIndex, {
         model_ref: curatedMeta.id,
         target_folder_slug: '',
-        working_group_id: null,
         selected_summary: curatedMeta,
       });
     }
@@ -4807,7 +4805,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._updateGroupDestinationState(destinationIndex, {
         destination: String(target.value || 'curated').trim().toLowerCase(),
         model_ref: '',
-        working_group_id: null,
         target_folder_slug: '',
         lookup_query: '',
         lookup_results: [],
@@ -4823,7 +4820,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._updateGroupDestinationState(matchIndex, {
         match_mode: String(target.value || 'new').trim().toLowerCase(),
         model_ref: '',
-        working_group_id: null,
         target_folder_slug: '',
         lookup_query: '',
         lookup_results: [],
