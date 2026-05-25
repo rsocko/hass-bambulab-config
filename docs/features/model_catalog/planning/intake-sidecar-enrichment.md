@@ -1,6 +1,6 @@
 # Intake Wizard — Sidecar Metadata Enrichment
 
-Status: **Phases 1 + 2 shipped (backend discovery + curated README attach)** — Phase 3 (frontend wizard panel) not yet implemented
+Status: **Phases 1 + 2 + 3 shipped (backend discovery + curated README attach + Organize-step opt-in)** — full Detected-metadata panel with title/tags/notes/origin_url + thumbnail import remains deferred
 
 Phase 1 changes:
 - `sidecars/model_catalog/app/routers/intake_verification.py` — added `_discover_source_metadata()` and call site in `_summarize_planned_group()`.
@@ -26,6 +26,11 @@ Phase 2 changes:
 - New per-group response key `attached_readmes: [{source_folder, source_path, asset_id, filename}]` is added to publish results when the flag is set (omitted/empty otherwise).
 - `tests/sidecars/model_catalog/test_intake_publish_attach_source_readme.py` — 4 tests covering file-typed selection happy path, default-off behavior, missing README, and dedupe when the README is already in `group_files`.
 - No schema or API surface changes beyond the new opt-in flag; frontend wiring (Phase 3) will toggle it from the Organize step's "Detected metadata" panel.
+
+Phase 3 changes (MVP — README opt-in only):
+- `homeassistant/www/3d_printing/model_catalog/model-catalog-intake-wizard-overrides.js` — on each curated-destination group card in the Organize step, render an "Attach source README.md" checkbox whenever `planned_models[i].detected_metadata.sources[*].has_readme` is true. Toggling it stores `attach_source_readme` on the per-group plan and ships it through `_buildDestinationPublishPayload` to the existing `/publish-by-destination` call. Hidden for working-destination groups (README already lives on disk there) and when no README was detected.
+- Cache-bust: bumped the wizard overrides import in `model-catalog-intake-cards.js` (v=128 → v=129) and the bundle URL in `_resources.yaml` (v=212 → v=213). Hard refresh required after deploy.
+- Out of scope for v1: full title/tags/notes/origin_url per-field opt-in panel, inline-vs-attach README mode toggle, thumbnail import. These remain as documented in [README handling](#readme-handling) and [Field-by-field rules](#field-by-field-rules) above.
 
 Owner: Model Catalog
 Related design docs:

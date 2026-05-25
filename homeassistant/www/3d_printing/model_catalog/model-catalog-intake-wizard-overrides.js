@@ -2092,6 +2092,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           payload.model_ref = String(plan.model_ref || '').trim();
         }
       }
+      if (payload.destination === 'curated' && plan.attach_source_readme) {
+        payload.attach_source_readme = true;
+      }
       return payload;
     });
   };
@@ -2272,6 +2275,15 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var destination = String(plan.destination || 'curated');
       var matchMode = String(plan.match_mode || 'new');
       var isWorking = destination === 'working';
+      var detected = model && model.detected_metadata ? model.detected_metadata : null;
+      var detectedSources = detected && Array.isArray(detected.sources) ? detected.sources : [];
+      var hasReadme = detectedSources.some(function (src) { return src && src.has_readme; });
+      var readmeSourceFolder = '';
+      if (hasReadme) {
+        var firstReadme = detectedSources.filter(function (src) { return src && src.has_readme; })[0];
+        readmeSourceFolder = firstReadme ? String(firstReadme.folder || firstReadme.folder_path || '') : '';
+      }
+      var attachReadmeChecked = !!plan.attach_source_readme;
       var resultRows = '';
       if (matchMode === 'existing') {
         if (plan.lookup_loading) {
@@ -2308,6 +2320,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             + '  </div>'
             + resultRows
           : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files folder.' : 'Catalog model.') + '</div>')
+        + (!isWorking && hasReadme
+          ? '  <div class="wizard-detected-metadata"><label class="wizard-detected-metadata-row"><input type="checkbox" data-action="group-attach-source-readme" data-group-index="' + String(index) + '"' + (attachReadmeChecked ? ' checked' : '') + '> <span><strong>Attach source README.md</strong> as a documentation asset on the new Catalog model'
+            + (readmeSourceFolder ? ' <span class="muted">(from ' + escapeHtml(readmeSourceFolder) + ')</span>' : '')
+            + '</span></label></div>'
+          : '')
         + '</article>';
     }, this).join('') + '</div>';
   };
@@ -4826,6 +4843,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         lookup_error: '',
         lookup_loading: false,
         selected_summary: null,
+      });
+      this._render();
+      return;
+    }
+    if (action === 'group-attach-source-readme') {
+      var attachReadmeIndex = Number(target.getAttribute('data-group-index') || -1);
+      this._updateGroupDestinationState(attachReadmeIndex, {
+        attach_source_readme: !!target.checked,
       });
       this._render();
       return;
