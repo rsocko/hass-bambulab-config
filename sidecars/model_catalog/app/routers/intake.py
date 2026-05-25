@@ -679,6 +679,70 @@ def _auto_extract_3mf_metadata(
     }
 
 
+def _collect_source_readmes(
+    *,
+    source_entries: list[dict[str, Any]] | None,
+    group_files: list[dict[str, Any]] | None,
+) -> list[tuple[Path, Path]]:
+    """Return ``(source_folder, readme_path)`` tuples for each unique source folder
+    contributing to a planned group that contains a ``README.md``.
+
+    The folder list mirrors what ``_discover_source_metadata()`` walks during
+    plan preview: ``folder``-type source entries are checked directly; ``file``
+    entries fall back to their parent folder. We re-read the README from disk
+    at publish time so the attached asset is the canonical, untruncated copy
+    (the plan-preview payload may have been clipped at ``_README_INCLUDE_MAX_CHARS``).
+    """
+    candidate_folders: list[Path] = []
+    for entry in source_entries or []:
+        if not isinstance(entry, dict):
+            continue
+        entry_type = str(entry.get("type") or "").strip().lower()
+        raw_path = str(entry.get("path") or "").strip()
+        if not raw_path:
+            continue
+        try:
+            entry_path = Path(raw_path).expanduser().resolve()
+        except (OSError, RuntimeError):
+            continue
+        if entry_type == "folder":
+            candidate_folders.append(entry_path)
+        elif entry_type == "file":
+            candidate_folders.append(entry_path.parent)
+    # Fall back to parent folders of resolved files when source_entries is sparse.
+    if not candidate_folders:
+        for file_item in group_files or []:
+            if not isinstance(file_item, dict):
+                continue
+            raw_path = str(file_item.get("path") or "").strip()
+            if not raw_path:
+                continue
+            try:
+                candidate_folders.append(Path(raw_path).expanduser().resolve().parent)
+            except (OSError, RuntimeError):
+                continue
+
+    seen_keys: set[str] = set()
+    results: list[tuple[Path, Path]] = []
+    for folder in candidate_folders:
+        key = str(folder)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        try:
+            if not folder.is_dir():
+                continue
+        except OSError:
+            continue
+        readme_path = folder / "README.md"
+        try:
+            if readme_path.is_file():
+                results.append((folder, readme_path))
+        except OSError:
+            continue
+    return results
+
+
 def _publish_group_to_local_destination(
     *,
     state: AppState,
@@ -828,6 +892,96 @@ def _publish_group_to_local_destination(
                 "local_model_id": local_model_id,
             })
 
+    # Optional: attach source folder README.md files as documentation assets.
+    # Driven by the wizard's Organize-step "Attach README" opt-in (Phase 2 of
+    # the intake sidecar-enrichment design). README contents are re-read from
+    # disk here so the asset is the canonical, untruncated copy.
+    attached_readmes: list[dict[str, Any]] = []
+    if _coerce_bool(destination_plan.get("attach_source_readme")):
+        for source_folder, readme_path in _collect_source_readmes(
+            source_entries=source_entries, group_files=group_files
+        ):
+            try:
+                readme_bytes = readme_path.read_bytes()
+                readme_hash = hashlib.sha256(readme_bytes).hexdigest()
+            except OSError as exc:
+                failed_files.append({
+                    "source_path": str(readme_path),
+                    "filename": readme_path.name,
+                    "message": f"Failed to read source README: {exc}",
+                    "local_model_id": local_model_id,
+                })
+                continue
+            if readme_hash in existing_hashes:
+                duplicate_skipped.append({
+                    "source_path": str(readme_path),
+                    "filename": readme_path.name,
+                    "sha256": readme_hash,
+                    "reason": "duplicate_hash",
+                })
+                continue
+            try:
+                storage_path = _copy_local_import_source(
+                    settings=state.settings,
+                    local_model_id=local_model_id,
+                    source_path=readme_path,
+                    relative_path=readme_path.name,
+                    preserve_folder_structure=False,
+                )
+                asset_type = _normalize_local_asset_type(readme_path)
+                asset_role = _normalize_local_asset_role(
+                    asset_type=asset_type,
+                    has_preview=has_preview,
+                    has_primary=has_primary,
+                    preview_selected=False,
+                )
+                asset_id = _unique_asset_id(
+                    filename=readme_path.name,
+                    file_hash=readme_hash,
+                    existing_ids=existing_asset_ids,
+                )
+                asset = create_model_asset(
+                    db_path=state.settings.db_path,
+                    local_model_id=local_model_id,
+                    asset_id=asset_id,
+                    asset_filename=readme_path.name,
+                    asset_type=asset_type,
+                    storage_path=storage_path,
+                    asset_role=asset_role,
+                    file_size_bytes=len(readme_bytes),
+                    file_hash=readme_hash,
+                    preview_url=None,
+                    geometry_bounds=None,
+                )
+                existing_hashes.add(readme_hash)
+                imported_assets.append({
+                    "local_model_id": local_model_id,
+                    "local_asset_id": asset.asset_id,
+                    "local_storage_path": asset.storage_path,
+                    "asset_id": asset.asset_id,
+                    "filename": asset.asset_filename,
+                    "asset_type": asset.asset_type,
+                    "asset_role": asset.asset_role,
+                    "sort_order": asset.sort_order,
+                    "storage_path": asset.storage_path,
+                    "file_hash": asset.file_hash,
+                    "source_path": str(readme_path),
+                    "source_entry_type": "source_readme",
+                })
+                attached_readmes.append({
+                    "source_folder": str(source_folder),
+                    "source_path": str(readme_path),
+                    "asset_id": asset.asset_id,
+                    "filename": asset.asset_filename,
+                })
+            except Exception as exc:
+                failed_files.append({
+                    "source_path": str(readme_path),
+                    "filename": readme_path.name,
+                    "message": f"Failed to attach README: {exc}",
+                    "local_model_id": local_model_id,
+                })
+
     _append_intake_publish_history(
         db_path=state.settings.db_path,
         model_ref=local_model_id,
@@ -875,6 +1029,7 @@ def _publish_group_to_local_destination(
         "imported_assets": imported_assets,
         "duplicate_skipped": duplicate_skipped,
         "failed_files": failed_files,
+        "attached_readmes": attached_readmes,
         "source_metadata_extraction": extraction_log,
     }, imported_assets, failed_files
 

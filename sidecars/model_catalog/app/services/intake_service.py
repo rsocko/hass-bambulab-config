@@ -72,18 +72,47 @@ def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
         connection.close()
 
 
-def get_working_file_inventory_hashes(db_path: Path | str) -> set[str]:
+def get_working_file_inventory_hashes(
+    db_path: Path | str,
+    *,
+    exclude_source_paths: set[str] | None = None,
+) -> set[str]:
     """
     Read all file hashes from the folder-first working file inventory.
 
     Used so duplicate-validation also covers files published to the
     folder-first Working Files store (not just legacy working_items rows).
+
+    Args:
+        db_path: Path to SQLite database.
+        exclude_source_paths: Optional set of normalized
+            ``source_path_compare_key`` values to ignore. Used by the intake
+            validation flow to prevent files selected from under the Working
+            Files root from self-matching their own inventory entry (which
+            would otherwise surface as a false-positive duplicate).
     """
     connection = connect(db_path)
     try:
-        rows = connection.execute(
-            "SELECT sha256_hash FROM working_file_inventory WHERE sha256_hash IS NOT NULL AND TRIM(sha256_hash) != ''"
-        ).fetchall()
+        if exclude_source_paths:
+            keys = [str(key) for key in exclude_source_paths if str(key or "").strip()]
+        else:
+            keys = []
+        if keys:
+            placeholders = ", ".join("?" for _ in keys)
+            rows = connection.execute(
+                f"""
+                SELECT sha256_hash
+                FROM working_file_inventory
+                WHERE sha256_hash IS NOT NULL
+                  AND TRIM(sha256_hash) != ''
+                  AND source_path_compare_key NOT IN ({placeholders})
+                """,
+                keys,
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT sha256_hash FROM working_file_inventory WHERE sha256_hash IS NOT NULL AND TRIM(sha256_hash) != ''"
+            ).fetchall()
         return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
     except sqlite3.OperationalError:
         return set()
@@ -125,7 +154,11 @@ def get_catalog_asset_hashes(db_path: Path | str) -> set[str]:
         connection.close()
 
 
-def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
+def get_all_indexed_file_hashes(
+    db_path: Path | str,
+    *,
+    exclude_source_paths: set[str] | None = None,
+) -> set[str]:
     """
     Get all indexed file hashes from actual inventory + in-flight imports.
 
@@ -142,11 +175,19 @@ def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
 
     Args:
         db_path: Path to SQLite database
+        exclude_source_paths: Optional set of normalized
+            ``source_path_compare_key`` values whose
+            ``working_file_inventory`` rows should be excluded. Used by the
+            intake validation path so files chosen from inside the Working
+            Files root do not self-match their own inventory entry as a
+            duplicate.
 
     Returns:
         Set of SHA256 hex strings (lowercase) from inventory + in-flight
     """
-    inventory_hashes = get_working_file_inventory_hashes(db_path)
+    inventory_hashes = get_working_file_inventory_hashes(
+        db_path, exclude_source_paths=exclude_source_paths
+    )
     catalog_hashes = get_catalog_asset_hashes(db_path)
     inflight_hashes = get_all_intake_queue_hashes(db_path)
     return inventory_hashes | catalog_hashes | inflight_hashes

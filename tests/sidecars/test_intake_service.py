@@ -22,6 +22,9 @@ from sidecars.model_catalog.app.services import (
     build_dedup_collision_warning,
     reject_orphaned_uploads,
 )
+from sidecars.model_catalog.app.services.intake_service import (
+    get_working_file_inventory_hashes,
+)
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -193,6 +196,95 @@ def test_get_catalog_asset_hashes_reads_published_assets(tmp_path: Path) -> None
     assert live_hash.lower() in hashes
     assert archived_hash.lower() not in hashes
     assert len(hashes) == 1
+
+
+def test_working_file_inventory_hashes_respects_exclude_source_paths(tmp_path: Path) -> None:
+    """Regression: files chosen from under the Working Files root must not
+    self-match their own `working_file_inventory` row as a duplicate.
+
+    The intake wizard now allows browsing the Working Files store as an
+    intake source. Validation must exclude the inventory rows corresponding
+    to the source paths being submitted so the file's own hash isn't
+    reported as a `working_group_hash_match` against itself.
+    """
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    now = "2026-04-30T00:00:00Z"
+    self_path_raw = r"C:\WorkingFiles\Subfolder\widget.3mf"
+    self_compare_key = self_path_raw.replace("\\", "/").lower()
+    self_hash = "a" * 64
+    other_hash = "b" * 64
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO working_file_inventory (
+                source_path_raw, source_path_canonical, source_path_compare_key,
+                file_name_raw, file_name_base_hint, file_extension, file_size_bytes,
+                sha256_hash, detected_at, last_seen_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                self_path_raw,
+                self_path_raw,
+                self_compare_key,
+                "widget.3mf",
+                "widget",
+                ".3mf",
+                1024,
+                self_hash,
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO working_file_inventory (
+                source_path_raw, source_path_canonical, source_path_compare_key,
+                file_name_raw, file_name_base_hint, file_extension, file_size_bytes,
+                sha256_hash, detected_at, last_seen_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                r"C:\WorkingFiles\Other\gadget.3mf",
+                r"C:\WorkingFiles\Other\gadget.3mf",
+                r"c:/workingfiles/other/gadget.3mf",
+                "gadget.3mf",
+                "gadget",
+                ".3mf",
+                2048,
+                other_hash,
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    # Without exclusion: both hashes are present.
+    all_hashes = get_working_file_inventory_hashes(settings.db_path)
+    assert self_hash in all_hashes
+    assert other_hash in all_hashes
+
+    # With self-exclusion: only the other file's hash remains, so the
+    # submitted file will not flag as a duplicate of itself.
+    filtered = get_working_file_inventory_hashes(
+        settings.db_path,
+        exclude_source_paths={self_compare_key},
+    )
+    assert self_hash not in filtered
+    assert other_hash in filtered
+
+    # The combined indexed-hash helper threads the exclusion through.
+    combined = get_all_indexed_file_hashes(
+        settings.db_path,
+        exclude_source_paths={self_compare_key},
+    )
+    assert self_hash not in combined
+    assert other_hash in combined
 
 
 def test_detect_duplicate_files_catches_queue_collisions(tmp_path: Path) -> None:

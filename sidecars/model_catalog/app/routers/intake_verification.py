@@ -602,6 +602,35 @@ def _display_title_from_path(path_value: str | None) -> str:
     return candidate.strip()
 
 
+def _collect_self_exclude_compare_keys(
+    expanded_files: list[dict[str, Any]] | None,
+) -> set[str] | None:
+    """Build a set of `source_path_compare_key` values for the files being
+    validated so that their own `working_file_inventory` rows are not
+    flagged as hash duplicates of themselves.
+
+    Returns ``None`` (rather than an empty set) when there is nothing to
+    exclude so the underlying query takes the unfiltered fast path.
+    """
+    if not expanded_files:
+        return None
+    keys: set[str] = set()
+    for file_item in expanded_files:
+        if not isinstance(file_item, dict):
+            continue
+        raw_path = str(file_item.get("path") or "").strip()
+        if not raw_path:
+            continue
+        try:
+            resolved = Path(raw_path).expanduser().resolve()
+            key = _normalize_path_compare_key(str(resolved))
+        except (OSError, RuntimeError):
+            key = _normalize_path_compare_key(raw_path)
+        if key:
+            keys.add(key)
+    return keys or None
+
+
 def _read_indexed_filename_maps(
     db_path: Path,
     *,
@@ -1501,6 +1530,231 @@ def _merge_planned_groups(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [merged_by_key[key] for key in ordered_keys]
 
 
+# --- Sidecar metadata discovery (Phase 1: read-only enrichment) -------------
+#
+# When a planned group's source selection includes folders that carry sibling
+# ``.modelmeta.json`` and/or ``README.md`` sidecars (e.g. Working Files
+# directories), surface that metadata on the plan preview so downstream UI can
+# offer to carry it forward into the new Catalog item. This stage is strictly
+# additive and never mutates plan behavior -- it only attaches a
+# ``detected_metadata`` payload per planned model.
+#
+# README routing:
+#   * <= INLINE threshold chars -> render inline in the wizard
+#   * >  INLINE threshold chars -> recommend attaching as a curated asset
+# README content is also hard-capped at INCLUDE_MAX chars to keep the plan
+# response bounded; a ``readme_truncated`` flag warns the UI when this fires.
+_README_INLINE_THRESHOLD_CHARS = 1024
+_README_INCLUDE_MAX_CHARS = 16 * 1024
+
+
+def _discover_source_metadata(group: dict[str, Any]) -> dict[str, Any] | None:
+    """Inspect a planned group's source folders for sidecar metadata.
+
+    Returns ``None`` when no ``.modelmeta.json`` or ``README.md`` is found in
+    any of the group's selected/parent folders. Otherwise returns a payload
+    describing where the sidecars came from, a merged best-effort summary
+    suitable for prefilling the destination form, and a confidence rating.
+    """
+    source_entries = group.get("source_entries") or []
+    files = group.get("files") or []
+
+    full_folder_entry_paths: list[Path] = []
+    candidate_folders: list[Path] = []
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_type = str(entry.get("type") or "").strip().lower()
+        entry_path_raw = str(entry.get("path") or "").strip()
+        if not entry_path_raw:
+            continue
+        try:
+            entry_path = Path(entry_path_raw).expanduser().resolve()
+        except (OSError, RuntimeError):
+            continue
+        if entry_type == "folder":
+            full_folder_entry_paths.append(entry_path)
+            candidate_folders.append(entry_path)
+        elif entry_type == "file":
+            candidate_folders.append(entry_path.parent)
+
+    # Deduplicate candidates while preserving order
+    seen_keys: set[str] = set()
+    unique_candidates: list[Path] = []
+    for folder in candidate_folders:
+        key = str(folder)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        unique_candidates.append(folder)
+
+    # Lazy import to avoid circular module load between intake_verification
+    # and working routers at import time.
+    try:
+        from .working import _read_folder_sidecar  # type: ignore
+    except Exception:  # pragma: no cover - defensive fallback
+        return None
+
+    sidecar_hits: list[tuple[Path, dict[str, Any]]] = []
+    for folder in unique_candidates:
+        try:
+            if not folder.is_dir():
+                continue
+        except OSError:
+            continue
+        sidecar = _read_folder_sidecar(folder)
+        has_modelmeta = isinstance(sidecar.get("modelmeta"), dict)
+        has_readme = isinstance(sidecar.get("readme"), str) and bool(sidecar.get("readme"))
+        if has_modelmeta or has_readme:
+            sidecar_hits.append((folder, sidecar))
+
+    if not sidecar_hits:
+        return None
+
+    # Confidence:
+    #   high   -- exactly one sidecar folder AND the user selected that whole
+    #             folder as a source entry (no partial subselection)
+    #   medium -- exactly one sidecar folder but selection is partial (file
+    #             entry, or folder entry sitting below the sidecar folder)
+    #   low    -- multiple distinct sidecar folders contribute to this group
+    if len(sidecar_hits) == 1:
+        sidecar_folder, _ = sidecar_hits[0]
+        if any(sidecar_folder == fe for fe in full_folder_entry_paths):
+            confidence = "high"
+        else:
+            confidence = "medium"
+    else:
+        confidence = "low"
+
+    selected_filenames: set[str] = set()
+    selected_relpaths: set[str] = set()
+    for file_item in files:
+        if not isinstance(file_item, dict):
+            continue
+        path_value = str(file_item.get("path") or "").strip()
+        if path_value:
+            selected_filenames.add(Path(path_value).name)
+        rel_value = str(file_item.get("relative_path") or "").strip()
+        if rel_value:
+            selected_relpaths.add(rel_value)
+
+    sources_payload: list[dict[str, Any]] = []
+    titles: list[str] = []
+    origins: list[str] = []
+    primary_files: list[str] = []
+    tag_seen: set[str] = set()
+    tag_union: list[str] = []
+    readmes: list[tuple[str, str]] = []
+    thumbnail_hint: dict[str, Any] | None = None
+    parse_errors: list[dict[str, str]] = []
+
+    for sidecar_folder, sidecar in sorted(sidecar_hits, key=lambda item: str(item[0])):
+        modelmeta = sidecar.get("modelmeta") if isinstance(sidecar.get("modelmeta"), dict) else None
+        readme_text = sidecar.get("readme") if isinstance(sidecar.get("readme"), str) else None
+        modelmeta_error = sidecar.get("modelmeta_error")
+        readme_error = sidecar.get("readme_error")
+
+        sources_payload.append(
+            {
+                "folder": sidecar_folder.name,
+                "folder_path": str(sidecar_folder),
+                "has_modelmeta": modelmeta is not None,
+                "has_readme": bool(readme_text),
+                "readme_bytes": len(readme_text) if readme_text else 0,
+            }
+        )
+        if modelmeta_error:
+            parse_errors.append(
+                {"folder": sidecar_folder.name, "sidecar": "modelmeta", "error": str(modelmeta_error)}
+            )
+        if readme_error:
+            parse_errors.append(
+                {"folder": sidecar_folder.name, "sidecar": "readme", "error": str(readme_error)}
+            )
+
+        if modelmeta:
+            display_title = str(modelmeta.get("display_title") or "").strip()
+            if display_title:
+                titles.append(display_title)
+            origin_url = str(modelmeta.get("origin_url") or "").strip()
+            if origin_url:
+                origins.append(origin_url)
+            primary_file = str(modelmeta.get("primary_file") or "").strip()
+            if primary_file:
+                primary_files.append(primary_file)
+            raw_tags = modelmeta.get("tags")
+            if isinstance(raw_tags, list):
+                for tag in raw_tags:
+                    tag_str = str(tag).strip()
+                    if not tag_str:
+                        continue
+                    norm = tag_str.lower()
+                    if norm in tag_seen:
+                        continue
+                    tag_seen.add(norm)
+                    tag_union.append(tag_str)
+            if thumbnail_hint is None:
+                thumbnail_value = str(modelmeta.get("thumbnail") or "").strip()
+                if thumbnail_value:
+                    thumb_name = Path(thumbnail_value).name
+                    thumbnail_hint = {
+                        "filename": thumbnail_value,
+                        "source_folder": sidecar_folder.name,
+                        "in_selection": thumb_name in selected_filenames
+                        or thumbnail_value in selected_relpaths,
+                    }
+        if readme_text:
+            readmes.append((sidecar_folder.name, readme_text))
+
+    # Concatenate READMEs across multiple sidecar folders
+    if len(readmes) == 1:
+        combined_readme = readmes[0][1]
+    elif len(readmes) > 1:
+        combined_readme = "\n\n---\n\n".join(
+            f"## From `{folder_name}`\n\n{text}" for folder_name, text in readmes
+        )
+    else:
+        combined_readme = ""
+
+    readme_truncated = False
+    if len(combined_readme) > _README_INCLUDE_MAX_CHARS:
+        combined_readme = combined_readme[:_README_INCLUDE_MAX_CHARS]
+        readme_truncated = True
+
+    merged: dict[str, Any] = {}
+    if titles:
+        merged["display_title"] = titles[0]
+    if tag_union:
+        merged["tags"] = tag_union
+    if origins:
+        merged["origin_url"] = origins[0]
+    if primary_files:
+        for primary_file in primary_files:
+            primary_basename = Path(primary_file).name
+            if primary_file in selected_relpaths or primary_basename in selected_filenames:
+                merged["primary_file"] = primary_file
+                break
+    if combined_readme:
+        readme_route = (
+            "attached" if len(combined_readme) > _README_INLINE_THRESHOLD_CHARS else "inline"
+        )
+        merged["readme_text"] = combined_readme
+        merged["readme_truncated"] = readme_truncated
+        merged["readme_route"] = readme_route
+
+    result: dict[str, Any] = {
+        "confidence": confidence,
+        "sources": sources_payload,
+    }
+    if merged:
+        result["merged"] = merged
+    if thumbnail_hint:
+        result["thumbnail_hint"] = thumbnail_hint
+    if parse_errors:
+        result["parse_errors"] = parse_errors
+    return result
+
+
 def _summarize_planned_group(group: dict[str, Any]) -> dict[str, Any]:
     files = sorted(
         list(group.get("files") or []),
@@ -1536,6 +1790,9 @@ def _summarize_planned_group(group: dict[str, Any]) -> dict[str, Any]:
     summarized_group["media_file_count"] = media_files
     summarized_group["supporting_file_count"] = supporting_files
     summarized_group["source_entry_count"] = len(group.get("source_entries") or [])
+    detected_metadata = _discover_source_metadata(group)
+    if detected_metadata is not None:
+        summarized_group["detected_metadata"] = detected_metadata
     return summarized_group
 
 
@@ -1921,7 +2178,34 @@ def intake_submit(request: Request, payload: dict[str, Any]) -> Any:
     now_iso = _bulk_utc_now_iso()
     created_items: list[dict[str, Any]] = []
     pending_events: list[dict[str, Any]] = []
-    existing_hashes = get_all_indexed_file_hashes(state.settings.db_path) if auto_validate else set()
+
+    # Exclude the inventory rows that correspond to the source files being
+    # submitted: when a user selects a file from the Working Files root the
+    # file is already in `working_file_inventory`, and without this exclusion
+    # its own hash would surface as a duplicate against itself.
+    submit_self_exclude_keys: set[str] = set()
+    if auto_validate:
+        for raw_item in items:
+            if not isinstance(raw_item, dict):
+                continue
+            raw_path = str(raw_item.get("source_path") or raw_item.get("path") or "").strip()
+            if not raw_path:
+                continue
+            try:
+                resolved = Path(raw_path).expanduser().resolve()
+            except (OSError, RuntimeError):
+                continue
+            key = _normalize_path_compare_key(str(resolved))
+            if key:
+                submit_self_exclude_keys.add(key)
+    existing_hashes = (
+        get_all_indexed_file_hashes(
+            state.settings.db_path,
+            exclude_source_paths=submit_self_exclude_keys or None,
+        )
+        if auto_validate
+        else set()
+    )
     batch_seen_hashes: set[str] = set()
     batch_seen_exact_names: set[str] = set()
     batch_seen_normalized_names: list[tuple[str, tuple[str, ...]]] = []
@@ -2382,7 +2666,10 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
     elif expansion_warnings:
         validation_state = "source_warning"
 
-    existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
+    existing_hashes = get_all_indexed_file_hashes(
+        state.settings.db_path,
+        exclude_source_paths=_collect_self_exclude_compare_keys(expanded_files),
+    )
     indexed_hash_contexts = _read_indexed_hash_match_contexts(state.settings.db_path)
     indexed_exact_names, indexed_normalized_names, indexed_exact_contexts, indexed_normalized_contexts = _read_indexed_filename_maps(
         state.settings.db_path,
