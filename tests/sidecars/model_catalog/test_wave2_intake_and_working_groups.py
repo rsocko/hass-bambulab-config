@@ -132,6 +132,55 @@ def test_working_group_crud_items_and_links(tmp_path: Path) -> None:
     assert len(reverse_payload["groups"][0]["links"]) == 1
 
 
+def test_working_groups_explorer_launch_folder_uses_common_parent(tmp_path: Path) -> None:
+    working_root = tmp_path / "Model Working Files"
+    root_folder = working_root / "college-pennants"
+    clemson_folder = root_folder / "Clemson"
+    georgia_folder = root_folder / "Georgia"
+    clemson_folder.mkdir(parents=True, exist_ok=True)
+    georgia_folder.mkdir(parents=True, exist_ok=True)
+
+    clemson_file = clemson_folder / "College Pennant - Clemson.3mf"
+    georgia_file = georgia_folder / "College Pennant - Georgia.3mf"
+    clemson_file.write_bytes(b"clemson")
+    georgia_file.write_bytes(b"georgia")
+
+    client = _create_client(tmp_path, working_root)
+    try:
+        create_group = client.post(
+            "/api/working-groups",
+            json={"title": "College Pennants", "stage": "draft"},
+        )
+        assert create_group.status_code == 200
+        group_id = create_group.json()["group"]["id"]
+
+        add_clemson = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(clemson_file), "item_role": "primary"},
+        )
+        assert add_clemson.status_code == 200
+
+        add_georgia = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(georgia_file), "item_role": "reference"},
+        )
+        assert add_georgia.status_code == 200
+
+        groups_response = client.get(
+            "/api/working-files/explorer",
+            params={"view": "groups", "lightweight": "true"},
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+    assert groups_response.status_code == 200
+    payload = groups_response.json()
+    assert payload["success"] is True
+    group = next(group for group in payload["groups"] if group["id"] == group_id)
+    assert group["launch"]["folder"]["container_path"] == str(root_folder)
+    assert group["launch"]["primary"]["container_path"] == str(clemson_file)
+
+
 def test_intake_submit_validate_and_group(tmp_path: Path) -> None:
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)

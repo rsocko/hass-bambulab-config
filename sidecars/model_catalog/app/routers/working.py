@@ -96,6 +96,7 @@ from ..services.shared_helpers import (
     _serialize_working_group,
     _sha256_file,
     _slugify_title,
+    _working_group_effective_folder_path,
 )
 
 router = APIRouter(tags=["working"])
@@ -1656,8 +1657,8 @@ def explore_working_files(request: Request,
                     COALESCE(SUM(CASE
                         WHEN NOT EXISTS (
                             SELECT 1
-                            FROM working_group_items wgi
-                            WHERE wgi.file_path_compare_key = working_file_inventory.source_path_compare_key
+                            FROM working_items wi
+                            WHERE LOWER(REPLACE(wi.file_path, '\\', '/')) = working_file_inventory.source_path_compare_key
                         ) THEN 1
                         ELSE 0
                     END), 0) AS ungrouped_count
@@ -1721,10 +1722,24 @@ def explore_working_files(request: Request,
                 ).fetchone()
                 total_count = int(counts_row["total"] or 0) if counts_row else 0
                 count_3mf = int(counts_row["count_3mf"] or 0) if counts_row else 0
+                item_rows = connection.execute(
+                    """
+                    SELECT file_path
+                    FROM working_items
+                    WHERE working_group_id = ?
+                    ORDER BY id ASC
+                    """,
+                    (group_id,),
+                ).fetchall()
 
                 primary_file_path = str(group_row["primary_file_path"] or "")
                 discovery_source_folder = str(group_row["discovery_source_folder"] or "")
-                effective_folder_path = folder_hint or (str(Path(primary_file_path).parent) if primary_file_path else "") or discovery_source_folder
+                effective_folder_path = _working_group_effective_folder_path(
+                    item_paths=[str(item_row["file_path"] or "") for item_row in item_rows],
+                    folder_hint=folder_hint,
+                    primary_file_path=primary_file_path,
+                    discovery_source_folder=discovery_source_folder,
+                )
                 groups.append(
                     {
                         "id": group_id,

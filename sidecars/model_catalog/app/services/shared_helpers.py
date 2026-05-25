@@ -5,6 +5,7 @@ All other files should import from this module rather than duplicating implement
 """
 
 import json
+import os
 import re
 from pathlib import Path, PureWindowsPath
 from sqlite3 import connect
@@ -189,6 +190,44 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
     }
 
 
+def _working_group_effective_folder_path(
+    *,
+    item_paths: list[str] | None = None,
+    folder_hint: str | None = None,
+    primary_file_path: str | None = None,
+    discovery_source_folder: str | None = None,
+) -> str:
+    """Choose the best folder path representing a working group."""
+    parent_paths: list[str] = []
+    for item_path in item_paths or []:
+        normalized = str(item_path or "").strip()
+        if not normalized:
+            continue
+        parent_text = str(Path(normalized).parent).strip()
+        if parent_text:
+            parent_paths.append(parent_text)
+
+    if parent_paths:
+        try:
+            common_parent = str(Path(os.path.commonpath(parent_paths))).strip()
+        except ValueError:
+            common_parent = ""
+        if common_parent:
+            return common_parent
+
+    normalized_hint = str(folder_hint or "").strip()
+    if normalized_hint:
+        return normalized_hint
+
+    normalized_primary = str(primary_file_path or "").strip()
+    if normalized_primary:
+        primary_parent = str(Path(normalized_primary).parent).strip()
+        if primary_parent:
+            return primary_parent
+
+    return str(discovery_source_folder or "").strip()
+
+
 def _serialize_working_group(connection: Any, group_row: Any, settings: Settings) -> dict[str, Any]:
     """Serialize a working_groups database row with related items and links to API response format."""
     from .._helpers import _windows_launch_enabled
@@ -223,7 +262,12 @@ def _serialize_working_group(connection: Any, group_row: Any, settings: Settings
     primary_file_path = str(group_row["primary_file_path"] or "").strip()
     folder_hint = str(group_row["folder_hint"] or "").strip()
     discovery_source_folder = str(group_row["discovery_source_folder"] or "").strip()
-    effective_folder_path = folder_hint or (str(Path(primary_file_path).parent) if primary_file_path else "") or discovery_source_folder
+    effective_folder_path = _working_group_effective_folder_path(
+        item_paths=[str(item_row["file_path"] or "") for item_row in item_rows],
+        folder_hint=folder_hint,
+        primary_file_path=primary_file_path,
+        discovery_source_folder=discovery_source_folder,
+    )
     return {
         "id": group_id,
         "slug": group_row["slug"],
