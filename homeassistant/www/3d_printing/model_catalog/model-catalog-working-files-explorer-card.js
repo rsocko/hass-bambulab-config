@@ -1034,7 +1034,6 @@
           + '<button class="file-action-toggle" data-action="toggle-file-menu" data-menu-key="' + escapeHtml(groupMenuKey) + '" aria-label="More folder actions" aria-expanded="' + (groupMenuOpen ? 'true' : 'false') + '">▾</button>'
           + (groupMenuOpen
               ? '<span class="file-action-menu">'
-                + '<button data-action="toggle-group" data-slug="' + escapeHtml(slug) + '">Open</button>'
                 + '<button data-action="copy-path" data-path="' + escapeHtml(groupAbsPath) + '">Copy Path</button>'
                 + '</span>'
               : '')
