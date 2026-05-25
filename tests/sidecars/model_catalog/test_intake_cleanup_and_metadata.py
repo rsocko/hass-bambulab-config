@@ -973,3 +973,128 @@ def test_publish_to_existing_working_folder_rejects_unknown_slug(tmp_path: Path)
     finally:
         client.__exit__(None, None, None)
 
+
+def _create_idea(
+    client: TestClient,
+    *,
+    local_model_id: str,
+    model_name: str,
+    notes: str | None = None,
+    external_links: list | None = None,
+    tags: list[str] | None = None,
+    source_origin_url: str | None = None,
+) -> None:
+    body: dict = {
+        "local_model_id": local_model_id,
+        "model_name": model_name,
+        "entity_type": "idea",
+    }
+    if notes is not None:
+        body["notes"] = notes
+    if external_links is not None:
+        body["external_links"] = external_links
+    if tags is not None:
+        body["tags"] = tags
+    if source_origin_url is not None:
+        body["source_origin_url"] = source_origin_url
+    response = client.post("/api/local/models", json=body)
+    assert response.status_code == 200, response.text
+
+
+def test_move_idea_to_working_files_creates_folder_and_deletes_idea(tmp_path: Path) -> None:
+    client, _source_root = _create_client(tmp_path)
+    working_root = tmp_path / "working"
+    try:
+        _create_idea(
+            client,
+            local_model_id="idea-move-1",
+            model_name="Sketch For Bracket",
+            notes="Some prototype notes.\nLine two.",
+            external_links=[{"url": "https://example.com/ref", "label": "ref"}],
+            tags=["bracket", "draft"],
+        )
+
+        response = client.post("/api/local/models/idea-move-1/move-to-working-files")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body.get("success") is True
+        slug = body.get("folder_slug")
+        assert slug == "sketch-for-bracket"
+        folder = working_root / slug
+        assert folder.is_dir()
+
+        meta_path = folder / ".modelmeta.json"
+        assert meta_path.is_file()
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        assert meta.get("display_title") == "Sketch For Bracket"
+        assert meta.get("tags") == ["bracket", "draft"]
+        assert meta.get("origin_url") == "https://example.com/ref"
+        assert "thumbnail" not in meta
+
+        readme = folder / "README.md"
+        assert readme.is_file()
+        readme_text = readme.read_text(encoding="utf-8")
+        assert "Some prototype notes." in readme_text
+        assert "Line two." in readme_text
+
+        # Idea row is hard-deleted
+        detail = client.get("/api/local/models/idea-move-1")
+        assert detail.status_code == 404
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_move_idea_rejects_non_idea_entity(tmp_path: Path) -> None:
+    client, _source_root = _create_client(tmp_path)
+    try:
+        create = client.post(
+            "/api/local/models",
+            json={
+                "local_model_id": "regular-model",
+                "model_name": "Regular Model",
+                "entity_type": "model",
+            },
+        )
+        assert create.status_code == 200, create.text
+
+        response = client.post("/api/local/models/regular-model/move-to-working-files")
+        assert response.status_code == 409
+        body = response.json()
+        assert body.get("success") is False
+        assert body.get("error") == "not_an_idea"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_move_idea_disambiguates_slug_on_collision(tmp_path: Path) -> None:
+    client, _source_root = _create_client(tmp_path)
+    working_root = tmp_path / "working"
+    try:
+        _create_idea(client, local_model_id="idea-a", model_name="Widget Concept")
+        _create_idea(client, local_model_id="idea-b", model_name="Widget Concept")
+
+        first = client.post("/api/local/models/idea-a/move-to-working-files")
+        assert first.status_code == 200, first.text
+        assert first.json().get("folder_slug") == "widget-concept"
+
+        second = client.post("/api/local/models/idea-b/move-to-working-files")
+        assert second.status_code == 200, second.text
+        assert second.json().get("folder_slug") == "widget-concept-2"
+
+        assert (working_root / "widget-concept").is_dir()
+        assert (working_root / "widget-concept-2").is_dir()
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_move_idea_returns_404_for_missing_model(tmp_path: Path) -> None:
+    client, _source_root = _create_client(tmp_path)
+    try:
+        response = client.post("/api/local/models/does-not-exist/move-to-working-files")
+        assert response.status_code == 404
+        body = response.json()
+        assert body.get("success") is False
+        assert body.get("error") == "not_found"
+    finally:
+        client.__exit__(None, None, None)
+

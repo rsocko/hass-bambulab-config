@@ -2026,6 +2026,193 @@ def working_files_folders_list(
     }
 
 
+_INVALID_SLUG_CHARS = re.compile(r"[^a-zA-Z0-9._-]+")
+
+
+def _sanitize_folder_slug_candidate(value: str) -> str:
+    """Reduce a free-form slug candidate to a safe folder name segment."""
+    cleaned = _INVALID_SLUG_CHARS.sub("-", str(value or "").strip())
+    cleaned = re.sub(r"-+", "-", cleaned).strip("-._")
+    return cleaned
+
+
+def _disambiguate_folder_slug(root: Path, base_slug: str) -> str:
+    """Append numeric suffix until the folder name is unused under root."""
+    candidate = base_slug
+    counter = 1
+    while (root / candidate).exists():
+        counter += 1
+        candidate = f"{base_slug}-{counter}"
+        if counter > 1000:  # pragma: no cover - defensive
+            raise RuntimeError("Unable to allocate unique working-files folder name")
+    return candidate
+
+
+@router.post("/api/local/models/{local_model_id}/move-to-working-files")
+def move_idea_to_working_files(
+    request: Request,
+    local_model_id: str,
+    payload: dict[str, Any] | None = None,
+) -> Any:
+    """Move an Idea catalog entry to a new Working Files folder.
+
+    Folder-first replacement for the legacy ``idea → working_group`` promotion.
+    Materializes the idea as a top-level folder under
+    ``MODEL_CATALOG_WORKING_FILES_ROOT`` with a ``.modelmeta.json`` sidecar,
+    optional ``README.md`` (from notes), and a copy of the sketch image asset
+    (when present). The idea row is hard-deleted from the local catalog on
+    success — the idea has moved out of the catalog and now lives on disk.
+    """
+    state: AppState = request.app.state.model_catalog
+    settings = state.settings
+    payload = payload or {}
+
+    entry = read_local_model(db_path=settings.db_path, local_model_id=local_model_id)
+    if entry is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "not_found", "message": f"Local model '{local_model_id}' not found."},
+        )
+    if entry.entity_type != "idea":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "not_an_idea",
+                "message": f"Only idea entries can be moved to Working Files (entity_type={entry.entity_type}).",
+            },
+        )
+
+    root = _primary_working_root(settings)
+    if root is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_root",
+                "message": "MODEL_CATALOG_WORKING_FILES_ROOT is not configured.",
+            },
+        )
+
+    # Derive folder slug
+    requested_slug = _sanitize_folder_slug_candidate(str(payload.get("slug") or ""))
+    base_slug = requested_slug or _slugify_title(entry.model_name)
+    if not base_slug:
+        base_slug = "idea"
+    try:
+        folder_slug = _disambiguate_folder_slug(root, base_slug)
+    except RuntimeError as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "slug_exhausted", "message": str(exc)},
+        )
+
+    # Gather idea metadata
+    raw_fields = read_model_fields(db_path=settings.db_path, model_ref=local_model_id) or {}
+    notes_value = str(raw_fields.get("notes") or "").strip()
+
+    external_links_raw = raw_fields.get("external_links")
+    origin_url = entry.source_origin_url or None
+    if not origin_url and isinstance(external_links_raw, list):
+        for link in external_links_raw:
+            if isinstance(link, dict):
+                candidate = str(link.get("url") or "").strip()
+            else:
+                candidate = str(link or "").strip()
+            if candidate:
+                origin_url = candidate
+                break
+
+    # Locate sketch image asset (if any)
+    sketch_asset_path: Path | None = None
+    sketch_target_name: str | None = None
+    sketch_raw = raw_fields.get("sketch_image")
+    sketch_asset_id = ""
+    if isinstance(sketch_raw, dict):
+        sketch_asset_id = str(sketch_raw.get("asset_id") or "").strip()
+    if sketch_asset_id:
+        for asset in list_model_assets(db_path=settings.db_path, local_model_id=local_model_id):
+            if str(getattr(asset, "asset_id", "") or "") == sketch_asset_id:
+                resolved = _resolve_local_asset_storage_path(settings=settings, asset=asset)
+                if resolved is not None and resolved.is_file():
+                    sketch_asset_path = resolved
+                    original_name = str(getattr(asset, "asset_filename", "") or resolved.name)
+                    sketch_target_name = f"sketch{Path(original_name).suffix or resolved.suffix or '.png'}"
+                break
+
+    # Build sidecar payload
+    modelmeta: dict[str, Any] = {
+        "$schema": "https://hass-bambulab-config/schemas/modelmeta.v1.json",
+        "display_title": entry.model_name,
+    }
+    tag_list = [str(t).strip() for t in (entry.tags or ()) if str(t).strip()]
+    if tag_list:
+        modelmeta["tags"] = tag_list
+    if origin_url:
+        modelmeta["origin_url"] = origin_url
+    if sketch_target_name:
+        modelmeta["thumbnail"] = sketch_target_name
+
+    folder_path = root / folder_slug
+    created_paths: list[Path] = []
+    try:
+        folder_path.mkdir(parents=True, exist_ok=False)
+        created_paths.append(folder_path)
+
+        meta_path = folder_path / ".modelmeta.json"
+        meta_path.write_text(
+            json.dumps(modelmeta, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        created_paths.append(meta_path)
+
+        if notes_value:
+            readme_path = folder_path / "README.md"
+            readme_body = notes_value if notes_value.endswith("\n") else notes_value + "\n"
+            readme_path.write_text(readme_body, encoding="utf-8")
+            created_paths.append(readme_path)
+
+        if sketch_asset_path and sketch_target_name:
+            sketch_dest = folder_path / sketch_target_name
+            shutil.copy2(sketch_asset_path, sketch_dest)
+            created_paths.append(sketch_dest)
+    except OSError as exc:
+        # Best-effort cleanup
+        try:
+            if folder_path.exists():
+                shutil.rmtree(folder_path, ignore_errors=True)
+        except OSError:
+            pass
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "fs_error", "message": str(exc)},
+        )
+
+    # Hard-delete the idea row (and its assets) now that the folder is on disk.
+    try:
+        delete_local_model(db_path=settings.db_path, local_model_id=local_model_id, hard_delete=True)
+    except Exception as exc:  # pragma: no cover - defensive
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "idea_delete_failed",
+                "message": f"Folder created at {folder_path} but failed to remove idea row: {exc}",
+                "folder_slug": folder_slug,
+                "folder_path": str(folder_path),
+            },
+        )
+
+    return {
+        "success": True,
+        "folder_slug": folder_slug,
+        "folder_path": str(folder_path),
+        "modelmeta": modelmeta,
+        "has_readme": bool(notes_value),
+        "has_thumbnail": bool(sketch_target_name),
+    }
+
+
 @router.get("/api/working-files/groups/{folder_slug}")
 def working_files_group_detail(request: Request, folder_slug: str) -> Any:
     """Group detail: file count, folder tree, sidecar contents.

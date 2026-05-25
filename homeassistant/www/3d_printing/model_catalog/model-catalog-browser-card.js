@@ -4836,6 +4836,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       // so the ribbon's rounded corner traces a tighter arc than the outer card edge. Extend ::after to the
       // border-box so its inherited 20px radius aligns with the outer border curve. (issue: ribbon/border mismatch)
       + '.model-card.is-archived.is-in-queue::after{inset:-2px;}'
+      // Same alignment fix for idea cards, which also use a 2px outer border.
+      + '.model-card.is-idea.is-in-queue::after{inset:-2px;}'
 
       + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:6px;}'
       + '.chip.file-kind-chip .icon-svg{width:16px;height:16px;flex-shrink:0;}'
