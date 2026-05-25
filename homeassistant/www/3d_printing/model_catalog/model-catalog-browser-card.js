@@ -4774,6 +4774,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.archived-pill ha-icon{--mdc-icon-size:12px;}'
       + '.model-card.is-archived{border:2px solid rgba(148,163,184,0.55);opacity:0.72;}'
       + '.model-card.is-archived:hover{opacity:1;}'
+      // When an archived card is also in-queue, the 2px border pushes the padding-box (where ::after sits) inward,
+      // so the ribbon's rounded corner traces a tighter arc than the outer card edge. Extend ::after to the
+      // border-box so its inherited 20px radius aligns with the outer border curve. (issue: ribbon/border mismatch)
+      + '.model-card.is-archived.is-in-queue::after{inset:-2px;}'
 
       + '.chip.file-kind-chip{font-size:10px;min-height:24px;padding:3px 8px;display:inline-flex;align-items:center;gap:6px;}'
       + '.chip.file-kind-chip .icon-svg{width:16px;height:16px;flex-shrink:0;}'
