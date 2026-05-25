@@ -147,6 +147,57 @@ def test_cleanup_delete_recursively_removes_empty_selected_folder(tmp_path: Path
         client.__exit__(None, None, None)
 
 
+def test_cleanup_delete_works_for_files_picked_from_working_files_root(tmp_path: Path) -> None:
+    """Regression: files chosen from the Working Files store (allowed as an intake
+    source by the wizard since commit f7d77e84) must be removable by the
+    ``delete_on_verified`` cleanup policy. Previously these all failed with
+    ``reason=path_not_allowed`` because cleanup's managed-roots allowlist only
+    included intake_source_roots, not working_files_root.
+    """
+    client, _source_root = _create_client(tmp_path)
+    try:
+        working_root = (tmp_path / "working").resolve()
+        wf_batch = working_root / "college-pennants" / "Clemson"
+        wf_batch.mkdir(parents=True, exist_ok=True)
+        wf_file_a = wf_batch / "tiger-paw.3mf"
+        wf_file_b = wf_batch / "logo.stl"
+        wf_file_a.write_bytes(b"wf-3mf")
+        wf_file_b.write_bytes(b"wf-stl")
+
+        create_response = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "delete_on_verified",
+                "source_entries": [
+                    {"type": "folder", "path": str(wf_batch), "recurse": True}
+                ],
+            },
+        )
+        assert create_response.status_code == 200
+        upload_id = create_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-by-destination",
+            json={
+                "cleanup_policy": "delete_on_verified",
+                "group_destinations": [{"destination": "working", "title": "Clemson"}],
+            },
+        )
+        assert publish_response.status_code == 200, publish_response.text
+
+        cleanup_payload = publish_response.json()
+        assert cleanup_payload["success"] is True
+        assert cleanup_payload["cleanup"]["policy"] == "delete_on_verified"
+        # Every per-file result must have succeeded — no "path_not_allowed"
+        for entry in cleanup_payload["cleanup"].get("results") or []:
+            assert entry.get("success") is True, entry
+            assert entry.get("reason") != "path_not_allowed", entry
+        assert not wf_file_a.exists(), "Working Files source file should be deleted"
+        assert not wf_file_b.exists(), "Working Files source file should be deleted"
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_publish_persists_source_and_import_timestamps(tmp_path: Path) -> None:
     client, source_root = _create_client(tmp_path)
     db_path = tmp_path / "model_catalog.db"

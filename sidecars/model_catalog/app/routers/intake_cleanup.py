@@ -20,7 +20,12 @@ from fastapi.responses import JSONResponse
 
 from ..settings import Settings
 from ..state import AppState
-from .._helpers import _bulk_utc_now_iso, _configured_intake_source_roots, _is_path_within_roots
+from .._helpers import (
+    _bulk_utc_now_iso,
+    _configured_intake_source_roots,
+    _configured_working_files_roots,
+    _is_path_within_roots,
+)
 
 from .intake_queue import (
     _expand_source_entries_to_files,
@@ -190,8 +195,19 @@ def _run_source_cleanup(
             "message": "Upload queue entry did not resolve to any files for cleanup.",
         }
 
-    roots = _configured_intake_source_roots(state.settings)
-    managed_roots = roots + [_browser_intake_upload_storage_root(state.settings)]
+    intake_source_roots = _configured_intake_source_roots(state.settings)
+    working_files_roots = _configured_working_files_roots(state.settings)
+    # Issue: cleanup must accept files chosen from the Working Files store as
+    # an intake source (see commit f7d77e84 which allowed browsing/selecting
+    # Working Files paths from the Intake wizard). Without including the
+    # working files roots here, every cleanup-on-verified for files picked
+    # from Working Files fails with reason="path_not_allowed" and leaves the
+    # source files in place even after a successful publish.
+    managed_roots = (
+        intake_source_roots
+        + working_files_roots
+        + [_browser_intake_upload_storage_root(state.settings)]
+    )
 
     transitioned, transition_error = _transition_queue_status(
         state.settings.db_path,
@@ -301,6 +317,25 @@ def _run_source_cleanup(
     removed_dirs: list[str] = []
     if cleanup_policy == "delete_on_verified" and deleted_source_paths:
         removed_dirs = _prune_empty_parent_dirs(file_paths=deleted_source_paths, roots=managed_roots)
+
+    # If any deletes touched the Working Files store, refresh the working file
+    # inventory so the removed rows disappear from inventory-driven views
+    # (otherwise they would linger as orphan rows pointing at missing files).
+    if cleanup_policy == "delete_on_verified" and deleted_source_paths and working_files_roots:
+        touched_working_files = any(
+            _is_path_within_roots(path, working_files_roots) for path in deleted_source_paths
+        )
+        if touched_working_files:
+            try:
+                from .working import _refresh_working_file_inventory
+
+                _refresh_working_file_inventory(
+                    db_path=state.settings.db_path,
+                    roots=working_files_roots,
+                    compute_hashes=False,
+                )
+            except Exception:  # pragma: no cover - defensive: inventory sync is best-effort
+                pass
     
     _transition_queue_status(
         state.settings.db_path,
