@@ -275,13 +275,19 @@
     + '.group-counts{display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;}'
     + '.count{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}'
     + '.count .num{font-weight:700;color:var(--text);font-size:12.5px;}'
-    + '.group-right{display:flex;align-items:center;gap:6px;align-self:start;}'
-    + '.updated{font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums;text-align:right;}'
-    + '.updated strong{color:var(--text-secondary);font-weight:600;display:block;}'
-    + '.overflow-btn{width:28px;height:28px;padding:0;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;}'
-    + '.overflow-btn:hover{background:rgba(255,255,255,0.06);color:var(--text);border-color:var(--border);}'
-    + '.expander{width:26px;height:26px;padding:0;background:transparent;border:0;color:var(--text-muted);cursor:pointer;font-size:14px;}'
-    + '.expander:hover{color:var(--text);}'
+    + '.group-right{display:flex;align-items:center;gap:8px;align-self:start;}'
+    + '.group-right-meta{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0;}'
+    + '.updated{font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums;text-align:right;line-height:1.4;display:block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+    + '.updated.latest-label{color:var(--text-secondary);font-weight:600;}'
+    + '.updated strong{color:var(--text);font-weight:700;}'
+    + '.updated .sep{color:var(--text-muted);margin:0 4px;}'
+    /* Reindex spin animation */
+    + '@keyframes wfe-spin{to{transform:rotate(360deg);}}'
+    + '.reindex-spin{display:inline-block;animation:wfe-spin 1.1s linear infinite;}'
+    + '.overflow-btn{min-width:36px;height:36px;padding:0;border-radius:9px;background:rgba(15,23,42,0.30);border:1px solid rgba(148,163,184,0.26);color:#cbd5e1;cursor:pointer;font-size:20px;font-weight:800;line-height:1;display:inline-flex;align-items:center;justify-content:center;}'
+    + '.overflow-btn:hover{background:rgba(255,255,255,0.08);color:var(--text);border-color:var(--border-strong);}'
+    + '.expander{min-width:40px;height:40px;padding:0;background:rgba(15,23,42,0.30);border:1px solid rgba(148,163,184,0.26);color:#cbd5e1;cursor:pointer;font-size:18px;font-weight:900;line-height:1;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;}'
+    + '.expander:hover{background:rgba(255,255,255,0.08);color:var(--text);border-color:var(--border-strong);}'
     + '.group-row.collapsed .group-body{display:none;}'
     + '.group-row.collapsed{padding-bottom:14px;}'
     /* Overflow menu */
@@ -312,8 +318,9 @@
     /* Type chip bar */
     + '.type-bar{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
     + '.type-chips{display:inline-flex;gap:5px;flex-wrap:wrap;}'
-    + '.type-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;}'
-    + '.type-chip .ct{color:var(--text-muted);font-weight:600;}'
+    + '.type-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text-secondary);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;}'
+    + '.type-chip .ct{color:var(--text-muted);font-weight:600;letter-spacing:0;}'
+    + '.type-chip ha-icon{--mdc-icon-size:14px;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;}'
     /* Per-category colors mirror model-catalog-browser-card compact file-kind chips */
     + '.type-chip.cat-all.active{background:rgba(139,92,246,0.16);border-color:rgba(167,139,250,0.34);color:#c4b5fd;}'
     + '.type-chip.cat-all.active .ct{color:#c4b5fd;}'
@@ -351,7 +358,7 @@
     + '.group-row[data-thumb="medium"]{--thumb-size:58px;--row-pad:8px 10px;}'
     + '.group-row[data-thumb="large"]{--thumb-size:116px;--row-pad:10px 12px;}'
     + '.file-list{margin-top:10px;display:grid;gap:4px;}'
-    + '.file-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 90px 110px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(255,255,255,0.015);border:1px solid transparent;transition:background 100ms ease;}'
+    + '.file-row{display:grid;grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) 78px 170px auto;gap:12px;align-items:center;padding:var(--row-pad,6px 8px);border-radius:10px;background:rgba(255,255,255,0.015);border:1px solid transparent;transition:background 100ms ease;}'
     + '.file-row:hover{background:rgba(255,255,255,0.045);border-color:var(--border);}'
     + '.file-thumb{width:var(--thumb-size,34px);height:var(--thumb-size,34px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--thumb-size,34px) * 0.32);line-height:1;letter-spacing:-0.02em;background:rgba(94,234,212,0.10);color:var(--accent);border:1px solid rgba(94,234,212,0.28);}'
     + '.file-thumb.stl{background:rgba(96,165,250,0.10);color:var(--accent-blue);border-color:rgba(96,165,250,0.28);}'
@@ -361,8 +368,9 @@
     + '.file-main{min-width:0;}'
     + '.file-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.file-path{margin-top:2px;font-size:10.5px;color:var(--text-muted);font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-    + '.file-meta{font-size:11px;color:var(--text-secondary);font-variant-numeric:tabular-nums;text-align:right;}'
-    + '.file-meta .sub{display:block;font-size:10px;color:var(--text-muted);margin-top:1px;}'
+    + '.file-meta{font-size:11px;color:var(--text-secondary);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;}'
+    + '.file-meta .sub{display:block;font-size:10px;color:var(--text-muted);margin-top:1px;white-space:nowrap;}'
+    + '.file-meta strong{display:block;color:var(--text);font-weight:700;}'
     + '.file-actions{display:inline-flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;}'
     + '.file-action-split{position:relative;display:inline-flex;align-items:stretch;border:1px solid rgba(94,234,212,0.32);border-radius:8px;overflow:hidden;background:rgba(94,234,212,0.10);}'
     + '.file-action-split button{background:transparent;border:0;color:var(--accent);padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}'
@@ -374,6 +382,8 @@
     + '.file-action-menu button:hover{background:rgba(255,255,255,0.06);}'
     + '.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-secondary);padding:4px 9px;border-radius:8px;font-size:11.5px;cursor:pointer;}'
     + '.btn-ghost:hover{background:rgba(255,255,255,0.04);color:var(--text);}'
+    + '.btn-ghost.row-more{min-width:32px;height:28px;padding:0 8px;font-size:18px;font-weight:800;line-height:1;color:var(--text);border-color:var(--border-strong);background:rgba(15,23,42,0.35);}'
+    + '.btn-ghost.row-more:hover{background:rgba(255,255,255,0.08);}'
     + '.empty-row{padding:14px;text-align:center;color:var(--text-muted);font-size:12px;border:1px dashed var(--border);border-radius:10px;background:rgba(255,255,255,0.02);}'
     + '@media (max-width:980px){.group-header{grid-template-columns:44px minmax(0,1fr);}.group-right{grid-column:1 / -1;justify-items:start;text-align:left;}.file-row{grid-template-columns:var(--thumb-size,34px) minmax(0,1fr) auto;}.file-row .file-meta{display:none;}}';
 
@@ -952,7 +962,7 @@
         + '</div>'
         + '<button class="icon-btn" data-action="reindex" title="Re-scan the working-files root and refresh the DB-backed inventory"'
         + (this._reindexing ? ' disabled' : '') + '>'
-        + '<span aria-hidden="true">↻</span> ' + (this._reindexing ? 'Re-indexing…' : 'Re-index')
+        + '<span aria-hidden="true" class="' + (this._reindexing ? 'reindex-spin' : '') + '">↻</span> ' + (this._reindexing ? 'Re-indexing…' : 'Re-index')
         + '</button>'
         + '</div></div>'
         + '<div class="filterbar">'
@@ -1008,9 +1018,8 @@
       // Folder thumb color is always randomized per-slug. Sidecar presence/absence
       // is conveyed by the two status dots next to the title, not by the thumb color.
       var thumbClass = 'gc' + colorIndexFromSlug(slug);
-      var folderHint = (this._tree && this._tree.root_path)
-        ? String(this._tree.root_path) + '/' + String(group.name || slug) + '/'
-        : String(group.name || slug) + '/';
+      // Show group folder name only (root path is implicit context).
+      var folderHint = String(group.name || slug) + '/';
 
       var dotsHtml = '<span class="sidecar-dots" title="Sidecar status">'
         + '<span class="sidecar-dot ' + (group.has_modelmeta ? 'on' : '') + '" title=".modelmeta.json ' + (group.has_modelmeta ? 'present' : 'missing') + '"></span>'
@@ -1029,12 +1038,15 @@
         + '<div class="folder-hint">' + escapeHtml(folderHint) + '</div>'
         + '<div class="group-counts">'
         + '<div class="count"><span class="num">' + String(Number(group.file_count || 0)) + '</span> files</div>'
-        + '<div class="count"><span class="num">' + String(Number(group.count_3mf || 0)) + '</span> 3MF</div>'
+        + '<div class="count"><span class="num">' + String(Number(group.count_3mf || 0)) + '</span> Models</div>'
         + '<div class="count">' + escapeHtml(formatBytes(Number(group.size_bytes || 0))) + '</div>'
         + '</div>'
         + '</div>'
         + '<div class="group-right">'
-        + '<div class="updated"><strong>' + escapeHtml(formatRelativeTime(group.last_seen_at)) + '</strong>' + escapeHtml(formatDateTime(group.last_seen_at)) + '</div>'
+        + '<div class="group-right-meta">'
+        + '<span class="updated latest-label">Last file changed' + (group.latest_file_name ? ' · ' + escapeHtml(String(group.latest_file_name)) : '') + '</span>'
+        + '<span class="updated"><strong>' + escapeHtml(formatRelativeTime(group.last_seen_at)) + '</strong><span class="sep">·</span>' + escapeHtml(formatDateTime(group.last_seen_at)) + '</span>'
+        + '</div>'
         + '<button class="overflow-btn" data-action="toggle-overflow" data-slug="' + escapeHtml(slug) + '" title="Group actions">⋯</button>'
         + '<button class="expander" data-action="toggle-group" data-slug="' + escapeHtml(slug) + '" title="' + (collapsed ? 'Expand' : 'Collapse') + '">' + (collapsed ? '▾' : '▴') + '</button>'
         + '</div>'
@@ -1106,12 +1118,14 @@
           + '</div>';
       }
       var catClassFor = { all: 'cat-all', models: 'cat-models', images: 'cat-images', other: 'cat-other' };
+      var iconFor = { models: 'mdi:cube-outline', images: 'mdi:image-multiple-outline', other: 'mdi:file-outline' };
       return ''
         + '<div class="type-bar"><div class="type-chips">'
         + TYPE_FILTERS.map(function (filter) {
+            var iconHtml = iconFor[filter] ? '<ha-icon icon="' + iconFor[filter] + '" aria-hidden="true"></ha-icon>' : '';
             return '<button class="type-chip ' + (catClassFor[filter] || '') + (current === filter ? ' active' : '') + '"'
               + ' data-action="set-type-filter" data-slug="' + escapeHtml(slug) + '" data-type="' + filter + '">'
-              + escapeHtml(labels[filter]) + ' <span class="ct">· ' + String(counts[filter] || 0) + '</span></button>';
+              + iconHtml + escapeHtml(labels[filter]) + ' <span class="ct">· ' + String(counts[filter] || 0) + '</span></button>';
           }).join('')
         + '</div>'
         + viewToggleHtml
@@ -1160,7 +1174,7 @@
           + '</span>';
       }
       if (canExplore) {
-        actionsHtml += '<button class="btn-ghost" data-action="open-folder" data-path="' + escapeHtml(dirname(pathValue)) + '" title="Open containing folder">⋯</button>';
+        actionsHtml += '<button class="btn-ghost row-more" data-action="open-folder" data-path="' + escapeHtml(dirname(pathValue)) + '" title="Open containing folder">⋯</button>';
       }
 
       return ''
@@ -1174,8 +1188,8 @@
         + '<div class="file-name">' + escapeHtml(basename(pathValue)) + '</div>'
         + '<div class="file-path" title="Subfolder within group">' + escapeHtml(subPath) + '</div>'
         + '</div>'
-        + '<div class="file-meta">' + escapeHtml(formatBytes(this._entrySize(entry))) + '<span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></div>'
-        + '<div class="file-meta">' + escapeHtml(extensionBadge(extension)) + '<span class="sub">' + escapeHtml(fileTypeLabel(extension)) + '</span></div>'
+        + '<div class="file-meta">' + escapeHtml(formatBytes(this._entrySize(entry))) + '</div>'
+        + '<div class="file-meta"><strong>' + escapeHtml(formatRelativeTime(this._entryMtime(entry))) + '</strong><span class="sub">' + escapeHtml(formatDateTime(this._entryMtime(entry))) + '</span></div>'
         + '<div class="file-actions">' + actionsHtml + '</div>'
         + '</div>';
     }
