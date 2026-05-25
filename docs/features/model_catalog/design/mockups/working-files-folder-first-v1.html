@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Working Files · Folder-First V1 (minimal-churn starting point)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28, 33, 42, 0.92);
+    --bg-strip: rgba(15, 19, 26, 0.55);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --accent-violet: #c4b5fd;
+    --primary-amber: #f5c242;
+    --shadow: 0 4px 18px rgba(0,0,0,0.32);
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 28px clamp(16px, 4vw, 48px); }
+
+  /* ─── Page chrome ──────────────────────────────────────────────── */
+  .page-header { max-width: 1480px; margin: 0 auto 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12.5px; max-width: 820px; line-height: 1.55; }
+  .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav a, .nav span.sep { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .nav span.sep { border: none; background: transparent; padding: 0 4px; color: var(--text-muted); }
+  .nav a.active { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.06); }
+
+  .design-callout { max-width: 1480px; margin: 0 auto 14px; padding: 12px 14px; border: 1px dashed rgba(94,234,212,0.28); border-radius: 12px; background: rgba(94,234,212,0.05); font-size: 12.5px; line-height: 1.55; color: #cffafe; }
+  .design-callout strong { color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-size: 10.5px; }
+  .design-callout code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+  .design-callout ul { margin: 6px 0 0 18px; padding: 0; }
+  .design-callout li { margin: 2px 0; }
+  .design-callout .delta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+  @media (max-width: 720px) { .design-callout .delta-grid { grid-template-columns: 1fr; } }
+  .design-callout .col h5 { margin: 0 0 4px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .design-callout .col.removed h5 { color: #fca5a5; }
+
+  /* ─── Shell ───────────────────────────────────────────────────── */
+  .shell { max-width: 1480px; margin: 0 auto; }
+
+  /* ─── Toolbar (single .title-row + .filterbar) ─────────────────── */
+  .toolbar-shell { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; flex-wrap: wrap; }
+  .title-row .title { display: inline-flex; align-items: baseline; gap: 12px; }
+  .title-row .title strong { font-size: 17px; font-weight: 800; }
+  .title-row .title .subtitle { font-size: 12px; color: var(--text-muted); }
+  .title-row .right { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .indexed-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .indexed-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px rgba(94,234,212,0.7); }
+
+  .thumb-size-toggle { display: inline-flex; padding: 2px; background: rgba(15,19,26,0.6); border: 1px solid var(--border); border-radius: 999px; }
+  .thumb-size-toggle button { background: transparent; border: 0; color: var(--text-secondary); padding: 4px 11px; font-size: 10.5px; font-weight: 700; border-radius: 999px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; min-height: 24px; }
+  .thumb-size-toggle button.active { background: rgba(167,139,250,0.20); color: #ddd6fe; }
+
+  .icon-btn { width: 30px; height: 30px; padding: 0; border-radius: 8px; border: 1px solid rgba(148,163,184,0.24); background: rgba(148,163,184,0.10); color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
+  .icon-btn:hover { background: rgba(148,163,184,0.20); }
+  .icon-btn.with-label { width: auto; padding: 0 12px; gap: 6px; font-size: 12px; font-weight: 700; }
+
+  .filterbar { padding: 10px 18px; border-top: 1px dashed var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .filterbar .left, .filterbar .right { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filterbar .label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+  .chip-filter { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; }
+  .chip-filter.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .sort { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); }
+  .sort label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+  .sort select { background: transparent; border: 0; color: var(--text); font-size: 12px; cursor: pointer; outline: none; }
+
+  /* ─── Accordion group stack ────────────────────────────────────── */
+  .groups { margin-top: 14px; display: grid; gap: 12px; }
+  .group-row { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 12px 16px; box-shadow: var(--shadow); transition: border-color 120ms ease; }
+  .group-row:hover { border-color: var(--border-strong); }
+
+  .group-header { display: grid; grid-template-columns: 52px minmax(0,1fr) auto; gap: 14px; align-items: start; cursor: pointer; }
+  .group-thumb { width: 52px; height: 52px; border-radius: 10px; border: 1px solid rgba(96,165,250,0.28); background: linear-gradient(135deg, rgba(96,165,250,0.18), rgba(96,165,250,0.06)); color: #bfdbfe; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; letter-spacing: 0.02em; flex-shrink: 0; }
+  .group-thumb.virtual { background: rgba(148,163,184,0.08); border-color: var(--border); color: var(--text-muted); font-weight: 400; }
+  .group-thumb.virtual .stack { display: grid; gap: 2px; }
+  .group-thumb.virtual .stack span { display: block; width: 22px; height: 4px; border-radius: 2px; background: rgba(148,163,184,0.45); }
+  .group-thumb.virtual .stack span:nth-child(2) { background: rgba(148,163,184,0.32); width: 18px; }
+  .group-thumb.virtual .stack span:nth-child(3) { background: rgba(148,163,184,0.22); width: 20px; }
+
+  .group-meta { min-width: 0; }
+  .group-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .group-title { font-size: 15px; font-weight: 700; letter-spacing: -0.005em; overflow-wrap: anywhere; }
+  .group-row.virtual .group-title { color: var(--text-secondary); font-style: italic; }
+  .override-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(245,194,66,0.14); color: var(--primary-amber); border: 1px solid rgba(245,194,66,0.28); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .folder-hint { font-size: 11.5px; color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .group-counts { display: flex; gap: 12px; margin-top: 6px; }
+  .count { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .count .num { font-weight: 700; color: var(--text); font-size: 12.5px; }
+
+  .group-right { display: flex; align-items: center; gap: 6px; align-self: start; }
+  .updated { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .updated strong { color: var(--text-secondary); font-weight: 600; display: block; }
+  .overflow-btn { width: 28px; height: 28px; padding: 0; border-radius: 8px; background: transparent; border: 1px solid transparent; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; }
+  .overflow-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--border); }
+  .expander { width: 26px; height: 26px; padding: 0; background: transparent; border: 0; color: var(--text-muted); cursor: pointer; font-size: 14px; }
+  .expander:hover { color: var(--text); }
+
+  /* Collapsed state */
+  .group-row.collapsed .group-body { display: none; }
+  .group-row.collapsed { padding-bottom: 14px; }
+
+  /* ─── Overflow menu (visual only) ─────────────────────────────── */
+  .overflow-menu { position: absolute; right: 12px; top: 56px; background: rgba(20,24,32,0.98); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); padding: 6px; min-width: 220px; z-index: 5; }
+  .overflow-menu button { display: flex; align-items: center; gap: 8px; width: 100%; background: transparent; border: 0; color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 12.5px; cursor: pointer; text-align: left; }
+  .overflow-menu button:hover { background: rgba(255,255,255,0.06); }
+  .overflow-menu .ic { font-size: 14px; opacity: 0.8; }
+  .overflow-menu .sep { height: 1px; background: var(--border); margin: 4px 0; }
+  .overflow-menu .destructive { color: #fca5a5; }
+
+  /* ─── Group body ──────────────────────────────────────────────── */
+  .group-body { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+  /* Sidecar strip (compact, in-card) */
+  .sidecar { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: rgba(15,19,26,0.45); }
+  .sidecar .body { min-width: 0; }
+  .sidecar .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .sidecar .tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: rgba(96,165,250,0.10); border: 1px solid rgba(96,165,250,0.28); color: #bfdbfe; font-size: 10.5px; font-weight: 600; }
+  .sidecar .notes { padding: 9px 11px; border: 1px dashed var(--border); border-radius: 8px; background: rgba(255,255,255,0.02); font-size: 12px; color: var(--text); line-height: 1.55; }
+  .sidecar .notes h4 { margin: 0 0 4px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .sidecar .notes h4 .file-ref { color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; text-transform: none; letter-spacing: 0; font-size: 10.5px; font-weight: 400; }
+  .sidecar .meta-source { margin-top: 8px; font-size: 10.5px; color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+  .sidecar .meta-source a { color: var(--accent); text-decoration: none; }
+  .sidecar .side { display: grid; gap: 6px; align-content: start; min-width: 160px; }
+  .sidecar .side .kv { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .sidecar .side .kv .k { color: var(--text-muted); display: inline-block; min-width: 70px; }
+  .sidecar.empty { grid-template-columns: 1fr; background: rgba(255,255,255,0.02); border-style: dashed; color: var(--text-muted); font-size: 12px; text-align: center; padding: 10px 14px; }
+  .sidecar.empty code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  /* Type chips row (per group) */
+  .type-bar { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .type-chips { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+  .type-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; font-weight: 700; cursor: pointer; }
+  .type-chip.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .type-chip .ct { color: var(--text-muted); font-weight: 600; }
+  .type-chip.active .ct { color: var(--accent); }
+
+  /* File rows (size varies via --thumb-size) */
+  .group-row[data-thumb="small"]  { --thumb-size: 34px; --row-pad: 6px 8px; }
+  .group-row[data-thumb="medium"] { --thumb-size: 58px; --row-pad: 8px 10px; }
+  .group-row[data-thumb="large"]  { --thumb-size: 116px; --row-pad: 10px 12px; }
+
+  .file-list { margin-top: 10px; display: grid; gap: 4px; }
+  .file-row { display: grid; grid-template-columns: var(--thumb-size,34px) minmax(0,1fr) 90px 110px auto; gap: 12px; align-items: center; padding: var(--row-pad, 6px 8px); border-radius: 10px; background: rgba(255,255,255,0.015); border: 1px solid transparent; transition: background 100ms ease; }
+  .file-row:hover { background: rgba(255,255,255,0.045); border-color: var(--border); }
+  .file-row.primary { background: rgba(245,194,66,0.06); border-color: rgba(245,194,66,0.20); }
+  .file-thumb { width: var(--thumb-size,34px); height: var(--thumb-size,34px); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; letter-spacing: -0.02em; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.28); }
+  .file-thumb.stl { background: rgba(96,165,250,0.10); color: var(--accent-blue); border-color: rgba(96,165,250,0.28); }
+  .file-thumb.step { background: rgba(167,139,250,0.10); color: var(--accent-violet); border-color: rgba(167,139,250,0.28); }
+  .file-thumb.img { background: rgba(245,194,66,0.10); color: var(--primary-amber); border-color: rgba(245,194,66,0.28); }
+  .file-thumb.other { background: rgba(148,163,184,0.10); color: var(--text-secondary); border-color: var(--border); }
+  .file-main { min-width: 0; }
+  .file-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-name .primary-tag { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; background: rgba(245,194,66,0.16); color: var(--primary-amber); font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 6px; vertical-align: middle; border: 1px solid rgba(245,194,66,0.28); }
+  .file-path { margin-top: 2px; font-size: 10.5px; color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-meta { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; text-align: right; }
+  .file-meta .sub { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+  .file-actions { display: inline-flex; gap: 4px; justify-content: flex-end; }
+
+  /* Split open button (mirrors implemented .file-action-split) */
+  .file-action-split { display: inline-flex; align-items: stretch; border: 1px solid rgba(94,234,212,0.32); border-radius: 8px; overflow: hidden; background: rgba(94,234,212,0.10); }
+  .file-action-split button { background: transparent; border: 0; color: var(--accent); padding: 5px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .file-action-split .open-main:hover { background: rgba(94,234,212,0.18); }
+  .file-action-split .file-action-toggle { padding: 5px 7px; border-left: 1px solid rgba(94,234,212,0.32); font-size: 10px; }
+  .file-action-split .file-action-toggle:hover { background: rgba(94,234,212,0.18); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); padding: 4px 9px; border-radius: 8px; font-size: 11.5px; cursor: pointer; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+
+  .breadcrumb { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; flex-wrap: wrap; }
+  .breadcrumb .crumb { background: transparent; border: 0; color: var(--accent-blue); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-family: inherit; font-size: inherit; }
+  .breadcrumb .crumb:hover { background: rgba(96,165,250,0.10); }
+  .breadcrumb .crumb.current { color: var(--text-secondary); cursor: default; }
+  .breadcrumb .sep { color: var(--text-muted); }
+  .breadcrumb-up { width: 22px; height: 22px; padding: 0; border-radius: 6px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--text-secondary); cursor: pointer; font-size: 12px; line-height: 1; }
+  .breadcrumb-up:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+  .footnote { max-width: 1480px; margin: 24px auto 0; padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); font-size: 11.5px; color: var(--text-secondary); line-height: 1.6; }
+  .footnote strong { color: var(--text); }
+  .footnote code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Working Files — Folder-First V1 <span style="font-size:11px; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase; font-weight:700; margin-left:8px;">Starting Point · Minimal Churn</span></h1>
+    <p>Conservative v1 of the folder-first redesign. Keeps the implemented card's vertical-accordion shape, group thumbnails, indexed pill, thumb-size toggle, split Open action, and per-group breadcrumb &mdash; while removing mode tabs, search, the DRAFT stage chip, the Reorganize control, and the "WORKING GROUP FILES" subheading. Adds a small sidecar strip (tags + README + <code>.modelmeta.json</code> reference) inside each expanded group body.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">← Mockups index</a>
+    <span class="sep">·</span>
+    <a href="../working-files.md">working-files.md</a>
+    <span class="sep">·</span>
+    <a href="working-files-folder-first.html">Folder-First (aspirational)</a>
+    <span class="sep">·</span>
+    <a href="../archive/working-files-legacy-2026-05/">Archived</a>
+  </div>
+</div>
+
+<div class="design-callout">
+  <strong>V1 design rationale</strong> &nbsp; This variant is intentionally close to today's shipping
+  <code>model-catalog-working-files-explorer-card.js</code>. The card already renders one stacked card per folder-group
+  with an initials thumbnail, count chips, and an expand/collapse chevron — v1 keeps that exact shell so the diff to the
+  card is small. The folder-first <em>idea</em> shows up as: folders become the top-level entity (no Groups/All Files/Ungrouped
+  mode), each group has one sidecar surface that explains itself (tags + README + meta-source), and the loose-files bucket
+  is a virtual top-of-stack entry rather than a separate tab.
+
+  <div class="delta-grid">
+    <div class="col">
+      <h5>Kept from current UI</h5>
+      <ul>
+        <li>Stacked accordion of group cards; click header to expand/collapse</li>
+        <li>Initials-derived folder thumbnail (<code>initialsFromTitle()</code>)</li>
+        <li>Indexed-pill in the toolbar; SMALL / MEDIUM / LARGE thumb toggle (violet active)</li>
+        <li>Per-group breadcrumb when descending into subfolders</li>
+        <li>Split <em>Open in Slicer ▾</em> action on file rows</li>
+        <li>Per-group type chips (All / Models / Images / Other)</li>
+      </ul>
+    </div>
+    <div class="col removed">
+      <h5>Removed from current UI</h5>
+      <ul>
+        <li><strong>Groups / All Files / Ungrouped</strong> mode tabs (folder-first replaces this)</li>
+        <li>Global <strong>Search</strong> field (deferred; folders read naturally)</li>
+        <li>DRAFT / IN_PROGRESS / READY <strong>stage chip</strong> &amp; left ribbon</li>
+        <li><strong>Reorganize</strong> button + dialog</li>
+        <li><strong>WORKING GROUP FILES</strong> subhead above the type chips</li>
+        <li>The redundant "Working Files Explorer" hero label (toolbar already titles it)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:8px;">
+    <strong>Renamed</strong> &nbsp; "Refresh" → "Re-index" &nbsp;
+    <span style="color:var(--text-secondary);">Sidecar still maintains a DB-backed file inventory (path / mtime / size / hashes via
+    <code>POST /api/working-files/reindex</code>). Re-index is the accurate label for what the button actually does.</span>
+  </div>
+  <div style="margin-top:6px;">
+    <strong>Group actions</strong> &nbsp; <em>Run Intake Wizard from this folder</em>, <em>Add to Project</em>, <em>Add to Collection</em>,
+    <em>Open folder…</em> live behind a per-group <code>⋯</code> overflow menu on the header (visible whether collapsed or expanded).
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- ─── Toolbar ─────────────────────────────────────────────── -->
+  <div class="toolbar-shell">
+    <div class="title-row">
+      <div class="title">
+        <strong>Working Files</strong>
+        <span class="subtitle">12 folder-groups &middot; 1 loose-files bucket &middot; 184 files indexed</span>
+      </div>
+      <div class="right">
+        <span class="indexed-pill"><span class="dot"></span> Indexed 2m ago</span>
+        <div class="thumb-size-toggle" role="group" aria-label="Thumb size">
+          <button>SMALL</button>
+          <button class="active">MEDIUM</button>
+          <button>LARGE</button>
+        </div>
+        <button class="icon-btn with-label" title="Re-scan the working-files root and refresh the DB-backed inventory">
+          <span aria-hidden="true">↻</span> Re-index
+        </button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="left">
+        <span class="label">Show</span>
+        <button class="chip-filter active">All groups <span style="opacity:.7;">· 13</span></button>
+        <button class="chip-filter">With sidecar · 9</button>
+        <button class="chip-filter">Missing sidecar · 4</button>
+        <button class="chip-filter">Recently changed · 5</button>
+      </div>
+      <div class="right">
+        <div class="sort">
+          <label>Sort</label>
+          <select>
+            <option>Recently modified</option>
+            <option>Folder name (A→Z)</option>
+            <option>File count (high → low)</option>
+            <option>Loose first, then folders</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Group stack ─────────────────────────────────────────── -->
+  <div class="groups">
+
+    <!-- ── (loose files) — virtual top-of-stack entry ── -->
+    <div class="group-row virtual" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb virtual" aria-hidden="true">
+          <div class="stack"><span></span><span></span><span></span></div>
+        </div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">(loose files)</div>
+            <span style="font-size:10px; padding:1px 6px; border-radius:4px; background:rgba(148,163,184,0.10); color:var(--text-muted); letter-spacing:0.04em; text-transform:uppercase; font-weight:700; border:1px solid var(--border);">VIRTUAL</span>
+          </div>
+          <div class="folder-hint">/share/working-files/&nbsp; <span style="color:var(--text-muted);">(top-level files with no parent folder)</span></div>
+          <div class="group-counts">
+            <div class="count"><span class="num">7</span> files</div>
+            <div class="count"><span class="num">2</span> models</div>
+            <div class="count"><span class="num">4</span> images</div>
+            <div class="count"><span class="num">1</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>14m ago</strong>2026-05-13 09:42</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▾</button>
+        </div>
+      </div>
+
+      <div class="group-body">
+        <div class="sidecar empty">
+          Loose files have no sidecar. Move a file into a folder to give it a group with <code>.modelmeta.json</code> + <code>README.md</code> context.
+        </div>
+
+        <div class="type-bar">
+          <div class="type-chips">
+            <button class="type-chip active">All <span class="ct">7</span></button>
+            <button class="type-chip">Models <span class="ct">2</span></button>
+            <button class="type-chip">Images <span class="ct">4</span></button>
+            <button class="type-chip">Other <span class="ct">1</span></button>
+          </div>
+        </div>
+
+        <div class="file-list">
+          <div class="file-row">
+            <div class="file-thumb">3MF</div>
+            <div class="file-main">
+              <div class="file-name">prototype_v3.3mf</div>
+              <div class="file-path">/share/working-files/prototype_v3.3mf</div>
+            </div>
+            <div class="file-meta">4.2 MB<span class="sub">2026-05-13</span></div>
+            <div class="file-meta">3MF<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb stl">STL</div>
+            <div class="file-main">
+              <div class="file-name">bracket_quick_test.stl</div>
+              <div class="file-path">/share/working-files/bracket_quick_test.stl</div>
+            </div>
+            <div class="file-meta">820 KB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">STL<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb img">PNG</div>
+            <div class="file-main">
+              <div class="file-name">reference_pic.png</div>
+              <div class="file-path">/share/working-files/reference_pic.png</div>
+            </div>
+            <div class="file-meta">1.4 MB<span class="sub">2026-05-09</span></div>
+            <div class="file-meta">PNG<span class="sub">image</span></div>
+            <div class="file-actions">
+              <button class="btn-ghost">Preview</button>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Group 1: expanded, has sidecar, has display_title override ── -->
+    <div class="group-row" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb" aria-hidden="true">GB</div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">Gridfinity Bin — 2×3 Light</div>
+            <span class="override-badge" title='Title overridden by .modelmeta.json "display_title"'>TITLE OVERRIDE</span>
+          </div>
+          <div class="folder-hint">/share/working-files/gridfinity-bin-2x3-light/</div>
+          <div class="group-counts">
+            <div class="count"><span class="num">14</span> files</div>
+            <div class="count"><span class="num">6</span> models</div>
+            <div class="count"><span class="num">5</span> images</div>
+            <div class="count"><span class="num">3</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>just now</strong>2026-05-13 10:01</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▴</button>
+        </div>
+      </div>
+
+      <!-- Overflow menu visualised (would normally be popover) -->
+      <div class="overflow-menu" aria-label="Group actions">
+        <button><span class="ic">🪄</span> Run Intake Wizard from this folder…</button>
+        <button><span class="ic">📁</span> Add to Project…</button>
+        <button><span class="ic">🗂️</span> Add to Collection…</button>
+        <button><span class="ic">↗</span> Open folder in file manager</button>
+        <div class="sep"></div>
+        <button><span class="ic">✎</span> Edit <code>.modelmeta.json</code></button>
+        <button><span class="ic">↻</span> Re-index this folder only</button>
+        <div class="sep"></div>
+        <button class="destructive"><span class="ic">🗑</span> Delete folder…</button>
+      </div>
+
+      <div class="group-body">
+        <div class="sidecar">
+          <div class="body">
+            <div class="tags">
+              <span class="tag">gridfinity</span>
+              <span class="tag">storage</span>
+              <span class="tag">bin</span>
+              <span class="tag">2x3</span>
+              <span class="tag">light-weight</span>
+            </div>
+            <div class="notes">
+              <h4>README <span class="file-ref">· README.md</span></h4>
+              Light variant of the standard 2&times;3 Gridfinity bin — reduced wall thickness (1.2&nbsp;mm) and a thinner base.
+              Print primary file first; remix STLs are for size variants. Photos in <code>./refs/</code> show the in-drawer fit
+              against the original bin.
+            </div>
+            <div class="meta-source">
+              meta-source: <a href="#">/share/working-files/gridfinity-bin-2x3-light/.modelmeta.json</a>
+              &nbsp;·&nbsp; schema v1
+              &nbsp;·&nbsp; last edited 2026-05-12 by <span style="color:var(--text-secondary);">rysock</span>
+            </div>
+          </div>
+          <div class="side">
+            <div class="kv"><span class="k">primary</span> bin_2x3_light.3mf</div>
+            <div class="kv"><span class="k">origin</span> <a href="#" style="color:var(--accent-blue);">printables.com/…</a></div>
+            <div class="kv"><span class="k">license</span> CC-BY-4.0</div>
+            <div class="kv"><span class="k">total size</span> 18.4 MB</div>
+          </div>
+        </div>
+
+        <div class="type-bar">
+          <div class="type-chips">
+            <button class="type-chip active">All <span class="ct">14</span></button>
+            <button class="type-chip">Models <span class="ct">6</span></button>
+            <button class="type-chip">Images <span class="ct">5</span></button>
+            <button class="type-chip">Other <span class="ct">3</span></button>
+          </div>
+          <div class="breadcrumb">
+            <button class="breadcrumb-up" title="Up one level" disabled style="opacity:.35;">↑</button>
+            <button class="crumb current">gridfinity-bin-2x3-light</button>
+          </div>
+        </div>
+
+        <div class="file-list">
+          <div class="file-row primary">
+            <div class="file-thumb">3MF</div>
+            <div class="file-main">
+              <div class="file-name">bin_2x3_light.3mf <span class="primary-tag">primary</span></div>
+              <div class="file-path">gridfinity-bin-2x3-light/bin_2x3_light.3mf</div>
+            </div>
+            <div class="file-meta">3.4 MB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">3MF<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb stl">STL</div>
+            <div class="file-main">
+              <div class="file-name">bin_2x3_light_remix_tall.stl</div>
+              <div class="file-path">gridfinity-bin-2x3-light/bin_2x3_light_remix_tall.stl</div>
+            </div>
+            <div class="file-meta">1.6 MB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">STL<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb step">STEP</div>
+            <div class="file-main">
+              <div class="file-name">bin_2x3_light_source.step</div>
+              <div class="file-path">gridfinity-bin-2x3-light/cad/bin_2x3_light_source.step</div>
+            </div>
+            <div class="file-meta">2.1 MB<span class="sub">2026-05-08</span></div>
+            <div class="file-meta">STEP<span class="sub">cad</span></div>
+            <div class="file-actions">
+              <button class="btn-ghost">Open</button>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb img">JPG</div>
+            <div class="file-main">
+              <div class="file-name">in_drawer_fit.jpg</div>
+              <div class="file-path">gridfinity-bin-2x3-light/refs/in_drawer_fit.jpg</div>
+            </div>
+            <div class="file-meta">680 KB<span class="sub">2026-05-09</span></div>
+            <div class="file-meta">JPG<span class="sub">image</span></div>
+            <div class="file-actions">
+              <button class="btn-ghost">Preview</button>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb other">MD</div>
+            <div class="file-main">
+              <div class="file-name">CHANGELOG.md</div>
+              <div class="file-path">gridfinity-bin-2x3-light/CHANGELOG.md</div>
+            </div>
+            <div class="file-meta">3 KB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">MD<span class="sub">other</span></div>
+            <div class="file-actions">
+              <button class="btn-ghost">View</button>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Group 2: expanded, has sidecar, descended into subfolder ── -->
+    <div class="group-row" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb" aria-hidden="true">DH</div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">Desk Hooks (parametric)</div>
+          </div>
+          <div class="folder-hint">/share/working-files/desk-hooks-parametric/</div>
+          <div class="group-counts">
+            <div class="count"><span class="num">22</span> files</div>
+            <div class="count"><span class="num">9</span> models</div>
+            <div class="count"><span class="num">8</span> images</div>
+            <div class="count"><span class="num">5</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>2h ago</strong>2026-05-13 08:14</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▴</button>
+        </div>
+      </div>
+
+      <div class="group-body">
+        <div class="sidecar">
+          <div class="body">
+            <div class="tags">
+              <span class="tag">organization</span>
+              <span class="tag">desk</span>
+              <span class="tag">parametric</span>
+              <span class="tag">openscad</span>
+            </div>
+            <div class="notes">
+              <h4>README <span class="file-ref">· README.md</span></h4>
+              Parametric desk hooks; tweak <code>hook_depth</code> and <code>screw_spacing</code> in the OpenSCAD source.
+              Three pre-rendered variants (small / medium / wide) live in <code>./renders/</code>.
+            </div>
+            <div class="meta-source">
+              meta-source: <a href="#">/share/working-files/desk-hooks-parametric/.modelmeta.json</a>
+              &nbsp;·&nbsp; schema v1
+            </div>
+          </div>
+          <div class="side">
+            <div class="kv"><span class="k">primary</span> hook_medium.3mf</div>
+            <div class="kv"><span class="k">origin</span> <span style="color:var(--text-muted);">self-authored</span></div>
+            <div class="kv"><span class="k">license</span> MIT</div>
+            <div class="kv"><span class="k">total size</span> 9.8 MB</div>
+          </div>
+        </div>
+
+        <div class="type-bar">
+          <div class="type-chips">
+            <button class="type-chip">All <span class="ct">22</span></button>
+            <button class="type-chip active">Models <span class="ct">9</span></button>
+            <button class="type-chip">Images <span class="ct">8</span></button>
+            <button class="type-chip">Other <span class="ct">5</span></button>
+          </div>
+          <div class="breadcrumb">
+            <button class="breadcrumb-up" title="Up one level">↑</button>
+            <button class="crumb">desk-hooks-parametric</button>
+            <span class="sep">›</span>
+            <button class="crumb current">renders</button>
+          </div>
+        </div>
+
+        <div class="file-list">
+          <div class="file-row primary">
+            <div class="file-thumb">3MF</div>
+            <div class="file-main">
+              <div class="file-name">hook_medium.3mf <span class="primary-tag">primary</span></div>
+              <div class="file-path">desk-hooks-parametric/renders/hook_medium.3mf</div>
+            </div>
+            <div class="file-meta">1.9 MB<span class="sub">2026-05-13</span></div>
+            <div class="file-meta">3MF<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb">3MF</div>
+            <div class="file-main">
+              <div class="file-name">hook_small.3mf</div>
+              <div class="file-path">desk-hooks-parametric/renders/hook_small.3mf</div>
+            </div>
+            <div class="file-meta">1.5 MB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">3MF<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb">3MF</div>
+            <div class="file-main">
+              <div class="file-name">hook_wide.3mf</div>
+              <div class="file-path">desk-hooks-parametric/renders/hook_wide.3mf</div>
+            </div>
+            <div class="file-meta">2.2 MB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">3MF<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Group 3: missing sidecar (still folder, no .modelmeta.json) ── -->
+    <div class="group-row" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb" aria-hidden="true" style="background:rgba(252,165,165,0.10); border-color:rgba(252,165,165,0.28); color:#fca5a5;">UF</div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">unsorted-fittings-batch-2026-05</div>
+          </div>
+          <div class="folder-hint">/share/working-files/unsorted-fittings-batch-2026-05/</div>
+          <div class="group-counts">
+            <div class="count"><span class="num">9</span> files</div>
+            <div class="count"><span class="num">4</span> models</div>
+            <div class="count"><span class="num">3</span> images</div>
+            <div class="count"><span class="num">2</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>yesterday</strong>2026-05-12 22:18</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▴</button>
+        </div>
+      </div>
+
+      <div class="group-body">
+        <div class="sidecar empty">
+          No sidecar yet. Run <strong>Intake Wizard from this folder</strong> (via <code>⋯</code> menu) to author <code>.modelmeta.json</code> + <code>README.md</code>, or just edit them directly on disk.
+        </div>
+
+        <div class="type-bar">
+          <div class="type-chips">
+            <button class="type-chip active">All <span class="ct">9</span></button>
+            <button class="type-chip">Models <span class="ct">4</span></button>
+            <button class="type-chip">Images <span class="ct">3</span></button>
+            <button class="type-chip">Other <span class="ct">2</span></button>
+          </div>
+        </div>
+
+        <div class="file-list">
+          <div class="file-row">
+            <div class="file-thumb stl">STL</div>
+            <div class="file-main">
+              <div class="file-name">fitting_a.stl</div>
+              <div class="file-path">unsorted-fittings-batch-2026-05/fitting_a.stl</div>
+            </div>
+            <div class="file-meta">420 KB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">STL<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-thumb stl">STL</div>
+            <div class="file-main">
+              <div class="file-name">fitting_b.stl</div>
+              <div class="file-path">unsorted-fittings-batch-2026-05/fitting_b.stl</div>
+            </div>
+            <div class="file-meta">385 KB<span class="sub">2026-05-12</span></div>
+            <div class="file-meta">STL<span class="sub">model</span></div>
+            <div class="file-actions">
+              <div class="file-action-split">
+                <button class="open-main">Open in Slicer</button>
+                <button class="file-action-toggle">▾</button>
+              </div>
+              <button class="btn-ghost">⋯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Group 4: COLLAPSED — shows just the header row ── -->
+    <div class="group-row collapsed" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb" aria-hidden="true">CC</div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">Cable Comb (under-desk)</div>
+          </div>
+          <div class="folder-hint">/share/working-files/cable-comb-under-desk/</div>
+          <div class="group-counts">
+            <div class="count"><span class="num">8</span> files</div>
+            <div class="count"><span class="num">3</span> models</div>
+            <div class="count"><span class="num">4</span> images</div>
+            <div class="count"><span class="num">1</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>3d ago</strong>2026-05-10 17:02</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▾</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Group 5: COLLAPSED, with title-override badge visible in header ── -->
+    <div class="group-row collapsed" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb" aria-hidden="true">FT</div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">Filament-Tree Spool Hook V2</div>
+            <span class="override-badge" title='Title overridden by .modelmeta.json "display_title"'>TITLE OVERRIDE</span>
+          </div>
+          <div class="folder-hint">/share/working-files/spool-hook-v2-makerworld-pull/</div>
+          <div class="group-counts">
+            <div class="count"><span class="num">17</span> files</div>
+            <div class="count"><span class="num">7</span> models</div>
+            <div class="count"><span class="num">6</span> images</div>
+            <div class="count"><span class="num">4</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>5d ago</strong>2026-05-08 11:30</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▾</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Group 6: COLLAPSED, missing sidecar (red-ish initials) ── -->
+    <div class="group-row collapsed" data-thumb="medium">
+      <div class="group-header">
+        <div class="group-thumb" aria-hidden="true" style="background:rgba(252,165,165,0.10); border-color:rgba(252,165,165,0.28); color:#fca5a5;">PT</div>
+        <div class="group-meta">
+          <div class="group-title-row">
+            <div class="group-title">printables-dump-2026-04</div>
+          </div>
+          <div class="folder-hint">/share/working-files/printables-dump-2026-04/</div>
+          <div class="group-counts">
+            <div class="count"><span class="num">32</span> files</div>
+            <div class="count"><span class="num">14</span> models</div>
+            <div class="count"><span class="num">12</span> images</div>
+            <div class="count"><span class="num">6</span> other</div>
+          </div>
+        </div>
+        <div class="group-right">
+          <div class="updated"><strong>2w ago</strong>2026-04-29 21:11</div>
+          <button class="overflow-btn" title="Group actions">⋯</button>
+          <button class="expander">▾</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.groups -->
+
+</div><!-- /.shell -->
+
+<div class="footnote">
+  <strong>V1 vs aspirational folder-first.</strong> The aspirational
+  <a href="working-files-folder-first.html" style="color:var(--accent);">working-files-folder-first.html</a>
+  mockup uses a left-rail group list + right detail pane + larger sidecar surface. This v1 keeps the single-stack
+  accordion that's already shipping, so the implementation diff is smaller: rename "Refresh" → "Re-index";
+  delete the mode-tab segmented control, search field, DRAFT/READY stage chips, and Reorganize button; collapse
+  the "WORKING GROUP FILES" subhead; add the small sidecar strip and per-group <code>⋯</code> overflow menu.
+  Authoritative spec: <a href="../working-files.md" style="color:var(--accent);">working-files.md</a>.
+  &nbsp;·&nbsp; Legacy mockups: <a href="../archive/working-files-legacy-2026-05/" style="color:var(--accent);">archive/working-files-legacy-2026-05/</a>.
+</div>
+
+</body>
+</html>
