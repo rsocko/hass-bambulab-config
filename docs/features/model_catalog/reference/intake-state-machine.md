@@ -369,5 +369,5 @@ Job History Actions:
 - `docs/features/model_catalog/intake-inbox-design.md`
 - `docs/features/model_catalog/import-flow-diagrams.md`
 - `docs/features/model_catalog/phase-1.5-intake-implementation-breakdown.md`
-- `docs/features/model_catalog/working-file-spec.md`
+- `docs/features/model_catalog/design/working-files.md`
 - `docs/features/model_catalog/phase-delivery-and-validation.md`

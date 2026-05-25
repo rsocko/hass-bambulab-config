@@ -21,8 +21,7 @@
 
 ### 🚀 Phase 5 Wave 1 (Current Execution)
 - **[Working-File Indexing And Grouping Feasibility](/docs/features/model_catalog/planning/working-file-indexing.md)** ← Issue #1059
-- **[Working File Inventory And Normalization Spec](../design/working-file-spec.md)** ← Issue #1074
-- **[Working Files Workflow Redesign](/docs/features/model_catalog/design/working-files-workflow.md)** ← Issue #1169
+- **[Working Files (folder-first design)](../design/working-files.md)** ← Supersedes the working-file-spec (#1074) and working-files workflow (#1169) work; legacy docs archived under `design/archive/working-files-legacy-2026-05/`
 - **[Main.py Modularization Low-Risk Plan](../planning/main-py-modularization.md)** ← Deterministic decomposition plan for sidecar backend
 - **[Main.py Modularization Issue Map](../planning/main-py-modularization-map.md)** ← Epic + child issue sequence and acceptance gates
 - **[Working Files Local Launch And Slicer Integration Design](/docs/features/model_catalog/design/working-files-launch.md)** ← Local file, slicer protocol, companion, and replace-flow design

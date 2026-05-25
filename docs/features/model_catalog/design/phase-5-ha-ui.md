@@ -212,7 +212,7 @@ This is the cleanest balance between native HA navigation, mobile stability, and
 - **#1145**: source mode, queue visibility, folder-selection controls, cleanup policy, result summaries
 - **#1169**: rework Working Files around `/assets/Model Working Files`, group-first navigation, and Explorer/launch actions
 
-Working Files redesign details for #1169 are tracked in [/docs/features/model_catalog/design/working-files-workflow.md](/docs/features/model_catalog/design/working-files-workflow.md).
+Working Files redesign details (superseding the #1169 group-first plan) are tracked in [/docs/features/model_catalog/design/working-files.md](/docs/features/model_catalog/design/working-files.md).
 
 ### Near-Term End-State Drivers
 
@@ -907,7 +907,7 @@ Suggested helpers:
 ## Related Docs
 
 - [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md)
-- [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)
+- [working-files.md](/docs/features/model_catalog/design/working-files.md) (supersedes the prior Working Groups + veneer plan)
 - [workflow-ingestion.md](../reference/workflow-ingestion.md)
 - [projects-design.md](/docs/features/model_catalog/design/projects.md)
 - [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md)

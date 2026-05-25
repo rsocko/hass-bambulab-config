@@ -480,7 +480,7 @@ No structural changes. `source_metadata_json` already captures:
 
 - [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md) — Overall intake workflow
 - [print-history/filter-sort-design.md](/docs/features/print_history/design/browser/filter-sort-design.md) — Layer architecture (applies to models too)
-- [working-file-spec.md](working-file-spec.md) — File organization standards
+- [working-files.md](working-files.md) §6 — File organization, indexing scope, and identity rules
 
 ## Testing Checklist
 

@@ -84,14 +84,14 @@ Lane navigation:
 - [Manyfold-Bambuddy Linkage Model](design/manyfold-bambuddy-linkage.md) â€” Data model and ownership split for archive-to-model links
 - [Custom Fields Schema](reference/custom-fields-schema.md) â€” Structured sidecar-owned metadata outside Manyfold
 - [API Cache And Sync Flow](design/api-cache-sync.md) â€” Runtime flow between Manyfold, Bambuddy, sidecar, and HA
-- [Working Groups And Veneer](planning/working-groups-veneer.md) â€” Logical Working-file grouping model, folder vs virtual grouping, and operator flows
+- [Working Files (folder-first design)](design/working-files.md) — Authoritative working-files model: a folder is a group, optional sidecar metadata, single explorer view (supersedes the old Working Groups model)
 - [Cross-Feature Data Contracts](reference/data-contracts.md) â€” Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
 - [Historical Print Backfill Via Model Catalog](reference/historical-backfill.md) â€” Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
 - [3MF Resource Extraction And Online Provenance Design](design/3mf-resource-extraction.md) â€” Resource taxonomy, parser/cache contract, STLShelf capability review, and issue-#173 phase mapping for `.3mf` images, support files, and public-source enrichment
 - [3MF Source Extraction (Source Tab + Intake)](design/3mf-source-extraction.md) â€” Operator-triggered extraction of source metadata from attached 3MF files, conflict policy for mixed-source models, and shared intake reuse contract
 - [Phase Delivery And Validation Tracker](planning/delivery-validation.md) â€” Concrete deliverables, validation steps, and milestone gating for phased implementation
 - [Working-File Indexing And Grouping Feasibility](planning/working-file-indexing.md) â€” Wave 1 feasibility decision and implementation guardrails for issue #1059
-- [Working File Inventory And Normalization Spec](design/working-file-spec.md) â€” Canonical path/name normalization, type scope, and dedupe identity rules for issue #1074
+- [Working Files (folder-first design)](design/working-files.md) §6 — Indexing scope, normalization, and dedupe identity rules (supersedes the legacy `working-file-spec.md`, archived under `design/archive/working-files-legacy-2026-05/`)
 - [Intake Flow States And Transitions](reference/intake-state-machine.md) â€” Canonical intake state machine and transition contract for issue #1079
 - [Import Flow Diagrams](reference/import-flows.md) â€” Canonical Source -> Organize -> Validate -> Commit flow and Job History-centric outcome model
 - [Intake Validation Contract](reference/intake-validation.md) â€” Concrete checks, warning codes, state mapping, and UI checklist contract for the Validate step

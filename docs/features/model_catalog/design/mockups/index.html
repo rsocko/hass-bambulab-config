@@ -30,7 +30,7 @@
 <body>
 
 <h1>Model Catalog · Design mockups</h1>
-<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign, the new <strong>Unified Production Queue</strong> surfaces, the new <strong>Catalog Advanced Actions</strong> popup, the new <strong>Landing Dashboard</strong> hub for issue #1174, the new <strong>Historical Print Backfill</strong> workflow for issue #1043, and external-source intake concepts. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, <a href="../working-files-card-design.md">working-files-card-design.md</a>, <a href="../landing-page-dashboard-design.md">landing-page-dashboard-design.md</a>, <a href="../print-history-backfill-design.md">print-history-backfill-design.md</a>, <a href="../unified-production-queue-design.md">unified-production-queue-design.md</a>, and <a href="../external-source-intake-design.md">external-source-intake-design.md</a>.</p>
+<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign, the new <strong>Unified Production Queue</strong> surfaces, the new <strong>Catalog Advanced Actions</strong> popup, the new <strong>Landing Dashboard</strong> hub for issue #1174, the new <strong>Historical Print Backfill</strong> workflow for issue #1043, and external-source intake concepts. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, <a href="../working-files.md">working-files.md</a>, <a href="../landing-page-dashboard-design.md">landing-page-dashboard-design.md</a>, <a href="../print-history-backfill-design.md">print-history-backfill-design.md</a>, <a href="../unified-production-queue-design.md">unified-production-queue-design.md</a>, and <a href="../external-source-intake-design.md">external-source-intake-design.md</a>.</p>
 
 <p class="section-title">Landing Hub</p>
 <div class="grid">
@@ -128,25 +128,10 @@
 
 <p class="section-title">Working Files</p>
 <div class="grid">
-  <a class="tile" href="working-files-groups.html">
-    <span class="badge amber">PRIMARY · NEW</span>
-    <h2>Groups view</h2>
-    <p>Expandable group rows with the inline <strong>Model Files</strong> strip — see every <code>.3mf</code>/<code>.stl</code> in a group, its size, last modified, and primary marker, plus per-file Slicer / overflow actions, all without opening the popup. Stage ribbon (left) and stage chip (right) reflect the group lifecycle.</p>
-  </a>
-  <a class="tile" href="working-files-files.html">
-    <span class="badge amber">FILES · NEW</span>
-    <h2>All Files / Ungrouped</h2>
-    <p>Tabular file-level triage view. 8-column layout with sticky bulk-action bar for cross-group reorganisation, group-membership chips that pin filters, validation indicators, and inline Slicer launch.</p>
-  </a>
-  <a class="tile" href="working-files-toolbar.html">
-    <span class="badge amber">TOOLBAR · NEW</span>
-    <h2>Toolbar / header</h2>
-    <p>Three-row stack mirroring the Catalog toolbar (issue #1216). Adds the Indexed-state pill + Reindex button, segmented view tabs, always-visible Import dropdown (Browser Upload / Server Inbox), and quick chips for <code>Modified &lt;7d</code>, <code>Has warnings</code>, and group/stage filters. Four scenarios shown.</p>
-  </a>
-  <a class="tile" href="working-files-group-popup.html">
-    <span class="badge amber">POPUP · NEW</span>
-    <h2>Group details popup</h2>
-    <p>Replaces the current <code>window.prompt</code> rename / destination-group flows with a proper edit surface — title, stage segmented, notes, reorderable file list with set-primary, per-file <strong>3D viewer</strong> (reuses catalog's <code>model-detail-3d-viewer-tab</code>) and Slicer launch, plus a linked-archive stub. Per-file metadata popup intentionally out of scope.</p>
+  <a class="tile" href="../working-files.md">
+    <span class="badge amber">CURRENT DESIGN</span>
+    <h2>Working Files (folder-first)</h2>
+    <p>The Working Files surface has been redesigned around a folder-first model: a folder is a group, optional <code>.modelmeta.json</code> sidecar metadata, and a single explorer view. See <a href="../working-files.md">design/working-files.md</a>. The legacy Groups / Files / Toolbar / Group-popup mockups have moved to <a href="../archive/working-files-legacy-2026-05/">design/archive/working-files-legacy-2026-05/</a>.</p>
   </a>
 </div>
 

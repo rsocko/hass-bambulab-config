@@ -175,7 +175,7 @@ Recommended default:
 - logical/virtual grouping in the sidecar as the primary model
 - folder structure used as a hint, not a requirement
 
-See [Working Groups And Veneer](/docs/features/model_catalog/planning/working-groups-veneer.md) for the working data model and UX implications.
+See [Working Files (folder-first design)](/docs/features/model_catalog/design/working-files.md) for the current working-files data model and UX. The previous Working Groups + veneer model has been retired — its plan is archived under `design/archive/working-files-legacy-2026-05/`.
 
 ## Lifecycle Language
 

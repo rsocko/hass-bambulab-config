@@ -4,7 +4,7 @@
 > **Tracking issue:** [#1174](https://github.com/rsocko/hass-bambulab-config/issues/1174)
 > **Scope:** A dynamic Home Assistant-first landing surface for the model catalog domain that summarizes operational state across Catalog, Working Files, Intake, External Imports, and the Unified Production Queue, then routes the operator into the correct detailed tab or popup to complete work.
 > **Companion mockups:** [mockups/landing-dashboard.html](mockups/landing-dashboard.html), [mockups/landing-dashboard-compact.html](mockups/landing-dashboard-compact.html), [mockups/landing-dashboard-analytics.html](mockups/landing-dashboard-analytics.html)
-> **Related design docs:** [catalog-card.md](catalog-card.md), [working-files-card.md](working-files-card.md), [unified-queue.md](unified-queue.md), [external-source-intake.md](external-source-intake.md), [intake-inbox.md](intake-inbox.md), [../reference/architecture.md](../reference/architecture.md)
+> **Related design docs:** [catalog-card.md](catalog-card.md), [working-files.md](working-files.md), [unified-queue.md](unified-queue.md), [external-source-intake.md](external-source-intake.md), [intake-inbox.md](intake-inbox.md), [../reference/architecture.md](../reference/architecture.md)
 
 ---
 
@@ -322,7 +322,7 @@ Primary actions:
 - `Open Ungrouped`
 - `Jump to All Files`
 
-The detailed organization behavior stays in [working-files-card.md](working-files-card.md).
+The detailed organization behavior stays in [working-files.md](working-files.md). Note: the landing-page hints "Open Groups" / "Open Ungrouped" / "Jump to All Files" predate the folder-first redesign — they should collapse to a single "Open Working Files" jump per the new single-view UI.
 
 ## 5.6 Catalog Snapshot
 

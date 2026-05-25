@@ -4,7 +4,7 @@
 > **Tracking issue:** [#1227 — "Advanced Actions" card for models](https://github.com/rsocko/hass-bambulab-config/issues/1227)
 > **Scope:** A new Lovelace custom card — `custom:model-catalog-advanced-actions-card` — that mirrors the Print History [print-history-archive-actions-card.js](../../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js) UX and architecture, applied to **catalog models** (not archives). Includes a proper **DELETE** flow (two-stage confirmation) which the Catalog does not have today.
 > **Companion mockup:** [mockups/catalog-advanced-actions.html](mockups/catalog-advanced-actions.html).
-> **Related design docs:** [catalog-popup.md](catalog-popup.md), [working-files-card.md](working-files-card.md), [/docs/features/model_catalog/design/working-files-workflow.md](/docs/features/model_catalog/design/working-files-workflow.md).
+> **Related design docs:** [catalog-popup.md](catalog-popup.md), [working-files.md](working-files.md).
 
 ---
 
@@ -219,7 +219,7 @@ Mirrors PH where applicable; renames archive-keyed inputs to model-keyed.
 1. **Type-to-confirm on final delete?** PH does not require typing; for the catalog the destructive surface is broader (links + photos cascading). Recommend requiring the operator to type the model title in `confirm-delete-2`. Defer if scope creeps.
 2. **Soft archive vs. hard delete vs. both?** Both. Soft archive (`archived_at`) is the everyday "hide it" affordance; hard delete is the irreversible cleanup. Card shows soft archive in the Danger tab as a less-destructive alternative *above* the delete button.
 3. **Merge UX — auto-pick or manual?** Recommend manual for v1 (pick target via the existing catalog search modal). A future "find duplicates → merge selected" bulk path can layer on top of the duplicate-models sub-mode.
-4. **Where does the entry button live?** On the model-detail popup ([catalog-popup.md](catalog-popup.md)), as a `mdi:dots-horizontal` overflow icon in the top-right action row, mirroring the PH browser card pattern. Optionally also on each catalog browser card (compact / list / media) as the `⋯` overflow — same pattern proposed in [working-files-card.md §3.7](working-files-card.md).
+4. **Where does the entry button live?** On the model-detail popup ([catalog-popup.md](catalog-popup.md)), as a `mdi:dots-horizontal` overflow icon in the top-right action row, mirroring the PH browser card pattern. Optionally also on each catalog browser card (compact / list / media) as the `⋯` overflow — same overflow pattern is reused by the Working Files explorer ([working-files.md](working-files.md)).
 5. **Bulk version?** Issue #1227 doesn't explicitly call for it, but a `compare_model_ids_json` config input (parity with PH) leaves the door open for a future bulk-action surface invoked from list-view selection. Out of scope for v1.
 6. **Manyfold push when no Manyfold integration is configured** — the action should be conditionally hidden (parity with how PH `view-timelapse` is hidden when no timelapse exists) rather than disabled-with-tooltip.
 7. **Tags vs. queue state vs. publish destinations** — three logically distinct fields; the design doc keeps them in `edit-fields` (queue, publish destinations) and `edit-tags` (tags) sub-modes for visual focus. Reconsider if operator feedback says they're all edited together in practice.

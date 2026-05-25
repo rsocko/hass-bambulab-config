@@ -62,7 +62,7 @@ These must complete before any implementation begins. They freeze the data model
   - Identity strategy locked in
 - **Owner**: Design/spec
 - **GitHub**: [#1074](https://github.com/rsocko/hass-bambulab-config/issues/1074)
-- **Deliverable**: `docs/features/model_catalog/working-file-spec.md`
+- **Deliverable**: `docs/features/model_catalog/design/working-files.md` (folder-first design; supersedes the original `working-file-spec.md`)
 
 #### 3️⃣ #1079: Define intake flow states + transitions
 - **Effort**: 1.5 days (spec writing)

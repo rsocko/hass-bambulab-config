@@ -294,5 +294,5 @@ The documented design is only considered complete if later implementation can be
 
 - [3mf-resource-extraction-and-online-provenance-design.md](/docs/features/model_catalog/design/3mf-resource-extraction.md)
 - [phase-5-end-state-ui-and-handoff-design.md](/docs/features/model_catalog/design/phase-5-end-state.md)
-- [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)
+- [working-files.md](/docs/features/model_catalog/design/working-files.md) (supersedes the prior Working Groups + veneer plan)
 - [implementation-plan.md](../planning/implementation-plan.md)

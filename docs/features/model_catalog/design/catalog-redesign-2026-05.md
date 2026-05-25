@@ -123,7 +123,7 @@ No enforced link. They stay orthogonal: Collection answers *"what curated tree d
 |---|---|---|---|---|
 | `model` | yes (3MF / STL / etc.) | shown | yes | terminal |
 | `idea` | no (concept only; optional links to external pages, sketches, notes) | hidden — `Show ideas` chip to surface | yes | promote to `model` or `working_group` when files arrive |
-| `working_group` | yes (working-files set staged for slicing/prep — see [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)) | hidden — `Show working groups` chip to surface | yes | promote to `model` when ready to publish/share, or dissolve at project close |
+| `working_group` | **DEPRECATED** — superseded by the folder-first design in [working-files.md](/docs/features/model_catalog/design/working-files.md). Treat any remaining `entity_type = working_group` rows as legacy until the deprecation plan in [working-groups-deprecation.md](/docs/features/model_catalog/planning/working-groups-deprecation.md) ships. | n/a | n/a | retire (no promotion) |
 
 All three share the same membership / favorite / archive / popup machinery; the only differences are the default-visibility filter, the badge/pill shown on the card, and the available promotion actions in the popup.
 
@@ -462,7 +462,7 @@ After close, the Project transitions to `completed` (or `archived` if the operat
 
 **Data model addition:**
 - `entity_type = working_group` on the Catalog entry that represents a Working Group.
-- Existing Working-Files schema (per [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)) is the underlying storage; the Catalog entry is a **lightweight projection** that exposes the WG to membership/favorite/popup machinery without duplicating files.
+- *(Historical context.)* The original plan reused the Working-Files schema as the underlying storage and projected a lightweight Catalog entry over it. That schema is being retired — see [working-files.md](/docs/features/model_catalog/design/working-files.md) and the [deprecation plan](/docs/features/model_catalog/planning/working-groups-deprecation.md). New work should not depend on this projection.
 - Working Group Catalog entry inherits: title, member-file count, total size, last-modified timestamp; carries Project/Collection/Tag memberships independently.
 
 **Catalog UX**
@@ -775,7 +775,7 @@ The full set of GitHub issues opened on 2026-05-13/14 to track this redesign. Ea
 - [phase-6-search-ranking-and-discovery-design.md](/docs/features/model_catalog/design/phase-6-search.md)
 - [external-competitive-prioritized-implementation-backlog-2026-05-08.md](/docs/features/model_catalog/planning/external-competitive-backlog.md)
 - [working-files-local-launch-and-slicer-integration-design.md](/docs/features/model_catalog/design/working-files-launch.md)
-- [working-groups-and-veneer.md](/docs/features/model_catalog/planning/working-groups-veneer.md)
+- [working-files.md](/docs/features/model_catalog/design/working-files.md) (supersedes the prior Working Groups + veneer plan)
 - [storage-architecture-and-file-organization.md](/docs/features/model_catalog/reference/storage-architecture.md)
 
 ### Existing GitHub issues this redesign aligns with (not superseded; track work under)
