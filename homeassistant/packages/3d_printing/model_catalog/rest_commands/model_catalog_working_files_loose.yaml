@@ -1,0 +1,11 @@
+model_catalog_working_files_loose:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(200)) | int(200) | string)] -%}
+    {%- set ns.params = ns.params + ['offset=' ~ ((offset | default(0)) | int(0) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/working-files/loose?{{ ns.params | join('&') }}
+  method: GET
