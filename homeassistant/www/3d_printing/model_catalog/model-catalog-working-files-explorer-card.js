@@ -2382,10 +2382,10 @@
         + '<ha-card>'
         + '  <div class="shell thumb-' + escapeHtml(this._thumbnailSize || 'small') + '">'
         + '    <div class="title-row">'
-        + '      <div class="group-title-row">'
+        + '      <div>'
         + '        <div class="title">' + escapeHtml(this._config.title) + '</div>'
-        +          (workingRootAction ? this._renderFolderActionSplit(workingRootAction.path, workingRootAction.windowsPath, 'Open') : '')
         + '      </div>'
+        +      (workingRootAction ? this._renderFolderActionSplit(workingRootAction.path, workingRootAction.windowsPath, 'Open Working Files Folder on Desktop') : '')
         + '    </div>'
         + '    ' + (this._status && this._status !== 'Updating results...' ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
         + '    ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
