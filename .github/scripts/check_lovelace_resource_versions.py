@@ -24,10 +24,12 @@ def run_git(*args: str, check: bool = True) -> str:
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if check and result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "git command failed")
-    return result.stdout
+        raise RuntimeError((result.stderr or "").strip() or "git command failed")
+    return result.stdout or ""
 
 
 def git_ref_exists(ref: str) -> bool:
@@ -36,6 +38,8 @@ def git_ref_exists(ref: str) -> bool:
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return result.returncode == 0
 
@@ -61,8 +65,10 @@ def read_manifest_at_ref(ref: str, manifest_path: str) -> dict[str, str]:
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
-    if result.returncode != 0:
+    if result.returncode != 0 or result.stdout is None:
         return {}
     return parse_manifest_text(result.stdout)
 
@@ -127,8 +133,10 @@ def read_imports_at_ref(ref: str, importer_path: str) -> dict[str, str]:
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
-    if result.returncode != 0:
+    if result.returncode != 0 or result.stdout is None:
         return {}
     return parse_imports(result.stdout, importer_path)
 
