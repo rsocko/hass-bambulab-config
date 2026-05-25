@@ -1602,6 +1602,59 @@ def test_reindex_repairs_working_group_item_paths_after_file_move(tmp_path: Path
         client.__exit__(None, None, None)
 
 
+def test_reindex_repairs_moved_group_item_without_stored_hash(tmp_path: Path) -> None:
+    working_root = tmp_path / "Model Working Files"
+    group_root = working_root / "lsu-signs"
+    original_folder = group_root / "old-folder"
+    moved_folder = group_root / "new-folder"
+    original_folder.mkdir(parents=True, exist_ok=True)
+    moved_folder.mkdir(parents=True, exist_ok=True)
+    source_file = original_folder / "LSU Tigers Sign.3mf"
+    source_file.write_bytes(b"lsu-sign")
+
+    client = _create_client(tmp_path, working_root)
+    try:
+        create_group = client.post("/api/working-groups", json={"title": "LSU Signs", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+
+        add_item = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(source_file), "item_role": "primary"},
+        )
+        assert add_item.status_code == 200
+
+        connection = sqlite3.connect(tmp_path / "model_catalog.db")
+        try:
+            connection.execute(
+                "UPDATE working_items SET file_hash = NULL WHERE working_group_id = ?",
+                (group_id,),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        moved_file = moved_folder / source_file.name
+        source_file.rename(moved_file)
+
+        reindex_response = client.post(
+            "/api/working-files/reindex",
+            json={"compute_hashes": False, "recurse": True},
+        )
+        assert reindex_response.status_code == 200
+        reindex_payload = reindex_response.json()
+        assert reindex_payload["success"] is True
+        assert reindex_payload["repaired_group_paths"] == 1
+
+        group_response = client.get(f"/api/working-groups/{group_id}")
+        assert group_response.status_code == 200
+        group_payload = group_response.json()
+        assert group_payload["group"]["primary_file_path"] == str(moved_file)
+        assert group_payload["group"]["items"][0]["file_path"] == str(moved_file)
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_reorganize_working_group_renames_when_destination_file_exists(tmp_path: Path) -> None:
     source_root = tmp_path / "working"
     source_root.mkdir(parents=True, exist_ok=True)

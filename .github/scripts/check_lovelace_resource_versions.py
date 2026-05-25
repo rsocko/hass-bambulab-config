@@ -133,11 +133,12 @@ def read_imports_at_ref(ref: str, importer_path: str) -> dict[str, str]:
     return parse_imports(result.stdout, importer_path)
 
 
-def emit_issue(mode: str, message: str) -> None:
+def emit_issue(mode: str, path: str, message: str) -> None:
+    problem_line = f"{path}:1:1: {message}"
     if mode == "warn":
-        print(f"::warning::{message}")
+        print(f"::warning file={path},line=1,col=1::{message}")
     else:
-        print(message)
+        print(problem_line)
 
 
 def resolve_diff_and_baseline(base_ref: str | None) -> tuple[str, str] | tuple[None, None]:
@@ -200,7 +201,7 @@ def main() -> int:
     previous_import_cache: dict[str, dict[str, str]] = {}
     selected_packages = normalize_selected_packages(args.selected_packages)
 
-    issues: list[str] = []
+    issues: list[tuple[str, str]] = []
     for changed_path in changed_js_files:
         manifest_base_url = current_www_url(changed_path)
         current_manifest_url = current_manifest.get(manifest_base_url)
@@ -209,11 +210,17 @@ def main() -> int:
         if current_manifest_url is not None:
             if "?v=" not in current_manifest_url:
                 issues.append(
-                    f"{changed_path} is tracked in {args.manifest}, but its resource URL is missing a ?v= cache-bust suffix: {current_manifest_url}"
+                    (
+                        args.manifest,
+                        f"{changed_path} is tracked in {args.manifest}, but its resource URL is missing a ?v= cache-bust suffix: {current_manifest_url}",
+                    )
                 )
             elif current_manifest_url == previous_manifest_url:
                 issues.append(
-                    f"{changed_path} changed, but {args.manifest} did not bump its versioned URL for {manifest_base_url}."
+                    (
+                        args.manifest,
+                        f"{changed_path} changed, but {args.manifest} did not bump its versioned URL for {manifest_base_url}.",
+                    )
                 )
             continue
 
@@ -225,7 +232,10 @@ def main() -> int:
 
         if not importers:
             issues.append(
-                f"{changed_path} changed, but no tracked versioned importer or direct {args.manifest} entry was found."
+                (
+                    changed_path,
+                    f"{changed_path} changed, but no tracked versioned importer or direct {args.manifest} entry was found.",
+                )
             )
             continue
 
@@ -237,13 +247,16 @@ def main() -> int:
             previous_spec = previous_imports.get(changed_path)
             if previous_spec == current_spec:
                 issues.append(
-                    f"{changed_path} changed, but {importer_path} still imports it as {current_spec}. Bump that ?v= dependency string."
+                    (
+                        importer_path,
+                        f"{changed_path} changed, but {importer_path} still imports it as {current_spec}. Bump that ?v= dependency string.",
+                    )
                 )
 
     if issues:
         print(f"Resource cache-bust check found {len(issues)} issue(s) in {diff_range}.")
-        for issue in issues:
-            emit_issue(args.mode, issue)
+        for issue_path, issue_message in issues:
+            emit_issue(args.mode, issue_path, issue_message)
         return 1 if args.mode == "fail" else 0
 
     print(f"Resource cache-bust check passed for {len(changed_js_files)} JS change(s) in {diff_range}.")

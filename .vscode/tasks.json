@@ -22,7 +22,20 @@
         "panel": "shared",
         "clear": true
       },
-      "problemMatcher": []
+      "problemMatcher": {
+        "owner": "lovelace-resource-cache-bust",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^([^:]+):(\\d+):(\\d+):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        }
+      }
     }
   ]
 }

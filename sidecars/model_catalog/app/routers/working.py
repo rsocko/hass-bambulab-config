@@ -896,6 +896,14 @@ def _repair_stale_working_group_paths(connection: sqlite3.Connection, *, now_iso
         if not current_path:
             continue
 
+        raw_source_metadata = str(item_row["source_metadata_json"] or "{}").strip() or "{}"
+        try:
+            source_metadata = json.loads(raw_source_metadata)
+        except json.JSONDecodeError:
+            source_metadata = {}
+        if not isinstance(source_metadata, dict):
+            source_metadata = {}
+
         item_hash = str(item_row["file_hash"] or "").strip().lower()
         replacement_row = inventory_by_hash.get(item_hash) if item_hash else None
         if replacement_row is None and item_hash:
@@ -924,6 +932,26 @@ def _repair_stale_working_group_paths(connection: sqlite3.Connection, *, now_iso
                     break
 
         if replacement_row is None:
+            candidate_key = (
+                Path(current_path).name.strip().lower(),
+                int(item_row["file_size"]) if item_row["file_size"] is not None else None,
+            )
+            metadata_candidates = list(candidate_rows_by_name_size.get(candidate_key, []))
+            for field_name in ("source_mtime", "source_birthtime", "source_ctime"):
+                expected_value = str(source_metadata.get(field_name) or "").strip()
+                if not expected_value or len(metadata_candidates) <= 1:
+                    continue
+                narrowed = [
+                    candidate
+                    for candidate in metadata_candidates
+                    if str(candidate.get(field_name) or "").strip() == expected_value
+                ]
+                if narrowed:
+                    metadata_candidates = narrowed
+            if len(metadata_candidates) == 1:
+                replacement_row = metadata_candidates[0]
+
+        if replacement_row is None:
             continue
 
         next_path = str(replacement_row.get("source_path_canonical") or replacement_row.get("source_path_raw") or "").strip()
@@ -932,13 +960,6 @@ def _repair_stale_working_group_paths(connection: sqlite3.Connection, *, now_iso
         if not next_path or not next_key or next_key == current_key:
             continue
 
-        raw_source_metadata = str(item_row["source_metadata_json"] or "{}").strip() or "{}"
-        try:
-            source_metadata = json.loads(raw_source_metadata)
-        except json.JSONDecodeError:
-            source_metadata = {}
-        if not isinstance(source_metadata, dict):
-            source_metadata = {}
         source_metadata["source_path"] = next_path
         for field_name in ("source_mtime", "source_ctime", "source_birthtime"):
             field_value = str(replacement_row.get(field_name) or "").strip()

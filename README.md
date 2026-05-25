@@ -58,3 +58,4 @@ That sets `core.hooksPath` to `.githooks`, which enables `.githooks/pre-push` fo
 The hook runs `.github/scripts/check_lovelace_resource_versions.py` before each push and blocks the push if changed `homeassistant/www/3d_printing/**/*.js` files do not have the matching version bump chain.
 
 If you want to run the same check manually in VS Code before pushing, use the task `Run Lovelace Resource Cache-Bust Check`.
+That task now publishes failures into the Problems panel with clickable file links.
