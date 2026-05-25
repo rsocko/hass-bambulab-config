@@ -207,7 +207,7 @@ class TestContributionFieldStorage:
 class TestPublicationSources:
     """Test all supported publication source platforms."""
     
-    supported_sources = ["makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other", "original"]
+    supported_sources = ["makerworld", "printables", "thingiverse", "cults3d", "other", "original"]
     
     @pytest.mark.parametrize("source", supported_sources)
     def test_publication_source_enum(self, temp_db, source):
@@ -406,10 +406,10 @@ class TestContributionFiltering:
             model_ref=model2,
         )
         
-        assert fields1.get("publication_source") in ["makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other"]
+        assert fields1.get("publication_source") in ["makerworld", "printables", "thingiverse", "cults3d", "other"]
         assert fields1.get("publication_contribution_rated_at") is None
         
-        assert fields2.get("publication_source") in ["makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other"]
+        assert fields2.get("publication_source") in ["makerworld", "printables", "thingiverse", "cults3d", "other"]
         assert fields2.get("publication_contribution_rated_at") is not None
     
     def test_needs_photos_shared_filter_scenario(self, temp_db):

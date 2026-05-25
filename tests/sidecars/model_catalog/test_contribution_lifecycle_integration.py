@@ -70,7 +70,7 @@ class TestContributionMetadataStructure:
     
     def test_publication_source_enum_values(self, test_model_data):
         """Test that publication_source accepts valid enum values."""
-        valid_sources = ["makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other", "original"]
+        valid_sources = ["makerworld", "printables", "thingiverse", "cults3d", "other", "original"]
         publication_source = test_model_data["structured_metadata"]["publishing"]["publication_source"]
         assert publication_source in valid_sources
 
@@ -85,7 +85,7 @@ class TestContributionPanelVisibility:
         
         # Panel should be visible when source is not 'original'
         assert publication_source != "original"
-        assert publication_source in ["makerworld", "printables", "thingiverse", "cults3d", "manyfold", "other"]
+        assert publication_source in ["makerworld", "printables", "thingiverse", "cults3d", "other"]
     
     def test_panel_hidden_for_original_models(self):
         """Test that contribution panel is hidden for locally created models."""
@@ -312,7 +312,6 @@ class TestFrontendPanelRendering:
             "printables": "Printables",
             "thingiverse": "Thingiverse",
             "cults3d": "Cults3D",
-            "manyfold": "Manyfold",
             "other": "Community Source",
         }
         assert publication_source in platform_names

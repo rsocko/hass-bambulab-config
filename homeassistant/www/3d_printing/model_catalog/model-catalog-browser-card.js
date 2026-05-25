@@ -3320,7 +3320,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       printables: "Printables",
       thingiverse: "Thingiverse",
       cults3d: "Cults3D",
-      manyfold: "Manyfold",
       other: "Other",
       original_local: "Local original",
     };

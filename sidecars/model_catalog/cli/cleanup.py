@@ -20,7 +20,7 @@ TABLE_DELETE_ORDER = [
     "model_catalog_events",
     "model_catalog_links",
     "model_catalog_model_ranking",
-    "manyfold_model_summary_cache",
+    "model_summary_cache",
     "model_catalog_entries",
 ]
 

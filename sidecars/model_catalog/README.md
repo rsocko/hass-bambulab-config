@@ -126,7 +126,7 @@ tables = [
 	"model_catalog_events",
 	"model_catalog_links",
 	"model_catalog_model_ranking",
-	"manyfold_model_summary_cache",  # legacy table name
+	"model_summary_cache",
 	"model_catalog_entries",
 ]
 
