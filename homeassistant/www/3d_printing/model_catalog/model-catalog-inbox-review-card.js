@@ -31,9 +31,9 @@ function suggestedGroupTitle(sourceEntry) {
     return hintedTitle;
   }
   if (String(sourceEntry && sourceEntry.type || '').toLowerCase() === 'folder') {
-    return basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
+    return basename(sourceEntry && sourceEntry.path || '') || 'Untitled';
   }
-  return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
+  return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Untitled';
 }
 
 function validationActionSummary(actions) {
@@ -86,7 +86,6 @@ function normalizedTerminalResult(item) {
     kind: 'none',
     primary_result_id: null,
     local_model_ids: [],
-    working_group_ids: [],
     group_results: [],
     raw: item && item.terminal_result_id,
   };
@@ -96,9 +95,6 @@ function splitTerminalResultIds(item) {
   var terminalResult = normalizedTerminalResult(item);
   if (Array.isArray(terminalResult.local_model_ids) && terminalResult.local_model_ids.length) {
     return terminalResult.local_model_ids.slice();
-  }
-  if (Array.isArray(terminalResult.working_group_ids) && terminalResult.working_group_ids.length) {
-    return terminalResult.working_group_ids.slice();
   }
   return String(item && item.terminal_result_id || '')
     .split(',')
@@ -113,15 +109,8 @@ function terminalDisplayAction(item) {
 function terminalResultSummary(item) {
   var terminalResult = normalizedTerminalResult(item);
   var curatedCount = Array.isArray(terminalResult.local_model_ids) ? terminalResult.local_model_ids.length : 0;
-  var workingCount = Array.isArray(terminalResult.working_group_ids) ? terminalResult.working_group_ids.length : 0;
-  if (curatedCount && workingCount) {
-    return 'Curated ' + String(curatedCount) + ', Working ' + String(workingCount);
-  }
   if (curatedCount) {
     return curatedCount === 1 ? terminalResult.local_model_ids[0] : 'Curated ' + String(curatedCount);
-  }
-  if (workingCount) {
-    return workingCount === 1 ? terminalResult.working_group_ids[0] : 'Working ' + String(workingCount);
   }
   return 'Not recorded';
 }
@@ -162,7 +151,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       defaultView: 'active_queue',
       historyOnly: false,
       sectionEntity: '',
-      workingSection: 'working',
       curatedSection: 'curated',
       modelEntity: 'input_text.model_catalog_sidecar_base_url',
       modelSidecarUrl: '',
@@ -257,14 +245,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
 
   _terminalSummaryMarkup(item, proposedTitle) {
     var terminalAction = terminalDisplayAction(item);
-    var terminalResult = normalizedTerminalResult(item);
-    var hasCurated = Array.isArray(terminalResult.local_model_ids) && terminalResult.local_model_ids.length;
-    var hasWorking = Array.isArray(terminalResult.working_group_ids) && terminalResult.working_group_ids.length;
-    var resultLabel = hasCurated && hasWorking
-      ? 'Results'
-      : (terminalAction === 'published_to_catalog'
-        ? 'Local Model'
-        : (terminalAction === 'rejected' ? 'Outcome' : 'Working Group'));
+    var resultLabel = terminalAction === 'rejected' ? 'Outcome' : 'Local Model';
     var resultValue = terminalResultSummary(item);
     var actorValue = String(item.terminal_actor || 'queue_processed').trim();
 
@@ -277,17 +258,13 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     var terminalAction = terminalDisplayAction(item);
     var terminalResult = normalizedTerminalResult(item);
     var localModelIds = Array.isArray(terminalResult.local_model_ids) ? terminalResult.local_model_ids : [];
-    var workingGroupIds = Array.isArray(terminalResult.working_group_ids) ? terminalResult.working_group_ids : [];
     var buttons = [];
 
-    if (terminalAction === 'published_to_catalog' && localModelIds.length === 1 && !workingGroupIds.length) {
+    if (terminalAction === 'published_to_catalog' && localModelIds.length === 1) {
       buttons.push('<button class="button primary" data-action="view-local-model" data-local-model-id="' + escapeHtml(localModelIds[0]) + '" data-model-name="' + escapeHtml(proposedTitle || localModelIds[0]) + '">View Model</button>');
     }
     if (localModelIds.length) {
       buttons.push('<button class="button' + (!buttons.length ? ' primary' : '') + '" data-action="open-curated-section" data-local-model-id="' + escapeHtml(localModelIds[0]) + '">Open Curated</button>');
-    }
-    if (workingGroupIds.length) {
-      buttons.push('<span class="chip" title="Legacy working-group reference">Legacy: ' + escapeHtml(workingGroupIds.join(', ')) + '</span>');
     }
     buttons.push('<button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>');
     return buttons.join('');
