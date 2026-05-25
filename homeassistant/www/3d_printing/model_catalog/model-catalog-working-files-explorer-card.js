@@ -117,6 +117,10 @@
     return String(extension || "").replace(/^\./, "").toUpperCase() || "FILE";
   }
 
+  function formatCountLabel(label, count) {
+    return String(label || "") + " \u00b7 " + String(Number(count || 0));
+  }
+
   function isSlicerLaunchableExtension(extension) {
     return String(extension || '').toLowerCase() === '.3mf';
   }
@@ -398,6 +402,7 @@
     + '.button{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
     + '.button.primary{background:rgba(20,184,166,0.2);border-color:rgba(94,234,212,0.34);color:#99f6e4;}'
     + '.button.warn{background:rgba(180,83,9,0.2);border-color:rgba(245,158,11,0.4);}'
+    + '.button.compact{min-height:30px;padding:0 10px;font-size:11px;}'
     + '.button:disabled{opacity:.6;cursor:not-allowed;}'
     + '.field{display:grid;gap:6px;min-width:0;}'
     + '.field label{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
@@ -423,6 +428,7 @@
     + '.group-title{font-size:14px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;cursor:pointer;}'
     + '.folder-hint{font-size:11px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + '.path-summary{margin-top:6px;font-size:10px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;display:flex;gap:8px;flex-wrap:wrap;}'
+    + '.summary-row{margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}'
     + '.path-summary strong{color:#93c5fd;font-weight:700;}'
     + '.stage-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.3);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(100,116,139,0.2);color:#dbe7f2;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);}'
     + '.stage-chip.draft{border-color:rgba(148,163,184,0.44);background:rgba(71,85,105,0.34);color:#e2e8f0;}'
@@ -479,6 +485,31 @@
     + '.selector{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);}'
     + '.group-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(148,163,184,0.2);}'
     + '.group-actions .spacer{flex:1;}'
+    + '.dialog-scrim{position:fixed;inset:0;background:rgba(2,6,23,0.72);display:flex;align-items:center;justify-content:center;padding:18px;z-index:40;}'
+    + '.dialog{width:min(720px,100%);max-height:min(82vh,900px);overflow:auto;border-radius:20px;border:1px solid rgba(148,163,184,0.24);background:linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(15,23,42,0.96) 100%);box-shadow:0 24px 80px rgba(2,6,23,0.55);padding:18px;display:grid;gap:14px;}'
+    + '.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}'
+    + '.dialog-title{font-size:18px;font-weight:800;line-height:1.2;}'
+    + '.dialog-copy{font-size:12px;color:var(--secondary-text-color);line-height:1.5;}'
+    + '.dialog-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;}'
+    + '.dialog-kpi{padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.46);display:grid;gap:4px;}'
+    + '.dialog-kpi-label{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}'
+    + '.dialog-kpi-value{font-size:18px;font-weight:800;line-height:1.1;}'
+    + '.dialog-card{padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.38);display:grid;gap:8px;}'
+    + '.dialog-card.warn{border-color:rgba(245,158,11,0.34);background:rgba(120,53,15,0.18);}'
+    + '.dialog-card.error{border-color:rgba(248,113,113,0.34);background:rgba(127,29,29,0.18);}'
+    + '.dialog-card.success{border-color:rgba(52,211,153,0.34);background:rgba(6,78,59,0.18);}'
+    + '.dialog-label{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}'
+    + '.dialog-path{font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-word;}'
+    + '.dialog-list{display:grid;gap:8px;max-height:220px;overflow:auto;}'
+    + '.dialog-list-item{padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.14);background:rgba(255,255,255,0.03);display:grid;gap:4px;}'
+    + '.dialog-list-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}'
+    + '.dialog-list-title{font-size:12px;font-weight:700;word-break:break-word;}'
+    + '.dialog-list-meta{font-size:10px;color:var(--secondary-text-color);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-word;}'
+    + '.dialog-list-note{font-size:11px;color:var(--secondary-text-color);line-height:1.4;}'
+    + '.dialog-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}'
+    + '.dialog-spinner{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--secondary-text-color);}'
+    + '.dialog-spinner::before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid rgba(148,163,184,0.24);border-top-color:#99f6e4;animation:mcwf-spin .8s linear infinite;}'
+    + '@keyframes mcwf-spin{to{transform:rotate(360deg);}}'
     + '.section-head{padding-bottom:8px;}'
     + '.other-strip{border:1px dashed rgba(148,163,184,0.26);border-radius:10px;padding:8px;display:grid;gap:6px;}'
     + '.other-head{display:flex;justify-content:space-between;font-size:10px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}'
@@ -559,6 +590,7 @@
       this._loadingGroupFiles = {};
       this._thumbnailSize = 'small';
       this._fileActionMenuPath = '';
+      this._reorganizeDialog = null;
       this._backgroundReindexInFlight = false;
       this._lastAppliedScopeStamp = 0;
       this._catalogScope = 'working';
@@ -1210,6 +1242,13 @@
       document.body.removeChild(anchor);
     }
 
+    _localHelperRequestMessage(action) {
+      var requestLabel = action === 'open_folder'
+        ? 'Requested local folder open.'
+        : (action === 'open_in_slicer' ? 'Requested local slicer open.' : 'Requested local file open.');
+      return requestLabel + ' If nothing happens, install or re-register the desktop helper on this machine.';
+    }
+
     async _launchLocalHelperAction(action, pathValue) {
       var normalizedPath = String(pathValue || '').trim();
       if (!normalizedPath) {
@@ -1232,11 +1271,7 @@
           throw new Error('No helper launch URL was returned.');
         }
         this._openWindow(launchUrl, '_self');
-        this._showCopyToast(
-          action === 'open_folder'
-            ? 'Requested local folder open...'
-            : (action === 'open_in_slicer' ? 'Requested local slicer open...' : 'Requested local file open...')
-        );
+        this._showCopyToast(this._localHelperRequestMessage(action));
       } catch (error) {
         this._error = error && error.message ? String(error.message) : 'Could not launch the local helper action.';
         this._render();
@@ -1500,10 +1535,10 @@
       var counts = this._folderTypeCounts(groupFiles);
       return ''
         + '<div class="folder-type-filters inline">'
-        + '<button class="type-chip type-all' + (typeFilter === 'all' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="all">All ' + String(counts.all) + '</button>'
-        + '<button class="type-chip type-models' + (typeFilter === 'models' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">Models ' + String(counts.models) + '</button>'
-        + '<button class="type-chip type-images' + (typeFilter === 'images' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">Images ' + String(counts.images) + '</button>'
-        + '<button class="type-chip type-other' + (typeFilter === 'other' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="other">Other Files ' + String(counts.other) + '</button>'
+        + '<button class="type-chip type-all' + (typeFilter === 'all' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="all">' + escapeHtml(formatCountLabel('All', counts.all)) + '</button>'
+        + '<button class="type-chip type-models' + (typeFilter === 'models' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="models">' + escapeHtml(formatCountLabel('Models', counts.models)) + '</button>'
+        + '<button class="type-chip type-images' + (typeFilter === 'images' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="images">' + escapeHtml(formatCountLabel('Images', counts.images)) + '</button>'
+        + '<button class="type-chip type-other' + (typeFilter === 'other' ? ' active' : '') + '" data-action="set-group-file-type" data-group-id="' + String(groupId) + '" data-file-type="other">' + escapeHtml(formatCountLabel('Other Files', counts.other)) + '</button>'
         + '</div>';
     }
 
@@ -1946,6 +1981,180 @@
           this._render();
         }
       }.bind(this), 3000);
+    }
+
+    _closeReorganizeDialog() {
+      this._reorganizeDialog = null;
+      this._render();
+    }
+
+    _setReorganizeDialog(dialog) {
+      this._reorganizeDialog = dialog;
+      this._render();
+    }
+
+    _normalizeReorganizePayload(group, payload, phase) {
+      var operationPlan = Array.isArray(payload && payload.operation_plan)
+        ? payload.operation_plan
+        : (Array.isArray(payload && payload.plan) ? payload.plan : []);
+      var collisionRenames = Array.isArray(payload && payload.collision_renames)
+        ? payload.collision_renames
+        : (Array.isArray(payload && payload.conflicts) ? payload.conflicts : []);
+      var duplicateSkips = Array.isArray(payload && payload.duplicate_hash_skips)
+        ? payload.duplicate_hash_skips
+        : [];
+      var moveCount = Number(payload && payload.moved_count);
+      if (!Number.isFinite(moveCount)) {
+        moveCount = operationPlan.filter(function (entry) {
+          return String(entry && entry.action || '').toLowerCase() === 'move';
+        }).length;
+      }
+      var collisionCount = Number(payload && payload.collisions_detected);
+      if (!Number.isFinite(collisionCount)) {
+        collisionCount = collisionRenames.length;
+      }
+      var duplicateCount = Number(payload && payload.duplicate_hash_skipped_count);
+      if (!Number.isFinite(duplicateCount)) {
+        duplicateCount = duplicateSkips.length;
+      }
+      return {
+        open: true,
+        phase: phase,
+        groupId: Number(group && group.id || 0),
+        groupTitle: String(group && group.title || 'Working Files Group'),
+        targetFolder: String(payload && (payload.target_folder || payload.folder_hint || (group && group.folder_hint) || '') || ''),
+        canExecute: payload ? payload.can_execute !== false : true,
+        moveCount: moveCount,
+        collisionCount: collisionCount,
+        duplicateCount: duplicateCount,
+        operationPlan: operationPlan,
+        collisionRenames: collisionRenames,
+        duplicateSkips: duplicateSkips,
+        movedCount: Number(payload && payload.moved_count || 0),
+        auditEvents: Array.isArray(payload && payload.audit_events) ? payload.audit_events : [],
+        raw: payload || {},
+      };
+    }
+
+    _reorganizeEntryPaths(entry) {
+      return {
+        fromPath: String(entry && (entry.source_path || entry.file_path || entry.from_path || entry.source || entry.path) || ''),
+        toPath: String(entry && (entry.target_path || entry.destination_path || entry.to_path || entry.target || entry.new_path) || ''),
+      };
+    }
+
+    _renderReorganizeList(entries, emptyText) {
+      if (!Array.isArray(entries) || !entries.length) {
+        return '<div class="state-row">' + escapeHtml(emptyText) + '</div>';
+      }
+      return '<div class="dialog-list">' + entries.slice(0, 8).map(function (entry) {
+        var paths = this._reorganizeEntryPaths(entry);
+        var title = basename(paths.fromPath || paths.toPath || String(entry && entry.name || 'Item'));
+        var note = String(entry && (entry.reason || entry.message || entry.note || '') || '').trim();
+        var badge = String(entry && (entry.action || (entry.collision_renamed ? 'rename' : 'detail')) || 'detail');
+        return ''
+          + '<div class="dialog-list-item">'
+          + '  <div class="dialog-list-top"><div class="dialog-list-title">' + escapeHtml(title || 'Planned item') + '</div><span class="group-chip">' + escapeHtml(formatStage(badge)) + '</span></div>'
+          + (paths.fromPath ? '<div class="dialog-list-meta">From: ' + escapeHtml(paths.fromPath) + '</div>' : '')
+          + (paths.toPath ? '<div class="dialog-list-meta">To: ' + escapeHtml(paths.toPath) + '</div>' : '')
+          + (note ? '<div class="dialog-list-note">' + escapeHtml(note) + '</div>' : '')
+          + '</div>';
+      }, this).join('')
+        + (entries.length > 8 ? '<div class="dialog-list-note">Showing first ' + String(Math.min(entries.length, 8)) + ' of ' + String(entries.length) + ' items.</div>' : '')
+        + '</div>';
+    }
+
+    _renderReorganizeDialog() {
+      var dialog = this._reorganizeDialog;
+      if (!dialog || !dialog.open) {
+        return '';
+      }
+      var phase = String(dialog.phase || 'planning');
+      var targetFolder = String(dialog.targetFolder || '(unknown target)');
+      var bodyHtml = '';
+      var actionsHtml = '<button class="button" data-action="close-reorganize-dialog">Close</button>';
+
+      if (phase === 'planning') {
+        bodyHtml = ''
+          + '<div class="dialog-card"><div class="dialog-spinner">Checking the reorganize plan for this group.</div></div>'
+          + '<div class="dialog-card"><div class="dialog-label">Group</div><div class="dialog-path">' + escapeHtml(dialog.groupTitle) + '</div></div>';
+        actionsHtml = '<button class="button" data-action="close-reorganize-dialog">Cancel</button>';
+      } else if (phase === 'executing') {
+        bodyHtml = ''
+          + '<div class="dialog-card"><div class="dialog-spinner">Moving files into the target folder.</div></div>'
+          + '<div class="dialog-card"><div class="dialog-label">Target Folder</div><div class="dialog-path">' + escapeHtml(targetFolder) + '</div></div>';
+      } else {
+        var message = String(dialog.raw && dialog.raw.message || '').trim();
+        var headingText = 'Review the dry-run before moving files.';
+        if (phase === 'result') {
+          headingText = dialog.moveCount || dialog.movedCount
+            ? 'The reorganize operation completed.'
+            : 'No file moves were required.';
+        } else if (phase === 'blocked') {
+          headingText = message || 'The dry-run completed, but this group needs attention before continuing.';
+        }
+        bodyHtml = ''
+          + '<div class="dialog-copy">' + escapeHtml(headingText) + '</div>'
+          + '<div class="dialog-kpis">'
+          + '  <div class="dialog-kpi"><div class="dialog-kpi-label">Moves</div><div class="dialog-kpi-value">' + String(phase === 'result' ? dialog.movedCount : dialog.moveCount) + '</div></div>'
+          + '  <div class="dialog-kpi"><div class="dialog-kpi-label">Collision Renames</div><div class="dialog-kpi-value">' + String(dialog.collisionCount || 0) + '</div></div>'
+          + '  <div class="dialog-kpi"><div class="dialog-kpi-label">Duplicate Skips</div><div class="dialog-kpi-value">' + String(dialog.duplicateCount || 0) + '</div></div>'
+          + '</div>'
+          + '<div class="dialog-card' + (phase === 'blocked' ? ' error' : (phase === 'result' ? ' success' : '')) + '"><div class="dialog-label">Target Folder</div><div class="dialog-path">' + escapeHtml(targetFolder) + '</div></div>';
+
+        if (phase !== 'result') {
+          bodyHtml += '<div class="dialog-card"><div class="dialog-label">Planned Moves</div>' + this._renderReorganizeList(dialog.operationPlan.filter(function (entry) {
+            return String(entry && entry.action || '').toLowerCase() === 'move';
+          }), 'No file moves are planned.') + '</div>';
+        }
+
+        if (dialog.collisionCount) {
+          bodyHtml += '<div class="dialog-card warn"><div class="dialog-label">Collision Renames</div>' + this._renderReorganizeList(dialog.collisionRenames, 'No rename collisions were reported.') + '</div>';
+        }
+        if (dialog.duplicateCount) {
+          bodyHtml += '<div class="dialog-card warn"><div class="dialog-label">Duplicate Hash Skips</div>' + this._renderReorganizeList(dialog.duplicateSkips, 'No duplicate hash skips were reported.') + '</div>';
+        }
+
+        if (phase === 'confirm') {
+          actionsHtml = ''
+            + '<button class="button" data-action="close-reorganize-dialog">Cancel</button>'
+            + '<button class="button primary" data-action="confirm-reorganize-dialog">Run Reorganize</button>';
+        }
+      }
+
+      return ''
+        + '<div class="dialog-scrim" role="dialog" aria-modal="true" aria-label="Reorganize working group">'
+        + '  <div class="dialog">'
+        + '    <div class="dialog-head"><div><div class="dialog-title">Reorganize ' + escapeHtml(dialog.groupTitle) + '</div></div></div>'
+        + bodyHtml
+        + '    <div class="dialog-actions">' + actionsHtml + '</div>'
+        + '  </div>'
+        + '</div>';
+    }
+
+    async _confirmReorganizeDialog() {
+      var dialog = this._reorganizeDialog;
+      if (!dialog || !dialog.groupId) {
+        return;
+      }
+      this._setReorganizeDialog(Object.assign({}, dialog, { phase: 'executing' }));
+      try {
+        var executed = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_reorganize_working_group', {
+          group_id: dialog.groupId,
+          execute: true,
+        });
+        var resultDialog = this._normalizeReorganizePayload({ id: dialog.groupId, title: dialog.groupTitle, folder_hint: dialog.targetFolder }, executed, 'result');
+        this._selectedPaths = {};
+        this._status = 'Reorganized ' + String(resultDialog.movedCount || 0) + ' file(s).';
+        await this._loadExplorer();
+        this._setReorganizeDialog(resultDialog);
+      } catch (error) {
+        this._setReorganizeDialog(Object.assign({}, dialog, {
+          phase: 'blocked',
+          canExecute: false,
+          raw: { message: error && error.message ? String(error.message) : 'Could not reorganize group files.' },
+        }));
+      }
     }
 
     _renderGroupsPane() {
