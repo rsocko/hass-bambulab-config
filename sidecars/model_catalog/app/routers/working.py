@@ -1675,6 +1675,531 @@ def list_working_files(request: Request,
     }
 
 
+# ==================== ENDPOINTS: FOLDER-FIRST WORKING FILES (design §6.4) ====================
+#
+# These endpoints implement the folder-first model from
+# docs/features/model_catalog/design/working-files.md §6.4.
+# They derive "groups" from filesystem folders under the configured working-files
+# root rather than from the now-removed working_groups/working_items tables.
+# See docs/features/model_catalog/planning/working-groups-deprecation.md for the
+# legacy surface they replace.
+
+_WORKING_FILES_DEPRECATION_BODY: dict[str, Any] = {
+    "success": False,
+    "error": "endpoint_gone",
+    "message": (
+        "Working Groups have been removed in favor of folder-first Working Files. "
+        "Use the new /api/working-files/* endpoints listed in 'new_endpoints'. "
+        "See the deprecation plan for migration guidance."
+    ),
+    "deprecation_plan": "docs/features/model_catalog/planning/working-groups-deprecation.md",
+    "design": "docs/features/model_catalog/design/working-files.md",
+    "new_endpoints": [
+        "GET /api/working-files/tree",
+        "GET /api/working-files/groups/{folder_slug}",
+        "GET /api/working-files/groups/{folder_slug}/files?mode=files|folders",
+        "GET /api/working-files/loose",
+        "POST /api/working-files/reindex",
+    ],
+}
+
+_WORKING_FILES_GONE_HEADERS: dict[str, str] = {
+    "Deprecation": "true",
+    "Link": '</api/working-files/tree>; rel="successor-version"',
+}
+
+
+def _working_files_gone_response() -> JSONResponse:
+    """Return HTTP 410 Gone response for legacy working-groups endpoints."""
+    return JSONResponse(
+        status_code=410,
+        content=_WORKING_FILES_DEPRECATION_BODY,
+        headers=_WORKING_FILES_GONE_HEADERS,
+    )
+
+
+def _primary_working_root(settings: Settings) -> Path | None:
+    """Return the first configured working-files root, if any."""
+    roots = _configured_working_files_roots(settings)
+    return roots[0] if roots else None
+
+
+def _relative_under_root(source_path: str | None, root: Path) -> str | None:
+    """Return POSIX-style relative path of source_path under root, or None."""
+    if not source_path:
+        return None
+    try:
+        rel = Path(source_path).resolve().relative_to(root.resolve())
+    except (ValueError, OSError):
+        return None
+    rel_str = str(rel).replace("\\", "/").strip("/")
+    return rel_str or None
+
+
+def _top_level_folder_of(rel_path: str) -> str | None:
+    """Return the first path segment of rel_path, or None if file is at root."""
+    parts = [segment for segment in rel_path.split("/") if segment and segment != "."]
+    if len(parts) <= 1:
+        return None
+    return parts[0]
+
+
+def _read_folder_sidecar(folder_path: Path) -> dict[str, Any]:
+    """Read .modelmeta.json + README.md from folder, if present."""
+    out: dict[str, Any] = {"modelmeta": None, "readme": None}
+    meta_path = folder_path / ".modelmeta.json"
+    if meta_path.is_file():
+        try:
+            out["modelmeta"] = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            out["modelmeta_error"] = str(exc)
+    readme_path = folder_path / "README.md"
+    if readme_path.is_file():
+        try:
+            out["readme"] = readme_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            out["readme_error"] = str(exc)
+    return out
+
+
+def _inventory_file_payload(row: sqlite3.Row, settings: Settings) -> dict[str, Any]:
+    """Shared serializer for a single working_file_inventory row."""
+    canonical_path = str(row["source_path_canonical"] or row["source_path_raw"] or "")
+    return {
+        "id": int(row["id"]),
+        "source_path_raw": row["source_path_raw"],
+        "source_path_canonical": row["source_path_canonical"],
+        "source_path_compare_key": row["source_path_compare_key"],
+        "file_name_raw": row["file_name_raw"],
+        "file_name_base_hint": row["file_name_base_hint"],
+        "file_extension": row["file_extension"],
+        "file_size_bytes": int(row["file_size_bytes"] or 0),
+        "sha256_hash": row["sha256_hash"],
+        "source_mtime": row["source_mtime"],
+        "source_ctime": row["source_ctime"],
+        "source_birthtime": row["source_birthtime"],
+        "validation_state": row["validation_state"],
+        "warnings": json.loads(str(row["warnings_json"] or "[]")),
+        "detected_at": row["detected_at"],
+        "last_seen_at": row["last_seen_at"],
+        "root_path": row["root_path"],
+        "launch": _launch_context_for_path(canonical_path, settings),
+    }
+
+
+@router.get("/api/working-files/tree")
+def working_files_tree(request: Request) -> Any:
+    """Top-level groups (folders under working root) + (loose files) summary.
+
+    Implements design §6.4. Groups are derived from the first-level subfolders
+    of the configured working-files root. Loose files are files indexed at the
+    root (no subfolder).
+    """
+    state: AppState = request.app.state.model_catalog
+    root = _primary_working_root(state.settings)
+    if root is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_root",
+                "message": "MODEL_CATALOG_WORKING_FILES_ROOT is not configured.",
+            },
+        )
+
+    root_str = str(root)
+    connection = connect(state.settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """
+            SELECT source_path_canonical, source_path_raw, file_extension,
+                   file_size_bytes, last_seen_at
+            FROM working_file_inventory
+            WHERE root_path = ?
+            """,
+            (root_str,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    folder_buckets: dict[str, dict[str, Any]] = {}
+    loose_count = 0
+    loose_size = 0
+    loose_last_seen: str | None = None
+
+    for row in rows:
+        rel = _relative_under_root(row["source_path_canonical"] or row["source_path_raw"], root)
+        if rel is None:
+            continue
+        top = _top_level_folder_of(rel)
+        size = int(row["file_size_bytes"] or 0)
+        last_seen = row["last_seen_at"]
+        ext = str(row["file_extension"] or "").lower()
+        if top is None:
+            loose_count += 1
+            loose_size += size
+            if last_seen and (loose_last_seen is None or last_seen > loose_last_seen):
+                loose_last_seen = last_seen
+            continue
+        bucket = folder_buckets.setdefault(
+            top,
+            {
+                "slug": top,
+                "name": top,
+                "file_count": 0,
+                "size_bytes": 0,
+                "count_3mf": 0,
+                "last_seen_at": None,
+                "has_modelmeta": (root / top / ".modelmeta.json").is_file(),
+                "has_readme": (root / top / "README.md").is_file(),
+            },
+        )
+        bucket["file_count"] += 1
+        bucket["size_bytes"] += size
+        if ext == ".3mf":
+            bucket["count_3mf"] += 1
+        if last_seen and (bucket["last_seen_at"] is None or last_seen > bucket["last_seen_at"]):
+            bucket["last_seen_at"] = last_seen
+
+    groups = sorted(folder_buckets.values(), key=lambda g: g["name"].lower())
+
+    return {
+        "success": True,
+        "root_path": root_str,
+        "root_launch": _launch_context_for_path(root_str, state.settings),
+        "groups": groups,
+        "loose": {
+            "file_count": loose_count,
+            "size_bytes": loose_size,
+            "last_seen_at": loose_last_seen,
+        },
+    }
+
+
+@router.get("/api/working-files/loose")
+def working_files_loose(
+    request: Request,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> Any:
+    """Files at the working-files root (no subfolder)."""
+    state: AppState = request.app.state.model_catalog
+    root = _primary_working_root(state.settings)
+    if root is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_root",
+                "message": "MODEL_CATALOG_WORKING_FILES_ROOT is not configured.",
+            },
+        )
+
+    limit_value = max(1, min(int(limit or 200), 1000))
+    offset_value = max(0, int(offset or 0))
+    root_str = str(root)
+
+    connection = connect(state.settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM working_file_inventory
+            WHERE root_path = ?
+            ORDER BY file_name_base_hint ASC, source_path_canonical ASC
+            """,
+            (root_str,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    loose_rows = [
+        row
+        for row in rows
+        if _top_level_folder_of(
+            _relative_under_root(row["source_path_canonical"] or row["source_path_raw"], root) or ""
+        )
+        is None
+        and _relative_under_root(row["source_path_canonical"] or row["source_path_raw"], root)
+        is not None
+    ]
+
+    total = len(loose_rows)
+    paged = loose_rows[offset_value : offset_value + limit_value]
+
+    return {
+        "success": True,
+        "root_path": root_str,
+        "pagination": {
+            "limit": limit_value,
+            "offset": offset_value,
+            "total": total,
+        },
+        "files": [_inventory_file_payload(row, state.settings) for row in paged],
+    }
+
+
+@router.get("/api/working-files/groups/{folder_slug}")
+def working_files_group_detail(request: Request, folder_slug: str) -> Any:
+    """Group detail: file count, folder tree, sidecar contents.
+
+    folder_slug is the top-level folder name under the configured working-files
+    root. Returns 404 if the folder does not exist on disk.
+    """
+    state: AppState = request.app.state.model_catalog
+    root = _primary_working_root(state.settings)
+    if root is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_root",
+                "message": "MODEL_CATALOG_WORKING_FILES_ROOT is not configured.",
+            },
+        )
+
+    slug = (folder_slug or "").strip()
+    if not slug or "/" in slug or "\\" in slug or slug.startswith(".") or slug in {"..", "."}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_folder_slug",
+                "message": "folder_slug must be a single top-level folder name.",
+            },
+        )
+
+    folder_path = root / slug
+    if not folder_path.is_dir():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "folder_not_found",
+                "message": f"Folder '{slug}' does not exist under the working-files root.",
+                "folder_slug": slug,
+            },
+        )
+
+    root_str = str(root)
+    folder_str = str(folder_path)
+    connection = connect(state.settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """
+            SELECT file_extension, file_size_bytes, last_seen_at,
+                   source_path_canonical, source_path_raw
+            FROM working_file_inventory
+            WHERE root_path = ?
+            """,
+            (root_str,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    subfolders: dict[str, dict[str, Any]] = {}
+    file_count = 0
+    size_bytes = 0
+    count_3mf = 0
+    last_seen: str | None = None
+
+    for row in rows:
+        rel = _relative_under_root(row["source_path_canonical"] or row["source_path_raw"], root)
+        if not rel:
+            continue
+        if _top_level_folder_of(rel) != slug:
+            continue
+        size = int(row["file_size_bytes"] or 0)
+        ext = str(row["file_extension"] or "").lower()
+        row_last_seen = row["last_seen_at"]
+        file_count += 1
+        size_bytes += size
+        if ext == ".3mf":
+            count_3mf += 1
+        if row_last_seen and (last_seen is None or row_last_seen > last_seen):
+            last_seen = row_last_seen
+        parts = [segment for segment in rel.split("/") if segment]
+        if len(parts) > 2:
+            subfolder_rel = "/".join(parts[1:-1])
+            sub = subfolders.setdefault(
+                subfolder_rel,
+                {"path": subfolder_rel, "file_count": 0, "size_bytes": 0},
+            )
+            sub["file_count"] += 1
+            sub["size_bytes"] += size
+
+    sidecar = _read_folder_sidecar(folder_path)
+
+    return {
+        "success": True,
+        "folder_slug": slug,
+        "folder_path": folder_str,
+        "folder_launch": _launch_context_for_path(folder_str, state.settings),
+        "counts": {
+            "file_count": file_count,
+            "size_bytes": size_bytes,
+            "count_3mf": count_3mf,
+            "count_other": max(0, file_count - count_3mf),
+        },
+        "last_seen_at": last_seen,
+        "subfolders": sorted(subfolders.values(), key=lambda s: s["path"].lower()),
+        "sidecar": sidecar,
+    }
+
+
+@router.get("/api/working-files/groups/{folder_slug}/files")
+def working_files_group_files(
+    request: Request,
+    folder_slug: str,
+    mode: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> Any:
+    """Paginated file listing for a group, optionally folder-organized."""
+    state: AppState = request.app.state.model_catalog
+    root = _primary_working_root(state.settings)
+    if root is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_root",
+                "message": "MODEL_CATALOG_WORKING_FILES_ROOT is not configured.",
+            },
+        )
+
+    slug = (folder_slug or "").strip()
+    if not slug or "/" in slug or "\\" in slug or slug.startswith(".") or slug in {"..", "."}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_folder_slug",
+                "message": "folder_slug must be a single top-level folder name.",
+            },
+        )
+
+    folder_path = root / slug
+    if not folder_path.is_dir():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "folder_not_found",
+                "message": f"Folder '{slug}' does not exist under the working-files root.",
+                "folder_slug": slug,
+            },
+        )
+
+    mode_value = (mode or "files").strip().lower() or "files"
+    if mode_value not in {"files", "folders"}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_mode",
+                "message": "mode must be one of: files, folders",
+            },
+        )
+
+    limit_value = max(1, min(int(limit or 200), 1000))
+    offset_value = max(0, int(offset or 0))
+    root_str = str(root)
+
+    connection = connect(state.settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM working_file_inventory
+            WHERE root_path = ?
+            ORDER BY
+                CASE
+                    WHEN file_extension = '.3mf' THEN 0
+                    WHEN file_extension IN ('.stl', '.step', '.stp', '.obj') THEN 1
+                    WHEN file_extension = '.zip' THEN 2
+                    ELSE 3
+                END ASC,
+                file_name_base_hint ASC,
+                source_path_canonical ASC
+            """,
+            (root_str,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    scoped_rows = [
+        row
+        for row in rows
+        if _top_level_folder_of(
+            _relative_under_root(row["source_path_canonical"] or row["source_path_raw"], root) or ""
+        )
+        == slug
+    ]
+
+    total = len(scoped_rows)
+
+    if mode_value == "files":
+        paged = scoped_rows[offset_value : offset_value + limit_value]
+        return {
+            "success": True,
+            "folder_slug": slug,
+            "mode": "files",
+            "pagination": {
+                "limit": limit_value,
+                "offset": offset_value,
+                "total": total,
+            },
+            "files": [_inventory_file_payload(row, state.settings) for row in paged],
+        }
+
+    # mode == "folders": group files by their subfolder under the group root
+    bucketed: dict[str, list[sqlite3.Row]] = {}
+    for row in scoped_rows:
+        rel = _relative_under_root(row["source_path_canonical"] or row["source_path_raw"], root) or ""
+        parts = [segment for segment in rel.split("/") if segment]
+        # parts[0] == slug; remaining segments are subfolders + filename
+        sub_rel = "/".join(parts[1:-1]) if len(parts) > 2 else ""
+        bucketed.setdefault(sub_rel, []).append(row)
+
+    folders_payload = [
+        {
+            "path": sub_rel,
+            "file_count": len(bucket),
+            "files": [_inventory_file_payload(row, state.settings) for row in bucket],
+        }
+        for sub_rel, bucket in sorted(bucketed.items(), key=lambda kv: kv[0].lower())
+    ]
+
+    paged_folders = folders_payload[offset_value : offset_value + limit_value]
+
+    return {
+        "success": True,
+        "folder_slug": slug,
+        "mode": "folders",
+        "pagination": {
+            "limit": limit_value,
+            "offset": offset_value,
+            "total": len(folders_payload),
+            "total_files": total,
+        },
+        "folders": paged_folders,
+    }
+
+
+# ==================== DEPRECATED ENDPOINTS: WORKING GROUPS (HTTP 410) ====================
+#
+# Per docs/features/model_catalog/planning/working-groups-deprecation.md PR C,
+# all /api/working-groups/* endpoints and the legacy
+# /api/working-files/explorer endpoint return HTTP 410 Gone. The route
+# declarations are kept so OpenAPI and ops dashboards can still see them; the
+# bodies just return the deprecation envelope pointing at the new endpoints.
+
+
 @router.get("/api/working-files/explorer")
 def explore_working_files(request: Request,
     view: str | None = None,
@@ -1685,316 +2210,8 @@ def explore_working_files(request: Request,
     limit: int | None = None,
     offset: int | None = None,
 ) -> Any:
-    """Explore working files grouped or ungrouped."""
-    state: AppState = request.app.state.model_catalog
-    view_mode = str(view or "groups").strip().lower() or "groups"
-    if view_mode not in {"groups", "all", "ungrouped"}:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_view", "message": "view must be one of groups, all, ungrouped"})
-
-    limit_value = max(1, min(int(limit or 200), 1000))
-    offset_value = max(0, int(offset or 0))
-
-    where_clauses = ["1=1"]
-    params: list[Any] = []
-    if q and q.strip():
-        q_like = f"%{q.strip().lower()}%"
-        where_clauses.append("(LOWER(file_name_raw) LIKE ? OR LOWER(file_name_base_hint) LIKE ?)")
-        params.extend([q_like, q_like])
-    if extension and extension.strip():
-        normalized_ext = extension.strip().lower()
-        if not normalized_ext.startswith("."):
-            normalized_ext = f".{normalized_ext}"
-        where_clauses.append("file_extension = ?")
-        params.append(normalized_ext)
-    if path_contains and path_contains.strip():
-        where_clauses.append("LOWER(source_path_canonical) LIKE ?")
-        params.append(f"%{path_contains.strip().lower()}%")
-
-    where_sql = " AND ".join(where_clauses)
-    preferred_roots = _configured_working_files_roots(state.settings)
-    working_root_path = str(preferred_roots[0]) if preferred_roots else ""
-    working_root_launch = _launch_context_for_path(working_root_path, state.settings) if working_root_path else {}
-    light_mode = view_mode == "groups" and _coerce_bool(lightweight) and not (q and q.strip())
-
-    scoped_where_sql = where_sql
-    scoped_params: list[Any] = list(params)
-    if preferred_roots:
-        placeholders = ", ".join("?" for _ in preferred_roots)
-        scoped_where_sql = f"{where_sql} AND root_path IN ({placeholders})"
-        scoped_params.extend([str(root) for root in preferred_roots])
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        memberships_by_key: dict[str, list[dict[str, Any]]] = {}
-        all_files: list[dict[str, Any]] = []
-        ungrouped_files: list[dict[str, Any]] = []
-        summary_all_count = 0
-        summary_ungrouped_count = 0
-
-        if view_mode in {"all", "ungrouped"} or not light_mode:
-            inventory_rows = connection.execute(
-                f"""
-                SELECT *
-                FROM working_file_inventory
-                WHERE {scoped_where_sql}
-                ORDER BY
-                    CASE
-                        WHEN file_extension = '.3mf' THEN 0
-                        WHEN file_extension IN ('.stl', '.step', '.stp', '.obj') THEN 1
-                        WHEN file_extension = '.zip' THEN 2
-                        ELSE 3
-                    END ASC,
-                    file_name_base_hint ASC,
-                    source_path_canonical ASC
-                """,
-                scoped_params,
-            ).fetchall()
-
-            path_keys = {
-                _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
-                for row in inventory_rows
-                if _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
-            }
-            memberships_by_key = _file_membership_map(connection, path_keys=path_keys)
-
-            for row in inventory_rows:
-                canonical_path = str(row["source_path_canonical"] or row["source_path_raw"] or "")
-                compare_key = _normalize_path_compare_key(canonical_path)
-                memberships = memberships_by_key.get(compare_key, [])
-                all_files.append(
-                    {
-                        "id": int(row["id"]),
-                        "source_path_raw": row["source_path_raw"],
-                        "source_path_canonical": row["source_path_canonical"],
-                        "source_path_compare_key": row["source_path_compare_key"],
-                        "file_name_raw": row["file_name_raw"],
-                        "file_name_base_hint": row["file_name_base_hint"],
-                        "file_extension": row["file_extension"],
-                        "file_size_bytes": int(row["file_size_bytes"] or 0),
-                        "sha256_hash": row["sha256_hash"],
-                        "source_mtime": row["source_mtime"],
-                        "source_ctime": row["source_ctime"],
-                        "source_birthtime": row["source_birthtime"],
-                        "validation_state": row["validation_state"],
-                        "warnings": json.loads(str(row["warnings_json"] or "[]")),
-                        "detected_at": row["detected_at"],
-                        "last_seen_at": row["last_seen_at"],
-                        "root_path": row["root_path"],
-                        "launch": _launch_context_for_path(canonical_path, state.settings),
-                        "group_memberships": memberships,
-                    }
-                )
-
-            ungrouped_files = [entry for entry in all_files if not entry["group_memberships"]]
-            summary_all_count = len(all_files)
-            summary_ungrouped_count = len(ungrouped_files)
-        else:
-            summary_row = connection.execute(
-                f"""
-                SELECT
-                    COUNT(*) AS all_count,
-                    COALESCE(SUM(CASE
-                        WHEN NOT EXISTS (
-                            SELECT 1
-                            FROM working_items wi
-                            WHERE LOWER(REPLACE(wi.file_path, '\\', '/')) = working_file_inventory.source_path_compare_key
-                        ) THEN 1
-                        ELSE 0
-                    END), 0) AS ungrouped_count
-                FROM working_file_inventory
-                WHERE {scoped_where_sql}
-                """,
-                scoped_params,
-            ).fetchone()
-            summary_all_count = int(summary_row["all_count"] or 0) if summary_row else 0
-            summary_ungrouped_count = int(summary_row["ungrouped_count"] or 0) if summary_row else 0
-
-        if view_mode in {"all", "ungrouped"}:
-            scoped_files = all_files if view_mode == "all" else ungrouped_files
-            paged = scoped_files[offset_value: offset_value + limit_value]
-            return {
-                "success": True,
-                "view": view_mode,
-                "summary": {
-                    "all_count": summary_all_count,
-                    "ungrouped_count": summary_ungrouped_count,
-                    "working_root_path": working_root_path,
-                    "working_root_launch": working_root_launch,
-                },
-                "pagination": {
-                    "limit": limit_value,
-                    "offset": offset_value,
-                    "total": len(scoped_files),
-                },
-                "files": paged,
-            }
-
-        group_rows = connection.execute(
-            """
-            SELECT *
-            FROM working_groups
-            ORDER BY updated_at DESC, id DESC
-            LIMIT ? OFFSET ?
-            """,
-            (limit_value, offset_value),
-        ).fetchall()
-        groups = []
-        for group_row in group_rows:
-            if light_mode:
-                group_id = int(group_row["id"])
-                title = str(group_row["title"] or "")
-                notes = str(group_row["notes"] or "")
-                folder_hint = str(group_row["folder_hint"] or "")
-                if q and q.strip():
-                    query_text = q.strip().lower()
-                    haystack = " ".join([title, notes, folder_hint]).lower()
-                    if query_text not in haystack:
-                        continue
-
-                counts_row = connection.execute(
-                    """
-                    SELECT
-                        COUNT(*) AS total,
-                        COALESCE(SUM(CASE WHEN LOWER(file_path) LIKE '%.3mf' THEN 1 ELSE 0 END), 0) AS count_3mf
-                    FROM working_items
-                    WHERE working_group_id = ?
-                    """,
-                    (group_id,),
-                ).fetchone()
-                total_count = int(counts_row["total"] or 0) if counts_row else 0
-                count_3mf = int(counts_row["count_3mf"] or 0) if counts_row else 0
-                item_rows = connection.execute(
-                    """
-                    SELECT file_path
-                    FROM working_items
-                    WHERE working_group_id = ?
-                    ORDER BY id ASC
-                    """,
-                    (group_id,),
-                ).fetchall()
-
-                primary_file_path = str(group_row["primary_file_path"] or "")
-                discovery_source_folder = str(group_row["discovery_source_folder"] or "")
-                effective_folder_path = _working_group_effective_folder_path(
-                    item_paths=[str(item_row["file_path"] or "") for item_row in item_rows],
-                    folder_hint=folder_hint,
-                    primary_file_path=primary_file_path,
-                    discovery_source_folder=discovery_source_folder,
-                )
-                groups.append(
-                    {
-                        "id": group_id,
-                        "slug": group_row["slug"],
-                        "title": title,
-                        "stage": group_row["stage"],
-                        "notes": group_row["notes"],
-                        "folder_hint": group_row["folder_hint"],
-                        "launch": {
-                            "assets_root_host": str(getattr(state.settings, "assets_root_host", "") or "").strip(),
-                            "windows_launch_enabled": _windows_launch_enabled(state.settings),
-                            "primary": _launch_context_for_path(primary_file_path, state.settings),
-                            "folder": _launch_context_for_path(effective_folder_path, state.settings),
-                        },
-                        "primary_file_path": group_row["primary_file_path"],
-                        "updated_at": group_row["updated_at"],
-                        "counts": {
-                            "total": total_count,
-                            "count_3mf": count_3mf,
-                            "count_other": max(0, total_count - count_3mf),
-                        },
-                        "files_loaded": False,
-                        "files": [],
-                    }
-                )
-                continue
-
-            serialized_group = _serialize_working_group(connection, group_row, state.settings)
-            sorted_items = sorted(
-                serialized_group.get("items") or [],
-                key=lambda item: _working_file_sort_key(
-                    file_extension=Path(str(item.get("file_path") or "")).suffix.lower(),
-                    file_name=Path(str(item.get("file_path") or "")).name,
-                    file_path=str(item.get("file_path") or ""),
-                ),
-            )
-            for item in sorted_items:
-                file_path = str(item.get("file_path") or "")
-                membership_key = _normalize_path_compare_key(file_path)
-                item["group_memberships"] = memberships_by_key.get(membership_key, [])
-                source_metadata = item.get("source_metadata")
-                if not isinstance(source_metadata, dict):
-                    source_metadata = {}
-                has_thumbnail = any(
-                    str(source_metadata.get(field) or "").strip()
-                    for field in ("thumbnail_url", "preview_url", "image_url", "embedded_thumbnail_url", "thumb_url")
-                )
-                if not has_thumbnail:
-                    preview_url = _working_preview_url(file_path)
-                    if preview_url:
-                        source_metadata["thumbnail_url"] = preview_url
-                        source_metadata["image_url"] = preview_url
-                        if Path(file_path).suffix.lower() == ".3mf":
-                            source_metadata["embedded_thumbnail_url"] = preview_url
-                        item["source_metadata"] = source_metadata
-
-            if q and q.strip():
-                query_text = q.strip().lower()
-                haystack = " ".join(
-                    [
-                        str(serialized_group.get("title") or ""),
-                        str(serialized_group.get("notes") or ""),
-                        str(serialized_group.get("folder_hint") or ""),
-                    ]
-                    + [str(item.get("file_path") or "") for item in sorted_items]
-                ).lower()
-                if query_text not in haystack:
-                    continue
-
-            count_3mf = sum(1 for item in sorted_items if Path(str(item.get("file_path") or "")).suffix.lower() == ".3mf")
-            groups.append(
-                {
-                    "id": serialized_group["id"],
-                    "slug": serialized_group["slug"],
-                    "title": serialized_group["title"],
-                    "stage": serialized_group["stage"],
-                    "notes": serialized_group.get("notes"),
-                    "folder_hint": serialized_group.get("folder_hint"),
-                    "launch": serialized_group.get("launch"),
-                    "primary_file_path": serialized_group.get("primary_file_path"),
-                    "updated_at": serialized_group.get("updated_at"),
-                    "counts": {
-                        "total": len(sorted_items),
-                        "count_3mf": count_3mf,
-                        "count_other": max(0, len(sorted_items) - count_3mf),
-                    },
-                    "files_loaded": True,
-                    "files": sorted_items,
-                }
-            )
-
-        total_groups = int(
-            connection.execute("SELECT COUNT(*) AS cnt FROM working_groups").fetchone()["cnt"]
-        )
-        return {
-            "success": True,
-            "view": "groups",
-            "summary": {
-                "all_count": summary_all_count,
-                "ungrouped_count": summary_ungrouped_count,
-                "group_count": total_groups,
-                "working_root_path": working_root_path,
-                "working_root_launch": working_root_launch,
-            },
-            "pagination": {
-                "limit": limit_value,
-                "offset": offset_value,
-                "total": total_groups,
-            },
-            "groups": groups,
-        }
-    finally:
-        connection.close()
+    """DEPRECATED: returns HTTP 410. Use /api/working-files/tree, /loose, /groups/{slug}."""
+    return _working_files_gone_response()
 
 
 # ==================== ENDPOINTS: WORKING GROUP MEMBERSHIPS ====================
@@ -2002,16 +2219,14 @@ def explore_working_files(request: Request,
 
 @router.post("/api/working-groups/memberships/batch-add")
 def batch_add_working_group_memberships(request: Request, payload: dict[str, Any]) -> Any:
-    """Add multiple files to a working group."""
-    state: AppState = request.app.state.model_catalog
-    return batch_add_working_group_memberships_service(settings=state.settings, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folder membership is intrinsic in the new model."""
+    return _working_files_gone_response()
 
 
 @router.post("/api/working-groups/memberships/batch-remove")
 def batch_remove_working_group_memberships(request: Request, payload: dict[str, Any]) -> Any:
-    """Remove multiple files from a working group."""
-    state: AppState = request.app.state.model_catalog
-    return batch_remove_working_group_memberships_service(settings=state.settings, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folder membership is intrinsic in the new model."""
+    return _working_files_gone_response()
 
 
 # ==================== ENDPOINTS: WORKING GROUP MANAGEMENT ====================
@@ -2019,60 +2234,38 @@ def batch_remove_working_group_memberships(request: Request, payload: dict[str, 
 
 @router.post("/api/working-groups/{group_id}/reorganize")
 def reorganize_working_group(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
-    """Reorganize working group files to target folder."""
-    state: AppState = request.app.state.model_catalog
-    return reorganize_working_group_service(
-        settings=state.settings,
-        group_id=group_id,
-        payload=payload,
-        refresh_inventory=lambda: _refresh_working_file_inventory(
-            db_path=state.settings.db_path,
-            roots=_configured_working_files_roots(state.settings),
-            compute_hashes=False,
-        ),
-    )
+    """DEPRECATED: returns HTTP 410. Reorganize files on disk via OS file manager."""
+    return _working_files_gone_response()
 
 
 @router.post("/api/working-groups")
 def create_working_group(request: Request, payload: dict[str, Any]) -> Any:
-    """Create a new working group."""
-    state: AppState = request.app.state.model_catalog
-    return create_working_group_service(settings=state.settings, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folders are the group identity now."""
+    return _working_files_gone_response()
 
 
 @router.get("/api/working-groups")
 def list_working_groups(request: Request, limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None, q: str | None = None) -> Any:
-    """List working groups with filtering."""
-    state: AppState = request.app.state.model_catalog
-    return list_working_groups_service(
-        settings=state.settings,
-        limit=limit,
-        offset=offset,
-        stage=stage,
-        project_id=project_id,
-        q=q,
-    )
+    """DEPRECATED: returns HTTP 410. Use /api/working-files/tree."""
+    return _working_files_gone_response()
 
 
 @router.get("/api/working-groups/{group_id}")
 def get_working_group(request: Request, group_id: int) -> Any:
-    """Get a single working group."""
-    state: AppState = request.app.state.model_catalog
-    return get_working_group_service(settings=state.settings, group_id=group_id)
+    """DEPRECATED: returns HTTP 410. Use /api/working-files/groups/{folder_slug}."""
+    return _working_files_gone_response()
 
 
 @router.patch("/api/working-groups/{group_id}")
 def update_working_group(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
-    """Update a working group."""
-    state: AppState = request.app.state.model_catalog
-    return update_working_group_service(settings=state.settings, group_id=group_id, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folder metadata lives in sidecars on disk."""
+    return _working_files_gone_response()
 
 
 @router.delete("/api/working-groups/{group_id}")
 def delete_working_group(request: Request, group_id: int) -> Any:
-    """Delete a working group and cascade delete items and links."""
-    state: AppState = request.app.state.model_catalog
-    return delete_working_group_service(settings=state.settings, group_id=group_id)
+    """DEPRECATED: returns HTTP 410. Delete the folder via OS file manager."""
+    return _working_files_gone_response()
 
 
 # ==================== ENDPOINTS: WORKING GROUP ITEMS ====================
@@ -2080,16 +2273,14 @@ def delete_working_group(request: Request, group_id: int) -> Any:
 
 @router.post("/api/working-groups/{group_id}/items")
 def add_working_group_item(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
-    """Add a single item to a working group."""
-    state: AppState = request.app.state.model_catalog
-    return add_working_group_item_service(settings=state.settings, group_id=group_id, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folder membership is intrinsic in the new model."""
+    return _working_files_gone_response()
 
 
 @router.delete("/api/working-groups/{group_id}/items/{item_id}")
 def remove_working_group_item(request: Request, group_id: int, item_id: int) -> Any:
-    """Remove an item from a working group."""
-    state: AppState = request.app.state.model_catalog
-    return remove_working_group_item_service(settings=state.settings, group_id=group_id, item_id=item_id)
+    """DEPRECATED: returns HTTP 410. Folder membership is intrinsic in the new model."""
+    return _working_files_gone_response()
 
 
 # ==================== ENDPOINTS: MODEL LINKS ====================
@@ -2097,23 +2288,20 @@ def remove_working_group_item(request: Request, group_id: int, item_id: int) -> 
 
 @router.post("/api/working-groups/{group_id}/links")
 def create_working_group_link(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
-    """Create or update a link from working group to model."""
-    state: AppState = request.app.state.model_catalog
-    return create_working_group_link_service(settings=state.settings, group_id=group_id, payload=payload)
+    """DEPRECATED: returns HTTP 410. Model links move to the new working-files layer."""
+    return _working_files_gone_response()
 
 
 @router.get("/api/working-groups/{group_id}/links")
 def list_working_group_links(request: Request, group_id: int) -> Any:
-    """List model links for a working group."""
-    state: AppState = request.app.state.model_catalog
-    return list_working_group_links_service(settings=state.settings, group_id=group_id)
+    """DEPRECATED: returns HTTP 410. Model links move to the new working-files layer."""
+    return _working_files_gone_response()
 
 
 @router.delete("/api/working-groups/{group_id}/links/{link_id}")
 def delete_working_group_link(request: Request, group_id: int, link_id: int) -> Any:
-    """Delete a model link from a working group."""
-    state: AppState = request.app.state.model_catalog
-    return delete_working_group_link_service(settings=state.settings, group_id=group_id, link_id=link_id)
+    """DEPRECATED: returns HTTP 410. Model links move to the new working-files layer."""
+    return _working_files_gone_response()
 
 
 # ==================== ENDPOINTS: MODEL QUERIES ====================
@@ -2121,9 +2309,8 @@ def delete_working_group_link(request: Request, group_id: int, link_id: int) -> 
 
 @router.get("/api/models/{model_ref:path}/working-groups")
 def list_working_groups_for_model(request: Request, model_ref: str) -> Any:
-    """Get all working groups linked to a model."""
-    state: AppState = request.app.state.model_catalog
-    return list_working_groups_for_model_service(settings=state.settings, model_ref=model_ref)
+    """DEPRECATED: returns HTTP 410. Working groups are gone; model links move to the new layer."""
+    return _working_files_gone_response()
 
 
 # ==================== ENDPOINTS: PUBLISHING ====================
@@ -2131,9 +2318,8 @@ def list_working_groups_for_model(request: Request, model_ref: str) -> Any:
 
 @router.post("/api/working-groups/{group_id}/publish-to-local")
 def publish_working_group_to_local(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
-    """Publish a working group to a local model."""
-    state: AppState = request.app.state.model_catalog
-    return publish_working_group_to_local_service(settings=state.settings, group_id=group_id, payload=payload)
+    """DEPRECATED: returns HTTP 410. Publishing flow will be reintroduced on the new layer."""
+    return _working_files_gone_response()
 
 
 @router.get("/api/models/{model_ref:path}/lineage")
@@ -2173,14 +2359,12 @@ def get_model_catalog_project(request: Request, project_id: int) -> Any:
 @router.post("/working-groups/bulk-discover")
 @router.post("/api/working-groups/bulk-discover")
 def bulk_discover_working_groups(request: Request, payload: dict[str, Any]) -> Any:
-    """Scan folder and propose working groups."""
-    state: AppState = request.app.state.model_catalog
-    return bulk_discover_working_groups_service(db_path=state.settings.db_path, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folder discovery is intrinsic in /api/working-files/tree."""
+    return _working_files_gone_response()
 
 
 @router.post("/working-groups/bulk-import")
 @router.post("/api/working-groups/bulk-import")
 def bulk_import_working_groups(request: Request, payload: dict[str, Any]) -> Any:
-    """Import bulk discover proposals as working groups."""
-    state: AppState = request.app.state.model_catalog
-    return bulk_import_working_groups_service(db_path=state.settings.db_path, payload=payload)
+    """DEPRECATED: returns HTTP 410. Folder discovery is intrinsic in /api/working-files/tree."""
+    return _working_files_gone_response()
