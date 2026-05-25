@@ -53,6 +53,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._boundHandleClick = this._handleClick.bind(this);
     this._boundHandleChange = this._handleChange.bind(this);
     this._boundHandleInput = this._handleInput.bind(this);
+    this._boundHandleIntakeLaunchEvent = this._handleIntakeLaunchEvent.bind(this);
     this._hass = null;
     this._config = null;
     this._loading = false;
@@ -112,6 +113,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._refreshAll();
     }
     this._maybeAutoLaunchWizard();
+    this._maybeConsumePendingIntakeLaunch();
   }
 
   connectedCallback() {
@@ -123,7 +125,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.addEventListener("change", this._boundHandleChange);
       this.shadowRoot.addEventListener("input", this._boundHandleInput);
     }
+    try {
+      window.addEventListener('model-catalog-intake-launch', this._boundHandleIntakeLaunchEvent);
+    } catch (_err) { /* noop */ }
     this._maybeAutoLaunchWizard();
+    this._maybeConsumePendingIntakeLaunch();
   }
 
   disconnectedCallback() {
@@ -132,6 +138,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.removeEventListener("change", this._boundHandleChange);
       this.shadowRoot.removeEventListener("input", this._boundHandleInput);
     }
+    try {
+      window.removeEventListener('model-catalog-intake-launch', this._boundHandleIntakeLaunchEvent);
+    } catch (_err) { /* noop */ }
     this._revokeBrowserPreviewUrls(this._browserFiles);
   }
 
@@ -163,6 +172,56 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._openWizard(mode).catch(function () {
       // Leave the intake card visible if auto-launch fails for any reason.
     });
+  }
+
+  // Cross-card launch hook (Issue #1xxx): a sibling card (e.g., the Working
+  // Files explorer) can request that the intake wizard open at a specific
+  // folder by either (a) dispatching a `model-catalog-intake-launch` event on
+  // the window with `{ mode, startPath, rootKind }` in detail, or (b) setting
+  // `window.__modelCatalogPendingIntakeLaunch` before triggering the workspace-
+  // view switch that mounts this card. Option (b) covers the case where the
+  // intake card is not yet in the DOM when the event fires; we consume the
+  // sentinel on the first hass set after connection.
+  _handleIntakeLaunchEvent(event) {
+    var detail = event && event.detail ? event.detail : {};
+    this._launchIntakeFromOptions(detail);
+  }
+
+  _maybeConsumePendingIntakeLaunch() {
+    var pending = null;
+    try {
+      pending = window.__modelCatalogPendingIntakeLaunch || null;
+    } catch (_err) {
+      pending = null;
+    }
+    if (!pending || !this._hass) {
+      return;
+    }
+    try {
+      window.__modelCatalogPendingIntakeLaunch = null;
+    } catch (_err) { /* noop */ }
+    this._launchIntakeFromOptions(pending);
+  }
+
+  _launchIntakeFromOptions(options) {
+    if (!options || typeof options !== 'object') {
+      return;
+    }
+    var mode = this._normalizeLaunchWizardMode(options.mode) || 'server';
+    var launchOptions = {
+      startPath: options.startPath ? String(options.startPath) : '',
+      rootKind: options.rootKind === 'working' ? 'working'
+        : options.rootKind === 'intake' ? 'intake'
+        : '',
+    };
+    this._wizardOpen = true;
+    this._wizardMode = mode;
+    this._wizardStep = 1;
+    this._render();
+    var self = this;
+    Promise.resolve()
+      .then(function () { return self._openWizard(mode, launchOptions); })
+      .catch(function () { /* noop */ });
   }
 
   _sourceMode() {
@@ -965,7 +1024,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
   }
 
-  async _openWizard(mode) {
+  async _openWizard(mode, options) {
     var nextMode = mode === "server" ? "server" : "browser";
     this._wizardOpen = true;
     this._wizardCloseConfirmOpen = false;
@@ -981,7 +1040,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._clearBrowserFiles();
     await this._setSourceMode(nextMode);
     if (nextMode === "server") {
-      await this._loadBrowse('/');
+      var startPath = options && options.startPath ? String(options.startPath) : '/';
+      await this._loadBrowse(startPath);
       return;
     }
     this._render();

@@ -1081,7 +1081,7 @@
         : '';
       return ''
         + '<div class="overflow-menu" aria-label="Group actions">'
-        + '<button data-action="run-intake-wizard" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>🪄</span> Run Intake Wizard from this folder…</button>'
+        + '<button data-action="run-intake-wizard" data-folder-path="' + escapeHtml(folderPath) + '"><span>🪄</span> Run Intake Wizard from this folder…</button>'
         + '<button data-action="add-to-project" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>📁</span> Add to Project…</button>'
         + '<button data-action="add-to-collection" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>🗂️</span> Add to Collection…</button>'
         + '</div>';
@@ -1514,6 +1514,36 @@
         var ovSlug = String(target.getAttribute('data-slug') || '');
         this._overflowMenuSlug = this._overflowMenuSlug === ovSlug ? '' : ovSlug;
         this._render();
+        return;
+      }
+      if (action === 'run-intake-wizard') {
+        var folderPath = String(target.getAttribute('data-folder-path') || '').trim();
+        this._overflowMenuSlug = '';
+        this._render();
+        if (!folderPath) {
+          return;
+        }
+        // Stash launch options for the intake card to pick up after the
+        // workspace view switches (the intake card may not yet be mounted).
+        var launchOptions = { mode: 'server', rootKind: 'working', startPath: folderPath };
+        try {
+          window.__modelCatalogPendingIntakeLaunch = launchOptions;
+        } catch (_winErr) { /* noop */ }
+        // Also broadcast immediately for any already-mounted intake card.
+        try {
+          window.dispatchEvent(new CustomEvent('model-catalog-intake-launch', {
+            detail: launchOptions,
+            bubbles: true,
+            composed: true,
+          }));
+        } catch (_evtErr) { /* noop */ }
+        var shared = window.ModelCatalogIntakeShared;
+        var selectFn = shared && shared.selectInputOption;
+        if (typeof selectFn === 'function' && this._hass) {
+          try {
+            selectFn(this._hass, 'input_select.model_catalog_workspace_view', 'intake');
+          } catch (_selErr) { /* noop */ }
+        }
         return;
       }
       if (action === 'set-type-filter') {

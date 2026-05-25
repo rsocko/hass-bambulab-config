@@ -137,7 +137,6 @@ from ..services.shared_helpers import (
     _local_asset_media_urls,
     _resolve_local_asset_storage_path,
     _serialize_project_row,
-    _serialize_working_group,
     _sha256_file,
     _slugify_title,
 )

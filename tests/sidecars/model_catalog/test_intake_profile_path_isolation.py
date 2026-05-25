@@ -268,3 +268,120 @@ def test_browser_upload_entries_are_exempt_from_intake_root_enforcement(tmp_path
         ],
     )
     assert rejection is None
+
+
+# ---------------------------------------------------------------------------
+# Working Files root is part of the intake allowlist
+# ---------------------------------------------------------------------------
+
+
+def _make_settings_with_distinct_wf(
+    *, db_path: Path, intake_root: Path, working_files_root: Path
+) -> Settings:
+    return Settings(
+        catalog_base_url="http://catalog.example",
+        db_path=db_path,
+        refresh_ttl_seconds=900,
+        host="127.0.0.1",
+        port=8314,
+        image_tag="test",
+        image_version="test",
+        image_revision="test",
+        image_created="test",
+        intake_source_roots=(intake_root.resolve(),),
+        working_files_root=working_files_root.resolve(),
+    )
+
+
+def test_enforce_accepts_path_under_working_files_root(tmp_path: Path) -> None:
+    """Folders under ``working_files_root`` must be treated as a legitimate
+    intake source so the "Run Intake Wizard from this folder" action on the
+    Working Files explorer can succeed.
+    """
+    from app._helpers import _enforce_source_entries_within_intake_roots
+
+    intake_root = tmp_path / "Model Inbox"
+    working_root = tmp_path / "Working Files"
+    intake_root.mkdir()
+    working_root.mkdir()
+    folder = working_root / "active-project"
+    folder.mkdir()
+
+    settings = _make_settings_with_distinct_wf(
+        db_path=tmp_path / "mc.db",
+        intake_root=intake_root,
+        working_files_root=working_root,
+    )
+
+    rejection = _enforce_source_entries_within_intake_roots(
+        settings,
+        [
+            {
+                "type": "folder",
+                "path": str(folder),
+                "recurse": True,
+            }
+        ],
+    )
+    assert rejection is None
+
+
+def test_enforce_still_rejects_path_outside_both_intake_and_wf_roots(tmp_path: Path) -> None:
+    from app._helpers import _enforce_source_entries_within_intake_roots
+
+    intake_root = tmp_path / "Model Inbox"
+    working_root = tmp_path / "Working Files"
+    outside = tmp_path / "elsewhere" / "leak"
+    intake_root.mkdir()
+    working_root.mkdir()
+    outside.mkdir(parents=True)
+
+    settings = _make_settings_with_distinct_wf(
+        db_path=tmp_path / "mc.db",
+        intake_root=intake_root,
+        working_files_root=working_root,
+    )
+
+    rejection = _enforce_source_entries_within_intake_roots(
+        settings,
+        [
+            {
+                "type": "folder",
+                "path": str(outside),
+                "recurse": True,
+            }
+        ],
+    )
+    assert rejection is not None
+    assert "path_not_allowed" in rejection or "Allowed intake roots" in rejection
+
+
+def test_list_source_filesystems_exposes_working_files_kind(tmp_path: Path) -> None:
+    """The browse roots listing must include a ``kind == 'working'`` entry
+    when ``working_files_root`` is configured distinctly from intake roots.
+    """
+    intake_root = tmp_path / "Model Inbox"
+    working_root = tmp_path / "Working Files"
+    intake_root.mkdir()
+    working_root.mkdir()
+
+    settings = _make_settings_with_distinct_wf(
+        db_path=tmp_path / "mc.db",
+        intake_root=intake_root,
+        working_files_root=working_root,
+    )
+    app = create_app(settings=settings)
+    client = TestClient(app)
+    client.__enter__()
+    try:
+        response = client.get("/api/source-filesystems")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body.get("success") is True
+        roots = body.get("roots") or []
+        assert isinstance(roots, list) and roots
+        kinds = {str(e.get("kind") or "") for e in roots if isinstance(e, dict)}
+        assert "intake" in kinds
+        assert "working" in kinds
+    finally:
+        client.__exit__(None, None, None)

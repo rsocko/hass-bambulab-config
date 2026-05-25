@@ -2746,9 +2746,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     } catch (_err) { /* no-op */ }
   };
 
-  proto._openWizard = async function (mode) {
+  proto._openWizard = async function (mode, options) {
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     var nextMode = mode === 'server' ? 'server' : 'browser';
+    var openOptions = options && typeof options === 'object' ? options : {};
+    var requestedStartPath = openOptions.startPath ? String(openOptions.startPath) : '';
+    var requestedRootKind = openOptions.rootKind === 'working' ? 'working'
+      : openOptions.rootKind === 'intake' ? 'intake'
+      : '';
     this._lockBackgroundScroll();
     if (nextMode === 'server') {
       // Issue #1323: open the Server intake directly inside the Model Inbox
@@ -2776,18 +2781,40 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Falling back to "/" surfaces the virtual root listing of all configured
       // roots when no preferred root can be determined.
       var preferredRoot = '';
+      var preferredKind = 'intake';
       try {
         var roots = Array.isArray(this._roots) ? this._roots : [];
+        var kindMatches = requestedRootKind
+          ? roots.filter(function (r) { return r && r.kind === requestedRootKind && r.path; })
+          : [];
+        var pool = kindMatches.length ? kindMatches : roots;
         // Prefer the first accessible root; otherwise fall back to the first
         // configured root regardless of accessibility.
-        var firstAccessible = roots.find(function (r) { return r && r.accessible && r.path; });
-        var firstAny = roots.find(function (r) { return r && r.path; });
-        preferredRoot = (firstAccessible && firstAccessible.path)
-          || (firstAny && firstAny.path)
-          || '';
+        var firstAccessible = pool.find(function (r) { return r && r.accessible && r.path; });
+        var firstAny = pool.find(function (r) { return r && r.path; });
+        var chosen = firstAccessible || firstAny || null;
+        if (chosen) {
+          preferredRoot = chosen.path || '';
+          preferredKind = chosen.kind === 'working' ? 'working' : 'intake';
+        }
+        // If a specific startPath was requested, honor it (only when it is
+        // within one of the configured roots — the backend re-enforces this).
+        if (requestedStartPath) {
+          var startMatch = roots.find(function (r) {
+            if (!r || !r.path) { return false; }
+            var rp = String(r.path).replace(/\\/g, '/').toLowerCase();
+            var sp = String(requestedStartPath).replace(/\\/g, '/').toLowerCase();
+            return sp === rp || sp.indexOf(rp + '/') === 0;
+          });
+          if (startMatch) {
+            preferredRoot = requestedStartPath;
+            preferredKind = startMatch.kind === 'working' ? 'working' : 'intake';
+          }
+        }
       } catch (_rootErr) {
         preferredRoot = '';
       }
+      this._intakeRootKind = preferredKind;
       if (preferredRoot) {
         try {
           await this._loadBrowse(preferredRoot);
@@ -2812,7 +2839,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return;
     }
     this._browserSourcePath = '';
-    return originalOpenWizard.call(this, mode);
+    return originalOpenWizard.call(this, mode, openOptions);
   };
 
   proto._closeWizard = function (options) {
@@ -4171,12 +4198,43 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     });
   };
 
+  proto._renderIntakeRootKindSwitcher = function () {
+    var roots = Array.isArray(this._roots) ? this._roots : [];
+    var hasIntake = roots.some(function (r) { return r && r.kind === 'intake' && r.path; });
+    var hasWorking = roots.some(function (r) { return r && r.kind === 'working' && r.path; });
+    if (!hasIntake || !hasWorking) {
+      return '';
+    }
+    var current = this._intakeRootKind === 'working' ? 'working' : 'intake';
+    function btn(kind, label) {
+      var active = kind === current;
+      var style = 'padding:4px 10px;border-radius:999px;border:1px solid var(--divider-color);'
+        + 'background:' + (active ? 'var(--primary-color)' : 'transparent') + ';'
+        + 'color:' + (active ? 'var(--text-primary-color, #fff)' : 'var(--primary-text-color)') + ';'
+        + 'font-size:12px;cursor:pointer;';
+      return '<button type="button" class="intake-root-kind-btn'
+        + (active ? ' is-active' : '')
+        + '" data-action="intake-root-kind-switch" data-kind="' + kind + '"'
+        + ' style="' + style + '"'
+        + (active ? ' aria-pressed="true"' : ' aria-pressed="false"')
+        + '>' + label + '</button>';
+    }
+    return ''
+      + '<div class="intake-root-kind-row" role="group" aria-label="Choose source location" '
+      + 'style="display:flex;gap:6px;padding:6px 12px 0 12px;align-items:center;">'
+      + '<span style="font-size:12px;color:var(--secondary-text-color);margin-right:6px;">Source:</span>'
+      + btn('intake', 'Model Inbox')
+      + btn('working', 'Working Files')
+      + '</div>';
+  };
+
   proto._renderWizardBody = function () {
     if (this._wizardStep === 1) {
       if (this._wizardMode === 'server') {
         return ''
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div></div>'
+          + this._renderIntakeRootKindSwitcher()
           + '  <div class="intake-path-row">'
           + (this._browse.parent_path
               ? '<button class="button icon-only" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
@@ -4618,6 +4676,24 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (action === 'browse-parent' || action === 'browse-path') {
       this._skipNextWizardScrollRestore = true;
       this._selectStepHighlight = null;
+    }
+    if (action === 'intake-root-kind-switch') {
+      event.preventDefault();
+      var nextKind = String(target.getAttribute('data-kind') || '') === 'working' ? 'working' : 'intake';
+      if (this._intakeRootKind === nextKind) {
+        return;
+      }
+      var rootsList = Array.isArray(this._roots) ? this._roots : [];
+      var match = rootsList.find(function (r) { return r && r.kind === nextKind && r.accessible && r.path; })
+        || rootsList.find(function (r) { return r && r.kind === nextKind && r.path; });
+      if (!match) {
+        return;
+      }
+      this._intakeRootKind = nextKind;
+      this._skipNextWizardScrollRestore = true;
+      this._selectStepHighlight = null;
+      this._loadBrowse(match.path);
+      return;
     }
     originalHandleClick.call(this, event);
   };

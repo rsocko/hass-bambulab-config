@@ -38,8 +38,7 @@ from .._helpers import (
 )
 from ..services import get_all_indexed_file_hashes
 from ..services.intake_service import _TERMINAL_INBOX_STATES
-from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
-from ..services.shared_helpers import _local_asset_media_urls, _serialize_working_group, _sha256_file, _slugify_title
+from ..services.shared_helpers import _local_asset_media_urls, _sha256_file, _slugify_title
 from ..services.intake_consolidation import _consolidate_overlapping_selections
 from ..services.intake_eligibility_service import ActionEligibility
 from ..services.intake_grouping import _prefilter_excluded_items
@@ -467,11 +466,6 @@ def _source_timestamp_summary(files: list[dict[str, Any]]) -> dict[str, Any]:
         summary["earliest_source_birthtime"] = birthtimes[0]
         summary["latest_source_birthtime"] = birthtimes[-1]
     return summary
-
-
-def _read_existing_working_hashes(db_path: Path) -> set[str]:
-    """Deprecated stub — working_items table dropped in PR E.1."""
-    return set()
 
 
 def _normalized_duplicate_name(filename: str) -> str:
@@ -1300,23 +1294,6 @@ def _intake_item_state_from_upload_status(status: str) -> str:
     return "submitted"
 
 
-def _existing_working_slugs(connection: Any) -> set[str]:
-    """Deprecated stub — working_groups table dropped in PR E.1."""
-    return set()
-
-
-def _unique_slug(connection: Any, title: str) -> str:
-    """Generate a unique slug for a new working group."""
-    base = _slugify_title(title)
-    existing = _existing_working_slugs(connection)
-    if base not in existing:
-        return base
-    counter = 2
-    while True:
-        candidate = f"{base}-{counter}"
-        if candidate not in existing:
-            return candidate
-        counter += 1
 def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: list[dict[str, Any]]) -> str:
     for entry in source_entries:
         if not isinstance(entry, dict):
@@ -2232,24 +2209,15 @@ def preview_intake_batch(request: Request, payload: dict[str, Any] | None = None
         source_entries=canonical_entries
     )
 
-    # Check for duplicates in existing working groups
-    existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+    # Working-groups duplicate check removed in PR E.3 (table dropped).
+    # Future enhancement: re-check against get_all_indexed_file_hashes if needed.
     duplicate_hashes: list[dict[str, Any]] = []
-    unique_hashes: list[str] = []
-    
-    for file_item in expanded_files:
-        file_hash = str(file_item.get("file_hash") or "").strip().lower()
-        if not file_hash:
-            continue
-        if file_hash in existing_hashes:
-            duplicate_hashes.append({
-                "filename": str(file_item.get("filename", "")).strip(),
-                "file_path": str(file_item.get("path", "")).strip(),
-                "file_hash": file_hash,
-                "status": "already_in_working_group",
-            })
-        else:
-            unique_hashes.append(file_hash)
+    unique_hashes: list[str] = [
+        h for h in (
+            str(file_item.get("file_hash") or "").strip().lower()
+            for file_item in expanded_files
+        ) if h
+    ]
 
     # Analyze grouping impact
     source_entry_count = len(canonical_entries)

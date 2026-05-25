@@ -61,7 +61,6 @@ from ..services.intake_eligibility_service import ActionEligibility
 from ..services.shared_helpers import (
     _resolve_local_asset_storage_path,
     _serialize_project_row,
-    _serialize_working_group,
     _sha256_file,
     _slugify_title,
 )

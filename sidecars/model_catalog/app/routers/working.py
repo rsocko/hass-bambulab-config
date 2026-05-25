@@ -80,7 +80,6 @@ from ..services import (
     get_model_lineage_service,
     get_working_group_service,
     get_all_indexed_file_hashes,
-    get_working_items_hashes,
     list_model_catalog_projects_service,
     list_working_group_links_service,
     list_working_groups_for_model_service,
@@ -93,7 +92,6 @@ from ..services import (
 from ..services.shared_helpers import (
     _resolve_local_asset_storage_path,
     _serialize_project_row,
-    _serialize_working_group,
     _sha256_file,
     _slugify_title,
     _working_group_effective_folder_path,

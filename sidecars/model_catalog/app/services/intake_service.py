@@ -72,15 +72,6 @@ def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
         connection.close()
 
 
-def get_working_items_hashes(db_path: Path | str) -> set[str]:
-    """Compat shim — the ``working_items`` table was dropped in PR E.1.
-
-    Retained as a no-op for callers that still pass through the dedup
-    union; will be removed entirely once those callers are simplified.
-    """
-    return set()
-
-
 def get_working_file_inventory_hashes(db_path: Path | str) -> set[str]:
     """
     Read all file hashes from the folder-first working file inventory.
@@ -139,7 +130,7 @@ def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
     Get all indexed file hashes from actual inventory + in-flight imports.
 
     Combines hashes from three sources:
-    1. working_items — files currently in working groups (inventory)
+    1. working_file_inventory — files currently in the working files store (inventory)
     2. model_catalog_assets — files published to the catalog (inventory)
     3. intake_queue_uploads — files in the intake pipeline that have NOT
        yet been committed to a destination (in-flight only)
@@ -155,11 +146,10 @@ def get_all_indexed_file_hashes(db_path: Path | str) -> set[str]:
     Returns:
         Set of SHA256 hex strings (lowercase) from inventory + in-flight
     """
-    working_hashes = get_working_items_hashes(db_path)
     inventory_hashes = get_working_file_inventory_hashes(db_path)
     catalog_hashes = get_catalog_asset_hashes(db_path)
     inflight_hashes = get_all_intake_queue_hashes(db_path)
-    return working_hashes | inventory_hashes | catalog_hashes | inflight_hashes
+    return inventory_hashes | catalog_hashes | inflight_hashes
 
 
 def detect_duplicate_files(

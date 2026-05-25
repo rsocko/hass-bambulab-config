@@ -18,7 +18,6 @@ from sidecars.model_catalog.app.services import (
     get_all_indexed_file_hashes,
     get_all_intake_queue_hashes,
     get_catalog_asset_hashes,
-    get_working_items_hashes,
     detect_duplicate_files,
     build_dedup_collision_warning,
     reject_orphaned_uploads,
@@ -38,19 +37,6 @@ def _build_settings(tmp_path: Path) -> Settings:
         image_revision="abc123",
         image_created="2026-04-22T00:00:00Z",
     )
-
-
-def test_get_working_items_hashes_is_noop_after_pr_e1(tmp_path: Path) -> None:
-    """working_groups + working_items were dropped in PR E.1.
-
-    `get_working_items_hashes` was reduced to a no-op shim that returns an
-    empty set so legacy callers keep working without referencing the dropped
-    tables.
-    """
-    settings = _build_settings(tmp_path)
-    bootstrap_database(settings.db_path)
-
-    assert get_working_items_hashes(settings.db_path) == set()
 
 
 def test_get_all_intake_queue_hashes_reads_inflight_only(tmp_path: Path) -> None:
