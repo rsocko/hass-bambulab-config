@@ -212,6 +212,28 @@ The wizard prompts the operator per run:
 
 The choice is per intake run, exposed in the Source step UI. Default is Copy; the wizard never silently moves files.
 
+### 5.3a Curated destination modes (Organize step)
+
+The Organize step of the wizard exposes three Curated destination modes:
+
+| Mode | Behavior |
+|---|---|
+| `create_new` *(existing)* | Create a new catalog model in a new `{slug}--{shortid}` folder. |
+| `attach_existing` *(existing)* | Attach the published files to an existing catalog model without changing its files. |
+| **`republish_as_new_version`** *(new)* | Publish against an existing catalog model as the **logical parent**, governed by the conflict-policy table below. Auto-offered when the source folder's `.modelmeta.json` carries `source_catalog_model_id` (set by the catalog-side **Send to Working Files** action). Authoritative spec: [catalog-edit-and-fork.md §4](catalog-edit-and-fork.md). |
+
+#### Conflict policy for `republish_as_new_version`
+
+| Policy | Folder behavior | Filename collision | When to use | Audit |
+|---|---|---|---|---|
+| **`new_revision`** *(default)* | New `{slug}--{shortid}` folder; prior folder untouched. | None possible. | Standard "v2 of the design". Preserves prior revision for reprints and archive linkage. | New `model_catalog_revisions` row (`source='wizard_new_revision'`); `parent_model_id` set; `revision_number = N+1`. |
+| **`overwrite_in_place`** | Replaces files inside the existing catalog folder. | Replaced by name. Files missing from source are kept by default (opt-in checkbox to remove). | Hotfix / metadata-only correction / preview regen where prior bytes have no historical value. | Wizard automatically snapshots to `Model Catalog/_revisions/{model_id}/{ts}/` before mutation. Type-to-confirm required. |
+| **`error_on_conflict`** | Pre-flight check; no mutation if any incoming filename collides with a different hash in the target. | Aborts with `409 publish_conflict`. | Scripted / CI publishes that must never silently mutate. | No revision row. |
+
+Default is `new_revision`. The wizard surfaces a one-line preview (e.g. "Will create new folder `gridfinity-bin--f7e8c9d0`; 7 files copied. Previous revision `gridfinity-bin--a1b2c3d4` remains.") before commit. **No `filename-2.ext` auto-suffixing is applied at the catalog tier**; that rule remains a Working Files convention only.
+
+After a successful `new_revision` publish, the wizard summary screen offers a one-time prompt to re-link archives created after the fork point to the new revision (default **no**).
+
 ### 5.4 Sidecar consumption
 
 If the source folder has a `.modelmeta.json`, the wizard pre-populates corresponding fields in the Organize step:

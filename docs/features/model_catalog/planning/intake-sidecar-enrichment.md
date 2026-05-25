@@ -1,6 +1,6 @@
 # Intake Wizard — Sidecar Metadata Enrichment
 
-Status: **Phase 1 shipped (backend read-only discovery)** — Phases 2 + 3 not yet implemented
+Status: **Phases 1 + 2 shipped (backend discovery + curated README attach)** — Phase 3 (frontend wizard panel) not yet implemented
 
 Phase 1 changes:
 - `sidecars/model_catalog/app/routers/intake_verification.py` — added `_discover_source_metadata()` and call site in `_summarize_planned_group()`.
@@ -20,6 +20,13 @@ Phase 1 changes:
   }
   ```
 - Field is **omitted entirely** when no sidecars are discovered (zero UI impact until Phase 3 wiring lands).
+
+Phase 2 changes:
+- `sidecars/model_catalog/app/routers/intake.py` — added `_collect_source_readmes()` helper plus opt-in attach block inside `_publish_group_to_local_destination` keyed on `destination_plan["attach_source_readme"]`. When the flag is true for a curated destination, the publisher walks `source_entries` (folders → that folder; files → parent folder), pulls each `README.md` once (dedup by hash against already-imported assets), copies it into the curated assets root, and registers a new `documentation` asset.
+- New per-group response key `attached_readmes: [{source_folder, source_path, asset_id, filename}]` is added to publish results when the flag is set (omitted/empty otherwise).
+- `tests/sidecars/model_catalog/test_intake_publish_attach_source_readme.py` — 4 tests covering file-typed selection happy path, default-off behavior, missing README, and dedupe when the README is already in `group_files`.
+- No schema or API surface changes beyond the new opt-in flag; frontend wiring (Phase 3) will toggle it from the Organize step's "Detected metadata" panel.
+
 Owner: Model Catalog
 Related design docs:
 - [intake-inbox.md](../design/intake-inbox.md) — canonical wizard baseline

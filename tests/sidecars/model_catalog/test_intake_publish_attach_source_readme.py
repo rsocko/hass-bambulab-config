@@ -1,10 +1,11 @@
 """Tests for Phase 2 of intake sidecar enrichment: README-as-asset publish.
 
-When the wizard's Organize-step "Attach README" opt-in flag is forwarded as
-``destination_plan["attach_source_readme"] = True`` for a **curated**
-destination, the publish-by-destination endpoint must copy each unique
-source-folder ``README.md`` into the new Catalog item's storage and create
-a corresponding documentation asset.
+When the wizard's Organize-step "Attach README" opt-in is forwarded as
+``destination_plan["attach_source_readme"] = True`` for a curated destination,
+the publish-by-destination endpoint must copy each unique source-folder
+``README.md`` into the new Catalog item even when the user only selected
+specific files from that folder (so the README is not naturally part of the
+planned group's file list).
 
 Re-read happens at publish time so the attached asset is the canonical,
 untruncated file (the plan-preview payload may have been clipped).
@@ -61,18 +62,22 @@ def _seed_upload(client: TestClient, source_entries: list[dict]) -> str:
     return response.json()["upload_id"]
 
 
-def test_attach_source_readme_creates_curated_documentation_asset(tmp_path: Path) -> None:
+def test_attach_source_readme_pulls_in_readme_for_file_selection(tmp_path: Path) -> None:
+    """User selects a specific file (not the whole folder). The README from the
+    parent folder must still be attached when ``attach_source_readme=True``."""
     client, intake_root, _curated_root = _build_client(tmp_path)
     try:
         folder = intake_root / "gridfinity-bin"
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "bin.stl").write_bytes(b"solid bin\nendsolid bin\n")
+        stl_path = folder / "bin.stl"
+        stl_path.write_bytes(b"solid bin\nendsolid bin\n")
         readme_text = "# Gridfinity Bin\n\nLong-form notes about printing this bin.\n" * 40
         (folder / "README.md").write_text(readme_text, encoding="utf-8")
 
+        # File-typed source entry: README.md is NOT in group_files.
         upload_id = _seed_upload(
             client,
-            [{"type": "folder", "path": str(folder), "recurse": True}],
+            [{"type": "file", "path": str(stl_path)}],
         )
 
         response = client.post(
@@ -90,16 +95,14 @@ def test_attach_source_readme_creates_curated_documentation_asset(tmp_path: Path
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["success"] is True
-        group_results = body["group_results"]
-        assert len(group_results) == 1
-        result = group_results[0]
+        result = body["group_results"][0]
         attached = result.get("attached_readmes") or []
         assert len(attached) == 1, attached
         assert attached[0]["filename"] == "README.md"
 
         local_model_id = result["local_model_id"]
         assets = list_model_assets(
-            db_path=Path(tmp_path / "model_catalog.db"),
+            db_path=tmp_path / "model_catalog.db",
             local_model_id=local_model_id,
         )
         readme_assets = [
@@ -109,27 +112,28 @@ def test_attach_source_readme_creates_curated_documentation_asset(tmp_path: Path
         readme_asset = readme_assets[0]
         assert str(getattr(readme_asset, "asset_type", "")) == "md"
         assert str(getattr(readme_asset, "asset_role", "")) == "documentation"
-        # Curated asset on disk should match the original bytes exactly.
-        storage_root = tmp_path / "curated"
-        stored_path = storage_root / str(getattr(readme_asset, "storage_path", ""))
+        stored_path = (tmp_path / "curated") / str(
+            getattr(readme_asset, "storage_path", "")
+        )
         assert stored_path.is_file()
         assert stored_path.read_text(encoding="utf-8") == readme_text
     finally:
         client.__exit__(None, None, None)
 
 
-def test_attach_source_readme_default_off(tmp_path: Path) -> None:
-    """When the flag is absent, no README asset is created even if README.md exists."""
+def test_attach_source_readme_default_off_does_not_pull_in_readme(tmp_path: Path) -> None:
+    """File-typed selection without the flag: README is not attached."""
     client, intake_root, _curated_root = _build_client(tmp_path)
     try:
         folder = intake_root / "no-attach"
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "part.stl").write_bytes(b"solid p\nendsolid p\n")
+        stl_path = folder / "part.stl"
+        stl_path.write_bytes(b"solid p\nendsolid p\n")
         (folder / "README.md").write_text("# Hidden\n", encoding="utf-8")
 
         upload_id = _seed_upload(
             client,
-            [{"type": "folder", "path": str(folder), "recurse": True}],
+            [{"type": "file", "path": str(stl_path)}],
         )
         response = client.post(
             f"/api/intake/uploads/{upload_id}/publish-by-destination",
@@ -140,11 +144,10 @@ def test_attach_source_readme_default_off(tmp_path: Path) -> None:
             },
         )
         assert response.status_code == 200, response.text
-        body = response.json()
-        result = body["group_results"][0]
+        result = response.json()["group_results"][0]
         assert result.get("attached_readmes") in (None, [])
         assets = list_model_assets(
-            db_path=Path(tmp_path / "model_catalog.db"),
+            db_path=tmp_path / "model_catalog.db",
             local_model_id=result["local_model_id"],
         )
         assert not any(
@@ -160,11 +163,12 @@ def test_attach_source_readme_skips_when_no_readme_present(tmp_path: Path) -> No
     try:
         folder = intake_root / "no-readme-here"
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "thing.stl").write_bytes(b"solid t\nendsolid t\n")
+        stl_path = folder / "thing.stl"
+        stl_path.write_bytes(b"solid t\nendsolid t\n")
 
         upload_id = _seed_upload(
             client,
-            [{"type": "folder", "path": str(folder), "recurse": True}],
+            [{"type": "file", "path": str(stl_path)}],
         )
         response = client.post(
             f"/api/intake/uploads/{upload_id}/publish-by-destination",
@@ -186,61 +190,41 @@ def test_attach_source_readme_skips_when_no_readme_present(tmp_path: Path) -> No
         client.__exit__(None, None, None)
 
 
-def test_attach_source_readme_dedupes_same_hash_across_folders(tmp_path: Path) -> None:
-    """When two source folders contain identical README bytes, only one asset is created."""
+def test_attach_source_readme_dedupes_when_readme_already_in_group(tmp_path: Path) -> None:
+    """When the user selected the whole folder (so README is already in
+    group_files), the explicit attach must not produce a duplicate asset."""
     client, intake_root, _curated_root = _build_client(tmp_path)
     try:
-        folder_a = intake_root / "alpha"
-        folder_b = intake_root / "beta"
-        folder_a.mkdir(parents=True, exist_ok=True)
-        folder_b.mkdir(parents=True, exist_ok=True)
-        (folder_a / "a.stl").write_bytes(b"solid a\nendsolid a\n")
-        (folder_b / "b.stl").write_bytes(b"solid b\nendsolid b\n")
-        shared = "# Shared notes\n"
-        (folder_a / "README.md").write_text(shared, encoding="utf-8")
-        (folder_b / "README.md").write_text(shared, encoding="utf-8")
+        folder = intake_root / "full-folder"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "thing.stl").write_bytes(b"solid t\nendsolid t\n")
+        (folder / "README.md").write_text("# Already imported\n", encoding="utf-8")
 
         upload_id = _seed_upload(
             client,
-            [
-                {"type": "folder", "path": str(folder_a), "recurse": True},
-                {"type": "folder", "path": str(folder_b), "recurse": True},
-            ],
+            [{"type": "folder", "path": str(folder), "recurse": True}],
         )
-        # Force a single planned group so both READMEs are processed by the
-        # same curated publish call by selecting matching strategy via plan.
-        # In practice each folder becomes its own group; ensure each group's
-        # publish path handles its own README without conflicting.
-        plan_response = client.post(
-            "/api/intake/plan",
-            json={
-                "source_entries": [
-                    {"type": "folder", "path": str(folder_a), "recurse": True},
-                    {"type": "folder", "path": str(folder_b), "recurse": True},
-                ]
-            },
-        )
-        assert plan_response.status_code == 200
-        group_count = len(plan_response.json()["planned_models"])
         response = client.post(
             f"/api/intake/uploads/{upload_id}/publish-by-destination",
             json={
                 "group_destinations": [
                     {
                         "destination": "curated",
-                        "model_name": f"Group {i}",
+                        "model_name": "Full Folder",
                         "attach_source_readme": True,
                     }
-                    for i in range(group_count)
                 ],
             },
         )
         assert response.status_code == 200, response.text
-        body = response.json()
-        # Each group attaches its own README (different curated items).
-        total_attached = sum(
-            len(g.get("attached_readmes") or []) for g in body["group_results"]
+        result = response.json()["group_results"][0]
+        assets = list_model_assets(
+            db_path=tmp_path / "model_catalog.db",
+            local_model_id=result["local_model_id"],
         )
-        assert total_attached == group_count
+        readme_assets = [
+            a for a in assets if str(getattr(a, "asset_filename", "")) == "README.md"
+        ]
+        assert len(readme_assets) == 1
     finally:
         client.__exit__(None, None, None)

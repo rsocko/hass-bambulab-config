@@ -90,6 +90,9 @@ These ports straight from PH. Only labels and target IDs change.
 | `unlink-working-group` | Files & Sources | Remove link | — | `warning` | `model_catalog_delete_working_group_link` | Per-row. |
 | `spawn-working-group` | Files & Sources | Create working group from this model | `mdi:folder-plus-outline` | — | `model_catalog_create_working_group` | Pre-fills title from model. |
 | `attach-working-file` | Files & Sources | Attach file to group | `mdi:file-link` | — | `model_catalog_attach_file_to_group` | Single-file picker. |
+| `fork-to-working` | Files & Sources | Send to Working Files | `mdi:source-branch-plus` | — | `model_catalog_fork_to_working` | Copy-out for editing. Confirm sub-mode picks files, working folder name, and Project linkage. Authoritative spec: [catalog-edit-and-fork.md §3](catalog-edit-and-fork.md). |
+| `view-lineage` | Files & Sources | View revisions & forks | `mdi:family-tree` | — | `model_catalog_get_lineage` + `model_catalog_get_revisions` | Sub-mode `versions` lists predecessors, successors, and active forks. See [catalog-edit-and-fork.md §8.2](catalog-edit-and-fork.md). |
+| `edit-in-place-advanced` | Files & Sources (Advanced) | Edit catalog file in place (Advanced) | `mdi:file-edit-outline` | `danger` | `model_catalog_edit_in_place_start` (companion) | **Hidden by default.** Requires `model_catalog_allow_in_place_catalog_edit=true` and companion heartbeat. Type-to-confirm + automatic snapshot. See [catalog-edit-and-fork.md §5](catalog-edit-and-fork.md). |
 | `find-related-models` | Prints | Find related models | `mdi:relation-many` | — | `model_catalog_get_related_models` | Mirror of PH related; keyed by hash / tag overlap. |
 | `find-linked-archives` | Prints | Linked archive prints | `mdi:printer-3d` | — | `model_catalog_get_archive_links` (reverse lookup) | Lists archives that reference this model. |
 | `find-duplicate-models` | Prints | Find duplicate models | `mdi:content-duplicate` | — | (proposed) `/api/models/{id}/duplicates` | Backend addition; see §5. |
@@ -168,6 +171,14 @@ Most actions reuse existing rest_commands enumerated under [homeassistant/packag
 | `model_catalog_merge_models` rest_command | HA package | **NEW** | — |
 | `POST /api/models/{model_id}/regenerate-thumbnails` | sidecar router | **NEW (optional)** | Async job; status surfaces via existing job pattern. |
 | `GET /api/models/{model_id}/duplicates` | sidecar router | **NEW (optional)** | Hash + name + tag heuristic; mirrors PH duplicates contract. |
+| `POST /api/models/{model_id}/fork-to-working` | sidecar router | **NEW** | Copy-out to Working Files; creates `model_catalog_lineage` row; optional Project auto-suggest. Authoritative spec: [catalog-edit-and-fork.md §3.3](catalog-edit-and-fork.md). |
+| `GET /api/models/{model_id}/lineage` | sidecar router | **NEW** | Lists active and historical forks for a catalog model. |
+| `GET /api/models/{model_id}/revisions` | sidecar router | **NEW** | Lists `model_catalog_revisions` entries for the model. |
+| `POST /api/models/{model_id}/revisions/{revision_id}/restore` | sidecar router | **NEW** | Restore a prior snapshot; logs a new revision row. |
+| `POST /api/models/{model_id}/edit-in-place/{start,complete}` | sidecar router | **NEW (opt-in)** | Companion-mediated in-place edit; gated by feature flag. See [catalog-edit-and-fork.md §5](catalog-edit-and-fork.md). |
+| `model_catalog_fork_to_working` rest_command | HA package | **NEW** | Wraps fork endpoint. |
+| `model_catalog_get_lineage` / `model_catalog_get_revisions` rest_commands | HA package | **NEW** | Powers the `versions` sub-mode. |
+| `model_catalog_restore_revision` rest_command | HA package | **NEW** | Wraps restore endpoint. |
 | `model_catalog_get_archive_links` (reverse-lookup mode) | existing | **EXTEND** | Add `?by_model_id=...` query param so we don't need a new endpoint for "linked archive prints". |
 | `model_catalog_update_model` | existing | reuse | Covers tags, title, description, queue state, publish destinations, sources. |
 
@@ -192,6 +203,9 @@ Mirrors the PH `_mode` state machine. Only catalog-specific modes are listed; al
 | `duplicate-models` | Prints → Find duplicate models | Same layout as PH duplicates | `back-main` |
 | `compare-models` | Prints → Compare with another model | Field-by-field comparison | `back-prints` / `back-main` |
 | `merge-pick-target` | Danger → Merge into another model | Search modal → pick target | `back-main` |
+| `fork-to-working-confirm` | Files & Sources → Send to Working Files | Pick files, working folder name, Project linkage | `cancel` / `back-main` |
+| `versions` | Files & Sources → View revisions & forks | Predecessors / successors / active forks list | `back-main` |
+| `edit-in-place-confirm` | Files & Sources → Edit catalog file in place (Advanced) | Type-to-confirm + snapshot consent | `cancel` / `back-main` |
 | `confirm-delete-1` | Danger → Delete model | First confirmation | `cancel` |
 | `confirm-delete-2` | confirm-delete-1 | Final confirmation, type-to-confirm | `cancel` |
 

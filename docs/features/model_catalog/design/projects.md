@@ -119,6 +119,21 @@ ModelCatalogProject
 
 ---
 
+## Project Auto-Suggestion from Catalog Fork
+
+The catalog-side **Send to Working Files** action (`fork-to-working`) is the primary trigger that populates Project lineage automatically. See [catalog-edit-and-fork.md §3](catalog-edit-and-fork.md) for the full fork flow and [catalog-edit-and-fork.md §6](catalog-edit-and-fork.md) for the auto-suggestion contract.
+
+Behavior:
+
+- The fork confirm dialog defaults `project_linkage = new_project` when the source catalog model is **not** already in a Project. Title default: `"{model_title} (lineage)"`, `project_type = model_family`.
+- If the source catalog model **is** already in a Project, the dialog defaults to `existing_project` pre-filled with that Project. The new working folder is added to `working_group_ids`.
+- The operator may always choose `none` to skip Project linkage; lineage remains queryable via the `model_catalog_lineage` table without a Project.
+- On a subsequent `republish_as_new_version` publish with `conflict_policy = new_revision`, the newly created catalog model is attached to the same Project's `curated_model_ids`, and the junction-table fields `variant_of` and `published_from_group_id` are populated by the wizard (`variant_of` = previous head's `manyfold_model_id`, `published_from_group_id` = the working group used for the publish).
+
+This is the first design that **actively writes** `variant_of` and `published_from_group_id` — earlier drafts defined the schema but had no flow producing the values. Fork-and-republish is that flow.
+
+---
+
 ## Usage Patterns
 
 ### Pattern 1: Multi-Part Design (Model Family)
