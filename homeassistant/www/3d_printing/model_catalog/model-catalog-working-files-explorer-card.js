@@ -1693,7 +1693,19 @@
     }
 
     _handleClick(event) {
-      var target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
+      var target = null;
+      var path = event && typeof event.composedPath === 'function' ? event.composedPath() : [];
+      for (var pathIndex = 0; pathIndex < path.length; pathIndex += 1) {
+        if (path[pathIndex] instanceof Element) {
+          target = path[pathIndex].closest('[data-action]');
+          if (target) {
+            break;
+          }
+        }
+      }
+      if (!target && event.target instanceof Element) {
+        target = event.target.closest('[data-action]');
+      }
       if (!target) {
         if (this._fileActionMenuPath) {
           this._fileActionMenuPath = '';
