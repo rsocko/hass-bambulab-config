@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Lovelace Resource Cache-Bust Check",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        ".github/scripts/check_lovelace_resource_versions.py",
+        "--manifest",
+        "homeassistant/packages/3d_printing/common/dashboards/_resources.yaml",
+        "--base-ref",
+        "origin/main",
+        "--mode",
+        "fail"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

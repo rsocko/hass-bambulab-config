@@ -190,6 +190,11 @@ Why it exists:
 - Resource sync can only publish versioned URL changes it can see.
 - Internal JS modules also need their importer chain bumped, or browsers may keep serving cached module URLs even when the top-level card changed.
 
+Local developer entry points:
+
+- `.githooks/pre-push` can call this script before `git push` when the clone is configured with `git config core.hooksPath .githooks`.
+- `.vscode/tasks.json` exposes `Run Lovelace Resource Cache-Bust Check` for a manual pre-push run inside VS Code.
+
 ## How The Pieces Fit Together
 
 Typical selected-scope deploy with JS changes:

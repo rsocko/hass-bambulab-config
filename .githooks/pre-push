@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+set -eu
+
+remote_name="${1:-origin}"
+default_branch="main"
+
+if git symbolic-ref --quiet --short "refs/remotes/$remote_name/HEAD" >/dev/null 2>&1; then
+  remote_head="$(git symbolic-ref --quiet --short "refs/remotes/$remote_name/HEAD")"
+  default_branch="${remote_head#${remote_name}/}"
+fi
+
+git fetch --no-tags "$remote_name" "$default_branch" >/dev/null 2>&1 || true
+
+if command -v python3 >/dev/null 2>&1; then
+  python3 .github/scripts/check_lovelace_resource_versions.py \
+    --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
+    --base-ref "$remote_name/$default_branch" \
+    --mode fail
+elif command -v python >/dev/null 2>&1; then
+  python .github/scripts/check_lovelace_resource_versions.py \
+    --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
+    --base-ref "$remote_name/$default_branch" \
+    --mode fail
+elif command -v py >/dev/null 2>&1; then
+  py -3 .github/scripts/check_lovelace_resource_versions.py \
+    --manifest homeassistant/packages/3d_printing/common/dashboards/_resources.yaml \
+    --base-ref "$remote_name/$default_branch" \
+    --mode fail
+else
+  echo "Python is required to run the Lovelace resource cache-bust pre-push hook." >&2
+  exit 1
+fi

@@ -45,3 +45,16 @@ For focused workflows and deeper operational context, use:
 
 - [docs/repo/quick-start.md](docs/repo/quick-start.md)
 - [docs/repo/reference/repository-capabilities-and-operations-reference.md](docs/repo/reference/repository-capabilities-and-operations-reference.md)
+
+## Local Git Hook Setup
+
+To enable the repo-managed pre-push guard for Lovelace JS cache-bust changes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\setup-git-hooks.ps1
+```
+
+That sets `core.hooksPath` to `.githooks`, which enables `.githooks/pre-push` for this clone.
+The hook runs `.github/scripts/check_lovelace_resource_versions.py` before each push and blocks the push if changed `homeassistant/www/3d_printing/**/*.js` files do not have the matching version bump chain.
+
+If you want to run the same check manually in VS Code before pushing, use the task `Run Lovelace Resource Cache-Bust Check`.
