@@ -48,9 +48,6 @@ model_catalog_search_models:
     {%- if show_ideas is defined -%}
       {%- set ns.params = ns.params + ['show_ideas=' ~ ((show_ideas | bool) | string | lower)] -%}
     {%- endif -%}
-    {%- if show_working_groups is defined -%}
-      {%- set ns.params = ns.params + ['show_working_groups=' ~ ((show_working_groups | bool) | string | lower)] -%}
-    {%- endif -%}
     {%- if refresh is defined -%}
       {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
     {%- endif -%}

@@ -759,12 +759,6 @@ class TestListModelsEndpointMerge:
             model_name="Paged Model 18 Idea",
             entity_type="idea",
         )
-        create_local_model(
-            db_path=db,
-            local_model_id="paged-working-group-01",
-            model_name="Paged Model 19 Working Group",
-            entity_type="working_group",
-        )
 
         response = client.get(
             "/api/models/search",
@@ -774,14 +768,12 @@ class TestListModelsEndpointMerge:
                 "page": 2,
                 "per_page": 12,
                 "show_ideas": "false",
-                "show_working_groups": "false",
             },
         )
         assert response.status_code == 200
 
         payload = response.json()
         assert payload["filters"]["show_ideas"] is False
-        assert payload["filters"]["show_working_groups"] is False
         assert payload["pagination"]["per_page"] == 12
         assert payload["pagination"]["page"] == 2
         assert payload["pagination"]["total"] == 24
