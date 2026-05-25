@@ -6803,9 +6803,12 @@ class ModelDetailPopupCard extends HTMLElement {
     }
     var payload = await response.json();
     var model = payload && payload.model && typeof payload.model === "object" ? payload.model : {};
+    this._queueDialogEntityType = String(model.entity_type || "model").trim().toLowerCase() || "model";
     var files = Array.isArray(model.files) ? model.files : [];
     if (!files.length) {
-      throw new Error("Selected model has no queueable files.");
+      // Idea entities and file-less models are still queueable: return an empty
+      // file list so the dialog can submit an idea-style entry.
+      return [];
     }
     var sidecarUrl = this._resolveModelSidecarUrl();
     var normalized = await Promise.all(files.map(async function (file, index) {
@@ -6902,14 +6905,31 @@ class ModelDetailPopupCard extends HTMLElement {
     return { totalFiles: files.length, selectedFiles: selectedFiles.length, selectedPlates: selectedPlates };
   }
 
+  _isQueueDialogIdeaMode() {
+    if (this._queueDialogLoading) return false;
+    if (String(this._queueDialogEntityType || "").toLowerCase() === "idea") return true;
+    return !Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0;
+  }
+
   _canSubmitQueueDialog() {
     if (this._queueDialogLoading || this._queueDialogSubmitting) return false;
+    if (this._isQueueDialogIdeaMode()) return !!this._queueDialogModelRef;
     if (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0) return false;
     if (this._queueDialogMode !== "plan") return true;
     return this._getQueueDialogMetrics().selectedPlates > 0;
   }
 
   _queueDialogPrimarySummary() {
+    if (this._queueDialogLoading) return "Loading queue defaults...";
+    if (this._isQueueDialogIdeaMode()) {
+      var ideaState = this._queueDialogMode === "quick"
+        ? "up_next"
+        : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
+      return "Will queue idea " + String(this._queueDialogModelName || "Idea")
+        + " on " + this._getPrinterId()
+        + " in state " + this._queueDialogTargetStateLabel(ideaState)
+        + " (no files to select).";
+    }
     if (!Array.isArray(this._queueDialogFiles) || !this._queueDialogFiles.length) return "Loading queue defaults...";
     var primaryFile = this._queueDialogFiles[0] || {};
     var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
@@ -6918,26 +6938,45 @@ class ModelDetailPopupCard extends HTMLElement {
 
   async _submitQueueDialog() {
     if (!this._queueDialogModelRef || this._queueDialogLoading || this._queueDialogSubmitting) return;
+    var ideaMode = this._isQueueDialogIdeaMode();
     if (!this._canSubmitQueueDialog()) {
-      this._queueDialogError = this._queueDialogMode === "plan" ? "Select at least one file plate before adding to queue." : "No queueable files were found for this model.";
+      this._queueDialogError = ideaMode
+        ? "Cannot add to queue right now."
+        : (this._queueDialogMode === "plan" ? "Select at least one file plate before adding to queue." : "No queueable files were found for this model.");
       this._render();
       return;
     }
-    var targetState = this._queueDialogMode === "quick" ? "up_next" : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
-    var primaryFile = this._queueDialogFiles[0] || {};
-    var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
-    var payload = {
-      source_kind: "catalog_model",
-      source_id: this._queueDialogModelRef,
-      title: this._queueDialogModelName,
-      queue_notes: String(this._queueDialogNotes || "").trim(),
-      selection_mode: "selected_plates",
-      selected_files: this._queueDialogMode === "quick"
-        ? [{ file_id: primaryFile.file_id, file_name: primaryFile.file_name, selected: true, plates: primaryPlate ? [{ plate_id: primaryPlate.plate_id, selected: true }] : [] }]
-        : this._queueDialogFiles.map(function (f) { return { file_id: f.file_id, file_name: f.file_name, selected: !!f.selected, plates: (f.plates || []).map(function (p) { return { plate_id: p.plate_id, selected: !!p.selected }; }) }; }),
-    };
-    if (targetState !== "up_next") {
-      payload.state = targetState;
+    var targetState = (ideaMode || this._queueDialogMode === "quick")
+      ? "up_next"
+      : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
+    var payload;
+    if (ideaMode) {
+      var ideaSourceKind = String(this._queueDialogEntityType || "").toLowerCase() === "idea"
+        ? "idea"
+        : "catalog_model";
+      payload = {
+        source_kind: ideaSourceKind,
+        source_id: this._queueDialogModelRef,
+        title: this._queueDialogModelName,
+        state: targetState,
+        queue_notes: String(this._queueDialogNotes || "").trim(),
+      };
+    } else {
+      var primaryFile = this._queueDialogFiles[0] || {};
+      var primaryPlate = Array.isArray(primaryFile.plates) && primaryFile.plates.length > 0 ? primaryFile.plates[0] : null;
+      payload = {
+        source_kind: "catalog_model",
+        source_id: this._queueDialogModelRef,
+        title: this._queueDialogModelName,
+        queue_notes: String(this._queueDialogNotes || "").trim(),
+        selection_mode: "selected_plates",
+        selected_files: this._queueDialogMode === "quick"
+          ? [{ file_id: primaryFile.file_id, file_name: primaryFile.file_name, selected: true, plates: primaryPlate ? [{ plate_id: primaryPlate.plate_id, selected: true }] : [] }]
+          : this._queueDialogFiles.map(function (f) { return { file_id: f.file_id, file_name: f.file_name, selected: !!f.selected, plates: (f.plates || []).map(function (p) { return { plate_id: p.plate_id, selected: !!p.selected }; }) }; }),
+      };
+      if (targetState !== "up_next") {
+        payload.state = targetState;
+      }
     }
     this._queueDialogSubmitting = true;
     this._queueDialogError = "";
@@ -6962,13 +7001,17 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!this._queueDialogOpen) return "";
     var metrics = this._getQueueDialogMetrics();
     var canSubmit = this._canSubmitQueueDialog();
+    var ideaMode = this._isQueueDialogIdeaMode();
     var existingNote = this._queueDialogExistingCount > 0
       ? '<div class="queue-dialog-existing-note">This model already has ' + this._escapeHtml(String(this._queueDialogExistingCount)) + ' queue entr' + (this._queueDialogExistingCount === 1 ? 'y' : 'ies') + '. A new entry will be created.</div>'
+      : "";
+    var ideaNote = ideaMode
+      ? '<div class="queue-dialog-note">This entry has no printable files. It will be added as an idea-style queue entry — set a target state and notes below.</div>'
       : "";
     var planBody = this._queueDialogLoading
       ? '<div class="queue-dialog-note">Loading model files and plates...</div>'
       : this._queueDialogFiles.length === 0
-      ? '<div class="queue-dialog-note">No queueable files available for this model.</div>'
+      ? ''
       : '<div class="queue-dialog-toolbar"><button class="toolbar-btn" type="button" data-action="queue-dialog-select-all">Select all</button><button class="toolbar-btn ghost" type="button" data-action="queue-dialog-clear-all">Deselect all</button></div>'
         + '<div class="queue-dialog-file-list">'
         + this._queueDialogFiles.map(function (file) {
@@ -6992,18 +7035,25 @@ class ModelDetailPopupCard extends HTMLElement {
       + '      <button class="modal-close-btn" type="button" data-action="close-queue-dialog" aria-label="Close">✕</button>'
       + '    </div>'
       + '    <div class="queue-dialog-tabs">'
-      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'quick' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>'
-      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'plan' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>'
+      + (ideaMode
+          ? ''
+          : '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'quick' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>'
+            + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'plan' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>')
       + '    </div>'
       + '    <div class="queue-dialog-body">'
       + existingNote
-      + (this._queueDialogMode === 'quick'
+      + ideaNote
+      + (ideaMode
           ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
-          : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
             + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="preparing"' + (this._queueDialogTargetState === 'preparing' ? ' selected' : '') + '>Preparing</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option></select></label>'
             + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
-            + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
-            + planBody)
+          : (this._queueDialogMode === 'quick'
+              ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
+              : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
+                + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="preparing"' + (this._queueDialogTargetState === 'preparing' ? ' selected' : '') + '>Preparing</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option></select></label>'
+                + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
+                + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
+                + planBody))
       + (this._queueDialogError ? '<div class="queue-dialog-error">' + this._escapeHtml(this._queueDialogError) + '</div>' : '')
       + '    </div>'
       + '    <div class="queue-dialog-footer">'

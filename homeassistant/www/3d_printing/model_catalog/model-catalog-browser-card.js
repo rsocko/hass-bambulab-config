@@ -2007,9 +2007,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var payload = await response.json();
     var model = payload && payload.model && typeof payload.model === "object" ? payload.model : {};
+    this._queueDialogEntityType = String(model.entity_type || "model").trim().toLowerCase() || "model";
     var files = Array.isArray(model.files) ? model.files : [];
     if (!files.length) {
-      throw new Error("Selected model has no queueable files.");
+      // Idea entities and file-less models are still queueable: fall through with
+      // an empty files array so the dialog can submit an idea-style entry. See
+      // unified-queue-board-card._submitAddToQueue for the canonical pattern.
+      return [];
     }
 
     var normalized = await Promise.all(files.map(async function (file, index) {
@@ -2177,7 +2181,33 @@ class ModelCatalogBrowserCard extends HTMLElement {
     });
   }
 
+  _isQueueDialogIdeaMode() {
+    if (this._queueDialogLoading) {
+      return false;
+    }
+    if (String(this._queueDialogEntityType || "").toLowerCase() === "idea") {
+      return true;
+    }
+    return !Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0;
+  }
+
   _queueDialogPrimarySummary() {
+    if (this._queueDialogLoading) {
+      return "Loading queue defaults...";
+    }
+    if (this._isQueueDialogIdeaMode()) {
+      var ideaPrinter = this._config && this._config.queue_printer_id ? this._config.queue_printer_id : "p1";
+      var ideaState = this._queueDialogMode === "quick"
+        ? "up_next"
+        : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
+      return "Will queue idea "
+        + String(this._queueDialogModelName || "Idea")
+        + " on "
+        + String(ideaPrinter)
+        + " in state "
+        + this._queueDialogTargetStateLabel(ideaState)
+        + " (no files to select).";
+    }
     if (!Array.isArray(this._queueDialogFiles) || !this._queueDialogFiles.length) {
       return "Loading queue defaults...";
     }
@@ -2198,6 +2228,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._queueDialogLoading || this._queueDialogSubmitting) {
       return false;
     }
+    if (this._isQueueDialogIdeaMode()) {
+      return !!this._queueDialogModelRef;
+    }
     if (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0) {
       return false;
     }
@@ -2211,7 +2244,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!this._queueDialogModelRef || this._queueDialogLoading || this._queueDialogSubmitting) {
       return;
     }
-    if (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0) {
+
+    var ideaMode = this._isQueueDialogIdeaMode();
+
+    if (!ideaMode && (!Array.isArray(this._queueDialogFiles) || this._queueDialogFiles.length === 0)) {
       this._queueDialogError = "No queueable files were found for this model.";
       this._render();
       return;
@@ -2225,33 +2261,50 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
-    var targetState = this._queueDialogMode === "quick"
+    var targetState = (ideaMode || this._queueDialogMode === "quick")
       ? "up_next"
       : this._normalizeQueueDialogTargetState(this._queueDialogTargetState);
 
-    var payload = {
-      source_kind: "catalog_model",
-      source_id: this._queueDialogModelRef,
-      title: this._queueDialogModelName,
-      queue_notes: String(this._queueDialogNotes || "").trim(),
-      selection_mode: "selected_plates",
-      selected_files: this._queueDialogMode === "quick"
-        ? this._buildQueueDialogQuickSelectionPayload()
-        : this._buildQueueDialogPlanSelectionPayload(),
-    };
+    var payload;
+    if (ideaMode) {
+      // Mirror the queue-board idea path: minimal payload, no file selection.
+      // Source kind reflects the underlying entity so the queue entry can still
+      // link back to a file-less catalog model when appropriate.
+      var ideaSourceKind = String(this._queueDialogEntityType || "").toLowerCase() === "idea"
+        ? "idea"
+        : "catalog_model";
+      payload = {
+        source_kind: ideaSourceKind,
+        source_id: this._queueDialogModelRef,
+        title: this._queueDialogModelName,
+        state: targetState,
+        queue_notes: String(this._queueDialogNotes || "").trim(),
+      };
+    } else {
+      payload = {
+        source_kind: "catalog_model",
+        source_id: this._queueDialogModelRef,
+        title: this._queueDialogModelName,
+        queue_notes: String(this._queueDialogNotes || "").trim(),
+        selection_mode: "selected_plates",
+        selected_files: this._queueDialogMode === "quick"
+          ? this._buildQueueDialogQuickSelectionPayload()
+          : this._buildQueueDialogPlanSelectionPayload(),
+      };
 
-    // Preserve Up Next as the UX default while remaining compatible with
-    // deployments whose add endpoint rejects explicit state="up_next".
-    if (targetState !== "up_next") {
-      payload.state = targetState;
-    }
+      // Preserve Up Next as the UX default while remaining compatible with
+      // deployments whose add endpoint rejects explicit state="up_next".
+      if (targetState !== "up_next") {
+        payload.state = targetState;
+      }
 
-    if (this._queueDialogMode === "plan") {
-      var metrics = this._getQueueDialogMetrics();
-      if (metrics.selectedPlates <= 0) {
-        this._queueDialogError = "Select at least one plate in Plan mode.";
-        this._render();
-        return;
+      if (this._queueDialogMode === "plan") {
+        var metrics = this._getQueueDialogMetrics();
+        if (metrics.selectedPlates <= 0) {
+          this._queueDialogError = "Select at least one plate in Plan mode.";
+          this._render();
+          return;
+        }
       }
     }
 
@@ -2310,13 +2363,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var metrics = this._getQueueDialogMetrics();
     var canSubmit = this._canSubmitQueueDialog();
+    var ideaMode = this._isQueueDialogIdeaMode();
     var existingNote = this._queueDialogExistingCount > 0
       ? '<div class="queue-dialog-existing-note">This model already has ' + this._escapeHtml(String(this._queueDialogExistingCount)) + ' queue entr' + (this._queueDialogExistingCount === 1 ? 'y' : 'ies') + '. Re-add is allowed.</div>'
+      : "";
+    var ideaNote = ideaMode
+      ? '<div class="queue-dialog-note">This entry has no printable files. It will be added as an idea-style queue entry — set a target state and notes below.</div>'
       : "";
     var planBody = this._queueDialogLoading
       ? '<div class="queue-dialog-note">Loading model files and plates...</div>'
       : this._queueDialogFiles.length === 0
-      ? '<div class="queue-dialog-note">No queueable files available for this model.</div>'
+      ? ''
       : '<div class="queue-dialog-toolbar"><button class="toolbar-btn" type="button" data-action="queue-dialog-select-all">Select all</button><button class="toolbar-btn ghost" type="button" data-action="queue-dialog-clear-all">Deselect all</button></div>'
         + '<div class="queue-dialog-file-list">'
         + this._queueDialogFiles.map(function (file) {
@@ -2341,18 +2398,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '      <button class="modal-close-btn" type="button" data-action="close-queue-dialog" aria-label="Close">✕</button>'
       + '    </div>'
       + '    <div class="queue-dialog-tabs">'
-      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'quick' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>'
-      + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'plan' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>'
+      + (ideaMode
+          ? ''
+          : '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'quick' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>'
+            + '      <button class="queue-dialog-tab' + (this._queueDialogMode === 'plan' ? ' active' : '') + '" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>')
       + '    </div>'
       + '    <div class="queue-dialog-body">'
       + existingNote
-      + (this._queueDialogMode === 'quick'
+      + ideaNote
+      + (ideaMode
           ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
-          : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
             + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="preparing"' + (this._queueDialogTargetState === 'preparing' ? ' selected' : '') + '>Preparing</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option></select></label>'
             + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
-            + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
-            + planBody)
+          : (this._queueDialogMode === 'quick'
+              ? '<div class="queue-dialog-summary">' + this._escapeHtml(this._queueDialogPrimarySummary()) + '</div>'
+              : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
+                + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state"><option value="backlog"' + (this._queueDialogTargetState === 'backlog' ? ' selected' : '') + '>Backlog</option><option value="up_next"' + (this._queueDialogTargetState === 'up_next' ? ' selected' : '') + '>Up Next</option><option value="preparing"' + (this._queueDialogTargetState === 'preparing' ? ' selected' : '') + '>Preparing</option><option value="ready"' + (this._queueDialogTargetState === 'ready' ? ' selected' : '') + '>Ready</option></select></label>'
+                + '<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">' + this._escapeHtml(this._queueDialogNotes) + '</textarea></label>'
+                + '<div class="queue-dialog-metrics">Selected ' + this._escapeHtml(String(metrics.selectedPlates)) + ' plates across ' + this._escapeHtml(String(metrics.selectedFiles)) + ' files.</div>'
+                + planBody))
       + (this._queueDialogError ? '<div class="queue-dialog-error">' + this._escapeHtml(this._queueDialogError) + '</div>' : '')
       + '    </div>'
       + '    <div class="queue-dialog-footer">'
@@ -4553,6 +4617,61 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }.bind(this));
   }
 
+  _captureActiveInputState() {
+    if (!this.shadowRoot) {
+      return null;
+    }
+    var active = this.shadowRoot.activeElement;
+    if (!active) {
+      return null;
+    }
+    var tag = String(active.tagName || "").toUpperCase();
+    if (tag !== "INPUT" && tag !== "TEXTAREA") {
+      return null;
+    }
+    var id = String(active.id || "");
+    if (!id) {
+      // Only restore focus for elements we can reliably re-target by id.
+      return null;
+    }
+    var snapshot = { id: id };
+    try {
+      if (typeof active.selectionStart === "number") {
+        snapshot.selectionStart = active.selectionStart;
+        snapshot.selectionEnd = active.selectionEnd;
+        snapshot.selectionDirection = active.selectionDirection || "none";
+      }
+    } catch (_e) {
+      // Some input types (number, email, etc.) throw when reading selection.
+    }
+    return snapshot;
+  }
+
+  _restoreActiveInputState(snapshot) {
+    if (!snapshot || !snapshot.id || !this.shadowRoot) {
+      return;
+    }
+    var node = this.shadowRoot.getElementById(snapshot.id);
+    if (!node || typeof node.focus !== "function") {
+      return;
+    }
+    if (this.shadowRoot.activeElement === node) {
+      return;
+    }
+    try {
+      node.focus({ preventScroll: true });
+    } catch (_e) {
+      try { node.focus(); } catch (_e2) { /* ignore */ }
+    }
+    if (typeof snapshot.selectionStart === "number" && typeof node.setSelectionRange === "function") {
+      try {
+        node.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd, snapshot.selectionDirection || "none");
+      } catch (_e) {
+        // setSelectionRange is unsupported on some input types; ignore.
+      }
+    }
+  }
+
   _renderNow() {
     if (this._renderRAFId) {
       cancelAnimationFrame(this._renderRAFId);
@@ -4920,6 +5039,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen));
 
+    // Preserve focus across the innerHTML reset below. Without this, any
+    // active input (most visibly the search box "#mc-q") loses focus on every
+    // re-render — including the debounced re-render that fires while the
+    // user is still typing — making the filter inputs unusable.
+    var focusSnapshot = this._captureActiveInputState();
+
     this._contentRoot.innerHTML = ''
       + '  <div class="shell">'
       + '    <div class="shell-header">'
@@ -4932,6 +5057,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderQueueDialog()
       + this._renderIdeaCreateDialog()
       + '  </div>';
+
+    this._restoreActiveInputState(focusSnapshot);
 
     this._scheduleThumbnailObserverSetup(0);
     if (progressiveRemainder && progressiveRemainder.length) {
