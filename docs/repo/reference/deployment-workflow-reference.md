@@ -171,6 +171,25 @@ Important repo rule:
 
 - When a tracked custom JS resource changes, also increment its `?v=` URL in `_resources.yaml`; otherwise this script will see no resource URL change to publish.
 
+### [.github/scripts/check_lovelace_resource_versions.py](../../.github/scripts/check_lovelace_resource_versions.py)
+
+Purpose:
+
+- Fail or warn when a deploy range changes Lovelace JS without the matching cache-bust update chain.
+
+What it does:
+
+1. Diffs the deploy range against the default branch merge-base, falling back to `HEAD~1..HEAD` when needed.
+2. Finds changed `homeassistant/www/3d_printing/**/*.js` files that are in the selected deploy scope.
+3. For direct resources, verifies the matching `/local/...js?v=...` entry in `homeassistant/packages/3d_printing/common/dashboards/_resources.yaml` changed.
+4. For versioned internal modules, verifies each current importer bumped its `?v=` dependency string.
+5. Returns non-zero in `resource_safety_mode=fail` and emits warnings in `resource_safety_mode=warn`.
+
+Why it exists:
+
+- Resource sync can only publish versioned URL changes it can see.
+- Internal JS modules also need their importer chain bumped, or browsers may keep serving cached module URLs even when the top-level card changed.
+
 ## How The Pieces Fit Together
 
 Typical selected-scope deploy with JS changes:
@@ -180,9 +199,10 @@ Typical selected-scope deploy with JS changes:
 3. The main workflow resolves allowlist and selected package scope.
 4. `manage_feature_includes.sh` ensures loader-backed feature includes exist.
 5. Rsync copies the selected YAML and optional `www/` assets.
-6. `sync_lovelace_resources.sh` updates HA storage for tracked resource URLs.
-7. Post-sync validation and reload/restart steps run.
-8. If JS resources changed, users should hard refresh the browser after deploy.
+6. `check_lovelace_resource_versions.py` verifies the cache-bust chain before deployment continues.
+7. `sync_lovelace_resources.sh` updates HA storage for tracked resource URLs.
+8. Post-sync validation and reload/restart steps run.
+9. If JS resources changed, users should hard refresh the browser after deploy.
 
 ## When To Edit Which File
 

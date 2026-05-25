@@ -66,6 +66,7 @@ Operational rule for this repo:
 1. When a tracked custom JS resource changes, also increment its URL in `common/dashboards/_resources.yaml`.
 2. The changed `?v=` value is what tells the deploy/resource sync that the resource URL changed and should be updated in HA storage.
 3. After deploy, recommend a browser hard refresh so the frontend fetches the new module URL immediately.
+4. The deployment workflow now validates this contract before deploy proceeds: direct resources must bump `_resources.yaml`, and versioned internal modules must bump the importer `?v=` chain that leads to the tracked resource.
 
 #### Automated resource registration (workflow)
 
@@ -83,6 +84,9 @@ This is handled by the `Sync Lovelace resources to HA storage` workflow step, wh
 The step runs in dry-run mode during `dry_run=true` deploys (preview only, no changes).
 
 If any individual resource create/update call fails, the sync step now fails the workflow instead of logging the error and continuing silently.
+
+Before the sync step, the workflow also runs `.github/scripts/check_lovelace_resource_versions.py`.
+That guard inspects the deploy diff and fails or warns when JS changes would be deployed without the matching cache-bust version updates.
 
 Script: [.github/scripts/sync_lovelace_resources.sh](../../.github/scripts/sync_lovelace_resources.sh)
 

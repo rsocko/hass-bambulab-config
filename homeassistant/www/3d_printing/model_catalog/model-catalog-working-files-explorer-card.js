@@ -1518,6 +1518,24 @@
       return parentPath + '/' + childName;
     }
 
+    _absoluteFolderPathForRelative(fullPath, relativePath, folderPath) {
+      var normalizedFull = normalizePath(fullPath);
+      var normalizedRelative = normalizePath(relativePath).replace(/^\/+/, '');
+      var normalizedFolder = normalizePath(folderPath).replace(/^\/+/, '');
+      if (!normalizedFull || !normalizedRelative) {
+        return '';
+      }
+      var suffix = '/' + normalizedRelative;
+      if (!normalizedFull.endsWith(suffix)) {
+        return dirname(normalizedFull);
+      }
+      var rootPath = normalizedFull.slice(0, normalizedFull.length - suffix.length);
+      if (!normalizedFolder) {
+        return rootPath || '/';
+      }
+      return this._joinFolderPath(rootPath, normalizedFolder);
+    }
+
     _parentFolderPath(folderPath) {
       var normalized = String(folderPath || '').trim();
       if (!normalized || normalized.indexOf('/') < 0) {
@@ -1551,6 +1569,8 @@
         var containerPath = this._entryPath(entry);
         var launchContext = entry && entry.launch && typeof entry.launch === 'object' ? entry.launch : {};
         var windowsPath = String(launchContext.windows_path || '').trim();
+        var containerDirectory = dirname(containerPath);
+        var windowsDirectory = windowsPath ? dirname(windowsPath).replace(/\\/g, '/') : '';
         if (!rel) {
           return;
         }
@@ -1569,22 +1589,22 @@
             index[nextPath] = { folders: {}, files: [], windowsPath: '', containerPath: '' };
           }
           index[currentPath].folders[folderName] = nextPath;
-          if (!index[nextPath].windowsPath && windowsPath) {
-            index[nextPath].windowsPath = dirname(windowsPath).replace(/\\/g, '/');
+          if (!index[nextPath].windowsPath && windowsDirectory) {
+            index[nextPath].windowsPath = this._absoluteFolderPathForRelative(windowsDirectory, dirname(rel), nextPath);
           }
-          if (!index[nextPath].containerPath && containerPath) {
-            index[nextPath].containerPath = dirname(containerPath).replace(/\\/g, '/');
+          if (!index[nextPath].containerPath && containerDirectory) {
+            index[nextPath].containerPath = this._absoluteFolderPathForRelative(containerDirectory, dirname(rel), nextPath);
           }
           currentPath = nextPath;
         }
         if (!index[currentPath]) {
           index[currentPath] = { folders: {}, files: [], windowsPath: '', containerPath: '' };
         }
-        if (!index[currentPath].windowsPath && windowsPath) {
-          index[currentPath].windowsPath = dirname(windowsPath).replace(/\\/g, '/');
+        if (!index[currentPath].windowsPath && windowsDirectory) {
+          index[currentPath].windowsPath = windowsDirectory;
         }
-        if (!index[currentPath].containerPath && containerPath) {
-          index[currentPath].containerPath = dirname(containerPath).replace(/\\/g, '/');
+        if (!index[currentPath].containerPath && containerDirectory) {
+          index[currentPath].containerPath = containerDirectory;
         }
         index[currentPath].files.push(entry);
       }, this);
