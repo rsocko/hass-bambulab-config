@@ -35,6 +35,17 @@ export class UnifiedQueueDialogController {
     this.host._queueDialogSubmitting = false;
     this.host._queueDialogError = "";
     this.host._queueDialogFiles = [];
+    this.host._queueDialogEntityType = "model";
+  }
+
+  isIdeaMode() {
+    if (this.host._queueDialogLoading) {
+      return false;
+    }
+    if (String(this.host._queueDialogEntityType || "").toLowerCase() === "idea") {
+      return true;
+    }
+    return !Array.isArray(this.host._queueDialogFiles) || this.host._queueDialogFiles.length === 0;
   }
 
   getPrinterId() {
@@ -177,6 +188,9 @@ export class UnifiedQueueDialogController {
     if (this.host._queueDialogLoading || this.host._queueDialogSubmitting) {
       return false;
     }
+    if (this.isIdeaMode()) {
+      return !!String(this.host._queueDialogModelRef || "").trim();
+    }
     if (!Array.isArray(this.host._queueDialogFiles) || this.host._queueDialogFiles.length === 0) {
       return false;
     }
@@ -187,6 +201,16 @@ export class UnifiedQueueDialogController {
   }
 
   primarySummary() {
+    if (this.host._queueDialogLoading) {
+      return "Loading queue defaults...";
+    }
+    if (this.isIdeaMode()) {
+      const ideaState = this.host._queueDialogMode === "quick"
+        ? "up_next"
+        : normalizeQueueDialogTargetState(this.host._queueDialogTargetState);
+      const label = String(this.host._queueDialogEntityType || "").toLowerCase() === "idea" ? "idea" : "entry";
+      return `Will queue ${label} ${String(this.host._queueDialogModelName || "Idea")} on ${this.getPrinterId()} in state ${queueDialogTargetStateLabel(ideaState)} (no files to select).`;
+    }
     if (!Array.isArray(this.host._queueDialogFiles) || !this.host._queueDialogFiles.length) {
       return "Loading queue defaults...";
     }
@@ -196,6 +220,21 @@ export class UnifiedQueueDialogController {
   }
 
   buildPayload() {
+    const ideaMode = this.isIdeaMode();
+    if (ideaMode) {
+      const ideaSourceKind = String(this.host._queueDialogEntityType || "").toLowerCase() === "idea" ? "idea" : "catalog_model";
+      const ideaTargetState = this.host._queueDialogMode === "quick"
+        ? "up_next"
+        : normalizeQueueDialogTargetState(this.host._queueDialogTargetState);
+      const ideaPayload = {
+        source_kind: ideaSourceKind,
+        source_id: String(this.host._queueDialogModelRef || "").trim(),
+        title: String(this.host._queueDialogModelName || "").trim() || "Idea",
+        state: ideaTargetState,
+        queue_notes: String(this.host._queueDialogNotes || "").trim(),
+      };
+      return ideaPayload;
+    }
     const quick = this.host._queueDialogMode !== "plan";
     const files = Array.isArray(this.host._queueDialogFiles) ? this.host._queueDialogFiles : [];
     const primaryFile = files[0] || {};
@@ -235,9 +274,11 @@ export class UnifiedQueueDialogController {
       return;
     }
     if (!this.canSubmit()) {
-      this.host._queueDialogError = this.host._queueDialogMode === "plan"
-        ? "Select at least one file plate before adding to queue."
-        : "No queueable files were found for this model.";
+      this.host._queueDialogError = this.isIdeaMode()
+        ? "Cannot add to queue right now."
+        : (this.host._queueDialogMode === "plan"
+            ? "Select at least one file plate before adding to queue."
+            : "No queueable files were found for this model.");
       this.host._render();
       return;
     }
@@ -279,9 +320,20 @@ export class UnifiedQueueDialogController {
       : value => String(value || "");
     const metrics = this.getMetrics();
     const canSubmit = this.canSubmit();
+    const ideaMode = this.isIdeaMode();
     const existingNote = this.host._queueDialogExistingCount > 0
       ? `<div class="queue-dialog-existing-note">This model already has ${escapeHtml(String(this.host._queueDialogExistingCount))} queue entr${this.host._queueDialogExistingCount === 1 ? "y" : "ies"}. Re-adding will create another independent entry.</div>`
       : "";
+    const ideaBody = ''
+      + `<div class="queue-dialog-summary">${escapeHtml(this.primarySummary())}</div>`
+      + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state">'
+      + `<option value="backlog"${this.host._queueDialogTargetState === "backlog" ? " selected" : ""}>Backlog</option>`
+      + `<option value="up_next"${this.host._queueDialogTargetState === "up_next" ? " selected" : ""}>Up Next</option>`
+      + `<option value="preparing"${this.host._queueDialogTargetState === "preparing" ? " selected" : ""}>Preparing</option>`
+      + `<option value="ready"${this.host._queueDialogTargetState === "ready" ? " selected" : ""}>Ready</option>`
+      + '</select></label>'
+      + `<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">${escapeHtml(this.host._queueDialogNotes)}</textarea></label>`
+      + '<div class="queue-dialog-note">This entry has no printable files. It will be queued as a placeholder for planning.</div>';
     const planBody = this.host._queueDialogLoading
       ? '<div class="queue-dialog-note">Loading model files and plates...</div>'
       : !Array.isArray(this.host._queueDialogFiles) || this.host._queueDialogFiles.length === 0
@@ -310,12 +362,16 @@ export class UnifiedQueueDialogController {
       + '      <button class="modal-close-btn" type="button" data-action="close-queue-dialog" aria-label="Close">✕</button>'
       + '    </div>'
       + '    <div class="queue-dialog-tabs">'
-      + `      <button class="queue-dialog-tab${this.host._queueDialogMode === "quick" ? " active" : ""}" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>`
-      + `      <button class="queue-dialog-tab${this.host._queueDialogMode === "plan" ? " active" : ""}" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>`
+      + (ideaMode
+          ? ''
+          : `      <button class="queue-dialog-tab${this.host._queueDialogMode === "quick" ? " active" : ""}" type="button" data-action="queue-dialog-mode" data-mode="quick">Quick</button>`
+            + `      <button class="queue-dialog-tab${this.host._queueDialogMode === "plan" ? " active" : ""}" type="button" data-action="queue-dialog-mode" data-mode="plan">Plan</button>`)
       + '    </div>'
       + '    <div class="queue-dialog-body">'
       + existingNote
-      + (this.host._queueDialogMode === "quick"
+      + (ideaMode
+          ? ideaBody
+          : (this.host._queueDialogMode === "quick"
           ? `<div class="queue-dialog-summary">${escapeHtml(this.primarySummary())}</div>`
           : '<div class="queue-dialog-summary">Choose plates, target state, and notes before creating the queue entry.</div>'
             + '<label class="queue-dialog-field"><span>Target state</span><select class="queue-dialog-target-state">'
@@ -326,7 +382,7 @@ export class UnifiedQueueDialogController {
             + '</select></label>'
             + `<label class="queue-dialog-field"><span>Notes</span><textarea class="queue-dialog-notes" data-queue-dialog-notes="true" rows="3" placeholder="Optional operator notes...">${escapeHtml(this.host._queueDialogNotes)}</textarea></label>`
             + `<div class="queue-dialog-metrics">Selected ${escapeHtml(String(metrics.selectedPlates))} plates across ${escapeHtml(String(metrics.selectedFiles))} files.</div>`
-            + planBody)
+            + planBody))
       + (this.host._queueDialogError ? `<div class="queue-dialog-error">${escapeHtml(this.host._queueDialogError)}</div>` : '')
       + '    </div>'
       + '    <div class="queue-dialog-footer">'
