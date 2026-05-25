@@ -1633,7 +1633,7 @@
               + '<span class="browser-name"><span class="name-main">' + escapeHtml(folderName) + '</span><span class="sub">' + String(Object.keys(childNode.folders).length) + ' folder(s) · ' + String(childCount) + ' file(s)</span></span>'
               + '<span class="browser-actions">' + this._renderFolderActionSplit(childNode.containerPath, childNode.windowsPath) + '</span>'
               + '</div>';
-          }).join('')
+              }, this).join('')
           + fileEntries.map(function (entry) {
             var pathValue = this._entryPath(entry);
             var extension = this._entryExtension(entry);
