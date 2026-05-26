@@ -494,14 +494,16 @@
             this._collapsedGroups[slug] = true;
           }
           if (!Object.prototype.hasOwnProperty.call(this._typeFilters, slug)) {
-            this._typeFilters[slug] = 'all';
+            // Default to 'models' so an expanded group (files mode) shows model files first.
+            this._typeFilters[slug] = 'models';
           }
         }, this);
         if (!Object.prototype.hasOwnProperty.call(this._collapsedGroups, LOOSE_SLUG)) {
           this._collapsedGroups[LOOSE_SLUG] = true;
         }
         if (!Object.prototype.hasOwnProperty.call(this._typeFilters, LOOSE_SLUG)) {
-          this._typeFilters[LOOSE_SLUG] = 'all';
+          // Default to 'models' so an expanded group (files mode) shows model files first.
+          this._typeFilters[LOOSE_SLUG] = 'models';
         }
         var shared = window.ModelCatalogIntakeShared;
         if (shared && typeof shared.getModelCatalogScopeStamp === 'function') {

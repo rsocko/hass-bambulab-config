@@ -10,6 +10,7 @@ Handles:
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from pathlib import Path
 from sqlite3 import connect
@@ -334,8 +335,13 @@ def _run_source_cleanup(
                     roots=working_files_roots,
                     compute_hashes=False,
                 )
-            except Exception:  # pragma: no cover - defensive: inventory sync is best-effort
-                pass
+            except Exception:  # defensive: inventory sync is best-effort
+                logging.getLogger(__name__).warning(
+                    "Post-cleanup working_file_inventory refresh failed for upload_id=%s; "
+                    "stale rows may linger until next reindex.",
+                    upload_id,
+                    exc_info=True,
+                )
     
     _transition_queue_status(
         state.settings.db_path,
