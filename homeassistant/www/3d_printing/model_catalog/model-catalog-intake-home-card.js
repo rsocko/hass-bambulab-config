@@ -1336,7 +1336,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!previewUrl) {
       return '<div class="entry-thumb placeholder">No preview</div>';
     }
-    return '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>';
+    return '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>';
   }
 
   async _submitServerSelections() {
@@ -1574,7 +1574,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var archiveName = String(entry.source_container_name || '').trim();
       var previewUrl = String(entry.preview_url || "");
       var previewMarkup = previewUrl
-        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>'
         : '<div class="entry-thumb placeholder">No preview</div>';
       return ''
         + '<article class="entry-row">'

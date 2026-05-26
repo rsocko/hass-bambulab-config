@@ -1681,7 +1681,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var resolvedTitle = String(entry && entry.group_title || '').trim() || defaultTitle;
     var previewUrl = String(entry && entry.preview_url || '');
     var previewMarkup = previewUrl
-      ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+      ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>'
       : '<div class="entry-thumb placeholder">No preview</div>';
     return ''
       + '<article class="entry-row" data-source-key="browser-file:' + escapeHtml(relativePath) + '">'
@@ -3023,7 +3023,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
       var previewUrl = String(entry.preview_url || '');
       var previewMarkup = previewUrl
-        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>'
         : '<div class="entry-thumb placeholder">No preview</div>';
       return ''
         + '<article class="entry-row">'
@@ -3135,7 +3135,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var parentPath = browserParentRelativePath(relativePath);
         var previewUrl = String(entry.preview_url || '');
         var previewMarkup = previewUrl
-          ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+          ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>'
           : '<div class="entry-thumb placeholder">No preview</div>';
         return ''
           + '<article class="entry-row selected right-pane-jump" data-browse-key="' + escapeHtml(card._browserFileKey(entry)) + '" data-action="jump-browser-parent" data-parent="' + escapeHtml(parentPath) + '" title="Jump to parent folder on the left">'
@@ -3261,7 +3261,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var entry = item.entry || {};
       var previewUrl = String(entry.preview_url || '');
       var previewMarkup = previewUrl
-        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(item.name) + '" loading="lazy" decoding="async"></div>'
+        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(item.name) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>'
         : '<div class="entry-thumb placeholder">No preview</div>';
       // Issue #1350: file rows mirror the folder treatment — at root files
       // are "Selected", inside a folder they are "Included in Selection",
