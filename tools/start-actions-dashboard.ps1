@@ -29,7 +29,10 @@ Start-Job -ScriptBlock {
 
 # Start Python HTTP server (blocking - Ctrl+C to stop)
 try {
-    python -m http.server $port --directory $dir 2>&1
+    # python http.server writes access logs to stderr by design.
+    # Running via cmd avoids PowerShell surfacing those normal logs as NativeCommandError.
+    $serverCmd = "python -m http.server {0} --directory \"{1}\"" -f $port, $dir
+    cmd /c $serverCmd
 } catch {
     Write-Host "`nServer stopped." -ForegroundColor DarkGray
 }
