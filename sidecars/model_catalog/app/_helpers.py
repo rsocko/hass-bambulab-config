@@ -404,6 +404,58 @@ def _compile_source_entry_exclusions(source_entries: list[dict[str, Any]]) -> tu
     return exact_keys, unique_prefixes
 
 
+def _compile_force_include_paths(source_entries: list[dict[str, Any]]) -> set[str]:
+    """Compile per-file unsupported-extension overrides from source entries.
+
+    Approach B for issue #1563. Each source entry may carry a
+    ``force_include_paths`` list of absolute (or entry-relative) paths that the
+    operator has chosen to include despite their suffix not being in
+    :data:`SUPPORTED_INTAKE_FILE_EXTENSIONS`. This helper resolves every entry
+    to an absolute path string (matching the ``normalized_path`` produced inside
+    ``_expand_intake_source_entries``) so the expansion pass can look the path
+    up directly.
+    """
+    overrides: set[str] = set()
+
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_root_raw = str(entry.get("path") or "").strip()
+        entry_root = Path(entry_root_raw).expanduser() if entry_root_raw else None
+        force_items = entry.get("force_include_paths")
+        if not isinstance(force_items, list):
+            continue
+
+        for item in force_items:
+            raw = str(item or "").strip()
+            if not raw:
+                continue
+            candidate = Path(raw).expanduser()
+            if not candidate.is_absolute() and entry_root is not None:
+                candidate = entry_root / candidate
+            try:
+                resolved = candidate.resolve(strict=False)
+            except (OSError, RuntimeError, ValueError):
+                resolved = candidate
+            overrides.add(str(resolved))
+
+    return overrides
+
+
+def _make_intake_warning_id(code: str, path: str) -> str:
+    """Build a stable per-file warning identifier (Approach B / issue #1563).
+
+    The client echoes this id back via ``force_include_paths`` so the server
+    can map an "Include anyway" toggle to a specific file. The id is derived
+    from ``code`` + ``path`` so it stays stable across plan/verify calls as
+    long as the file path does not change.
+    """
+    import hashlib
+
+    digest = hashlib.sha1(f"{code}:{path}".encode("utf-8")).hexdigest()
+    return digest[:16]
+
+
 def _is_excluded_source_file(
     *,
     file_path: Path,

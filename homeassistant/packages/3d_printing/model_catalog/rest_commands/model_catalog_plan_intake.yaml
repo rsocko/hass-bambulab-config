@@ -15,4 +15,7 @@ model_catalog_plan_intake:
     {% if source_entries is defined %}
       {% set ns.body = dict(ns.body, source_entries=(source_entries | default([], true))) %}
     {% endif %}
+    {% if force_include_paths is defined %}
+      {% set ns.body = dict(ns.body, force_include_paths=(force_include_paths | default([], true))) %}
+    {% endif %}
     {{ ns.body | tojson }}

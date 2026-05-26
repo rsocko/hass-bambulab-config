@@ -28,12 +28,14 @@ from .._helpers import (
     _bulk_path_source_metadata,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_utc_now_iso,
+    _compile_force_include_paths,
     _compile_source_entry_exclusions,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
     _configured_working_files_roots,
     _enforce_source_entries_within_intake_roots,
     _is_excluded_source_file,
+    _make_intake_warning_id,
     _normalize_path_compare_key,
 )
 from ..services import get_all_indexed_file_hashes
@@ -238,7 +240,28 @@ def plan_intake_groups(request: Request, payload: dict[str, Any] | None = None) 
         )
 
     normalized_entries = _canonical_source_entries(source_entries)
-    expanded_files, warnings = _expand_intake_source_entries(source_entries=normalized_entries)
+    # Approach B (issue #1563): callers may opt-in to include specific files
+    # whose extensions are not in the supported-intake allowlist by echoing
+    # the file paths (or warning_ids encoded as absolute paths) via a
+    # top-level ``force_include_paths`` array on the plan request. The same
+    # override can also travel as a per-entry ``force_include_paths`` list
+    # inside each source entry; both are merged inside the helper.
+    raw_force_includes = payload.get("force_include_paths") if isinstance(payload, dict) else None
+    top_level_force_includes: set[str] = set()
+    if isinstance(raw_force_includes, list):
+        for item in raw_force_includes:
+            raw = str(item or "").strip()
+            if not raw:
+                continue
+            try:
+                top_level_force_includes.add(str(Path(raw).expanduser().resolve(strict=False)))
+            except (OSError, RuntimeError, ValueError):
+                top_level_force_includes.add(raw)
+
+    expanded_files, warnings = _expand_intake_source_entries(
+        source_entries=normalized_entries,
+        force_include_paths=top_level_force_includes or None,
+    )
     
     # Extract excluded_items from source entries and filter out excluded files
     excluded_items = []
@@ -308,12 +331,18 @@ def _check_action_eligibility(item_row: dict[str, Any], action: str, override: b
     
     return True, None
 
-def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _expand_intake_source_entries(
+    *,
+    source_entries: list[dict[str, Any]],
+    force_include_paths: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Expand source entries into individual files with validation."""
     expanded: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
     exclusion_exact_keys, exclusion_folder_prefixes = _compile_source_entry_exclusions(source_entries)
+    override_paths: set[str] = set(force_include_paths or set())
+    override_paths.update(_compile_force_include_paths(source_entries))
 
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
@@ -351,20 +380,42 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             ):
                 continue
             if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
-                warnings.append(
-                    {
-                        "code": "unsupported_type",
-                        "message": f"Unsupported extension: {file_path.suffix.lower() or '<none>'}",
-                        "path": normalized_path,
-                    }
-                )
-                continue
+                suffix = file_path.suffix.lower()
+                # Approach B (issue #1563): honor per-file overrides supplied
+                # via force_include_paths so the operator can include an
+                # unsupported extension after seeing the warning, with an
+                # info-level audit warning replacing the skip.
+                if normalized_path in override_paths:
+                    warnings.append(
+                        {
+                            "code": "unsupported_type_overridden",
+                            "message": f"Unsupported extension included by user override: {suffix or '<none>'}",
+                            "path": normalized_path,
+                            "warning_id": _make_intake_warning_id(
+                                "unsupported_type_overridden", normalized_path
+                            ),
+                            "severity": "info",
+                        }
+                    )
+                else:
+                    warnings.append(
+                        {
+                            "code": "unsupported_type",
+                            "message": f"Unsupported extension: {suffix or '<none>'}",
+                            "path": normalized_path,
+                            "warning_id": _make_intake_warning_id(
+                                "unsupported_type", normalized_path
+                            ),
+                        }
+                    )
+                    continue
             if not file_path.exists() or not file_path.is_file():
                 warnings.append(
                     {
                         "code": "missing_source",
                         "message": f"Source file not found: {file_path}",
                         "path": normalized_path,
+                        "warning_id": _make_intake_warning_id("missing_source", normalized_path),
                     }
                 )
                 continue
@@ -378,6 +429,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                         "code": "source_unreadable",
                         "message": f"Could not read source file: {file_path} ({exc})",
                         "path": normalized_path,
+                        "warning_id": _make_intake_warning_id("source_unreadable", normalized_path),
                     }
                 )
                 continue

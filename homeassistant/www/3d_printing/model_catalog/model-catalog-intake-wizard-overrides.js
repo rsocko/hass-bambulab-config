@@ -1945,6 +1945,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._validationImagePreview = null;
     if (settings.clearPreview !== false) {
       this._previewData = null;
+      // Approach B (issue #1563): per-file override list is tied to the
+      // current preview/source-entry selection; clearing the preview must
+      // also clear the override set so stale paths don't leak into the next
+      // verify call.
+      this._forceIncludePaths = [];
     }
     if (settings.deletePrepared && uploadId && this._hass) {
       callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_delete_intake_upload', {
@@ -1983,9 +1988,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           this._previewData = null;
           this._groupDestinations = [];
         } else {
-          this._previewData = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_plan_intake', {
-            source_entries: selections,
-          });
+          // Approach B (issue #1563): pass current force-include overrides so
+          // operator-acknowledged unsupported files participate in the plan
+          // instead of being skipped with an unsupported_type warning.
+          var forceIncludeList = Array.isArray(this._forceIncludePaths)
+            ? this._forceIncludePaths.slice()
+            : [];
+          var planArgs = { source_entries: selections };
+          if (forceIncludeList.length) {
+            planArgs.force_include_paths = forceIncludeList;
+          }
+          this._previewData = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_plan_intake', planArgs);
           this._syncGroupDestinationsFromPreview();
         }
       }
@@ -2262,15 +2275,65 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return '<div class="state-row">No eligible model files were found in the current selection. Return to Choose Files to pick a different folder.</div>';
   };
 
+  // Approach B (issue #1563): render an "Include anyway" panel for every
+  // unsupported_type warning (and an audit chip for already-overridden ones)
+  // so operators can promote a file from warn-and-skip into the plan.
+  proto._renderUnsupportedOverridePanel = function () {
+    var warnings = this._previewData && Array.isArray(this._previewData.warnings)
+      ? this._previewData.warnings
+      : [];
+    if (!warnings.length) {
+      return '';
+    }
+    var overrideSet = {};
+    var overrideList = Array.isArray(this._forceIncludePaths) ? this._forceIncludePaths : [];
+    for (var oi = 0; oi < overrideList.length; oi += 1) {
+      overrideSet[String(overrideList[oi] || '')] = true;
+    }
+    var rows = [];
+    for (var wi = 0; wi < warnings.length; wi += 1) {
+      var w = warnings[wi] || {};
+      var code = String(w.code || '');
+      if (code !== 'unsupported_type' && code !== 'unsupported_type_overridden') {
+        continue;
+      }
+      var path = String(w.path || '');
+      if (!path) {
+        continue;
+      }
+      var isOverridden = code === 'unsupported_type_overridden' || !!overrideSet[path];
+      var message = String(w.message || code).replace(/\/assets\//gi, '');
+      var leafIndex = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+      var leaf = leafIndex >= 0 ? path.slice(leafIndex + 1) : path;
+      rows.push(''
+        + '<label class="wizard-detected-metadata-row" style="display:flex; gap:8px; align-items:flex-start;">'
+        + '  <input type="checkbox" data-action="force-include-unsupported" data-path="' + escapeHtml(path) + '"' + (isOverridden ? ' checked' : '') + '>'
+        + '  <span>'
+        + '    <strong>Include anyway:</strong> ' + escapeHtml(leaf)
+        + '    <div class="muted" style="font-size:0.85em;">' + escapeHtml(message) + '</div>'
+        + '    <div class="muted" style="font-size:0.75em;">' + escapeHtml(path) + '</div>'
+        + '  </span>'
+        + '</label>');
+    }
+    if (!rows.length) {
+      return '';
+    }
+    return ''
+      + '<div class="state-row" style="border-left:3px solid #f59e0b; text-align:left; margin-bottom:10px;">'
+      + '  <div><strong>Unsupported files detected.</strong> Check a row to include it in the plan anyway (audit-logged as override).</div>'
+      + '  <div class="entries" style="margin-top:6px;">' + rows.join('') + '</div>'
+      + '</div>';
+  };
+
   proto._renderDestinationAssignments = function () {
     var plannedModels = this._previewData && Array.isArray(this._previewData.planned_models)
       ? this._previewData.planned_models
       : [];
     var plans = this._syncGroupDestinationsFromPreview();
     if (!plannedModels.length) {
-      return this._renderEmptyDestinationState();
+      return this._renderUnsupportedOverridePanel() + this._renderEmptyDestinationState();
     }
-    return '<div class="entries">' + plannedModels.map(function (model, index) {
+    return this._renderUnsupportedOverridePanel() + '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
       var destination = String(plan.destination || 'curated');
       var matchMode = String(plan.match_mode || 'new');
@@ -4853,6 +4916,39 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         attach_source_readme: !!target.checked,
       });
       this._render();
+      return;
+    }
+    if (action === 'force-include-unsupported') {
+      // Approach B (issue #1563): toggle a per-file override and re-run the
+      // plan preview so the operator sees the file flip from skipped to
+      // included (or back) without leaving the destination step.
+      var togglePath = String(target.getAttribute('data-path') || '').trim();
+      if (!togglePath) {
+        this._render();
+        return;
+      }
+      var current = Array.isArray(this._forceIncludePaths) ? this._forceIncludePaths.slice() : [];
+      var existingIdx = current.indexOf(togglePath);
+      if (target.checked) {
+        if (existingIdx === -1) {
+          current.push(togglePath);
+        }
+      } else if (existingIdx !== -1) {
+        current.splice(existingIdx, 1);
+      }
+      this._forceIncludePaths = current;
+      var card = this;
+      this._render();
+      Promise.resolve()
+        .then(function () {
+          return card._refreshWizardPreview();
+        })
+        .catch(function () {})
+        .then(function () {
+          if (typeof card._render === 'function') {
+            card._render();
+          }
+        });
       return;
     }
     if (action === 'validation-finding-action') {

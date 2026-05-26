@@ -36,9 +36,11 @@ from .._helpers import (
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_path_source_metadata,
     _bulk_utc_now_iso,
+    _compile_force_include_paths,
     _compile_source_entry_exclusions,
     _coerce_bool,
     _is_excluded_source_file,
+    _make_intake_warning_id,
     _model_photo_storage_root,
     _windows_launch_enabled,
 )
@@ -302,7 +304,11 @@ def _move_file_to_working_directory(
     return str(destination.resolve())
 
 
-def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _expand_intake_source_entries(
+    *,
+    source_entries: list[dict[str, Any]],
+    force_include_paths: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Expand source entries into individual files."""
     from ..services.shared_helpers import _sha256_file
     
@@ -310,6 +316,8 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
     warnings: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
     exclusion_exact_keys, exclusion_folder_prefixes = _compile_source_entry_exclusions(source_entries)
+    override_paths: set[str] = set(force_include_paths or set())
+    override_paths.update(_compile_force_include_paths(source_entries))
 
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
@@ -339,21 +347,44 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                 exclusion_folder_prefixes=exclusion_folder_prefixes,
             ):
                 continue
-            if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
-                warnings.append(
-                    {
-                        "code": "unsupported_type",
-                        "message": f"Unsupported extension: {file_path.suffix.lower() or '<none>'}",
-                        "path": normalized_path,
-                    }
-                )
-                continue
+            suffix = file_path.suffix.lower()
+            if suffix not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
+                # Approach B (issue #1563): if the operator has explicitly
+                # opted-in to this specific file via force_include_paths,
+                # surface an info-level audit warning and fall through to
+                # include the file. Otherwise keep the prior warn-and-skip
+                # behavior (Approach A).
+                if normalized_path in override_paths:
+                    warnings.append(
+                        {
+                            "code": "unsupported_type_overridden",
+                            "message": f"Unsupported extension included by user override: {suffix or '<none>'}",
+                            "path": normalized_path,
+                            "warning_id": _make_intake_warning_id(
+                                "unsupported_type_overridden", normalized_path
+                            ),
+                            "severity": "info",
+                        }
+                    )
+                else:
+                    warnings.append(
+                        {
+                            "code": "unsupported_type",
+                            "message": f"Unsupported extension: {suffix or '<none>'}",
+                            "path": normalized_path,
+                            "warning_id": _make_intake_warning_id(
+                                "unsupported_type", normalized_path
+                            ),
+                        }
+                    )
+                    continue
             if not file_path.exists() or not file_path.is_file():
                 warnings.append(
                     {
                         "code": "missing_source",
                         "message": f"Source file not found: {file_path}",
                         "path": normalized_path,
+                        "warning_id": _make_intake_warning_id("missing_source", normalized_path),
                     }
                 )
                 continue
@@ -367,6 +398,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                         "code": "source_unreadable",
                         "message": f"Could not read source file: {file_path} ({exc})",
                         "path": normalized_path,
+                        "warning_id": _make_intake_warning_id("source_unreadable", normalized_path),
                     }
                 )
                 continue
