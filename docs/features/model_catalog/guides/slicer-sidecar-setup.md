@@ -41,58 +41,71 @@ The upstream sidecar supports both runtimes. BambuStudio is chosen as the primar
 
 ---
 
-## Step 1: Export Profiles from Bambu Studio Desktop
+## Step 1: Export and Upload Profiles from Bambu Studio Desktop
 
-The sidecar needs printer, process, and filament profiles to slice. These come from your existing Bambu Studio desktop installation.
+The sidecar needs printer, process, and filament profiles to slice. The recommended approach is to export a **Printer Preset Bundle** (`.bbscfg`) from Bambu Studio and upload it directly to the sidecar API — no manual unzipping or file sorting required.
 
-### Locate your Bambu Studio user data
+### 1a. Export a `.bbscfg` bundle from Bambu Studio
 
-On Windows, profiles live at:
+1. Open **Bambu Studio** desktop
+2. Go to **File → Export → Export Preset Bundle**
+3. Select **"Printer preset bundle (.bbscfg)"**
+4. Choose a save location (e.g., `my-profiles.bbscfg`)
 
+The `.bbscfg` file is a ZIP containing your printer, process, and filament presets along with a `bundle_structure.json` manifest that indexes them.
+
+### 1b. Upload the bundle to the sidecar API
+
+After the sidecar is running (Step 3), upload the `.bbscfg` file:
+
+```bash
+# From the Docker host — upload directly to the sidecar container
+docker compose exec model-catalog \
+  curl -X POST http://bambu-studio-api:3000/profiles/bundle \
+    -F "file=@/path/to/my-profiles.bbscfg" \
+  | python3 -m json.tool
 ```
-%APPDATA%\BambuStudio\user\<profile-name>\
+
+The API returns a `BundleSummary` listing the bundle ID and all imported presets:
+
+```json
+{
+  "id": "abc123...",
+  "printer": ["Bambu Lab X1 Carbon 0.4 nozzle"],
+  "process": ["0.20mm Standard @BBL X1C", "0.16mm Optimal @BBL X1C"],
+  "filament": ["Bambu PLA Basic @BBL X1C", "Bambu PETG Basic @BBL X1C"]
+}
 ```
 
-Typically `<profile-name>` is `default` or your Bambu Cloud username. Inside you'll find:
+> **Idempotent**: Re-uploading the same `.bbscfg` file reuses the existing extracted directory — safe to re-run.
 
-```
-<profile-name>/
-├── machine/          ← printer presets (e.g., "Bambu Lab X1 Carbon 0.4 nozzle.json")
-├── process/          ← print/process presets (e.g., "0.20mm Standard @BBL X1C.json")
-└── filament/         ← filament presets (e.g., "Bambu PLA Basic @BBL X1C.json")
-```
+### Bundle API reference
 
-### Copy profiles to the sidecar data directory
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/profiles/bundle` | `POST` | Upload a `.bbscfg` bundle (multipart, field: `file`) |
+| `/profiles/bundles` | `GET` | List all imported bundles with their preset names |
+| `/profiles/bundles/:id` | `GET` | Get a single bundle's summary |
+| `/profiles/bundles/:id` | `DELETE` | Remove a bundle and its extracted presets |
 
-Create a directory on the Docker host that will be bind-mounted into the sidecar container:
+### Alternative: manual profile copy
+
+If you prefer to manage individual profile JSONs instead of bundles, create the data directories and copy files manually:
 
 ```powershell
-# On the Docker host (adjust path to match your Model Catalog data root)
+# On the Docker host
 mkdir -p ./data/bambu-studio-api/printers
 mkdir -p ./data/bambu-studio-api/presets
 mkdir -p ./data/bambu-studio-api/filaments
-```
 
-Copy the JSON files with this mapping:
-
-| Bambu Studio source directory | Sidecar target directory | Contents |
-|-------------------------------|--------------------------|----------|
-| `machine/*.json` | `printers/` | Printer hardware definitions (nozzle, bed, limits) |
-| `process/*.json` | `presets/` | Print process presets (layer height, speeds, supports) |
-| `filament/*.json` | `filaments/` | Filament profiles (temps, flow, retraction) |
-
-```powershell
-# Example: copy from local Bambu Studio install to sidecar data
+# Copy from local Bambu Studio install
 $bsUser = "$env:APPDATA\BambuStudio\user\default"
-
 Copy-Item "$bsUser\machine\*.json"  "./data/bambu-studio-api/printers/"
 Copy-Item "$bsUser\process\*.json"  "./data/bambu-studio-api/presets/"
 Copy-Item "$bsUser\filament\*.json" "./data/bambu-studio-api/filaments/"
 ```
 
-> **Tip**: Only copy the presets you actually use. The sidecar loads all JSON files from each directory — fewer files means faster startup and simpler troubleshooting.
-
-> **Tip**: If your profile folder name is not `default`, check `%APPDATA%\BambuStudio\user\` for the correct subfolder.
+Individual profiles can also be uploaded via the REST API (`POST /profiles/{category}`).
 
 ---
 
@@ -188,11 +201,16 @@ Expected: JSON with version info (version may show `"unknown"` for BambuStudio �
 ### 4c. Verify profiles loaded
 
 ```bash
+# If using bundle upload (Step 1a/1b):
 docker compose exec model-catalog \
-  curl -s http://bambu-studio-api:3000/printers | python3 -m json.tool
+  curl -s http://bambu-studio-api:3000/profiles/bundles | python3 -m json.tool
+
+# If using manual copy (Step 1 alternative):
+docker compose exec model-catalog \
+  curl -s http://bambu-studio-api:3000/profiles/printers | python3 -m json.tool
 ```
 
-Expected: JSON array listing the printer profiles you copied in Step 1.
+Expected: JSON listing the bundles or printer profiles from Step 1.
 
 ### 4d. Test a slice (optional, manual)
 
@@ -247,6 +265,19 @@ When a new BambuStudio version is released:
 ## Updating Profiles
 
 After changing presets in Bambu Studio desktop:
+
+### Bundle approach (recommended)
+
+1. Re-export the `.bbscfg` bundle from Bambu Studio (File → Export → Export Preset Bundle)
+2. Upload it to the sidecar API:
+   ```bash
+   docker compose exec model-catalog \
+     curl -X POST http://bambu-studio-api:3000/profiles/bundle \
+       -F "file=@/path/to/updated-profiles.bbscfg"
+   ```
+3. No restart needed — the import is idempotent and new presets are available immediately
+
+### Manual approach
 
 1. Re-export the changed JSON files from `%APPDATA%\BambuStudio\user\<profile>\`
 2. Copy them into `./data/bambu-studio-api/{printers,presets,filaments}/`

@@ -190,10 +190,10 @@ services:
     container_name: bambu-studio-api
     restart: unless-stopped
 
-    # Internal network only — no host port published.
+    # Traefik network for reverse proxy + internal service discovery.
     # Model Catalog reaches this service at http://bambu-studio-api:3000
     networks:
-      - default
+      - traefik
 
     volumes:
       - ./data/bambu-studio-api:/app/data
@@ -201,6 +201,18 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bambu-studio-api.rule=Host(`${BAMBU_STUDIO_API_HOSTNAME:-bambu-studio-api.socko.us}`)"
+      - "traefik.http.routers.bambu-studio-api.entrypoints=web"
+      - "traefik.http.routers.bambu-studio-api.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.bambu-studio-api.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik"
+
+    # Local debugging access can be re-enabled if you want host-only exposure too.
+    # ports:
+    #   - "127.0.0.1:3000:3000"
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
