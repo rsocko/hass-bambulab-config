@@ -1706,7 +1706,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "set-collection-filter") {
       var collectionName = String(target.getAttribute("data-collection") || "").trim();
-      this._applyLeftNavSelection("collection:" + collectionName.toLowerCase(), { closeDrawer: true, requestLoad: true, render: true });
+      var collectionKey = collectionName.toLowerCase() === "unassigned" ? "__unassigned__" : collectionName.toLowerCase();
+      this._applyLeftNavSelection("collection:" + collectionKey, { closeDrawer: true, requestLoad: true, render: true });
       return;
     }
 
@@ -3668,23 +3669,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var max = Math.max(1, Number(limit || 6));
     var counts = {};
     var labels = {};
+    var unassignedKey = "__unassigned__";
+    var unassignedLabel = "Unassigned";
     for (var i = 0; i < this._results.length; i++) {
       var model = this._results[i] || {};
       var collections = Array.isArray(model.collection_names) ? model.collection_names.slice(0) : [];
-      var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
-      if (Array.isArray(fields.collection_names)) {
-        collections = collections.concat(fields.collection_names);
-      }
-      if (fields.collection && !Array.isArray(fields.collection)) {
-        collections = collections.concat(String(fields.collection || "").split(/[;,|]/));
-      }
       if (!collections.length) {
-        collections = ["Unassigned"];
+        counts[unassignedKey] = (counts[unassignedKey] || 0) + 1;
+        labels[unassignedKey] = unassignedLabel;
+        continue;
       }
       var seen = {};
       for (var c = 0; c < collections.length; c++) {
         var raw = String(collections[c] || "").trim();
-        var label = raw || "Unassigned";
+        if (!raw) {
+          continue;
+        }
+        var label = raw;
         var key = label.toLowerCase();
         if (!key || seen[key]) {
           continue;

@@ -171,6 +171,7 @@ MAX_SERVER_SIDE_3MF_TRIANGLES = 1_500_000
 DEFAULT_FREQUENT_WINDOW_DAYS = 90
 DEFAULT_FREQUENT_MIN_PRINTS = 3
 DEFAULT_FREQUENT_BACKFILL_WEIGHT = 0.5
+COLLECTION_FILTER_UNASSIGNED = "__unassigned__"
 GEOMETRY_LOD_TRIANGLE_LIMITS: dict[str, int] = {
     "low": 150_000,
     "medium": 400_000,
@@ -751,8 +752,11 @@ def _search_models_from_projection(
 
     collection_value = str(collection or "").strip().lower()
     if collection_value:
-        base_clauses.append("p.collection_blob_lc LIKE ?")
-        base_params.append(f"%{collection_value}%")
+        if collection_value == COLLECTION_FILTER_UNASSIGNED:
+            base_clauses.append("(COALESCE(p.collection_blob_lc, '') = '')")
+        else:
+            base_clauses.append("p.collection_blob_lc LIKE ?")
+            base_params.append(f"%{collection_value}%")
 
     creator_value = str(creator or "").strip().lower()
     if creator_value:
@@ -2663,7 +2667,10 @@ def _matches_filters(
     """Check if model matches all provided filters."""
     if collection_filter:
         normalized_filter = collection_filter.lower().strip()
-        if not any(normalized_filter in name.lower() for name in summary.collection_names):
+        if normalized_filter == COLLECTION_FILTER_UNASSIGNED:
+            if summary.collection_names:
+                return False
+        elif not any(normalized_filter in name.lower() for name in summary.collection_names):
             return False
     
     if creator_filter:

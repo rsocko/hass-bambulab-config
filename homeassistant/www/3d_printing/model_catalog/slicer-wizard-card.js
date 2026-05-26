@@ -1056,6 +1056,31 @@
       return `${minutes}m`;
     }
 
+    _resolvePrinterLabel(printerId, printerName) {
+      const printerIdText = printerId == null ? "" : String(printerId).trim();
+      const printerNameText = printerName == null ? "" : String(printerName).trim();
+
+      if (printerNameText) {
+        return printerNameText;
+      }
+
+      for (const printer of this._printersList) {
+        const candidateId = String(printer && (printer.id || printer.printer_id || "") || "").trim();
+        if (candidateId && candidateId === printerIdText) {
+          const candidateName = String(printer && (printer.name || printer.printer_name || "") || "").trim();
+          if (candidateName) {
+            return candidateName;
+          }
+        }
+      }
+
+      if (printerIdText) {
+        return printerIdText;
+      }
+
+      return "1";
+    }
+
     _renderCompletion() {
       const archiveId = this._jobData.created_archive_id || null;
       const result = this._jobData.result_summary && typeof this._jobData.result_summary === "object"
@@ -1075,6 +1100,10 @@
       const bambuddyArchivesUrl = archiveId
         ? `http://bambuddy.socko.us/archives?search=${encodeURIComponent(String(archiveId))}`
         : "http://bambuddy.socko.us/archives";
+      const printerLabel = this._resolvePrinterLabel(
+        upload.printer_id || this._wizardState.bambuddy_printer_id || "1",
+        upload.printer_name || upload.printer_label || ""
+      );
       const statusLabel = isSuccess ? "Archive Created" : "Completion Incomplete";
       const statusDetail = isSuccess
         ? `Archive #${archiveId} was created and enriched successfully.`
@@ -1095,7 +1124,7 @@
               </div>
               <div class="completion-kpi-card">
                 <div class="completion-kpi-label">Printer</div>
-                <div class="completion-kpi-value">${this._escapeHtml(String(upload.printer_id || "1"))}</div>
+                <div class="completion-kpi-value">${this._escapeHtml(printerLabel)}</div>
               </div>
               <div class="completion-kpi-card">
                 <div class="completion-kpi-label">Print Time</div>
