@@ -1305,12 +1305,41 @@
       this._handleCancel();
     }
 
+    _fireBrowserModEvent(service, data) {
+      const event = new CustomEvent("ll-custom", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          browser_mod: {
+            service,
+            data: data || {},
+            target: {},
+          },
+        },
+      });
+
+      if (document && document.body) {
+        document.body.dispatchEvent(event);
+        return true;
+      }
+
+      this.dispatchEvent(event);
+      return true;
+    }
+
     _handleClosePopup() {
+      try {
+        this._fireBrowserModEvent("browser_mod.close_popup", {});
+      } catch (error) {
+        console.warn("Failed to dispatch browser_mod close event:", error);
+      }
+
       if (!this._hass) {
         return;
       }
+
       this._hass.callService("browser_mod", "close_popup", {}).catch((error) => {
-        console.warn("Failed to close popup:", error);
+        console.warn("Failed to close popup via service fallback:", error);
       });
     }
 
