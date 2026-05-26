@@ -1298,6 +1298,10 @@
             --bg-primary: var(--ha-card-background, var(--card-background-color));
             --bg-card-alt: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 92%, var(--primary-text-color) 8%);
             --border-color: var(--divider-color);
+            --surface-info: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+            --surface-warning: color-mix(in srgb, var(--warning-color) 14%, var(--bg-primary));
+            --surface-success: color-mix(in srgb, var(--success-color) 14%, var(--bg-primary));
+            --surface-danger: color-mix(in srgb, var(--danger-color) 14%, var(--bg-primary));
             --shadow: 0 12px 30px color-mix(in srgb, var(--primary-text-color) 12%, transparent);
           }
 
@@ -1377,7 +1381,8 @@
 
           .model-meta span {
             padding: 2px 6px;
-            background: rgba(0, 0, 0, 0.05);
+            background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
             border-radius: 3px;
           }
 
@@ -1391,13 +1396,13 @@
           }
 
           .worker-status-panel.healthy {
-            background: #e8f5e9;
-            border: 1px solid #4caf50;
+            background: var(--surface-success);
+            border: 1px solid color-mix(in srgb, var(--success-color) 45%, transparent);
           }
 
           .worker-status-panel.unhealthy {
-            background: #fff3e0;
-            border: 1px solid #ff9800;
+            background: var(--surface-warning);
+            border: 1px solid color-mix(in srgb, var(--warning-color) 45%, transparent);
           }
 
           .status-icon {
@@ -1458,17 +1463,17 @@
           }
 
           .error-banner {
-            background: #ffebee;
-            border: 1px solid #ef5350;
+            background: var(--surface-danger);
+            border: 1px solid color-mix(in srgb, var(--danger-color) 45%, transparent);
             border-radius: 6px;
             padding: 12px;
             margin: 16px 0;
-            color: #c62828;
+            color: var(--text-primary);
             font-size: 13px;
           }
 
           .error-detail {
-            background: #fff3e0;
+            background: var(--surface-warning);
             border-left: 4px solid var(--warning-color);
             padding: 12px;
             margin: 12px 0;
@@ -1532,7 +1537,7 @@
           }
 
           .btn:hover:not(:disabled) {
-            opacity: 0.9;
+            filter: brightness(1.06);
           }
 
           .btn:disabled {
@@ -1546,10 +1551,19 @@
             color: var(--text-primary);
           }
 
+          .btn-primary:hover:not(:disabled) {
+            border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+          }
+
           .btn-secondary {
             background: var(--bg-card-alt);
             border-color: var(--border-color);
             color: var(--text-secondary);
+          }
+
+          .btn-secondary:hover:not(:disabled) {
+            color: var(--text-primary);
+            border-color: color-mix(in srgb, var(--text-primary) 22%, transparent);
           }
 
           /* Validation Review Step (6.2) */
@@ -1572,14 +1586,14 @@
           }
 
           .section-title.warning-title {
-            color: var(--warning-color);
+            color: var(--text-primary);
           }
 
           .metadata-row {
             display: flex;
             justify-content: space-between;
             padding: 8px 0;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
             font-size: 13px;
           }
 
@@ -1598,8 +1612,9 @@
           }
 
           .warnings-section {
-            background: #fff3e0;
-            border: 1px solid var(--warning-color);
+            background: var(--surface-warning);
+            border: 1px solid color-mix(in srgb, var(--warning-color) 45%, transparent);
+            border-left: 4px solid var(--warning-color);
             border-radius: 6px;
             padding: 16px;
             margin-bottom: 16px;
@@ -1660,7 +1675,7 @@
           }
 
           .info-box {
-            background: color-mix(in srgb, var(--accent) 12%, transparent);
+            background: var(--surface-info);
             border-left: 4px solid var(--accent);
             padding: 12px;
             border-radius: 4px;
@@ -1687,7 +1702,7 @@
 
           .filament-card.recommended {
             border-color: var(--success-color);
-            background: rgba(56, 142, 60, 0.05);
+            background: var(--surface-success);
           }
 
           .filament-name {
@@ -1872,7 +1887,7 @@
           }
 
           .draft-section {
-            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            background: var(--surface-info);
             border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
             border-radius: 6px;
             padding: 12px;
@@ -1964,17 +1979,17 @@
           }
 
           .status-item.done {
-            background: rgba(56, 142, 60, 0.05);
+            background: var(--surface-success);
             border-left-color: var(--success-color);
           }
 
           .status-item.error {
-            background: rgba(211, 47, 47, 0.05);
+            background: var(--surface-danger);
             border-left-color: var(--danger-color);
           }
 
           .status-item.pending {
-            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            background: var(--surface-info);
             border-left-color: var(--accent);
           }
 
@@ -2062,7 +2077,7 @@
           }
 
           .success-box {
-            background: rgba(56, 142, 60, 0.08);
+            background: var(--surface-success);
             border-left-color: var(--success-color);
           }
 
