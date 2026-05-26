@@ -1289,15 +1289,16 @@
       this.shadowRoot.innerHTML = `
         <style>
           :host {
-            --primary-color: #1976d2;
-            --danger-color: #d32f2f;
-            --success-color: #388e3c;
-            --warning-color: #f57c00;
-            --text-primary: #212121;
-            --text-secondary: #757575;
-            --bg-primary: #ffffff;
-            --border-color: #e0e0e0;
-            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --accent: var(--primary-color, #6edacb);
+            --danger-color: var(--error-color, #ef5350);
+            --success-color: var(--success-color, #22c55e);
+            --warning-color: var(--warning-color, #ff9a3c);
+            --text-primary: var(--primary-text-color);
+            --text-secondary: var(--secondary-text-color);
+            --bg-primary: var(--ha-card-background, var(--card-background-color));
+            --bg-card-alt: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 92%, var(--primary-text-color) 8%);
+            --border-color: var(--divider-color);
+            --shadow: 0 12px 30px color-mix(in srgb, var(--primary-text-color) 12%, transparent);
           }
 
           * {
@@ -1317,8 +1318,12 @@
           .wizard-header {
             padding: 24px;
             border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-color) 80%);
-            color: white;
+            background: linear-gradient(
+              135deg,
+              color-mix(in srgb, var(--accent) 24%, var(--bg-primary)) 0%,
+              color-mix(in srgb, var(--accent) 12%, var(--bg-primary)) 100%
+            );
+            color: var(--text-primary);
           }
 
           .wizard-header h2 {
@@ -1330,7 +1335,7 @@
           .wizard-subtitle {
             margin: 0;
             font-size: 14px;
-            opacity: 0.9;
+            color: var(--text-secondary);
           }
 
           .wizard-content {
@@ -1345,11 +1350,11 @@
             justify-content: flex-end;
             padding: 16px 24px;
             border-top: 1px solid var(--border-color);
-            background: #f5f5f5;
+            background: var(--bg-card-alt);
           }
 
           .model-summary {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 12px;
@@ -1424,7 +1429,7 @@
           }
 
           .provider-details {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 12px;
@@ -1518,7 +1523,7 @@
 
           .btn {
             padding: 8px 16px;
-            border: none;
+            border: 1px solid transparent;
             border-radius: 4px;
             font-size: 14px;
             font-weight: 600;
@@ -1536,18 +1541,20 @@
           }
 
           .btn-primary {
-            background: var(--primary-color);
-            color: white;
+            background: color-mix(in srgb, var(--accent) 22%, transparent);
+            border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+            color: var(--text-primary);
           }
 
           .btn-secondary {
-            background: var(--text-secondary);
-            color: white;
+            background: var(--bg-card-alt);
+            border-color: var(--border-color);
+            color: var(--text-secondary);
           }
 
           /* Validation Review Step (6.2) */
           .metadata-section {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 16px;
@@ -1610,7 +1617,7 @@
           }
 
           .plates-section {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 16px;
@@ -1631,21 +1638,21 @@
             border: 1px solid var(--border-color);
             border-radius: 4px;
             cursor: pointer;
-            background: white;
+            background: var(--bg-primary);
             transition: all 0.2s ease;
             font-size: 13px;
           }
 
           .plate-checkbox:hover {
-            background: #f5f5f5;
-            border-color: var(--primary-color);
+            background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+            border-color: color-mix(in srgb, var(--accent) 28%, transparent);
           }
 
           .plate-checkbox input[type="checkbox"] {
             cursor: pointer;
             width: 16px;
             height: 16px;
-            accent-color: var(--primary-color);
+            accent-color: var(--accent);
           }
 
           .plate-checkbox input[type="checkbox"]:checked {
@@ -1653,8 +1660,8 @@
           }
 
           .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid var(--primary-color);
+            background: color-mix(in srgb, var(--accent) 12%, transparent);
+            border-left: 4px solid var(--accent);
             padding: 12px;
             border-radius: 4px;
             font-size: 13px;
@@ -1662,7 +1669,7 @@
           }
 
           .info-box strong {
-            color: var(--primary-color);
+            color: var(--accent);
           }
 
           /* Filament Selection Step (6.3) */
@@ -1671,7 +1678,7 @@
           }
 
           .filament-card {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 2px solid var(--border-color);
             border-radius: 6px;
             padding: 16px;
@@ -1715,20 +1722,20 @@
             border: 1px solid var(--border-color);
             border-radius: 6px;
             cursor: pointer;
-            background: white;
+            background: var(--bg-primary);
             transition: all 0.2s ease;
           }
 
           .candidate-radio:hover {
-            background: #f5f5f5;
-            border-color: var(--primary-color);
+            background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+            border-color: color-mix(in srgb, var(--accent) 28%, transparent);
           }
 
           .candidate-radio input[type="radio"] {
             cursor: pointer;
             width: 18px;
             height: 18px;
-            accent-color: var(--primary-color);
+            accent-color: var(--accent);
             flex-shrink: 0;
           }
 
@@ -1750,7 +1757,7 @@
 
           /* Timestamp Review Step (6.4) */
           .timestamp-section {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 16px;
@@ -1772,13 +1779,13 @@
             padding: 12px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            background: white;
+            background: var(--bg-primary);
             cursor: pointer;
           }
 
           .timestamp-mode-option.selected {
-            border-color: var(--primary-color);
-            background: rgba(25, 118, 210, 0.05);
+            border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
           }
 
           .timestamp-mode-option.disabled {
@@ -1799,7 +1806,7 @@
           }
 
           .timestamp-current {
-            background: white;
+            background: var(--bg-primary);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 12px;
@@ -1846,7 +1853,7 @@
             padding: 10px 12px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            background: white;
+            background: var(--bg-primary);
             color: var(--text-primary);
             font-size: 13px;
             font-family: 'Courier New', monospace;
@@ -1854,8 +1861,8 @@
 
           .timestamp-input:focus {
             outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+            border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
           }
 
           .input-hint {
@@ -1865,8 +1872,8 @@
           }
 
           .draft-section {
-            background: #f0f7ff;
-            border: 1px solid rgba(25, 118, 210, 0.2);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
             border-radius: 6px;
             padding: 12px;
             margin-bottom: 16px;
@@ -1887,7 +1894,7 @@
             cursor: pointer;
             width: 16px;
             height: 16px;
-            accent-color: var(--primary-color);
+            accent-color: var(--accent);
             flex-shrink: 0;
           }
 
@@ -1920,7 +1927,7 @@
           .progress-percent {
             font-size: 18px;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--accent);
             min-width: 50px;
             text-align: right;
           }
@@ -1934,7 +1941,7 @@
 
           .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--primary-color) 70%, #6edacb);
+            background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #6edacb));
             transition: width 0.3s ease;
             border-radius: 6px;
           }
@@ -1951,7 +1958,7 @@
             gap: 12px;
             align-items: flex-start;
             padding: 12px;
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border-radius: 6px;
             border-left: 3px solid var(--border-color);
           }
@@ -1967,22 +1974,30 @@
           }
 
           .status-item.pending {
-            background: rgba(25, 118, 210, 0.05);
-            border-left-color: var(--primary-color);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            border-left-color: var(--accent);
           }
 
           .status-item.pending .status-icon {
-            color: var(--primary-color);
+            color: var(--accent);
             animation: spin 1s linear infinite;
           }
 
           /* Completion Step (6.6) */
           .completion-header.success {
-            background: linear-gradient(135deg, #2e7d32, #43a047 80%);
+            background: linear-gradient(
+              135deg,
+              color-mix(in srgb, var(--success-color) 28%, var(--bg-primary)) 0%,
+              color-mix(in srgb, var(--success-color) 16%, var(--bg-primary)) 100%
+            );
           }
 
           .completion-header.warning {
-            background: linear-gradient(135deg, #ef6c00, #fb8c00 80%);
+            background: linear-gradient(
+              135deg,
+              color-mix(in srgb, var(--warning-color) 28%, var(--bg-primary)) 0%,
+              color-mix(in srgb, var(--warning-color) 16%, var(--bg-primary)) 100%
+            );
           }
 
           .completion-kpi-grid {
@@ -1993,7 +2008,7 @@
           }
 
           .completion-kpi-card {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 14px;
@@ -2015,7 +2030,7 @@
           }
 
           .completion-section {
-            background: #f9f9f9;
+            background: var(--bg-card-alt);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 16px;

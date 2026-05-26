@@ -17,6 +17,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._viewMode = "compact";
     this._showMedia = true;
     this._browserScope = "models";
+    this._workingProjection = [];
+    this._workingProjectionRootPath = "";
     this._refreshSpin = false;
     this._activeActionMenu = "";
     this._mediaGalleryIndices = {};
@@ -155,6 +157,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _filteredResultsForScope() {
     if (this._browserScope === "collections") {
       return this._results;
+    }
+    if (this._browserScope === "working") {
+      return this._workingProjection;
     }
     var filtered = [];
     for (var i = 0; i < this._results.length; i++) {
@@ -1004,6 +1009,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (this._browserScope === "working") {
+      await this._loadWorkingProjectionPage(refresh);
+      return;
+    }
+
     var perfStart = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
     var searchStart = perfStart;
     var searchEnd = searchStart;
@@ -1484,10 +1494,33 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "set-browser-scope") {
       var scope = String(target.getAttribute("data-scope") || "models").trim().toLowerCase();
-      var nextScope = scope === "collections" ? "collections" : "models";
+      var nextScope = "models";
+      if (scope === "collections") {
+        nextScope = "collections";
+      } else if (scope === "working") {
+        nextScope = "working";
+      }
       if (this._browserScope !== nextScope) {
         this._browserScope = nextScope;
-        this._render();
+        this._requestLoad(1, false);
+      }
+      return;
+    }
+
+    if (action === "open-working-folder") {
+      event.preventDefault();
+      event.stopPropagation();
+      var workingSlug = String(target.getAttribute("data-folder-slug") || "").trim();
+      await this._openWorkingFilesWorkspace(workingSlug);
+      return;
+    }
+
+    if (action === "open-working-intake") {
+      event.preventDefault();
+      event.stopPropagation();
+      var workingFolderPath = String(target.getAttribute("data-folder-path") || "").trim();
+      if (workingFolderPath) {
+        this._launchWorkingFolderIntake(workingFolderPath);
       }
       return;
     }
@@ -3418,7 +3451,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderOptionToggle(option) {
     var active = this._browserScope === option;
-    var label = option === "collections" ? "Collections" : "All models";
+    var label = "All models";
+    if (option === "collections") {
+      label = "Collections";
+    } else if (option === "working") {
+      label = "Working";
+    }
     return ''
       + '<button class="segmented-btn' + (active ? ' active' : '') + '" type="button" data-action="set-browser-scope" data-scope="' + this._escapeHtml(option) + '" ' + (this._loading ? 'disabled' : '') + '>'
       + this._escapeHtml(label)
@@ -3426,6 +3464,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderHeaderTitleRow() {
+    var isWorkingScope = this._browserScope === "working";
+    var sortOptionsHtml = '';
+    if (isWorkingScope) {
+      sortOptionsHtml = ''
+        + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recent</option>'
+        + '        <option value="name"' + (this._filters.sort === 'name' ? ' selected' : '') + '>Name</option>'
+        + '        <option value="common"' + (this._filters.sort === 'common' ? ' selected' : '') + '>Largest</option>';
+    } else {
+      sortOptionsHtml = ''
+        + '        <option value="best"' + (this._filters.sort === 'best' ? ' selected' : '') + '>Best match</option>'
+        + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recent</option>'
+        + '        <option value="frequent"' + (this._filters.sort === 'frequent' ? ' selected' : '') + '>Frequent</option>'
+        + '        <option value="common"' + (this._filters.sort === 'common' ? ' selected' : '') + '>Common</option>'
+        + '        <option value="name"' + (this._filters.sort === 'name' ? ' selected' : '') + '>Name</option>';
+    }
     return ''
       + '<div class="title-row">'
       + '  <div class="title-left">'
@@ -3435,31 +3488,39 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="segmented-toggle" role="group" aria-label="Catalog scope">'
       + this._renderOptionToggle("models")
       + this._renderOptionToggle("collections")
+      + this._renderOptionToggle("working")
       + '    </div>'
       + '    <div class="toolbar-group sort-group">'
       + '      <label for="mc-sort">Sort</label>'
       + '      <select id="mc-sort" class="control-input title-select">'
-      + '        <option value="best"' + (this._filters.sort === 'best' ? ' selected' : '') + '>Best match</option>'
-      + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recent</option>'
-      + '        <option value="frequent"' + (this._filters.sort === 'frequent' ? ' selected' : '') + '>Frequent</option>'
-      + '        <option value="common"' + (this._filters.sort === 'common' ? ' selected' : '') + '>Common</option>'
-      + '        <option value="name"' + (this._filters.sort === 'name' ? ' selected' : '') + '>Name</option>'
+      + sortOptionsHtml
       + '      </select>'
       + '    </div>'
-      + '    <button class="toolbar-btn" type="button" data-action="create-model" ' + (this._loading ? 'disabled' : '') + '>+ Add Model</button>'
-      + '    <button class="toolbar-btn" type="button" data-action="create-idea" ' + (this._loading ? 'disabled' : '') + '>+ Add Idea</button>'
-      + '    <details class="import-menu">'
-      + '      <summary class="toolbar-btn import-trigger">Import <ha-icon icon="mdi:chevron-down"></ha-icon></summary>'
-      + '      <div class="import-menu-items">'
-      + '        <button class="import-item" type="button" data-action="open-import-browser">Browser Upload</button>'
-      + '        <button class="import-item" type="button" data-action="open-import-server">Server Inbox</button>'
-      + '      </div>'
-      + '    </details>'
+      + (isWorkingScope
+        ? '    <button class="toolbar-btn" type="button" data-action="open-working-folder">Open Working Files</button>'
+        : '    <button class="toolbar-btn" type="button" data-action="create-model" ' + (this._loading ? 'disabled' : '') + '>+ Add Model</button>'
+          + '    <button class="toolbar-btn" type="button" data-action="create-idea" ' + (this._loading ? 'disabled' : '') + '>+ Add Idea</button>'
+          + '    <details class="import-menu">'
+          + '      <summary class="toolbar-btn import-trigger">Import <ha-icon icon="mdi:chevron-down"></ha-icon></summary>'
+          + '      <div class="import-menu-items">'
+          + '        <button class="import-item" type="button" data-action="open-import-browser">Browser Upload</button>'
+          + '        <button class="import-item" type="button" data-action="open-import-server">Server Inbox</button>'
+          + '      </div>'
+          + '    </details>')
       + '  </div>'
       + '</div>';
   }
 
   _renderFilterBar() {
+    if (this._browserScope === "working") {
+      var workingCount = Math.max(0, Number(this._pagination && this._pagination.total || 0) || 0);
+      return ''
+        + '<div class="filter-row working-filter-row">'
+        + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search working folders" value="' + this._escapeHtml(this._filters.q) + '">'
+        + '  <span class="filter-chip toggle-chip active docs" aria-live="polite">Projected folders · ' + this._escapeHtml(String(workingCount)) + '</span>'
+        + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
+        + '</div>';
+    }
     var windowDays = this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650);
     var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
     var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
