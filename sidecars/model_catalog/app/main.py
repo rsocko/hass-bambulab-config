@@ -17,6 +17,7 @@ from .routers.models import _local_entry_to_summary as _models_local_entry_to_su
 from .routers.models_detail import router as models_detail_router
 from .routers.models_media import router as models_media_router
 from .routers.models_search import router as models_search_router
+from .routers.slicer import router as slicer_router
 from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
 from .routers.unified_queue import router as unified_queue_router
@@ -78,6 +79,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app.include_router(working_router)
     app.include_router(intake_router)
     app.include_router(unified_queue_router)
+    app.include_router(slicer_router)
     app.include_router(models_search_router)
     app.include_router(models_detail_router)
     app.include_router(models_media_router)

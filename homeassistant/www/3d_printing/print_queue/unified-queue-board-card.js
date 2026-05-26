@@ -69,6 +69,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
     // clicked but not yet confirmed). null = no confirm modal showing.
     this._pendingDeleteEntryId = null;
 
+    // Idea-create dialog (shared with Model Catalog)
+    this._ideaCreateDialogOpen = false;
+    this._ideaCreateSubmitting = false;
+    this._ideaCreateError = '';
+    this._ideaCreateDraft = { title: '', notes: '', links: '', sketchUrl: '' };
+
     this._addModalOpen = false;
     this._addTab = 'quick';
     this._addSourceKind = 'catalog_model';
@@ -1273,6 +1279,119 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .slice(0, 48) || 'idea-model';
     const random = Math.random().toString(16).slice(2, 10).padEnd(8, '0');
     return `${slug}--${random}`;
+  }
+
+  _parseIdeaExternalLinks(rawValue) {
+    var raw = String(rawValue || '').trim();
+    if (!raw) return [];
+    var lines = raw.split(/[\n,]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+    var results = [];
+    for (var i = 0; i < lines.length; i++) {
+      var parts = lines[i].split('|');
+      var url = String(parts[0] || '').trim();
+      var label = parts.length > 1 ? String(parts[1] || '').trim() : '';
+      if (url) {
+        results.push({ url: url, label: label || url });
+      }
+    }
+    return results;
+  }
+
+  async _createIdeaEntity(ideaDraft) {
+    var sidecarUrl = this._getCatalogApiBase();
+    var localModelId = this._buildLocalModelIdSeed(ideaDraft.title);
+    var payload = {
+      local_model_id: localModelId,
+      model_name: String(ideaDraft.title || '').trim(),
+      entity_type: 'idea',
+      tags: [],
+    };
+    var notes = String(ideaDraft.notes || '').trim();
+    if (notes) payload.notes = notes;
+    var links = this._parseIdeaExternalLinks(ideaDraft.links);
+    if (links.length) payload.external_links = links;
+    var sketch = String(ideaDraft.sketchUrl || '').trim();
+    if (sketch) payload.sketch_image = sketch;
+
+    var response = await fetch(sidecarUrl + '/local/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    var body = await response.json().catch(function() { return {}; });
+    if (!response.ok) {
+      throw new Error(String(body.message || body.error || 'Failed to create idea (' + response.status + ')'));
+    }
+    return body;
+  }
+
+  _openIdeaCreateDialog() {
+    this._ideaCreateDraft = { title: '', notes: '', links: '', sketchUrl: '' };
+    this._ideaCreateError = '';
+    this._ideaCreateSubmitting = false;
+    this._ideaCreateDialogOpen = true;
+    this._render();
+  }
+
+  _closeIdeaCreateDialog() {
+    if (this._ideaCreateSubmitting) return;
+    this._ideaCreateDialogOpen = false;
+    this._render();
+  }
+
+  async _submitIdeaCreateDialog() {
+    var title = String(this._ideaCreateDraft.title || '').trim();
+    if (!title) {
+      this._ideaCreateError = 'Title is required.';
+      this._render();
+      return;
+    }
+    this._ideaCreateSubmitting = true;
+    this._ideaCreateError = '';
+    this._render();
+    try {
+      await this._createIdeaEntity(this._ideaCreateDraft);
+      this._ideaCreateDialogOpen = false;
+      this._ideaCreateSubmitting = false;
+      this._setFlashMessage('Idea created successfully.', 'success');
+      this._render();
+    } catch (err) {
+      this._ideaCreateError = String(err && err.message ? err.message : 'Unknown error');
+      this._ideaCreateSubmitting = false;
+      this._render();
+    }
+  }
+
+  _renderIdeaCreateDialog() {
+    if (!this._ideaCreateDialogOpen) return '';
+    var draft = this._ideaCreateDraft || {};
+    var errorHtml = this._ideaCreateError
+      ? '<div class="idea-create-error">' + this._escapeHtml(this._ideaCreateError) + '</div>'
+      : '';
+    return '<div class="idea-create-backdrop" data-action="close-idea-create-dialog">'
+      + '<div class="idea-create-dialog">'
+      + '<div class="idea-create-header">'
+      + '<h3>New Idea</h3>'
+      + '<span class="idea-create-subtitle">Capture a quick idea for something to print</span>'
+      + '</div>'
+      + '<div class="idea-create-body">'
+      + '<label class="idea-create-field"><strong>Title <span style="color:var(--error-color,#e53935)">*</span></strong>'
+      + '<input class="idea-create-input" data-idea-field="title" type="text" maxlength="120" value="' + this._escapeHtml(draft.title || '') + '" placeholder="What should we print?" /></label>'
+      + '<label class="idea-create-field"><span>Notes</span>'
+      + '<textarea class="idea-create-input" data-idea-field="notes" maxlength="2000" rows="3" placeholder="Context, requirements, color/material hints...">' + this._escapeHtml(draft.notes || '') + '</textarea></label>'
+      + '<label class="idea-create-field"><span>External Links</span>'
+      + '<textarea class="idea-create-input" data-idea-field="links" rows="2" placeholder="One URL per line (optionally: url|label)">' + this._escapeHtml(draft.links || '') + '</textarea></label>'
+      + '<label class="idea-create-field"><span>Sketch / Reference Image URL</span>'
+      + '<input class="idea-create-input" data-idea-field="sketchUrl" type="url" value="' + this._escapeHtml(draft.sketchUrl || '') + '" placeholder="https://..." /></label>'
+      + errorHtml
+      + '</div>'
+      + '<div class="idea-create-footer">'
+      + '<button class="ghost-btn" data-action="close-idea-create-dialog">Cancel</button>'
+      + '<button class="idea-create-submit" data-action="submit-idea-create-dialog"' + (this._ideaCreateSubmitting ? ' disabled' : '') + '>'
+      + (this._ideaCreateSubmitting ? 'Creating...' : 'Create Idea') + '</button>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
   }
 
   _appendQueueNoteLine(existingNotes, nextLine) {
@@ -2876,7 +2995,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
                 <select class="add-source-kind">
                   <option value="catalog_model" ${this._addSourceKind === 'catalog_model' ? 'selected' : ''}>Catalog Model</option>
                   <option value="working_group" ${this._addSourceKind === 'working_group' ? 'selected' : ''}>Working Group</option>
-                  <option value="idea" ${this._addSourceKind === 'idea' ? 'selected' : ''}>Idea</option>
                 </select>
               </label>
 
@@ -5933,6 +6051,45 @@ class UnifiedQueueBoardCard extends HTMLElement {
           height: 140px;
         }
       }
+
+      /* ---- Idea Create Dialog ---- */
+      .idea-create-backdrop {
+        position: fixed; inset: 0; z-index: 1000;
+        background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .idea-create-dialog {
+        background: var(--card-background-color, #1e1e1e);
+        border-radius: 12px; width: 440px; max-width: 94vw;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        display: flex; flex-direction: column; overflow: hidden;
+      }
+      .idea-create-header {
+        padding: 20px 24px 8px; border-bottom: 1px solid var(--divider-color, #333);
+      }
+      .idea-create-header h3 { margin: 0 0 2px; font-size: 18px; }
+      .idea-create-subtitle { font-size: 13px; color: var(--secondary-text-color, #aaa); }
+      .idea-create-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 14px; }
+      .idea-create-field { display: flex; flex-direction: column; gap: 4px; }
+      .idea-create-field span, .idea-create-field strong { font-size: 13px; color: var(--primary-text-color, #e0e0e0); }
+      .idea-create-input {
+        font-size: 14px; padding: 8px 10px; border-radius: 6px;
+        border: 1px solid var(--divider-color, #444);
+        background: var(--primary-background-color, #111);
+        color: var(--primary-text-color, #e0e0e0);
+        font-family: inherit; resize: vertical;
+      }
+      .idea-create-input:focus { outline: none; border-color: var(--primary-color, #03a9f4); }
+      .idea-create-error { color: var(--error-color, #e53935); font-size: 13px; margin-top: 4px; }
+      .idea-create-footer {
+        padding: 12px 24px; border-top: 1px solid var(--divider-color, #333);
+        display: flex; justify-content: flex-end; gap: 10px;
+      }
+      .idea-create-submit {
+        background: var(--primary-color, #03a9f4); color: #fff; border: none;
+        padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 14px;
+      }
+      .idea-create-submit:disabled { opacity: 0.6; cursor: not-allowed; }
     `;
 
     const shouldShowBlockingLoading = this._loading && this._entries.length === 0;
@@ -5955,6 +6112,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
               <span class="db-state" id="db-profile-state">-</span>
             </div>
             <button class="planner-btn" data-action="open-planner" title="Open Queue Planner">📊 Planner</button>
+            <button class="add-btn idea-add-btn" data-action="open-idea-create-dialog" title="Add a new idea">💡 Add Idea</button>
             <button class="add-btn" data-action="open-add">+ Add</button>
             <button class="refresh-btn ${this._loading ? 'loading' : ''}" data-action="refresh" ${this._loading ? 'disabled' : ''}>
               ${this._loading ? 'Loading...' : '🔄'}
@@ -5966,6 +6124,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         </div>
       </div>
       ${this._renderAddModal()}
+      ${this._renderIdeaCreateDialog()}
       ${this._renderEntryDetailModal()}
       ${this._renderPlannerDrawer()}
       ${this._renderDeleteConfirm()}
@@ -6103,10 +6262,57 @@ class UnifiedQueueBoardCard extends HTMLElement {
       });
     }
 
-    const addBtn = this.shadowRoot.querySelector('.add-btn');
+    const addBtn = this.shadowRoot.querySelector('.add-btn:not(.idea-add-btn)');
     if (addBtn) {
       addBtn.addEventListener('click', () => this._openAddModal());
     }
+
+    // ---- Idea Create Dialog listeners ----
+    const ideaAddBtn = this.shadowRoot.querySelector('.idea-add-btn');
+    if (ideaAddBtn) {
+      ideaAddBtn.addEventListener('click', () => this._openIdeaCreateDialog());
+    }
+
+    const ideaBackdrop = this.shadowRoot.querySelector('.idea-create-backdrop');
+    if (ideaBackdrop) {
+      ideaBackdrop.addEventListener('click', (event) => {
+        if (event.target === ideaBackdrop) {
+          this._closeIdeaCreateDialog();
+        }
+      });
+    }
+
+    const ideaCloseBtn = this.shadowRoot.querySelector('.idea-create-dialog [data-action="close-idea-create-dialog"]');
+    if (ideaCloseBtn) {
+      ideaCloseBtn.addEventListener('click', () => this._closeIdeaCreateDialog());
+    }
+
+    const ideaSubmitBtn = this.shadowRoot.querySelector('[data-action="submit-idea-create-dialog"]');
+    if (ideaSubmitBtn) {
+      ideaSubmitBtn.addEventListener('click', () => this._submitIdeaCreateDialog());
+    }
+
+    const ideaInputs = this.shadowRoot.querySelectorAll('.idea-create-input');
+    ideaInputs.forEach(input => {
+      input.addEventListener('input', (event) => {
+        const field = String(event.target.getAttribute('data-idea-field') || '').trim();
+        if (field && Object.prototype.hasOwnProperty.call(this._ideaCreateDraft, field)) {
+          this._ideaCreateDraft[field] = String(event.target.value || '');
+        }
+        if (this._ideaCreateError) {
+          this._ideaCreateError = '';
+        }
+      });
+      const tag = String(input.tagName || '').toUpperCase();
+      if (tag !== 'TEXTAREA') {
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            this._submitIdeaCreateDialog();
+          }
+        });
+      }
+    });
 
     const modalBackdrop = this.shadowRoot.querySelector('.add-backdrop');
     if (modalBackdrop) {

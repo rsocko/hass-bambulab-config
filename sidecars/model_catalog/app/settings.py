@@ -77,6 +77,11 @@ class Settings:
     bootstrap_all_db_profiles: bool = True
     seed_test_db_from_prod_on_start: bool = False
     seed_test_db_overwrite: bool = False
+    use_slicer_api: bool = False
+    bambu_studio_api_url: str = "http://bambu-studio-api:3000"
+    slicer_request_timeout_seconds: int = 300
+    slicer_async_poll_interval_seconds: float = 2.0
+    slicer_async_max_wait_seconds: int = 1800
 
     def db_path_for_profile(self, profile: str) -> Path:
         normalized = _normalize_db_profile(profile)
@@ -117,6 +122,11 @@ def load_settings() -> Settings:
     if working_files_root_raw:
         working_files_root = Path(working_files_root_raw).expanduser().resolve()
     assets_root_host = str(os.getenv("ASSETS_ROOT_HOST", "")).strip() or None
+    use_slicer_api = _parse_bool_env(os.getenv("USE_SLICER_API"), default=False)
+    bambu_studio_api_url = str(os.getenv("BAMBU_STUDIO_API_URL", "http://bambu-studio-api:3000")).strip().rstrip("/")
+    slicer_request_timeout_seconds = int(os.getenv("SLICER_REQUEST_TIMEOUT_SECONDS", "300"))
+    slicer_async_poll_interval_seconds = float(os.getenv("SLICER_ASYNC_POLL_INTERVAL_SECONDS", "2.0"))
+    slicer_async_max_wait_seconds = int(os.getenv("SLICER_ASYNC_MAX_WAIT_SECONDS", "1800"))
     return Settings(
         catalog_base_url=base_url.rstrip("/"),
         db_path=db_path,
@@ -138,4 +148,9 @@ def load_settings() -> Settings:
         bootstrap_all_db_profiles=bootstrap_all_db_profiles,
         seed_test_db_from_prod_on_start=seed_test_db_from_prod_on_start,
         seed_test_db_overwrite=seed_test_db_overwrite,
+        use_slicer_api=use_slicer_api,
+        bambu_studio_api_url=bambu_studio_api_url,
+        slicer_request_timeout_seconds=slicer_request_timeout_seconds,
+        slicer_async_poll_interval_seconds=slicer_async_poll_interval_seconds,
+        slicer_async_max_wait_seconds=slicer_async_max_wait_seconds,
     )
