@@ -1139,8 +1139,8 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!uploadArea) {
       return;
     }
-    uploadArea.style.background = isActive ? 'rgba(33, 150, 243, 0.12)' : 'transparent';
-    uploadArea.style.borderColor = isActive ? 'var(--primary-color)' : 'var(--divider-color)';
+    uploadArea.style.background = isActive ? 'color-mix(in srgb, var(--primary-color, #6edacb) 12%, transparent)' : 'transparent';
+    uploadArea.style.borderColor = isActive ? 'var(--primary-color, #6edacb)' : 'var(--border)';
   }
 
   _handleDragOver(event) {
@@ -1737,8 +1737,8 @@ class ModelDetailPopupCard extends HTMLElement {
           display: inline-block; 
           width: 32px; 
           height: 32px; 
-          border: 3px solid #e0e0e0; 
-          border-top-color: #2196F3; 
+          border: 3px solid color-mix(in srgb, var(--border) 50%, transparent);
+          border-top-color: var(--primary-color, #6edacb); 
           border-radius: 50%; 
           animation: spin 0.8s linear infinite; 
         }
@@ -1756,11 +1756,11 @@ class ModelDetailPopupCard extends HTMLElement {
       <style>
         .popup { padding: 24px; }
         .error-message { 
-          background: #ffebee; 
-          border: 1px solid #ef5350; 
+          background: color-mix(in srgb, var(--accent-red, #ef5350) 12%, transparent);
+          border: 1px solid color-mix(in srgb, var(--accent-red, #ef5350) 32%, transparent); 
           border-radius: 4px; 
           padding: 16px; 
-          color: #c62828; 
+          color: #fecaca; 
         }
       </style>
       <div class="popup">
@@ -1816,14 +1816,35 @@ class ModelDetailPopupCard extends HTMLElement {
 
     return `
       <style>
+        :host {
+          /* HA Theme Integration: Custom variables for design system */
+          --bg-page: var(--primary-background-color);
+          --bg-panel: var(--ha-card-background, var(--card-background-color));
+          --bg-card: var(--ha-card-background, var(--card-background-color));
+          --bg-card-alt: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 92%, var(--primary-text-color) 8%);
+          --border: var(--divider-color);
+          --border-strong: color-mix(in srgb, var(--divider-color) 60%, var(--primary-text-color) 40%);
+          --text: var(--primary-text-color);
+          --text-secondary: var(--secondary-text-color);
+          --text-muted: color-mix(in srgb, var(--secondary-text-color) 70%, transparent);
+          --accent: var(--primary-color, #6edacb);
+          --accent-teal: #5eead4;
+          --accent-blue: #3aa9ff;
+          --accent-amber: #ff9a3c;
+          --accent-green: #4fcf75;
+          --accent-red: #ff6b6b;
+          --shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
+          --shadow-lg: 0 8px 24px color-mix(in srgb, rgba(0, 0, 0, 0.2), transparent);
+        }
+
         * { box-sizing: border-box; }
         .popup-shell {
           display: grid;
           gap: 4px;
           margin-top: -12px;
-          color: var(--primary-text-color);
+          color: var(--text);
           font-family: var(--mdc-typography-font-family, 'Roboto', sans-serif);
-          background: var(--card-background-color);
+          background: var(--bg-card);
           overflow-y: auto;
           max-height: calc(100vh - 120px);
         }
@@ -1833,26 +1854,26 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          border-bottom: 1px solid var(--divider-color);
+          border-bottom: 1px solid var(--border);
           padding: 0 10px 4px;
         }
         .popup-shell.is-idea .topbar {
-          border-bottom-color: rgba(250, 204, 21, 0.38);
-          box-shadow: inset 0 -1px 0 rgba(250, 204, 21, 0.16);
+          border-bottom-color: color-mix(in srgb, #ffc107 38%, transparent);
+          box-shadow: inset 0 -1px 0 color-mix(in srgb, #ffc107 16%, transparent);
         }
         .title { display: flex; align-items: center; }
-        .title span { color: var(--secondary-text-color); font-size: 11px; line-height: 1.2; }
+        .title span { color: var(--text-secondary); font-size: 11px; line-height: 1.2; }
         .entity-type-badge {
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
           padding: 4px 10px;
           font-size: 11px;
           font-weight: 600;
-          background: var(--card-background-color);
-          color: var(--secondary-text-color);
+          background: var(--bg-card);
+          color: var(--text-secondary);
         }
         .entity-type-badge.idea {
           border-color: #ffc107;
@@ -1874,101 +1895,101 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
         }
         .action-button.ghost {
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          background: var(--bg-card-alt);
+          color: var(--text);
         }
         .action-button.toggle-active {
-          border: 1px solid var(--accent-color, #6edacb);
-          background: rgba(110,218,203,0.12);
-          color: var(--accent-color, #6edacb);
+          border: 1px solid var(--accent);
+          background: color-mix(in srgb, var(--accent) 12%, transparent);
+          color: var(--accent);
         }
         .action-button.toggle-active-manual {
-          border: 1px solid rgba(245, 158, 11, 0.48);
-          background: rgba(245, 158, 11, 0.16);
+          border: 1px solid color-mix(in srgb, var(--accent-amber) 48%, transparent);
+          background: color-mix(in srgb, var(--accent-amber) 16%, transparent);
           color: #fde68a;
         }
         .action-button.toggle-active-warn {
-          border: 1px solid rgba(148,163,184,0.44);
-          background: rgba(148,163,184,0.14);
-          color: #cbd5e1;
+          border: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+          background: color-mix(in srgb, var(--border) 14%, transparent);
+          color: var(--text-secondary);
         }
         .archived-banner {
           padding: 8px 18px;
-          background: rgba(148,163,184,0.08);
-          border-bottom: 1px solid rgba(148,163,184,0.28);
+          background: color-mix(in srgb, var(--border) 8%, transparent);
+          border-bottom: 1px solid color-mix(in srgb, var(--border) 28%, transparent);
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 12px;
-          color: #94a3b8;
+          color: var(--text-muted);
         }
         .archived-banner button {
           background: none;
           border: none;
-          color: var(--accent-color, #6edacb);
+          color: var(--accent);
           cursor: pointer;
           font-size: 12px;
           text-decoration: underline;
           padding: 0;
         }
-        .queue-dialog-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
-        .queue-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}
-        .queue-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,0.18);}
-        .queue-dialog-header h3{margin:0;font-size:18px;font-weight:800;}
-        .queue-dialog-subtitle{margin-top:4px;font-size:12px;color:var(--secondary-text-color);}
-        .queue-dialog-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid rgba(148,163,184,0.16);}
-        .queue-dialog-tab{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.16);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;}
-        .queue-dialog-tab.active{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);color:var(--primary-text-color);}
+        .queue-dialog-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:color-mix(in srgb, rgba(0,0,0,0.8) 72%, transparent);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+        .queue-dialog{width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--border-strong);background:var(--bg-panel);box-shadow:var(--shadow-lg);}
+        .queue-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid color-mix(in srgb, var(--border) 18%, transparent);}
+        .queue-dialog-header h3{margin:0;font-size:18px;font-weight:800;color:var(--text);}
+        .queue-dialog-subtitle{margin-top:4px;font-size:12px;color:var(--text-secondary);}
+        .queue-dialog-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid color-mix(in srgb, var(--border) 16%, transparent);}
+        .queue-dialog-tab{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid color-mix(in srgb, var(--border) 22%, transparent);background:color-mix(in srgb, var(--text) 6%, transparent);color:var(--text-secondary);font-size:12px;font-weight:800;cursor:pointer;}
+        .queue-dialog-tab.active{background:color-mix(in srgb, var(--accent-blue) 18%, transparent);border-color:color-mix(in srgb, var(--accent-blue) 34%, transparent);color:var(--text);}
         .queue-dialog-body{display:grid;gap:12px;padding:18px 20px;overflow:auto;}
-        .queue-dialog-summary,.queue-dialog-existing-note,.queue-dialog-note,.queue-dialog-metrics{padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(148,163,184,0.08);font-size:13px;line-height:1.45;}
-        .queue-dialog-existing-note{background:rgba(96,165,250,0.12);border-color:rgba(96,165,250,0.24);color:#dbeafe;}
+        .queue-dialog-summary,.queue-dialog-existing-note,.queue-dialog-note,.queue-dialog-metrics{padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb, var(--border) 18%, transparent);background:color-mix(in srgb, var(--border) 8%, transparent);font-size:13px;line-height:1.45;color:var(--text);}
+        .queue-dialog-existing-note{background:color-mix(in srgb, var(--accent-blue) 12%, transparent);border-color:color-mix(in srgb, var(--accent-blue) 24%, transparent);color:#dbeafe;}
         .queue-dialog-field{display:grid;gap:6px;}
-        .queue-dialog-field span{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}
-        .queue-dialog-target-state,.queue-dialog-notes{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}
-        .queue-dialog-target-state{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:rgba(15,23,42,0.92);}
-        .queue-dialog-target-state:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}
-        .queue-dialog-target-state option{background-color:rgba(15,23,42,0.98);color:var(--primary-text-color);}
+        .queue-dialog-field span{font-size:11px;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;}
+        .queue-dialog-target-state,.queue-dialog-notes{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid color-mix(in srgb, var(--border) 26%, transparent);background:color-mix(in srgb, var(--text) 6%, transparent);color:var(--text);padding:10px 12px;font:inherit;}
+        .queue-dialog-target-state{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:color-mix(in srgb, var(--text) 6%, transparent);}
+        .queue-dialog-target-state:focus{outline:none;border-color:color-mix(in srgb, var(--accent-blue) 46%, transparent);box-shadow:0 0 0 1px color-mix(in srgb, var(--accent-blue) 26%, transparent);}
+        .queue-dialog-target-state option{background-color:var(--bg-panel);color:var(--text);}
         .queue-dialog-toolbar{display:flex;gap:8px;flex-wrap:wrap;}
         .queue-dialog-file-list{display:grid;gap:10px;}
-        .queue-dialog-file-block{display:grid;gap:8px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}
-        .queue-dialog-file-toggle,.queue-dialog-plate-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;padding:0 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.20);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}
-        .queue-dialog-file-toggle span{font-size:11px;color:var(--secondary-text-color);font-weight:700;}
-        .queue-dialog-file-toggle.active,.queue-dialog-plate-toggle.active{background:rgba(96,165,250,0.18);border-color:rgba(96,165,250,0.34);}
+        .queue-dialog-file-block{display:grid;gap:8px;padding:12px;border-radius:16px;border:1px solid color-mix(in srgb, var(--border) 18%, transparent);background:color-mix(in srgb, var(--text) 4%, transparent);}
+        .queue-dialog-file-toggle,.queue-dialog-plate-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;padding:0 12px;border-radius:12px;border:1px solid color-mix(in srgb, var(--border) 20%, transparent);background:color-mix(in srgb, var(--text) 4%, transparent);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}
+        .queue-dialog-file-toggle span{font-size:11px;color:var(--text-secondary);font-weight:700;}
+        .queue-dialog-file-toggle.active,.queue-dialog-plate-toggle.active{background:color-mix(in srgb, var(--accent-blue) 18%, transparent);border-color:color-mix(in srgb, var(--accent-blue) 34%, transparent);}
         .queue-dialog-plates{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}
-        .queue-dialog-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}
-        .queue-dialog-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}
-        .queue-dialog-submit{background:rgba(96,165,250,0.22);border-color:rgba(96,165,250,0.34);}
+        .queue-dialog-error{padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb, var(--accent-red) 32%, transparent);background:color-mix(in srgb, var(--accent-red) 12%, transparent);color:#fecaca;font-size:13px;}
+        .queue-dialog-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid color-mix(in srgb, var(--border) 16%, transparent);}
+        .queue-dialog-submit{background:color-mix(in srgb, var(--accent-blue) 22%, transparent);border-color:color-mix(in srgb, var(--accent-blue) 34%, transparent);}
         .overflow-wrap { position: relative; }
         .overflow-menu {
           position: absolute;
           right: 0;
           top: calc(100% + 4px);
           min-width: 270px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 10px;
-          background: var(--card-background-color);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+          background: var(--bg-card);
+          box-shadow: var(--shadow-lg);
           padding: 8px;
           z-index: 10;
           display: none;
         }
         .overflow-menu.open { display: grid; gap: 6px; }
         .overflow-row {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 8px;
           padding: 8px;
-          background: var(--secondary-background-color);
+          background: var(--bg-card-alt);
         }
-        .overflow-row .label { font-size: 12px; font-weight: 600; }
-        .overflow-row .meta { font-size: 10px; color: var(--secondary-text-color); margin-top: 3px; }
+        .overflow-row .label { font-size: 12px; font-weight: 600; color: var(--text); }
+        .overflow-row .meta { font-size: 10px; color: var(--text-secondary); margin-top: 3px; }
         .overflow-row.danger {
-          border-color: rgba(248, 113, 113, 0.32);
-          background: rgba(127, 29, 29, 0.22);
+          border-color: color-mix(in srgb, var(--accent-red) 32%, transparent);
+          background: color-mix(in srgb, var(--accent-red) 12%, transparent);
         }
         .overflow-row.danger .label { color: #fca5a5; }
         .overflow-row.danger .meta { color: #f87171; }
         .overflow-row.danger:hover {
-          background: rgba(127, 29, 29, 0.35);
+          background: color-mix(in srgb, var(--accent-red) 18%, transparent);
         }
 
         .hero {
@@ -1977,7 +1998,7 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: start;
         }
         .left {
-          border-right: 1px solid var(--divider-color);
+          border-right: 1px solid var(--border);
           display: grid;
           grid-template-rows: auto auto auto;
           overflow-y: auto;
@@ -2006,33 +2027,33 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: center;
         }
         .chip {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
           padding: 4px 8px;
           font-size: 11px;
-          color: var(--secondary-text-color);
-          background: var(--card-background-color);
+          color: var(--text-secondary);
+          background: var(--bg-card);
           cursor: pointer;
         }
         .chip.active {
           border-color: var(--primary-color);
-          color: var(--primary-text-color);
+          color: var(--text);
         }
         .main-media {
           margin: 12px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 12px;
           overflow: hidden;
           position: relative;
           aspect-ratio: 4 / 3;
-          background: var(--secondary-background-color);
+          background: var(--bg-card-alt);
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .popup-shell.is-idea .main-media {
-          border-color: rgba(250, 204, 21, 0.55);
-          box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.22);
+          border-color: color-mix(in srgb, #ffc107 55%, transparent);
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffc107 22%, transparent);
         }
         .main-media img {
           max-width: 100%;
@@ -2045,8 +2066,8 @@ class ModelDetailPopupCard extends HTMLElement {
           top: 10px;
           left: 10px;
           border-radius: 999px;
-          border: 1px solid var(--divider-color);
-          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, rgba(0, 0, 0, 0.7), transparent);
           color: #fff;
           font-size: 10px;
           padding: 4px 9px;
@@ -2063,10 +2084,10 @@ class ModelDetailPopupCard extends HTMLElement {
           position: static;
           width: 32px;
           height: 32px;
-          border: 1px solid rgba(148,163,184,0.28);
+          border: 1px solid color-mix(in srgb, var(--border) 28%, transparent);
           border-radius: 999px;
-          background: rgba(15,23,42,0.78);
-          color: var(--primary-text-color);
+          background: color-mix(in srgb, var(--text) 4%, transparent);
+          color: var(--text);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -2077,40 +2098,40 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .icon-action:hover,
         .icon-action:focus-visible {
-          background: rgba(30,41,59,0.96);
-          color: var(--primary-text-color);
-          border-color: rgba(148,163,184,0.54);
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);
+          background: var(--bg-card-alt);
+          color: var(--text);
+          border-color: color-mix(in srgb, var(--border) 54%, transparent);
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent), var(--shadow);
           transform: translateY(-1px);
           outline: none;
         }
         .icon-action:active { transform: translateY(0); }
         .icon-action.viewer {
-          background: rgba(20,83,45,0.22);
-          border-color: rgba(34,197,94,0.28);
-          color: var(--primary-text-color);
+          background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+          border-color: color-mix(in srgb, var(--accent-green) 28%, transparent);
+          color: var(--text);
         }
         .icon-action.viewer:hover,
         .icon-action.viewer:focus-visible {
-          background: rgba(20,83,45,0.34);
-          color: var(--primary-text-color);
-          border-color: rgba(34,197,94,0.46);
-          box-shadow: 0 0 0 1px rgba(34,197,94,0.18),0 8px 20px rgba(20,83,45,0.22);
+          background: color-mix(in srgb, var(--accent-green) 18%, transparent);
+          color: var(--text);
+          border-color: color-mix(in srgb, var(--accent-green) 46%, transparent);
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-green) 18%, transparent), var(--shadow);
           transform: translateY(-1px);
           outline: none;
         }
         .icon-action.viewer:active { transform: translateY(0); }
         .icon-action.expand {
-          background: rgba(30,64,175,0.24);
-          border-color: rgba(96,165,250,0.3);
-          color: var(--primary-text-color);
+          background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
+          border-color: color-mix(in srgb, var(--accent-blue) 30%, transparent);
+          color: var(--text);
         }
         .icon-action.expand:hover,
         .icon-action.expand:focus-visible {
-          background: rgba(30,64,175,0.36);
-          color: var(--primary-text-color);
-          border-color: rgba(96,165,250,0.48);
-          box-shadow: 0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);
+          background: color-mix(in srgb, var(--accent-blue) 18%, transparent);
+          color: var(--text);
+          border-color: color-mix(in srgb, var(--accent-blue) 48%, transparent);
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-blue) 18%, transparent), var(--shadow);
           transform: translateY(-1px);
           outline: none;
         }
@@ -2123,8 +2144,8 @@ class ModelDetailPopupCard extends HTMLElement {
           width: 42px;
           height: 42px;
           border-radius: 999px;
-          border: 1px solid var(--divider-color);
-          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, rgba(0, 0, 0, 0.55), var(--bg-overlay));
           color: #fff;
           font-size: 22px;
           line-height: 1;
@@ -2149,11 +2170,11 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .media-actions .action-button {
           appearance: none;
-          border: 1px solid rgba(148,163,184,0.32);
+          border: 1px solid color-mix(in srgb, var(--border) 32%, transparent);
           border-radius: 999px;
           padding: 8px 12px;
-          background: rgba(255,255,255,0.04);
-          color: var(--primary-text-color);
+          background: color-mix(in srgb, var(--text) 4%, transparent);
+          color: var(--text);
           font-size: 12px;
           font-weight: 700;
           cursor: pointer;
@@ -2162,14 +2183,14 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .media-actions .action-button:hover,
         .media-actions .action-button:focus-visible {
-          background: rgba(255,255,255,0.10);
-          border-color: rgba(148,163,184,0.6);
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.14),0 4px 10px rgba(15,23,42,0.12);
+          background: color-mix(in srgb, var(--text) 10%, transparent);
+          border-color: color-mix(in srgb, var(--border) 60%, transparent);
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent), var(--shadow);
           outline: none;
         }
         .media-actions .action-button.danger {
-          background: rgba(239,68,68,0.08);
-          border-color: rgba(239,68,68,0.28);
+          background: color-mix(in srgb, var(--accent-red) 8%, transparent);
+          border-color: color-mix(in srgb, var(--accent-red) 28%, transparent);
         }
         .media-actions .action-button[disabled] {
           opacity: 0.55;
@@ -2186,16 +2207,16 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow-x: hidden;
           scrollbar-width: thin;
           max-height: 400px;
-          border-left: 1px solid var(--divider-color);
+          border-left: 1px solid var(--border);
         }
         .thumb {
           flex: 0 0 72px;
           width: 72px;
           height: 72px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 9px;
           overflow: hidden;
-          background: var(--secondary-background-color);
+          background: var(--bg-card-alt);
           cursor: pointer;
           position: relative;
         }
@@ -2208,7 +2229,7 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 9px;
           padding: 2px 5px;
           border-radius: 999px;
-          background: rgba(0,0,0,0.62);
+          background: color-mix(in srgb, rgba(0,0,0,0.8), transparent);
           color: #fff;
         }
         .thumb.media-hidden {
@@ -2222,7 +2243,7 @@ class ModelDetailPopupCard extends HTMLElement {
           width: 16px;
           height: 16px;
           border-radius: 999px;
-          background: rgba(127,29,29,0.92);
+          background: color-mix(in srgb, var(--accent-red) 60%, transparent);
           color: #fff;
           font-size: 10px;
           font-weight: 700;
@@ -2232,10 +2253,10 @@ class ModelDetailPopupCard extends HTMLElement {
 
         .panel-shell {
           margin: 0 12px 12px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 12px;
           overflow: hidden;
-          background: var(--secondary-background-color);
+          background: var(--bg-card-alt);
         }
         .panel-toolbar {
           display: flex;
@@ -2243,32 +2264,32 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          border-bottom: 1px solid var(--divider-color);
+          border-bottom: 1px solid var(--border);
           padding: 8px 10px;
         }
         .view-mode {
           display: inline-flex;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
           overflow: hidden;
         }
         .view-mode button {
           border: 0;
           background: transparent;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           padding: 5px 10px;
           font-size: 11px;
           cursor: pointer;
         }
         .view-mode button.active {
-          background: var(--card-background-color);
-          color: var(--primary-text-color);
+          background: var(--bg-card);
+          color: var(--text);
         }
         .tabs {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
-          border-bottom: 1px solid var(--divider-color);
+          border-bottom: 1px solid var(--border);
           padding: 9px 10px 0;
         }
         .tabs button {
@@ -2276,20 +2297,20 @@ class ModelDetailPopupCard extends HTMLElement {
           border-bottom: 0;
           border-radius: 10px 10px 0 0;
           padding: 7px 10px;
-          background: var(--card-background-color);
-          color: var(--secondary-text-color);
+          background: var(--bg-card);
+          color: var(--text-secondary);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           gap: 6px;
         }
         .tabs button.active {
-          color: var(--primary-text-color);
-          border-color: var(--divider-color);
+          color: var(--text);
+          border-color: var(--border);
           box-shadow: inset 0 -2px 0 var(--primary-color);
         }
         .count {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
           padding: 1px 6px;
           font-size: 10px;
@@ -2302,15 +2323,15 @@ class ModelDetailPopupCard extends HTMLElement {
         .stacked .tabs { display: none; }
         .stacked .tab-panel {
           display: block;
-          border-bottom: 1px solid var(--divider-color);
+          border-bottom: 1px solid var(--border);
         }
         .stacked .tab-panel:last-child { border-bottom: 0; }
 
         .queue-list, .related-list, .support-list { display: grid; gap: 7px; }
         .queue-row, .related, .support {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 9px;
-          background: var(--card-background-color);
+          background: var(--bg-card);
           padding: 8px;
           font-size: 12px;
         }
@@ -2336,13 +2357,13 @@ class ModelDetailPopupCard extends HTMLElement {
           display: inline-flex;
           padding: 2px;
           border-radius: 999px;
-          border: 1px solid var(--divider-color);
-          background: var(--secondary-background-color);
+          border: 1px solid var(--border);
+          background: var(--bg-card-alt);
         }
         .support-segmented button {
           border: 0;
           background: transparent;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           padding: 4px 10px;
           border-radius: 999px;
           font-size: 10px;
@@ -2352,13 +2373,13 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
         }
         .support-segmented button.active {
-          background: rgba(96, 165, 250, 0.2);
-          color: var(--primary-text-color);
+          background: color-mix(in srgb, var(--accent-blue) 20%, transparent);
+          color: var(--text);
         }
         .support-browser {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 10px;
-          background: var(--secondary-background-color);
+          background: var(--bg-card-alt);
           padding: 8px;
         }
         .support-browser[data-thumb="small"] { --support-thumb-size: 34px; --support-row-pad: 6px 8px; }
@@ -2374,9 +2395,9 @@ class ModelDetailPopupCard extends HTMLElement {
           grid-template-columns: var(--support-thumb-size, 58px) minmax(0, 1fr) auto;
           align-items: center;
           gap: 10px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 10px;
-          background: var(--card-background-color);
+          background: var(--bg-card);
           padding: var(--support-row-pad, 8px 10px);
         }
         .support-file-row {
@@ -2386,7 +2407,7 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
         }
         .support-folder-row:hover {
-          background: rgba(96, 165, 250, 0.1);
+          background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
         }
         .support-thumb {
           width: var(--support-thumb-size, 58px);
@@ -2395,14 +2416,14 @@ class ModelDetailPopupCard extends HTMLElement {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border: 1px solid var(--divider-color);
-          background: rgba(94, 234, 212, 0.1);
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--accent-teal) 10%, transparent);
           overflow: hidden;
-          color: var(--primary-text-color);
+          color: var(--text);
         }
         .support-thumb.has-image {
           padding: 0;
-          background: rgba(15, 23, 42, 0.5);
+          background: color-mix(in srgb, var(--text) 3%, transparent);
           position: relative;
         }
         .support-thumb img {
@@ -2437,7 +2458,7 @@ class ModelDetailPopupCard extends HTMLElement {
         .support-thumb-shimmer {
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, rgba(15, 23, 42, 0.82) 25%, rgba(51, 65, 85, 0.72) 50%, rgba(15, 23, 42, 0.82) 75%);
+          background: linear-gradient(90deg, color-mix(in srgb, var(--text) 4%, transparent) 25%, color-mix(in srgb, var(--text) 8%, transparent) 50%, color-mix(in srgb, var(--text) 4%, transparent) 75%);
           background-size: 220% 100%;
           animation: shimmer 1.4s infinite;
         }
@@ -2454,7 +2475,7 @@ class ModelDetailPopupCard extends HTMLElement {
         .support-thumb-placeholder-other { color: #fcd34d; }
         .support-thumb.has-image.thumb-failed .support-thumb-placeholder {
           opacity: 1;
-          background: rgba(15, 23, 42, 0.7);
+          background: color-mix(in srgb, var(--text) 5%, transparent);
         }
         .support-thumb.has-image.thumb-failed .support-thumb-shimmer {
           display: none;
@@ -2464,7 +2485,7 @@ class ModelDetailPopupCard extends HTMLElement {
           font-weight: 800;
           letter-spacing: 0.01em;
           text-transform: uppercase;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           white-space: nowrap;
         }
         .support-folder-icon {
@@ -2481,7 +2502,7 @@ class ModelDetailPopupCard extends HTMLElement {
         .support-name {
           font-size: 12px;
           font-weight: 700;
-          color: var(--primary-text-color);
+          color: var(--text);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -2489,7 +2510,7 @@ class ModelDetailPopupCard extends HTMLElement {
         .support-subpath {
           margin-top: 3px;
           font-size: 10.5px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -2499,14 +2520,14 @@ class ModelDetailPopupCard extends HTMLElement {
           text-align: right;
           min-width: 82px;
           font-size: 11px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           font-variant-numeric: tabular-nums;
         }
         .support-size {
           min-width: 56px;
           text-align: right;
           font-size: 11px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
           align-self: center;
@@ -2517,10 +2538,10 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 6px;
         }
         .support-type-chips button {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--secondary-background-color);
-          color: var(--secondary-text-color);
+          background: var(--bg-card-alt);
+          color: var(--text-secondary);
           font-size: 10px;
           font-weight: 800;
           letter-spacing: 0.03em;
@@ -2531,10 +2552,10 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 6px;
         }
         .support-type-chips button.active {
-          color: var(--primary-text-color);
+          color: var(--text);
         }
         .support-type-chips button .ct {
-          color: var(--text-muted-color, var(--secondary-text-color));
+          color: var(--text-muted, var(--text-secondary));
           font-weight: 600;
           letter-spacing: 0;
         }
@@ -2578,10 +2599,10 @@ class ModelDetailPopupCard extends HTMLElement {
           align-items: center;
         }
         .support-action {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          background: var(--bg-card-alt);
+          color: var(--text);
           font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.03em;
@@ -2590,8 +2611,8 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
         }
         .support-action:hover {
-          border-color: rgba(96, 165, 250, 0.45);
-          background: rgba(96, 165, 250, 0.16);
+          border-color: color-mix(in srgb, var(--accent-blue) 45%, transparent);
+          background: color-mix(in srgb, var(--accent-blue) 16%, transparent);
         }
         .support-breadcrumbs {
           margin-bottom: 8px;
@@ -2600,7 +2621,7 @@ class ModelDetailPopupCard extends HTMLElement {
           flex-wrap: wrap;
           gap: 6px;
           font-size: 11px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
         }
         .support-breadcrumb-link {
@@ -2618,9 +2639,9 @@ class ModelDetailPopupCard extends HTMLElement {
           width: 24px;
           height: 24px;
           border-radius: 6px;
-          border: 1px solid var(--divider-color);
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          border: 1px solid var(--border);
+          background: var(--bg-card-alt);
+          color: var(--text);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -2632,16 +2653,16 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: default;
         }
         .support-breadcrumb-current {
-          color: var(--primary-text-color);
+          color: var(--text);
           font-weight: 700;
         }
         .support-empty {
-          border: 1px dashed var(--divider-color);
+          border: 1px dashed var(--border);
           border-radius: 10px;
           padding: 12px;
           font-size: 12px;
-          color: var(--secondary-text-color);
-          background: var(--card-background-color);
+          color: var(--text-secondary);
+          background: var(--bg-card);
         }
         .right {
           padding: 12px;
@@ -2651,19 +2672,19 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow: visible;
         }
         .card {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 12px;
           overflow: hidden;
-          background: var(--secondary-background-color);
+          background: var(--bg-card-alt);
         }
         .card .h {
-          border-bottom: 1px solid var(--divider-color);
-          background: var(--card-background-color);
+          border-bottom: 1px solid var(--border);
+          background: var(--bg-card);
           padding: 8px 10px;
           font-size: 12px;
           text-transform: uppercase;
           letter-spacing: 0.03em;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           font-weight: 700;
           display: flex;
           justify-content: space-between;
@@ -2678,17 +2699,17 @@ class ModelDetailPopupCard extends HTMLElement {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           transition: background 0.2s, border-color 0.2s, color 0.2s;
           --mdc-icon-size: 20px;
         }
         .refresh-candidates-btn:hover:not([disabled]) {
-          background: var(--secondary-background-color, rgba(255,255,255,0.08));
-          border-color: var(--divider-color);
-          color: var(--primary-text-color);
+          background: var(--bg-card-alt);
+          border-color: var(--border);
+          color: var(--text);
         }
         .refresh-candidates-btn:active:not([disabled]) {
-          background: var(--divider-color);
+          background: var(--border);
         }
         .refresh-candidates-btn[disabled] {
           cursor: default;
@@ -2719,17 +2740,17 @@ class ModelDetailPopupCard extends HTMLElement {
           row-gap: 8px;
         }
         .linked-sort-btn {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--secondary-background-color);
-          color: var(--secondary-text-color);
+          background: var(--bg-card-alt);
+          color: var(--text-secondary);
           padding: 4px 10px;
           font-size: 11px;
           font-weight: 600;
           cursor: pointer;
         }
         .linked-sort-btn:hover {
-          color: var(--primary-text-color);
+          color: var(--text);
           border-color: var(--primary-color);
         }
         .archive-filter-row {
@@ -2742,10 +2763,10 @@ class ModelDetailPopupCard extends HTMLElement {
           margin-bottom: 0;
         }
         .archive-filter-btn {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--card-background-color);
-          color: var(--secondary-text-color);
+          background: var(--bg-card);
+          color: var(--text-secondary);
           padding: 4px 9px;
           font-size: 11px;
           font-weight: 600;
@@ -2755,22 +2776,22 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 6px;
         }
         .archive-filter-btn.active {
-          color: var(--primary-text-color);
+          color: var(--text);
           border-color: var(--primary-color);
-          background: rgba(96, 165, 250, 0.12);
+          background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
         }
         .archive-filter-btn.active[data-archive-filter="linked"] {
-          border-color: rgba(94, 234, 212, 0.45);
-          background: rgba(94, 234, 212, 0.12);
+          border-color: color-mix(in srgb, var(--accent-teal) 45%, transparent);
+          background: color-mix(in srgb, var(--accent-teal) 12%, transparent);
           color: #b8fff3;
         }
         .archive-filter-btn.active[data-archive-filter="candidates"] {
-          border-color: rgba(245, 158, 11, 0.45);
-          background: rgba(245, 158, 11, 0.12);
+          border-color: color-mix(in srgb, var(--accent-amber) 45%, transparent);
+          background: color-mix(in srgb, var(--accent-amber) 12%, transparent);
           color: #ffe0ae;
         }
         .archive-filter-btn span {
-          color: var(--primary-text-color);
+          color: var(--text);
           opacity: 0.86;
         }
         .archive-bulk-toolbar {
@@ -2782,7 +2803,7 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .archive-bulk-count {
           font-size: 11px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           margin-right: 4px;
         }
         .candidate-checkbox {
@@ -2797,11 +2818,11 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .summary { padding: 10px; display: grid; gap: 8px; }
         .summary .name { font-size: 15px; font-weight: 700; }
-        .summary .meta { color: var(--secondary-text-color); font-size: 12px; }
+        .summary .meta { color: var(--text-secondary); font-size: 12px; }
 
         /* tag / collection chip UX */
         .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-        .chip-group .label { font-size: 11px; color: var(--secondary-text-color); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+        .chip-group .label { font-size: 11px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
         .card:has(.picker-wrap) { overflow: visible; }
         .tag-chip {
           display: inline-flex; align-items: center; gap: 4px;
@@ -2813,44 +2834,44 @@ class ModelDetailPopupCard extends HTMLElement {
         .add-chip {
           display: inline-flex; align-items: center; gap: 3px;
           padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
-          background: transparent; color: var(--secondary-text-color); border: 1px dashed var(--divider-color);
+          background: transparent; color: var(--text-secondary); border: 1px dashed var(--border);
           cursor: pointer;
         }
-        .add-chip:hover { color: var(--primary-text-color); border-color: var(--accent-color, #6edacb); background: rgba(110,218,203,0.06); }
+        .add-chip:hover { color: var(--text); border-color: var(--accent, #6edacb); background: color-mix(in srgb, var(--accent, #6edacb) 6%, transparent); }
         .picker-wrap { position: relative; display: inline-block; }
         .picker-dd {
           position: absolute; top: calc(100% + 4px); left: 0; z-index: 90;
           min-width: 220px; max-height: 250px; overflow-y: auto;
-          background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 12px;
+          background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
           box-shadow: 0 10px 36px rgba(0,0,0,0.44); padding: 6px;
         }
         .picker-dd .search-box {
           width: 100%; box-sizing: border-box; margin-bottom: 4px;
-          background: var(--secondary-background-color); border: 1px solid var(--divider-color); border-radius: 8px;
-          color: var(--primary-text-color); font-size: 12px; padding: 7px 10px; outline: none;
+          background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px;
+          color: var(--text); font-size: 12px; padding: 7px 10px; outline: none;
         }
         .picker-dd .search-box:focus { border-color: var(--accent-color, #6edacb); box-shadow: 0 0 0 2px rgba(110,218,203,0.18); }
         .picker-dd .opt {
-          padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--primary-text-color);
+          padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--text);
         }
-        .picker-dd .opt:hover { background: rgba(255,255,255,0.06); }
-        .picker-dd .opt.selected { background: rgba(255,255,255,0.10); }
-        .picker-dd .opt.already { color: var(--accent-color, #6edacb); opacity: 0.6; cursor: default; }
+        .picker-dd .opt:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+        .picker-dd .opt.selected { background: color-mix(in srgb, var(--text) 10%, transparent); }
+        .picker-dd .opt.already { color: var(--accent, #6edacb); opacity: 0.6; cursor: default; }
         .picker-dd .create-new {
-          color: var(--accent-color, #6edacb); font-weight: 700; font-size: 12px;
-          padding: 7px 10px; border-top: 1px solid var(--divider-color); cursor: pointer;
+          color: var(--accent, #6edacb); font-weight: 700; font-size: 12px;
+          padding: 7px 10px; border-top: 1px solid var(--border); cursor: pointer;
         }
-        .picker-dd .create-new:hover { background: rgba(110,218,203,0.08); }
-        .picker-dd .create-new.selected { background: rgba(110,218,203,0.12); }
+        .picker-dd .create-new:hover { background: color-mix(in srgb, var(--accent-teal) 8%, transparent); }
+        .picker-dd .create-new.selected { background: color-mix(in srgb, var(--accent-teal) 12%, transparent); }
 
         .status { display: flex; gap: 6px; flex-wrap: wrap; }
         .status span {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
           padding: 4px 8px;
           font-size: 10px;
-          color: var(--secondary-text-color);
-          background: var(--card-background-color);
+          color: var(--text-secondary);
+          background: var(--bg-card);
         }
         .files { padding: 8px; display: grid; gap: 7px; }
         .card[data-slot="sections:archive-linkage"] > .files {
@@ -2858,23 +2879,23 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow-y: auto;
           scrollbar-width: thin;
         }
-        .file-preview { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--divider-color); object-fit: cover; flex-shrink: 0; }
-        .file-ext-badge { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.25); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--secondary-text-color); background: rgba(255,255,255,0.04); flex-shrink: 0; }
+        .file-preview { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); object-fit: cover; flex-shrink: 0; }
+        .file-ext-badge { width: 40px; height: 40px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--border) 25%, transparent); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--text-secondary); background: color-mix(in srgb, var(--text) 4%, transparent); flex-shrink: 0; }
         .file-ext-badge.x-3mf { color: #5eead4; border-color: rgba(94,234,212,0.3); background: rgba(94,234,212,0.12); }
         .file-ext-badge.x-stl, .file-ext-badge.x-step, .file-ext-badge.x-stp, .file-ext-badge.x-obj { color: #93c5fd; border-color: rgba(96,165,250,0.32); background: rgba(96,165,250,0.12); }
         .collapsible-group {
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 9px;
           overflow: hidden;
-          background: var(--card-background-color);
+          background: var(--bg-card);
         }
         .collapsible-group.is-linked {
-          border-color: rgba(94, 234, 212, 0.2);
-          background: linear-gradient(0deg, rgba(94, 234, 212, 0.04), rgba(94, 234, 212, 0.04)), var(--card-background-color);
+          border-color: color-mix(in srgb, var(--accent-teal) 20%, transparent);
+          background: linear-gradient(0deg, color-mix(in srgb, var(--accent-teal) 4%, transparent), color-mix(in srgb, var(--accent-teal) 4%, transparent)), var(--bg-card);
         }
         .collapsible-group.is-candidate {
-          border-color: rgba(245, 158, 11, 0.24);
-          background: linear-gradient(0deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.05)), var(--card-background-color);
+          border-color: color-mix(in srgb, var(--accent-amber) 24%, transparent);
+          background: linear-gradient(0deg, color-mix(in srgb, var(--accent-amber) 5%, transparent), color-mix(in srgb, var(--accent-amber) 5%, transparent)), var(--bg-card);
         }
         .collapse-toggle {
           width: 100%;
@@ -2892,27 +2913,27 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .collapse-body {
           padding: 8px;
-          border-top: 1px solid var(--divider-color);
+          border-top: 1px solid var(--border);
           font-size: 11px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
         }
         .hidden { display: none !important; }
         .state {
           font-size: 10px;
-          border: 1px solid var(--divider-color);
+          border: 1px solid var(--border);
           border-radius: 999px;
           padding: 3px 7px;
           margin-right: 4px;
         }
         .collapsible-group.is-linked .state {
-          border-color: rgba(94, 234, 212, 0.45);
-          background: rgba(94, 234, 212, 0.14);
+          border-color: color-mix(in srgb, var(--accent-teal) 45%, transparent);
+          background: color-mix(in srgb, var(--accent-teal) 14%, transparent);
           color: #b8fff3;
         }
 
         .collapsible-group.is-candidate .state {
-          border-color: rgba(245, 158, 11, 0.45);
-          background: rgba(245, 158, 11, 0.14);
+          border-color: color-mix(in srgb, var(--accent-amber) 45%, transparent);
+          background: color-mix(in srgb, var(--accent-amber) 14%, transparent);
           color: #ffe0ae;
         }
 
@@ -2922,7 +2943,7 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 2px 4px;
           margin: 0;
           border-radius: 6px;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -2961,7 +2982,7 @@ class ModelDetailPopupCard extends HTMLElement {
         @media (max-width: 980px) {
           .hero { grid-template-columns: 1fr; align-items: stretch; }
           .card[data-slot="sections:archive-linkage"] > .files { max-height: none; }
-          .left { border-right: 0; border-bottom: 1px solid var(--divider-color); }
+          .left { border-right: 0; border-bottom: 1px solid var(--border); }
           .media-with-thumbs { flex-direction: column; }
           .thumbs {
             flex: 0 0 auto;
@@ -2970,7 +2991,7 @@ class ModelDetailPopupCard extends HTMLElement {
             overflow-x: auto;
             overflow-y: hidden;
             border-left: 0;
-            border-top: 1px solid var(--divider-color);
+            border-top: 1px solid var(--border);
             padding: 6px 12px;
           }
           .thumb { flex: 0 0 72px; }
@@ -4106,12 +4127,12 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 12px;
           padding: 6px 12px;
           border-radius: 6px;
-          border: 1px solid var(--divider-color);
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          border: 1px solid var(--border);
+          background: var(--bg-card-alt);
+          color: var(--text);
           cursor: pointer;
         }
-        .extract-3mf-btn:hover { background: var(--primary-color); color: #fff; }
+        .extract-3mf-btn:hover { background: var(--primary-color, #6edacb); color: #fff; }
         .extract-3mf-btn:disabled { opacity: 0.5; cursor: default; }
         .source-section {
           display: grid;
@@ -4128,14 +4149,14 @@ class ModelDetailPopupCard extends HTMLElement {
         .source-custom-label label {
           font-size: 12px;
           font-weight: 600;
-          color: var(--secondary-text-color);
+          color: var(--text-secondary);
         }
         .source-select {
           padding: 6px 8px;
           border-radius: 6px;
-          border: 1px solid var(--divider-color);
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color);
+          border: 1px solid var(--border);
+          background: var(--bg-card-alt);
+          color: var(--text);
           font-size: 13px;
           cursor: pointer;
         }
