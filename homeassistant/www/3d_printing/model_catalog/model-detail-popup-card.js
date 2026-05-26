@@ -64,6 +64,12 @@ class ModelDetailPopupCard extends HTMLElement {
     this._overflowOpen = false;
     this._panelMode = 'tabs';
     this._panelActiveTab = 'panel-queue';
+    this._supportViewMode = 'files';
+    this._supportThumbSize = 'medium';
+    this._supportTypeFilter = 'all';
+    this._supportFolderPath = '';
+    this._supportImagePreview = null; // { items: [{url,name}], index }
+    this._supportRenderedImageItems = [];
     this._collapsedSections = {};
     this._modelFilePlateCounts = {};
     this._modelFilePlateCountPending = new Set();
@@ -148,6 +154,12 @@ class ModelDetailPopupCard extends HTMLElement {
       this._archiveLinkageFilter = 'all';
       this._linkedArchiveSortOrder = 'desc';
       this._selectedArchiveCandidates = {};
+      this._supportViewMode = 'files';
+      this._supportThumbSize = 'medium';
+      this._supportTypeFilter = 'all';
+      this._supportFolderPath = '';
+      this._supportImagePreview = null;
+      this._supportRenderedImageItems = [];
       this._ideaMetaEditOpen = false;
       this._ideaMetaSaving = false;
       this._ideaPromoteBusy = false;
@@ -271,6 +283,94 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('#btn-add-supporting-file')) {
       event.preventDefault();
       this._openSupportingFilePicker();
+      return;
+    }
+
+    const supportThumbSizeBtn = target.closest('[data-action="support-set-thumb-size"]');
+    if (supportThumbSizeBtn) {
+      event.preventDefault();
+      const size = String(supportThumbSizeBtn.dataset.size || '').toLowerCase();
+      if (size === 'small' || size === 'medium' || size === 'large') {
+        this._supportThumbSize = size;
+        this._render();
+      }
+      return;
+    }
+
+    const supportViewBtn = target.closest('[data-action="support-set-view"]');
+    if (supportViewBtn) {
+      event.preventDefault();
+      const view = String(supportViewBtn.dataset.view || 'files');
+      if (view === 'files' || view === 'folders') {
+        this._supportViewMode = view;
+        this._supportTypeFilter = 'all';
+        if (view === 'files') {
+          this._supportFolderPath = '';
+        }
+        this._render();
+      }
+      return;
+    }
+
+    const supportTypeBtn = target.closest('[data-action="support-set-type-filter"]');
+    if (supportTypeBtn) {
+      event.preventDefault();
+      const filter = String(supportTypeBtn.dataset.type || 'all').toLowerCase();
+      if (filter === 'all' || filter === 'images' || filter === 'docs' || filter === 'other') {
+        this._supportTypeFilter = filter;
+        this._render();
+      }
+      return;
+    }
+
+    const supportFolderNavBtn = target.closest('[data-action="support-folder-enter"], [data-action="support-folder-nav"]');
+    if (supportFolderNavBtn) {
+      event.preventDefault();
+      this._supportFolderPath = String(supportFolderNavBtn.dataset.path || '');
+      this._render();
+      return;
+    }
+
+    const supportFolderUpBtn = target.closest('[data-action="support-folder-up"]');
+    if (supportFolderUpBtn) {
+      event.preventDefault();
+      const currentPath = String(this._supportFolderPath || '');
+      if (!currentPath) {
+        return;
+      }
+      const splitAt = currentPath.lastIndexOf('/');
+      this._supportFolderPath = splitAt >= 0 ? currentPath.slice(0, splitAt) : '';
+      this._render();
+      return;
+    }
+
+    const supportPreviewBtn = target.closest('[data-action="support-preview-image"]');
+    if (supportPreviewBtn) {
+      event.preventDefault();
+      const imageIdx = Number(supportPreviewBtn.dataset.imageIndex);
+      if (Number.isFinite(imageIdx)) {
+        this._openSupportingImagePreview(imageIdx);
+      }
+      return;
+    }
+
+    const supportOpenBtn = target.closest('[data-action="support-open-file"]');
+    if (supportOpenBtn) {
+      event.preventDefault();
+      const fileId = String(supportOpenBtn.dataset.fileId || '');
+      if (fileId) {
+        this._openSupportingFileInNewTab(fileId);
+      }
+      return;
+    }
+
+    const supportDownloadBtn = target.closest('[data-action="support-download-file"]');
+    if (supportDownloadBtn) {
+      event.preventDefault();
+      const fileId = String(supportDownloadBtn.dataset.fileId || '');
+      if (fileId) {
+        this._downloadSupportingFile(fileId);
+      }
       return;
     }
 
@@ -673,6 +773,13 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       this._isEditMode = false;
       this._render();
+      return;
+    }
+
+    // Archive toggle
+    if (target.closest("#btn-toggle-frequent")) {
+      event.preventDefault();
+      this._handleToggleFrequent();
       return;
     }
 
@@ -1693,7 +1800,19 @@ class ModelDetailPopupCard extends HTMLElement {
     const isIdea = entityType === 'idea';
     const _catalogSignals = (model.structured_metadata && model.structured_metadata.catalog_signals) || {};
     const isArchived = String(_catalogSignals.catalog_visibility || '').toLowerCase() === 'archived';
-    const isFrequent = !!(this._modelDetail && this._modelDetail.ranking && this._modelDetail.ranking.is_frequent);
+    const frequentState = this._resolveFrequentState(model);
+    const isFrequent = frequentState.isFrequent;
+    const frequentButtonClass = frequentState.source === 'manual_override' ? 'toggle-active-manual' : 'toggle-active';
+    const frequentButtonTitle = frequentState.source === 'manual_override'
+      ? (frequentState.isFrequent
+        ? 'Manually marked as frequent. Click to clear manual override and return to inferred status.'
+        : 'Manually marked as not frequent. Click to mark as frequent manually.')
+      : (frequentState.isFrequentInferred
+        ? ('Auto-inferred as frequent from print activity (' + String(Math.round(frequentState.weightedPrintCount * 100) / 100) + ' weighted prints, threshold ' + String(frequentState.minPrints) + '). Click to pin this as manually frequent.')
+        : ('Not currently frequent by inference (' + String(Math.round(frequentState.weightedPrintCount * 100) / 100) + ' weighted prints, threshold ' + String(frequentState.minPrints) + '). Click to mark as frequent manually.'));
+    const frequentButtonLabel = frequentState.source === 'manual_override'
+      ? (frequentState.isFrequent ? '⚡ Frequent (Manual)' : '⚡ Not Frequent (Manual)')
+      : (frequentState.isFrequentInferred ? '⚡ Frequent (Inferred)' : '⚡ Mark as Frequent');
 
     return `
       <style>
@@ -1762,6 +1881,11 @@ class ModelDetailPopupCard extends HTMLElement {
           border: 1px solid var(--accent-color, #6edacb);
           background: rgba(110,218,203,0.12);
           color: var(--accent-color, #6edacb);
+        }
+        .action-button.toggle-active-manual {
+          border: 1px solid rgba(245, 158, 11, 0.48);
+          background: rgba(245, 158, 11, 0.16);
+          color: #fde68a;
         }
         .action-button.toggle-active-warn {
           border: 1px solid rgba(148,163,184,0.44);
@@ -2190,8 +2314,251 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 8px;
           font-size: 12px;
         }
-        .detail { color: var(--secondary-text-color); font-size: 11px; margin-top: 3px; }
-
+        .support-toolbar {
+          display: grid;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .support-toolbar-main {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .support-toggle-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .support-segmented {
+          display: inline-flex;
+          padding: 2px;
+          border-radius: 999px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+        }
+        .support-segmented button {
+          border: 0;
+          background: transparent;
+          color: var(--secondary-text-color);
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+        .support-segmented button.active {
+          background: rgba(96, 165, 250, 0.2);
+          color: var(--primary-text-color);
+        }
+        .support-browser {
+          border: 1px solid var(--divider-color);
+          border-radius: 10px;
+          background: var(--secondary-background-color);
+          padding: 8px;
+        }
+        .support-browser[data-thumb="small"] { --support-thumb-size: 34px; --support-row-pad: 6px 8px; }
+        .support-browser[data-thumb="medium"] { --support-thumb-size: 58px; --support-row-pad: 8px 10px; }
+        .support-browser[data-thumb="large"] { --support-thumb-size: 116px; --support-row-pad: 10px 12px; }
+        .support-rows {
+          display: grid;
+          gap: 7px;
+        }
+        .support-file-row,
+        .support-folder-row {
+          display: grid;
+          grid-template-columns: var(--support-thumb-size, 58px) minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 10px;
+          border: 1px solid var(--divider-color);
+          border-radius: 10px;
+          background: var(--card-background-color);
+          padding: var(--support-row-pad, 8px 10px);
+        }
+        .support-file-row {
+          grid-template-columns: var(--support-thumb-size, 58px) minmax(0, 1fr) auto auto;
+        }
+        .support-folder-row {
+          cursor: pointer;
+        }
+        .support-folder-row:hover {
+          background: rgba(96, 165, 250, 0.1);
+        }
+        .support-thumb {
+          width: var(--support-thumb-size, 58px);
+          height: var(--support-thumb-size, 58px);
+          border-radius: 9px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--divider-color);
+          background: rgba(94, 234, 212, 0.1);
+          overflow: hidden;
+          color: var(--primary-text-color);
+        }
+        .support-thumb.has-image {
+          padding: 0;
+          background: rgba(15, 23, 42, 0.5);
+        }
+        .support-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .support-ext {
+          font-size: calc(var(--support-thumb-size, 58px) * 0.2);
+          font-weight: 800;
+          letter-spacing: 0.01em;
+          text-transform: uppercase;
+          color: var(--secondary-text-color);
+          white-space: nowrap;
+        }
+        .support-folder-icon {
+          font-size: calc(var(--support-thumb-size, 58px) * 0.45);
+          line-height: 1;
+        }
+        .support-main {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 2px;
+        }
+        .support-name {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--primary-text-color);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .support-subpath {
+          margin-top: 3px;
+          font-size: 10.5px;
+          color: var(--secondary-text-color);
+          font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .support-meta {
+          text-align: right;
+          min-width: 82px;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          font-variant-numeric: tabular-nums;
+        }
+        .support-size {
+          min-width: 56px;
+          text-align: right;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+          align-self: center;
+        }
+        .support-type-chips {
+          display: inline-flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .support-type-chips button {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          background: var(--secondary-background-color);
+          color: var(--secondary-text-color);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.03em;
+          padding: 4px 10px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .support-type-chips button.active {
+          border-color: rgba(96, 165, 250, 0.45);
+          background: rgba(96, 165, 250, 0.2);
+          color: var(--primary-text-color);
+        }
+        .support-actions {
+          display: inline-flex;
+          gap: 6px;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .support-action {
+          border: 1px solid var(--divider-color);
+          border-radius: 999px;
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          padding: 4px 9px;
+          cursor: pointer;
+        }
+        .support-action:hover {
+          border-color: rgba(96, 165, 250, 0.45);
+          background: rgba(96, 165, 250, 0.16);
+        }
+        .support-breadcrumbs {
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+        }
+        .support-breadcrumb-link {
+          border: 0;
+          background: transparent;
+          color: var(--primary-color);
+          cursor: pointer;
+          font: inherit;
+          padding: 0;
+        }
+        .support-breadcrumb-link:hover {
+          text-decoration: underline;
+        }
+        .support-breadcrumb-up {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+        }
+        .support-breadcrumb-up:disabled {
+          opacity: 0.45;
+          cursor: default;
+        }
+        .support-breadcrumb-current {
+          color: var(--primary-text-color);
+          font-weight: 700;
+        }
+        .support-empty {
+          border: 1px dashed var(--divider-color);
+          border-radius: 10px;
+          padding: 12px;
+          font-size: 12px;
+          color: var(--secondary-text-color);
+          background: var(--card-background-color);
+        }
         .right {
           padding: 12px;
           display: grid;
@@ -2538,7 +2905,7 @@ class ModelDetailPopupCard extends HTMLElement {
             ${this._renderExtensionSlot('actions:top-bar', '')}
             ${isIdea ? `<button class="action-button" data-action="idea-promote-catalog" ${this._ideaPromoteBusy ? 'disabled' : ''}>⬆ Promote to Catalog</button>` : ''}
             ${isIdea ? `<button class="action-button ghost" data-action="idea-move-to-working-files" ${this._ideaPromoteBusy ? 'disabled' : ''}>➡ Move to Working Files</button>` : ''}
-            ${isIdea ? '' : `<button class="action-button ghost ${isFrequent ? 'toggle-active' : ''}" id="btn-toggle-frequent" title="${isFrequent ? 'This model is marked as Frequent (auto-derived from ≥3 prints in 90d window).' : 'Not marked as frequent.'}">⚡ Frequent</button>`}
+            ${isIdea ? '' : `<button class="action-button ghost ${isFrequent ? frequentButtonClass : ''}" id="btn-toggle-frequent" title="${frequentButtonTitle}">${frequentButtonLabel}</button>`}
             <button class="action-button ghost ${isArchived ? 'toggle-active-warn' : ''}" id="btn-toggle-archive" title="${isArchived ? 'This model is archived — hidden from default Catalog views. Click to un-archive.' : 'Archive this model — hides from default Catalog views while preserving all data.'}">${isArchived ? '📦 Archived' : '📦 Archive'}</button>
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
@@ -2885,30 +3252,550 @@ class ModelDetailPopupCard extends HTMLElement {
       const type = String(f.asset_type || '').toLowerCase();
       return !NON_SUPPORT_ROLES.has(role) && !MODEL_TYPES.has(type);
     });
+    const browserEntries = files.map((file) => {
+      const folderPath = this._supportingFolderPath(file);
+      return {
+        file,
+        folderPath,
+      };
+    });
+    const supportViewMode = this._supportViewMode === 'folders' ? 'folders' : 'files';
+    const supportTypeFilter = this._supportTypeFilter === 'images' || this._supportTypeFilter === 'docs' || this._supportTypeFilter === 'other'
+      ? this._supportTypeFilter
+      : 'all';
+    const supportThumbSize = this._supportThumbSize === 'small' || this._supportThumbSize === 'large'
+      ? this._supportThumbSize
+      : 'medium';
+    const counts = { all: browserEntries.length, images: 0, docs: 0, other: 0 };
+    browserEntries.forEach((entry) => {
+      const type = this._supportingEntryType(entry.file);
+      counts[type] = (counts[type] || 0) + 1;
+    });
     const uploadToolbar = `
       <div class="support-toolbar">
-        <button class="action-button" id="btn-add-supporting-file">
-          <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add File
-        </button>
-        <div class="detail">Upload picks a file immediately. Non-local models may reject upload until server-side support is enabled.</div>
+        <div class="support-toolbar-main">
+          <button class="action-button" id="btn-add-supporting-file">
+            <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add File
+          </button>
+          <div class="support-toggle-wrap">
+            <div class="support-segmented" role="group" aria-label="Supporting files view mode">
+              <button type="button" data-action="support-set-view" data-view="files" class="${supportViewMode === 'files' ? 'active' : ''}">Files</button>
+              <button type="button" data-action="support-set-view" data-view="folders" class="${supportViewMode === 'folders' ? 'active' : ''}">Folders</button>
+            </div>
+            <div class="support-segmented" role="group" aria-label="Supporting files preview size">
+              <button type="button" data-action="support-set-thumb-size" data-size="small" class="${supportThumbSize === 'small' ? 'active' : ''}">Small</button>
+              <button type="button" data-action="support-set-thumb-size" data-size="medium" class="${supportThumbSize === 'medium' ? 'active' : ''}">Medium</button>
+              <button type="button" data-action="support-set-thumb-size" data-size="large" class="${supportThumbSize === 'large' ? 'active' : ''}">Large</button>
+            </div>
+          </div>
+        </div>
+        <div class="support-type-chips" role="group" aria-label="Supporting files filter">
+          <button type="button" data-action="support-set-type-filter" data-type="all" class="${supportTypeFilter === 'all' ? 'active' : ''}">All <span>${counts.all}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="images" class="${supportTypeFilter === 'images' ? 'active' : ''}">Images <span>${counts.images}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="docs" class="${supportTypeFilter === 'docs' ? 'active' : ''}">Docs <span>${counts.docs}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="other" class="${supportTypeFilter === 'other' ? 'active' : ''}">Other <span>${counts.other}</span></button>
+        </div>
       </div>
     `;
-    if (!files.length) {
+
+    if (!browserEntries.length) {
+      this._supportRenderedImageItems = [];
       return `${uploadToolbar}<div class="support-list"><article class="support"><strong>No supporting files</strong><div class="detail">Documentation and references appear here.</div></article></div>`;
     }
-    return `${uploadToolbar}<div class="support-list">${files.map(file => {
-      const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.name || 'Support file'));
-      const role = this._escapeHtml(String(file.asset_role || ''));
-      const type = this._escapeHtml(String(file.asset_type || ''));
-      const size = file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / 1024)} KB` : '';
-      const meta = [role, type, size].filter(Boolean).join(' | ');
-      return `
-      <article class="support">
-        <strong>${filename}</strong>
-        <div class="detail">${meta}</div>
+
+    let bodyHtml = '';
+    if (supportViewMode === 'folders') {
+      bodyHtml = this._renderSupportingFoldersView(browserEntries, supportTypeFilter);
+    } else {
+      const sortedEntries = browserEntries
+        .filter((entry) => this._supportingEntryMatchesFilter(entry.file, supportTypeFilter))
+        .slice()
+        .sort((a, b) => {
+          const pathA = String(a.folderPath || '').toLowerCase();
+          const pathB = String(b.folderPath || '').toLowerCase();
+          if (pathA !== pathB) {
+            return pathA < pathB ? -1 : 1;
+          }
+          const nameA = this._supportingFileName(a.file).toLowerCase();
+          const nameB = this._supportingFileName(b.file).toLowerCase();
+          return nameA < nameB ? -1 : (nameA > nameB ? 1 : 0);
+        });
+      this._supportRenderedImageItems = sortedEntries
+        .filter((entry) => this._supportingEntryType(entry.file) === 'images')
+        .map((entry) => ({
+          fileId: this._supportingFileId(entry.file),
+          url: this._supportingPreviewUrl(entry.file) || this._supportingPrimaryUrl(entry.file),
+          name: this._supportingFileName(entry.file),
+        }))
+        .filter((entry) => Boolean(entry.fileId && entry.url));
+      bodyHtml = sortedEntries.length
+        ? `<div class="support-rows">${sortedEntries.map((entry) => this._renderSupportingFileRow(entry.file, entry.folderPath)).join('')}</div>`
+        : '<div class="support-empty">No files match this type filter.</div>';
+    }
+
+    return `${uploadToolbar}<div class="support-browser" data-thumb="${supportThumbSize}">${bodyHtml}</div>`;
+  }
+
+  _supportingFileId(file) {
+    return String(file && (file.asset_id || file.file_id || file.id || '') || '').trim();
+  }
+
+  _supportingFileName(file) {
+    return String(file && (file.filename || file.asset_filename || file.name || file.id) || 'Support file');
+  }
+
+  _supportingFileExtension(file) {
+    const filename = this._supportingFileName(file);
+    const dotIndex = filename.lastIndexOf('.');
+    if (dotIndex < 0 || dotIndex === filename.length - 1) {
+      return '';
+    }
+    return filename.slice(dotIndex + 1).toLowerCase();
+  }
+
+  _supportingFolderPath(file) {
+    const filename = this._supportingFileName(file);
+    const rawPath = String(file && (file.storage_path || file.source_path_canonical || file.source_path_raw || '') || '').trim().replace(/\\/g, '/');
+    if (!rawPath) {
+      return '';
+    }
+
+    const marker = '/supporting_files/';
+    const markerIndex = rawPath.toLowerCase().indexOf(marker);
+    if (markerIndex >= 0) {
+      const tail = rawPath.slice(markerIndex + marker.length);
+      const cut = tail.lastIndexOf('/');
+      return cut > 0 ? tail.slice(0, cut) : '';
+    }
+
+    if (filename && rawPath.toLowerCase().endsWith('/' + filename.toLowerCase())) {
+      const parentPath = rawPath.slice(0, rawPath.length - filename.length - 1);
+      const parentBits = parentPath.split('/').filter(Boolean);
+      if (parentBits.length <= 1) {
+        return '';
+      }
+      return parentBits.slice(Math.max(0, parentBits.length - 2)).join('/');
+    }
+
+    return '';
+  }
+
+  _supportingPreviewUrl(file) {
+    const ext = this._supportingFileExtension(file);
+    const isImageExt = /^(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)$/i.test(ext);
+    const candidate = String(
+      file && (file.thumbnail_lazy_url || file.thumbnail_url || file.image_url || file.preview_url || (isImageExt ? file.download_url : '')) || ''
+    ).trim();
+    if (!candidate) {
+      return '';
+    }
+    return this._normalizeModelApiUrl(candidate);
+  }
+
+  _supportingPrimaryUrl(file) {
+    const candidate = String(file && (file.download_url || file.preview_url || file.image_url || file.thumbnail_url || '') || '').trim();
+    if (!candidate) {
+      return '';
+    }
+    return this._normalizeModelApiUrl(candidate);
+  }
+
+  _supportingEntryType(file) {
+    const ext = this._supportingFileExtension(file);
+    if (/^(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)$/i.test(ext)) {
+      return 'images';
+    }
+    if (/^(pdf|txt|md|markdown|rtf|csv|json|ya?ml|xml|log|ini|cfg|toml|doc|docx|odt)$/i.test(ext)) {
+      return 'docs';
+    }
+    return 'other';
+  }
+
+  _supportingEntryMatchesFilter(file, filter) {
+    const active = String(filter || 'all').toLowerCase();
+    if (active === 'all') {
+      return true;
+    }
+    return this._supportingEntryType(file) === active;
+  }
+
+  _supportingIsBrowserOpenable(file) {
+    const ext = this._supportingFileExtension(file);
+    return /^(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp|pdf|txt|md|markdown|csv|json|ya?ml|xml|log|ini|cfg|toml|html?|htm)$/i.test(ext);
+  }
+
+  _supportingPathLabel(folderPath) {
+    const normalized = String(folderPath || '').trim();
+    return normalized ? `/${normalized}/` : '/';
+  }
+
+  _supportingSizeLabel(bytes) {
+    const value = Number(bytes);
+    if (!Number.isFinite(value) || value <= 0) {
+      return '';
+    }
+    const kb = value / 1024;
+    if (kb < 1024) {
+      return `${Math.max(1, Math.round(kb))} KB`;
+    }
+    const mb = kb / 1024;
+    return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  }
+
+  _renderSupportingFileRow(file, folderPath) {
+    const fileId = this._supportingFileId(file);
+    const filenameRaw = this._supportingFileName(file);
+    const filename = this._escapeHtml(filenameRaw);
+    const previewUrl = this._supportingPreviewUrl(file);
+    const primaryUrl = this._supportingPrimaryUrl(file);
+    const extension = this._supportingFileExtension(file);
+    const extensionLabel = this._escapeHtml((extension || 'file').toUpperCase().slice(0, 8));
+    const entryType = this._supportingEntryType(file);
+    const imageIndex = this._supportRenderedImageItems.findIndex((entry) => entry.fileId === fileId);
+    const sizeLabel = this._supportingSizeLabel(file && file.file_size_bytes);
+    const sizeDisplay = this._escapeHtml(sizeLabel || '--');
+    const previewAction = entryType === 'images' && imageIndex >= 0
+      ? `<button type="button" class="support-action" data-action="support-preview-image" data-image-index="${imageIndex}">Preview</button>`
+      : '';
+    const openAction = this._supportingIsBrowserOpenable(file) && primaryUrl
+      ? `<button type="button" class="support-action" data-action="support-open-file" data-file-id="${this._escapeHtml(fileId)}">Open</button>`
+      : '';
+    const downloadAction = primaryUrl
+      ? `<button type="button" class="support-action" data-action="support-download-file" data-file-id="${this._escapeHtml(fileId)}">Download</button>`
+      : '';
+    return `
+      <article class="support-file-row">
+        <div class="support-thumb ${previewUrl ? 'has-image' : ''}">
+          ${previewUrl ? `<img data-thumbnail-lazy-url="${this._escapeHtml(previewUrl)}" alt="${filename}" loading="lazy">` : `<span class="support-ext">${extensionLabel}</span>`}
+        </div>
+        <div class="support-main">
+          <div class="support-name">${filename}</div>
+          <div class="support-subpath">${this._escapeHtml(this._supportingPathLabel(folderPath))}</div>
+        </div>
+        <div class="support-size">${sizeDisplay}</div>
+        <div class="support-actions">${previewAction}${openAction}${downloadAction}</div>
       </article>
     `;
-    }).join('')}</div>`;
+  }
+
+  _renderSupportingFoldersView(entries, typeFilter) {
+    const currentPath = String(this._supportFolderPath || '');
+    const folderMap = {};
+    const filesAtPath = [];
+    const prefix = currentPath ? `${currentPath}/` : '';
+
+    const filteredEntries = entries.filter((entry) => this._supportingEntryMatchesFilter(entry.file, typeFilter));
+
+    this._supportRenderedImageItems = filteredEntries
+      .filter((entry) => this._supportingEntryType(entry.file) === 'images')
+      .filter((entry) => {
+        const folderPath = String(entry.folderPath || '');
+        return folderPath === currentPath;
+      })
+      .map((entry) => ({
+        fileId: this._supportingFileId(entry.file),
+        url: this._supportingPreviewUrl(entry.file) || this._supportingPrimaryUrl(entry.file),
+        name: this._supportingFileName(entry.file),
+      }))
+      .filter((entry) => Boolean(entry.fileId && entry.url));
+
+    filteredEntries.forEach((entry) => {
+      const folderPath = String(entry.folderPath || '');
+      if (folderPath === currentPath) {
+        filesAtPath.push(entry);
+        return;
+      }
+      if (currentPath && !folderPath.startsWith(prefix)) {
+        return;
+      }
+      const relative = folderPath.slice(prefix.length);
+      if (!relative) {
+        return;
+      }
+      const parts = relative.split('/').filter(Boolean);
+      if (!parts.length) {
+        return;
+      }
+      const first = parts[0];
+      const childPath = currentPath ? `${currentPath}/${first}` : first;
+      if (!folderMap[first]) {
+        folderMap[first] = { name: first, path: childPath, fileCount: 0 };
+      }
+      folderMap[first].fileCount += 1;
+    });
+
+    const folderRows = Object.keys(folderMap)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map((name) => {
+        const info = folderMap[name];
+        return `
+          <article class="support-folder-row" data-action="support-folder-enter" data-path="${this._escapeHtml(info.path)}">
+            <div class="support-thumb"><span class="support-folder-icon">📁</span></div>
+            <div class="support-main">
+              <div class="support-name">${this._escapeHtml(name)}</div>
+              <div class="support-subpath">${this._escapeHtml(this._supportingPathLabel(info.path))}</div>
+            </div>
+            <div class="support-meta">${this._escapeHtml(String(info.fileCount))} files</div>
+          </article>
+        `;
+      }).join('');
+
+    const fileRows = filesAtPath
+      .slice()
+      .sort((a, b) => this._supportingFileName(a.file).localeCompare(this._supportingFileName(b.file), undefined, { sensitivity: 'base' }))
+      .map((entry) => this._renderSupportingFileRow(entry.file, entry.folderPath)).join('');
+
+    const hasRows = Boolean(folderRows || fileRows);
+    return `
+      ${this._renderSupportingBreadcrumb(currentPath)}
+      ${hasRows ? `<div class="support-rows">${folderRows}${fileRows}</div>` : '<div class="support-empty">This folder has no files.</div>'}
+    `;
+  }
+
+  _renderSupportingBreadcrumb(currentPath) {
+    const path = String(currentPath || '');
+    const segments = path ? path.split('/').filter(Boolean) : [];
+    const crumbs = [
+      '<button class="support-breadcrumb-link" data-action="support-folder-nav" data-path="">Supporting Files</button>'
+    ];
+    let cursor = '';
+    segments.forEach((segment, index) => {
+      cursor = cursor ? `${cursor}/${segment}` : segment;
+      if (index === segments.length - 1) {
+        crumbs.push(`<span class="support-breadcrumb-current">${this._escapeHtml(segment)}</span>`);
+      } else {
+        crumbs.push(`<button class="support-breadcrumb-link" data-action="support-folder-nav" data-path="${this._escapeHtml(cursor)}">${this._escapeHtml(segment)}</button>`);
+      }
+    });
+    return `
+      <div class="support-breadcrumbs">
+        <button class="support-breadcrumb-up" data-action="support-folder-up" title="Up one folder" ${path ? '' : 'disabled'}>↑</button>
+        ${crumbs.join('<span>›</span>')}
+      </div>
+    `;
+  }
+
+  _supportingFileById(fileId) {
+    const id = String(fileId || '').trim();
+    if (!id || !this._modelDetail || !this._modelDetail.model) {
+      return null;
+    }
+    const files = Array.isArray(this._modelDetail.model.files) ? this._modelDetail.model.files : [];
+    return files.find((file) => this._supportingFileId(file) === id) || null;
+  }
+
+  _openUrlInNewTab(url) {
+    const normalized = String(url || '').trim();
+    if (!normalized) {
+      return;
+    }
+    const win = window.open(normalized, '_blank', 'noopener,noreferrer');
+    if (win) {
+      win.opener = null;
+    }
+  }
+
+  async _openSupportingMarkdownInNewTab(url, title) {
+    const normalizedUrl = String(url || '').trim();
+    if (!normalizedUrl) {
+      return;
+    }
+    try {
+      const response = await fetch(normalizedUrl, { credentials: 'same-origin' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const markdown = await response.text();
+      const body = this._renderBasicMarkdown(markdown);
+      const win = window.open('', '_blank', 'noopener,noreferrer');
+      if (!win) {
+        this._openUrlInNewTab(normalizedUrl);
+        return;
+      }
+      const safeTitle = this._escapeHtml(title || 'Markdown');
+      win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${safeTitle}</title><style>body{margin:0;padding:20px 24px;font:14px/1.55 "Segoe UI",Tahoma,sans-serif;background:#0b1220;color:#dbe7f5;}a{color:#7dd3fc;}pre{background:#111a2d;border:1px solid #22314f;border-radius:8px;padding:12px;overflow:auto;}code{font-family:Consolas,Monaco,monospace;}h1,h2,h3,h4{margin-top:1.2em;}blockquote{border-left:3px solid #334155;padding-left:10px;color:#93a4bf;}ul{padding-left:20px;}</style></head><body>${body}</body></html>`);
+      win.document.close();
+      win.opener = null;
+    } catch (_error) {
+      this._openUrlInNewTab(normalizedUrl);
+    }
+  }
+
+  _renderBasicMarkdown(markdown) {
+    const raw = String(markdown || '').replace(/\r\n/g, '\n');
+    const escaped = this._escapeHtml(raw);
+    const blocks = escaped.split('\n\n').map((chunk) => chunk.trim()).filter(Boolean);
+    const rendered = blocks.map((chunk) => {
+      if (/^#{1,6}\s/.test(chunk)) {
+        const level = Math.min(6, (chunk.match(/^#+/) || ['#'])[0].length);
+        const text = chunk.replace(/^#{1,6}\s*/, '');
+        return `<h${level}>${text}</h${level}>`;
+      }
+      if (/^```/.test(chunk) && /```$/.test(chunk)) {
+        return `<pre><code>${chunk.replace(/^```[\s\S]*?\n?/, '').replace(/```$/, '')}</code></pre>`;
+      }
+      if (/^[-*]\s+/m.test(chunk)) {
+        const items = chunk.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => line.replace(/^[-*]\s+/, ''));
+        return `<ul>${items.map((item) => `<li>${item}</li>`).join('')}</ul>`;
+      }
+      return `<p>${chunk.replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+
+    return rendered
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  }
+
+  _openSupportingFileInNewTab(fileId) {
+    const file = this._supportingFileById(fileId);
+    if (!file) {
+      return;
+    }
+    const url = this._supportingPrimaryUrl(file);
+    if (!url) {
+      return;
+    }
+    const ext = this._supportingFileExtension(file);
+    if (ext === 'md' || ext === 'markdown') {
+      this._openSupportingMarkdownInNewTab(url, this._supportingFileName(file));
+      return;
+    }
+    this._openUrlInNewTab(url);
+  }
+
+  async _downloadSupportingFile(fileId) {
+    const file = this._supportingFileById(fileId);
+    if (!file) {
+      return;
+    }
+    const url = this._supportingPrimaryUrl(file);
+    if (!url) {
+      return;
+    }
+    const filename = this._supportingFileName(file) || 'download';
+    try {
+      const response = await fetch(url, { credentials: 'same-origin' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      anchor.rel = 'noopener noreferrer';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (_error) {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.rel = 'noopener noreferrer';
+      anchor.target = '_blank';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    }
+  }
+
+  _openSupportingImagePreview(imageIndex) {
+    const idx = Number(imageIndex);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= this._supportRenderedImageItems.length) {
+      return;
+    }
+    this._supportImagePreview = {
+      items: this._supportRenderedImageItems.slice(),
+      index: idx,
+    };
+    this._ensureOverlayRoot();
+    this._renderSupportingImageOverlay();
+    if (this._overlayRoot && !this._overlayRoot.open) {
+      this._overlayRoot.showModal();
+    }
+    this._applyBodyScrollLock();
+    document.addEventListener('keydown', this._boundKeydownHandler);
+  }
+
+  _closeSupportingImagePreview() {
+    this._supportImagePreview = null;
+    document.removeEventListener('keydown', this._boundKeydownHandler);
+    this._restoreBodyScrollLock();
+    if (this._overlayRoot && this._overlayRoot.open) {
+      this._overlayRoot.close();
+    }
+  }
+
+  _stepSupportingImagePreview(direction) {
+    if (!this._supportImagePreview || !Array.isArray(this._supportImagePreview.items) || !this._supportImagePreview.items.length) {
+      return;
+    }
+    const count = this._supportImagePreview.items.length;
+    this._supportImagePreview.index = (this._supportImagePreview.index + direction + count) % count;
+    this._renderSupportingImageOverlay();
+  }
+
+  _openSupportingPreviewImageInNewTab() {
+    if (!this._supportImagePreview || !Array.isArray(this._supportImagePreview.items)) {
+      return;
+    }
+    const idx = Math.max(0, Math.min(this._supportImagePreview.index, this._supportImagePreview.items.length - 1));
+    const item = this._supportImagePreview.items[idx] || null;
+    if (!item || !item.url) {
+      return;
+    }
+    this._openUrlInNewTab(item.url);
+  }
+
+  _renderSupportingImageOverlay() {
+    if (!this._overlayRoot || !this._supportImagePreview || !Array.isArray(this._supportImagePreview.items) || !this._supportImagePreview.items.length) {
+      return;
+    }
+    const items = this._supportImagePreview.items;
+    const index = Math.max(0, Math.min(this._supportImagePreview.index, items.length - 1));
+    const current = items[index] || {};
+    const imageUrl = String(current.url || '').trim();
+    if (!imageUrl) {
+      return;
+    }
+    const itemName = String(current.name || `Image ${index + 1}`);
+    this._overlayRoot.innerHTML =
+      '<style>' +
+      '.support-preview-root,.support-preview-root *{box-sizing:border-box;}' +
+      '.support-preview-root{position:fixed;inset:0;}' +
+      '.support-preview-backdrop{position:absolute;inset:0;border:0;background:rgba(4,8,15,0.94);cursor:pointer;}' +
+      '.support-preview-shell{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:14px;height:100%;padding:18px 20px;}' +
+      '.support-preview-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;color:#e8f0ff;}' +
+      '.support-preview-title{font:700 18px/1.3 "Segoe UI",sans-serif;}' +
+      '.support-preview-sub{margin-top:5px;font:500 12px/1.4 "Segoe UI",sans-serif;color:rgba(232,240,255,0.78);}' +
+      '.support-preview-actions{display:flex;gap:8px;}' +
+      '.support-preview-btn{border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:#fff;border-radius:999px;padding:9px 13px;font:700 12px/1 "Segoe UI",sans-serif;cursor:pointer;}' +
+      '.support-preview-stage{position:relative;display:flex;align-items:center;justify-content:center;border-radius:16px;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.98));}' +
+      '.support-preview-stage img{display:block;max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;padding:12px;}' +
+      '.support-preview-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:999px;border:0;background:rgba(255,255,255,0.15);color:#fff;font-size:24px;cursor:pointer;}' +
+      '.support-preview-nav.prev{left:10px;}.support-preview-nav.next{right:10px;}' +
+      '.support-preview-strip{display:flex;gap:10px;overflow-x:auto;}' +
+      '.support-preview-thumb{border:2px solid transparent;border-radius:10px;overflow:hidden;background:none;padding:0;cursor:pointer;opacity:0.85;}' +
+      '.support-preview-thumb.active{border-color:#90caf9;opacity:1;}' +
+      '.support-preview-thumb img{width:84px;height:84px;display:block;object-fit:cover;}' +
+      '</style>' +
+      '<div class="support-preview-root">' +
+      '<button class="support-preview-backdrop" type="button" data-action="support-preview-close" aria-label="Close image preview"></button>' +
+      '<div class="support-preview-shell" role="dialog" aria-modal="true" aria-label="Supporting file image preview">' +
+      '<div class="support-preview-head">' +
+      '<div><div class="support-preview-title">' + this._escapeHtml(itemName) + '</div><div class="support-preview-sub">' + (index + 1) + ' / ' + items.length + '</div></div>' +
+      '<div class="support-preview-actions"><button class="support-preview-btn" type="button" data-action="support-preview-open-tab">Open in New Tab</button><button class="support-preview-btn" type="button" data-action="support-preview-close">Close</button></div>' +
+      '</div>' +
+      '<div class="support-preview-stage"><img src="' + this._escapeHtml(imageUrl) + '" alt="' + this._escapeHtml(itemName) + '" loading="eager">' +
+      (items.length > 1 ? '<button class="support-preview-nav prev" type="button" data-action="support-preview-prev" aria-label="Previous">‹</button><button class="support-preview-nav next" type="button" data-action="support-preview-next" aria-label="Next">›</button>' : '') +
+      '</div>' +
+      (items.length > 1 ? '<div class="support-preview-strip">' + items.map((itemEntry, thumbIndex) => '<button class="support-preview-thumb' + (thumbIndex === index ? ' active' : '') + '" type="button" data-support-preview-index="' + thumbIndex + '"><img src="' + this._escapeHtml(itemEntry.url) + '" alt="' + this._escapeHtml(itemEntry.name || ('Image ' + (thumbIndex + 1))) + '" loading="lazy"></button>').join('') + '</div>' : '') +
+      '</div></div>';
   }
 
   _renderContributionPanel(model) {
@@ -5398,6 +6285,64 @@ class ModelDetailPopupCard extends HTMLElement {
     return 'model';
   }
 
+  _coerceBoolish(value) {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
+      return true;
+    }
+    if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') {
+      return false;
+    }
+    return null;
+  }
+
+  _resolveFrequentState(model) {
+    const detail = this._modelDetail && typeof this._modelDetail === 'object' ? this._modelDetail : {};
+    const ranking = detail.ranking && typeof detail.ranking === 'object' ? detail.ranking : {};
+    const frequents = detail.frequents && typeof detail.frequents === 'object' ? detail.frequents : {};
+    const structured = model && model.structured_metadata && typeof model.structured_metadata === 'object'
+      ? model.structured_metadata
+      : {};
+    const catalogSignals = structured.catalog_signals && typeof structured.catalog_signals === 'object'
+      ? structured.catalog_signals
+      : {};
+
+    const manualOverride = this._coerceBoolish(catalogSignals.model_frequent_override);
+    const minPrintsRaw = frequents.min_prints;
+    const minPrints = Number.isFinite(Number(minPrintsRaw)) ? Math.max(1, Number(minPrintsRaw)) : 3;
+    const weightedRaw = frequents.weighted_print_count;
+    let weightedPrintCount = Number(weightedRaw);
+    if (!Number.isFinite(weightedPrintCount)) {
+      weightedPrintCount = Number(ranking.frequent_score || 0);
+    }
+    if (!Number.isFinite(weightedPrintCount)) {
+      weightedPrintCount = 0;
+    }
+
+    const inferredFlag = this._coerceBoolish(frequents.is_frequent_inferred);
+    const isFrequentInferred = inferredFlag !== null ? inferredFlag : weightedPrintCount >= minPrints;
+    const isFrequent = manualOverride !== null ? !!manualOverride : isFrequentInferred;
+
+    const source = manualOverride !== null
+      ? 'manual_override'
+      : (isFrequentInferred ? 'inferred' : 'none');
+
+    return {
+      isFrequent: isFrequent,
+      isFrequentInferred: isFrequentInferred,
+      manualOverride: manualOverride,
+      source: source,
+      weightedPrintCount: weightedPrintCount,
+      minPrints: minPrints,
+    };
+  }
+
   _renderIdeaMetadataCard(model) {
     const metadata = this._resolveIdeaMetadata(model);
     const externalLinks = metadata.external_links;
@@ -6086,6 +7031,74 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  async _handleToggleFrequent() {
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const modelRef = model.model_ref || this._modelRef;
+    if (!modelRef) return;
+
+    const frequentState = this._resolveFrequentState(model);
+    const currentOverride = frequentState.manualOverride;
+    const nextOverride = currentOverride === true ? null : true;
+
+    // Optimistic update so button state changes immediately.
+    if (this._modelDetail && this._modelDetail.model) {
+      const m = this._modelDetail.model;
+      if (!m.structured_metadata) m.structured_metadata = {};
+      if (!m.structured_metadata.catalog_signals) m.structured_metadata.catalog_signals = {};
+      if (nextOverride === null) {
+        delete m.structured_metadata.catalog_signals.model_frequent_override;
+      } else {
+        m.structured_metadata.catalog_signals.model_frequent_override = true;
+      }
+    }
+    this._render();
+
+    try {
+      const response = await fetch(this._resolveModelSidecarUrl() + '/api/models/' + encodeURIComponent(modelRef), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrichment: {
+            structured_metadata: {
+              catalog_signals: {
+                model_frequent_override: nextOverride,
+              },
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        let detail = response.statusText;
+        try { const body = await response.json(); detail = body.error || JSON.stringify(body); } catch (_) {}
+        throw new Error(`${response.status} ${detail}`);
+      }
+
+      await this._loadModelDetail({ silent: true });
+      this._render();
+      this._notifyBrowserDetailChanged();
+    } catch (error) {
+      console.error('Error toggling frequent override:', error);
+      if (this._modelDetail && this._modelDetail.model) {
+        const m = this._modelDetail.model;
+        if (!m.structured_metadata) m.structured_metadata = {};
+        if (!m.structured_metadata.catalog_signals) m.structured_metadata.catalog_signals = {};
+        if (currentOverride === null) {
+          delete m.structured_metadata.catalog_signals.model_frequent_override;
+        } else {
+          m.structured_metadata.catalog_signals.model_frequent_override = currentOverride;
+        }
+      }
+      this._render();
+      if (this._hass) {
+        this._hass.callService('persistent_notification', 'create', {
+          title: 'Frequent toggle failed',
+          message: `Failed to update frequent status: ${error.message}`,
+        }).catch(err => console.error('Notification failed:', err));
+      }
+    }
+  }
+
   async _handleDeleteModel() {
     if (!this._modelDetail || !this._hass) return;
 
@@ -6308,6 +7321,39 @@ class ModelDetailPopupCard extends HTMLElement {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
+    if (this._supportImagePreview) {
+      if (target.closest('[data-action="support-preview-close"]')) {
+        event.preventDefault();
+        this._closeSupportingImagePreview();
+        return;
+      }
+      if (target.closest('[data-action="support-preview-prev"]')) {
+        event.preventDefault();
+        this._stepSupportingImagePreview(-1);
+        return;
+      }
+      if (target.closest('[data-action="support-preview-next"]')) {
+        event.preventDefault();
+        this._stepSupportingImagePreview(1);
+        return;
+      }
+      if (target.closest('[data-action="support-preview-open-tab"]')) {
+        event.preventDefault();
+        this._openSupportingPreviewImageInNewTab();
+        return;
+      }
+      const supportThumb = target.closest('[data-support-preview-index]');
+      if (supportThumb) {
+        event.preventDefault();
+        const idx = parseInt(String(supportThumb.getAttribute('data-support-preview-index') || ''), 10);
+        if (Number.isFinite(idx)) {
+          this._supportImagePreview.index = idx;
+          this._renderSupportingImageOverlay();
+        }
+        return;
+      }
+    }
+
     if (target.closest('[data-action="collapse"]')) {
       event.preventDefault();
       this._closePhotoPreview();
@@ -6339,6 +7385,8 @@ class ModelDetailPopupCard extends HTMLElement {
     event.preventDefault();
     if (this._archiveImagePreview) {
       this._closeArchiveImagePreview();
+    } else if (this._supportImagePreview) {
+      this._closeSupportingImagePreview();
     } else {
       this._closePhotoPreview();
     }
@@ -6431,6 +7479,22 @@ class ModelDetailPopupCard extends HTMLElement {
       }
       return;
     }
+
+    if (this._supportImagePreview) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        this._closeSupportingImagePreview();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this._stepSupportingImagePreview(-1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        this._stepSupportingImagePreview(1);
+      }
+      return;
+    }
+
     if (this._activePhotoIndex == null) return;
     if (event.key === 'Escape') {
       event.preventDefault();
