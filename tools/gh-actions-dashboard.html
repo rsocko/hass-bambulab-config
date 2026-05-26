@@ -50,7 +50,11 @@
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
       padding: 8px 12px;
-      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    header.update-pulse {
+      animation: update-pop 280ms ease-out;
+      will-change: transform, opacity;
     }
 
     header.glow-running {
@@ -191,7 +195,6 @@
       gap: 8px;
       cursor: pointer;
       min-height: 42px;
-      transition: background 0.1s;
     }
 
     .run-row:hover { background: var(--bg-tertiary); }
@@ -209,7 +212,6 @@
       width: 24px;
       font-size: 24px;
       color: var(--text-secondary);
-      transition: color 0.15s;
       text-align: center;
       line-height: 1;
       display: flex;
@@ -247,7 +249,7 @@
       border: 2px solid transparent;
       border-top-color: var(--running);
       border-right-color: color-mix(in srgb, var(--running) 45%, transparent);
-      animation: spin-ring 1.25s linear infinite;
+      animation: spin-ring 1.9s linear infinite;
       will-change: transform;
       pointer-events: none;
     }
@@ -773,7 +775,11 @@
       border-radius: 8px;
       padding: 8px 10px;
       text-align: center;
-      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .kpi-strip.update-pulse .kpi-card.kpi-highlight {
+      animation: update-pop 320ms ease-out;
+      will-change: transform, opacity;
     }
 
     .kpi-card.kpi-highlight {
@@ -819,7 +825,12 @@
       font-size: 16px;
       font-weight: 600;
       border-bottom: 2px solid;
-      transition: all 0.3s;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .status-beacon.update-pulse {
+      animation: update-pop 360ms ease-out;
+      will-change: transform, opacity;
     }
 
     .status-beacon.beacon-ok {
@@ -857,6 +868,11 @@
         animation: none !important;
         transition: none !important;
       }
+    }
+
+    @keyframes update-pop {
+      0% { transform: translateY(-1px) scale(0.995); opacity: 0.84; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
     }
 
   </style>
@@ -1044,7 +1060,8 @@ let $kpiRunning, $kpiRunningSub, $kpiRunningVal;
 let $kpiQueued,  $kpiQueuedSub,  $kpiQueuedVal;
 let $kpiFailed,  $kpiFailedSub,  $kpiFailedVal;
 let $kpiLast,    $kpiLastSub,    $kpiLastVal;
-let $beacon, $beaconText;
+let $beacon, $beaconText, $kpiStrip;
+let _updatePulseTimer = 0;
 
 function cacheDOMRefs() {
   $content = document.getElementById('content');
@@ -1068,6 +1085,23 @@ function cacheDOMRefs() {
   $kpiLastSub    = document.getElementById('kpi-last-sub');
   $beacon        = document.getElementById('status-beacon');
   $beaconText    = document.getElementById('beacon-text');
+  $kpiStrip      = document.getElementById('kpi-strip');
+}
+
+function triggerUpdatePulse() {
+  if (_updatePulseTimer) {
+    clearTimeout(_updatePulseTimer);
+    _updatePulseTimer = 0;
+  }
+  $hdr.classList.add('update-pulse');
+  $beacon.classList.add('update-pulse');
+  $kpiStrip.classList.add('update-pulse');
+  _updatePulseTimer = setTimeout(() => {
+    $hdr.classList.remove('update-pulse');
+    $beacon.classList.remove('update-pulse');
+    $kpiStrip.classList.remove('update-pulse');
+    _updatePulseTimer = 0;
+  }, 420);
 }
 
 // ── Helpers: time formatting ────────────────────────────────────
@@ -1634,6 +1668,7 @@ async function refresh() {
     S.runs.filter(r => r.status !== 'completed').forEach(r => delete S.jobs[r.id]);
 
     render();
+    triggerUpdatePulse();
   } catch (e) {
     console.error('Refresh error:', e);
     if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
