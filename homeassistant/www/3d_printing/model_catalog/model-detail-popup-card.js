@@ -2481,13 +2481,48 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
         }
         .support-type-chips button.active {
-          border-color: rgba(96, 165, 250, 0.45);
-          background: rgba(96, 165, 250, 0.2);
           color: var(--primary-text-color);
         }
+        .support-type-chips button .ct {
+          color: var(--text-muted-color, var(--secondary-text-color));
+          font-weight: 600;
+          letter-spacing: 0;
+        }
+        .support-type-chips button ha-icon {
+          --mdc-icon-size: 15px;
+          width: 15px;
+          height: 15px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .support-type-chips button.cat-all.active {
+          background: rgba(139, 92, 246, 0.16);
+          border-color: rgba(167, 139, 250, 0.34);
+          color: #c4b5fd;
+        }
+        .support-type-chips button.cat-all.active .ct { color: #c4b5fd; }
+        .support-type-chips button.cat-images.active {
+          background: rgba(37, 99, 235, 0.16);
+          border-color: rgba(147, 197, 253, 0.34);
+          color: #93c5fd;
+        }
+        .support-type-chips button.cat-images.active .ct { color: #93c5fd; }
+        .support-type-chips button.cat-docs.active {
+          background: rgba(56, 189, 248, 0.16);
+          border-color: rgba(125, 211, 252, 0.34);
+          color: #7dd3fc;
+        }
+        .support-type-chips button.cat-docs.active .ct { color: #7dd3fc; }
+        .support-type-chips button.cat-other.active {
+          background: rgba(245, 158, 11, 0.16);
+          border-color: rgba(252, 211, 77, 0.34);
+          color: #fcd34d;
+        }
+        .support-type-chips button.cat-other.active .ct { color: #fcd34d; }
         .support-actions {
           display: inline-flex;
           gap: 6px;
@@ -3292,10 +3327,10 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
         <div class="support-type-chips" role="group" aria-label="Supporting files filter">
-          <button type="button" data-action="support-set-type-filter" data-type="all" class="${supportTypeFilter === 'all' ? 'active' : ''}">All <span>${counts.all}</span></button>
-          <button type="button" data-action="support-set-type-filter" data-type="images" class="${supportTypeFilter === 'images' ? 'active' : ''}">Images <span>${counts.images}</span></button>
-          <button type="button" data-action="support-set-type-filter" data-type="docs" class="${supportTypeFilter === 'docs' ? 'active' : ''}">Docs <span>${counts.docs}</span></button>
-          <button type="button" data-action="support-set-type-filter" data-type="other" class="${supportTypeFilter === 'other' ? 'active' : ''}">Other <span>${counts.other}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="all" class="cat-all ${supportTypeFilter === 'all' ? 'active' : ''}">All <span class="ct">· ${counts.all}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="images" class="cat-images ${supportTypeFilter === 'images' ? 'active' : ''}"><ha-icon icon="mdi:image-multiple-outline" aria-hidden="true"></ha-icon>Images <span class="ct">· ${counts.images}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="docs" class="cat-docs ${supportTypeFilter === 'docs' ? 'active' : ''}"><ha-icon icon="mdi:file-document-outline" aria-hidden="true"></ha-icon>Docs <span class="ct">· ${counts.docs}</span></button>
+          <button type="button" data-action="support-set-type-filter" data-type="other" class="cat-other ${supportTypeFilter === 'other' ? 'active' : ''}"><ha-icon icon="mdi:file-outline" aria-hidden="true"></ha-icon>Other <span class="ct">· ${counts.other}</span></button>
         </div>
       </div>
     `;
