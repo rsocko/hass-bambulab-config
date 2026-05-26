@@ -55,6 +55,7 @@
       this._loading = false;
       this._error = "";
       this._workerStatus = null; // { reachable, providers: [...] }
+      this._printersList = []; // List of available printers from Bambuddy API
       this._currentStep = "entry-point"; // "entry-point" | "validation" | "filament" | "timestamp" | "progress" | "completion"
       this._jobData = {
         model_ref: "",
@@ -128,6 +129,9 @@
         await this._probeWorkerStatus();
       }
 
+      // Fetch printers from Bambuddy API
+      await this._loadPrintersList();
+
       this._render();
     }
 
@@ -145,6 +149,45 @@
         this._error = `Error loading model: ${error.message}`;
       } finally {
         this._loading = false;
+      }
+    }
+
+    async _loadPrintersList() {
+      try {
+        // Get Bambuddy base URL from Home Assistant
+        const bambuddyBaseUrl = this._hass?.states?.['input_text.bambuddy_sidecar_base_url']?.state;
+        if (!bambuddyBaseUrl) {
+          return;
+        }
+
+        // Get API key from Home Assistant
+        const apiKey = this._hass?.states?.['input_text.bambuddy_sidecar_api_key']?.state;
+        if (!apiKey) {
+          return;
+        }
+
+        const url = `${bambuddyBaseUrl}/api/v1/printers/`;
+        const response = await fetch(url, {
+          headers: {
+            'X-API-Key': apiKey,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const printers = await response.json();
+          if (Array.isArray(printers)) {
+            this._printersList = printers.filter(p => typeof p === 'object' && p !== null);
+            // Default to first printer if not already set
+            if (this._printersList.length > 0 && !this._wizardState.bambuddy_printer_id) {
+              const firstPrinter = this._printersList[0];
+              this._wizardState.bambuddy_printer_id = String(firstPrinter.id || firstPrinter.printer_id || '1');
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail - printer list is optional
+        console.debug('Failed to load printers list:', error);
       }
     }
 
@@ -405,20 +448,25 @@
             <div class="metadata-section">
               <div class="section-title">Archive Commit Settings</div>
               <div class="metadata-row">
-                <div class="metadata-label">Bambuddy Printer ID:</div>
+                <div class="metadata-label">Printer:</div>
                 <div class="metadata-value">
-                  <input
-                    type="text"
-                    class="bambuddy-printer-input"
-                    id="bambuddy-printer-id-input"
-                    value="${this._escapeHtml(this._wizardState.bambuddy_printer_id || "1")}"
-                    placeholder="1"
-                  />
+                  <select
+                    class="bambuddy-printer-select"
+                    id="bambuddy-printer-select"
+                  >
+                    ${this._printersList.length > 0 
+                      ? this._printersList.map(printer => `
+                          <option value="${this._escapeHtml(String(printer.id || printer.printer_id || '1'))}">
+                            ${this._escapeHtml(printer.name || printer.printer_name || `Printer ${printer.id || printer.printer_id || '?'}`)}
+                          </option>
+                        `).join('')
+                      : `<option value="1">Printer 1 (Default)</option>`
+                    }
+                  </select>
                 </div>
               </div>
               <div class="preset-note">
-                Numeric Bambuddy printer DB id (not the Bambu Lab serial number). 
-                Default <strong>1</strong> = your first printer. Change if archiving to a different printer.
+                Select the printer where the archive will be saved in Bambuddy.
               </div>
             </div>
 
@@ -447,11 +495,13 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
-            <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-            <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
-              Continue to Filament Selection
-            </button>
+            <button class="btn btn-secondary btn-cancel" @click="${() => this._handleClose()}">Cancel</button>
+            <div class="button-group-right">
+              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+                Continue to Filament Selection
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -524,11 +574,13 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
-            <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-            <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
-              Continue to Timestamp
-            </button>
+            <button class="btn btn-secondary btn-cancel" @click="${() => this._handleClose()}">Cancel</button>
+            <div class="button-group-right">
+              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+                Continue to Timestamp
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -672,11 +724,13 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
-            <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-            <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
-              Continue to Progress Monitoring
-            </button>
+            <button class="btn btn-secondary btn-cancel" @click="${() => this._handleClose()}">Cancel</button>
+            <div class="button-group-right">
+              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+                Continue to Progress Monitoring
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -1087,14 +1141,18 @@
 
           <div class="wizard-footer">
             ${this._jobProgress.stage === 'completed' ? `
-              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
-                Go to Completion
-              </button>
+              <div class="button-group-right">
+                <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+                  Go to Completion
+                </button>
+              </div>
             ` : this._jobProgress.stage === 'failed' ? `
-              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-              <button class="btn btn-primary" @click="${() => this._handleRetry()}">Retry</button>
+              <div class="button-group-right">
+                <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+                <button class="btn btn-primary" @click="${() => this._handleRetry()}">Retry</button>
+              </div>
             ` : `
-              <button class="btn btn-secondary" @click="${() => this._handleCancelJob()}">Cancel</button>
+              <button class="btn btn-secondary btn-cancel" @click="${() => this._handleCancelJob()}">Cancel</button>
             `}
           </div>
         </div>
@@ -1384,10 +1442,22 @@
           .wizard-footer {
             display: flex;
             gap: 12px;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
             padding: 16px 24px;
             border-top: 1px solid var(--border-color);
             background: var(--bg-card-alt);
+          }
+
+          .btn-cancel {
+            margin-right: auto;
+            order: -1;
+          }
+
+          .button-group-right {
+            display: flex;
+            gap: 12px;
+            margin-left: auto;
           }
 
           .model-summary {
@@ -2211,20 +2281,27 @@
             color: var(--accent);
           }
 
-          .bambuddy-printer-input {
-            width: 80px;
-            padding: 4px 8px;
+          .bambuddy-printer-select {
+            padding: 6px 10px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: var(--bg-primary);
             color: var(--text-primary);
             font-size: 13px;
             font-weight: 600;
+            cursor: pointer;
+            min-width: 200px;
           }
 
-          .bambuddy-printer-input:focus {
+          .bambuddy-printer-select:focus {
             outline: none;
             border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
+          }
+
+          .bambuddy-printer-select option {
+            background: var(--bg-primary);
+            color: var(--text-primary);
           }
 
           .preset-note {
@@ -2243,6 +2320,12 @@
 
       // Re-attach event listeners
       this._attachEventListeners();
+
+      // Ensure printer select has the correct value after render
+      const printerSelect = this.shadowRoot.querySelector("#bambuddy-printer-select");
+      if (printerSelect && this._wizardState.bambuddy_printer_id) {
+        printerSelect.value = String(this._wizardState.bambuddy_printer_id);
+      }
     }
 
     _stepToIndex() {
@@ -2278,31 +2361,44 @@
     }
 
     _attachEventListeners() {
+      // Use event delegation and direct onclick to ensure reliability
       const buttons = this.shadowRoot.querySelectorAll("button");
       buttons.forEach((btn) => {
+        // Remove any existing listeners to prevent duplicates
         const clickHandler = btn.getAttribute("@click");
         if (clickHandler) {
+          // Add direct event listener with proper binding
           if (clickHandler.includes("_handleCancel")) {
-            btn.addEventListener("click", () => this._handleCancel());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleCancel(); });
           } else if (clickHandler.includes("_handleStartSlicing")) {
-            btn.addEventListener("click", () => this._handleStartSlicing());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleStartSlicing(); });
           } else if (clickHandler.includes("_handlePreviousStep")) {
-            btn.addEventListener("click", () => this._handlePreviousStep());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handlePreviousStep(); });
           } else if (clickHandler.includes("_handleNextStep")) {
-            btn.addEventListener("click", () => this._handleNextStep());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleNextStep(); });
           } else if (clickHandler.includes("_handleRetry")) {
-            btn.addEventListener("click", () => this._handleRetry());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleRetry(); });
           } else if (clickHandler.includes("_handleCancelJob")) {
-            btn.addEventListener("click", () => this._handleCancelJob());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleCancelJob(); });
           } else if (clickHandler.includes("_handleCreateAnother")) {
-            btn.addEventListener("click", () => this._handleCreateAnother());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleCreateAnother(); });
           } else if (clickHandler.includes("_handleClosePopup")) {
-            btn.addEventListener("click", () => this._handleClosePopup());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleClosePopup(); });
           } else if (clickHandler.includes("_handleClose")) {
-            btn.addEventListener("click", () => this._handleClose());
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleClose(); });
           } else if (clickHandler.includes("_handleOpenArchiveSearch")) {
             const url = String(btn.getAttribute("data-archive-search-url") || "").trim();
-            btn.addEventListener("click", () => this._handleOpenArchiveSearch(url));
+            btn.removeEventListener("click", arguments.callee);
+            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleOpenArchiveSearch(url); });
           }
         }
       });
@@ -2347,12 +2443,9 @@
         draftInput.addEventListener("change", (event) => this._handleDraftToggle(event));
       }
 
-      const printerIdInput = this.shadowRoot.querySelector("#bambuddy-printer-id-input");
-      if (printerIdInput) {
-        printerIdInput.addEventListener("input", (event) => {
-          this._wizardState.bambuddy_printer_id = String(event.target.value || "").trim();
-        });
-        printerIdInput.addEventListener("change", (event) => {
+      const printerSelect = this.shadowRoot.querySelector("#bambuddy-printer-select");
+      if (printerSelect) {
+        printerSelect.addEventListener("change", (event) => {
           this._wizardState.bambuddy_printer_id = String(event.target.value || "").trim() || "1";
         });
       }
