@@ -17,6 +17,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._viewMode = "compact";
     this._showMedia = true;
     this._browserScope = "models";
+    this._leftNavSelectedKey = "all-models";
+    this._leftNavCollapsed = false;
+    this._leftNavDrawerOpen = false;
     this._workingProjection = [];
     this._workingProjectionRootPath = "";
     this._refreshSpin = false;
@@ -1409,6 +1412,44 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._error = "";
       this._activeActionMenu = "";
       this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === "toggle-left-nav-collapse") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._leftNavCollapsed = !this._leftNavCollapsed;
+      this._render();
+      return;
+    }
+
+    if (action === "toggle-left-nav-drawer") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._leftNavDrawerOpen = !this._leftNavDrawerOpen;
+      this._render();
+      return;
+    }
+
+    if (action === "close-left-nav-drawer") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this._leftNavDrawerOpen) {
+        this._leftNavDrawerOpen = false;
+        this._render();
+      }
+      return;
+    }
+
+    if (action === "select-left-nav-item") {
+      event.preventDefault();
+      event.stopPropagation();
+      var navKey = String(target.getAttribute("data-nav-key") || "all-models").trim() || "all-models";
+      this._leftNavSelectedKey = navKey;
+      if (this._leftNavDrawerOpen) {
+        this._leftNavDrawerOpen = false;
+      }
       this._render();
       return;
     }
@@ -3478,6 +3519,132 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</button>';
   }
 
+  _renderLeftNavItem(label, key, count, icon) {
+    var isActive = this._leftNavSelectedKey === key;
+    var safeCount = Number.isFinite(Number(count)) ? String(Math.max(0, Number(count))) : "";
+    return ''
+      + '<button class="left-nav-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(key) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">'
+      + '  <span class="left-nav-item-main">'
+      + (icon ? '<ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon>' : '')
+      + '    <span class="left-nav-item-label">' + this._escapeHtml(label) + '</span>'
+      + '  </span>'
+      + (safeCount ? '<span class="left-nav-item-count">' + this._escapeHtml(safeCount) + '</span>' : '')
+      + '</button>';
+  }
+
+  _leftNavTopTags(limit) {
+    var max = Math.max(1, Number(limit || 6));
+    var counts = {};
+    for (var i = 0; i < this._results.length; i++) {
+      var model = this._results[i] || {};
+      var rawTags = [];
+      if (Array.isArray(model.keyword_names)) {
+        rawTags = rawTags.concat(model.keyword_names);
+      }
+      if (Array.isArray(model.tags)) {
+        rawTags = rawTags.concat(model.tags);
+      }
+      var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+      if (Array.isArray(fields.keyword_names)) {
+        rawTags = rawTags.concat(fields.keyword_names);
+      }
+      if (Array.isArray(fields.tags)) {
+        rawTags = rawTags.concat(fields.tags);
+      }
+      var uniquePerModel = {};
+      for (var t = 0; t < rawTags.length; t++) {
+        var tag = String(rawTags[t] || "").trim();
+        if (!tag) {
+          continue;
+        }
+        var normalized = tag.toLowerCase();
+        if (uniquePerModel[normalized]) {
+          continue;
+        }
+        uniquePerModel[normalized] = true;
+        counts[normalized] = (counts[normalized] || 0) + 1;
+      }
+    }
+
+    var entries = Object.keys(counts).map(function (entryKey) {
+      return { key: entryKey, count: counts[entryKey] };
+    });
+    entries.sort(function (a, b) {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      return a.key.localeCompare(b.key);
+    });
+    return entries.slice(0, max);
+  }
+
+  _renderLeftNav() {
+    var totalCount = Math.max(0, Number(this._pagination && this._pagination.total || 0));
+    var favoritesCount = 0;
+    var frequentsCount = 0;
+    var recentPrintedCount = 0;
+    for (var i = 0; i < this._results.length; i++) {
+      var model = this._results[i] || {};
+      var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
+      var favoriteValue = this._coerceBoolish(model.model_favorite);
+      if (favoriteValue === null) {
+        var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+        favoriteValue = this._coerceBoolish(fields.model_favorite);
+      }
+      if (favoriteValue) {
+        favoritesCount += 1;
+      }
+      if (Number(ranking.frequent_score || 0) > 0) {
+        frequentsCount += 1;
+      }
+      if (String(model.last_printed_at || ranking.last_printed_at || "").trim()) {
+        recentPrintedCount += 1;
+      }
+    }
+
+    var topTags = this._leftNavTopTags(6);
+    var navClass = 'left-nav'
+      + (this._leftNavCollapsed ? ' collapsed' : '')
+      + (this._leftNavDrawerOpen ? ' drawer-open' : '');
+
+    var tagsHtml = '';
+    for (var tagIndex = 0; tagIndex < topTags.length; tagIndex++) {
+      var tagEntry = topTags[tagIndex];
+      tagsHtml += this._renderLeftNavItem(tagEntry.key, 'tag:' + tagEntry.key, tagEntry.count, 'mdi:tag-outline');
+    }
+    if (!tagsHtml) {
+      tagsHtml = '<div class="left-nav-empty">No tags detected yet</div>';
+    }
+
+    return ''
+      + '<aside class="' + navClass + '" aria-label="Catalog navigation">'
+      + '  <div class="left-nav-head">'
+      + '    <div class="left-nav-title-wrap">'
+      + '      <ha-icon icon="mdi:view-dashboard-outline"></ha-icon>'
+      + '      <span class="left-nav-title-text">Catalog Browse</span>'
+      + '    </div>'
+      + '    <button class="toolbar-icon-btn left-nav-collapse" type="button" data-action="toggle-left-nav-collapse" aria-label="Toggle navigation collapse" aria-pressed="' + (this._leftNavCollapsed ? 'true' : 'false') + '"><ha-icon icon="mdi:chevron-left"></ha-icon></button>'
+      + '  </div>'
+      + '  <div class="left-nav-section">'
+      + '    <div class="left-nav-section-label">Quick pivots</div>'
+      +      this._renderLeftNavItem('All models', 'all-models', totalCount, 'mdi:cube-outline')
+      +      this._renderLeftNavItem('Favorites', 'favorites', favoritesCount, 'mdi:star-outline')
+      +      this._renderLeftNavItem('Frequents', 'frequents', frequentsCount, 'mdi:lightning-bolt-outline')
+      +      this._renderLeftNavItem('Recently added', 'recent-added', totalCount, 'mdi:clock-plus-outline')
+      +      this._renderLeftNavItem('Recently printed', 'recent-printed', recentPrintedCount, 'mdi:printer-3d-nozzle-outline')
+      + '  </div>'
+      + '  <div class="left-nav-section">'
+      + '    <div class="left-nav-section-label">Projects</div>'
+      +      this._renderLeftNavItem('Active (placeholder)', 'project:active', 0, 'mdi:briefcase-outline')
+      +      this._renderLeftNavItem('Backlog (placeholder)', 'project:backlog', 0, 'mdi:archive-outline')
+      + '  </div>'
+      + '  <div class="left-nav-section">'
+      + '    <div class="left-nav-section-label">Tags</div>'
+      +      tagsHtml
+      + '  </div>'
+      + '</aside>';
+  }
+
   _renderHeaderTitleRow() {
     var isWorkingScope = this._browserScope === "working";
     var sortOptionsHtml = '';
@@ -3497,6 +3664,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return ''
       + '<div class="title-row">'
       + '  <div class="title-left">'
+      + '    <button class="toolbar-icon-btn left-nav-toggle" type="button" data-action="toggle-left-nav-drawer" aria-label="Toggle catalog navigation" aria-expanded="' + (this._leftNavDrawerOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:menu"></ha-icon></button>'
       + '    <div class="card-title">' + this._escapeHtml(this._config.title) + '</div>'
       + '  </div>'
       + '  <div class="title-right">'
@@ -5005,6 +5173,35 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + 'ha-card{border-radius:0;border:none;background:transparent;box-shadow:none;contain:content;}'
       + 'ha-card.queue-dialog-host-open{contain:none;}'
       + '.shell{display:grid;gap:14px;padding:6px 10px 10px;}'
+      + '.catalog-layout{position:relative;display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:14px;align-items:start;}'
+      + '.catalog-layout.nav-collapsed{grid-template-columns:84px minmax(0,1fr);}'
+      + '.main-pane{display:grid;gap:14px;min-width:0;}'
+      + '.left-nav-backdrop{display:none;}'
+      + '.left-nav{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-1);max-height:calc(100vh - 112px);overflow:auto;}'
+      + '.left-nav-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}'
+      + '.left-nav-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;}'
+      + '.left-nav-title-wrap ha-icon{--mdc-icon-size:18px;color:#93c5fd;}'
+      + '.left-nav-title-text{font-size:12px;font-weight:800;color:var(--primary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+      + '.left-nav-collapse{width:30px;min-width:30px;height:30px;}'
+      + '.left-nav-collapse ha-icon{--mdc-icon-size:16px;transition:transform 160ms ease;}'
+      + '.left-nav.collapsed .left-nav-collapse ha-icon{transform:rotate(180deg);}'
+      + '.left-nav-section{display:grid;gap:6px;}'
+      + '.left-nav-section-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}'
+      + '.left-nav-item{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}'
+      + '.left-nav-item:hover,.left-nav-item:focus-visible{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.36);outline:none;}'
+      + '.left-nav-item.active{background:var(--accent);border-color:var(--accent-strong);}'
+      + '.left-nav-item-main{display:flex;align-items:center;gap:8px;min-width:0;}'
+      + '.left-nav-item-main ha-icon{--mdc-icon-size:16px;opacity:.9;}'
+      + '.left-nav-item-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+      + '.left-nav-item-count{font-size:11px;font-weight:800;color:var(--secondary-text-color);}'
+      + '.left-nav-empty{font-size:11px;color:var(--secondary-text-color);padding:6px 8px;border:1px dashed rgba(148,163,184,0.26);border-radius:8px;}'
+      + '.left-nav-toggle{display:none;}'
+      + '.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:none;}'
+      + '.left-nav.collapsed .left-nav-title-wrap,.left-nav.collapsed .left-nav-item-main{justify-content:center;}'
+      + '.left-nav.collapsed .left-nav-item{justify-content:center;padding:0 4px;}'
+      + '.left-nav.collapsed .left-nav-head{justify-content:center;}'
+      + '.left-nav.collapsed .left-nav-collapse{position:absolute;top:10px;right:8px;opacity:0;pointer-events:none;}'
+      + '.left-nav.collapsed:hover .left-nav-collapse,.left-nav.collapsed:focus-within .left-nav-collapse{opacity:1;pointer-events:auto;}'
       + '.shell-header{display:grid;gap:10px;}'
       + '.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-1);}'
       + '.title-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}'
@@ -5314,6 +5511,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-source-select{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;appearance:auto;-webkit-appearance:auto;color-scheme:dark;}'
       + '.page-control-strip.multi-select-active .bulk-source-select:hover{background:var(--surface-3);border-color:var(--accent);}'
       + '.page-control-strip.multi-select-active .bulk-source-select:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
+      + '@media (max-width: 1200px){.catalog-layout{grid-template-columns:minmax(0,1fr);}.left-nav-toggle{display:inline-flex;}.left-nav{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);max-height:none;border-radius:0 16px 16px 0;z-index:20;transform:translateX(-110%);transition:transform 180ms ease;box-shadow:0 18px 44px rgba(2,6,23,0.46);}.left-nav.drawer-open{transform:translateX(0);}.left-nav.collapsed{width:min(320px,84vw);padding:12px;}.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:initial;}.left-nav.collapsed .left-nav-item{justify-content:space-between;padding:0 8px;}.left-nav.collapsed .left-nav-collapse{position:static;opacity:1;pointer-events:auto;}.left-nav-backdrop{display:block;position:fixed;inset:0;z-index:19;border:0;background:rgba(2,6,23,0.55);opacity:0;pointer-events:none;transition:opacity 180ms ease;}.left-nav-backdrop.open{opacity:1;pointer-events:auto;}}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
       this._contentRoot = document.createElement('ha-card');
       this.shadowRoot.textContent = '';
@@ -5331,13 +5529,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._contentRoot.innerHTML = ''
       + '  <div class="shell">'
-      + '    <div class="shell-header">'
+      + '    <div class="catalog-layout' + (this._leftNavCollapsed ? ' nav-collapsed' : '') + '">'
+      + '      <button class="left-nav-backdrop' + (this._leftNavDrawerOpen ? ' open' : '') + '" type="button" data-action="close-left-nav-drawer" aria-label="Close catalog navigation"></button>'
+      + this._renderLeftNav()
+      + '      <div class="main-pane">'
+      + '        <div class="shell-header">'
       + this._renderHeaderTitleRow()
       + this._renderFilterBar()
       + this._renderPageControlStrip()
-      + '    </div>'
-      + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : (this._browserScope === "working" ? "working" : this._viewMode)) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
+      + '        </div>'
+      + '        <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : (this._browserScope === "working" ? "working" : this._viewMode)) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
+      + '      </div>'
+      + '    </div>'
       + this._renderQueueDialog()
       + this._renderIdeaCreateDialog()
       + '  </div>';

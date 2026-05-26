@@ -2361,46 +2361,36 @@
     }
 
     _attachEventListeners() {
-      // Use event delegation and direct onclick to ensure reliability
+        // Handler mapping - match button text to handler functions
+        const self = this;
+        const handlerMap = {
+          'Cancel': () => self._handleClose(),
+          'Close': () => self._handleClose(),
+          'Begin Slicing': () => self._handleStartSlicing(),
+          'Back': () => self._handlePreviousStep(),
+          'Next': () => self._handleNextStep(),
+          'Next Plate': () => self._handleNextStep(),
+          'View Results': () => self._handleNextStep(),
+          'Retry': () => self._handleRetry(),
+          'Cancel Job': () => self._handleCancelJob(),
+          'Create Another': () => self._handleCreateAnother(),
+          'Open in Bambuddy': (btn) => {
+            const url = String(btn.getAttribute('data-archive-search-url') || '').trim();
+            return self._handleOpenArchiveSearch(url);
+          }
+        };
+
       const buttons = this.shadowRoot.querySelectorAll("button");
       buttons.forEach((btn) => {
-        // Remove any existing listeners to prevent duplicates
-        const clickHandler = btn.getAttribute("@click");
-        if (clickHandler) {
-          // Add direct event listener with proper binding
-          if (clickHandler.includes("_handleCancel")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleCancel(); });
-          } else if (clickHandler.includes("_handleStartSlicing")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleStartSlicing(); });
-          } else if (clickHandler.includes("_handlePreviousStep")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handlePreviousStep(); });
-          } else if (clickHandler.includes("_handleNextStep")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleNextStep(); });
-          } else if (clickHandler.includes("_handleRetry")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleRetry(); });
-          } else if (clickHandler.includes("_handleCancelJob")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleCancelJob(); });
-          } else if (clickHandler.includes("_handleCreateAnother")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleCreateAnother(); });
-          } else if (clickHandler.includes("_handleClosePopup")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleClosePopup(); });
-          } else if (clickHandler.includes("_handleClose")) {
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleClose(); });
-          } else if (clickHandler.includes("_handleOpenArchiveSearch")) {
-            const url = String(btn.getAttribute("data-archive-search-url") || "").trim();
-            btn.removeEventListener("click", arguments.callee);
-            btn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this._handleOpenArchiveSearch(url); });
+          const btnText = btn.textContent.trim();
+          const handler = handlerMap[btnText];
+          if (handler) {
+            btn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handler(btn);
+            });
           }
-        }
       });
 
       const plateInputs = this.shadowRoot.querySelectorAll('.plate-checkbox input[type="checkbox"]');
