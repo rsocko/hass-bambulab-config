@@ -18,6 +18,7 @@
 ### 🔎 Phase 6 Design Baseline
 - **[Phase 6 Search, Ranking, and Discovery Design](/docs/features/model_catalog/design/phase-6-search.md)** ← Authoritative Phase 6 search/query/ranking/related-items contract
 - **[Phase 6 Bulk Metadata Enrichment Design](/docs/features/model_catalog/design/phase-6-enrichment.md)** ← Authoritative Phase 6 bulk analyze/enrich contract
+- **[Model Catalog List UI Left Navigation Rollout Plan (2026-05)](/docs/features/model_catalog/planning/model-catalog-list-left-nav-rollout-plan-2026-05.md)** ← Approved phased implementation plan plus 12 prefilled GitHub issue links
 
 ### 🚀 Phase 5 Wave 1 (Current Execution)
 - **[Working-File Indexing And Grouping Feasibility](/docs/features/model_catalog/planning/working-file-indexing.md)** ← Issue #1059
