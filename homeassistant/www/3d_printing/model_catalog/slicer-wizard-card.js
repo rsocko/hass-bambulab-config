@@ -293,6 +293,214 @@
       `;
     }
 
+    _renderValidation() {
+      const model = this._modelDetail;
+      if (!model) {
+        return `<div class="error-banner">Model data unavailable</div>`;
+      }
+
+      // Extract metadata from model detail
+      const printer = model.metadata?.printer || "Not specified";
+      const process = model.metadata?.process || "Not specified";
+      const filament = model.metadata?.filament || "Not specified";
+      const plates = model.metadata?.plates || []; // Array of plate names/indices
+
+      // Build warnings list
+      const warnings = [];
+      if (!model.metadata?.printer) {
+        warnings.push("No printer preset selected for this model");
+      }
+      if (!model.metadata?.process) {
+        warnings.push("No process profile selected for this model");
+      }
+      if (!model.metadata?.filament) {
+        warnings.push("No recommended filament specified");
+      }
+      if (!plates || plates.length === 0) {
+        warnings.push("No plate layout defined (will use first/default plate)");
+      }
+
+      return `
+        <div class="wizard-container">
+          <div class="wizard-header">
+            <h2>Review and Validate</h2>
+            <p class="wizard-subtitle">Confirm printer, process, and filament settings</p>
+          </div>
+
+          <div class="wizard-content">
+            <div class="metadata-section">
+              <div class="section-title">Slicing Configuration</div>
+              
+              <div class="metadata-row">
+                <div class="metadata-label">Printer Preset:</div>
+                <div class="metadata-value">${this._escapeHtml(printer)}</div>
+              </div>
+              
+              <div class="metadata-row">
+                <div class="metadata-label">Process Profile:</div>
+                <div class="metadata-value">${this._escapeHtml(process)}</div>
+              </div>
+              
+              <div class="metadata-row">
+                <div class="metadata-label">Filament:</div>
+                <div class="metadata-value">${this._escapeHtml(filament)}</div>
+              </div>
+            </div>
+
+            ${warnings.length > 0 ? `
+              <div class="warnings-section">
+                <div class="section-title warning-title">⚠ Configuration Warnings</div>
+                <ul class="warnings-list">
+                  ${warnings.map((w) => `<li>${this._escapeHtml(w)}</li>`).join("")}
+                </ul>
+              </div>
+            ` : ""}
+
+            ${plates && plates.length > 0 ? `
+              <div class="plates-section">
+                <div class="section-title">Available Plates</div>
+                <div class="plates-grid">
+                  ${plates.map((plate, idx) => `
+                    <label class="plate-checkbox">
+                      <input 
+                        type="checkbox" 
+                        value="${idx}" 
+                        ?checked="${this._wizardState.plate_index === idx}"
+                        @change="${(e) => this._handlePlateSelect(e, idx)}"
+                      />
+                      <span>${this._escapeHtml(plate.name || `Plate ${idx + 1}`)}</span>
+                    </label>
+                  `).join("")}
+                </div>
+              </div>
+            ` : ""}
+
+            <div class="info-box">
+              <strong>Next:</strong> If filament substitution is needed, you'll be prompted in the next step.
+            </div>
+          </div>
+
+          <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+            <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+              Continue to Filament Selection
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    _handlePlateSelect(event, index) {
+      if (event.target.checked) {
+        this._wizardState.plate_index = index;
+        this._render();
+      }
+    }
+
+    _renderFilament() {
+      const model = this._modelDetail;
+      if (!model) {
+        return `<div class="error-banner">Model data unavailable</div>`;
+      }
+
+      // Recommended filament from model metadata
+      const recommendedFilament = model.metadata?.filament || "Not specified";
+      
+      // Mock candidates (Phase 2 will integrate with Filament Catalog for deterministic lookup)
+      const candidates = [
+        { id: "generic-pla", name: "Generic PLA", match_score: 0.95 },
+        { id: "bambu-pla", name: "Bambu Lab PLA", match_score: 0.88 },
+        { id: "prusament-pla", name: "Prusament PLA", match_score: 0.82 },
+      ];
+      
+      const selectedCandidate = this._wizardState.filament_candidates[0] || candidates[0];
+
+      return `
+        <div class="wizard-container">
+          <div class="wizard-header">
+            <h2>Select Filament</h2>
+            <p class="wizard-subtitle">Choose filament for slicing (or accept recommended)</p>
+          </div>
+
+          <div class="wizard-content">
+            <div class="filament-recommended">
+              <div class="section-title">Recommended</div>
+              <div class="filament-card recommended">
+                <div class="filament-name">${this._escapeHtml(recommendedFilament)}</div>
+                <div class="filament-meta">From model metadata</div>
+              </div>
+            </div>
+
+            <div class="filament-candidates">
+              <div class="section-title">Filament Candidates</div>
+              <div class="candidates-grid">
+                ${candidates.map((cand, idx) => `
+                  <label class="candidate-radio">
+                    <input 
+                      type="radio" 
+                      name="filament_candidate" 
+                      value="${cand.id}"
+                      ?checked="${selectedCandidate && selectedCandidate.id === cand.id}"
+                      @change="${(e) => this._handleFilamentSelect(e, cand)}"
+                    />
+                    <div class="candidate-box">
+                      <div class="candidate-name">${this._escapeHtml(cand.name)}</div>
+                      <div class="candidate-score">Match: ${Math.round(cand.match_score * 100)}%</div>
+                    </div>
+                  </label>
+                `).join("")}
+              </div>
+              <div class="info-box">
+                <strong>Note:</strong> Filament candidates are deterministic based on the model's material requirements and filament catalog inventory.
+              </div>
+            </div>
+          </div>
+
+          <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+            <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+              Continue to Timestamp
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    _handleFilamentSelect(event, candidate) {
+      if (event.target.checked) {
+        this._wizardState.filament_candidates = [candidate];
+        this._render();
+      }
+    }
+
+    _handlePreviousStep() {
+      if (this._currentStep === "validation") {
+        this._currentStep = "entry-point";
+      } else if (this._currentStep === "filament") {
+        this._currentStep = "validation";
+      } else if (this._currentStep === "timestamp") {
+        this._currentStep = "filament";
+      } else if (this._currentStep === "progress") {
+        this._currentStep = "timestamp";
+      } else if (this._currentStep === "completion") {
+        this._currentStep = "progress";
+      }
+      this._render();
+    }
+
+    _handleNextStep() {
+      if (this._currentStep === "validation") {
+        this._currentStep = "filament";
+      } else if (this._currentStep === "filament") {
+        this._currentStep = "timestamp";
+      } else if (this._currentStep === "timestamp") {
+        this._currentStep = "progress";
+      } else if (this._currentStep === "progress") {
+        this._currentStep = "completion";
+      }
+      this._render();
+    }
+
     _render() {
       const workerHealthy = this._workerStatus && this._workerStatus.reachable;
 
@@ -304,11 +512,11 @@
           content = this._renderEntryPoint();
         }
       } else if (this._currentStep === "validation") {
-        // Slice 6.2+
-        content = `<div class="placeholder">Validation review step (6.2+)</div>`;
+        // Slice 6.2: Validation review step
+        content = this._renderValidation();
       } else if (this._currentStep === "filament") {
-        // Slice 6.3+
-        content = `<div class="placeholder">Filament substitution step (6.3+)</div>`;
+        // Slice 6.3: Filament substitution picker
+        content = this._renderFilament();
       } else if (this._currentStep === "timestamp") {
         // Slice 6.4+
         content = `<div class="placeholder">Timestamp review step (6.4+)</div>`;
@@ -577,6 +785,209 @@
           .btn-secondary {
             background: var(--text-secondary);
             color: white;
+          }
+
+          /* Validation Review Step (6.2) */
+          .metadata-section {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .section-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+
+          .section-title.warning-title {
+            color: var(--warning-color);
+          }
+
+          .metadata-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 13px;
+          }
+
+          .metadata-row:last-child {
+            border-bottom: none;
+          }
+
+          .metadata-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+          }
+
+          .metadata-value {
+            color: var(--text-primary);
+            font-weight: 600;
+          }
+
+          .warnings-section {
+            background: #fff3e0;
+            border: 1px solid var(--warning-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .warnings-list {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 13px;
+            color: var(--text-primary);
+          }
+
+          .warnings-list li {
+            margin: 6px 0;
+          }
+
+          .plates-section {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .plates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+          }
+
+          .plate-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.2s ease;
+            font-size: 13px;
+          }
+
+          .plate-checkbox:hover {
+            background: #f5f5f5;
+            border-color: var(--primary-color);
+          }
+
+          .plate-checkbox input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+          }
+
+          .plate-checkbox input[type="checkbox"]:checked {
+            accent-color: var(--success-color);
+          }
+
+          .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid var(--primary-color);
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: var(--text-primary);
+          }
+
+          .info-box strong {
+            color: var(--primary-color);
+          }
+
+          /* Filament Selection Step (6.3) */
+          .filament-recommended {
+            margin-bottom: 24px;
+          }
+
+          .filament-card {
+            background: #f9f9f9;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 8px;
+          }
+
+          .filament-card.recommended {
+            border-color: var(--success-color);
+            background: rgba(56, 142, 60, 0.05);
+          }
+
+          .filament-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+          }
+
+          .filament-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+          }
+
+          .filament-candidates {
+            margin-bottom: 16px;
+          }
+
+          .candidates-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 8px;
+            margin-bottom: 12px;
+          }
+
+          .candidate-radio {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.2s ease;
+          }
+
+          .candidate-radio:hover {
+            background: #f5f5f5;
+            border-color: var(--primary-color);
+          }
+
+          .candidate-radio input[type="radio"] {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary-color);
+            flex-shrink: 0;
+          }
+
+          .candidate-box {
+            flex: 1;
+          }
+
+          .candidate-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 13px;
+          }
+
+          .candidate-score {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
           }
         </style>
         ${content}

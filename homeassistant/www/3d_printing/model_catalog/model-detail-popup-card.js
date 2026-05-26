@@ -697,6 +697,13 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Create Archive button — opens slicer wizard (Slice 6.1b)
+    if (target.closest("#btn-create-archive")) {
+      event.preventDefault();
+      this._handleCreateArchiveFromSource();
+      return;
+    }
+
     // Print button — opens unified queue dialog (#1499)
     if (target.closest("#btn-print")) {
       event.preventDefault();
@@ -2535,6 +2542,7 @@ class ModelDetailPopupCard extends HTMLElement {
             <button class="action-button ghost ${isArchived ? 'toggle-active-warn' : ''}" id="btn-toggle-archive" title="${isArchived ? 'This model is archived — hidden from default Catalog views. Click to un-archive.' : 'Archive this model — hides from default Catalog views while preserving all data.'}">${isArchived ? '📦 Archived' : '📦 Archive'}</button>
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-download">Download</button>'}
+            ${isIdea ? '' : '<button class="action-button ghost" id="btn-create-archive">Create Archive</button>'}
             ${isIdea ? '' : '<button class="action-button" id="btn-print">Print</button>'}
             <div class="overflow-wrap">
               <button class="action-button ghost" id="btn-overflow-toggle">More</button>
@@ -6759,6 +6767,34 @@ class ModelDetailPopupCard extends HTMLElement {
         message: `${files.length} file(s) available. Download feature coming soon.`,
       }).catch(err => console.error('Notification failed:', err));
     }
+  }
+
+  _handleCreateArchiveFromSource() {
+    if (!this._hass) {
+      console.warn('Home Assistant instance not available');
+      return;
+    }
+    if (!this._modelDetail || !this._modelDetail.model) {
+      console.warn('No model detail available for archive creation');
+      return;
+    }
+    var model = this._modelDetail.model;
+    var modelName = String(model.name || this._modelRef || "Model").trim() || "Model";
+    var modelEntity = 'input_text.model_catalog_sidecar_base_url';
+    
+    // Call browser_mod.popup to open slicer-wizard-card
+    this._hass.callService('browser_mod', 'popup', {
+      title: 'Create Archive From Source: ' + modelName,
+      size: 'wide',
+      content: {
+        type: 'custom:slicer-wizard-card',
+        model_ref: this._modelRef,
+        model_entity: modelEntity
+      }
+    }).catch(function(err) {
+      console.error('Failed to open slicer wizard:', err);
+      alert('Failed to open slicer wizard. Check browser console for details.');
+    });
   }
 
   _handlePrint() {
