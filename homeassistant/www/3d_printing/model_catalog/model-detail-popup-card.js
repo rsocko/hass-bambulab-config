@@ -6781,9 +6781,8 @@ class ModelDetailPopupCard extends HTMLElement {
     var model = this._modelDetail.model;
     var modelName = String(model.name || this._modelRef || "Model").trim() || "Model";
     var modelEntity = 'input_text.model_catalog_sidecar_base_url';
-    
-    // Call browser_mod.popup to open slicer-wizard-card
-    this._hass.callService('browser_mod', 'popup', {
+
+    this._replaceCurrentPopup({
       title: 'Create Archive From Source: ' + modelName,
       size: 'wide',
       content: {
@@ -6791,9 +6790,6 @@ class ModelDetailPopupCard extends HTMLElement {
         model_ref: this._modelRef,
         model_entity: modelEntity
       }
-    }).catch(function(err) {
-      console.error('Failed to open slicer wizard:', err);
-      alert('Failed to open slicer wizard. Check browser console for details.');
     });
   }
 
