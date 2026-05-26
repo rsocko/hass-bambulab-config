@@ -104,6 +104,9 @@
         await this._loadModelDetail();
       }
 
+      // Load draft from browser storage if available
+      this._loadDraft();
+
       // Probe worker status
       if (this._modelSidecarUrl) {
         await this._probeWorkerStatus();
@@ -473,6 +476,141 @@
       }
     }
 
+    _renderTimestamp() {
+      // Use overridden timestamp if set, otherwise current time
+      const now = new Date();
+      const currentTimestamp = this._wizardState.historical_timestamp || now.toISOString();
+      
+      // Format ISO timestamp for datetime-local input
+      const localDateTime = currentTimestamp.replace('Z', '').split('.')[0];
+      
+      // Format readable display
+      const displayDate = new Date(currentTimestamp).toLocaleString();
+      
+      return `
+        <div class="wizard-container">
+          <div class="wizard-header">
+            <h2>Review Archive Timestamp</h2>
+            <p class="wizard-subtitle">Confirm or override the archive creation time</p>
+          </div>
+
+          <div class="wizard-content">
+            <div class="timestamp-section">
+              <div class="section-title">Archive Creation Time</div>
+              
+              <div class="timestamp-current">
+                <div class="timestamp-label">Current Value:</div>
+                <div class="timestamp-display">${this._escapeHtml(displayDate)}</div>
+              </div>
+
+              <div class="timestamp-editor">
+                <label>
+                  <span class="input-label">Override Timestamp (Optional)</span>
+                  <input 
+                    type="datetime-local" 
+                    class="timestamp-input"
+                    value="${localDateTime}"
+                    @change="${(e) => this._handleTimestampChange(e)}"
+                  />
+                </label>
+                <div class="input-hint">
+                  Leave unchanged to use current time. Change to set a historical timestamp for this archive.
+                </div>
+              </div>
+            </div>
+
+            <div class="draft-section">
+              <label class="draft-checkbox">
+                <input 
+                  type="checkbox" 
+                  ?checked="${this._wizardState.save_draft || false}"
+                  @change="${(e) => this._handleDraftToggle(e)}"
+                />
+                <span>Save draft (browser storage)</span>
+              </label>
+              <div class="draft-hint">
+                Draft saves your current selections (model, plate, filament, timestamp) to browser storage. 
+                You can resume later from the same point.
+              </div>
+            </div>
+
+            <div class="info-box">
+              <strong>Note:</strong> The timestamp is used to record when the archive was created for historical tracking.
+              You can adjust it if you're backfilling or correcting timing records.
+            </div>
+          </div>
+
+          <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+            <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+              Continue to Progress Monitoring
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    _handleTimestampChange(event) {
+      const input = event.target;
+      if (input.value) {
+        // Convert datetime-local to ISO string
+        const dt = new Date(input.value);
+        this._wizardState.historical_timestamp = dt.toISOString();
+        this._render();
+      }
+    }
+
+    _handleDraftToggle(event) {
+      this._wizardState.save_draft = event.target.checked;
+      if (event.target.checked) {
+        this._saveDraft();
+      } else {
+        this._clearDraft();
+      }
+    }
+
+    _saveDraft() {
+      try {
+        const draftData = {
+          model_ref: this._modelRef,
+          plate_index: this._wizardState.plate_index,
+          filament_candidates: this._wizardState.filament_candidates,
+          historical_timestamp: this._wizardState.historical_timestamp,
+          saved_at: new Date().toISOString(),
+        };
+        localStorage.setItem(`slicer-wizard-draft-${this._modelRef}`, JSON.stringify(draftData));
+        console.log('Draft saved for model:', this._modelRef);
+      } catch (e) {
+        console.warn('Failed to save draft:', e);
+      }
+    }
+
+    _clearDraft() {
+      try {
+        localStorage.removeItem(`slicer-wizard-draft-${this._modelRef}`);
+        console.log('Draft cleared for model:', this._modelRef);
+      } catch (e) {
+        console.warn('Failed to clear draft:', e);
+      }
+    }
+
+    _loadDraft() {
+      if (!this._modelRef) return;
+      try {
+        const draftJson = localStorage.getItem(`slicer-wizard-draft-${this._modelRef}`);
+        if (draftJson) {
+          const draft = JSON.parse(draftJson);
+          this._wizardState.plate_index = draft.plate_index || 0;
+          this._wizardState.filament_candidates = draft.filament_candidates || [];
+          this._wizardState.historical_timestamp = draft.historical_timestamp || null;
+          this._wizardState.save_draft = true;
+          console.log('Draft loaded for model:', this._modelRef);
+        }
+      } catch (e) {
+        console.warn('Failed to load draft:', e);
+      }
+    }
+
     _handlePreviousStep() {
       if (this._currentStep === "validation") {
         this._currentStep = "entry-point";
@@ -518,8 +656,8 @@
         // Slice 6.3: Filament substitution picker
         content = this._renderFilament();
       } else if (this._currentStep === "timestamp") {
-        // Slice 6.4+
-        content = `<div class="placeholder">Timestamp review step (6.4+)</div>`;
+        // Slice 6.4: Timestamp review + draft save
+        content = this._renderTimestamp();
       } else if (this._currentStep === "progress") {
         // Slice 6.5+
         content = `<div class="placeholder">Progress monitoring step (6.5+)</div>`;
@@ -988,6 +1126,110 @@
             font-size: 12px;
             color: var(--text-secondary);
             margin-top: 2px;
+          }
+
+          /* Timestamp Review Step (6.4) */
+          .timestamp-section {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .timestamp-current {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 16px;
+          }
+
+          .timestamp-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+          }
+
+          .timestamp-display {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+          }
+
+          .timestamp-editor {
+            margin-bottom: 16px;
+          }
+
+          .timestamp-editor label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+
+          .input-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+
+          .timestamp-input {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+          }
+
+          .timestamp-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+          }
+
+          .input-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+          }
+
+          .draft-section {
+            background: #f0f7ff;
+            border: 1px solid rgba(25, 118, 210, 0.2);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 16px;
+          }
+
+          .draft-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+          }
+
+          .draft-checkbox input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+            flex-shrink: 0;
+          }
+
+          .draft-hint {
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding: 0 24px;
           }
         </style>
         ${content}
