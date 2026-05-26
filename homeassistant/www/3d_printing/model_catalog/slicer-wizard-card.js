@@ -829,7 +829,7 @@
           <div class="wizard-footer">
             <button class="btn btn-secondary" @click="${() => this._handleClosePopup()}">Close</button>
             <button class="btn btn-secondary" @click="${() => this._handleCreateAnother()}">Create Another</button>
-            <button class="btn btn-primary" @click="${() => this._handleOpenArchiveSearch(bambuddyArchivesUrl)}">Open in Bambuddy</button>
+            <button class="btn btn-primary" data-archive-search-url="${this._escapeHtml(bambuddyArchivesUrl)}" @click="${() => this._handleOpenArchiveSearch()}">Open in Bambuddy</button>
           </div>
         </div>
       `;
@@ -1845,8 +1845,7 @@
           } else if (clickHandler.includes("_handleClosePopup")) {
             btn.addEventListener("click", () => this._handleClosePopup());
           } else if (clickHandler.includes("_handleOpenArchiveSearch")) {
-            const match = clickHandler.match(/_handleOpenArchiveSearch\((?:'|")([^'"]+)(?:'|")\)/);
-            const url = match ? match[1] : "";
+            const url = String(btn.getAttribute("data-archive-search-url") || "").trim();
             btn.addEventListener("click", () => this._handleOpenArchiveSearch(url));
           }
         }
