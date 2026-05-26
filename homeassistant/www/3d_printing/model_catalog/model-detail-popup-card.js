@@ -1986,7 +1986,6 @@ class ModelDetailPopupCard extends HTMLElement {
           display: flex;
           gap: 0;
           min-height: 0;
-          align-items: stretch;
         }
         .media-with-thumbs .main-media {
           flex: 1 1 0%;
@@ -2186,14 +2185,13 @@ class ModelDetailPopupCard extends HTMLElement {
           overflow-y: auto;
           overflow-x: hidden;
           scrollbar-width: thin;
-          scrollbar-gutter: stable;
+          max-height: 400px;
           border-left: 1px solid var(--divider-color);
         }
         .thumb {
           flex: 0 0 72px;
           width: 72px;
           height: 72px;
-          box-sizing: border-box;
           border: 1px solid var(--divider-color);
           border-radius: 9px;
           overflow: hidden;
@@ -2202,10 +2200,7 @@ class ModelDetailPopupCard extends HTMLElement {
           position: relative;
         }
         .thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .thumb.active {
-          border-color: var(--primary-color);
-          box-shadow: inset 0 0 0 1px var(--primary-color);
-        }
+        .thumb.active { border-color: var(--primary-color); }
         .thumb .src {
           position: absolute;
           left: 3px;
