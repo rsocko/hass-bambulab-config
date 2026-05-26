@@ -2403,12 +2403,61 @@ class ModelDetailPopupCard extends HTMLElement {
         .support-thumb.has-image {
           padding: 0;
           background: rgba(15, 23, 42, 0.5);
+          position: relative;
         }
         .support-thumb img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
+          opacity: 0;
+          transition: opacity 140ms ease;
+          position: relative;
+          z-index: 2;
+        }
+        .support-thumb.has-image.thumb-ready img {
+          opacity: 1;
+        }
+        .support-thumb.has-image.thumb-failed img {
+          display: none;
+        }
+        .support-thumb-placeholder {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1;
+          overflow: hidden;
+        }
+        .support-thumb.has-image.thumb-ready .support-thumb-placeholder {
+          opacity: 0;
+          pointer-events: none;
+        }
+        .support-thumb-shimmer {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, rgba(15, 23, 42, 0.82) 25%, rgba(51, 65, 85, 0.72) 50%, rgba(15, 23, 42, 0.82) 75%);
+          background-size: 220% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        .support-thumb-placeholder ha-icon {
+          --mdc-icon-size: calc(var(--support-thumb-size, 58px) * 0.38);
+          width: calc(var(--support-thumb-size, 58px) * 0.38);
+          height: calc(var(--support-thumb-size, 58px) * 0.38);
+          position: relative;
+          z-index: 2;
+          opacity: 0.95;
+        }
+        .support-thumb-placeholder-images { color: #93c5fd; }
+        .support-thumb-placeholder-docs { color: #7dd3fc; }
+        .support-thumb-placeholder-other { color: #fcd34d; }
+        .support-thumb.has-image.thumb-failed .support-thumb-placeholder {
+          opacity: 1;
+          background: rgba(15, 23, 42, 0.7);
+        }
+        .support-thumb.has-image.thumb-failed .support-thumb-shimmer {
+          display: none;
         }
         .support-ext {
           font-size: calc(var(--support-thumb-size, 58px) * 0.2);
@@ -3486,6 +3535,12 @@ class ModelDetailPopupCard extends HTMLElement {
     const extension = this._supportingFileExtension(file);
     const extensionLabel = this._escapeHtml((extension || 'file').toUpperCase().slice(0, 8));
     const entryType = this._supportingEntryType(file);
+    const placeholderIconByType = {
+      images: 'mdi:image-outline',
+      docs: 'mdi:file-document-outline',
+      other: 'mdi:file-outline',
+    };
+    const placeholderIcon = placeholderIconByType[entryType] || 'mdi:file-outline';
     const imageIndex = this._supportRenderedImageItems.findIndex((entry) => entry.fileId === fileId);
     const sizeLabel = this._supportingSizeLabel(file && file.file_size_bytes);
     const sizeDisplay = this._escapeHtml(sizeLabel || '--');
@@ -3501,7 +3556,9 @@ class ModelDetailPopupCard extends HTMLElement {
     return `
       <article class="support-file-row">
         <div class="support-thumb ${previewUrl ? 'has-image' : ''}">
-          ${previewUrl ? `<img data-thumbnail-lazy-url="${this._escapeHtml(previewUrl)}" alt="${filename}" loading="lazy">` : `<span class="support-ext">${extensionLabel}</span>`}
+          ${previewUrl
+            ? `<div class="support-thumb-placeholder support-thumb-placeholder-${entryType}"><div class="support-thumb-shimmer"></div><ha-icon icon="${this._escapeHtml(placeholderIcon)}" aria-hidden="true"></ha-icon></div><img data-thumbnail-lazy-url="${this._escapeHtml(previewUrl)}" alt="${filename}" loading="lazy" onload="const p=this.parentElement;if(p){p.classList.add('thumb-ready');p.classList.remove('thumb-failed');}this.style.display='block';" onerror="const p=this.parentElement;if(p){p.classList.add('thumb-failed');p.classList.remove('thumb-ready');}this.style.display='none';">`
+            : `<span class="support-ext">${extensionLabel}</span>`}
         </div>
         <div class="support-main">
           <div class="support-name">${filename}</div>
