@@ -873,6 +873,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
 
     var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
+    // Capture old cache key before merging the update.
+    var oldExtItem = archives.find(function (a) { return String(a && a.id || "") === archiveId; });
+    var oldExtKey = oldExtItem ? this._normalizeArchiveCacheKey(oldExtItem) : "";
     var didUpdate = false;
     this._response.archives = archives.map(function (archive) {
       if (String(archive && archive.id || "") !== archiveId) {
@@ -885,7 +888,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
 
-    this._normalizedArchiveCache = {};
+    if (oldExtKey) { delete this._normalizedArchiveCache[oldExtKey]; }
     this._viewSignature = this._buildViewSignature(this._hass);
     this._renderBody();
   }
@@ -987,11 +990,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
             batchHtml += self._renderArchiveCard(variant, archives[i]);
           }
           body.insertAdjacentHTML("beforeend", batchHtml);
-          self._lastRenderTiming.htmlBytes += batchHtml.length;
+          if (self._lastRenderTiming) { self._lastRenderTiming.htmlBytes += batchHtml.length; }
           offset = end;
           if (offset < archives.length) {
             scheduleBatch();
-          } else {
+          } else if (self._lastRenderTiming) {
             self._lastRenderTiming.batchCompleteMs = Math.round(((_perf ? _perf.now() : Date.now()) - batchStart) * 10) / 10;
           }
         });
@@ -2292,7 +2295,31 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
     normalizedIndex = normalizedIndex % count;
     this._mediaGalleryIndices[key] = normalizedIndex;
-    this._viewSignature = this._buildViewSignature(this._hass);
+
+    // Targeted DOM update — avoid full _renderBody() for gallery navigation.
+    var body = this.shadowRoot ? this.shadowRoot.getElementById("body") : null;
+    var surface = body ? body.querySelector('.media-gallery-surface[data-archive-id="' + key + '"]') : null;
+    if (surface) {
+      surface.setAttribute("data-gallery-index", String(normalizedIndex));
+      var navBtns = surface.querySelectorAll('[data-action="media-prev"],[data-action="media-next"]');
+      for (var bi = 0; bi < navBtns.length; bi++) {
+        navBtns[bi].setAttribute("data-gallery-index", String(normalizedIndex));
+      }
+      var archive = this._archiveById(key);
+      if (archive) {
+        var imageUrls = this._mediaImageUrls(archive, this._apiBaseUrl());
+        if (imageUrls.length > normalizedIndex) {
+          var img = surface.querySelector("img.thumb");
+          if (img) { img.src = imageUrls[normalizedIndex]; }
+        }
+      }
+      var status = surface.querySelector(".media-gallery-status");
+      if (status) { status.textContent = String(normalizedIndex + 1) + " / " + String(count); }
+      return;
+    }
+
+    // Fallback: force full re-render if DOM element not found.
+    this._lastBodyFingerprint = null;
     this._renderBody();
   }
 
@@ -2958,13 +2985,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archive_id: String(archive.id),
     });
     var archives = Array.isArray(this._response.archives) ? this._response.archives.slice() : [];
+    // Capture old cache key before toggling so we can invalidate only this entry.
+    var oldFavItem = archives.find(function (a) { return String(a && a.id) === String(archive.id); });
+    var oldFavKey = oldFavItem ? this._normalizeArchiveCacheKey(oldFavItem) : "";
     this._response.archives = archives.map(function (item) {
       if (String(item && item.id) !== String(archive.id)) {
         return item;
       }
       return Object.assign({}, item, { is_favorite: !item.is_favorite });
     });
-    this._normalizedArchiveCache = {};
+    if (oldFavKey) { delete this._normalizedArchiveCache[oldFavKey]; }
     this._viewSignature = this._buildViewSignature(this._hass);
     this._renderBody();
   }
