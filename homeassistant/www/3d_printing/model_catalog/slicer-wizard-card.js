@@ -149,8 +149,22 @@
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          // Aggregate reachability across providers
-          const providers = data.providers || [];
+          // Normalize provider shape across sidecar revisions.
+          const providers = Array.isArray(data.providers)
+            ? data.providers.map((provider) => {
+                const status = String(provider && provider.status || "").toLowerCase();
+                const reachable = provider && provider.reachable === true
+                  || status === "available"
+                  || status === "healthy"
+                  || status === "ok";
+                return {
+                  ...provider,
+                  id: provider && (provider.id || provider.provider) || "Unknown",
+                  version_hint: provider && (provider.version_hint || provider.version || provider.status) || "-",
+                  reachable,
+                };
+              })
+            : [];
           const reachable = providers.length > 0 && providers.some((p) => p.reachable === true);
           this._workerStatus = {
             reachable,
@@ -619,143 +633,143 @@
         }
       } catch (e) {
         console.warn('Failed to load draft:', e);
-          _renderProgress() {
-            return `
-              <div class="wizard-container">
-                <div class="wizard-header">
-                  <h2>Creating Archive</h2>
-                  <p class="wizard-subtitle">Slicing, uploading, and committing to Bambuddy</p>
-                </div>
-
-                <div class="wizard-content">
-                  <div class="progress-section">
-                    <div class="progress-header">
-                      <div class="progress-stage">${this._escapeHtml(this._jobProgress.message || 'Processing...')}</div>
-                      <div class="progress-percent">${Math.round(this._jobProgress.percent)}%</div>
-                    </div>
-              
-                    <div class="progress-bar-container">
-                      <div class="progress-bar" style="width: ${this._jobProgress.percent}%"></div>
-                    </div>
-
-                    <div class="status-timeline">
-                      ${this._statusMessages.map((msg, idx) => `
-                        <div class="status-item ${msg.status === 'done' ? 'done' : msg.status === 'error' ? 'error' : 'pending'}">
-                          <div class="status-icon">${msg.status === 'done' ? '✓' : msg.status === 'error' ? '✕' : '○'}</div>
-                          <div class="status-text">
-                            <div class="status-label">${this._escapeHtml(msg.label)}</div>
-                            ${msg.detail ? `<div class="status-detail">${this._escapeHtml(msg.detail)}</div>` : ''}
-                          </div>
-                        </div>
-                      `).join("")}
-                    </div>
-
-                    ${this._jobProgress.stage === 'failed' ? `
-                      <div class="error-banner" style="margin-top: 16px;">
-                        <strong>Error:</strong> ${this._escapeHtml(this._jobProgress.message || 'Job failed')}
-                      </div>
-                    ` : ''}
-                  </div>
-                </div>
-
-                <div class="wizard-footer">
-                  ${this._jobProgress.stage === 'completed' ? `
-                    <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
-                      Go to Completion
-                    </button>
-                  ` : this._jobProgress.stage === 'failed' ? `
-                    <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-                    <button class="btn btn-primary" @click="${() => this._handleRetry()}">Retry</button>
-                  ` : `
-                    <button class="btn btn-secondary" @click="${() => this._handleCancelJob()}">Cancel</button>
-                  `}
-                </div>
-              </div>
-            `;
-          }
-
-          async _startArchiveCommit() {
-            if (!this._modelSidecarUrl || !this._jobData.job_id) {
-              this._error = "Missing job ID or sidecar URL";
-              this._render();
-              return;
-            }
-
-            this._currentStep = "progress";
-            this._statusMessages = [];
-            this._jobProgress = { stage: "pending", percent: 0, message: "Initializing..." };
-            this._render();
-
-            try {
-              // Prepare commit request body
-              const commitBody = {
-                bambuddy_base_url: "http://bambuddy.socko.us",
-                printer_id: "1", // Hardcoded for now; Phase 2 will use config
-                patch_metadata: {
-                  tags: "slicer-created",
-                },
-              };
-
-              const url = `${this._modelSidecarUrl}/api/slicer/jobs/${this._jobData.job_id}/commit-archive`;
-        
-              this._statusMessages.push({ label: "Committing archive", status: "pending" });
-              this._jobProgress.message = "Committing archive...";
-              this._jobProgress.percent = 50;
-              this._render();
-
-              const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(commitBody),
-              });
-
-              if (!response.ok) {
-                throw new Error(`Commit failed: ${response.status} ${response.statusText}`);
-              }
-
-              const result = await response.json();
-              this._jobData.created_archive_id = result.archive_id;
-              this._jobData.result_summary = result;
-
-              this._statusMessages[this._statusMessages.length - 1].status = "done";
-              this._statusMessages.push({ label: "Archive created", status: "done" });
-              this._jobProgress.stage = "completed";
-              this._jobProgress.percent = 100;
-              this._jobProgress.message = `Archive #${result.archive_id} created successfully`;
-
-              // Auto-transition to completion
-              setTimeout(() => {
-                this._currentStep = "completion";
-                this._render();
-              }, 1000);
-            } catch (error) {
-              this._statusMessages[this._statusMessages.length - 1].status = "error";
-              this._jobProgress.stage = "failed";
-              this._jobProgress.message = error.message;
-              this._error = error.message;
-              console.error("Archive commit failed:", error);
-            }
-
-            this._render();
-          }
-
-          _handleCancelJob() {
-            if (this._pollInterval) {
-              clearInterval(this._pollInterval);
-              this._pollInterval = null;
-            }
-            this._currentStep = "timestamp";
-            this._render();
-          }
-
-          _handleRetry() {
-            this._pollCount = 0;
-            this._statusMessages = [];
-            this._jobProgress = { stage: "pending", percent: 0, message: "Retrying..." };
-            this._startArchiveCommit();
-          }
-
       }
+    }
+
+    _renderProgress() {
+      return `
+        <div class="wizard-container">
+          <div class="wizard-header">
+            <h2>Creating Archive</h2>
+            <p class="wizard-subtitle">Slicing, uploading, and committing to Bambuddy</p>
+          </div>
+
+          <div class="wizard-content">
+            <div class="progress-section">
+              <div class="progress-header">
+                <div class="progress-stage">${this._escapeHtml(this._jobProgress.message || 'Processing...')}</div>
+                <div class="progress-percent">${Math.round(this._jobProgress.percent)}</div>
+              </div>
+
+              <div class="progress-bar-container">
+                <div class="progress-bar" style="width: ${this._jobProgress.percent}%"></div>
+              </div>
+
+              <div class="status-timeline">
+                ${this._statusMessages.map((msg) => `
+                  <div class="status-item ${msg.status === 'done' ? 'done' : msg.status === 'error' ? 'error' : 'pending'}">
+                    <div class="status-icon">${msg.status === 'done' ? '✓' : msg.status === 'error' ? '✕' : '○'}</div>
+                    <div class="status-text">
+                      <div class="status-label">${this._escapeHtml(msg.label)}</div>
+                      ${msg.detail ? `<div class="status-detail">${this._escapeHtml(msg.detail)}</div>` : ''}
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+
+              ${this._jobProgress.stage === 'failed' ? `
+                <div class="error-banner" style="margin-top: 16px;">
+                  <strong>Error:</strong> ${this._escapeHtml(this._jobProgress.message || 'Job failed')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <div class="wizard-footer">
+            ${this._jobProgress.stage === 'completed' ? `
+              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+                Go to Completion
+              </button>
+            ` : this._jobProgress.stage === 'failed' ? `
+              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
+              <button class="btn btn-primary" @click="${() => this._handleRetry()}">Retry</button>
+            ` : `
+              <button class="btn btn-secondary" @click="${() => this._handleCancelJob()}">Cancel</button>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    async _startArchiveCommit() {
+      if (!this._modelSidecarUrl || !this._jobData.job_id) {
+        this._error = "Missing job ID or sidecar URL";
+        this._render();
+        return;
+      }
+
+      this._currentStep = "progress";
+      this._statusMessages = [];
+      this._jobProgress = { stage: "pending", percent: 0, message: "Initializing..." };
+      this._render();
+
+      try {
+        const commitBody = {
+          bambuddy_base_url: "http://bambuddy.socko.us",
+          printer_id: "1",
+          patch_metadata: {
+            tags: "slicer-created",
+          },
+        };
+
+        const url = `${this._modelSidecarUrl}/api/slicer/jobs/${this._jobData.job_id}/commit-archive`;
+
+        this._statusMessages.push({ label: "Committing archive", status: "pending" });
+        this._jobProgress.message = "Committing archive...";
+        this._jobProgress.percent = 50;
+        this._render();
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(commitBody),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Commit failed: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        this._jobData.created_archive_id = result.archive_id;
+        this._jobData.result_summary = result;
+
+        this._statusMessages[this._statusMessages.length - 1].status = "done";
+        this._statusMessages.push({ label: "Archive created", status: "done" });
+        this._jobProgress.stage = "completed";
+        this._jobProgress.percent = 100;
+        this._jobProgress.message = `Archive #${result.archive_id} created successfully`;
+
+        setTimeout(() => {
+          this._currentStep = "completion";
+          this._render();
+        }, 1000);
+      } catch (error) {
+        if (this._statusMessages.length > 0) {
+          this._statusMessages[this._statusMessages.length - 1].status = "error";
+        }
+        this._jobProgress.stage = "failed";
+        this._jobProgress.message = error.message;
+        this._error = error.message;
+        console.error("Archive commit failed:", error);
+      }
+
+      this._render();
+    }
+
+    _handleCancelJob() {
+      if (this._pollInterval) {
+        clearInterval(this._pollInterval);
+        this._pollInterval = null;
+      }
+      this._currentStep = "timestamp";
+      this._render();
+    }
+
+    _handleRetry() {
+      this._pollCount = 0;
+      this._statusMessages = [];
+      this._jobProgress = { stage: "pending", percent: 0, message: "Retrying..." };
+      this._startArchiveCommit();
     }
 
     _handlePreviousStep() {
@@ -810,12 +824,9 @@
       } else if (this._currentStep === "timestamp") {
         // Slice 6.4: Timestamp review + draft save
         content = this._renderTimestamp();
-            } else if (this._currentStep === "progress") {
-              // Slice 6.5: Progress monitoring
-              content = this._renderProgress();
       } else if (this._currentStep === "progress") {
-        // Slice 6.5+
-        content = `<div class="placeholder">Progress monitoring step (6.5+)</div>`;
+        // Slice 6.5: Progress monitoring
+        content = this._renderProgress();
       } else if (this._currentStep === "completion") {
         // Slice 6.6+
         content = `<div class="placeholder">Completion summary step (6.6+)</div>`;
@@ -1385,127 +1396,95 @@
             font-size: 11px;
             color: var(--text-secondary);
             padding: 0 24px;
+          }
 
-                    /* Progress Monitoring Step (6.5) */
-                    .progress-section {
-                      display: flex;
-                      flex-direction: column;
-                      gap: 16px;
-                    }
+          /* Progress Monitoring Step (6.5) */
+          .progress-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
 
-                    .progress-header {
-                      display: flex;
-                      justify-content: space-between;
-                      align-items: center;
-                      margin-bottom: 8px;
-                    }
+          .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+          }
 
-                    .progress-stage {
-                      font-size: 14px;
-                      font-weight: 600;
-                      color: var(--text-primary);
-                    }
+          .progress-stage {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
 
-                    .progress-percent {
-                      font-size: 18px;
-                      font-weight: 700;
-                      color: var(--primary-color);
-                      min-width: 50px;
-                      text-align: right;
-                    }
+          .progress-percent {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            min-width: 50px;
+            text-align: right;
+          }
 
-                    .progress-bar-container {
-                      background: var(--border-color);
-                      border-radius: 6px;
-                      height: 8px;
-                      overflow: hidden;
-                    }
+          .progress-bar-container {
+            background: var(--border-color);
+            border-radius: 6px;
+            height: 8px;
+            overflow: hidden;
+          }
 
-                    .progress-bar {
-                      height: 100%;
-                      background: linear-gradient(90deg, var(--primary-color), var(--primary-color) 70%, #6edacb);
-                      transition: width 0.3s ease;
-                      border-radius: 6px;
-                    }
+          .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-color) 70%, #6edacb);
+            transition: width 0.3s ease;
+            border-radius: 6px;
+          }
 
-                    .status-timeline {
-                      display: flex;
-                      flex-direction: column;
-                      gap: 12px;
-                      margin-top: 12px;
-                    }
+          .status-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 12px;
+          }
 
-                    .status-item {
-                      display: flex;
-                      gap: 12px;
-                      align-items: flex-start;
-                      padding: 12px;
-                      background: #f9f9f9;
-                      border-radius: 6px;
-                      border-left: 3px solid var(--border-color);
-                    }
+          .status-item {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            border-left: 3px solid var(--border-color);
+          }
 
-                    .status-item.done {
-                      background: rgba(56, 142, 60, 0.05);
-                      border-left-color: var(--success-color);
-                    }
+          .status-item.done {
+            background: rgba(56, 142, 60, 0.05);
+            border-left-color: var(--success-color);
+          }
 
-                    .status-item.error {
-                      background: rgba(211, 47, 47, 0.05);
-                      border-left-color: var(--danger-color);
-                    }
+          .status-item.error {
+            background: rgba(211, 47, 47, 0.05);
+            border-left-color: var(--danger-color);
+          }
 
-                    .status-item.pending {
-                      background: rgba(25, 118, 210, 0.05);
-                      border-left-color: var(--primary-color);
-                    }
+          .status-item.pending {
+            background: rgba(25, 118, 210, 0.05);
+            border-left-color: var(--primary-color);
+          }
 
-                    .status-icon {
-                      font-size: 16px;
-                      font-weight: 700;
-                      min-width: 24px;
-                      text-align: center;
-                      margin-top: 2px;
-                    }
+          .status-item.pending .status-icon {
+            color: var(--primary-color);
+            animation: spin 1s linear infinite;
+          }
 
-                    .status-item.done .status-icon {
-                      color: var(--success-color);
-                    }
-
-                    .status-item.error .status-icon {
-                      color: var(--danger-color);
-                    }
-
-                    .status-item.pending .status-icon {
-                      color: var(--primary-color);
-                      animation: spin 1s linear infinite;
-                    }
-
-                    .status-text {
-                      flex: 1;
-                    }
-
-                    .status-label {
-                      font-size: 13px;
-                      font-weight: 600;
-                      color: var(--text-primary);
-                    }
-
-                    .status-detail {
-                      font-size: 11px;
-                      color: var(--text-secondary);
-                      margin-top: 4px;
-                      font-family: 'Courier New', monospace;
-                    }
-
-                    @keyframes spin {
-                      from {
-                        transform: rotate(0deg);
-                      }
-                      to {
-                        transform: rotate(360deg);
-                      }
-                    }
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
           }
         </style>
         ${content}
@@ -1520,15 +1499,56 @@
       buttons.forEach((btn) => {
         const clickHandler = btn.getAttribute("@click");
         if (clickHandler) {
-          // Parse and execute the click handler
-          // This is a simplified approach; a real implementation might use a templating library
           if (clickHandler.includes("_handleCancel")) {
             btn.addEventListener("click", () => this._handleCancel());
           } else if (clickHandler.includes("_handleStartSlicing")) {
             btn.addEventListener("click", () => this._handleStartSlicing());
+          } else if (clickHandler.includes("_handlePreviousStep")) {
+            btn.addEventListener("click", () => this._handlePreviousStep());
+          } else if (clickHandler.includes("_handleNextStep")) {
+            btn.addEventListener("click", () => this._handleNextStep());
+          } else if (clickHandler.includes("_handleRetry")) {
+            btn.addEventListener("click", () => this._handleRetry());
+          } else if (clickHandler.includes("_handleCancelJob")) {
+            btn.addEventListener("click", () => this._handleCancelJob());
           }
         }
       });
+
+      const plateInputs = this.shadowRoot.querySelectorAll('.plate-checkbox input[type="checkbox"]');
+      plateInputs.forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const index = Number(input.value || 0);
+          this._handlePlateSelect(event, index);
+        });
+      });
+
+      const filamentInputs = this.shadowRoot.querySelectorAll('input[name="filament_candidate"]');
+      filamentInputs.forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const candidateBox = input.closest('.candidate-radio') && input.closest('.candidate-radio').querySelector('.candidate-box');
+          const nameEl = candidateBox ? candidateBox.querySelector('.candidate-name') : null;
+          const scoreEl = candidateBox ? candidateBox.querySelector('.candidate-score') : null;
+          const scoreText = scoreEl ? String(scoreEl.textContent || '') : '';
+          const scoreMatch = scoreText.match(/(\d+)/);
+          const candidate = {
+            id: input.value,
+            name: nameEl ? String(nameEl.textContent || '').trim() : input.value,
+            match_score: scoreMatch ? Number(scoreMatch[1]) / 100 : 0,
+          };
+          this._handleFilamentSelect(event, candidate);
+        });
+      });
+
+      const timestampInput = this.shadowRoot.querySelector('.timestamp-input');
+      if (timestampInput) {
+        timestampInput.addEventListener("change", (event) => this._handleTimestampChange(event));
+      }
+
+      const draftInput = this.shadowRoot.querySelector('.draft-checkbox input[type="checkbox"]');
+      if (draftInput) {
+        draftInput.addEventListener("change", (event) => this._handleDraftToggle(event));
+      }
     }
 
     _basename(path) {
