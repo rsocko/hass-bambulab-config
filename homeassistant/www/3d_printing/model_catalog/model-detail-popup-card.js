@@ -2178,8 +2178,8 @@ class ModelDetailPopupCard extends HTMLElement {
           box-shadow: none;
         }
         .thumbs {
-          flex: 0 0 96px;
-          padding: 12px 10px 12px 6px;
+          flex: 0 0 88px;
+          padding: 12px 6px;
           display: flex;
           flex-direction: column;
           gap: 7px;
@@ -2202,7 +2202,10 @@ class ModelDetailPopupCard extends HTMLElement {
           position: relative;
         }
         .thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .thumb.active { border-color: var(--primary-color); }
+        .thumb.active {
+          border-color: var(--primary-color);
+          box-shadow: inset 0 0 0 1px var(--primary-color);
+        }
         .thumb .src {
           position: absolute;
           left: 3px;
