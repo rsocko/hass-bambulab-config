@@ -2379,6 +2379,9 @@ class ModelDetailPopupCard extends HTMLElement {
           background: var(--card-background-color);
           padding: var(--support-row-pad, 8px 10px);
         }
+        .support-file-row {
+          grid-template-columns: var(--support-thumb-size, 58px) minmax(0, 1fr) auto auto;
+        }
         .support-folder-row {
           cursor: pointer;
         }
@@ -2421,6 +2424,10 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .support-main {
           min-width: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 2px;
         }
         .support-name {
           font-size: 12px;
@@ -2445,6 +2452,15 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 11px;
           color: var(--secondary-text-color);
           font-variant-numeric: tabular-nums;
+        }
+        .support-size {
+          min-width: 56px;
+          text-align: right;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+          align-self: center;
         }
         .support-type-chips {
           display: inline-flex;
@@ -2471,11 +2487,11 @@ class ModelDetailPopupCard extends HTMLElement {
           color: var(--primary-text-color);
         }
         .support-actions {
-          margin-top: 6px;
           display: inline-flex;
           gap: 6px;
           justify-content: flex-end;
           flex-wrap: wrap;
+          align-items: center;
         }
         .support-action {
           border: 1px solid var(--divider-color);
@@ -2543,8 +2559,6 @@ class ModelDetailPopupCard extends HTMLElement {
           color: var(--secondary-text-color);
           background: var(--card-background-color);
         }
-        .detail { color: var(--secondary-text-color); font-size: 11px; margin-top: 3px; }
-
         .right {
           padding: 12px;
           display: grid;
@@ -3438,14 +3452,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const extensionLabel = this._escapeHtml((extension || 'file').toUpperCase().slice(0, 8));
     const entryType = this._supportingEntryType(file);
     const imageIndex = this._supportRenderedImageItems.findIndex((entry) => entry.fileId === fileId);
-    const role = String(file && file.asset_role || '').trim();
-    const type = String(file && file.asset_type || '').trim();
-    const metaParts = [];
-    if (role) metaParts.push(role);
-    if (type) metaParts.push(type);
     const sizeLabel = this._supportingSizeLabel(file && file.file_size_bytes);
-    if (sizeLabel) metaParts.push(sizeLabel);
-    const meta = this._escapeHtml(metaParts.join(' | '));
+    const sizeDisplay = this._escapeHtml(sizeLabel || '--');
     const previewAction = entryType === 'images' && imageIndex >= 0
       ? `<button type="button" class="support-action" data-action="support-preview-image" data-image-index="${imageIndex}">Preview</button>`
       : '';
@@ -3463,12 +3471,9 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="support-main">
           <div class="support-name">${filename}</div>
           <div class="support-subpath">${this._escapeHtml(this._supportingPathLabel(folderPath))}</div>
-          ${meta ? `<div class="detail">${meta}</div>` : ''}
         </div>
-        <div class="support-meta">
-          <div>${this._escapeHtml(sizeLabel || '--')}</div>
-          <div class="support-actions">${previewAction}${openAction}${downloadAction}</div>
-        </div>
+        <div class="support-size">${sizeDisplay}</div>
+        <div class="support-actions">${previewAction}${openAction}${downloadAction}</div>
       </article>
     `;
   }
@@ -3660,7 +3665,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._openUrlInNewTab(url);
   }
 
-  _downloadSupportingFile(fileId) {
+  async _downloadSupportingFile(fileId) {
     const file = this._supportingFileById(fileId);
     if (!file) {
       return;
@@ -3669,14 +3674,34 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!url) {
       return;
     }
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = this._supportingFileName(file);
-    anchor.rel = 'noopener noreferrer';
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    const filename = this._supportingFileName(file) || 'download';
+    try {
+      const response = await fetch(url, { credentials: 'same-origin' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      anchor.rel = 'noopener noreferrer';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (_error) {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.rel = 'noopener noreferrer';
+      anchor.target = '_blank';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    }
   }
 
   _openSupportingImagePreview(imageIndex) {
