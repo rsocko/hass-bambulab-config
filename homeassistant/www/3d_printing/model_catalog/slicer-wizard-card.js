@@ -72,12 +72,20 @@
       this._pollInterval = null;
       this._pollCount = 0;
       this._maxPolls = 120; // 2 minutes at 1s intervals
+      this._completionTimeout = null;
+      this._activeContextKey = "";
+      this._draftLoadedForKey = "";
+      this._remoteStateLoadedForKey = "";
       this._statusMessages = [];
       this._jobProgress = {
         stage: "pending", // pending | slicing | uploading | committing | completed | failed
         percent: 0,
         message: "",
       };
+    }
+
+    disconnectedCallback() {
+      this._clearPendingAsync();
     }
 
     setConfig(config) {
@@ -92,34 +100,109 @@
       this._update();
     }
 
+    _resetWizardSession() {
+      this._currentStep = "entry-point";
+      this._loading = false;
+      this._error = "";
+      this._workerStatus = null;
+      this._printersList = [];
+      this._jobData = {
+        model_ref: "",
+        job_id: null,
+        status: null,
+        archive_id: null,
+        created_archive_id: null,
+        result_summary: null,
+        post_commit_warning: null,
+        timestamp_repair_result: null,
+      };
+      this._wizardState = {
+        printer_id: null,
+        bambuddy_printer_id: "1",
+        plate_index: 0,
+        patch_metadata: {},
+        historical_timestamp: null,
+        manual_timestamp: null,
+        timestamp_mode: "current",
+        review_warnings: [],
+        filament_candidates: [],
+      };
+      this._statusMessages = [];
+      this._jobProgress = {
+        stage: "pending",
+        percent: 0,
+        message: "",
+      };
+      this._clearPendingAsync();
+    }
+
+    _clearPendingAsync() {
+      if (this._pollInterval) {
+        clearInterval(this._pollInterval);
+        this._pollInterval = null;
+      }
+      if (this._completionTimeout) {
+        clearTimeout(this._completionTimeout);
+        this._completionTimeout = null;
+      }
+    }
+
     async _update() {
       if (!this._hass || !this._modelRef) {
         return;
       }
 
       // Get sidecar URL from entity
+      let nextSidecarUrl = this._modelSidecarUrl;
       if (this._modelEntity) {
         const entity = this._hass.states[this._modelEntity];
         if (entity) {
-          this._modelSidecarUrl = entity.state;
+          nextSidecarUrl = entity.state;
         }
       }
 
-      // Fetch model detail if not already loaded
-      if (!this._modelDetail && this._modelSidecarUrl) {
-        await this._loadModelDetail();
+      const contextKey = `${this._modelRef}::${nextSidecarUrl || ""}`;
+      if (contextKey !== this._activeContextKey) {
+        this._activeContextKey = contextKey;
+        this._modelSidecarUrl = nextSidecarUrl;
+        this._modelDetail = null;
+        this._draftLoadedForKey = "";
+        this._remoteStateLoadedForKey = "";
+        this._resetWizardSession();
+      } else {
+        this._modelSidecarUrl = nextSidecarUrl;
       }
 
-      // Load draft from browser storage if available
-      this._loadDraft();
-
-      // Probe worker status
-      if (this._modelSidecarUrl) {
-        await this._probeWorkerStatus();
+      if (!this._draftLoadedForKey) {
+        this._loadDraft();
+        this._draftLoadedForKey = contextKey;
       }
 
-      // Fetch printers from Bambuddy API
-      await this._loadPrintersList();
+      if (!this._remoteStateLoadedForKey) {
+        this._remoteStateLoadedForKey = contextKey;
+
+        // Fetch model detail if not already loaded
+        if (!this._modelDetail && this._modelSidecarUrl) {
+          await this._loadModelDetail();
+          if (this._activeContextKey !== contextKey) {
+            return;
+          }
+        }
+
+        // Probe worker status
+        if (this._modelSidecarUrl) {
+          await this._probeWorkerStatus();
+          if (this._activeContextKey !== contextKey) {
+            return;
+          }
+        }
+
+        // Fetch printers from Bambuddy API
+        await this._loadPrintersList();
+        if (this._activeContextKey !== contextKey) {
+          return;
+        }
+      }
 
       this._render();
     }
@@ -1243,7 +1326,12 @@
             ? `Archive #${archiveId} created successfully`
             : "Archive created successfully";
 
-        setTimeout(() => {
+        this._clearPendingAsync();
+        this._completionTimeout = setTimeout(() => {
+          this._completionTimeout = null;
+          if (!this.isConnected) {
+            return;
+          }
           this._currentStep = "completion";
           this._render();
         }, 1000);
@@ -1261,10 +1349,7 @@
     }
 
     _handleCancelJob() {
-      if (this._pollInterval) {
-        clearInterval(this._pollInterval);
-        this._pollInterval = null;
-      }
+      this._clearPendingAsync();
       this._currentStep = "timestamp";
       this._render();
     }
@@ -1310,6 +1395,8 @@
     }
 
     _handleClosePopup() {
+      this._clearPendingAsync();
+
       try {
         this._fireBrowserModEvent("browser_mod.close_popup", {});
       } catch (error) {
