@@ -76,7 +76,11 @@ def build_model_detail_response(
         assets = models_router.list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
         preview_file_id = models_router._select_local_preview_asset_id(assets=assets)
         preview_photo_id = str(custom_fields.get(models_router.MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
-        serialized_assets = models_router._serialize_local_model_assets(assets=assets, model_ref=local_model_id)
+        serialized_assets = models_router._serialize_local_model_assets(
+            assets=assets,
+            model_ref=local_model_id,
+            settings=state.settings,
+        )
         response: dict[str, Any] = {
             "success": True,
             "model_ref": model_ref,
