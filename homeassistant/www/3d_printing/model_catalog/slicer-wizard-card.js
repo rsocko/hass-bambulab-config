@@ -336,11 +336,11 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
+            <button class="btn btn-secondary" data-action="close">Cancel</button>
             <button 
               class="btn btn-primary" 
-              ?disabled="${!workerHealthy || this._loading}"
-              @click="${() => this._handleStartSlicing()}"
+              ${!workerHealthy || this._loading ? "disabled" : ""}
+              data-action="start-slicing"
             >
               ${this._loading ? "Loading..." : "Begin Slicing"}
             </button>
@@ -368,7 +368,7 @@
             </div>
           ` : ""}
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Close</button>
+            <button class="btn btn-secondary" data-action="close">Close</button>
           </div>
         </div>
       `;
@@ -495,10 +495,10 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary btn-cancel" @click="${() => this._handleClose()}">Cancel</button>
+            <button class="btn btn-secondary btn-cancel" data-action="close">Cancel</button>
             <div class="button-group-right">
-              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+              <button class="btn btn-secondary" data-action="previous-step">Back</button>
+              <button class="btn btn-primary" data-action="next-step">
                 Continue to Filament Selection
               </button>
             </div>
@@ -574,10 +574,10 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary btn-cancel" @click="${() => this._handleClose()}">Cancel</button>
+            <button class="btn btn-secondary btn-cancel" data-action="close">Cancel</button>
             <div class="button-group-right">
-              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+              <button class="btn btn-secondary" data-action="previous-step">Back</button>
+              <button class="btn btn-primary" data-action="next-step">
                 Continue to Timestamp
               </button>
             </div>
@@ -724,10 +724,10 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary btn-cancel" @click="${() => this._handleClose()}">Cancel</button>
+            <button class="btn btn-secondary btn-cancel" data-action="close">Cancel</button>
             <div class="button-group-right">
-              <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-              <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+              <button class="btn btn-secondary" data-action="previous-step">Back</button>
+              <button class="btn btn-primary" data-action="next-step">
                 Continue to Progress Monitoring
               </button>
             </div>
@@ -1092,9 +1092,9 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleClosePopup()}">Close</button>
-            <button class="btn btn-secondary" @click="${() => this._handleCreateAnother()}">Create Another</button>
-            <button class="btn btn-primary" data-archive-search-url="${this._escapeHtml(bambuddyArchivesUrl)}" @click="${() => this._handleOpenArchiveSearch()}">Open in Bambuddy</button>
+            <button class="btn btn-secondary" data-action="close-popup">Close</button>
+            <button class="btn btn-secondary" data-action="create-another">Create Another</button>
+            <button class="btn btn-primary" data-action="open-archive-search" data-archive-search-url="${this._escapeHtml(bambuddyArchivesUrl)}">Open in Bambuddy</button>
           </div>
         </div>
       `;
@@ -1142,17 +1142,17 @@
           <div class="wizard-footer">
             ${this._jobProgress.stage === 'completed' ? `
               <div class="button-group-right">
-                <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
+                <button class="btn btn-primary" data-action="next-step">
                   Go to Completion
                 </button>
               </div>
             ` : this._jobProgress.stage === 'failed' ? `
               <div class="button-group-right">
-                <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
-                <button class="btn btn-primary" @click="${() => this._handleRetry()}">Retry</button>
+                <button class="btn btn-secondary" data-action="previous-step">Back</button>
+                <button class="btn btn-primary" data-action="retry">Retry</button>
               </div>
             ` : `
-              <button class="btn btn-secondary btn-cancel" @click="${() => this._handleCancelJob()}">Cancel</button>
+              <button class="btn btn-secondary btn-cancel" data-action="cancel-job">Cancel</button>
             `}
           </div>
         </div>
@@ -2361,36 +2361,33 @@
     }
 
     _attachEventListeners() {
-        // Handler mapping - match button text to handler functions
-        const self = this;
-        const handlerMap = {
-          'Cancel': () => self._handleClose(),
-          'Close': () => self._handleClose(),
-          'Begin Slicing': () => self._handleStartSlicing(),
-          'Back': () => self._handlePreviousStep(),
-          'Next': () => self._handleNextStep(),
-          'Next Plate': () => self._handleNextStep(),
-          'View Results': () => self._handleNextStep(),
-          'Retry': () => self._handleRetry(),
-          'Cancel Job': () => self._handleCancelJob(),
-          'Create Another': () => self._handleCreateAnother(),
-          'Open in Bambuddy': (btn) => {
-            const url = String(btn.getAttribute('data-archive-search-url') || '').trim();
-            return self._handleOpenArchiveSearch(url);
-          }
-        };
+      const actionHandlers = {
+        close: () => this._handleClose(),
+        "start-slicing": () => this._handleStartSlicing(),
+        "previous-step": () => this._handlePreviousStep(),
+        "next-step": () => this._handleNextStep(),
+        retry: () => this._handleRetry(),
+        "cancel-job": () => this._handleCancelJob(),
+        "create-another": () => this._handleCreateAnother(),
+        "close-popup": () => this._handleClosePopup(),
+        "open-archive-search": (button) => {
+          const url = String(button.getAttribute("data-archive-search-url") || "").trim();
+          this._handleOpenArchiveSearch(url);
+        },
+      };
 
-      const buttons = this.shadowRoot.querySelectorAll("button");
-      buttons.forEach((btn) => {
-          const btnText = btn.textContent.trim();
-          const handler = handlerMap[btnText];
-          if (handler) {
-            btn.addEventListener("click", (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handler(btn);
-            });
-          }
+      const buttons = this.shadowRoot.querySelectorAll("button[data-action]");
+      buttons.forEach((button) => {
+        const action = String(button.getAttribute("data-action") || "").trim();
+        const handler = actionHandlers[action];
+        if (!handler) {
+          return;
+        }
+        button.onclick = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          handler(button);
+        };
       });
 
       const plateInputs = this.shadowRoot.querySelectorAll('.plate-checkbox input[type="checkbox"]');
@@ -2435,6 +2432,7 @@
 
       const printerSelect = this.shadowRoot.querySelector("#bambuddy-printer-select");
       if (printerSelect) {
+        printerSelect.value = String(this._wizardState.bambuddy_printer_id || "1");
         printerSelect.addEventListener("change", (event) => {
           this._wizardState.bambuddy_printer_id = String(event.target.value || "").trim() || "1";
         });
