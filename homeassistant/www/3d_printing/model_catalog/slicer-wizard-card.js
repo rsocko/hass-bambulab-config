@@ -63,12 +63,16 @@
         archive_id: null,
         created_archive_id: null,
         result_summary: null,
+        post_commit_warning: null,
+        timestamp_repair_result: null,
       };
       this._wizardState = {
         printer_id: null,
         plate_index: 0,
         patch_metadata: {},
         historical_timestamp: null,
+        manual_timestamp: null,
+        timestamp_mode: "current",
         review_warnings: [],
         filament_candidates: [],
       };
@@ -208,12 +212,16 @@
         archive_id: null,
         created_archive_id: null,
         result_summary: null,
+        post_commit_warning: null,
+        timestamp_repair_result: null,
       };
       this._wizardState = {
         printer_id: null,
         plate_index: 0,
         patch_metadata: {},
         historical_timestamp: null,
+        manual_timestamp: null,
+        timestamp_mode: "current",
         review_warnings: [],
         filament_candidates: [],
       };
@@ -502,15 +510,30 @@
     }
 
     _renderTimestamp() {
-      // Use overridden timestamp if set, otherwise current time
+      const sourceAsset = this._resolveSourceAsset();
+      const fileModifiedTimestamp = String(sourceAsset && sourceAsset.file_modified_at || "").trim() || null;
+      const mode = String(this._wizardState.timestamp_mode || "current");
+      const manualTimestamp = this._wizardState.manual_timestamp || this._wizardState.historical_timestamp || new Date().toISOString();
       const now = new Date();
-      const currentTimestamp = this._wizardState.historical_timestamp || now.toISOString();
+      const currentTimestamp = mode === "file_modified" && fileModifiedTimestamp
+        ? fileModifiedTimestamp
+        : mode === "manual"
+          ? manualTimestamp
+          : now.toISOString();
       
       // Format ISO timestamp for datetime-local input
-      const localDateTime = currentTimestamp.replace('Z', '').split('.')[0];
+      const localDateTime = String(manualTimestamp).replace('Z', '').split('.')[0];
       
       // Format readable display
       const displayDate = new Date(currentTimestamp).toLocaleString();
+      const fileModifiedDisplay = fileModifiedTimestamp
+        ? new Date(fileModifiedTimestamp).toLocaleString()
+        : "File modified time is not available for this model asset.";
+      const selectedModeLabel = mode === "file_modified"
+        ? "Using model file modified time"
+        : mode === "manual"
+          ? "Using operator-selected timestamp"
+          : "Using archive creation time";
       
       return `
         <div class="wizard-container">
@@ -522,24 +545,75 @@
           <div class="wizard-content">
             <div class="timestamp-section">
               <div class="section-title">Archive Creation Time</div>
+
+              <div class="timestamp-mode-group">
+                <label class="timestamp-mode-option ${mode === "current" ? "selected" : ""}">
+                  <input
+                    type="radio"
+                    name="timestamp_mode"
+                    value="current"
+                    ${mode === "current" ? "checked" : ""}
+                    @change="${(e) => this._handleTimestampModeChange(e)}"
+                  />
+                  <div>
+                    <div class="timestamp-mode-title">Use current archive time</div>
+                    <div class="timestamp-mode-detail">Leave Bambuddy archive timing as created.</div>
+                  </div>
+                </label>
+
+                <label class="timestamp-mode-option ${mode === "file_modified" ? "selected" : ""} ${fileModifiedTimestamp ? "" : "disabled"}">
+                  <input
+                    type="radio"
+                    name="timestamp_mode"
+                    value="file_modified"
+                    ${mode === "file_modified" ? "checked" : ""}
+                    ${fileModifiedTimestamp ? "" : "disabled"}
+                    @change="${(e) => this._handleTimestampModeChange(e)}"
+                  />
+                  <div>
+                    <div class="timestamp-mode-title">Use model file modified time</div>
+                    <div class="timestamp-mode-detail">${this._escapeHtml(fileModifiedDisplay)}</div>
+                  </div>
+                </label>
+
+                <label class="timestamp-mode-option ${mode === "manual" ? "selected" : ""}">
+                  <input
+                    type="radio"
+                    name="timestamp_mode"
+                    value="manual"
+                    ${mode === "manual" ? "checked" : ""}
+                    @change="${(e) => this._handleTimestampModeChange(e)}"
+                  />
+                  <div>
+                    <div class="timestamp-mode-title">Pick a specific date and time</div>
+                    <div class="timestamp-mode-detail">Use an operator-provided historical timestamp.</div>
+                  </div>
+                </label>
+              </div>
               
               <div class="timestamp-current">
-                <div class="timestamp-label">Current Value:</div>
+                <div class="timestamp-label">Selected Mode:</div>
+                <div class="timestamp-display">${this._escapeHtml(selectedModeLabel)}</div>
+              </div>
+
+              <div class="timestamp-current">
+                <div class="timestamp-label">Effective Archive Time:</div>
                 <div class="timestamp-display">${this._escapeHtml(displayDate)}</div>
               </div>
 
-              <div class="timestamp-editor">
+              <div class="timestamp-editor ${mode === "manual" ? "" : "disabled"}">
                 <label>
-                  <span class="input-label">Override Timestamp (Optional)</span>
+                  <span class="input-label">Specific Date/Time</span>
                   <input 
                     type="datetime-local" 
                     class="timestamp-input"
                     value="${localDateTime}"
+                    ${mode === "manual" ? "" : "disabled"}
                     @change="${(e) => this._handleTimestampChange(e)}"
                   />
                 </label>
                 <div class="input-hint">
-                  Leave unchanged to use current time. Change to set a historical timestamp for this archive.
+                  Manual entry is only used when “Pick a specific date and time” is selected.
                 </div>
               </div>
             </div>
@@ -580,9 +654,30 @@
       if (input.value) {
         // Convert datetime-local to ISO string
         const dt = new Date(input.value);
-        this._wizardState.historical_timestamp = dt.toISOString();
+        this._wizardState.manual_timestamp = dt.toISOString();
+        if (this._wizardState.timestamp_mode === "manual") {
+          this._wizardState.historical_timestamp = this._wizardState.manual_timestamp;
+        }
         this._render();
       }
+    }
+
+    _handleTimestampModeChange(event) {
+      const nextMode = String(event && event.target && event.target.value || "current");
+      this._wizardState.timestamp_mode = nextMode;
+      if (nextMode === "manual") {
+        if (!this._wizardState.manual_timestamp) {
+          this._wizardState.manual_timestamp = new Date().toISOString();
+        }
+        this._wizardState.historical_timestamp = this._wizardState.manual_timestamp;
+      } else if (nextMode === "file_modified") {
+        const sourceAsset = this._resolveSourceAsset();
+        const fileModifiedTimestamp = String(sourceAsset && sourceAsset.file_modified_at || "").trim() || null;
+        this._wizardState.historical_timestamp = fileModifiedTimestamp;
+      } else {
+        this._wizardState.historical_timestamp = null;
+      }
+      this._render();
     }
 
     _handleDraftToggle(event) {
@@ -601,6 +696,8 @@
           plate_index: this._wizardState.plate_index,
           filament_candidates: this._wizardState.filament_candidates,
           historical_timestamp: this._wizardState.historical_timestamp,
+          manual_timestamp: this._wizardState.manual_timestamp,
+          timestamp_mode: this._wizardState.timestamp_mode,
           saved_at: new Date().toISOString(),
         };
         localStorage.setItem(`slicer-wizard-draft-${this._modelRef}`, JSON.stringify(draftData));
@@ -628,6 +725,8 @@
           this._wizardState.plate_index = draft.plate_index || 0;
           this._wizardState.filament_candidates = draft.filament_candidates || [];
           this._wizardState.historical_timestamp = draft.historical_timestamp || null;
+          this._wizardState.manual_timestamp = draft.manual_timestamp || draft.historical_timestamp || null;
+          this._wizardState.timestamp_mode = draft.timestamp_mode || (draft.historical_timestamp ? "manual" : "current");
           this._wizardState.save_draft = true;
           console.log('Draft loaded for model:', this._modelRef);
         }
@@ -691,21 +790,89 @@
         requested_print_completed_at: timestamp,
         requested_print_timezone: timezone,
         date_override_strategy: timestamp ? "operator_supplied" : "operator_default",
+        overrides: {
+          plate: String(Number(this._wizardState.plate_index || 0)),
+        },
       };
     }
 
     _buildCommitBody() {
-      const patchMetadata = {
-        tags: "slicer-created",
-      };
-      if (this._wizardState.historical_timestamp) {
-        patchMetadata.completed_at = this._wizardState.historical_timestamp;
-      }
       return {
         bambuddy_base_url: "http://bambuddy.socko.us",
         printer_id: "1",
-        patch_metadata: patchMetadata,
+        patch_metadata: {
+          tags: "slicer-created",
+        },
       };
+    }
+
+    _deriveStartedAtFromCompleted(completedAtIso, durationSeconds) {
+      const completedMs = Date.parse(String(completedAtIso || ""));
+      const duration = Number(durationSeconds || 0);
+      if (!Number.isFinite(completedMs) || !Number.isFinite(duration) || duration < 0) {
+        return null;
+      }
+      return new Date(completedMs - duration * 1000).toISOString();
+    }
+
+    async _applyHistoricalArchiveTiming(archiveId) {
+      const completedAt = this._wizardState.historical_timestamp || null;
+      const mode = String(this._wizardState.timestamp_mode || "current");
+      if (!completedAt || mode === "current" || !this._hass || archiveId == null) {
+        return { applied: false, warning: null, response: null };
+      }
+
+      const result = this._jobData.result_summary && typeof this._jobData.result_summary === "object"
+        ? this._jobData.result_summary
+        : {};
+      const upload = result.upload_response && typeof result.upload_response === "object"
+        ? result.upload_response
+        : {};
+      const durationSeconds = Number(upload.print_time_seconds || result.print_time_seconds || 0);
+      const startedAt = this._deriveStartedAtFromCompleted(completedAt, durationSeconds);
+      const reason = mode === "file_modified"
+        ? "Slicer wizard applied model file modified time after archive creation"
+        : "Slicer wizard applied operator-selected historical timestamp after archive creation";
+      const payload = {
+        archive_id: Number(archiveId),
+        completed_at: completedAt,
+        created_at: completedAt,
+        reason,
+        trigger_source: "model_catalog_slicer_wizard",
+      };
+      if (startedAt) {
+        payload.started_at = startedAt;
+      }
+      payload.status = "completed";
+
+      try {
+        const responseEnvelope = await this._hass.callService(
+          "bambuddy",
+          "correct_print_history_archive_metadata",
+          payload,
+          undefined,
+          true,
+          true
+        );
+        const response = responseEnvelope && responseEnvelope.response && typeof responseEnvelope.response === "object"
+          ? responseEnvelope.response
+          : responseEnvelope;
+        if (!response || response.success !== true) {
+          const warning = response && response.message
+            ? String(response.message)
+            : "Archive created, but historical timestamp repair did not confirm success.";
+          return { applied: false, warning, response };
+        }
+        return { applied: true, warning: null, response };
+      } catch (error) {
+        return {
+          applied: false,
+          warning: error && error.message
+            ? String(error.message)
+            : "Archive created, but historical timestamp repair failed.",
+          response: null,
+        };
+      }
     }
 
     async _parseJsonResponse(response, fallbackLabel) {
@@ -752,6 +919,7 @@
         ? result.source_response
         : {};
       const isSuccess = String(this._jobData.status || "") === "committed" && !!archiveId;
+      const warningMessage = String(this._jobData.post_commit_warning || "").trim();
       const bambuddyArchivesUrl = archiveId
         ? `http://bambuddy.socko.us/archives?search=${encodeURIComponent(String(archiveId))}`
         : "http://bambuddy.socko.us/archives";
@@ -803,11 +971,21 @@
                   <div class="completion-detail-value">${this._escapeHtml(String(patch.tags || "slicer-created"))}</div>
                 </div>
                 <div class="completion-detail-row">
+                  <div class="completion-detail-label">Archive Time</div>
+                  <div class="completion-detail-value">${this._escapeHtml(String(patch.completed_at || upload.completed_at || "Not overridden"))}</div>
+                </div>
+                <div class="completion-detail-row">
                   <div class="completion-detail-label">Source Attached</div>
                   <div class="completion-detail-value">${source.source_3mf_path ? "Yes" : "No"}</div>
                 </div>
               </div>
             </div>
+
+            ${warningMessage ? `
+              <div class="error-banner">
+                <strong>Follow-up needed:</strong> ${this._escapeHtml(warningMessage)}
+              </div>
+            ` : ""}
 
             ${source.source_3mf_path ? `
               <div class="info-box success-box">
@@ -963,14 +1141,34 @@
         this._jobData.status = committedJob.status || "committed";
         this._jobData.created_archive_id = archiveId;
         this._jobData.result_summary = committedJob.result_summary || committedJob;
+        this._jobData.post_commit_warning = null;
+        this._jobData.timestamp_repair_result = null;
 
         this._statusMessages[this._statusMessages.length - 1].status = "done";
         this._statusMessages.push({ label: "Archive created", status: "done" });
+
+        const timingRepair = await this._applyHistoricalArchiveTiming(archiveId);
+        this._jobData.timestamp_repair_result = timingRepair.response || null;
+        if (timingRepair.applied) {
+          this._statusMessages.push({ label: "Historical timestamp applied", status: "done" });
+          if (this._jobData.result_summary && typeof this._jobData.result_summary === "object") {
+            this._jobData.result_summary.patch_response = {
+              ...this._jobData.result_summary.patch_response,
+              completed_at: this._wizardState.historical_timestamp,
+            };
+          }
+        } else if (timingRepair.warning) {
+          this._statusMessages.push({ label: "Historical timestamp repair", status: "error", detail: timingRepair.warning });
+          this._jobData.post_commit_warning = timingRepair.warning;
+        }
+
         this._jobProgress.stage = "completed";
         this._jobProgress.percent = 100;
-        this._jobProgress.message = archiveId
-          ? `Archive #${archiveId} created successfully`
-          : "Archive created successfully";
+        this._jobProgress.message = this._jobData.post_commit_warning
+          ? `Archive #${archiveId} created with warnings`
+          : archiveId
+            ? `Archive #${archiveId} created successfully`
+            : "Archive created successfully";
 
         setTimeout(() => {
           this._currentStep = "completion";
@@ -1005,6 +1203,8 @@
       this._jobData.status = null;
       this._jobData.created_archive_id = null;
       this._jobData.result_summary = null;
+      this._jobData.post_commit_warning = null;
+      this._jobData.timestamp_repair_result = null;
       this._jobProgress = { stage: "pending", percent: 0, message: "Retrying..." };
       this._startArchiveCommit();
     }
@@ -1557,6 +1757,47 @@
             margin-bottom: 16px;
           }
 
+          .timestamp-mode-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+
+          .timestamp-mode-option {
+            display: grid;
+            grid-template-columns: 20px 1fr;
+            gap: 12px;
+            align-items: start;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+          }
+
+          .timestamp-mode-option.selected {
+            border-color: var(--primary-color);
+            background: rgba(25, 118, 210, 0.05);
+          }
+
+          .timestamp-mode-option.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+
+          .timestamp-mode-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+          }
+
+          .timestamp-mode-detail {
+            font-size: 12px;
+            color: var(--text-secondary);
+          }
+
           .timestamp-current {
             background: white;
             border: 1px solid var(--border-color);
@@ -1581,6 +1822,10 @@
 
           .timestamp-editor {
             margin-bottom: 16px;
+          }
+
+          .timestamp-editor.disabled {
+            opacity: 0.65;
           }
 
           .timestamp-editor label {
@@ -1880,6 +2125,11 @@
       if (timestampInput) {
         timestampInput.addEventListener("change", (event) => this._handleTimestampChange(event));
       }
+
+      const timestampModeInputs = this.shadowRoot.querySelectorAll('input[name="timestamp_mode"]');
+      timestampModeInputs.forEach((input) => {
+        input.addEventListener("change", (event) => this._handleTimestampModeChange(event));
+      });
 
       const draftInput = this.shadowRoot.querySelector('.draft-checkbox input[type="checkbox"]');
       if (draftInput) {

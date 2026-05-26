@@ -523,6 +523,25 @@ class TestExecuteJob:
         finally:
             client.__exit__(None, None, None)
 
+    def test_execute_uses_selected_plate_index_as_plate_override(self, tmp_path: Path) -> None:
+        client = _create_client(tmp_path)
+        try:
+            job, _ = _create_draft_with_file(client, tmp_path, selected_plate_index=2)
+            job_id = job["job_id"]
+
+            with (
+                patch("app.routers.slicer.enqueue_slice", return_value=_MOCK_ENQUEUE) as mock_enqueue,
+                patch("app.routers.slicer.poll_until_terminal", return_value=_MOCK_POLL_COMPLETED),
+                patch("app.routers.slicer.retrieve_output", side_effect=_mock_retrieve_output),
+                patch("app.routers.slicer.cleanup_slice", return_value=True),
+            ):
+                resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
+
+            assert resp.status_code == 200
+            assert mock_enqueue.call_args.kwargs["overrides"]["plate"] == "2"
+        finally:
+            client.__exit__(None, None, None)
+
     def test_draft_to_slicing_transition_allowed(self, tmp_path: Path) -> None:
         """Verify that the draft → slicing transition was added."""
         client = _create_client(tmp_path)

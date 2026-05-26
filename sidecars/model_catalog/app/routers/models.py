@@ -1274,7 +1274,12 @@ def _resolve_model_summary(summary_by_url: dict[str, CatalogModelSummary], model
     return None
 
 
-def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = None) -> list[dict[str, Any]]:
+def _serialize_local_model_assets(
+    *,
+    assets: list[Any],
+    model_ref: str | None = None,
+    settings: Settings | None = None,
+) -> list[dict[str, Any]]:
 
     def _asset_rank(value: object | None) -> int:
         normalized = str(value or "").strip().lower()
@@ -1306,7 +1311,18 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
         asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
         filename = str(getattr(asset, "asset_filename", "") or "").strip()
         asset_type = str(getattr(asset, "asset_type", "") or "").strip() or None
+        file_modified_at = None
         preview_url = str(getattr(asset, "preview_url", "") or "").strip() or None
+        if settings is not None:
+            try:
+                storage_path = _resolve_local_asset_storage_path(settings=settings, asset=asset)
+                if storage_path is not None and storage_path.exists() and storage_path.is_file():
+                    file_modified_at = datetime.fromtimestamp(
+                        storage_path.stat().st_mtime,
+                        tz=timezone.utc,
+                    ).isoformat()
+            except OSError:
+                file_modified_at = None
         media_urls = _local_asset_media_urls(
             model_ref=model_ref,
             asset_id=asset_id,
@@ -1340,6 +1356,7 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
                 "thumbnail_lazy_url": thumbnail_lazy_url,
                 "created_at": getattr(asset, "created_at", None),
                 "updated_at": getattr(asset, "updated_at", None),
+                "file_modified_at": file_modified_at,
                 "sort_order": getattr(asset, "sort_order", None),
                 "asset_role": getattr(asset, "asset_role", None),
                 "file_size_bytes": getattr(asset, "file_size_bytes", None),
@@ -3795,7 +3812,7 @@ def get_local_model_endpoint(request: Request, local_model_id: str) -> dict[str,
         "entry": asdict(entry),
         "idea_metadata": _read_idea_metadata(db_path=state.settings.db_path, model_ref=local_model_id),
         "preview_file_id": preview_file_id,
-        "assets": _serialize_local_model_assets(assets=assets, model_ref=local_model_id),
+        "assets": _serialize_local_model_assets(assets=assets, model_ref=local_model_id, settings=state.settings),
     }
 
 @router.patch("/api/local/models/{local_model_id}")

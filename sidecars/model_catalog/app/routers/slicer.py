@@ -422,12 +422,16 @@ def execute_job(job_id: str, request: Request) -> JSONResponse:
 
     try:
         # 5. Enqueue slice upstream
+        overrides = dict(job.overrides or {})
+        if "plate" not in overrides and job.selected_plate_index is not None:
+            overrides["plate"] = str(job.selected_plate_index)
+
         enqueue_result = enqueue_slice(
             base_url=base_url,
             file_path=source_path,
             timeout=settings.slicer_request_timeout_seconds,
-            export_type=job.overrides.get("exportType", "3mf"),
-            overrides=job.overrides or None,
+            export_type=overrides.get("exportType", "3mf"),
+            overrides=overrides or None,
         )
         upstream_request_id = enqueue_result.request_id
 
