@@ -1526,6 +1526,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   var originalServerPayloadSelections = proto._serverPayloadSelections;
   var originalSelectedList = proto._selectedList;
   var originalCloseWizard = proto._closeWizard;
+  var originalDisconnectedCallback = proto.disconnectedCallback;
 
   proto._wizardStepCount = function () {
     return 5;
@@ -2948,6 +2949,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Issue #1323: release the background scroll lock when the modal closes.
     this._restoreBackgroundScroll();
     this._render();
+  };
+
+  // Restore host-page scroll if the card unmounts while the wizard lock is
+  // active (for example, route/tab switch during publish).
+  proto.disconnectedCallback = function () {
+    if (this.__previousBodyOverflow != null && typeof this._restoreBackgroundScroll === 'function') {
+      this._restoreBackgroundScroll();
+    }
+    if (typeof originalDisconnectedCallback === 'function') {
+      originalDisconnectedCallback.call(this);
+    }
   };
 
   proto._toggleSelection = function (path, entryType) {
