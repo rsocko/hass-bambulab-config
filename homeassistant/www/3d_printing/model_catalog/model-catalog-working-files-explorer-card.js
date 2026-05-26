@@ -315,8 +315,6 @@
     + '.sidecar .side{display:grid;gap:6px;align-content:start;min-width:160px;}'
     + '.sidecar .side .kv{font-size:11px;color:var(--text-secondary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}'
     + '.sidecar .side .kv .k{color:var(--text-muted);display:inline-block;min-width:70px;}'
-    + '.sidecar.empty{grid-template-columns:1fr;background:rgba(255,255,255,0.02);border-style:dashed;color:var(--text-muted);font-size:12px;text-align:center;padding:10px 14px;}'
-    + '.sidecar.empty code{background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;font-size:11px;}'
     /* Type chip bar */
     + '.type-bar{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
     + '.type-chips{display:inline-flex;gap:5px;flex-wrap:wrap;}'
@@ -1114,16 +1112,11 @@
     }
 
     _renderSidecar(group, detail) {
-      // Loose bucket: always empty sidecar
       var slug = String(group.slug || '');
-      if (slug === LOOSE_SLUG) {
-        return '<div class="sidecar empty">Loose files have no sidecar. Move a file into a folder to give it a group with <code>.modelmeta.json</code> + <code>README.md</code> context.</div>';
-      }
+      if (slug === LOOSE_SLUG) return '';
       if (!detail) return '';
       var sidecar = detail.sidecar || {};
-      if (!sidecar.modelmeta && !sidecar.readme) {
-        return '<div class="sidecar empty">No sidecar yet. Run <strong>Intake Wizard from this folder</strong> (via <code>⋯</code> menu) to author <code>.modelmeta.json</code> + <code>README.md</code>, or just edit them directly on disk.</div>';
-      }
+      if (!sidecar.modelmeta && !sidecar.readme) return '';
       var tags = this._modelmetaTags(detail);
       var readmeText = this._readmeExcerpt(sidecar.readme);
       var sideKv = this._modelmetaSideKv(detail);
