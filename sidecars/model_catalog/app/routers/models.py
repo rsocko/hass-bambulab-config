@@ -780,7 +780,19 @@ def _search_models_from_projection(
     if favorites_only:
         base_clauses.append("p.model_favorite = 1")
     if frequents_only:
-        base_clauses.append("COALESCE(p.frequent_score, 0) >= ?")
+        base_clauses.append(
+            "(" \
+            "COALESCE(p.frequent_score, 0) >= ? "
+            "OR EXISTS (" \
+            "SELECT 1 FROM model_catalog_custom_fields cf "
+            "WHERE cf.entity_type = 'catalog_model' "
+            "AND cf.field_namespace = 'model_catalog' "
+            "AND cf.entity_id = p.model_ref "
+            "AND cf.field_key = 'model_frequent_override' "
+            "AND json_extract(cf.field_value_json, '$') = 1" \
+            ")" \
+            ")"
+        )
         base_params.append(float(resolved_min_prints))
     if has_other_files:
         base_clauses.append("p.has_other_files = 1")
@@ -804,7 +816,17 @@ def _search_models_from_projection(
     if normalized_sort == "recent":
         order_sql = "ORDER BY p.last_printed_at DESC, p.model_name_lc ASC"
     elif normalized_sort == "frequent":
-        order_sql = "ORDER BY COALESCE(p.frequent_score, 0) DESC, p.model_name_lc ASC"
+        order_sql = (
+            "ORDER BY (CASE WHEN EXISTS ("
+            "SELECT 1 FROM model_catalog_custom_fields cf "
+            "WHERE cf.entity_type = 'catalog_model' "
+            "AND cf.field_namespace = 'model_catalog' "
+            "AND cf.entity_id = p.model_ref "
+            "AND cf.field_key = 'model_frequent_override' "
+            "AND json_extract(cf.field_value_json, '$') = 1"
+            ") THEN 1 ELSE 0 END) DESC, "
+            "COALESCE(p.frequent_score, 0) DESC, p.model_name_lc ASC"
+        )
     elif normalized_sort == "common":
         order_sql = "ORDER BY COALESCE(p.common_score, 0) DESC, p.model_name_lc ASC"
     elif normalized_sort == "name":
@@ -946,6 +968,7 @@ def _search_models_from_projection(
             settings=state.settings,
         )
         weighted_print_count = float(row["frequent_score"]) if row["frequent_score"] is not None else 0.0
+        frequent_override = _coerce_boolish(custom_fields.get("model_frequent_override"))
         _apply_frequents_layer2_derivation(
             payload,
             weighted_print_count=weighted_print_count,
@@ -954,6 +977,7 @@ def _search_models_from_projection(
             frequent_min_prints=resolved_min_prints,
             frequent_window_days=resolved_window_days,
             frequent_backfill_weight=resolved_backfill_weight,
+            frequent_override=frequent_override,
         )
         results.append(payload)
 
@@ -1735,17 +1759,27 @@ def _apply_frequents_layer2_derivation(
     frequent_min_prints: int,
     frequent_window_days: int,
     frequent_backfill_weight: float,
+    frequent_override: bool | None = None,
 ) -> None:
     weighted_count = float(max(weighted_print_count, 0.0))
     min_prints = max(1, int(frequent_min_prints))
-    is_frequent = weighted_count >= float(min_prints)
+    inferred_is_frequent = weighted_count >= float(min_prints)
+    is_frequent = bool(frequent_override) if frequent_override is not None else inferred_is_frequent
 
     ranking = model_payload.get("ranking")
     if not isinstance(ranking, dict):
         ranking = {}
         model_payload["ranking"] = ranking
 
-    ranking["frequent_score"] = weighted_count if is_frequent else 0.0
+    effective_frequent_score = weighted_count if inferred_is_frequent else 0.0
+    if is_frequent and effective_frequent_score < float(min_prints):
+        # Manual overrides should still rank/filter as frequent.
+        effective_frequent_score = float(min_prints)
+    if not is_frequent:
+        effective_frequent_score = 0.0
+
+    ranking["frequent_score"] = effective_frequent_score
+    ranking["is_frequent"] = is_frequent
     recent_score = ranking.get("recent_score")
     ranking["common_score"] = (
         float(ranking["frequent_score"]) * float(recent_score)
@@ -1754,8 +1788,12 @@ def _apply_frequents_layer2_derivation(
     )
 
     model_payload["model_frequent"] = is_frequent
+    model_payload["model_frequent_override"] = frequent_override
     model_payload["frequents"] = {
         "is_frequent": is_frequent,
+        "is_frequent_inferred": inferred_is_frequent,
+        "is_frequent_override": frequent_override,
+        "source": "manual_override" if frequent_override is not None else "inferred",
         "weighted_print_count": weighted_count,
         "print_count_window": int(max(window_print_count, 0)),
         "backfill_print_count_window": int(max(window_backfill_count, 0)),
@@ -1766,6 +1804,10 @@ def _apply_frequents_layer2_derivation(
 
 
 def _model_is_frequent(model_payload: dict[str, Any], *, frequent_min_prints: int) -> bool:
+    direct_flag = _coerce_boolish(model_payload.get("model_frequent"))
+    if direct_flag is not None:
+        return direct_flag
+
     frequents = model_payload.get("frequents")
     if isinstance(frequents, dict):
         flag = _coerce_boolish(frequents.get("is_frequent"))
@@ -2123,6 +2165,7 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
         "catalog_signals": {
             "model_favorite": _coerce_boolish(fields.get("model_favorite")),
             "model_rating": model_rating,
+            "model_frequent_override": _coerce_boolish(fields.get("model_frequent_override")),
             "catalog_visibility": catalog_visibility,
         },
     }
@@ -2316,6 +2359,12 @@ def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, 
                     clears.add("catalog_visibility")
                 else:
                     normalized["catalog_visibility"] = normalized_catalog_visibility
+            if "model_frequent_override" in catalog_signals:
+                normalized_frequent_override = _coerce_boolish(catalog_signals.get("model_frequent_override"))
+                if normalized_frequent_override is None:
+                    clears.add("model_frequent_override")
+                else:
+                    normalized["model_frequent_override"] = normalized_frequent_override
 
     for key, value in enrichment.items():
         if key == "structured_metadata":
@@ -3181,6 +3230,7 @@ def list_models(
 
         model_payload = models[-1]
         stats = frequency_stats_by_url.get(summary.model_url)
+        frequent_override = _coerce_boolish(custom_fields.get("model_frequent_override"))
         _apply_frequents_layer2_derivation(
             model_payload,
             weighted_print_count=stats.weighted_print_count if stats is not None else 0.0,
@@ -3189,6 +3239,7 @@ def list_models(
             frequent_min_prints=resolved_min_prints,
             frequent_window_days=resolved_window_days,
             frequent_backfill_weight=resolved_backfill_weight,
+            frequent_override=frequent_override,
         )
         if frequents_only and not _model_is_frequent(model_payload, frequent_min_prints=resolved_min_prints):
             models.pop()
@@ -3480,6 +3531,7 @@ def search_models(
             }
 
         stats = frequency_stats_by_url.get(summary.model_url)
+        frequent_override = _coerce_boolish(custom_fields.get("model_frequent_override"))
         _apply_frequents_layer2_derivation(
             model_payload,
             weighted_print_count=stats.weighted_print_count if stats is not None else 0.0,
@@ -3488,6 +3540,7 @@ def search_models(
             frequent_min_prints=resolved_min_prints,
             frequent_window_days=resolved_window_days,
             frequent_backfill_weight=resolved_backfill_weight,
+            frequent_override=frequent_override,
         )
 
         # Inject local asset counts so the card can render file-kind chips
@@ -4567,6 +4620,10 @@ def _model_detail_service_helpers() -> dict[str, Any]:
         "_serialize_uploaded_photo_rows": _serialize_uploaded_photo_rows,
         "_read_uploaded_photo_rows": _read_uploaded_photo_rows,
         "_ranking_payload": _ranking_payload,
+        "_apply_frequents_layer2_derivation": _apply_frequents_layer2_derivation,
+        "DEFAULT_FREQUENT_WINDOW_DAYS": DEFAULT_FREQUENT_WINDOW_DAYS,
+        "DEFAULT_FREQUENT_MIN_PRINTS": DEFAULT_FREQUENT_MIN_PRINTS,
+        "DEFAULT_FREQUENT_BACKFILL_WEIGHT": DEFAULT_FREQUENT_BACKFILL_WEIGHT,
         "read_archive_links": read_archive_links,
         "read_archive_links_for_model": read_archive_links_for_model,
         "_archive_link_to_response": _archive_link_to_response,

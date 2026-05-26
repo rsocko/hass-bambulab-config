@@ -137,6 +137,7 @@ def build_model_detail_response(
             "queued_items": _queued_items_payload(state, local_model_id, summary.model_url),
             "degraded": False,
         }
+        _decorate_detail_frequents(response=response, models_router=models_router)
         if include_debug:
             response["_debug"] = {
                 "resolved_ref": local_model_id,
@@ -158,6 +159,65 @@ def build_model_detail_response(
                 "error": str(exc),
             }
         return error_response
+
+
+def _coerce_boolish(value: object | None) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    return None
+
+
+def _decorate_detail_frequents(*, response: dict[str, Any], models_router: Any) -> None:
+    ranking = response.get("ranking")
+    model = response.get("model")
+    if not isinstance(ranking, dict) or not isinstance(model, dict):
+        return
+
+    structured = model.get("structured_metadata")
+    catalog_signals = structured.get("catalog_signals") if isinstance(structured, dict) else None
+    frequent_override = _coerce_boolish(catalog_signals.get("model_frequent_override")) if isinstance(catalog_signals, dict) else None
+
+    weighted_print_count = ranking.get("frequent_score")
+    try:
+        weighted = float(weighted_print_count or 0.0)
+    except (TypeError, ValueError):
+        weighted = 0.0
+
+    min_prints = int(getattr(models_router, "DEFAULT_FREQUENT_MIN_PRINTS", 3) or 3)
+    window_days = int(getattr(models_router, "DEFAULT_FREQUENT_WINDOW_DAYS", 90) or 90)
+    backfill_weight = float(getattr(models_router, "DEFAULT_FREQUENT_BACKFILL_WEIGHT", 0.5) or 0.5)
+
+    payload: dict[str, Any] = {
+        "ranking": dict(ranking),
+    }
+    apply_frequents = getattr(models_router, "_apply_frequents_layer2_derivation", None)
+    if not callable(apply_frequents):
+        return
+
+    apply_frequents(
+        payload,
+        weighted_print_count=weighted,
+        window_print_count=int(max(0, int(weighted))),
+        window_backfill_count=0,
+        frequent_min_prints=min_prints,
+        frequent_window_days=window_days,
+        frequent_backfill_weight=backfill_weight,
+        frequent_override=frequent_override,
+    )
+
+    response["ranking"] = payload.get("ranking")
+    response["model_frequent"] = payload.get("model_frequent")
+    response["model_frequent_override"] = frequent_override
+    response["frequents"] = payload.get("frequents")
+
+    model["model_frequent"] = payload.get("model_frequent")
+    model["model_frequent_override"] = frequent_override
+    model["frequents"] = payload.get("frequents")
 
 
 def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> dict[str, Any]:
