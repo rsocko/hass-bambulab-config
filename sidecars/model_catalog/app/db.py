@@ -103,6 +103,17 @@ from .db_unified_queue import (
     create_planner_operation_snapshots,
     read_planner_operation_snapshots,
 )
+from .db_slicer_jobs import (
+    SlicerJob,
+    VALID_STATUSES as SLICER_JOB_VALID_STATUSES,
+    VALID_STATUS_TRANSITIONS as SLICER_JOB_VALID_TRANSITIONS,
+    create_slicer_job,
+    delete_slicer_job,
+    list_slicer_jobs,
+    read_slicer_job,
+    transition_slicer_job,
+    update_slicer_job,
+)
 
 
 @dataclass(frozen=True)

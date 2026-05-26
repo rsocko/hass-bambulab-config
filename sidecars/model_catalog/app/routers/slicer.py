@@ -1,7 +1,7 @@
-"""Slicer provider health and capability endpoint (Workstream A / Slice 1).
+"""Slicer provider health, capability, and job management endpoints.
 
-Exposes ``GET /api/slicer/providers`` so the UI can determine whether a
-local slicer worker is available before starting a slice workflow.
+Workstream A / Slice 1 — ``GET /api/slicer/providers``
+Workstream B / Slice 2 — ``/api/slicer/jobs`` CRUD and lifecycle
 """
 from __future__ import annotations
 
@@ -13,6 +13,18 @@ import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from ..db_slicer_jobs import (
+    SlicerJob,
+    VALID_STATUSES,
+    VALID_STATUS_TRANSITIONS,
+    create_slicer_job,
+    delete_slicer_job,
+    list_slicer_jobs,
+    read_slicer_job,
+    transition_slicer_job,
+    update_slicer_job,
+    _slicer_job_to_dict,
+)
 from ..settings import Settings
 from ..state import AppState
 
@@ -113,3 +125,202 @@ def get_slicer_providers(request: Request) -> Any:
             "providers": [provider],
         }
     )
+
+
+# -----------------------------------------------------------------------
+# Slice 2 — Slicer Job CRUD & Lifecycle
+# -----------------------------------------------------------------------
+
+
+@router.post("/api/slicer/jobs")
+async def create_job(request: Request) -> JSONResponse:
+    """Create a new slicer job in ``draft`` status."""
+    state: AppState = request.app.state.model_catalog
+    body: dict[str, Any] = await request.json()
+
+    required = ("source_kind", "archive_intent")
+    missing = [k for k in required if k not in body]
+    if missing:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Missing required fields: {', '.join(missing)}"},
+        )
+
+    try:
+        job = create_slicer_job(
+            db_path=state.settings.db_path,
+            source_kind=body["source_kind"],
+            archive_intent=body["archive_intent"],
+            workflow_kind=body.get("workflow_kind", "historical_backfill"),
+            source_ref=body.get("source_ref"),
+            local_model_id=body.get("local_model_id"),
+            working_file_path=body.get("working_file_path"),
+            requested_print_started_at=body.get("requested_print_started_at"),
+            requested_print_completed_at=body.get("requested_print_completed_at"),
+            requested_print_timezone=body.get("requested_print_timezone"),
+            date_override_strategy=body.get("date_override_strategy", "operator_supplied"),
+            selected_file_path=body.get("selected_file_path"),
+            selected_plate_key=body.get("selected_plate_key"),
+            selected_plate_index=body.get("selected_plate_index"),
+            source_file_name=body.get("source_file_name"),
+            attach_source_after_create=body.get("attach_source_after_create", False),
+            overrides=body.get("overrides"),
+        )
+    except Exception:
+        logger.exception("Failed to create slicer job")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal error creating slicer job"},
+        )
+
+    return JSONResponse(status_code=201, content=_slicer_job_to_dict(job))
+
+
+@router.get("/api/slicer/jobs")
+async def list_jobs(request: Request) -> JSONResponse:
+    """List slicer jobs with optional pagination and filters."""
+    state: AppState = request.app.state.model_catalog
+    params = request.query_params
+
+    limit = min(int(params.get("limit", "50")), 200)
+    offset = max(int(params.get("offset", "0")), 0)
+    status_filter = params.get("status")
+    source_kind_filter = params.get("source_kind")
+
+    if status_filter and status_filter not in VALID_STATUSES:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Invalid status filter: {status_filter!r}"},
+        )
+
+    jobs, total = list_slicer_jobs(
+        db_path=state.settings.db_path,
+        limit=limit,
+        offset=offset,
+        status=status_filter,
+        source_kind=source_kind_filter,
+    )
+
+    return JSONResponse(
+        content={
+            "items": [_slicer_job_to_dict(j) for j in jobs],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+    )
+
+
+@router.get("/api/slicer/jobs/{job_id}")
+async def get_job(job_id: str, request: Request) -> JSONResponse:
+    """Get a single slicer job by job_id."""
+    state: AppState = request.app.state.model_catalog
+    job = read_slicer_job(db_path=state.settings.db_path, job_id=job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Slicer job not found: {job_id}"},
+        )
+    return JSONResponse(content=_slicer_job_to_dict(job))
+
+
+@router.patch("/api/slicer/jobs/{job_id}")
+async def patch_job(job_id: str, request: Request) -> JSONResponse:
+    """Update mutable fields on a draft slicer job."""
+    state: AppState = request.app.state.model_catalog
+    body: dict[str, Any] = await request.json()
+
+    try:
+        job = update_slicer_job(
+            db_path=state.settings.db_path,
+            job_id=job_id,
+            source_ref=body.get("source_ref"),
+            local_model_id=body.get("local_model_id"),
+            working_file_path=body.get("working_file_path"),
+            requested_print_started_at=body.get("requested_print_started_at"),
+            requested_print_completed_at=body.get("requested_print_completed_at"),
+            requested_print_timezone=body.get("requested_print_timezone"),
+            date_override_strategy=body.get("date_override_strategy"),
+            selected_file_path=body.get("selected_file_path"),
+            selected_plate_key=body.get("selected_plate_key"),
+            selected_plate_index=body.get("selected_plate_index"),
+            source_file_name=body.get("source_file_name"),
+            attach_source_after_create=body.get("attach_source_after_create"),
+            overrides=body.get("overrides"),
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=409, content={"error": str(exc)})
+
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Slicer job not found: {job_id}"},
+        )
+
+    return JSONResponse(content=_slicer_job_to_dict(job))
+
+
+@router.post("/api/slicer/jobs/{job_id}/transition")
+async def transition_job(job_id: str, request: Request) -> JSONResponse:
+    """Transition a slicer job to a new status.
+
+    Request body must include ``{"status": "<new_status>"}``.
+    Additional optional fields are applied as transition payload.
+    """
+    state: AppState = request.app.state.model_catalog
+    body: dict[str, Any] = await request.json()
+
+    new_status = body.get("status")
+    if not new_status:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Missing required field: status"},
+        )
+
+    if new_status not in VALID_STATUSES:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Invalid status: {new_status!r}"},
+        )
+
+    try:
+        job = transition_slicer_job(
+            db_path=state.settings.db_path,
+            job_id=job_id,
+            new_status=new_status,
+            last_error=body.get("last_error"),
+            validation_warnings=body.get("validation_warnings"),
+            worker_provider=body.get("worker_provider"),
+            worker_job_id=body.get("worker_job_id"),
+            sliced_output_path=body.get("sliced_output_path"),
+            sliced_output_sha256=body.get("sliced_output_sha256"),
+            source_sha256=body.get("source_sha256"),
+            created_archive_id=body.get("created_archive_id"),
+            commit_request=body.get("commit_request"),
+            result_summary=body.get("result_summary"),
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=409, content={"error": str(exc)})
+
+    return JSONResponse(content=_slicer_job_to_dict(job))
+
+
+@router.delete("/api/slicer/jobs/{job_id}")
+async def delete_job(job_id: str, request: Request) -> JSONResponse:
+    """Delete a slicer job (only draft/cancelled/failed jobs)."""
+    state: AppState = request.app.state.model_catalog
+
+    try:
+        deleted = delete_slicer_job(
+            db_path=state.settings.db_path, job_id=job_id,
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=409, content={"error": str(exc)})
+
+    if not deleted:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Slicer job not found: {job_id}"},
+        )
+
+    return JSONResponse(status_code=204, content=None)

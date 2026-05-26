@@ -48,6 +48,10 @@ services:
       
       # Local authority is the default mode.
       MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-true}
+
+      # Slicer API integration (requires bambu-studio-api service)
+      USE_SLICER_API: ${USE_SLICER_API:-false}
+      BAMBU_STUDIO_API_URL: ${BAMBU_STUDIO_API_URL:-http://bambu-studio-api:3000}
     
     volumes:
       # Named volume for service-owned database and ephemeral cache

@@ -1351,8 +1351,23 @@ class UnifiedQueueBoardCard extends HTMLElement {
     this._render();
     try {
       await this._createIdeaEntity(this._ideaCreateDraft);
+
+      // Also add a queue entry so the idea appears on the board
+      var notes = String(this._ideaCreateDraft.notes || '').trim() || null;
+      await addUnifiedQueueEntry({
+        queueApiBase: this._getQueueApiBase(),
+        printerId: this.printerId,
+        payload: {
+          source_kind: 'idea',
+          title: 'Idea: ' + title,
+          state: 'up_next',
+          queue_notes: notes,
+        },
+      });
+
       this._ideaCreateDialogOpen = false;
       this._ideaCreateSubmitting = false;
+      await this._loadQueueData();
       this._setFlashMessage('Idea created successfully.', 'success');
       this._render();
     } catch (err) {
