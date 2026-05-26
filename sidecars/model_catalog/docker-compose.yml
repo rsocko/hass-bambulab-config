@@ -185,6 +185,30 @@ services:
     depends_on:
       - model-catalog
 
+  bambu-studio-api:
+    image: registry.socko.us/bambu-studio-api:${BAMBU_STUDIO_API_IMAGE_TAG:-bambu02.06.00.51}
+    container_name: bambu-studio-api
+    restart: unless-stopped
+
+    # Internal network only — no host port published.
+    # Model Catalog reaches this service at http://bambu-studio-api:3000
+    networks:
+      - default
+
+    volumes:
+      - ./data/bambu-studio-api:/app/data
+
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
 volumes:
   model_catalog_data:
     # Named volume stores:
