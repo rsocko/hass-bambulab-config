@@ -3,6 +3,7 @@
 Workstream A / Slice 1 — ``GET /api/slicer/providers``
 Workstream B / Slice 2 — ``/api/slicer/jobs`` CRUD and lifecycle
 Workstream B / Slice 4 — ``POST /api/slicer/jobs/{job_id}/execute``
+Workstream B / Slice 5 — ``POST /api/slicer/jobs/{job_id}/commit-archive``
 """
 from __future__ import annotations
 
@@ -35,6 +36,12 @@ from ..slicer_bridge import (
     enqueue_slice,
     poll_until_terminal,
     retrieve_output,
+)
+from ..bambuddy_bridge import (
+    BambuddyBridgeError,
+    attach_source,
+    patch_archive,
+    upload_archive,
 )
 from ..state import AppState
 
@@ -505,3 +512,184 @@ def execute_job(job_id: str, request: Request) -> JSONResponse:
                 base_url=base_url,
                 request_id=upstream_request_id,
             )
+
+
+# -----------------------------------------------------------------------
+# Slice 5 — Commit archive (bridge to Bambuddy)
+# -----------------------------------------------------------------------
+
+
+@router.post("/api/slicer/jobs/{job_id}/commit-archive")
+async def commit_archive(job_id: str, request: Request) -> JSONResponse:
+    """Commit sliced output to Bambuddy as a canonical archive.
+
+    Uploads the ``.gcode.3mf`` to Bambuddy, optionally patches metadata,
+    and optionally attaches the source ``.3mf`` for provenance.
+
+    The job transitions through ``sliced → committing → committed``
+    (or ``→ failed`` on error).
+
+    Request body fields:
+        bambuddy_base_url (str, required): Bambuddy instance URL.
+        bambuddy_api_key (str | None): API key for Bambuddy.
+        printer_id (int | str, required): Target printer in Bambuddy.
+        patch_metadata (dict | None): Optional fields to PATCH onto the
+            archive after creation (e.g. started_at, completed_at, tags).
+    """
+    state: AppState = request.app.state.model_catalog
+    settings: Settings = state.settings
+
+    # 1. Parse request body
+    body: dict[str, Any] = await request.json()
+
+    bambuddy_base_url = body.get("bambuddy_base_url")
+    bambuddy_api_key = body.get("bambuddy_api_key")
+    printer_id = body.get("printer_id")
+
+    if not bambuddy_base_url:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Missing required field: bambuddy_base_url"},
+        )
+    if not printer_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Missing required field: printer_id"},
+        )
+
+    # 2. Read and validate job
+    job = read_slicer_job(db_path=settings.db_path, job_id=job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Slicer job not found: {job_id}"},
+        )
+
+    # Idempotency: if already committed, return the existing result
+    if job.status == "committed" and job.created_archive_id:
+        return JSONResponse(content=_slicer_job_to_dict(job))
+
+    if job.status != "sliced":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": (
+                    f"Job {job_id} is in status '{job.status}'; "
+                    "must be 'sliced' to commit archive"
+                ),
+            },
+        )
+
+    # 3. Verify sliced output exists
+    if not job.sliced_output_path:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Job {job_id} has no sliced_output_path set"},
+        )
+    output_path = Path(job.sliced_output_path)
+    if not output_path.is_file():
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Sliced output not found: {job.sliced_output_path}"},
+        )
+
+    # Build commit_request record for audit
+    commit_request_record: dict[str, Any] = {
+        "bambuddy_base_url": bambuddy_base_url,
+        "printer_id": printer_id,
+        "attach_source_after_create": job.attach_source_after_create,
+        "patch_metadata": body.get("patch_metadata"),
+    }
+
+    try:
+        # 4. Transition to committing
+        transition_slicer_job(
+            db_path=settings.db_path,
+            job_id=job_id,
+            new_status="committing",
+            commit_request=commit_request_record,
+        )
+
+        # 5. Upload sliced .gcode.3mf to Bambuddy
+        upload_result = upload_archive(
+            base_url=bambuddy_base_url,
+            api_key=bambuddy_api_key,
+            gcode_3mf_path=output_path,
+            printer_id=printer_id,
+        )
+        created_archive_id = upload_result.archive_id
+
+        # 6. Optionally patch metadata (timestamps, tags, etc.)
+        patch_metadata = body.get("patch_metadata")
+        patch_response: dict[str, Any] | None = None
+        if patch_metadata:
+            patch_result = patch_archive(
+                base_url=bambuddy_base_url,
+                api_key=bambuddy_api_key,
+                archive_id=created_archive_id,
+                patch_body=patch_metadata,
+            )
+            patch_response = patch_result.raw_response
+
+        # 7. Optionally attach source .3mf
+        source_response: dict[str, Any] | None = None
+        if job.attach_source_after_create and job.working_file_path:
+            source_path = Path(job.working_file_path)
+            if source_path.is_file():
+                source_result = attach_source(
+                    base_url=bambuddy_base_url,
+                    api_key=bambuddy_api_key,
+                    archive_id=created_archive_id,
+                    source_3mf_path=source_path,
+                )
+                source_response = source_result.raw_response
+
+        # 8. Transition to committed
+        result_summary: dict[str, Any] = {
+            "created_archive_id": created_archive_id,
+            "upload_response": upload_result.raw_response,
+        }
+        if patch_response is not None:
+            result_summary["patch_response"] = patch_response
+        if source_response is not None:
+            result_summary["source_response"] = source_response
+
+        job = transition_slicer_job(
+            db_path=settings.db_path,
+            job_id=job_id,
+            new_status="committed",
+            created_archive_id=str(created_archive_id),
+            result_summary=result_summary,
+        )
+        return JSONResponse(content=_slicer_job_to_dict(job))
+
+    except BambuddyBridgeError as exc:
+        logger.exception("Bambuddy bridge error for job %s", job_id)
+        try:
+            job = transition_slicer_job(
+                db_path=settings.db_path,
+                job_id=job_id,
+                new_status="failed",
+                last_error=str(exc),
+            )
+        except ValueError:
+            pass
+        return JSONResponse(
+            status_code=502,
+            content={"error": str(exc)},
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error committing archive for job %s", job_id)
+        try:
+            job = transition_slicer_job(
+                db_path=settings.db_path,
+                job_id=job_id,
+                new_status="failed",
+                last_error=f"Unexpected error: {exc}",
+            )
+        except ValueError:
+            pass
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal error: {exc}"},
+        )

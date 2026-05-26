@@ -1,7 +1,7 @@
 # Print History Slicer Integration Design
 
 > **Status**: Design proposal for review
-> **Last updated**: 2026-05-09
+> **Last updated**: 2026-05-16
 > **Scope**: Model Catalog orchestration for source `.3mf` validation, optional filament override, local headless slicing, and canonical Bambuddy archive creation.
 
 See also:
@@ -337,6 +337,14 @@ On success:
 
 ## Validation Layer Design
 
+> **Implementation note (2026-05-16)**: The validation layer described in this
+> section was **deferred** during implementation.  The upstream bambu-studio-api
+> (orca-slicer runtime) already handles printer, process, and filament preset
+> validation at slice-time and returns structured errors.  Building a parallel
+> validation / filament-substitution layer in the Model Catalog sidecar would
+> duplicate that work.  The sections below are preserved as design reference in
+> case a future pre-flight dry-run validation surface is needed.
+
 The validation UI should treat timestamp review as a first-class review category beside printer, process, and filament completeness.
 
 ### Printer validation
@@ -636,10 +644,10 @@ Primary operator questions:
 
 ### Phase 1
 
-- add local worker capability detection
-- create read-only validation + slice-job orchestration contract
-- wire to local worker only
-- allow deterministic filament substitution from Filament Catalog candidates
+- ~~add local worker capability detection~~ ✅ Slice 1
+- ~~create read-only validation + slice-job orchestration contract~~ ✅ Slice 2
+- ~~wire to local worker only~~ ✅ Slice 4
+- ~~allow deterministic filament substitution from Filament Catalog candidates~~ — Deferred; upstream bambu-studio-api handles preset validation
 
 ### Phase 2
 

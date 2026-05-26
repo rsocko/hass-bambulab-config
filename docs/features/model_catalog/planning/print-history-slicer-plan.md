@@ -1,7 +1,7 @@
 # Print History Slicer Implementation Plan
 
 > **Status**: Planning document
-> **Last updated**: 2026-05-09
+> **Last updated**: 2026-05-16
 > **Scope**: Concrete implementation slices for a local Model Catalog slicer worker that produces Bambuddy-compatible canonical archive inputs from source `.3mf` files.
 
 See also:
@@ -56,16 +56,16 @@ Acceptance notes:
 
 ### Workstream C: Validation assembly
 
-Deliverables:
-
-- transform `.3mf` analysis cache plus source metadata into validation DTOs
-- printer/process/filament warning synthesis
-- deterministic filament candidate generation from Filament Catalog or Spoolman projections
-
-Acceptance notes:
-
-- warnings must be machine-readable and UI-ready
-- the validator must not require a full preset-management clone
+> **Status**: Deferred — not needed.
+>
+> The upstream bambu-studio-api (orca-slicer runtime) already handles printer,
+> process, and filament preset management.  It validates file compatibility and
+> returns structured errors during slicing.  Building a parallel validation /
+> filament-substitution layer in the Model Catalog sidecar would duplicate that
+> work with no incremental value for the first end-to-end release.
+>
+> If a future need arises (e.g. pre-flight dry-run validation before the
+> operator commits to a slice), this workstream can be revisited.
 
 ### Workstream D: Internal worker API and runtime
 
@@ -114,13 +114,13 @@ Acceptance notes:
 
 ## Suggested Phase Breakdown
 
-### Slice 1: Worker health and capability reporting
+### Slice 1: Worker health and capability reporting  ✅
 
 Target outcome:
 
 - system can detect and report local slicer worker availability
 
-### Slice 2: Slice-job schema and sidecar API
+### Slice 2: Slice-job schema and sidecar API  ✅
 
 Target outcome:
 
@@ -128,11 +128,11 @@ Target outcome:
 
 ### Slice 3: Validation assembly and filament candidate generation
 
-Target outcome:
+> **Status**: Skipped — upstream bambu-studio-api already handles preset
+> validation and returns structured errors during slicing.  No separate
+> validation / filament-candidate layer is needed for the first release.
 
-- sidecar returns deterministic warnings and filament substitution options from Filament Catalog linkage
-
-### Slice 4: Local worker analyze and slice execution
+### Slice 4: Local worker analyze and slice execution  ✅
 
 Target outcome:
 
@@ -153,7 +153,7 @@ Target outcome:
 ## Risks To Control Early
 
 1. Bambu Studio or OrcaSlicer runtime behavior may differ across host environments and container images.
-2. Source `.3mf` files may lack complete preset references in ways the validator cannot recover automatically.
+2. ~~Source `.3mf` files may lack complete preset references in ways the validator cannot recover automatically.~~ — Mitigated: upstream bambu-studio-api validates presets at slice-time and returns structured errors.
 3. Archive commit needs idempotent safeguards to avoid duplicate historical records.
 4. Historical print timestamps may be inferred or approximate, so the UI and API must preserve operator intent and confidence.
 5. Temp/output artifact growth can become operational debt if cleanup rules are not built in from the start.
@@ -161,10 +161,9 @@ Target outcome:
 ## Recommended Validation Strategy
 
 1. Start with one known-good source `.3mf` and one known-good target printer/process combination.
-2. Add a missing-filament case to prove the deterministic substitution flow.
-3. Add a mismatched-printer warning case.
-4. Add a timestamp-override case that proves the final archive commit uses the reviewed historical date/time rather than `now`.
-5. Add an archive-commit retry case after a forced Bambuddy failure.
+2. Rely on upstream bambu-studio-api for preset validation — it returns structured errors when slicing fails due to missing or incompatible presets.
+3. Add a timestamp-override case that proves the final archive commit uses the reviewed historical date/time rather than `now`.
+4. Add an archive-commit retry case after a forced Bambuddy failure.
 
 ## Issue Breakdown Recommendation
 
@@ -172,7 +171,7 @@ Recommended GitHub issues:
 
 1. Local slicer worker deployment and health contract
 2. Model Catalog slice-job schema and sidecar API
-3. Validation layer and Filament Catalog substitution contract
+3. ~~Validation layer and Filament Catalog substitution contract~~ — Skipped; upstream handles this
 4. Historical timestamp review and archive-commit contract
 5. Canonical archive commit and provenance follow-up
 6. HA workflow and UX states for source-3MF archive creation
