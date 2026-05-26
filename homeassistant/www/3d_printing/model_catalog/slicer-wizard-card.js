@@ -758,9 +758,6 @@
       this._startArchiveCommit();
     }
 
-      }
-    }
-
     _handlePreviousStep() {
       if (this._currentStep === "validation") {
         this._currentStep = "entry-point";
