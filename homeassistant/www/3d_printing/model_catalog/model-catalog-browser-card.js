@@ -3427,6 +3427,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return String(deltaYears) + "y ago";
   }
 
+  _formatBytes(value) {
+    var bytes = Number(value || 0);
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return "0 B";
+    }
+    var units = ["B", "KB", "MB", "GB", "TB"];
+    var unitIndex = 0;
+    while (bytes >= 1024 && unitIndex < units.length - 1) {
+      bytes = bytes / 1024;
+      unitIndex += 1;
+    }
+    var precision = unitIndex === 0 ? 0 : (bytes >= 10 ? 1 : 2);
+    return String(bytes.toFixed(precision)) + " " + units[unitIndex];
+  }
+
   _escapeHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -3567,6 +3582,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._multiSelectMode) {
       return this._renderMultiSelectStrip('');
     }
+    if (this._browserScope === "working") {
+      return ''
+        + '<div class="page-control-strip">'
+        + '  <div class="toolbar-group display-group">'
+        + '    <button class="toolbar-icon-btn refresh-btn' + (this._refreshSpin ? ' spinning' : '') + '" type="button" data-action="refresh-page" aria-label="Refresh working projection" title="Refresh" ' + (this._loading ? 'disabled' : '') + '><ha-icon icon="mdi:refresh"></ha-icon></button>'
+        + '    <button class="toolbar-btn" type="button" data-action="open-working-folder">Open Working Files</button>'
+        + '  </div>'
+        + '</div>';
+    }
     return ''
       + '<div class="page-control-strip">'
       + this._renderNavigationControls()
@@ -3591,6 +3615,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _renderBottomMirrorStrip() {
     if (this._multiSelectMode) {
       return this._renderMultiSelectStrip(' bottom-mirror');
+    }
+    if (this._browserScope === "working") {
+      return '';
     }
     return ''
       + '<div class="page-control-strip bottom-mirror">'
@@ -3662,6 +3689,251 @@ class ModelCatalogBrowserCard extends HTMLElement {
         launch_wizard: nextMode,
       },
     });
+  }
+
+  _coerceWorkingCount(value) {
+    var count = Number(value || 0);
+    if (!Number.isFinite(count)) {
+      return 0;
+    }
+    return Math.max(0, Math.floor(count));
+  }
+
+  _buildWorkingProjectionEntries(payload) {
+    var rootPath = String(payload && payload.root_path || "").trim();
+    var groups = Array.isArray(payload && payload.groups) ? payload.groups : [];
+    var entries = [];
+
+    for (var i = 0; i < groups.length; i++) {
+      var group = groups[i] || {};
+      var slug = String(group.slug || "").trim();
+      var name = String(group.name || slug || "Working Folder").trim() || "Working Folder";
+      if (!slug) {
+        continue;
+      }
+      entries.push({
+        projection_type: "working_folder",
+        id: "working-folder:" + slug,
+        slug: slug,
+        name: name,
+        file_count: this._coerceWorkingCount(group.file_count),
+        size_bytes: this._coerceWorkingCount(group.size_bytes),
+        count_3mf: this._coerceWorkingCount(group.count_3mf),
+        has_modelmeta: !!group.has_modelmeta,
+        has_readme: !!group.has_readme,
+        last_seen_at: String(group.last_seen_at || "").trim(),
+        folder_path: rootPath ? (rootPath + "/" + name) : name,
+      });
+    }
+
+    var loose = payload && payload.loose && typeof payload.loose === "object" ? payload.loose : {};
+    var looseCount = this._coerceWorkingCount(loose.file_count);
+    if (looseCount > 0) {
+      entries.push({
+        projection_type: "working_loose",
+        id: "working-folder:__loose__",
+        slug: "__loose__",
+        name: "(loose files)",
+        file_count: looseCount,
+        size_bytes: this._coerceWorkingCount(loose.size_bytes),
+        count_3mf: 0,
+        has_modelmeta: false,
+        has_readme: false,
+        last_seen_at: String(loose.last_seen_at || "").trim(),
+        folder_path: rootPath,
+      });
+    }
+
+    return entries;
+  }
+
+  _sortWorkingProjection(entries) {
+    var list = Array.isArray(entries) ? entries.slice() : [];
+    var sortKey = String(this._filters.sort || "recent").trim().toLowerCase();
+    if (sortKey === "name") {
+      list.sort(function (a, b) {
+        return String(a.name || "").toLowerCase().localeCompare(String(b.name || "").toLowerCase());
+      });
+      return list;
+    }
+    if (sortKey === "common") {
+      list.sort(function (a, b) {
+        return Number(b.size_bytes || 0) - Number(a.size_bytes || 0);
+      });
+      return list;
+    }
+    list.sort(function (a, b) {
+      var aTime = Date.parse(String(a.last_seen_at || ""));
+      var bTime = Date.parse(String(b.last_seen_at || ""));
+      var safeA = Number.isFinite(aTime) ? aTime : 0;
+      var safeB = Number.isFinite(bTime) ? bTime : 0;
+      if (safeA === safeB) {
+        return String(a.name || "").toLowerCase().localeCompare(String(b.name || "").toLowerCase());
+      }
+      return safeB - safeA;
+    });
+    return list;
+  }
+
+  async _loadWorkingProjectionPage(refresh) {
+    if (!this._hass) {
+      return;
+    }
+
+    this._loading = true;
+    this._error = "";
+    this._refreshSpin = !!refresh;
+    this._doRender();
+
+    try {
+      var payload = await this._callServiceWithResponse("rest_command", "model_catalog_working_files_tree", {
+        refresh: !!refresh,
+      });
+      this._workingProjectionRootPath = String(payload && payload.root_path || "").trim();
+      var entries = this._buildWorkingProjectionEntries(payload);
+      var q = String(this._filters.q || "").trim().toLowerCase();
+      if (q) {
+        entries = entries.filter(function (entry) {
+          var haystack = String(entry.name || "") + "\n" + String(entry.slug || "") + "\n" + String(entry.folder_path || "");
+          return haystack.toLowerCase().indexOf(q) >= 0;
+        });
+      }
+      this._workingProjection = this._sortWorkingProjection(entries);
+      this._results = [];
+      this._pagination.page = 1;
+      this._pagination.per_page = 96;
+      this._pagination.total = this._workingProjection.length;
+      this._pagination.total_pages = 1;
+      this._visibilityCounts = { active: 0, archived: 0 };
+      this._serverEntityTypeCounts = { model: 0, idea: 0 };
+    } catch (error) {
+      this._workingProjection = [];
+      this._results = [];
+      this._pagination.page = 1;
+      this._pagination.total = 0;
+      this._pagination.total_pages = 1;
+      this._error = error && error.message ? String(error.message) : "Could not load Working Files projection.";
+    } finally {
+      this._loading = false;
+      this._refreshSpin = false;
+      this._renderNow();
+    }
+  }
+
+  _renderWorkingFolderCard(entry) {
+    var name = String(entry && entry.name || "Working Folder").trim() || "Working Folder";
+    var slug = String(entry && entry.slug || "").trim();
+    var folderPath = String(entry && entry.folder_path || "").trim();
+    var fileCount = this._coerceWorkingCount(entry && entry.file_count);
+    var modelCount = this._coerceWorkingCount(entry && entry.count_3mf);
+    var sizeBytes = this._coerceWorkingCount(entry && entry.size_bytes);
+    var hasSidecar = !!(entry && (entry.has_modelmeta || entry.has_readme));
+    var relativeLabel = this._relativeTimeLabel(String(entry && entry.last_seen_at || "").trim());
+    var loose = String(entry && entry.projection_type || "") === "working_loose";
+    return ''
+      + '<article class="model-card view-list working-folder-card" tabindex="0" role="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '" aria-label="Open Working Files for ' + this._escapeHtml(name) + '">'
+      + '  <div class="thumb-wrap list-wrap">'
+      + '    <div class="thumb list-thumb working-thumb">'
+      + '      <ha-icon icon="' + this._escapeHtml(loose ? 'mdi:file-multiple-outline' : 'mdi:folder-cog-outline') + '"></ha-icon>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="body list-body">'
+      + '    <div class="list-top-row">'
+      + '      <div class="list-title-block">'
+      + '        <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '        <div class="subtle-line">'
+      + this._renderModelTagChip('Working Files projection', 'subtle-chip')
+      + (hasSidecar ? this._renderModelTagChip('Sidecar', 'signal-chip') : this._renderModelTagChip('No sidecar', 'subtle-chip'))
+      + '        </div>'
+      + '      </div>'
+      + '    </div>'
+      + '    <div class="metrics list-metrics">'
+      + this._renderModelMetric('Files', fileCount)
+      + this._renderModelMetric('3MF', modelCount)
+      + this._renderModelMetric('Size', this._formatBytes(sizeBytes))
+      + '    </div>'
+      + '    <div class="list-bottom-row">'
+      + '      <div class="tags">'
+      + this._renderModelTagChip('Updated ' + relativeLabel, 'subtle-chip')
+      + (folderPath ? this._renderModelTagChip(folderPath, 'subtle-chip source-chip') : '')
+      + '      </div>'
+      + '      <div class="compact-file-kinds list-file-kinds">'
+      + '        <button class="toolbar-btn" type="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '">Open Working Files</button>'
+      + (loose || !folderPath ? '' : '<button class="toolbar-btn ghost" type="button" data-action="open-working-intake" data-folder-path="' + this._escapeHtml(folderPath) + '">Run Intake</button>')
+      + '      </div>'
+      + '    </div>'
+      + '  </div>'
+      + '</article>';
+  }
+
+  _renderWorkingProjectionCards() {
+    var rows = Array.isArray(this._workingProjection) ? this._workingProjection : [];
+    if (!rows.length) {
+      return '<div class="state-row">No Working Files folders match the current search.</div>';
+    }
+    return rows.map(this._renderWorkingFolderCard.bind(this)).join('');
+  }
+
+  async _openWorkingFilesWorkspace(folderSlug) {
+    var slug = String(folderSlug || "").trim();
+    if (slug) {
+      try {
+        window.__modelCatalogWorkingFocusSlug = slug;
+      } catch (_error) {
+      }
+      try {
+        window.dispatchEvent(new CustomEvent('model-catalog-working-focus', {
+          detail: { folder_slug: slug },
+          bubbles: true,
+          composed: true,
+        }));
+      } catch (_eventError) {
+      }
+    }
+
+    var shared = window.ModelCatalogIntakeShared;
+    if (shared && typeof shared.selectInputOption === "function" && this._hass) {
+      try {
+        await shared.selectInputOption(this._hass, "input_select.model_catalog_workspace_view", "working");
+        return;
+      } catch (_sharedError) {
+      }
+    }
+
+    if (this._hass) {
+      try {
+        await this._callServiceWithResponse("input_select", "select_option", {
+          entity_id: "input_select.model_catalog_workspace_view",
+          option: "working",
+        });
+      } catch (_serviceError) {
+      }
+    }
+  }
+
+  _launchWorkingFolderIntake(folderPath) {
+    var normalizedPath = String(folderPath || "").trim();
+    if (!normalizedPath) {
+      return;
+    }
+    var launchOptions = { mode: "server", rootKind: "working", startPath: normalizedPath };
+    try {
+      window.__modelCatalogPendingIntakeLaunch = launchOptions;
+    } catch (_pendingError) {
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('model-catalog-intake-launch', {
+        detail: launchOptions,
+        bubbles: true,
+        composed: true,
+      }));
+    } catch (_dispatchError) {
+    }
+    var shared = window.ModelCatalogIntakeShared;
+    var selectFn = shared && shared.selectInputOption;
+    if (typeof selectFn === "function" && this._hass) {
+      selectFn(this._hass, 'input_select.model_catalog_workspace_view', 'intake');
+    }
   }
 
   _renderModelCard(model) {
@@ -4476,7 +4748,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _getVisibleModelRefs() {
-    if (this._browserScope === "collections") {
+    if (this._browserScope === "collections" || this._browserScope === "working") {
       return [];
     }
     var visibleResults = this._filteredResultsForScope();
@@ -4703,9 +4975,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else if (this._error) {
       resultsHtml = '<div class="state-row error">' + this._escapeHtml(this._error) + '</div>';
     } else if (!visibleResults.length) {
-      resultsHtml = '<div class="state-row">No models match the current filters.</div>';
+      resultsHtml = '<div class="state-row">'
+        + (this._browserScope === "working"
+          ? 'No Working Files folders match the current search.'
+          : 'No models match the current filters.')
+        + '</div>';
     } else if (this._browserScope === "collections") {
       resultsHtml = this._renderCollectionCards();
+    } else if (this._browserScope === "working") {
+      resultsHtml = this._renderWorkingProjectionCards();
     } else {
       if (this._shouldProgressiveResultsRender(visibleResults)) {
         var initialCount = Math.min(18, visibleResults.length);
@@ -4798,6 +5076,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'
       + '.results.view-list{grid-template-columns:1fr;}'
       + '.results.view-collections{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));}'
+      + '.results.view-working{grid-template-columns:1fr;}'
+      + '.working-filter-row{grid-template-columns:minmax(220px,1fr) auto auto;}'
+      + '.working-folder-card{cursor:pointer;}'
+      + '.working-thumb{display:flex;align-items:center;justify-content:center;background:rgba(56,189,248,0.10);}'
+      + '.working-thumb ha-icon{--mdc-icon-size:38px;color:#7dd3fc;}'
       + '.results.media-hidden .thumb-wrap,.results.media-hidden .media-wrap,.results.media-hidden .list-wrap{display:none !important;}'
       + '.results.media-hidden .model-card.view-compact,.results.media-hidden .model-card.view-list{grid-template-columns:1fr;}'
       + '.collection-card{display:grid;gap:8px;padding:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.20),rgba(15,23,42,0.10));}'
@@ -5053,7 +5336,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderFilterBar()
       + this._renderPageControlStrip()
       + '    </div>'
-      + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
+      + '    <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : (this._browserScope === "working" ? "working" : this._viewMode)) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + this._renderQueueDialog()
       + this._renderIdeaCreateDialog()
