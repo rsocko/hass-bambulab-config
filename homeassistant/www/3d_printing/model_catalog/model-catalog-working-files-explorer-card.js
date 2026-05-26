@@ -298,9 +298,11 @@
     + '.overflow-menu .sep{height:1px;background:var(--border);margin:4px 0;}'
     /* Group body */
     + '.group-body{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}'
-    + '.body-loading{font-size:12px;color:var(--text-muted);padding:14px 4px;}'
+    + '.body-loading{display:inline-flex;align-items:center;gap:9px;font-size:12px;color:var(--text-muted);padding:14px 4px;}'
+    + '.loading-inline{width:13px;height:13px;border-radius:50%;border:2px solid rgba(148,163,184,0.25);border-top-color:var(--accent);animation:wfe-spin 0.9s linear infinite;flex-shrink:0;}'
     /* Sidecar strip */
     + '.sidecar{display:grid;grid-template-columns:1fr auto;gap:14px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:rgba(15,19,26,0.45);}'
+    + '.sidecar.no-side{grid-template-columns:1fr;}'
     + '.sidecar .body{min-width:0;}'
     + '.sidecar .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}'
     + '.sidecar .tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:rgba(96,165,250,0.10);border:1px solid rgba(96,165,250,0.28);color:#bfdbfe;font-size:10.5px;font-weight:600;}'
@@ -556,7 +558,21 @@
       var entry = this._groupDetails[normalized];
       if (entry && entry.loading) return;
       if (entry && !force && entry.files && entry.detail) return;
-      this._groupDetails[normalized] = Object.assign({}, entry || {}, { loading: true, error: '' });
+
+      var isFoldersMode = this._groupViewMode[normalized] === 'folders';
+      this._groupDetails[normalized] = Object.assign({}, entry || {}, {
+        loading: true,
+        error: '',
+        loadingLabel: normalized === LOOSE_SLUG
+          ? 'Loading loose files...'
+          : (isFoldersMode ? 'Loading sidecar and folder view...' : 'Loading sidecar and files...'),
+      });
+
+      // For folders mode, start folder payload fetch immediately so it can race in parallel.
+      if (isFoldersMode && normalized !== LOOSE_SLUG) {
+        this._loadGroupFolders(normalized, { force: force });
+      }
+
       this._render();
       try {
         if (normalized === LOOSE_SLUG) {
@@ -565,36 +581,38 @@
           });
           this._groupDetails[normalized] = {
             loading: false,
+            loadingLabel: '',
             detail: null,
             files: Array.isArray(loose && loose.files) ? loose.files : [],
             pagination: loose && loose.pagination ? loose.pagination : null,
             error: '',
           };
         } else {
-          var detail = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_working_files_group_detail', {
+          var detailPromise = callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_working_files_group_detail', {
             folder_slug: normalized,
           });
-          var filesResp = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_working_files_group_files', {
+          var filesPromise = callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_working_files_group_files', {
             folder_slug: normalized,
             mode: 'files',
             limit: 500,
             offset: 0,
           });
+          var results = await Promise.all([detailPromise, filesPromise]);
+          var detail = results[0];
+          var filesResp = results[1];
           this._groupDetails[normalized] = {
             loading: false,
+            loadingLabel: '',
             detail: detail,
             files: Array.isArray(filesResp && filesResp.files) ? filesResp.files : [],
             pagination: filesResp && filesResp.pagination ? filesResp.pagination : null,
             error: '',
           };
-          // If user is currently viewing in folders mode, also (re)fetch folders payload.
-          if (this._groupViewMode[normalized] === 'folders') {
-            this._loadGroupFolders(normalized, { force: true });
-          }
         }
       } catch (error) {
         this._groupDetails[normalized] = Object.assign({}, this._groupDetails[normalized] || {}, {
           loading: false,
+          loadingLabel: '',
           error: error && error.message ? String(error.message) : 'Could not load group.',
         });
       } finally {
@@ -609,7 +627,11 @@
       var cached = this._groupFolders[normalized];
       if (cached && cached.loading) return;
       if (cached && !force && Array.isArray(cached.folders)) return;
-      this._groupFolders[normalized] = Object.assign({}, cached || {}, { loading: true, error: '' });
+      this._groupFolders[normalized] = Object.assign({}, cached || {}, {
+        loading: true,
+        loadingLabel: 'Loading folders and file counts...',
+        error: '',
+      });
       this._render();
       try {
         var resp = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_working_files_group_files', {
@@ -620,12 +642,14 @@
         });
         this._groupFolders[normalized] = {
           loading: false,
+          loadingLabel: '',
           folders: Array.isArray(resp && resp.folders) ? resp.folders : [],
           error: '',
         };
       } catch (error) {
         this._groupFolders[normalized] = {
           loading: false,
+          loadingLabel: '',
           folders: [],
           error: error && error.message ? String(error.message) : 'Could not load folders.',
         };
@@ -1104,8 +1128,9 @@
       var readmeText = this._readmeExcerpt(sidecar.readme);
       var sideKv = this._modelmetaSideKv(detail);
       var metaPath = detail.folder_path ? String(detail.folder_path) + '/.modelmeta.json' : '';
+      var hasSideCol = sideKv.length > 0;
       return ''
-        + '<div class="sidecar">'
+        + '<div class="sidecar' + (hasSideCol ? '' : ' no-side') + '">'
         + '<div class="body">'
         + (tags.length ? '<div class="tags">' + tags.map(function (t) { return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('') + '</div>' : '')
         + (readmeText
@@ -1115,11 +1140,11 @@
             ? '<div class="meta-source">meta-source: <button data-action="open-folder" data-path="' + escapeHtml(metaPath) + '" title="Open in file manager">' + escapeHtml(metaPath) + '</button></div>'
             : '')
         + '</div>'
-        + (sideKv.length
+        + (hasSideCol
             ? '<div class="side">' + sideKv.map(function (entry) {
                 return '<div class="kv"><span class="k">' + escapeHtml(entry.k) + '</span> ' + escapeHtml(entry.v) + '</div>';
               }).join('') + '</div>'
-            : '<div class="side"></div>')
+            : '')
         + '</div>';
     }
 
@@ -1218,7 +1243,8 @@
       var slug = String(group.slug || '');
       var entry = this._groupDetails[slug];
       if (!entry || entry.loading) {
-        return '<div class="group-body"><div class="body-loading">Loading group contents…</div></div>';
+        var loadingText = entry && entry.loadingLabel ? String(entry.loadingLabel) : 'Loading group contents...';
+        return '<div class="group-body"><div class="body-loading"><span class="loading-inline" aria-hidden="true"></span>' + escapeHtml(loadingText) + '</div></div>';
       }
       if (entry.error) {
         return '<div class="group-body"><div class="banner error">' + escapeHtml(entry.error) + '</div></div>';
@@ -1257,7 +1283,10 @@
       if (!folderState || folderState.loading) {
         // Kick off async load if not already loaded
         if (!folderState) this._loadGroupFolders(slug);
-        return '<div class="body-loading">Loading folders…</div>';
+        var loadingText = folderState && folderState.loadingLabel
+          ? String(folderState.loadingLabel)
+          : 'Loading folders...';
+        return '<div class="body-loading"><span class="loading-inline" aria-hidden="true"></span>' + escapeHtml(loadingText) + '</div>';
       }
       if (folderState.error) {
         return '<div class="banner error">' + escapeHtml(folderState.error) + '</div>';
