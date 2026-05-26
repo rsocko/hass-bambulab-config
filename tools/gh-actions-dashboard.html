@@ -95,14 +95,6 @@
       flex-shrink: 0;
     }
 
-    .refresh-text {
-      font-size: 14px;
-      color: var(--text-tertiary);
-      font-family: var(--font-mono);
-      min-width: 28px;
-      text-align: right;
-    }
-
     /* ── Buttons ──────────────────────────── */
     .btn-icon {
       background: none;
@@ -236,20 +228,11 @@
     .s-dot.failure { background: var(--failure); }
     .s-dot.in_progress {
       background: var(--running);
-      animation: pulse 2s ease-in-out infinite;
-      will-change: transform, opacity;
     }
     .s-dot.queued, .s-dot.waiting, .s-dot.pending {
       background: var(--pending);
-      animation: pulse 3s ease-in-out infinite;
-      will-change: transform, opacity;
     }
     .s-dot.cancelled, .s-dot.skipped { background: var(--cancelled); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-    }
 
     /* ── Run info ────────────────────────── */
     .run-info {
@@ -816,8 +799,14 @@
     }
 
     .beacon-running .beacon-dot {
-      animation: pulse 2s ease-in-out infinite;
-      will-change: transform, opacity;
+      opacity: 0.9;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
     }
 
   </style>
@@ -908,7 +897,6 @@
           <span class="header-repo">rsocko/hass-bambulab-config</span>
         </div>
         <div class="header-controls">
-          <span id="countdown-text" class="refresh-text">—</span>
           <button class="btn-icon" onclick="manualRefresh()" title="Refresh now">⟳</button>
           <button class="btn-icon" onclick="openSettings()" title="Settings">⚙</button>
         </div>
@@ -989,19 +977,19 @@ const S = {
   runs:     [],
   expanded: new Set(),
   jobs:     {},          // runId → jobs payload (cached for completed runs)
-  countdown: cfg.interval,
+  jobsLoading: new Set(),
   demo:     false,
   fetching: false,
 };
 
-let tickId = null;
+let refreshTimerId = null;
 let _renderRAF = 0;       // coalesce multiple render() calls per frame
 let _lastRunsJSON = '';   // skip render when data unchanged
 const _etags = {};        // path → { etag, data } for conditional requests
-const ACTIVE_INTERVAL = 3; // seconds between polls when jobs are running
+const ACTIVE_INTERVAL = 5; // seconds between polls when jobs are running
 
 // ── DOM refs (resolved once after DOM ready) ────────────────────
-let $content, $hdr, $cdText, $barFill, $demoBnr, $errBar, $toast;
+let $content, $hdr, $barFill, $demoBnr, $errBar, $toast;
 let $kpiRunning, $kpiRunningSub, $kpiRunningVal;
 let $kpiQueued,  $kpiQueuedSub,  $kpiQueuedVal;
 let $kpiFailed,  $kpiFailedSub,  $kpiFailedVal;
@@ -1011,7 +999,6 @@ let $beacon, $beaconText;
 function cacheDOMRefs() {
   $content = document.getElementById('content');
   $hdr     = document.getElementById('hdr');
-  $cdText  = document.getElementById('countdown-text');
   $barFill = document.getElementById('bar-fill');
   $demoBnr = document.getElementById('demo-banner');
   $errBar  = document.getElementById('error-bar');
@@ -1314,11 +1301,15 @@ function runDetail(r, child) {
 
   if (!cached) {
     h += `<div style="color:var(--text-tertiary)"><span class="spin"></span>&ensp;Loading…</div>`;
-    loadJobs(id).then(d => { S.jobs[id] = d; scheduleRender(); })
-                .catch(() => {
-                  const el = document.getElementById('det-' + id);
-                  if (el) el.innerHTML = '<div style="color:var(--failure)">Failed to load jobs</div>';
-                });
+    if (!S.jobsLoading.has(id)) {
+      S.jobsLoading.add(id);
+      loadJobs(id).then(d => { S.jobs[id] = d; scheduleRender(); })
+                  .catch(() => {
+                    const el = document.getElementById('det-' + id);
+                    if (el) el.innerHTML = '<div style="color:var(--failure)">Failed to load jobs</div>';
+                  })
+                  .finally(() => { S.jobsLoading.delete(id); });
+    }
   } else {
     for (const j of cached.jobs) {
       h += `<div class="job-label">${esc(j.name)}`;
@@ -1547,7 +1538,7 @@ function mdToHtml(md) {
 function updateSetting(k, v) {
   cfg[k] = +v;
   localStorage.setItem('ghd_' + k, v);
-  if (k === 'interval') { S.countdown = effectiveInterval(); startTick(); }
+  if (k === 'interval') scheduleNextRefresh();
   if (k === 'maxruns')  refresh();
 }
 
@@ -1566,11 +1557,14 @@ function toast(msg) {
   setTimeout(() => $toast.classList.remove('show'), 2500);
 }
 
-function manualRefresh() { S.countdown = 0; refresh(); }
+function manualRefresh() { refresh(); }
 
 // ── Refresh cycle ───────────────────────────────────────────────
 async function refresh() {
-  if (S.fetching) return;
+  if (S.fetching) {
+    scheduleNextRefresh(1);
+    return;
+  }
   S.fetching = true;
 
   try {
@@ -1599,10 +1593,10 @@ async function refresh() {
       showError(e.message);
     }
     // If hidden when error occurs, don't keep retrying
-    if (document.hidden) stopTick();
+    if (document.hidden) stopRefreshTimer();
   }
   S.fetching = false;
-  S.countdown = effectiveInterval();
+  scheduleNextRefresh();
 }
 
 function showError(msg) {
@@ -1610,8 +1604,11 @@ function showError(msg) {
   $errBar.classList.remove('hidden');
 }
 
-function stopTick() {
-  if (tickId) { clearInterval(tickId); tickId = null; }
+function stopRefreshTimer() {
+  if (refreshTimerId) {
+    clearTimeout(refreshTimerId);
+    refreshTimerId = null;
+  }
 }
 
 function effectiveInterval() {
@@ -1619,29 +1616,22 @@ function effectiveInterval() {
   return active ? ACTIVE_INTERVAL : cfg.interval;
 }
 
-function startTick() {
-  stopTick();
-  S.countdown = effectiveInterval();
-  tickId = setInterval(() => {
-    S.countdown--;
-    const ei = effectiveInterval();
-    // If the effective interval changed (job started/finished), snap the countdown
-    if (S.countdown > ei) S.countdown = ei;
-    const fast = ei < cfg.interval;
-    $cdText.textContent = S.countdown + 's';
-    $cdText.style.color = fast ? 'var(--running)' : '';
-    $cdText.title = fast ? 'Fast polling (' + ACTIVE_INTERVAL + 's) — jobs active' : 'Polling every ' + cfg.interval + 's';
-    if (S.countdown <= 0) refresh();
-  }, 1000);
+function scheduleNextRefresh(delaySeconds) {
+  stopRefreshTimer();
+  if (document.hidden) return;
+  const delay = Number.isFinite(delaySeconds) ? Math.max(1, delaySeconds) : effectiveInterval();
+  refreshTimerId = setTimeout(() => {
+    refreshTimerId = null;
+    refresh();
+  }, delay * 1000);
 }
 
 // ── Pause when tab is hidden (biggest perf win) ─────────────────
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    stopTick();
+    stopRefreshTimer();
   } else {
     refresh();
-    startTick();
   }
 });
 
@@ -1754,7 +1744,6 @@ function init() {
     $demoBnr.classList.add('hidden');
   }
   refresh();
-  startTick();
 }
 
 init();
