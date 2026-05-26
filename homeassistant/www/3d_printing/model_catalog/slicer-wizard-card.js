@@ -149,8 +149,22 @@
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          // Aggregate reachability across providers
-          const providers = data.providers || [];
+          // Normalize provider shape across sidecar revisions.
+          const providers = Array.isArray(data.providers)
+            ? data.providers.map((provider) => {
+                const status = String(provider && provider.status || "").toLowerCase();
+                const reachable = provider && provider.reachable === true
+                  || status === "available"
+                  || status === "healthy"
+                  || status === "ok";
+                return {
+                  ...provider,
+                  id: provider && (provider.id || provider.provider) || "Unknown",
+                  version_hint: provider && (provider.version_hint || provider.version || provider.status) || "-",
+                  reachable,
+                };
+              })
+            : [];
           const reachable = providers.length > 0 && providers.some((p) => p.reachable === true);
           this._workerStatus = {
             reachable,
