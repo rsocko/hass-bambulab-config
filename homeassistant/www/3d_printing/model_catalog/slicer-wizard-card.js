@@ -68,6 +68,7 @@
       };
       this._wizardState = {
         printer_id: null,
+        bambuddy_printer_id: "1",
         plate_index: 0,
         patch_metadata: {},
         historical_timestamp: null,
@@ -217,6 +218,7 @@
       };
       this._wizardState = {
         printer_id: null,
+        bambuddy_printer_id: "1",
         plate_index: 0,
         patch_metadata: {},
         historical_timestamp: null,
@@ -291,7 +293,7 @@
           </div>
 
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleCancel()}">Cancel</button>
+            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
             <button 
               class="btn btn-primary" 
               ?disabled="${!workerHealthy || this._loading}"
@@ -323,7 +325,7 @@
             </div>
           ` : ""}
           <div class="wizard-footer">
-            <button class="btn btn-secondary" @click="${() => this._handleCancel()}">Close</button>
+            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Close</button>
           </div>
         </div>
       `;
@@ -344,17 +346,18 @@
       // Build warnings list
       const warnings = [];
       if (!model.metadata?.printer) {
-        warnings.push("No printer preset selected for this model");
+        warnings.push("Printer preset not extracted from model metadata — the slicer will use the preset embedded in the 3MF file");
       }
       if (!model.metadata?.process) {
-        warnings.push("No process profile selected for this model");
+        warnings.push("Process profile not extracted — the slicer will use the process profile embedded in the 3MF file");
       }
       if (!model.metadata?.filament) {
-        warnings.push("No recommended filament specified");
+        warnings.push("Filament not extracted from model metadata — the slicer will use the filament settings embedded in the 3MF file");
       }
       if (!plates || plates.length === 0) {
-        warnings.push("No plate layout defined (will use first/default plate)");
+        warnings.push("No plate layout defined — will use first/default plate (plate index 0)");
       }
+      const hasMetadataWarnings = !model.metadata?.printer || !model.metadata?.process || !model.metadata?.filament;
 
       return `
         <div class="wizard-container">
@@ -389,8 +392,35 @@
                 <ul class="warnings-list">
                   ${warnings.map((w) => `<li>${this._escapeHtml(w)}</li>`).join("")}
                 </ul>
+                ${hasMetadataWarnings ? `
+                  <div class="preset-note">
+                    OrcaSlicer embeds printer, process, and filament settings inside the 3MF file itself. 
+                    These warnings mean the Model Catalog hasn't extracted that metadata — but the slicer 
+                    will still read the settings directly from the 3MF. No action is needed here.
+                  </div>
+                ` : ""}
               </div>
             ` : ""}
+
+            <div class="metadata-section">
+              <div class="section-title">Archive Commit Settings</div>
+              <div class="metadata-row">
+                <div class="metadata-label">Bambuddy Printer ID:</div>
+                <div class="metadata-value">
+                  <input
+                    type="text"
+                    class="bambuddy-printer-input"
+                    id="bambuddy-printer-id-input"
+                    value="${this._escapeHtml(this._wizardState.bambuddy_printer_id || "1")}"
+                    placeholder="1"
+                  />
+                </div>
+              </div>
+              <div class="preset-note">
+                Numeric Bambuddy printer DB id (not the Bambu Lab serial number). 
+                Default <strong>1</strong> = your first printer. Change if archiving to a different printer.
+              </div>
+            </div>
 
             ${plates && plates.length > 0 ? `
               <div class="plates-section">
@@ -417,6 +447,7 @@
           </div>
 
           <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
             <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
             <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
               Continue to Filament Selection
@@ -493,6 +524,7 @@
           </div>
 
           <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
             <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
             <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
               Continue to Timestamp
@@ -640,6 +672,7 @@
           </div>
 
           <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handleClose()}">Cancel</button>
             <button class="btn btn-secondary" @click="${() => this._handlePreviousStep()}">Back</button>
             <button class="btn btn-primary" @click="${() => this._handleNextStep()}">
               Continue to Progress Monitoring
@@ -799,7 +832,7 @@
     _buildCommitBody() {
       return {
         bambuddy_base_url: "http://bambuddy.socko.us",
-        printer_id: "1",
+        printer_id: String(this._wizardState.bambuddy_printer_id || "1"),
         patch_metadata: {
           tags: "slicer-created",
         },
@@ -2089,13 +2122,159 @@
               transform: rotate(360deg);
             }
           }
+
+          /* Step progress bar */
+          .slicer-outer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+          }
+
+          .slicer-outer > .wizard-container {
+            flex: 1;
+            min-height: 0;
+            height: auto;
+          }
+
+          .wiz-progress {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--bg-card-alt);
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            flex-shrink: 0;
+          }
+
+          .wiz-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 0 10px;
+            position: relative;
+            flex: 1;
+            min-width: 50px;
+          }
+
+          .wiz-step + .wiz-step::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 11px;
+            width: 1px;
+            height: 12px;
+            background: var(--border-color);
+          }
+
+          .wiz-step-num {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            color: var(--text-secondary);
+          }
+
+          .wiz-step.current .wiz-step-num {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 16%, var(--bg-primary));
+          }
+
+          .wiz-step.complete .wiz-step-num {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg-primary);
+          }
+
+          .wiz-step-lbl {
+            font-size: 10px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-weight: 500;
+            white-space: nowrap;
+          }
+
+          .wiz-step.current .wiz-step-lbl {
+            color: var(--text-primary);
+            font-weight: 600;
+          }
+
+          .wiz-step.complete .wiz-step-lbl {
+            color: var(--accent);
+          }
+
+          .bambuddy-printer-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 600;
+          }
+
+          .bambuddy-printer-input:focus {
+            outline: none;
+            border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+          }
+
+          .preset-note {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            font-style: italic;
+          }
           }
         </style>
-        ${content}
+        <div class="slicer-outer">
+          ${this._renderStepProgress()}
+          ${content}
+        </div>
       `;
 
       // Re-attach event listeners
       this._attachEventListeners();
+    }
+
+    _stepToIndex() {
+      const order = ["entry-point", "validation", "filament", "timestamp", "progress", "completion"];
+      const idx = order.indexOf(this._currentStep);
+      return idx >= 0 ? idx + 1 : 1;
+    }
+
+    _stepLabel(stepIndex) {
+      const labels = ["Begin", "Validate", "Filament", "Timestamp", "Slice", "Done"];
+      return labels[stepIndex - 1] || "";
+    }
+
+    _renderStepProgress() {
+      const totalSteps = 6;
+      const current = this._stepToIndex();
+      const items = [];
+      for (let i = 1; i <= totalSteps; i++) {
+        const isCurrent = i === current;
+        const isComplete = i < current;
+        items.push(
+          `<div class="wiz-step${isCurrent ? " current" : ""}${isComplete ? " complete" : ""}">` +
+          `<div class="wiz-step-num">${i}</div>` +
+          `<div class="wiz-step-lbl">${this._escapeHtml(this._stepLabel(i))}</div>` +
+          `</div>`
+        );
+      }
+      return `<div class="wiz-progress">${items.join("")}</div>`;
+    }
+
+    _handleClose() {
+      this._handleClosePopup();
     }
 
     _attachEventListeners() {
@@ -2119,6 +2298,8 @@
             btn.addEventListener("click", () => this._handleCreateAnother());
           } else if (clickHandler.includes("_handleClosePopup")) {
             btn.addEventListener("click", () => this._handleClosePopup());
+          } else if (clickHandler.includes("_handleClose")) {
+            btn.addEventListener("click", () => this._handleClose());
           } else if (clickHandler.includes("_handleOpenArchiveSearch")) {
             const url = String(btn.getAttribute("data-archive-search-url") || "").trim();
             btn.addEventListener("click", () => this._handleOpenArchiveSearch(url));
@@ -2164,6 +2345,16 @@
       const draftInput = this.shadowRoot.querySelector('.draft-checkbox input[type="checkbox"]');
       if (draftInput) {
         draftInput.addEventListener("change", (event) => this._handleDraftToggle(event));
+      }
+
+      const printerIdInput = this.shadowRoot.querySelector("#bambuddy-printer-id-input");
+      if (printerIdInput) {
+        printerIdInput.addEventListener("input", (event) => {
+          this._wizardState.bambuddy_printer_id = String(event.target.value || "").trim();
+        });
+        printerIdInput.addEventListener("change", (event) => {
+          this._wizardState.bambuddy_printer_id = String(event.target.value || "").trim() || "1";
+        });
       }
     }
 
