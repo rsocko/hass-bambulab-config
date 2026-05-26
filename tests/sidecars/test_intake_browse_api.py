@@ -202,3 +202,36 @@ def test_intake_browse_allows_zip_virtual_nested_navigation(monkeypatch, tmp_pat
         base_entry = next(entry for entry in payload["entries"] if entry["name"] == "base.3mf")
         assert base_entry["type"] == "file"
         assert base_entry["selectable"] is False
+
+
+def test_intake_preview_allows_working_files_root(monkeypatch, tmp_path: Path) -> None:
+    """Preview endpoint should allow configured working-files root paths."""
+    intake_root = tmp_path / "Model Inbox"
+    intake_root.mkdir()
+    working_root = tmp_path / "Model Working Files"
+    working_root.mkdir()
+    preview_file = working_root / "preview.png"
+    preview_file.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    monkeypatch.setenv("BAMBULAB_INTAKE_ALLOWLIST", str(intake_root))
+
+    settings = Settings(
+        catalog_base_url="http://localhost:8314",
+        db_path=tmp_path / "model_catalog.db",
+        refresh_ttl_seconds=900,
+        host="127.0.0.1",
+        port=8314,
+        image_tag="0.1.0",
+        image_version="0.1.0",
+        image_revision="abc123",
+        image_created="2026-04-22T00:00:00Z",
+        intake_source_roots=(intake_root.resolve(),),
+        working_files_root=working_root.resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        response = test_client.get(f"/api/intake/preview?path={preview_file}")
+        assert response.status_code == 200
+        assert response.headers.get("content-type", "").startswith("image/png")

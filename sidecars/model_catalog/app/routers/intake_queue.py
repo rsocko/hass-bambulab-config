@@ -48,6 +48,7 @@ from .._helpers import (
     _compile_source_entry_exclusions,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
+    _configured_intake_browse_roots,
     _configured_intake_source_roots,
     _enforce_source_entries_within_intake_roots,
     _is_excluded_source_file,
@@ -286,7 +287,9 @@ def _intake_browse_allowlist_roots(settings: Settings) -> list[Path]:
         for p in allowlist_raw.split(",")
         if p.strip()
     ]
-    return sorted({*env_roots, *_configured_intake_source_roots(settings)})
+    # Keep legacy env allowlist support, but mirror the wizard browse contract
+    # (intake roots + working-files root) so preview authorization matches.
+    return sorted({*env_roots, *_configured_intake_browse_roots(settings)})
 
 
 def _image_mime_for_suffix(path: Path) -> str:
