@@ -1,8 +1,19 @@
 # Slicer Sidecar — Upstream Adoption Design
 
-> **Status**: Design proposal for review
-> **Last updated**: 2026-05-11
+> **Status**: Accepted — operator decisions finalized 2026-05-25
+> **Last updated**: 2026-05-25
 > **Scope**: Concrete adoption decision for the local slicer worker referenced by the Print History Slicer Integration Design. Pin the upstream `orca-slicer-api` (or its `maziggy/orca-slicer-api` Bambuddy fork) as the worker runtime, define the sidecar deployment shape, and map upstream capabilities onto Model Catalog's existing slicer orchestration contract.
+
+## Amendment — 2026-05-25: Operator Decisions
+
+The following operator decisions supersede the original "Why not BambuStudio" and "Out Of Scope" sections:
+
+1. **BambuStudio is the primary slicer** — mirrors the operator's desktop workflow. The `bambu-studio-api` service (Dockerfile.bambu-studio, port 3000 internal) replaces `orca-slicer-api` as the default worker. OrcaSlicer may be added later as a second provider.
+2. **Pin to maziggy fork from the start** — `maziggy/orca-slicer-api@bambuddy/profile-resolver` branch; profile-resolver patches are required for real Bambu Studio exports.
+3. **Deploy inside Model Catalog compose stack** — sole consumer, shared internal network, aligned lifecycle. No host port published.
+4. **Profiles seeded from operator's existing Bambu Studio desktop install** — copy `machine/`, `process/`, `filament/` JSON files from `%APPDATA%\BambuStudio\user\<profile>\`.
+
+Setup guide: [Slicer Sidecar Setup Guide](../guides/slicer-sidecar-setup.md)
 
 See also:
 
@@ -235,4 +246,4 @@ This adoption is successful when:
 - Modifying Bambuddy's wrapper or its `library_file` ingestion path.
 - Building a Model Catalog clone of `.bbscfg` import in Phase 1 (deferred to Phase 2 with the maziggy fork).
 - Exposing slice job creation directly to HA browsers — all routes go through the authenticated Model Catalog sidecar.
-- Adding BambuStudio sidecar support (deferred; provider design already accommodates a second `kind`).
+- ~~Adding BambuStudio sidecar support (deferred; provider design already accommodates a second `kind`).~~ **Moved in-scope per 2026-05-25 amendment — BambuStudio is now the primary provider.**

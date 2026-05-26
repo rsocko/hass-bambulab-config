@@ -1,0 +1,148 @@
+name: Build Bambu Studio API Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      bambu_version:
+        description: BambuStudio version to embed in the image
+        required: true
+        default: "02.06.00.51"
+      version_mode:
+        description: How to determine the image tag
+        required: true
+        type: choice
+        default: explicit
+        options:
+          - explicit
+          - next_major
+          - next_minor
+          - next_patch
+      image_tag:
+        description: Explicit Docker image tag to build when version_mode=explicit (default derives from bambu_version)
+        required: false
+        default: ""
+      registry:
+        description: Registry/repository prefix
+        required: true
+        default: registry.socko.us/bambu-studio-api
+      push_image:
+        description: Push built image to registry
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+      push_latest:
+        description: Also tag and push this image as latest
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, docker, homelab, dockhand]
+    outputs:
+      resolved_tag: ${{ steps.version.outputs.resolved_tag }}
+      resolved_image: ${{ steps.version.outputs.resolved_image }}
+      latest_tag: ${{ steps.version.outputs.latest_tag }}
+    steps:
+      - name: Pre-clean workspace (self-hosted)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "$GITHUB_WORKSPACE" ]; then
+            find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          fi
+
+      - name: Checkout (for version-resolution script)
+        uses: actions/checkout@v5
+        with:
+          clean: false
+
+      - name: Resolve image tag
+        id: version
+        shell: bash
+        env:
+          REGISTRY_REPOSITORY: ${{ github.event.inputs.registry }}
+          VERSION_MODE: ${{ github.event.inputs.version_mode }}
+          EXPLICIT_TAG: ${{ github.event.inputs.image_tag || format('bambu{0}', github.event.inputs.bambu_version) }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/resolve_registry_version.py
+
+      - name: Show resolved image target
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
+          echo "Resolved image: $IMAGE"
+          echo "BambuStudio version: ${{ github.event.inputs.bambu_version }}"
+          echo "Latest semantic tag in registry: ${{ steps.version.outputs.latest_tag || 'none' }}"
+
+      - name: Publish version summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOLVED_TAG='${{ steps.version.outputs.resolved_tag }}'
+          RESOLVED_IMAGE='${{ steps.version.outputs.resolved_image }}'
+          LATEST_TAG='${{ steps.version.outputs.latest_tag }}'
+          PUSH_LATEST='${{ github.event.inputs.push_latest }}'
+          BAMBU_VERSION='${{ github.event.inputs.bambu_version }}'
+          {
+            echo '## Bambu Studio API Image Version'
+            echo
+            echo "Resolved tag: \`$RESOLVED_TAG\`"
+            echo
+            echo "Resolved image: \`$RESOLVED_IMAGE\`"
+            echo
+            echo "BambuStudio version: \`$BAMBU_VERSION\`"
+            echo
+            echo 'Compose update:'
+            echo "\`BAMBU_STUDIO_API_IMAGE_TAG=$RESOLVED_TAG\`"
+            if [ "$PUSH_LATEST" = 'true' ]; then
+              echo
+              echo 'Mutable tag update:'
+              echo "\`BAMBU_STUDIO_API_IMAGE_TAG=latest\`"
+            fi
+            echo
+            echo "Latest existing semantic tag: \`${LATEST_TAG:-none}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Resolved bambu-studio-api image::$RESOLVED_IMAGE"
+
+      - name: Clone maziggy fork (profile-resolver branch)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch bambuddy/profile-resolver \
+            https://github.com/maziggy/orca-slicer-api.git \
+            _slicer-api-src
+
+      - name: Build image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
+          docker build \
+            -f _slicer-api-src/Dockerfile.bambu-studio \
+            -t "$IMAGE" \
+            --build-arg BAMBU_VERSION="${{ github.event.inputs.bambu_version }}" \
+            _slicer-api-src
+          if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
+            docker tag "$IMAGE" "${{ github.event.inputs.registry }}:latest"
+          fi
+          echo "Built $IMAGE"
+
+      - name: Push image
+        if: ${{ github.event.inputs.push_image == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
+          docker push "$IMAGE"
+          if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
+            docker push "${{ github.event.inputs.registry }}:latest"
+          fi
