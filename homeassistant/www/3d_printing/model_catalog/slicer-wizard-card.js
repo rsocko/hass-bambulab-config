@@ -3,17 +3,6 @@
  * 
  * Multi-step wizard for creating archives from source 3MF files.
  * 
- * Slice 6.0 MVP - Entry point, worker availability, and step scaffolding
- * - Worker health display (reachable / unavailable)
- * - Entry point confirmation dialog
- * - Graceful unavailable state
- * 
- * Slice 6.1+ will add:
- * - Validation review step
- * - Filament substitution picker
- * - Slice job progress monitoring
- * - Completion summary
- * 
  * Usage in browser_mod popup:
  * ```
  * service: browser_mod.popup
@@ -479,8 +468,7 @@
                       <input 
                         type="checkbox" 
                         value="${idx}" 
-                        ?checked="${this._wizardState.plate_index === idx}"
-                        @change="${(e) => this._handlePlateSelect(e, idx)}"
+                        ${this._wizardState.plate_index === idx ? "checked" : ""}
                       />
                       <span>${this._escapeHtml(plate.name || `Plate ${idx + 1}`)}</span>
                     </label>
@@ -557,8 +545,7 @@
                       type="radio" 
                       name="filament_candidate" 
                       value="${cand.id}"
-                      ?checked="${selectedCandidate && selectedCandidate.id === cand.id}"
-                      @change="${(e) => this._handleFilamentSelect(e, cand)}"
+                      ${selectedCandidate && selectedCandidate.id === cand.id ? "checked" : ""}
                     />
                     <div class="candidate-box">
                       <div class="candidate-name">${this._escapeHtml(cand.name)}</div>
@@ -637,7 +624,6 @@
                     name="timestamp_mode"
                     value="current"
                     ${mode === "current" ? "checked" : ""}
-                    @change="${(e) => this._handleTimestampModeChange(e)}"
                   />
                   <div>
                     <div class="timestamp-mode-title">Use current archive time</div>
@@ -652,7 +638,6 @@
                     value="file_modified"
                     ${mode === "file_modified" ? "checked" : ""}
                     ${fileModifiedTimestamp ? "" : "disabled"}
-                    @change="${(e) => this._handleTimestampModeChange(e)}"
                   />
                   <div>
                     <div class="timestamp-mode-title">Use model file modified time</div>
@@ -666,7 +651,6 @@
                     name="timestamp_mode"
                     value="manual"
                     ${mode === "manual" ? "checked" : ""}
-                    @change="${(e) => this._handleTimestampModeChange(e)}"
                   />
                   <div>
                     <div class="timestamp-mode-title">Pick a specific date and time</div>
@@ -693,7 +677,6 @@
                     class="timestamp-input"
                     value="${localDateTime}"
                     ${mode === "manual" ? "" : "disabled"}
-                    @change="${(e) => this._handleTimestampChange(e)}"
                   />
                 </label>
                 <div class="input-hint">
@@ -706,8 +689,7 @@
               <label class="draft-checkbox">
                 <input 
                   type="checkbox" 
-                  ?checked="${this._wizardState.save_draft || false}"
-                  @change="${(e) => this._handleDraftToggle(e)}"
+                  ${this._wizardState.save_draft ? "checked" : ""}
                 />
                 <span>Save draft (browser storage)</span>
               </label>
@@ -2339,7 +2321,6 @@
             margin-top: 6px;
             font-style: italic;
           }
-          }
         </style>
         <div class="slicer-outer">
           ${this._renderStepProgress()}
@@ -2349,12 +2330,6 @@
 
       // Re-attach event listeners
       this._attachEventListeners();
-
-      // Ensure printer select has the correct value after render
-      const printerSelect = this.shadowRoot.querySelector("#bambuddy-printer-select");
-      if (printerSelect && this._wizardState.bambuddy_printer_id) {
-        printerSelect.value = String(this._wizardState.bambuddy_printer_id);
-      }
     }
 
     _stepToIndex() {

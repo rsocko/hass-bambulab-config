@@ -14,7 +14,7 @@ Related design docs:
 Left navigation is the intended direction for the Model Catalog List UI.
 
 Target information architecture:
-- Left nav is the primary browse context (Favorites, Frequents, Recents, Projects, Collections, Tags).
+- Left nav is the primary browse context (Type, Favorites, Frequents, Recents, Collections, Tags).
 - Top toolbar is for global actions and display controls (search, sort, view mode, create/import, refresh).
 - Main content shows frequents rail plus model results for the active left-nav context.
 
@@ -26,11 +26,13 @@ Target interaction model:
 ## 2) Top Toolbar vs Left Nav Responsibilities
 
 ### Left nav owns
+- Type section with checkboxes: Model, Idea, Working Files
+  - At least one type must remain selected
+  - Default on first load: Model only
 - Favorites pivot
 - Frequents pivot
 - Recently added pivot
 - Recently printed pivot
-- Projects section (Active, Backlog, Completed collapsed)
 - Collections section (tree in Phase 2)
 - Tags section (quick shortcuts in Phase 1, expanded in Phase 2)
 
@@ -49,7 +51,7 @@ Move to left nav:
 - Frequents only
 - Collection text filter (replace with collection nav selection)
 - Tag text filter (replace with tag nav selection)
-- Show ideas (move to entity-type section)
+- Entity-type visibility (Model/Idea/Working Files) via left-nav checkboxes
 
 Remain in top toolbar:
 - Search
@@ -59,7 +61,7 @@ Remain in top toolbar:
 - Refresh
 
 Remove or de-emphasize as redundant:
-- Segmented scope toggle once left nav is active and stable
+- Segmented scope toggle once Type checkboxes are stable
 - Always-visible Creator free-text field (phase to advanced/search syntax)
 - Has other files as always-visible chip (move to Advanced filter popover)
 
@@ -104,8 +106,9 @@ Recommendation: implement left nav now in a constrained Phase 1, then deepen in 
 
 ### Phase 1 (safe to ship now)
 - Introduce left-nav shell and state model
+- Add Type checkbox group (Model/Idea/Working Files)
 - Add quick pivots (Favorites/Frequents/Recent Added/Recent Printed)
-- Add basic Projects list (flat)
+- Add collections shortcuts (flat)
 - Add tag shortcuts (lightweight)
 - Keep existing chips as compatibility bridge
 - Keep search/sort/view in top toolbar
@@ -159,8 +162,11 @@ Optional/possible (Phase 2):
 Phase 1 acceptance:
 - Desktop shows stable left nav + main content layout
 - Tablet/mobile nav drawer is discoverable and accessible
+- Type section supports multi-select with at-least-one enforcement
+- Default initial type state is Model only
+- Selecting Working Files can be combined with Model/Idea selections
 - Search/sort/view/actions continue to work without regressions
-- Projects section loads and pivots results context
+- Collections and tags sections load and pivot results context
 - Legacy controls still available where required for compatibility
 
 Phase 2 acceptance:

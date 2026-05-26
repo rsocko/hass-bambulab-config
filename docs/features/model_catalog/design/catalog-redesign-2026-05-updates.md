@@ -4,6 +4,8 @@
 
 This document captures 8 interconnected design enhancements to the Catalog Redesign (2026-05), addressing operator workflows for Frequents curation, Project discovery, Queue organization, and Bambuddy integration.
 
+Addendum (2026-05-26): left-nav Type grouping now includes checkbox-driven entity visibility for Model, Idea, and Working Files with multi-select support and at-least-one enforcement. Default first-load selection is Model only.
+
 ---
 
 ## 1. Frequents Rail Visibility & Manual Control ✅
@@ -27,6 +29,30 @@ This document captures 8 interconnected design enhancements to the Catalog Redes
 - M1 (Default landing): Update hint text to mention "manually flagged first"
 - M1 (Default landing): Add `⚡ Mark as frequent` action to each freq-card
 - M2 (Frequents tuning popover): Add section showing manually flagged items with option to unmark
+
+---
+
+## 0. Left-Nav Type Group (Model | Idea | Working Files) ✅
+
+**Status:** Implemented
+
+**Changes:**
+- Added a dedicated **Type** section in the left nav with checkboxes:
+  - `Model`
+  - `Idea`
+  - `Working Files`
+- One or more types can be selected simultaneously.
+- At least one type is always required (last selected type cannot be unchecked).
+- Default on first load is **Model only**.
+
+**Behavior:**
+- `Model` and `Idea` control entity-type visibility in catalog results.
+- `Working Files` can be included with model/idea results (mixed browse) or used alone.
+- Existing top-level context pivots (Favorites/Frequents/Recents) remain, but entity visibility now belongs to Type.
+
+**Design impact:**
+- Replaces prior single-toggle “Show ideas” style behavior with explicit type selection.
+- Clarifies browse intent and reduces ambiguity between entity visibility vs. contextual pivots.
 
 ---
 

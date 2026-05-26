@@ -44,6 +44,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     };
     this._visibilityCounts = { active: 0, archived: 0 };
     this._serverEntityTypeCounts = { model: 0, idea: 0 };
+    this._typeFilters = {
+      model: true,
+      idea: false,
+      working: false,
+    };
     this._entityTypeFilters = {
       showIdeas: false,
     };
@@ -139,8 +144,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _isEntityTypeVisible(entityType) {
     var normalized = this._normalizedEntityType(entityType);
+    if (normalized === "model") {
+      return !!(this._typeFilters && this._typeFilters.model);
+    }
     if (normalized === "idea") {
-      return !!this._entityTypeFilters.showIdeas;
+      return !!(this._typeFilters && this._typeFilters.idea);
     }
     return true;
   }
@@ -337,6 +345,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       });
       var ideaRef = String((created && (created.local_model_id || (created.summary && created.summary.model_ref) || "")) || "").trim();
       this._entityTypeFilters.showIdeas = true;
+      this._typeFilters.idea = true;
       this._activeActionMenu = "";
       this._error = "";
       this._ideaCreateDialogOpen = false;
@@ -1021,6 +1030,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    var includeWorkingInModels = this._browserScope === "models" && !!(this._typeFilters && this._typeFilters.working);
+
     if (this._browserScope === "working") {
       await this._loadWorkingProjectionPage(refresh);
       return;
@@ -1058,7 +1069,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
-        show_ideas: !!this._entityTypeFilters.showIdeas,
+        show_ideas: !!(this._typeFilters && this._typeFilters.idea),
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
         per_page: this._pagination.per_page,
@@ -1102,6 +1113,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._filters.frequents_only = !!responseFilters.frequents_only;
       }
       this._syncLeftNavSelectionFromFilters();
+
+      if (includeWorkingInModels) {
+        try {
+          this._workingProjection = await this._loadWorkingProjectionData(refresh);
+        } catch (_workingLoadError) {
+          this._workingProjection = [];
+        }
+      } else {
+        this._workingProjection = [];
+      }
 
       var pagination = data && data.pagination ? data.pagination : {};
       this._pagination.page = Number(pagination.page || requestPayload.page) || 1;
@@ -1461,6 +1482,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "toggle-left-nav-type") {
+      event.preventDefault();
+      event.stopPropagation();
+      var typeKey = String(target.getAttribute("data-type") || (rawTarget && rawTarget.getAttribute && rawTarget.getAttribute("data-type")) || "").trim().toLowerCase();
+      if (typeKey !== "model" && typeKey !== "idea" && typeKey !== "working") {
+        return;
+      }
+      var currentlyChecked = !!(this._typeFilters && this._typeFilters[typeKey]);
+      var nextChecked = !currentlyChecked;
+
+      var selectedCount = 0;
+      selectedCount += this._typeFilters.model ? 1 : 0;
+      selectedCount += this._typeFilters.idea ? 1 : 0;
+      selectedCount += this._typeFilters.working ? 1 : 0;
+      if (!nextChecked && selectedCount <= 1) {
+        return;
+      }
+
+      this._typeFilters[typeKey] = nextChecked;
+      this._entityTypeFilters.showIdeas = !!this._typeFilters.idea;
+
+      if (this._typeFilters.working && !this._typeFilters.model && !this._typeFilters.idea) {
+        this._browserScope = "working";
+      } else if (this._browserScope === "working" && (this._typeFilters.model || this._typeFilters.idea)) {
+        this._browserScope = "models";
+      }
+
+      this._syncLeftNavSelectionFromFilters();
+      this._cancelScheduledApply();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
     if (action === "close-queue-dialog") {
       event.preventDefault();
       event.stopPropagation();
@@ -1550,6 +1605,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       if (this._browserScope !== nextScope) {
         this._browserScope = nextScope;
+        if (nextScope === "working") {
+          this._typeFilters.working = true;
+          if (!this._typeFilters.model && !this._typeFilters.idea) {
+            this._typeFilters.model = false;
+            this._typeFilters.idea = false;
+          }
+        } else if (nextScope === "models" && !this._typeFilters.model && !this._typeFilters.idea) {
+          this._typeFilters.model = true;
+        }
+        this._entityTypeFilters.showIdeas = !!this._typeFilters.idea;
         this._requestLoad(1, false);
       }
       return;
@@ -1623,6 +1688,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-show-ideas-filter") {
       this._entityTypeFilters.showIdeas = !this._entityTypeFilters.showIdeas;
+      this._typeFilters.idea = !!this._entityTypeFilters.showIdeas;
+      if (!this._typeFilters.model && !this._typeFilters.idea && !this._typeFilters.working) {
+        this._typeFilters.model = true;
+      }
       this._syncLeftNavSelectionFromFilters();
       this._requestLoad(1, false);
       this._render();
@@ -3539,6 +3608,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</button>';
   }
 
+  _renderLeftNavTypeToggle(label, typeKey, count) {
+    var checked = !!(this._typeFilters && this._typeFilters[typeKey]);
+    return ''
+      + '<label class="left-nav-type-toggle" data-action="toggle-left-nav-type" data-type="' + this._escapeHtml(typeKey) + '">'
+      + '  <input class="left-nav-type-checkbox" type="checkbox" ' + (checked ? 'checked' : '') + ' data-action="toggle-left-nav-type" data-type="' + this._escapeHtml(typeKey) + '">'
+      + '  <span class="left-nav-type-label">' + this._escapeHtml(label) + '</span>'
+      + '  <span class="left-nav-type-count">' + this._escapeHtml(String(Math.max(0, Number(count || 0) || 0))) + '</span>'
+      + '</label>';
+  }
+
   _leftNavTopTags(limit) {
     var max = Math.max(1, Number(limit || 6));
     var counts = {};
@@ -3648,9 +3727,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._filters && this._filters.frequents_only) {
       return "frequents";
     }
-    if (this._entityTypeFilters && this._entityTypeFilters.showIdeas) {
-      return "entity:ideas";
-    }
     return "all-models";
   }
 
@@ -3667,7 +3743,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var contextTag = "";
     var contextFavorites = false;
     var contextFrequents = false;
-    var contextShowIdeas = false;
 
     if (key === "favorites") {
       contextFavorites = true;
@@ -3677,8 +3752,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       contextCollection = String(key.slice("collection:".length) || "").trim();
     } else if (key.indexOf("tag:") === 0) {
       contextTag = String(key.slice("tag:".length) || "").trim();
-    } else if (key === "entity:ideas") {
-      contextShowIdeas = true;
     } else if (key === "recent-added") {
       this._filters.sort = "recent";
     } else if (key === "recent-printed") {
@@ -3689,7 +3762,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._filters.tag = contextTag;
     this._filters.favorites_only = contextFavorites;
     this._filters.frequents_only = contextFrequents;
-    this._entityTypeFilters.showIdeas = contextShowIdeas;
 
     if (this._browserScope !== "models") {
       this._browserScope = "models";
@@ -3713,6 +3785,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var frequentsCount = 0;
     var recentPrintedCount = 0;
     var typeCounts = this._entityTypeCounts();
+    var workingCount = this._coerceWorkingCount(this._workingProjection && this._workingProjection.length || 0);
     for (var i = 0; i < this._results.length; i++) {
       var model = this._results[i] || {};
       var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
@@ -3766,11 +3839,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <button class="toolbar-icon-btn left-nav-collapse" type="button" data-action="toggle-left-nav-collapse" aria-label="Toggle navigation collapse" aria-pressed="' + (this._leftNavCollapsed ? 'true' : 'false') + '"><ha-icon icon="mdi:chevron-left"></ha-icon></button>'
       + '  </div>'
       + '  <div class="left-nav-section">'
+      + '    <div class="left-nav-section-label">Type</div>'
+      +      this._renderLeftNavTypeToggle('Model', 'model', typeCounts.model || 0)
+      +      this._renderLeftNavTypeToggle('Idea', 'idea', typeCounts.idea || 0)
+      +      this._renderLeftNavTypeToggle('Working Files', 'working', workingCount)
+      + '  </div>'
+      + '  <div class="left-nav-section">'
       + '    <div class="left-nav-section-label">Quick pivots</div>'
       +      this._renderLeftNavItem('All models', 'all-models', totalCount, 'mdi:cube-outline')
       +      this._renderLeftNavItem('Favorites', 'favorites', favoritesCount, 'mdi:star-outline')
       +      this._renderLeftNavItem('Frequents', 'frequents', frequentsCount, 'mdi:lightning-bolt-outline')
-      +      this._renderLeftNavItem('Ideas', 'entity:ideas', typeCounts.idea || 0, 'mdi:lightbulb-on-outline')
       +      this._renderLeftNavItem('Recently added', 'recent-added', totalCount, 'mdi:clock-plus-outline')
       +      this._renderLeftNavItem('Recently printed', 'recent-printed', recentPrintedCount, 'mdi:printer-3d-nozzle-outline')
       + '  </div>'
@@ -4075,6 +4153,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return list;
   }
 
+  async _loadWorkingProjectionData(refresh) {
+    var payload = await this._callServiceWithResponse("rest_command", "model_catalog_working_files_tree", {
+      refresh: !!refresh,
+    });
+    this._workingProjectionRootPath = String(payload && payload.root_path || "").trim();
+    var entries = this._buildWorkingProjectionEntries(payload);
+    var q = String(this._filters.q || "").trim().toLowerCase();
+    if (q) {
+      entries = entries.filter(function (entry) {
+        var haystack = String(entry.name || "") + "\n" + String(entry.slug || "") + "\n" + String(entry.folder_path || "");
+        return haystack.toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    return this._sortWorkingProjection(entries);
+  }
+
   async _loadWorkingProjectionPage(refresh) {
     if (!this._hass) {
       return;
@@ -4086,19 +4180,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._doRender();
 
     try {
-      var payload = await this._callServiceWithResponse("rest_command", "model_catalog_working_files_tree", {
-        refresh: !!refresh,
-      });
-      this._workingProjectionRootPath = String(payload && payload.root_path || "").trim();
-      var entries = this._buildWorkingProjectionEntries(payload);
-      var q = String(this._filters.q || "").trim().toLowerCase();
-      if (q) {
-        entries = entries.filter(function (entry) {
-          var haystack = String(entry.name || "") + "\n" + String(entry.slug || "") + "\n" + String(entry.folder_path || "");
-          return haystack.toLowerCase().indexOf(q) >= 0;
-        });
-      }
-      this._workingProjection = this._sortWorkingProjection(entries);
+      this._workingProjection = await this._loadWorkingProjectionData(refresh);
       this._results = [];
       this._pagination.page = 1;
       this._pagination.per_page = 96;
@@ -5267,6 +5349,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     var visibleResults = this._filteredResultsForScope();
+    var includeWorkingInModels = this._browserScope === "models" && !!(this._typeFilters && this._typeFilters.working);
+    var visibleWorkingProjection = includeWorkingInModels ? (Array.isArray(this._workingProjection) ? this._workingProjection : []) : [];
     var progressiveRemainder = null;
 
     var resultsHtml = "";
@@ -5274,9 +5358,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       resultsHtml = this._renderLoadingPlaceholders();
     } else if (this._error) {
       resultsHtml = '<div class="state-row error">' + this._escapeHtml(this._error) + '</div>';
-    } else if (!visibleResults.length) {
+    } else if (!visibleResults.length && !visibleWorkingProjection.length) {
       resultsHtml = '<div class="state-row">'
-        + (this._browserScope === "working"
+        + ((this._browserScope === "working" || (this._typeFilters && this._typeFilters.working && !(this._typeFilters.model || this._typeFilters.idea)))
           ? 'No Working Files folders match the current search.'
           : 'No models match the current filters.')
         + '</div>';
@@ -5285,12 +5369,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else if (this._browserScope === "working") {
       resultsHtml = this._renderWorkingProjectionCards();
     } else {
+      var modelHtml = "";
       if (this._shouldProgressiveResultsRender(visibleResults)) {
         var initialCount = Math.min(18, visibleResults.length);
-        resultsHtml = visibleResults.slice(0, initialCount).map(this._renderModelCard.bind(this)).join("");
+        modelHtml = visibleResults.slice(0, initialCount).map(this._renderModelCard.bind(this)).join("");
         progressiveRemainder = visibleResults.slice(initialCount);
       } else {
-        resultsHtml = visibleResults.map(this._renderModelCard.bind(this)).join("");
+        modelHtml = visibleResults.map(this._renderModelCard.bind(this)).join("");
+      }
+      var workingHtml = "";
+      if (visibleWorkingProjection.length) {
+        workingHtml = ''
+          + '<div class="working-inline-section">'
+          + '  <div class="state-row working-inline-header">Working Files</div>'
+          + this._renderWorkingProjectionCards()
+          + '</div>';
+      }
+      if (modelHtml && workingHtml) {
+        resultsHtml = modelHtml + workingHtml;
+      } else if (modelHtml) {
+        resultsHtml = modelHtml;
+      } else if (workingHtml) {
+        resultsHtml = workingHtml;
       }
     }
 
@@ -5326,12 +5426,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-item-main ha-icon{--mdc-icon-size:16px;opacity:.9;}'
       + '.left-nav-item-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
       + '.left-nav-item-count{font-size:11px;font-weight:800;color:var(--secondary-text-color);}'
+      + '.left-nav-type-toggle{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;min-height:32px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);cursor:pointer;}'
+      + '.left-nav-type-toggle:hover,.left-nav-type-toggle:focus-within{background:rgba(148,163,184,0.14);border-color:rgba(148,163,184,0.36);}'
+      + '.left-nav-type-checkbox{width:14px;height:14px;margin:0;accent-color:#60a5fa;cursor:pointer;}'
+      + '.left-nav-type-label{font-size:12px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+      + '.left-nav-type-count{font-size:11px;font-weight:700;color:var(--secondary-text-color);}'
       + '.left-nav-empty{font-size:11px;color:var(--secondary-text-color);padding:6px 8px;border:1px dashed rgba(148,163,184,0.26);border-radius:8px;}'
       + '.left-nav-toggle{display:none;}'
       + '.left-nav.collapsed .left-nav-title-wrap{display:none;}'
-      + '.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:none;}'
+      + '.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count,.left-nav.collapsed .left-nav-type-label,.left-nav.collapsed .left-nav-type-count{display:none;}'
       + '.left-nav.collapsed .left-nav-title-wrap,.left-nav.collapsed .left-nav-item-main{justify-content:center;}'
       + '.left-nav.collapsed .left-nav-item{justify-content:center;padding:0 4px;}'
+      + '.left-nav.collapsed .left-nav-type-toggle{grid-template-columns:auto;justify-items:center;padding:0 4px;}'
       + '.left-nav.collapsed .left-nav-head{justify-content:center;position:relative;min-height:32px;}'
       + '.left-nav.collapsed .left-nav-collapse{position:static;opacity:1;pointer-events:auto;z-index:1;background:rgba(96,165,250,0.20);border-color:rgba(96,165,250,0.40);}'
       + '.shell-header{display:grid;gap:10px;}'
@@ -5400,6 +5506,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + 'select.control-input{color-scheme:light dark;}'
       + '.control-input option,.control-input optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
       + '.results{display:grid;gap:12px;}'
+      + '.working-inline-section{grid-column:1/-1;display:grid;gap:12px;}'
+      + '.working-inline-header{font-weight:800;}'
       + '.results.is-loading{pointer-events:none;}'
       + '.results.view-compact{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}'
       + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'
