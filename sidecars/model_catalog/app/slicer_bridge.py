@@ -8,6 +8,9 @@ Upstream API contract (from swagger.json):
   POST   /slice-async                  → 202 {requestId, status, statusUrl}
   GET    /slice-async/{requestId}      → 200 {requestId, status, metadata?, downloadUrl?, message?}
   GET    /slice-async/{requestId}/result → 200 binary (gcode / 3mf / zip)
+
+MIME types: The upstream validates file type via the multipart Content-Type
+header, so we map known 3D-file extensions to their proper MIME types.
   DELETE /slice-async/{requestId}      → 204
 """
 from __future__ import annotations
@@ -22,6 +25,13 @@ from typing import Any, NoReturn
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_MIME_TYPES: dict[str, str] = {
+    ".3mf": "model/3mf",
+    ".stl": "model/stl",
+    ".step": "model/step",
+    ".stp": "model/step",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -108,9 +118,12 @@ def enqueue_slice(
 
     with httpx.Client(timeout=timeout) as client:
         with open(file_path, "rb") as f:
+            mime = _MIME_TYPES.get(
+                file_path.suffix.lower(), "application/octet-stream"
+            )
             resp = client.post(
                 f"{base_url}/slice-async",
-                files={"file": (file_path.name, f, "application/octet-stream")},
+                files={"file": (file_path.name, f, mime)},
                 data=data,
             )
 
