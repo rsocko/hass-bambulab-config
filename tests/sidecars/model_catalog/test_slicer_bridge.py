@@ -29,7 +29,7 @@ from app.slicer_bridge import (
 # ---------------------------------------------------------------------------
 
 
-def _make_settings(db_path: Path, *, use_slicer: bool = True) -> Settings:
+def _make_settings(db_path: Path, *, use_slicer: bool = True, assets_root: Path | None = None) -> Settings:
     return Settings(
         catalog_base_url="http://catalog.example",
         db_path=db_path,
@@ -44,12 +44,13 @@ def _make_settings(db_path: Path, *, use_slicer: bool = True) -> Settings:
         bambu_studio_api_url="http://bambu-studio-api:3000",
         slicer_async_poll_interval_seconds=0.01,  # fast for tests
         slicer_async_max_wait_seconds=5,
+        model_catalog_assets_root=assets_root,
     )
 
 
-def _create_client(tmp_path: Path, *, use_slicer: bool = True) -> TestClient:
+def _create_client(tmp_path: Path, *, use_slicer: bool = True, assets_root: Path | None = None) -> TestClient:
     db_path = tmp_path / "model_catalog.db"
-    app = create_app(settings=_make_settings(db_path, use_slicer=use_slicer))
+    app = create_app(settings=_make_settings(db_path, use_slicer=use_slicer, assets_root=assets_root))
     client = TestClient(app)
     client.__enter__()
     return client
@@ -398,6 +399,40 @@ class TestExecuteJob:
             resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
             assert resp.status_code == 400
             assert "not found" in resp.json()["error"]
+        finally:
+            client.__exit__(None, None, None)
+
+    def test_execute_relative_storage_path_resolves_from_curated_assets_root(self, tmp_path: Path) -> None:
+        assets_root = tmp_path / "assets" / "Model Catalog"
+        source_file = assets_root / "demo-model" / "test_model.3mf"
+        source_file.parent.mkdir(parents=True, exist_ok=True)
+        source_file.write_bytes(b"fake-3mf-content-for-testing")
+
+        client = _create_client(tmp_path, assets_root=assets_root)
+        try:
+            resp = client.post(
+                "/api/slicer/jobs",
+                json={
+                    "source_kind": "local_file",
+                    "archive_intent": "create_new",
+                    "local_model_id": "demo-model",
+                    "working_file_path": "demo-model/test_model.3mf",
+                    "source_file_name": "test_model.3mf",
+                },
+            )
+            assert resp.status_code == 201
+            job_id = resp.json()["job_id"]
+
+            with (
+                patch("app.routers.slicer.enqueue_slice", return_value=_MOCK_ENQUEUE),
+                patch("app.routers.slicer.poll_until_terminal", return_value=_MOCK_POLL_COMPLETED),
+                patch("app.routers.slicer.retrieve_output", side_effect=_mock_retrieve_output),
+                patch("app.routers.slicer.cleanup_slice", return_value=True),
+            ):
+                execute_resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
+
+            assert execute_resp.status_code == 200
+            assert execute_resp.json()["status"] == "sliced"
         finally:
             client.__exit__(None, None, None)
 

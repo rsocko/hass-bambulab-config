@@ -636,6 +636,94 @@
       }
     }
 
+    _resolveSourceAsset() {
+      const assets = Array.isArray(this._modelDetail && this._modelDetail.assets)
+        ? this._modelDetail.assets.slice()
+        : [];
+      const threeMfAssets = assets.filter((asset) => {
+        const filename = String(asset && (asset.filename || asset.asset_filename || asset.name) || "").toLowerCase();
+        const assetType = String(asset && (asset.asset_type || asset.content_type || "") || "").toLowerCase();
+        return filename.endsWith(".3mf") || assetType === "3mf" || assetType.includes("3mf");
+      });
+      if (!threeMfAssets.length) {
+        return null;
+      }
+      threeMfAssets.sort((left, right) => {
+        const leftScore = String(left && left.asset_role || "") === "primary" ? 0 : 1;
+        const rightScore = String(right && right.asset_role || "") === "primary" ? 0 : 1;
+        return leftScore - rightScore;
+      });
+      return threeMfAssets[0];
+    }
+
+    _resolveWorkingFilePath(asset) {
+      const rawPath = String(asset && (asset.storage_path || asset.local_storage_path || "") || "").trim();
+      if (!rawPath) {
+        return "";
+      }
+      const normalized = rawPath.replace(/\\/g, "/");
+      if (/^(?:[a-zA-Z]:[\\/]|\/)/.test(normalized)) {
+        return normalized;
+      }
+      return `/assets/Model Catalog/${normalized.replace(/^\/+/, "")}`;
+    }
+
+    _buildCreateJobBody(asset) {
+      const timestamp = this._wizardState.historical_timestamp || null;
+      let timezone = null;
+      try {
+        timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+      } catch (_error) {
+        timezone = null;
+      }
+      return {
+        source_kind: "local_file",
+        archive_intent: "create_new",
+        workflow_kind: "historical_backfill",
+        source_ref: String(this._modelDetail && this._modelDetail.model && (this._modelDetail.model.model_url || this._modelDetail.model.public_id) || this._modelRef || "").trim() || null,
+        local_model_id: String(this._modelDetail && this._modelDetail.entry && this._modelDetail.entry.local_model_id || this._modelRef || "").trim() || null,
+        working_file_path: this._resolveWorkingFilePath(asset),
+        selected_file_path: String(asset && (asset.asset_id || asset.file_id || asset.storage_path || "") || "").trim() || null,
+        selected_plate_key: `plate_${Number(this._wizardState.plate_index || 0)}`,
+        selected_plate_index: Number(this._wizardState.plate_index || 0),
+        source_file_name: String(asset && (asset.filename || asset.asset_filename || asset.name) || "").trim() || null,
+        attach_source_after_create: true,
+        requested_print_completed_at: timestamp,
+        requested_print_timezone: timezone,
+        date_override_strategy: timestamp ? "operator_supplied" : "operator_default",
+      };
+    }
+
+    _buildCommitBody() {
+      const patchMetadata = {
+        tags: "slicer-created",
+      };
+      if (this._wizardState.historical_timestamp) {
+        patchMetadata.completed_at = this._wizardState.historical_timestamp;
+      }
+      return {
+        bambuddy_base_url: "http://bambuddy.socko.us",
+        printer_id: "1",
+        patch_metadata: patchMetadata,
+      };
+    }
+
+    async _parseJsonResponse(response, fallbackLabel) {
+      let body = null;
+      try {
+        body = await response.json();
+      } catch (_error) {
+        body = null;
+      }
+      if (!response.ok) {
+        const errorMessage = body && body.error
+          ? String(body.error)
+          : `${fallbackLabel}: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
+      }
+      return body || {};
+    }
+
     _renderProgress() {
       return `
         <div class="wizard-container">
@@ -692,52 +780,86 @@
     }
 
     async _startArchiveCommit() {
-      if (!this._modelSidecarUrl || !this._jobData.job_id) {
-        this._error = "Missing job ID or sidecar URL";
+      if (!this._modelSidecarUrl) {
+        this._error = "Missing sidecar URL";
+        this._render();
+        return;
+      }
+
+      const sourceAsset = this._resolveSourceAsset();
+      if (!sourceAsset) {
+        this._error = "No source 3MF asset found for this model";
         this._render();
         return;
       }
 
       this._currentStep = "progress";
       this._statusMessages = [];
+      this._error = "";
       this._jobProgress = { stage: "pending", percent: 0, message: "Initializing..." };
       this._render();
 
       try {
-        const commitBody = {
-          bambuddy_base_url: "http://bambuddy.socko.us",
-          printer_id: "1",
-          patch_metadata: {
-            tags: "slicer-created",
-          },
-        };
-
-        const url = `${this._modelSidecarUrl}/api/slicer/jobs/${this._jobData.job_id}/commit-archive`;
-
-        this._statusMessages.push({ label: "Committing archive", status: "pending" });
-        this._jobProgress.message = "Committing archive...";
-        this._jobProgress.percent = 50;
+        this._statusMessages.push({ label: "Creating slicer job", status: "pending" });
+        this._jobProgress.message = "Creating slicer job...";
+        this._jobProgress.percent = 10;
         this._render();
 
-        const response = await fetch(url, {
+        const createResponse = await fetch(`${this._modelSidecarUrl}/api/slicer/jobs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(commitBody),
+          body: JSON.stringify(this._buildCreateJobBody(sourceAsset)),
         });
+        const createdJob = await this._parseJsonResponse(createResponse, "Create job failed");
+        this._jobData.job_id = createdJob.job_id;
+        this._jobData.status = createdJob.status;
+        this._statusMessages[this._statusMessages.length - 1].status = "done";
 
-        if (!response.ok) {
-          throw new Error(`Commit failed: ${response.status} ${response.statusText}`);
+        this._statusMessages.push({ label: "Slicing source file", status: "pending" });
+        this._jobProgress.stage = "slicing";
+        this._jobProgress.message = "Slicing source file...";
+        this._jobProgress.percent = 40;
+        this._render();
+
+        const executeResponse = await fetch(`${this._modelSidecarUrl}/api/slicer/jobs/${createdJob.job_id}/execute`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const executedJob = await this._parseJsonResponse(executeResponse, "Execute job failed");
+        if (String(executedJob.status || "") !== "sliced") {
+          throw new Error(`Execute job returned unexpected status: ${executedJob.status || "unknown"}`);
         }
+        this._jobData.status = executedJob.status;
+        this._jobData.result_summary = executedJob.result_summary || null;
+        this._statusMessages[this._statusMessages.length - 1].status = "done";
 
-        const result = await response.json();
-        this._jobData.created_archive_id = result.archive_id;
-        this._jobData.result_summary = result;
+        this._statusMessages.push({ label: "Committing archive", status: "pending" });
+        this._jobProgress.stage = "committing";
+        this._jobProgress.message = "Committing archive...";
+        this._jobProgress.percent = 75;
+        this._render();
+
+        const commitResponse = await fetch(`${this._modelSidecarUrl}/api/slicer/jobs/${createdJob.job_id}/commit-archive`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this._buildCommitBody()),
+        });
+        const committedJob = await this._parseJsonResponse(commitResponse, "Commit failed");
+        const archiveId = committedJob.created_archive_id
+          || committedJob.archive_id
+          || committedJob.result_summary && committedJob.result_summary.created_archive_id
+          || null;
+        this._jobData.status = committedJob.status || "committed";
+        this._jobData.created_archive_id = archiveId;
+        this._jobData.result_summary = committedJob.result_summary || committedJob;
 
         this._statusMessages[this._statusMessages.length - 1].status = "done";
         this._statusMessages.push({ label: "Archive created", status: "done" });
         this._jobProgress.stage = "completed";
         this._jobProgress.percent = 100;
-        this._jobProgress.message = `Archive #${result.archive_id} created successfully`;
+        this._jobProgress.message = archiveId
+          ? `Archive #${archiveId} created successfully`
+          : "Archive created successfully";
 
         setTimeout(() => {
           this._currentStep = "completion";
@@ -768,6 +890,10 @@
     _handleRetry() {
       this._pollCount = 0;
       this._statusMessages = [];
+      this._jobData.job_id = null;
+      this._jobData.status = null;
+      this._jobData.created_archive_id = null;
+      this._jobData.result_summary = null;
       this._jobProgress = { stage: "pending", percent: 0, message: "Retrying..." };
       this._startArchiveCommit();
     }
@@ -793,10 +919,6 @@
       } else if (this._currentStep === "filament") {
         this._currentStep = "timestamp";
       } else if (this._currentStep === "timestamp") {
-        // Generate mock job ID for testing; Phase 2 will create jobs beforehand
-        if (!this._jobData.job_id) {
-          this._jobData.job_id = Math.random().toString(36).substring(2, 15);
-        }
         this._startArchiveCommit();
         return;
       } else if (this._currentStep === "progress") {

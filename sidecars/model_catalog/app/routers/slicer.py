@@ -11,6 +11,7 @@ import hashlib
 import logging
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -43,6 +44,7 @@ from ..bambuddy_bridge import (
     patch_archive,
     upload_archive,
 )
+from ..services.shared_helpers import _resolve_local_asset_storage_path
 from ..state import AppState
 
 logger = logging.getLogger(__name__)
@@ -400,7 +402,10 @@ def execute_job(job_id: str, request: Request) -> JSONResponse:
             status_code=400,
             content={"error": f"Job {job_id} has no working_file_path set"},
         )
-    source_path = Path(job.working_file_path)
+    source_path = _resolve_local_asset_storage_path(
+        settings=settings,
+        asset=SimpleNamespace(storage_path=job.working_file_path),
+    ) or Path(job.working_file_path).expanduser()
     if not source_path.is_file():
         return JSONResponse(
             status_code=400,
