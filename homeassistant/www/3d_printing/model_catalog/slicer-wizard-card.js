@@ -724,6 +724,117 @@
       return body || {};
     }
 
+    _formatDuration(durationSeconds) {
+      const totalSeconds = Number(durationSeconds || 0);
+      if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+        return "-";
+      }
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      }
+      return `${minutes}m`;
+    }
+
+    _renderCompletion() {
+      const archiveId = this._jobData.created_archive_id || null;
+      const result = this._jobData.result_summary && typeof this._jobData.result_summary === "object"
+        ? this._jobData.result_summary
+        : {};
+      const upload = result.upload_response && typeof result.upload_response === "object"
+        ? result.upload_response
+        : {};
+      const patch = result.patch_response && typeof result.patch_response === "object"
+        ? result.patch_response
+        : {};
+      const source = result.source_response && typeof result.source_response === "object"
+        ? result.source_response
+        : {};
+      const isSuccess = String(this._jobData.status || "") === "committed" && !!archiveId;
+      const bambuddyArchivesUrl = archiveId
+        ? `http://bambuddy.socko.us/archives?search=${encodeURIComponent(String(archiveId))}`
+        : "http://bambuddy.socko.us/archives";
+      const statusLabel = isSuccess ? "Archive Created" : "Completion Incomplete";
+      const statusDetail = isSuccess
+        ? `Archive #${archiveId} was created and enriched successfully.`
+        : (this._error || "The archive flow finished without a committed archive id.");
+
+      return `
+        <div class="wizard-container completion-state ${isSuccess ? "success" : "warning"}">
+          <div class="wizard-header completion-header ${isSuccess ? "success" : "warning"}">
+            <h2>${this._escapeHtml(statusLabel)}</h2>
+            <p class="wizard-subtitle">${this._escapeHtml(statusDetail)}</p>
+          </div>
+
+          <div class="wizard-content">
+            <div class="completion-kpi-grid">
+              <div class="completion-kpi-card">
+                <div class="completion-kpi-label">Archive ID</div>
+                <div class="completion-kpi-value">${archiveId ? `#${this._escapeHtml(String(archiveId))}` : "-"}</div>
+              </div>
+              <div class="completion-kpi-card">
+                <div class="completion-kpi-label">Printer</div>
+                <div class="completion-kpi-value">${this._escapeHtml(String(upload.printer_id || "1"))}</div>
+              </div>
+              <div class="completion-kpi-card">
+                <div class="completion-kpi-label">Print Time</div>
+                <div class="completion-kpi-value">${this._escapeHtml(this._formatDuration(upload.print_time_seconds))}</div>
+              </div>
+              <div class="completion-kpi-card">
+                <div class="completion-kpi-label">Filament</div>
+                <div class="completion-kpi-value">${Number.isFinite(Number(upload.filament_used_grams)) ? `${Number(upload.filament_used_grams).toFixed(2)} g` : "-"}</div>
+              </div>
+            </div>
+
+            <div class="completion-section">
+              <div class="section-title">Archive Summary</div>
+              <div class="completion-detail-list">
+                <div class="completion-detail-row">
+                  <div class="completion-detail-label">Print Name</div>
+                  <div class="completion-detail-value">${this._escapeHtml(String(upload.print_name || "Not available"))}</div>
+                </div>
+                <div class="completion-detail-row">
+                  <div class="completion-detail-label">Uploaded File</div>
+                  <div class="completion-detail-value">${this._escapeHtml(String(upload.filename || "Not available"))}</div>
+                </div>
+                <div class="completion-detail-row">
+                  <div class="completion-detail-label">Tags</div>
+                  <div class="completion-detail-value">${this._escapeHtml(String(patch.tags || "slicer-created"))}</div>
+                </div>
+                <div class="completion-detail-row">
+                  <div class="completion-detail-label">Source Attached</div>
+                  <div class="completion-detail-value">${source.source_3mf_path ? "Yes" : "No"}</div>
+                </div>
+              </div>
+            </div>
+
+            ${source.source_3mf_path ? `
+              <div class="info-box success-box">
+                <strong>Source preserved:</strong> ${this._escapeHtml(String(source.filename || source.source_3mf_path))}
+              </div>
+            ` : ""}
+
+            ${!isSuccess ? `
+              <div class="error-banner">
+                <strong>Review needed:</strong> ${this._escapeHtml(this._error || "Commit completed without a final success payload.")}
+              </div>
+            ` : ""}
+
+            <div class="info-box">
+              <strong>Bambuddy:</strong> Use the archive id to find this item in the Bambuddy archives view.
+            </div>
+          </div>
+
+          <div class="wizard-footer">
+            <button class="btn btn-secondary" @click="${() => this._handleClosePopup()}">Close</button>
+            <button class="btn btn-secondary" @click="${() => this._handleCreateAnother()}">Create Another</button>
+            <button class="btn btn-primary" @click="${() => this._handleOpenArchiveSearch(bambuddyArchivesUrl)}">Open in Bambuddy</button>
+          </div>
+        </div>
+      `;
+    }
+
     _renderProgress() {
       return `
         <div class="wizard-container">
@@ -898,6 +1009,27 @@
       this._startArchiveCommit();
     }
 
+    _handleCreateAnother() {
+      this._clearDraft();
+      this._handleCancel();
+    }
+
+    _handleClosePopup() {
+      if (!this._hass) {
+        return;
+      }
+      this._hass.callService("browser_mod", "close_popup", {}).catch((error) => {
+        console.warn("Failed to close popup:", error);
+      });
+    }
+
+    _handleOpenArchiveSearch(url) {
+      if (!url) {
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
     _handlePreviousStep() {
       if (this._currentStep === "validation") {
         this._currentStep = "entry-point";
@@ -950,8 +1082,8 @@
         // Slice 6.5: Progress monitoring
         content = this._renderProgress();
       } else if (this._currentStep === "completion") {
-        // Slice 6.6+
-        content = `<div class="placeholder">Completion summary step (6.6+)</div>`;
+        // Slice 6.6: Completion summary
+        content = this._renderCompletion();
       }
 
       this.shadowRoot.innerHTML = `
@@ -1599,6 +1731,81 @@
             animation: spin 1s linear infinite;
           }
 
+          /* Completion Step (6.6) */
+          .completion-header.success {
+            background: linear-gradient(135deg, #2e7d32, #43a047 80%);
+          }
+
+          .completion-header.warning {
+            background: linear-gradient(135deg, #ef6c00, #fb8c00 80%);
+          }
+
+          .completion-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+          }
+
+          .completion-kpi-card {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+          }
+
+          .completion-kpi-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+          }
+
+          .completion-kpi-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+          }
+
+          .completion-section {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .completion-detail-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .completion-detail-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 12px;
+            align-items: start;
+            font-size: 13px;
+          }
+
+          .completion-detail-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+          }
+
+          .completion-detail-value {
+            color: var(--text-primary);
+            word-break: break-word;
+          }
+
+          .success-box {
+            background: rgba(56, 142, 60, 0.08);
+            border-left-color: var(--success-color);
+          }
+
           @keyframes spin {
             from {
               transform: rotate(0deg);
@@ -1633,6 +1840,14 @@
             btn.addEventListener("click", () => this._handleRetry());
           } else if (clickHandler.includes("_handleCancelJob")) {
             btn.addEventListener("click", () => this._handleCancelJob());
+          } else if (clickHandler.includes("_handleCreateAnother")) {
+            btn.addEventListener("click", () => this._handleCreateAnother());
+          } else if (clickHandler.includes("_handleClosePopup")) {
+            btn.addEventListener("click", () => this._handleClosePopup());
+          } else if (clickHandler.includes("_handleOpenArchiveSearch")) {
+            const match = clickHandler.match(/_handleOpenArchiveSearch\((?:'|")([^'"]+)(?:'|")\)/);
+            const url = match ? match[1] : "";
+            btn.addEventListener("click", () => this._handleOpenArchiveSearch(url));
           }
         }
       });
