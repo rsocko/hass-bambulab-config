@@ -783,9 +783,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     };
 
     this._filters.q = read("#mc-q");
-    this._filters.collection = read("#mc-collection");
+    if (root.querySelector("#mc-collection")) {
+      this._filters.collection = read("#mc-collection");
+    }
     this._filters.creator = read("#mc-creator");
-    this._filters.tag = read("#mc-tag");
+    if (root.querySelector("#mc-tag")) {
+      this._filters.tag = read("#mc-tag");
+    }
     this._filters.sort = read("#mc-sort") || "recent";
     var perPageTop = Number(read("#mc-per-page") || 0);
     var perPageBottom = Number(read("#mc-per-page-bottom") || 0);
@@ -793,8 +797,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (Number.isFinite(perPage) && perPage > 0) {
       this._pagination.per_page = Math.max(1, Math.min(96, perPage));
     }
-    this._filters.favorites_only = !!(root.querySelector("#mc-favorites-only") && root.querySelector("#mc-favorites-only").checked);
-    this._filters.frequents_only = !!(root.querySelector("#mc-frequents-only") && root.querySelector("#mc-frequents-only").checked);
+    if (root.querySelector("#mc-favorites-only")) {
+      this._filters.favorites_only = !!(root.querySelector("#mc-favorites-only") && root.querySelector("#mc-favorites-only").checked);
+    }
+    if (root.querySelector("#mc-frequents-only")) {
+      this._filters.frequents_only = !!(root.querySelector("#mc-frequents-only") && root.querySelector("#mc-frequents-only").checked);
+    }
     this._filters.has_other_files = !!(root.querySelector("#mc-has-other-files") && root.querySelector("#mc-has-other-files").checked);
     this._filters.show_archived = !!(root.querySelector("#mc-show-archived") && root.querySelector("#mc-show-archived").checked);
     this._frequentsTuning.window_days = this._clampInteger(read("#mc-frequent-window"), this._frequentsTuning.window_days || 90, 7, 3650);
@@ -816,6 +824,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _applyFilters() {
     this._syncFormIntoFilters();
+    this._syncLeftNavSelectionFromFilters();
     this._requestLoad(1, false);
   }
 
@@ -1092,6 +1101,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
         this._filters.frequents_only = !!responseFilters.frequents_only;
       }
+      this._syncLeftNavSelectionFromFilters();
 
       var pagination = data && data.pagination ? data.pagination : {};
       this._pagination.page = Number(pagination.page || requestPayload.page) || 1;
@@ -1408,6 +1418,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "clear-filters") {
       this._cancelScheduledApply();
       this._filters = this._defaultFilters();
+      this._syncLeftNavSelectionFromFilters();
       this._syncFrequentsTuningFromHelpers(true);
       this._error = "";
       this._activeActionMenu = "";
@@ -1446,11 +1457,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       var navKey = String(target.getAttribute("data-nav-key") || "all-models").trim() || "all-models";
-      this._leftNavSelectedKey = navKey;
-      if (this._leftNavDrawerOpen) {
-        this._leftNavDrawerOpen = false;
-      }
-      this._render();
+      this._applyLeftNavSelection(navKey, { closeDrawer: true, requestLoad: true, render: true });
       return;
     }
 
@@ -1582,6 +1589,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-favorites-filter") {
       this._filters.favorites_only = !this._filters.favorites_only;
+      this._syncLeftNavSelectionFromFilters();
       this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
@@ -1590,6 +1598,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-frequents-filter") {
       this._filters.frequents_only = !this._filters.frequents_only;
+      this._syncLeftNavSelectionFromFilters();
       this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
@@ -1614,6 +1623,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-show-ideas-filter") {
       this._entityTypeFilters.showIdeas = !this._entityTypeFilters.showIdeas;
+      this._syncLeftNavSelectionFromFilters();
       this._requestLoad(1, false);
       this._render();
       return;
@@ -1627,10 +1637,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "set-collection-filter") {
       var collectionName = String(target.getAttribute("data-collection") || "").trim();
-      this._filters.collection = collectionName;
-      this._cancelScheduledApply();
-      this._requestLoad(1, false);
-      this._render();
+      this._applyLeftNavSelection("collection:" + collectionName.toLowerCase(), { closeDrawer: true, requestLoad: true, render: true });
       return;
     }
 
@@ -3578,11 +3585,134 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return entries.slice(0, max);
   }
 
+  _leftNavTopCollections(limit) {
+    var max = Math.max(1, Number(limit || 6));
+    var counts = {};
+    var labels = {};
+    for (var i = 0; i < this._results.length; i++) {
+      var model = this._results[i] || {};
+      var collections = Array.isArray(model.collection_names) ? model.collection_names.slice(0) : [];
+      var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+      if (Array.isArray(fields.collection_names)) {
+        collections = collections.concat(fields.collection_names);
+      }
+      if (fields.collection && !Array.isArray(fields.collection)) {
+        collections = collections.concat(String(fields.collection || "").split(/[;,|]/));
+      }
+      if (!collections.length) {
+        collections = ["Unassigned"];
+      }
+      var seen = {};
+      for (var c = 0; c < collections.length; c++) {
+        var raw = String(collections[c] || "").trim();
+        var label = raw || "Unassigned";
+        var key = label.toLowerCase();
+        if (!key || seen[key]) {
+          continue;
+        }
+        seen[key] = true;
+        counts[key] = (counts[key] || 0) + 1;
+        if (!labels[key]) {
+          labels[key] = label;
+        }
+      }
+    }
+    var entries = Object.keys(counts).map(function (entryKey) {
+      return {
+        key: entryKey,
+        label: labels[entryKey] || entryKey,
+        count: counts[entryKey],
+      };
+    });
+    entries.sort(function (a, b) {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      return a.label.localeCompare(b.label);
+    });
+    return entries.slice(0, max);
+  }
+
+  _deriveLeftNavKeyFromFilters() {
+    var collection = String(this._filters && this._filters.collection || "").trim();
+    var tag = String(this._filters && this._filters.tag || "").trim();
+    if (collection) {
+      return "collection:" + collection.toLowerCase();
+    }
+    if (tag) {
+      return "tag:" + tag.toLowerCase();
+    }
+    if (this._filters && this._filters.favorites_only) {
+      return "favorites";
+    }
+    if (this._filters && this._filters.frequents_only) {
+      return "frequents";
+    }
+    if (this._entityTypeFilters && this._entityTypeFilters.showIdeas) {
+      return "entity:ideas";
+    }
+    return "all-models";
+  }
+
+  _syncLeftNavSelectionFromFilters() {
+    this._leftNavSelectedKey = this._deriveLeftNavKeyFromFilters();
+  }
+
+  _applyLeftNavSelection(navKey, options) {
+    var settings = options && typeof options === "object" ? options : {};
+    var key = String(navKey || "all-models").trim() || "all-models";
+    this._leftNavSelectedKey = key;
+
+    var contextCollection = "";
+    var contextTag = "";
+    var contextFavorites = false;
+    var contextFrequents = false;
+    var contextShowIdeas = false;
+
+    if (key === "favorites") {
+      contextFavorites = true;
+    } else if (key === "frequents") {
+      contextFrequents = true;
+    } else if (key.indexOf("collection:") === 0) {
+      contextCollection = String(key.slice("collection:".length) || "").trim();
+    } else if (key.indexOf("tag:") === 0) {
+      contextTag = String(key.slice("tag:".length) || "").trim();
+    } else if (key === "entity:ideas") {
+      contextShowIdeas = true;
+    } else if (key === "recent-added") {
+      this._filters.sort = "recent";
+    } else if (key === "recent-printed") {
+      this._filters.sort = "frequent";
+    }
+
+    this._filters.collection = contextCollection;
+    this._filters.tag = contextTag;
+    this._filters.favorites_only = contextFavorites;
+    this._filters.frequents_only = contextFrequents;
+    this._entityTypeFilters.showIdeas = contextShowIdeas;
+
+    if (this._browserScope !== "models") {
+      this._browserScope = "models";
+    }
+
+    if (settings.closeDrawer !== false && this._leftNavDrawerOpen) {
+      this._leftNavDrawerOpen = false;
+    }
+    this._cancelScheduledApply();
+    if (settings.requestLoad !== false) {
+      this._requestLoad(1, false);
+    }
+    if (settings.render !== false) {
+      this._render();
+    }
+  }
+
   _renderLeftNav() {
     var totalCount = Math.max(0, Number(this._pagination && this._pagination.total || 0));
     var favoritesCount = 0;
     var frequentsCount = 0;
     var recentPrintedCount = 0;
+    var typeCounts = this._entityTypeCounts();
     for (var i = 0; i < this._results.length; i++) {
       var model = this._results[i] || {};
       var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
@@ -3603,6 +3733,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     var topTags = this._leftNavTopTags(6);
+    var topCollections = this._leftNavTopCollections(6);
     var navClass = 'left-nav'
       + (this._leftNavCollapsed ? ' collapsed' : '')
       + (this._leftNavDrawerOpen ? ' drawer-open' : '');
@@ -3614,6 +3745,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (!tagsHtml) {
       tagsHtml = '<div class="left-nav-empty">No tags detected yet</div>';
+    }
+
+    var collectionsHtml = '';
+    for (var collectionIndex = 0; collectionIndex < topCollections.length; collectionIndex++) {
+      var collectionEntry = topCollections[collectionIndex];
+      collectionsHtml += this._renderLeftNavItem(collectionEntry.label, 'collection:' + collectionEntry.key, collectionEntry.count, 'mdi:folder-outline');
+    }
+    if (!collectionsHtml) {
+      collectionsHtml = '<div class="left-nav-empty">No collections detected yet</div>';
     }
 
     return ''
@@ -3630,13 +3770,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       +      this._renderLeftNavItem('All models', 'all-models', totalCount, 'mdi:cube-outline')
       +      this._renderLeftNavItem('Favorites', 'favorites', favoritesCount, 'mdi:star-outline')
       +      this._renderLeftNavItem('Frequents', 'frequents', frequentsCount, 'mdi:lightning-bolt-outline')
+      +      this._renderLeftNavItem('Ideas', 'entity:ideas', typeCounts.idea || 0, 'mdi:lightbulb-on-outline')
       +      this._renderLeftNavItem('Recently added', 'recent-added', totalCount, 'mdi:clock-plus-outline')
       +      this._renderLeftNavItem('Recently printed', 'recent-printed', recentPrintedCount, 'mdi:printer-3d-nozzle-outline')
       + '  </div>'
       + '  <div class="left-nav-section">'
-      + '    <div class="left-nav-section-label">Projects</div>'
-      +      this._renderLeftNavItem('Active (placeholder)', 'project:active', 0, 'mdi:briefcase-outline')
-      +      this._renderLeftNavItem('Backlog (placeholder)', 'project:backlog', 0, 'mdi:archive-outline')
+      + '    <div class="left-nav-section-label">Collections</div>'
+      +      collectionsHtml
       + '  </div>'
       + '  <div class="left-nav-section">'
       + '    <div class="left-nav-section-label">Tags</div>'
@@ -3708,17 +3848,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
     var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
     var showArchivedLabel = 'Show archived' + (archivedCount > 0 ? (' \u00b7 ' + String(archivedCount)) : '');
-    var typeCounts = this._entityTypeCounts();
     return ''
       + '<div class="filter-row">'
       + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search models" value="' + this._escapeHtml(this._filters.q) + '">'
-      + '  <input id="mc-collection" class="control-input" type="text" placeholder="Collection" value="' + this._escapeHtml(this._filters.collection) + '">'
       + '  <input id="mc-creator" class="control-input" type="text" placeholder="Creator" value="' + this._escapeHtml(this._filters.creator) + '">'
-      + '  <input id="mc-tag" class="control-input" type="text" placeholder="Tag" value="' + this._escapeHtml(this._filters.tag) + '">'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.favorites_only ? ' active favorite' : '') + '" type="button" data-action="toggle-favorites-filter" aria-pressed="' + (this._filters.favorites_only ? 'true' : 'false') + '">Favorites only</button>'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.frequents_only ? ' active frequent' : '') + '" type="button" data-action="toggle-frequents-filter" aria-pressed="' + (this._filters.frequents_only ? 'true' : 'false') + '">Frequents only</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
-      + '  <button class="filter-chip toggle-chip' + (this._entityTypeFilters.showIdeas ? ' active idea' : '') + '" type="button" data-action="toggle-show-ideas-filter" aria-pressed="' + (this._entityTypeFilters.showIdeas ? 'true' : 'false') + '">&#128161; Show ideas (' + this._escapeHtml(String(typeCounts.idea || 0)) + ')</button>'
       + '  <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active archived' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
       + '  <label class="inline-select" for="mc-frequent-window">Freq window'
       + '    <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
@@ -3738,8 +3872,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '      <option value="6"' + (minPrints === 6 ? ' selected' : '') + '>6</option>'
       + '    </select>'
       + '  </label>'
-      + '  <input id="mc-favorites-only" type="checkbox" hidden ' + (this._filters.favorites_only ? 'checked' : '') + '>'
-      + '  <input id="mc-frequents-only" type="checkbox" hidden ' + (this._filters.frequents_only ? 'checked' : '') + '>'
       + '  <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
         + '  <input id="mc-show-archived" type="checkbox" hidden ' + (this._filters.show_archived ? 'checked' : '') + '>'
       + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
@@ -5236,7 +5368,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-mode-item:hover,.view-mode-item:focus-visible{background:rgba(148,163,184,0.16);outline:none;}'
       + '.view-mode-item.active{background:var(--accent);border-color:var(--accent-strong);}'
       + '.view-mode-item:disabled{opacity:.55;cursor:not-allowed;}'
-      + '.filter-row{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(3,minmax(130px,1fr)) auto auto auto auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
+      + '.filter-row{display:grid;grid-template-columns:minmax(220px,1.8fr) minmax(160px,1fr) auto auto auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
       + '.filter-search{grid-column:auto;}'
       + '.inline-select{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}'
       + '.inline-select .tuning-select{min-width:84px;min-height:34px;}'
@@ -5484,7 +5616,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
-      + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) repeat(2,minmax(140px,1fr)) auto auto auto auto auto auto;}}'
+      + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) minmax(150px,1fr) auto auto auto auto auto;}}'
       + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
       + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'
