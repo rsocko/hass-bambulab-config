@@ -945,6 +945,33 @@ def _publish_group_to_local_destination(
                 })
                 continue
             if readme_hash in existing_hashes:
+                matched_asset_id = ""
+                matched_filename = readme_path.name
+                for imported in imported_assets:
+                    if str(imported.get("file_hash") or "").strip().lower() != readme_hash:
+                        continue
+                    matched_asset_id = str(imported.get("asset_id") or "").strip()
+                    imported_name = str(imported.get("filename") or "").strip()
+                    if imported_name:
+                        matched_filename = imported_name
+                    break
+                if not matched_asset_id:
+                    for existing_asset in existing_assets:
+                        existing_hash = str(getattr(existing_asset, "file_hash", "") or "").strip().lower()
+                        if existing_hash != readme_hash:
+                            continue
+                        matched_asset_id = str(getattr(existing_asset, "asset_id", "") or "").strip()
+                        existing_name = str(getattr(existing_asset, "asset_filename", "") or "").strip()
+                        if existing_name:
+                            matched_filename = existing_name
+                        break
+                attached_readmes.append({
+                    "source_folder": str(source_folder),
+                    "source_path": str(readme_path),
+                    "asset_id": matched_asset_id or None,
+                    "filename": matched_filename,
+                    "already_present": True,
+                })
                 duplicate_skipped.append({
                     "source_path": str(readme_path),
                     "filename": readme_path.name,
