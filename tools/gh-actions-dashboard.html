@@ -196,6 +196,14 @@
 
     .run-row:hover { background: var(--bg-tertiary); }
 
+    .run-row.active-row {
+      box-shadow: inset 3px 0 0 color-mix(in srgb, var(--running) 75%, transparent);
+    }
+
+    .run-row.queued-row {
+      box-shadow: inset 3px 0 0 color-mix(in srgb, var(--pending) 75%, transparent);
+    }
+
     .expand-arrow {
       flex-shrink: 0;
       width: 24px;
@@ -222,6 +230,7 @@
       height: 12px;
       border-radius: 50%;
       flex-shrink: 0;
+      position: relative;
     }
 
     .s-dot.success { background: var(--success); }
@@ -229,10 +238,25 @@
     .s-dot.in_progress {
       background: var(--running);
     }
+
+    .s-dot.in_progress::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--running);
+      border-right-color: color-mix(in srgb, var(--running) 45%, transparent);
+      animation: spin-ring 1.25s linear infinite;
+      will-change: transform;
+      pointer-events: none;
+    }
     .s-dot.queued, .s-dot.waiting, .s-dot.pending {
       background: var(--pending);
     }
     .s-dot.cancelled, .s-dot.skipped { background: var(--cancelled); }
+
+    @keyframes spin-ring { to { transform: rotate(360deg); } }
 
     /* ── Run info ────────────────────────── */
     .run-info {
@@ -275,6 +299,32 @@
     .trigger-badge {
       font-size: 12px;
       color: var(--text-tertiary);
+    }
+
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      border: 1px solid transparent;
+    }
+
+    .state-badge.running {
+      color: var(--running);
+      border-color: color-mix(in srgb, var(--running) 45%, var(--border));
+      background: color-mix(in srgb, var(--running) 12%, transparent);
+    }
+
+    .state-badge.queued {
+      color: var(--pending);
+      border-color: color-mix(in srgb, var(--pending) 45%, var(--border));
+      background: color-mix(in srgb, var(--pending) 14%, transparent);
     }
 
     .run-time {
@@ -1268,8 +1318,16 @@ function runRow(r, child) {
   const t   = r.status === 'completed' ? ago(r.updated_at)
             : r.status === 'queued' || r.status === 'waiting' ? 'queued'
             : elapsed(r.created_at);
-  const cls = child ? 'run-row child-row' : 'run-row';
+  const stateCls = r.status === 'in_progress' ? ' active-row'
+    : (r.status === 'queued' || r.status === 'waiting') ? ' queued-row'
+    : '';
+  const cls = (child ? 'run-row child-row' : 'run-row') + stateCls;
   const trg = TRIGGER[r.event] || '?';
+  const stateBadge = r.status === 'in_progress'
+    ? '<span class="state-badge running">Active</span>'
+    : (r.status === 'queued' || r.status === 'waiting')
+      ? '<span class="state-badge queued">Queued</span>'
+      : '';
 
   const arrow = S.expanded.has(r.id) ? '▾' : '▸';
 
@@ -1281,6 +1339,7 @@ function runRow(r, child) {
         <div class="run-name">${SHORT[r.name] || r.name} <span class="run-num">#${r.run_number}</span></div>
         <div class="run-meta">
           <span class="trigger-badge">${trg}</span>
+          ${stateBadge}
           <span class="run-branch" title="${r.head_branch}">${r.head_branch}</span>
         </div>
       </div>
