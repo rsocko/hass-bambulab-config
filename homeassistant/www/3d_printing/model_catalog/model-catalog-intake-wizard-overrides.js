@@ -2858,25 +2858,25 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // currently-allowlisted set is exposed via _roots (loaded by _refresh).
       // Falling back to "/" surfaces the virtual root listing of all configured
       // roots when no preferred root can be determined.
-      var preferredRoot = '';
-      var preferredKind = 'intake';
+      var preferredRoot = requestedStartPath;
+      var preferredKind = requestedRootKind || 'intake';
       try {
         var roots = Array.isArray(this._roots) ? this._roots : [];
-        var kindMatches = requestedRootKind
-          ? roots.filter(function (r) { return r && r.kind === requestedRootKind && r.path; })
-          : [];
-        var pool = kindMatches.length ? kindMatches : roots;
-        // Prefer the first accessible root; otherwise fall back to the first
-        // configured root regardless of accessibility.
-        var firstAccessible = pool.find(function (r) { return r && r.accessible && r.path; });
-        var firstAny = pool.find(function (r) { return r && r.path; });
-        var chosen = firstAccessible || firstAny || null;
-        if (chosen) {
-          preferredRoot = chosen.path || '';
-          preferredKind = chosen.kind === 'working' ? 'working' : 'intake';
+        if (!preferredRoot) {
+          var kindMatches = requestedRootKind
+            ? roots.filter(function (r) { return r && r.kind === requestedRootKind && r.path; })
+            : [];
+          var pool = kindMatches.length ? kindMatches : roots;
+          // Prefer the first accessible root; otherwise fall back to the first
+          // configured root regardless of accessibility.
+          var firstAccessible = pool.find(function (r) { return r && r.accessible && r.path; });
+          var firstAny = pool.find(function (r) { return r && r.path; });
+          var chosen = firstAccessible || firstAny || null;
+          if (chosen) {
+            preferredRoot = chosen.path || '';
+            preferredKind = chosen.kind === 'working' ? 'working' : 'intake';
+          }
         }
-        // If a specific startPath was requested, honor it (only when it is
-        // within one of the configured roots — the backend re-enforces this).
         if (requestedStartPath) {
           var startMatch = roots.find(function (r) {
             if (!r || !r.path) { return false; }
@@ -2885,12 +2885,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             return sp === rp || sp.indexOf(rp + '/') === 0;
           });
           if (startMatch) {
-            preferredRoot = requestedStartPath;
             preferredKind = startMatch.kind === 'working' ? 'working' : 'intake';
           }
         }
       } catch (_rootErr) {
-        preferredRoot = '';
+        if (!preferredRoot) {
+          preferredRoot = '';
+        }
       }
       this._intakeRootKind = preferredKind;
       if (preferredRoot) {
