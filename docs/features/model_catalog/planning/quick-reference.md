@@ -18,7 +18,7 @@
 
 | # | File | Purpose | For Whom |
 |---|------|---------|----------|
-| 1 | `popup-model-detail-collapsible-sections.html` | **Interactive mockup** — test the new layout | Designers, UX testers |
+| 1 | `popup-model-detail-phase0-extension-host.html` | **Interactive mockup** — test the Phase 0 merged host layout | Designers, UX testers |
 | 2 | `popup-extension-points.md` | **API contracts** — 8 extension slots for dependent features | Feature leads #1494, #1495, #1483, #1499 |
 | 3 | `archive-candidate-review-workflow.md` | **Full UX spec** — candidate review, scoring, keyboard nav, accessibility | Archive UI team (#1495) |
 | 4 | `model-detail-popup-redesign-2026-05.md` (updated) | **Design doc** — collapsible layout, new mockups | All stakeholders |
@@ -68,7 +68,7 @@ ACTIONS
 → archive-candidate-review-workflow.md
 
 **Visual walkthrough**:
-→ popup-model-detail-collapsible-sections.html (open in browser)
+→ popup-model-detail-phase0-extension-host.html (open in browser)
 
 ---
 
@@ -92,5 +92,5 @@ ACTIONS
 ---
 
 **Files**: `docs/features/model_catalog/`  
-**Mockup**: `design/mockups/popup-model-detail-collapsible-sections.html`  
+**Mockup**: `design/mockups/popup-model-detail-phase0-extension-host.html`  
 **Status**: Ready for review

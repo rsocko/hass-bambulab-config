@@ -31,11 +31,11 @@
 
 ## 🎨 Interactive Mockup
 
-- **[popup-model-detail-collapsible-sections.html](.././design/mockups/popup-model-detail-collapsible-sections.html)**
-  - Open in browser to test
-  - Collapsible sections, archive candidate rows, media carousel
-  - Tunable width, padding, accent color
-  - Mobile toggle
+- **[popup-model-detail-phase0-extension-host.html](../design/mockups/popup-model-detail-phase0-extension-host.html)**
+   - Open in browser to test
+   - Phase 0 merged host with extension points for #1494, #1495, #1483, #1499
+   - Collapsible-section direction, archive candidate rows, media carousel
+   - Mobile stack behavior and desktop split layout
 
 ---
 
