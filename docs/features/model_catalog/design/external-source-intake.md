@@ -1,7 +1,7 @@
 # External Source Intake Design
 
 > **Status**: Proposed design package for issues #183, #1179, #189, #232, #1266, #1372
-> **Last updated**: 2026-05-09 (decision update)
+> **Last updated**: 2026-05-26 (MakerWorld API research update)
 > **Scope**: Unified capture/import architecture for online model sources (MakerWorld, Printables, others), collection migration, browser extension capture, and Stream Deck quick actions.
 
 ## Why This Exists
@@ -105,22 +105,31 @@ Each adapter exposes a capability document:
     "images": true,
     "downloadables": true,
     "collections": true,
-    "auth_required": false,
-    "api_mode": "scrape"
+    "auth_required": true,
+    "api_mode": "api"
+  },
+  "auth": {
+    "method": "bearer_jwt",
+    "token_source": "bambu_cloud_account",
+    "token_refresh": true,
+    "scopes": ["design-service", "search-service"]
   },
   "rate_limits": {
-    "qps": 1,
-    "burst": 3
+    "qps": 2,
+    "burst": 5,
+    "note": "Unofficial API — rate limits are inferred, not documented"
   },
   "confidence_rules": {
     "canonical_url": "required",
-    "creator_identity": "preferred",
-    "file_manifest": "optional"
+    "creator_identity": "guaranteed",
+    "file_manifest": "guaranteed"
   }
 }
 ```
 
 This allows consistent UI behavior across providers while still honoring source-specific constraints.
+
+> **Update 2026-05-26**: MakerWorld's provider mode has been upgraded from `scrape` to `api` based on research into community-documented API endpoints (OpenBambuAPI project). The API provides structured JSON responses with full metadata, file manifests, and direct 3MF download — eliminating the need for scraping. Auth is now required (Bambu Cloud JWT). See the [MakerWorld Provider Adapter Spec](./makerworld-provider-adapter.md) for full API mapping.
 
 ## Data Model (Issue #1266)
 
@@ -300,6 +309,50 @@ This design aligns with existing embedded provenance work:
 
 Do not require reverse-proxy iframe embedding as the initial implementation.
 
+### MakerWorld API Integration (2026-05-26)
+
+Research into community-documented MakerWorld APIs (reverse-engineered from the Bambu Handy app, documented in the [OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI) project) reveals that MakerWorld is now an **API-capable provider**, not a scrape-only source. This changes the integration strategy significantly.
+
+The full MakerWorld provider adapter specification is in [makerworld-provider-adapter.md](./makerworld-provider-adapter.md). Key implications for this design:
+
+1. **Confidence is always `high`** for API-resolved models — structured metadata, verified creator identity, complete file manifests, and direct download URLs are all available from a single API call.
+2. **Full import can be immediate** per the confirmed decision that `high` confidence allows immediate full import.
+3. **Two capture channels are supported**: URL paste (operator pastes `makerworld.com/en/models/{id}`) and browser extension (extension extracts design ID from current tab).
+4. **Auth is required** — all MakerWorld API endpoints require a Bambu Cloud Bearer JWT. The sidecar must manage token acquisition and refresh.
+5. **3MF download is direct** — the API provides binary 3MF download via instance ID, which feeds directly into the existing file-based intake pipeline.
+
+### MakerWorld Capture → Import Flow
+
+```
+┌──────────────────┐    ┌───────────────────┐    ┌──────────────────┐
+│  Capture Channel │    │  Provider Adapter  │    │  Intake Pipeline │
+│                  │    │                    │    │                  │
+│  URL paste       │───►│  Parse design ID   │───►│  Pending record  │
+│  Browser ext     │    │  GET /design/{id}  │    │  + API snapshot  │
+│  Stream Deck     │    │  Resolve metadata  │    │                  │
+│  HA automation   │    │  Build file list   │    │  Operator review │
+│                  │    │  Compute confidence│    │  or auto-commit  │
+└──────────────────┘    └───────────────────┘    │  (high conf.)    │
+                                                  │                  │
+                                                  │  ┌─── on commit ─┐│
+                                                  │  │Download 3MF   ││
+                                                  │  │Feed to intake ││
+                                                  │  │queue (existing)││
+                                                  │  │Extract images ││
+                                                  │  │Write provenance││
+                                                  │  └───────────────┘│
+                                                  └──────────────────┘
+```
+
+### Provenance Bridge: Offline ↔ Online
+
+When a 3MF is downloaded from MakerWorld via the API, the existing offline provenance extraction (`extract_3mf_source_metadata()`) will naturally find structured Bambu metadata inside the file. This creates a two-source provenance chain:
+
+1. **Online provenance** (API snapshot) — stored in `source_intake_records.snapshot_json`
+2. **Embedded provenance** (3MF metadata) — extracted by the existing offline parser
+
+Both should agree. If they diverge, the online API snapshot takes precedence for model identity fields (design ID, creator, title), while the embedded metadata takes precedence for slicer-specific fields (profiles, print settings).
+
 ## UX Surfaces
 
 ## New Surface: External Intake Workbench
@@ -394,15 +447,17 @@ This strategy is now required for implementation.
 
 Provider categories:
 
-- **Non-API or limited API providers** (example: MakerWorld in current constraints)
-  - prioritize full import earlier when confidence is `high`
-  - keep scraper/hybrid path available for model files and supporting assets
-  - retain downloaded asset evidence for reproducibility and retries
-
-- **API-capable providers**
+- **API-capable providers** (example: MakerWorld)
   - default to metadata-first with deferred/on-demand file import
   - allow later explicit file import refresh per model
   - reduce heavy network/download operations during initial intake
+  - when confidence is `high` and operator opts for full import, download 3MF directly via provider API
+  - MakerWorld: use `GET /v1/design-service/instance/{instanceId}/f3mf?type=download` for direct binary download
+
+- **Non-API or limited API providers** (example: Printables, Thingiverse)
+  - prioritize full import earlier when confidence is `high`
+  - keep scraper/hybrid path available for model files and supporting assets
+  - retain downloaded asset evidence for reproducibility and retries
 
 ## Scraper-Mode Evaluation Notes
 
@@ -433,10 +488,14 @@ Decision guidance:
 
 ## Phase 2: Provider Adapters + MakerWorld/Printables
 
-- MakerWorld adapter with confidence model
-- Printables adapter
-- provider-specific file import policy (priority full import for non-API providers, deferred file import for API-capable providers)
-- scraper/hybrid capability scoring and hardening notes
+- MakerWorld adapter with API-mode integration (see [makerworld-provider-adapter.md](./makerworld-provider-adapter.md))
+  - Bambu Cloud auth integration (JWT token management)
+  - Design resolution via `GET /v1/design-service/design/{designId}`
+  - 3MF download via `GET /v1/design-service/instance/{instanceId}/f3mf?type=download`
+  - Gallery image capture from API response `images[]`
+  - Browser extension + URL paste capture channels
+- Printables adapter (scrape/hybrid mode)
+- provider-specific file import policy (deferred file import for API-capable providers, priority full import for non-API providers)
 
 ## Phase 3: Extension + Stream Deck
 
@@ -463,3 +522,5 @@ Decision guidance:
 - use adapter capability contracts to avoid source-specific UI forks
 - implement provider-aware two-phase policy: prioritize full import early for non-API providers, allow deferred file import for API-capable providers
 - treat extension and Stream Deck as first-class channels into the same intake queue
+- MakerWorld is now confirmed as an API-capable provider — implement as first adapter using community-documented endpoints
+- auth integration (Bambu Cloud JWT) is a prerequisite for MakerWorld adapter; design token management as a shared service for potential future Bambu-ecosystem providers

@@ -1,8 +1,8 @@
 # Embedded MakerWorld 3MF Provenance Spec
 
 > **Status**: Proposed design update for issue #1179.
-> **Last updated**: 2026-05-03
-> **Scope**: Define what MakerWorld- and Bambu-related provenance can be extracted directly from `.3mf` files for the model catalog without online lookups.
+> **Last updated**: 2026-05-26 (online provenance extension)
+> **Scope**: Define what MakerWorld- and Bambu-related provenance can be extracted directly from `.3mf` files for the model catalog, and how online API-based provenance extends the offline extraction boundary.
 
 ## Why This Exists
 
@@ -298,6 +298,82 @@ This spec stays within the existing phase boundary:
 - parser and cache work belong to the reusable `.3mf` analysis foundation
 - public-source fetching and refresh remain a later online provenance phase
 - issue #1179 can move forward incrementally by surfacing embedded provenance first instead of depending on a live embedded MakerWorld page
+
+## Online Provenance Extension (2026-05-26)
+
+Research into community-documented MakerWorld API endpoints (see [makerworld-provider-adapter.md](./makerworld-provider-adapter.md)) extends this spec beyond offline extraction into a two-layer provenance model.
+
+### Two-Layer Provenance Model
+
+| Layer | Source | Trust level | When available |
+|---|---|---|---|
+| **Embedded** (this spec) | 3MF XML metadata fields | Medium-High (varies by class A-D) | Always, for any locally held 3MF |
+| **Online** (new) | MakerWorld design-service API | High (structured, authoritative) | When operator imports via URL or triggers online reconciliation |
+
+### Online Provenance Capabilities
+
+The MakerWorld `GET /v1/design-service/design/{designId}` endpoint returns structured JSON with:
+
+- `title` — authoritative model name
+- `designCreator` — creator profile (name, avatar, user ID)
+- `instances[]` — all design variants/remixes with plate configs
+- `tags[]` — model category tags
+- `images[]` — gallery images with CDN URLs
+- `likeCount`, `downloadCount`, `collectCount` — engagement metrics
+- `license` — licensing terms
+- `createTime`, `updateTime` — timestamps
+
+This gives definitive answers to fields that the offline extraction can only infer opportunistically.
+
+### Reconciliation Rules
+
+When both embedded and online provenance exist for the same model:
+
+| Field | Winner | Rationale |
+|---|---|---|
+| `source_url` | Online | API provides canonical URL |
+| `source_design_model_id` | Either (must match) | If they disagree, flag as warning |
+| `source_title` | Online | API title is authoritative |
+| `source_author` | Online | API includes verified creator profile |
+| `source_author_user_id` | Online | API provides canonical user ID |
+| `source_license` | Online | API reflects current license (may have changed since 3MF was published) |
+| Slicer settings, profiles | Embedded | These are file-specific, not available from the API |
+| Plate configuration | Embedded | 3MF-internal, not in the API response |
+| `source_cover_url` | Online | API has current gallery images |
+
+### Online Reconciliation Triggers
+
+Online provenance fetch can be triggered by:
+
+1. **URL-based import** — operator pastes a MakerWorld URL in the intake workbench; the adapter resolves it via API before any file download
+2. **Browser extension capture** — extension sends design ID from current tab; sidecar resolves via API
+3. **Deferred reconciliation** — operator or automation triggers an online lookup for a model that was previously imported offline-only (e.g., from a local 3MF file that had a `DesignModelId`)
+4. **Batch enrichment** — scan existing catalog entries with `source_platform = "makerworld"` and `source_design_model_id` present; offer to reconcile against the API in bulk
+
+### Deferred Reconciliation Design
+
+For models already in the catalog with only embedded provenance (Class A-C), the system should support:
+
+```
+POST /api/local/models/{id}/reconcile-source
+```
+
+This endpoint:
+1. Reads the model's existing `source_design_model_id` or `source_url`
+2. Parses the MakerWorld design ID
+3. Calls `GET /v1/design-service/design/{designId}` via the MakerWorld adapter
+4. Merges the online response into the model's metadata using the reconciliation rules above
+5. Stores the full API snapshot in `source_intake_records.snapshot_json` for audit
+6. Updates `provenance_confidence` to `high`
+
+### What Online Provenance Does Not Replace
+
+Embedded provenance extraction remains essential because:
+
+- not all 3MF files come from URL-based import (local files, SD card copies, shared drives)
+- online provenance requires auth; embedded extraction works without network
+- slicer-specific metadata (profiles, plate config, print settings) is only available from the embedded source
+- the embedded parser provides provenance for non-MakerWorld Bambu Studio files (Class C/D) where no API exists
 
 ## Recommended Next Steps
 

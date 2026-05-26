@@ -21,8 +21,6 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64
   type: module
-- url: /local/3d_printing/vendor/apexcharts.min.js?v=1
-  type: js
 - url: /local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=70
   type: module
 - url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=62

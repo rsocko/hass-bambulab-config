@@ -77,7 +77,7 @@ VALID_STATUSES: set[str] = {
 }
 
 VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "draft": {"pending_validation", "cancelled", "failed"},
+    "draft": {"pending_validation", "slicing", "cancelled", "failed"},
     "pending_validation": {"validated", "draft", "failed"},
     "validated": {"slicing", "draft", "cancelled", "failed"},
     "slicing": {"sliced", "failed"},

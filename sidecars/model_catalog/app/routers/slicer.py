@@ -2,11 +2,14 @@
 
 Workstream A / Slice 1 — ``GET /api/slicer/providers``
 Workstream B / Slice 2 — ``/api/slicer/jobs`` CRUD and lifecycle
+Workstream B / Slice 4 — ``POST /api/slicer/jobs/{job_id}/execute``
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -26,6 +29,13 @@ from ..db_slicer_jobs import (
     _slicer_job_to_dict,
 )
 from ..settings import Settings
+from ..slicer_bridge import (
+    SlicerBridgeError,
+    cleanup_slice,
+    enqueue_slice,
+    poll_until_terminal,
+    retrieve_output,
+)
 from ..state import AppState
 
 logger = logging.getLogger(__name__)
@@ -324,3 +334,174 @@ async def delete_job(job_id: str, request: Request) -> JSONResponse:
         )
 
     return JSONResponse(status_code=204, content=None)
+
+
+# -----------------------------------------------------------------------
+# Slice 4 — Execute (bridge to bambu-studio-api)
+# -----------------------------------------------------------------------
+
+
+def _sha256_file(path: Path) -> str:
+    """Compute SHA-256 of a file."""
+    sha = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65_536), b""):
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+@router.post("/api/slicer/jobs/{job_id}/execute")
+def execute_job(job_id: str, request: Request) -> JSONResponse:
+    """Send the job's source file to bambu-studio-api for slicing.
+
+    This is a synchronous endpoint that blocks until slicing completes
+    or the configured timeout is reached.  The job transitions through
+    ``draft → slicing → sliced`` (or ``→ failed`` on error).
+    """
+    state: AppState = request.app.state.model_catalog
+    settings: Settings = state.settings
+
+    # 1. Check slicer is enabled
+    if not settings.use_slicer_api:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Slicer API is disabled. Set USE_SLICER_API=true to enable."},
+        )
+
+    # 2. Read and validate job
+    job = read_slicer_job(db_path=settings.db_path, job_id=job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Slicer job not found: {job_id}"},
+        )
+
+    if job.status not in ("draft", "validated"):
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": (
+                    f"Job {job_id} is in status '{job.status}'; "
+                    "must be 'draft' or 'validated' to execute"
+                ),
+            },
+        )
+
+    # 3. Resolve source file
+    if not job.working_file_path:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Job {job_id} has no working_file_path set"},
+        )
+    source_path = Path(job.working_file_path)
+    if not source_path.is_file():
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Source file not found: {job.working_file_path}"},
+        )
+
+    # 4. Compute source hash and determine output path
+    source_sha256 = _sha256_file(source_path)
+    output_dir = settings.db_path.parent / "slicer-output" / job_id
+    output_path = output_dir / f"{source_path.stem}.gcode.3mf"
+
+    base_url = settings.bambu_studio_api_url
+    upstream_request_id: str | None = None
+
+    try:
+        # 5. Enqueue slice upstream
+        enqueue_result = enqueue_slice(
+            base_url=base_url,
+            file_path=source_path,
+            timeout=settings.slicer_request_timeout_seconds,
+            export_type=job.overrides.get("exportType", "3mf"),
+            overrides=job.overrides or None,
+        )
+        upstream_request_id = enqueue_result.request_id
+
+        # 6. Transition to slicing
+        transition_slicer_job(
+            db_path=settings.db_path,
+            job_id=job_id,
+            new_status="slicing",
+            worker_provider="bambu-studio",
+            worker_job_id=upstream_request_id,
+            source_sha256=source_sha256,
+        )
+
+        # 7. Poll until terminal
+        poll_result = poll_until_terminal(
+            base_url=base_url,
+            request_id=upstream_request_id,
+            poll_interval=settings.slicer_async_poll_interval_seconds,
+            max_wait=settings.slicer_async_max_wait_seconds,
+        )
+
+        if poll_result.status == "failed":
+            job = transition_slicer_job(
+                db_path=settings.db_path,
+                job_id=job_id,
+                new_status="failed",
+                last_error=poll_result.error_message or "Upstream slicer reported failure",
+            )
+            return JSONResponse(status_code=502, content=_slicer_job_to_dict(job))
+
+        # 8. Download output
+        output_result = retrieve_output(
+            base_url=base_url,
+            request_id=upstream_request_id,
+            dest_path=output_path,
+            timeout=settings.slicer_request_timeout_seconds,
+        )
+
+        # 9. Transition to sliced
+        job = transition_slicer_job(
+            db_path=settings.db_path,
+            job_id=job_id,
+            new_status="sliced",
+            sliced_output_path=str(output_result.output_path),
+            sliced_output_sha256=output_result.sha256,
+            result_summary={
+                **output_result.metadata,
+                "content_length": output_result.content_length,
+            },
+        )
+        return JSONResponse(content=_slicer_job_to_dict(job))
+
+    except SlicerBridgeError as exc:
+        logger.exception("Slicer bridge error for job %s", job_id)
+        try:
+            job = transition_slicer_job(
+                db_path=settings.db_path,
+                job_id=job_id,
+                new_status="failed",
+                last_error=str(exc),
+            )
+        except ValueError:
+            pass  # Already in a non-transitionable state
+        return JSONResponse(
+            status_code=502,
+            content={"error": str(exc)},
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error executing slicer job %s", job_id)
+        try:
+            job = transition_slicer_job(
+                db_path=settings.db_path,
+                job_id=job_id,
+                new_status="failed",
+                last_error=f"Unexpected error: {exc}",
+            )
+        except ValueError:
+            pass
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal error: {exc}"},
+        )
+    finally:
+        # 10. Always cleanup upstream
+        if upstream_request_id:
+            cleanup_slice(
+                base_url=base_url,
+                request_id=upstream_request_id,
+            )
