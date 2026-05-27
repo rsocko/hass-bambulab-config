@@ -776,6 +776,7 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
     payloads_by_model_ref: dict[str, dict[str, Any]] = {}
     direct_models_by_collection_id: dict[str, list[dict[str, Any]]] = {}
     unassigned_models: list[dict[str, Any]] = []
+    unassigned_model_refs: set[str] = set()
 
     def ensure_node(parts: tuple[str, ...]) -> dict[str, Any]:
         node_id = _collection_path_key(parts)
@@ -809,6 +810,8 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
         collections = _normalized_collection_names(payload.get("collection_names"))
         if not collections:
             unassigned_models.append(payload)
+            if model_ref:
+                unassigned_model_refs.add(model_ref)
             continue
         seen_paths: set[str] = set()
         for collection_label in collections:
@@ -860,6 +863,11 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
             }
         )
 
+    unassigned_activity_summary = _collection_activity_summary(
+        model_refs=unassigned_model_refs,
+        payloads_by_model_ref=payloads_by_model_ref,
+    )
+
     node_lookup = {node["collection_id"]: node for node in nodes}
 
     def build_nested(node_id: str) -> dict[str, Any]:
@@ -881,6 +889,13 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
         "nodes": nodes,
         "items": [build_nested(node_id) for node_id in root_ids],
         "unassigned_model_count": len(unassigned_models),
+        "unassigned_preview_model_count": int(unassigned_activity_summary["preview_model_count"]),
+        "unassigned_recent_print_activity": unassigned_activity_summary["recent_print_activity"],
+        "unassigned_cover_images": _collection_cover_images(
+            model_refs=unassigned_model_refs,
+            payloads_by_model_ref=payloads_by_model_ref,
+            limit=6,
+        ),
         "direct_models_by_collection_id": direct_models_by_collection_id,
         "unassigned_models": unassigned_models,
     }
@@ -4865,6 +4880,12 @@ def browse_collections_endpoint(
             "nodes": tree.get("nodes") or [],
             "items": tree.get("items") or [],
             "unassigned_model_count": int(tree.get("unassigned_model_count") or 0),
+            "unassigned_preview_model_count": int(tree.get("unassigned_preview_model_count") or 0),
+            "unassigned_recent_print_activity": tree.get("unassigned_recent_print_activity") or {
+                "printed_model_count": 0,
+                "last_printed_at": None,
+            },
+            "unassigned_cover_images": tree.get("unassigned_cover_images") or [],
         },
         "result_counts": {
             "collections": len(collection_nodes),

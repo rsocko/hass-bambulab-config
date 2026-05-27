@@ -161,8 +161,10 @@ TREE_SEED_ROWS = [
     {
         "model_ref": "m14",
         "model_name": "Loose Model",
+        "preview_url": "https://img.test/m14.jpg",
         "collection_names_json": '[]',
         "entity_type": "model",
+        "last_printed_at": "2026-01-05T00:00:00Z",
     },
 ]
 
@@ -597,6 +599,18 @@ def test_collections_browse_root_returns_top_level_collection_nodes(tmp_path: Pa
     assert data["result_counts"]["collections"] == 2
     assert data["result_counts"]["models"] == 0
     assert data["tree"]["unassigned_model_count"] == 1
+    assert data["tree"]["unassigned_preview_model_count"] == 1
+    assert data["tree"]["unassigned_recent_print_activity"] == {
+        "printed_model_count": 1,
+        "last_printed_at": "2026-01-05T00:00:00Z",
+    }
+    assert data["tree"]["unassigned_cover_images"] == [
+        {
+            "model_ref": "m14",
+            "model_name": "Loose Model",
+            "preview_url": "http://testserver/api/models/preview?source=https%3A%2F%2Fimg.test%2Fm14.jpg",
+        }
+    ]
     assert [item["kind"] for item in data["items"]] == ["collection", "collection"]
     assert [item["data"]["label"] for item in data["items"]] == ["Functional", "Utility"]
 

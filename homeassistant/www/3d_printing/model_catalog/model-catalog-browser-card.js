@@ -3274,6 +3274,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (unassignedCount <= 0) {
       return null;
     }
+    var unassignedActivity = tree.unassigned_recent_print_activity && typeof tree.unassigned_recent_print_activity === "object"
+      ? tree.unassigned_recent_print_activity
+      : { printed_model_count: 0, last_printed_at: "" };
     return {
       collection_id: "__unassigned__",
       label: "No Collection",
@@ -3282,9 +3285,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       model_count_direct: unassignedCount,
       model_count_total: unassignedCount,
       child_collection_count: 0,
-      preview_model_count: 0,
-      recent_print_activity: { printed_model_count: 0, last_printed_at: "" },
-      cover_images: [],
+      preview_model_count: Math.max(0, Number(tree.unassigned_preview_model_count || 0) || 0),
+      recent_print_activity: {
+        printed_model_count: Math.max(0, Number(unassignedActivity.printed_model_count || 0) || 0),
+        last_printed_at: String(unassignedActivity.last_printed_at || "").trim(),
+      },
+      cover_images: Array.isArray(tree.unassigned_cover_images) ? tree.unassigned_cover_images.slice(0, 6) : [],
       is_system_bucket: true,
     };
   }
@@ -6524,6 +6530,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderCollectionCoverMosaic(node) {
+    var isSystemBucket = !!(node && node.is_system_bucket);
+    var viewMode = this._normalizedViewMode(this._viewMode);
+    if (isSystemBucket && viewMode !== 'list') {
+      return this._renderSystemBucketCoverPile(node);
+    }
     var coverImages = node && Array.isArray(node.cover_images) ? node.cover_images.slice(0, 4) : [];
     if (coverImages.length > 0 && coverImages.length < 4) {
       var filledCoverImages = [];
@@ -6538,6 +6549,24 @@ class ModelCatalogBrowserCard extends HTMLElement {
       tiles.push(this._renderCollectionCoverTile(cover, index));
     }
     return '<div class="collection-mosaic" aria-hidden="true">' + tiles.join('') + '</div>';
+  }
+
+  _renderSystemBucketCoverPile(node) {
+    var coverImages = node && Array.isArray(node.cover_images) ? node.cover_images.slice(0, 6) : [];
+    var pileImages = [];
+    if (coverImages.length > 0) {
+      for (var fillIndex = 0; fillIndex < 6; fillIndex++) {
+        pileImages.push(coverImages[fillIndex % coverImages.length]);
+      }
+    }
+    var tiles = [];
+    for (var index = 0; index < 6; index++) {
+      tiles.push('<div class="collection-pile-photo pile-' + String(index + 1) + '">' + this._renderCollectionCoverTile(pileImages[index] || null, index) + '</div>');
+    }
+    return '<div class="collection-mosaic collection-pile-preview" aria-hidden="true">'
+      + tiles.join('')
+      + '<div class="collection-pile-fade"></div>'
+      + '</div>';
   }
 
   _renderCollectionCoverTile(cover, index) {
@@ -7429,6 +7458,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.collection-mosaic-tile img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;}'
       + '.collection-mosaic-tile.empty{background:linear-gradient(180deg,rgba(30,41,59,0.55),rgba(15,23,42,0.28));}'
       + '.collection-mosaic-tile.empty ha-icon{--mdc-icon-size:24px;color:rgba(148,163,184,0.72);}'
+      + '.collection-pile-preview{position:relative;display:block;min-height:196px;overflow:hidden;border-radius:16px;background:radial-gradient(circle at top left,rgba(245,158,11,0.10),transparent 38%),linear-gradient(180deg,rgba(30,41,59,0.44),rgba(15,23,42,0.16));border:1px solid rgba(245,158,11,0.14);}'
+      + '.collection-card.collection-card-view-media .collection-pile-preview{min-height:232px;}'
+      + '.collection-pile-photo{position:absolute;width:92px;height:112px;padding:7px 7px 18px;border-radius:6px;background:rgba(248,250,252,0.94);box-shadow:0 10px 20px rgba(15,23,42,0.24);transform-origin:center;overflow:hidden;}'
+      + '.collection-pile-photo .collection-mosaic-tile{width:100%;height:100%;aspect-ratio:auto;border-radius:3px;border-color:rgba(15,23,42,0.10);background:rgba(226,232,240,0.88);}'
+      + '.collection-pile-photo .collection-mosaic-tile.empty{background:linear-gradient(180deg,rgba(203,213,225,0.92),rgba(148,163,184,0.72));}'
+      + '.collection-pile-photo .collection-mosaic-tile.empty ha-icon{color:rgba(51,65,85,0.72);}'
+      + '.collection-pile-photo .collection-mosaic-tile img[data-thumbnail-lazy-url]:not([src]){background:linear-gradient(120deg,rgba(148,163,184,0.34),rgba(148,163,184,0.12));}'
+      + '.collection-pile-photo.pile-1{left:16px;top:34px;transform:rotate(-10deg);}'
+      + '.collection-pile-photo.pile-2{left:74px;top:14px;transform:rotate(8deg);}'
+      + '.collection-pile-photo.pile-3{left:142px;top:44px;transform:rotate(-4deg);}'
+      + '.collection-pile-photo.pile-4{left:212px;top:20px;transform:rotate(10deg);}'
+      + '.collection-pile-photo.pile-5{left:92px;top:96px;transform:rotate(-12deg);opacity:0.74;}'
+      + '.collection-pile-photo.pile-6{left:192px;top:96px;transform:rotate(6deg);opacity:0.56;}'
+      + '.collection-card.collection-card-view-media .collection-pile-photo.pile-1{left:22px;top:42px;}'
+      + '.collection-card.collection-card-view-media .collection-pile-photo.pile-2{left:98px;top:18px;}'
+      + '.collection-card.collection-card-view-media .collection-pile-photo.pile-3{left:186px;top:48px;}'
+      + '.collection-card.collection-card-view-media .collection-pile-photo.pile-4{left:278px;top:20px;}'
+      + '.collection-card.collection-card-view-media .collection-pile-photo.pile-5{left:122px;top:112px;}'
+      + '.collection-card.collection-card-view-media .collection-pile-photo.pile-6{left:252px;top:116px;}'
+      + '.collection-pile-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,0.72));pointer-events:none;}'
       + '.collection-empty-preview{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.collection-name{font-size:15px;font-weight:800;line-height:1.25;}'
       + '.collection-meta{font-size:12px;color:var(--secondary-text-color);}'
