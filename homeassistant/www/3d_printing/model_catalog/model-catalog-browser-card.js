@@ -4214,6 +4214,80 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</aside>';
   }
 
+  _advancedFilterCount() {
+    var count = 0;
+    if (String(this._filters && this._filters.creator || '').trim()) {
+      count += 1;
+    }
+    if (this._filters && this._filters.has_other_files) {
+      count += 1;
+    }
+    if (this._filters && this._filters.show_archived) {
+      count += 1;
+    }
+    if (this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650) !== 90) {
+      count += 1;
+    }
+    if (this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999) !== 3) {
+      count += 1;
+    }
+    return count;
+  }
+
+  _renderAdvancedFiltersMenu() {
+    var advancedCount = this._advancedFilterCount();
+    var windowDays = this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650);
+    var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
+    var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
+    var showArchivedLabel = 'Show archived' + (archivedCount > 0 ? (' \u00b7 ' + String(archivedCount)) : '');
+    return ''
+      + '<details class="advanced-filter-menu">'
+      + '  <summary class="toolbar-btn advanced-filter-trigger" aria-label="Advanced filters">'
+      + '    <span>Advanced</span>'
+      + (advancedCount > 0 ? '<span class="advanced-filter-badge">' + this._escapeHtml(String(advancedCount)) + '</span>' : '')
+      + '    <ha-icon icon="mdi:chevron-down"></ha-icon>'
+      + '  </summary>'
+      + '  <div class="advanced-filter-items">'
+      + '    <label class="control advanced-filter-field" for="mc-creator">'
+      + '      <span>Creator</span>'
+      + '      <input id="mc-creator" class="control-input" type="text" placeholder="Creator" value="' + this._escapeHtml(this._filters.creator) + '">'
+      + '    </label>'
+      + '    <div class="advanced-filter-toggle-row">'
+      + '      <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
+      + '      <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active archived' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
+      + '    </div>'
+      + '    <div class="advanced-filter-section">'
+      + '      <div class="advanced-filter-section-label">Frequents</div>'
+      + '      <div class="advanced-filter-tuning-row">'
+      + '        <label class="inline-select" for="mc-frequent-window">Freq window'
+      + '          <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
+      + '            <option value="30"' + (windowDays === 30 ? ' selected' : '') + '>30d</option>'
+      + '            <option value="90"' + (windowDays === 90 ? ' selected' : '') + '>90d</option>'
+      + '            <option value="365"' + (windowDays === 365 ? ' selected' : '') + '>1y</option>'
+      + '            <option value="3650"' + (windowDays === 3650 ? ' selected' : '') + '>All</option>'
+      + '          </select>'
+      + '        </label>'
+      + '        <label class="inline-select" for="mc-frequent-min-prints">Min prints'
+      + '          <select id="mc-frequent-min-prints" class="control-input compact-select tuning-select">'
+      + '            <option value="1"' + (minPrints === 1 ? ' selected' : '') + '>1</option>'
+      + '            <option value="2"' + (minPrints === 2 ? ' selected' : '') + '>2</option>'
+      + '            <option value="3"' + (minPrints === 3 ? ' selected' : '') + '>3</option>'
+      + '            <option value="4"' + (minPrints === 4 ? ' selected' : '') + '>4</option>'
+      + '            <option value="5"' + (minPrints === 5 ? ' selected' : '') + '>5</option>'
+      + '            <option value="6"' + (minPrints === 6 ? ' selected' : '') + '>6</option>'
+      + '          </select>'
+      + '        </label>'
+      + '      </div>'
+      + '    </div>'
+      + '    <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
+      + '    <input id="mc-show-archived" type="checkbox" hidden ' + (this._filters.show_archived ? 'checked' : '') + '>'
+      + '    <div class="advanced-filter-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</details>';
+  }
+
   _renderHeaderTitleRow() {
     var sortOptionsHtml = '';
     sortOptionsHtml = ''
@@ -4240,6 +4314,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + sortOptionsHtml
       + '      </select>'
       + '    </div>'
+      + this._renderAdvancedFiltersMenu()
       + '    <button class="toolbar-btn" type="button" data-action="create-model" ' + (this._loading ? 'disabled' : '') + '>+ Add Model</button>'
       + '    <button class="toolbar-btn" type="button" data-action="create-idea" ' + (this._loading ? 'disabled' : '') + '>+ Add Idea</button>'
       + '    <details class="import-menu">'
@@ -4265,39 +4340,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '</div>'
         + '</div>';
     }
-    var windowDays = this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650);
-    var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
-    var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
-    var showArchivedLabel = 'Show archived' + (archivedCount > 0 ? (' \u00b7 ' + String(archivedCount)) : '');
     var selectedFilterStrip = this._renderSelectedFilterStrip();
     return ''
       + '<div class="filter-bar-stack">'
-      + '<div class="filter-row">'
+      + '<div class="filter-row search-only-filter-row">'
       + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search models" value="' + this._escapeHtml(this._filters.q) + '">'
-      + '  <input id="mc-creator" class="control-input" type="text" placeholder="Creator" value="' + this._escapeHtml(this._filters.creator) + '">'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
-      + '  <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active archived' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
-      + '  <label class="inline-select" for="mc-frequent-window">Freq window'
-      + '    <select id="mc-frequent-window" class="control-input compact-select tuning-select">'
-      + '      <option value="30"' + (windowDays === 30 ? ' selected' : '') + '>30d</option>'
-      + '      <option value="90"' + (windowDays === 90 ? ' selected' : '') + '>90d</option>'
-      + '      <option value="365"' + (windowDays === 365 ? ' selected' : '') + '>1y</option>'
-      + '      <option value="3650"' + (windowDays === 3650 ? ' selected' : '') + '>All</option>'
-      + '    </select>'
-      + '  </label>'
-      + '  <label class="inline-select" for="mc-frequent-min-prints">Min prints'
-      + '    <select id="mc-frequent-min-prints" class="control-input compact-select tuning-select">'
-      + '      <option value="1"' + (minPrints === 1 ? ' selected' : '') + '>1</option>'
-      + '      <option value="2"' + (minPrints === 2 ? ' selected' : '') + '>2</option>'
-      + '      <option value="3"' + (minPrints === 3 ? ' selected' : '') + '>3</option>'
-      + '      <option value="4"' + (minPrints === 4 ? ' selected' : '') + '>4</option>'
-      + '      <option value="5"' + (minPrints === 5 ? ' selected' : '') + '>5</option>'
-      + '      <option value="6"' + (minPrints === 6 ? ' selected' : '') + '>6</option>'
-      + '    </select>'
-      + '  </label>'
-      + '  <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
-        + '  <input id="mc-show-archived" type="checkbox" hidden ' + (this._filters.show_archived ? 'checked' : '') + '>'
-      + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
       + '</div>'
       + selectedFilterStrip
       + '</div>';
@@ -6019,6 +6066,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.toolbar-btn{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:var(--chip-bg);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
       + '.toolbar-btn.ghost{background:rgba(15,23,42,0.08);}'
       + '.toolbar-btn:disabled{opacity:.55;cursor:not-allowed;}'
+      + '.advanced-filter-menu{position:relative;}'
+      + '.advanced-filter-trigger{display:inline-flex;align-items:center;gap:6px;list-style:none;}'
+      + '.advanced-filter-trigger::-webkit-details-marker{display:none;}'
+      + '.advanced-filter-trigger ha-icon{--mdc-icon-size:16px;}'
+      + '.advanced-filter-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:rgba(96,165,250,0.24);border:1px solid rgba(96,165,250,0.40);font-size:10px;font-weight:900;color:var(--primary-text-color);}'
+      + '.advanced-filter-items{position:absolute;top:40px;right:0;display:grid;gap:12px;min-width:280px;padding:12px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 16px 28px rgba(15,23,42,0.28);z-index:7;}'
+      + '.advanced-filter-field{display:grid;gap:6px;min-width:0;}'
+      + '.advanced-filter-field > span,.advanced-filter-section-label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}'
+      + '.advanced-filter-toggle-row{display:flex;flex-wrap:wrap;gap:8px;}'
+      + '.advanced-filter-section{display:grid;gap:8px;}'
+      + '.advanced-filter-tuning-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}'
+      + '.advanced-filter-tuning-row .inline-select{justify-content:space-between;}'
+      + '.advanced-filter-footer{display:flex;justify-content:flex-end;}'
       + '.import-menu{position:relative;}'
       + '.import-trigger{display:inline-flex;align-items:center;gap:4px;list-style:none;}'
       + '.import-trigger::-webkit-details-marker{display:none;}'
@@ -6041,6 +6101,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-mode-item:disabled{opacity:.55;cursor:not-allowed;}'
       + '.filter-bar-stack{display:grid;gap:10px;}'
       + '.filter-row{display:grid;grid-template-columns:minmax(220px,1.8fr) minmax(160px,1fr) auto auto auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
+      + '.search-only-filter-row{grid-template-columns:minmax(240px,1fr);}'
       + '.selected-filter-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px;}'
       + '.selected-filter-label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
       + '.selected-filter-chip{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--primary-text-color);font-size:12px;font-weight:800;cursor:pointer;}'

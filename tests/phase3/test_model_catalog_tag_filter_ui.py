@@ -69,7 +69,7 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('left-nav-type-icon', self.card_content)
         self.assertIn('.left-nav-section + .left-nav-section{padding-top:10px;border-top:1px solid rgba(148,163,184,0.14);}', self.card_content)
 
-    def test_type_counts_are_derived_from_visible_results(self):
+    def test_type_counts_use_server_aggregate(self):
         self.assertIn('var counts = { model: 0, idea: 0 };', self.card_content)
         self.assertIn('return this._serverEntityTypeCounts;', self.card_content)
 
@@ -77,6 +77,12 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('<option value="added"', self.card_content)
         self.assertIn('>Recently added</option>', self.card_content)
         self.assertIn('>Recently printed</option>', self.card_content)
+
+    def test_advanced_filters_menu_owns_secondary_toolbar_filters(self):
+        self.assertIn('_renderAdvancedFiltersMenu()', self.card_content)
+        self.assertIn('advanced-filter-menu', self.card_content)
+        self.assertIn('Advanced</span>', self.card_content)
+        self.assertIn('search-only-filter-row', self.card_content)
 
 
 if __name__ == "__main__":
