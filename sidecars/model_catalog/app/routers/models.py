@@ -1083,6 +1083,7 @@ def _search_models_from_projection(
                 p.catalog_visibility,
                 p.model_favorite,
                 p.linked_archive_count,
+                p.created_at,
                 p.last_printed_at,
                 p.print_count,
                 p.recent_score,
