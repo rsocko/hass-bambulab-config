@@ -16,6 +16,8 @@ class CatalogModelSummary:
     collection_names: tuple[str, ...]
     keyword_names: tuple[str, ...]
     entity_type: str = "model"
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 @dataclass(frozen=True)

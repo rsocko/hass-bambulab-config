@@ -2198,8 +2198,6 @@
             --danger-color: var(--error-color, #ef5350);
             --success-color: var(--success-color, #22c55e);
             --warning-color: var(--warning-color, #ff9a3c);
-                          <option value="${this._escapeHtml(String(printer.id || printer.printer_id || '1'))}" ${String(printer.id || printer.printer_id || '1') === String(this._wizardState.bambuddy_printer_id || '1') ? 'selected' : ''}>
-                            ${this._escapeHtml(this._resolvePrinterOptionLabel(printer))}
             --bg-primary: var(--ha-card-background, var(--card-background-color));
             --bg-card-alt: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 92%, var(--primary-text-color) 8%);
             --border-color: var(--divider-color);

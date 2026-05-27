@@ -117,6 +117,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       sort: "recent",
       favorites_only: false,
       frequents_only: false,
+      recent_added_only: false,
+      recent_printed_only: false,
       has_other_files: false,
       show_archived: false,
     };
@@ -828,6 +830,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     addText("sort");
     addBool("favorites_only");
     addBool("frequents_only");
+    addBool("recent_added_only");
+    addBool("recent_printed_only");
     addInt("frequent_window_days");
     addInt("frequent_min_prints");
     addFloat("frequent_backfill_weight");
@@ -1179,6 +1183,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
         sort: this._filters.sort,
         favorites_only: !!this._filters.favorites_only,
         frequents_only: !!this._filters.frequents_only,
+        recent_added_only: !!this._filters.recent_added_only,
+        recent_printed_only: !!this._filters.recent_printed_only,
         frequent_window_days: this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650),
         frequent_min_prints: this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999),
         frequent_backfill_weight: 0.5,
@@ -1243,6 +1249,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
         this._filters.frequents_only = !!responseFilters.frequents_only;
+      }
+      if (Object.prototype.hasOwnProperty.call(responseFilters, "recent_added_only")) {
+        this._filters.recent_added_only = !!responseFilters.recent_added_only;
+      }
+      if (Object.prototype.hasOwnProperty.call(responseFilters, "recent_printed_only")) {
+        this._filters.recent_printed_only = !!responseFilters.recent_printed_only;
       }
       this._syncLeftNavSelectionFromFilters();
 
@@ -3982,8 +3994,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._filters && this._filters.frequents_only) {
       return "frequents";
     }
+    if (this._filters && this._filters.recent_added_only) {
+      return "recent-added";
+    }
+    if (this._filters && this._filters.recent_printed_only) {
+      return "recent-printed";
+    }
     if (this._selectedCollectionKey() || this._activeTagFilters().length) {
-      return "";
+      return "all-models";
     }
     return "all-models";
   }
@@ -4001,15 +4019,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var contextTags = this._activeTagFilters();
     var contextFavorites = false;
     var contextFrequents = false;
+    var contextRecentAdded = !!(this._filters && this._filters.recent_added_only);
+    var contextRecentPrinted = !!(this._filters && this._filters.recent_printed_only);
 
     if (key === "favorites") {
       contextCollection = "";
       contextTags = [];
       contextFavorites = true;
+      contextRecentAdded = false;
+      contextRecentPrinted = false;
     } else if (key === "frequents") {
       contextCollection = "";
       contextTags = [];
       contextFrequents = true;
+      contextRecentAdded = false;
+      contextRecentPrinted = false;
     } else if (key.indexOf("collection:") === 0) {
       var nextCollection = String(key.slice("collection:".length) || "").trim().toLowerCase();
       contextCollection = contextCollection === nextCollection ? "" : nextCollection;
@@ -4027,20 +4051,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else if (key === "recent-added") {
       contextCollection = "";
       contextTags = [];
-      this._filters.sort = "recent";
+      contextRecentAdded = true;
+      contextRecentPrinted = false;
+      this._filters.sort = "added";
     } else if (key === "recent-printed") {
       contextCollection = "";
       contextTags = [];
-      this._filters.sort = "frequent";
+      contextRecentAdded = false;
+      contextRecentPrinted = true;
+      this._filters.sort = "recent";
     } else {
       contextCollection = "";
       contextTags = [];
+      contextRecentAdded = false;
+      contextRecentPrinted = false;
     }
 
     this._filters.collection = contextCollection;
     this._setActiveTagFilters(contextTags);
     this._filters.favorites_only = contextFavorites;
     this._filters.frequents_only = contextFrequents;
+    this._filters.recent_added_only = contextRecentAdded;
+    this._filters.recent_printed_only = contextRecentPrinted;
 
     if (this._browserScope !== "models") {
       this._browserScope = "models";
@@ -4067,6 +4099,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var totalCount = Math.max(0, Number(this._pagination && this._pagination.total || 0));
     var favoritesCount = 0;
     var frequentsCount = 0;
+    var recentAddedCount = 0;
     var recentPrintedCount = 0;
     var typeCounts = this._entityTypeCounts();
     var workingCount = this._coerceWorkingCount(this._workingProjection && this._workingProjection.length || 0);
@@ -4083,6 +4116,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       if (Number(ranking.frequent_score || 0) > 0) {
         frequentsCount += 1;
+      }
+      if (String(model.created_at || "").trim()) {
+        recentAddedCount += 1;
       }
       if (String(model.last_printed_at || ranking.last_printed_at || "").trim()) {
         recentPrintedCount += 1;
@@ -4164,7 +4200,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       +      this._renderLeftNavItem('All models', 'all-models', totalCount, 'mdi:cube-outline')
       +      this._renderLeftNavItem('Favorites', 'favorites', favoritesCount, 'mdi:star-outline')
       +      this._renderLeftNavItem('Frequents', 'frequents', frequentsCount, 'mdi:lightning-bolt-outline')
-      +      this._renderLeftNavItem('Recently added', 'recent-added', totalCount, 'mdi:clock-plus-outline')
+      +      this._renderLeftNavItem('Recently added', 'recent-added', recentAddedCount, 'mdi:clock-plus-outline')
       +      this._renderLeftNavItem('Recently printed', 'recent-printed', recentPrintedCount, 'mdi:printer-3d-nozzle-outline')
       + '  </div>'
       + '  <div class="left-nav-section">'
@@ -4182,7 +4218,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var sortOptionsHtml = '';
     sortOptionsHtml = ''
       + '        <option value="best"' + (this._filters.sort === 'best' ? ' selected' : '') + '>Best match</option>'
-      + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recent</option>'
+      + '        <option value="added"' + (this._filters.sort === 'added' ? ' selected' : '') + '>Recently added</option>'
+      + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recently printed</option>'
       + '        <option value="frequent"' + (this._filters.sort === 'frequent' ? ' selected' : '') + '>Frequent</option>'
       + '        <option value="common"' + (this._filters.sort === 'common' ? ' selected' : '') + '>Common</option>'
       + '        <option value="name"' + (this._filters.sort === 'name' ? ' selected' : '') + '>Name</option>';

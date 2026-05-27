@@ -1317,6 +1317,18 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        32,
+        (
+            """
+        ALTER TABLE model_catalog_search_projection ADD COLUMN created_at TEXT
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_search_projection_created_at
+        ON model_catalog_search_projection(created_at)
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:

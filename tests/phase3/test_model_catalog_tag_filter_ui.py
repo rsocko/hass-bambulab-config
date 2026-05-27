@@ -39,6 +39,20 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('left-nav-item-count dismiss', self.card_content)
         self.assertIn("if (isActive && isFacetFilterItem)", self.card_content)
 
+    def test_collection_or_tag_filters_keep_all_models_quick_pivot_selected(self):
+        self.assertIn('if (this._selectedCollectionKey() || this._activeTagFilters().length) {', self.card_content)
+        self.assertIn('return "all-models";', self.card_content)
+
+    def test_recent_pivots_use_real_filter_flags(self):
+        self.assertIn('recent_added_only: false', self.card_content)
+        self.assertIn('recent_printed_only: false', self.card_content)
+        self.assertIn('this._filters.recent_added_only = contextRecentAdded;', self.card_content)
+        self.assertIn('this._filters.recent_printed_only = contextRecentPrinted;', self.card_content)
+        self.assertIn('recent_added_only: !!this._filters.recent_added_only,', self.card_content)
+        self.assertIn('recent_printed_only: !!this._filters.recent_printed_only,', self.card_content)
+        self.assertIn('this._filters.sort = "added";', self.card_content)
+        self.assertIn('this._filters.sort = "recent";', self.card_content)
+
     def test_working_files_render_through_mixed_entry_pipeline(self):
         self.assertIn("_currentDisplayEntries()", self.card_content)
         self.assertIn("_renderCatalogEntryCard(entry)", self.card_content)
@@ -54,6 +68,11 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn("_leftNavTypeIcon(typeKey)", self.card_content)
         self.assertIn('left-nav-type-icon', self.card_content)
         self.assertIn('.left-nav-section + .left-nav-section{padding-top:10px;border-top:1px solid rgba(148,163,184,0.14);}', self.card_content)
+
+    def test_sort_picker_uses_explicit_recent_labels(self):
+        self.assertIn('<option value="added"', self.card_content)
+        self.assertIn('>Recently added</option>', self.card_content)
+        self.assertIn('>Recently printed</option>', self.card_content)
 
 
 if __name__ == "__main__":

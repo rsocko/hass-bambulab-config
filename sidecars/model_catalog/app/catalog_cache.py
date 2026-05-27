@@ -54,6 +54,14 @@ def _model_ref_from_payload(payload: dict[str, Any]) -> str | None:
     return ref or None
 
 
+def _extract_primary_timestamp(payload: dict[str, Any], field_names: tuple[str, ...]) -> str | None:
+    for field_name in field_names:
+        value = payload.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def canonicalize_model_url(base_url: str, model_url: str, *, fallback_model_id: Any | None = None) -> str:
     """Normalize a model URL to a canonical form.
 
@@ -90,7 +98,7 @@ def read_cached_model_summaries(*, db_path) -> list[CatalogModelSummary]:
             """
             SELECT model_url, model_public_id, model_id,
                    model_name, preview_url, creator_name,
-                   collection_names_json, keyword_names_json
+                   collection_names_json, keyword_names_json, raw_json
             FROM model_summary_cache
             ORDER BY model_name COLLATE NOCASE
             """
@@ -99,6 +107,13 @@ def read_cached_model_summaries(*, db_path) -> list[CatalogModelSummary]:
         connection.close()
     summaries: list[CatalogModelSummary] = []
     for row in rows:
+        raw_json = str(row["raw_json"] or "{}").strip() or "{}"
+        try:
+            raw_payload = json.loads(raw_json)
+        except json.JSONDecodeError:
+            raw_payload = {}
+        if not isinstance(raw_payload, dict):
+            raw_payload = {}
         summaries.append(
             CatalogModelSummary(
                 model_url=str(row["model_url"]),
@@ -109,6 +124,8 @@ def read_cached_model_summaries(*, db_path) -> list[CatalogModelSummary]:
                 creator_name=str(row["creator_name"] or "").strip() or None,
                 collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
                 keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
+                created_at=_extract_primary_timestamp(raw_payload, ("created_at", "createdAt", "published_at", "publishedAt")),
+                updated_at=_extract_primary_timestamp(raw_payload, ("updated_at", "updatedAt")),
             )
         )
     return summaries
@@ -150,6 +167,8 @@ def read_cached_catalog_models(*, db_path) -> list[CachedCatalogModel]:
                     creator_name=str(row["creator_name"] or "").strip() or None,
                     collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
                     keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
+                    created_at=_extract_primary_timestamp(raw_payload, ("created_at", "createdAt", "published_at", "publishedAt")),
+                    updated_at=_extract_primary_timestamp(raw_payload, ("updated_at", "updatedAt")),
                 ),
                 raw_payload=raw_payload,
             )

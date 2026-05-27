@@ -690,6 +690,7 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
                 _coerce_int(custom_fields.get("to_print_priority")),
                 1 if has_other_files else 0,
                 linked_archive_count,
+                str(summary.created_at or "") or None,
                 ranking.last_printed_at if ranking is not None else None,
                 int(ranking.print_count) if ranking is not None and ranking.print_count is not None else 0,
                 float(ranking.recent_score) if ranking is not None and ranking.recent_score is not None else None,
@@ -730,6 +731,7 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
                 to_print_priority,
                 has_other_files,
                 linked_archive_count,
+                created_at,
                 last_printed_at,
                 print_count,
                 recent_score,
@@ -737,7 +739,7 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
                 common_score,
                 source_authority,
                 refreshed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             projection_rows,
         )
@@ -796,6 +798,8 @@ def _search_models_from_projection(
     to_print_priority_max: int | None,
     favorites_only: bool,
     frequents_only: bool,
+    recent_added_only: bool,
+    recent_printed_only: bool,
     frequent_window_days: int,
     frequent_min_prints: int,
     frequent_backfill_weight: float,
@@ -895,6 +899,10 @@ def _search_models_from_projection(
             ")"
         )
         base_params.append(float(resolved_min_prints))
+    if recent_added_only:
+        base_clauses.append("COALESCE(TRIM(p.created_at), '') <> ''")
+    if recent_printed_only:
+        base_clauses.append("COALESCE(p.recent_score, 0) > 0")
     if has_other_files:
         base_clauses.append("p.has_other_files = 1")
 
@@ -923,7 +931,9 @@ def _search_models_from_projection(
         return "WHERE (" + clause + ")"
 
     normalized_sort = str(sort or "best").strip().lower()
-    if normalized_sort == "recent":
+    if normalized_sort == "added":
+        order_sql = "ORDER BY p.created_at DESC, p.model_name_lc ASC"
+    elif normalized_sort == "recent":
         order_sql = "ORDER BY p.last_printed_at DESC, p.model_name_lc ASC"
     elif normalized_sort == "frequent":
         order_sql = (
@@ -1105,6 +1115,7 @@ def _search_models_from_projection(
             collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
             keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
             entity_type=str(row["entity_type"] or "model"),
+            created_at=str(row["created_at"] or "") or None,
         )
         custom_fields = fields_by_model_ref.get(model_ref, {})
         ranking_obj = SimpleNamespace(
@@ -1193,6 +1204,8 @@ def _search_models_from_projection(
             "to_print_priority_max": to_print_priority_max,
             "favorites_only": favorites_only,
             "frequents_only": frequents_only,
+            "recent_added_only": recent_added_only,
+            "recent_printed_only": recent_printed_only,
             "frequent_window_days": resolved_window_days,
             "frequent_min_prints": resolved_min_prints,
             "frequent_backfill_weight": resolved_backfill_weight,
@@ -1373,6 +1386,8 @@ def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = No
         collection_names=entry.collection_names,
         keyword_names=tuple(compatibility_keywords),
         entity_type=str(entry.entity_type or "model"),
+        created_at=str(entry.created_at or "").strip() or None,
+        updated_at=str(entry.updated_at or "").strip() or None,
     )
 
 
@@ -1924,6 +1939,10 @@ def _read_model_fields_bulk(
 
 def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
     ranking = model_payload.get("ranking") or {}
+    if sort_by == "added":
+        parsed = _parse_iso_datetime(str(model_payload.get("created_at") or ""))
+        timestamp = parsed.timestamp() if parsed is not None else 0.0
+        return (0 if parsed is not None else 1, -timestamp, model_payload["name"].lower())
     if sort_by == "priority":
         priority = _coerce_int((model_payload.get("custom_fields") or {}).get("to_print_priority"))
         return (0 if priority is not None else 1, -(priority or 0), model_payload["name"].lower())
@@ -3545,6 +3564,8 @@ def search_models(
     to_print_priority_max: int | None = None,
     favorites_only: bool = False,
     frequents_only: bool = False,
+    recent_added_only: bool = False,
+    recent_printed_only: bool = False,
     frequent_window_days: int = DEFAULT_FREQUENT_WINDOW_DAYS,
     frequent_min_prints: int = DEFAULT_FREQUENT_MIN_PRINTS,
     frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
@@ -3591,6 +3612,8 @@ def search_models(
         "to_print_priority_max": to_print_priority_max,
         "favorites_only": bool(favorites_only),
         "frequents_only": bool(frequents_only),
+        "recent_added_only": bool(recent_added_only),
+        "recent_printed_only": bool(recent_printed_only),
         "frequent_window_days": int(frequent_window_days),
         "frequent_min_prints": int(frequent_min_prints),
         "frequent_backfill_weight": float(frequent_backfill_weight),
@@ -3643,6 +3666,8 @@ def search_models(
             to_print_priority_max=to_print_priority_max,
             favorites_only=bool(favorites_only),
             frequents_only=bool(frequents_only),
+            recent_added_only=bool(recent_added_only),
+            recent_printed_only=bool(recent_printed_only),
             frequent_window_days=frequent_window_days,
             frequent_min_prints=frequent_min_prints,
             frequent_backfill_weight=frequent_backfill_weight,
@@ -3827,6 +3852,10 @@ def search_models(
             continue
         if frequents_only and not _model_is_frequent(model_payload, frequent_min_prints=resolved_min_prints):
             continue
+        if recent_added_only and _parse_iso_datetime(str(model_payload.get("created_at") or "")) is None:
+            continue
+        if recent_printed_only and float((model_payload.get("ranking") or {}).get("recent_score") or 0) <= 0:
+            continue
         if has_other_files and not _model_has_other_files(model_payload):
             continue
 
@@ -3887,6 +3916,8 @@ def search_models(
             "to_print_priority_max": to_print_priority_max,
             "favorites_only": favorites_only,
             "frequents_only": frequents_only,
+            "recent_added_only": recent_added_only,
+            "recent_printed_only": recent_printed_only,
             "frequent_window_days": resolved_window_days,
             "frequent_min_prints": resolved_min_prints,
             "frequent_backfill_weight": resolved_backfill_weight,
