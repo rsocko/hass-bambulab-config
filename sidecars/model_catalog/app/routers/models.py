@@ -773,6 +773,7 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
 
 def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict[str, Any]:
     nodes_by_id: dict[str, dict[str, Any]] = {}
+    payloads_by_model_ref: dict[str, dict[str, Any]] = {}
     direct_models_by_collection_id: dict[str, list[dict[str, Any]]] = {}
     unassigned_models: list[dict[str, Any]] = []
 
@@ -803,6 +804,8 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
 
     for payload in payloads:
         model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
+        if model_ref:
+            payloads_by_model_ref[model_ref] = payload
         collections = _normalized_collection_names(payload.get("collection_names"))
         if not collections:
             unassigned_models.append(payload)
@@ -844,6 +847,10 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
                 "model_count_total": len(node["model_refs_total"]),
                 "child_collection_count": len(child_ids),
                 "child_collection_ids": child_ids,
+                "cover_images": _collection_cover_images(
+                    model_refs=node["model_refs_total"],
+                    payloads_by_model_ref=payloads_by_model_ref,
+                ),
             }
         )
 
@@ -871,6 +878,48 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
         "direct_models_by_collection_id": direct_models_by_collection_id,
         "unassigned_models": unassigned_models,
     }
+
+
+def _collection_cover_images(
+    *,
+    model_refs: set[str],
+    payloads_by_model_ref: dict[str, dict[str, Any]],
+    limit: int = 4,
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for model_ref in model_refs:
+        payload = payloads_by_model_ref.get(str(model_ref or "").strip())
+        if not payload:
+            continue
+        preview_url = str(payload.get("preview_url") or "").strip()
+        if not preview_url:
+            continue
+        candidates.append(payload)
+
+    candidates.sort(key=_collection_cover_sort_key)
+
+    cover_images: list[dict[str, Any]] = []
+    for payload in candidates[: max(0, int(limit or 0))]:
+        model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
+        if not model_ref:
+            continue
+        cover_images.append(
+            {
+                "model_ref": model_ref,
+                "model_name": str(payload.get("name") or "").strip() or "Model",
+                "preview_url": str(payload.get("preview_url") or "").strip(),
+            }
+        )
+    return cover_images
+
+
+def _collection_cover_sort_key(payload: dict[str, Any]) -> tuple[int, float, str, str]:
+    model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip().lower()
+    model_name = str(payload.get("name") or "").strip().lower()
+    is_favorite = 1 if _model_is_favorite(payload) else 0
+    parsed_last_printed_at = _parse_iso_datetime(str(payload.get("last_printed_at") or "").strip())
+    last_printed_at_sort = -parsed_last_printed_at.timestamp() if parsed_last_printed_at is not None else float("inf")
+    return (-is_favorite, last_printed_at_sort, model_name, model_ref)
 
 
 def _facet_counts_from_payloads(payloads: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -1463,6 +1512,8 @@ def _search_models_from_projection(
             request=request,
             settings=state.settings,
         )
+        payload["model_favorite"] = bool(row["model_favorite"])
+        payload["catalog_visibility"] = _normalize_catalog_visibility(row["catalog_visibility"]) or "active"
         weighted_print_count = float(row["frequent_score"]) if row["frequent_score"] is not None else 0.0
         frequent_override = _coerce_boolish(custom_fields.get("model_frequent_override"))
         _apply_frequents_layer2_derivation(

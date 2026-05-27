@@ -5827,13 +5827,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var directCount = Math.max(0, Number(node.model_count_direct || 0) || 0);
       var totalCount = Math.max(0, Number(node.model_count_total || 0) || 0);
       var childCount = Math.max(0, Number(node.child_collection_count || 0) || 0);
+      var coverMosaicHtml = this._renderCollectionCoverMosaic(node);
       return ''
         + '<article class="collection-card">'
+        + coverMosaicHtml
         + '  <div class="collection-name">' + this._escapeHtml(label) + '</div>'
         + (path && path !== label ? '  <div class="collection-meta">' + this._escapeHtml(path) + '</div>' : '')
-        + '  <div class="collection-meta">' + this._escapeHtml(String(totalCount) + (totalCount === 1 ? ' item total' : ' items total')) + '</div>'
-        + '  <div class="collection-meta">' + this._escapeHtml(String(childCount) + (childCount === 1 ? ' sub-collection' : ' sub-collections') + ' · ' + String(directCount) + (directCount === 1 ? ' direct model' : ' direct models')) + '</div>'
-        + '  <button class="toolbar-btn" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '">Open collection</button>'
+        + '  <div class="collection-stats">'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Models</div><div class="collection-stat-value">' + this._escapeHtml(String(totalCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Sub-collections</div><div class="collection-stat-value">' + this._escapeHtml(String(childCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Direct</div><div class="collection-stat-value">' + this._escapeHtml(String(directCount)) + '</div></div>'
+        + '  </div>'
+        + '  <div class="collection-meta collection-meta-row">' + this._escapeHtml(String(childCount) + (childCount === 1 ? ' sub-collection' : ' sub-collections') + ' · ' + String(directCount) + (directCount === 1 ? ' direct model' : ' direct models')) + '</div>'
+        + '  <button class="toolbar-btn collection-open" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '">Open collection</button>'
         + '</article>';
     }.bind(this)).join("");
 
@@ -5841,6 +5847,35 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return '<div class="state-row">No collections found for current filters.</div>';
     }
     return breadcrumbHtml + cards;
+  }
+
+  _renderCollectionCoverMosaic(node) {
+    var coverImages = node && Array.isArray(node.cover_images) ? node.cover_images.slice(0, 4) : [];
+    var tiles = [];
+    for (var index = 0; index < 4; index++) {
+      var cover = coverImages[index] && typeof coverImages[index] === 'object' ? coverImages[index] : null;
+      tiles.push(this._renderCollectionCoverTile(cover, index));
+    }
+    return '<div class="collection-mosaic" aria-hidden="true">' + tiles.join('') + '</div>';
+  }
+
+  _renderCollectionCoverTile(cover, index) {
+    if (!cover) {
+      return '<div class="collection-mosaic-tile empty"><ha-icon icon="mdi:cube-outline"></ha-icon></div>';
+    }
+    var modelName = String(cover.model_name || cover.name || ('Cover ' + String(index + 1))).trim() || ('Cover ' + String(index + 1));
+    var mediaUrl = String(cover.preview_url || '').trim();
+    if (!mediaUrl) {
+      return '<div class="collection-mosaic-tile empty"><ha-icon icon="mdi:image-off-outline"></ha-icon></div>';
+    }
+    if (this._isThumbnailLazyEndpoint(mediaUrl)) {
+      var cachedObjectUrl = getCachedThumbnailObjectUrl(mediaUrl);
+      if (cachedObjectUrl) {
+        return '<div class="collection-mosaic-tile"><img src="' + this._escapeHtml(String(cachedObjectUrl)) + '" alt="' + this._escapeHtml(modelName) + ' preview" loading="lazy" decoding="async"></div>';
+      }
+      return '<div class="collection-mosaic-tile"><img data-thumbnail-lazy-url="' + this._escapeHtml(mediaUrl) + '" alt="' + this._escapeHtml(modelName) + ' preview" loading="lazy" decoding="async"></div>';
+    }
+    return '<div class="collection-mosaic-tile"><img src="' + this._escapeHtml(mediaUrl) + '" alt="' + this._escapeHtml(modelName) + ' preview" loading="lazy" decoding="async"></div>';
   }
 
   _coerceNonNegativeInt(value) {
@@ -6673,11 +6708,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.working-thumb ha-icon{--mdc-icon-size:38px;color:#7dd3fc;}'
       + '.results.media-hidden .thumb-wrap,.results.media-hidden .media-wrap,.results.media-hidden .list-wrap{display:none !important;}'
       + '.results.media-hidden .model-card.view-compact,.results.media-hidden .model-card.view-list{grid-template-columns:1fr;}'
-      + '.collection-card{display:grid;gap:8px;padding:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.20),rgba(15,23,42,0.10));}'
+      + '.collection-card{display:grid;gap:10px;padding:14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.24),rgba(15,23,42,0.12));box-shadow:0 8px 22px rgba(15,23,42,0.16);align-content:start;}'
       + '.collection-breadcrumb{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;}'
       + '.collection-breadcrumb-sep{font-size:12px;color:var(--secondary-text-color);}'
-      + '.collection-name{font-size:15px;font-weight:800;}'
+      + '.collection-mosaic{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
+      + '.collection-mosaic-tile{position:relative;aspect-ratio:4/3;overflow:hidden;border-radius:12px;background:rgba(15,23,42,0.26);border:1px solid rgba(148,163,184,0.16);display:flex;align-items:center;justify-content:center;}'
+      + '.collection-mosaic-tile img{width:100%;height:100%;object-fit:cover;display:block;}'
+      + '.collection-mosaic-tile img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;}'
+      + '.collection-mosaic-tile.empty{background:linear-gradient(180deg,rgba(30,41,59,0.55),rgba(15,23,42,0.28));}'
+      + '.collection-mosaic-tile.empty ha-icon{--mdc-icon-size:24px;color:rgba(148,163,184,0.72);}'
+      + '.collection-name{font-size:15px;font-weight:800;line-height:1.25;}'
       + '.collection-meta{font-size:12px;color:var(--secondary-text-color);}'
+      + '.collection-meta-row{padding-top:2px;}'
+      + '.collection-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}'
+      + '.collection-stat{padding:9px 10px;border-radius:12px;background:rgba(15,23,42,0.18);border:1px solid rgba(148,163,184,0.14);min-width:0;}'
+      + '.collection-stat-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.collection-stat-value{font-size:18px;font-weight:800;line-height:1.15;color:var(--primary-text-color);}'
+      + '.collection-open{justify-self:start;margin-top:2px;}'
       + '.collection-models{font-size:12px;line-height:1.4;opacity:.9;}'
       + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease;contain:layout paint style;}'
       + '.model-card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 transparent;opacity:0;transition:opacity .16s ease,box-shadow .16s ease;pointer-events:none;}'

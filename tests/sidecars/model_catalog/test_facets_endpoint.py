@@ -37,9 +37,11 @@ def _seed_projection(db_path: Path, rows: list[dict]) -> None:
                 INSERT INTO model_catalog_search_projection (
                     model_ref, model_url, model_public_id, model_id,
                     entity_type, model_name, model_name_lc,
+                    preview_url,
                     collection_names_json, keyword_names_json,
-                    catalog_visibility, source_authority, refreshed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    catalog_visibility, model_favorite, last_printed_at,
+                    source_authority, refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row["model_ref"],
@@ -49,9 +51,12 @@ def _seed_projection(db_path: Path, rows: list[dict]) -> None:
                     row.get("entity_type", "model"),
                     row["model_name"],
                     row["model_name"].lower(),
+                    row.get("preview_url"),
                     row.get("collection_names_json", "[]"),
                     row.get("keyword_names_json", "[]"),
                     row.get("catalog_visibility", "active"),
+                    row.get("model_favorite", 0),
+                    row.get("last_printed_at"),
                     "test",
                     "2026-01-01T00:00:00Z",
                 ),
@@ -594,6 +599,71 @@ def test_collections_browse_root_returns_top_level_collection_nodes(tmp_path: Pa
     assert data["tree"]["unassigned_model_count"] == 1
     assert [item["kind"] for item in data["items"]] == ["collection", "collection"]
     assert [item["data"]["label"] for item in data["items"]] == ["Functional", "Utility"]
+
+
+def test_collections_browse_returns_deterministic_cover_images(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _seed_projection(
+        settings.db_path,
+        [
+            {
+                "model_ref": "m10",
+                "model_name": "Gridfinity Bin",
+                "preview_url": "https://img.test/m10.jpg",
+                "collection_names_json": '["Functional / Gridfinity / Bins"]',
+                "entity_type": "model",
+                "last_printed_at": "2026-01-02T00:00:00Z",
+            },
+            {
+                "model_ref": "m11",
+                "model_name": "Gridfinity Baseplate",
+                "preview_url": "https://img.test/m11.jpg",
+                "collection_names_json": '["Functional / Gridfinity"]',
+                "entity_type": "model",
+                "model_favorite": 1,
+            },
+            {
+                "model_ref": "m12",
+                "model_name": "Phone Stand",
+                "preview_url": "https://img.test/m12.jpg",
+                "collection_names_json": '["Functional / Desk Accessories"]',
+                "entity_type": "model",
+                "last_printed_at": "2026-01-03T00:00:00Z",
+            },
+            {
+                "model_ref": "m13",
+                "model_name": "Shelf Hook",
+                "preview_url": "https://img.test/m13.jpg",
+                "collection_names_json": '["Functional / Gridfinity / Bins"]',
+                "entity_type": "model",
+            },
+            {
+                "model_ref": "m14",
+                "model_name": "Label Clip",
+                "preview_url": "https://img.test/m14.jpg",
+                "collection_names_json": '["Functional / Gridfinity / Bins"]',
+                "entity_type": "model",
+            },
+            {
+                "model_ref": "m15",
+                "model_name": "No Preview",
+                "collection_names_json": '["Functional / Gridfinity"]',
+                "entity_type": "model",
+                "last_printed_at": "2026-01-04T00:00:00Z",
+            },
+        ],
+    )
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/collections/browse?per_page=20")
+        assert resp.status_code == 200
+        data = resp.json()
+
+    functional = next(item["data"] for item in data["items"] if item["kind"] == "collection" and item["data"]["collection_id"] == "functional")
+    assert [cover["model_ref"] for cover in functional["cover_images"]] == ["m11", "m12", "m10", "m14"]
+    assert all("/api/models/preview?source=" in cover["preview_url"] for cover in functional["cover_images"])
 
 
 def test_collections_browse_nested_node_returns_child_collections_and_direct_models(tmp_path: Path) -> None:
