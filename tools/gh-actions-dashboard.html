@@ -53,8 +53,7 @@
     }
 
     header.update-pulse {
-      animation: update-pop 280ms ease-out;
-      will-change: transform, opacity;
+      animation: update-pop 220ms ease-out;
     }
 
     header.glow-running {
@@ -239,6 +238,7 @@
     .s-dot.failure { background: var(--failure); }
     .s-dot.in_progress {
       background: var(--running);
+      box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.18);
     }
 
     .s-dot.in_progress::after {
@@ -250,7 +250,6 @@
       border-top-color: var(--running);
       border-right-color: color-mix(in srgb, var(--running) 45%, transparent);
       animation: spin-ring 1.9s linear infinite;
-      will-change: transform;
       pointer-events: none;
     }
     .s-dot.queued, .s-dot.waiting, .s-dot.pending {
@@ -335,6 +334,28 @@
       font-family: var(--font-mono);
       white-space: nowrap;
       flex-shrink: 0;
+    }
+
+    .run-time-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+      min-width: 112px;
+      flex-shrink: 0;
+    }
+
+    .run-time-rel {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    .run-time-abs {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
     }
 
     .run-link {
@@ -778,8 +799,7 @@
     }
 
     .kpi-strip.update-pulse .kpi-card.kpi-highlight {
-      animation: update-pop 320ms ease-out;
-      will-change: transform, opacity;
+      animation: update-pop 240ms ease-out;
     }
 
     .kpi-card.kpi-highlight {
@@ -814,6 +834,16 @@
       text-overflow: ellipsis;
     }
 
+    .kpi-time {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* Overall status banner */
     .status-beacon {
       flex-shrink: 0;
@@ -825,12 +855,10 @@
       font-size: 16px;
       font-weight: 600;
       border-bottom: 2px solid;
-      transition: transform 0.2s ease, opacity 0.2s ease;
     }
 
     .status-beacon.update-pulse {
-      animation: update-pop 360ms ease-out;
-      will-change: transform, opacity;
+      animation: update-pop 260ms ease-out;
     }
 
     .status-beacon.beacon-ok {
@@ -871,8 +899,8 @@
     }
 
     @keyframes update-pop {
-      0% { transform: translateY(-1px) scale(0.995); opacity: 0.84; }
-      100% { transform: translateY(0) scale(1); opacity: 1; }
+      0% { transform: translateY(-1px); opacity: 0.9; }
+      100% { transform: translateY(0); opacity: 1; }
     }
 
   </style>
@@ -997,6 +1025,7 @@
         <div class="kpi-value" style="--kpi-color: var(--success)">—</div>
         <div class="kpi-label">Last OK</div>
         <div class="kpi-sub" id="kpi-last-sub">&nbsp;</div>
+        <div class="kpi-time" id="kpi-last-time">&nbsp;</div>
       </div>
     </div>
 
@@ -1053,13 +1082,21 @@ let _renderRAF = 0;       // coalesce multiple render() calls per frame
 let _lastRunsJSON = '';   // skip render when data unchanged
 const _etags = {};        // path → { etag, data } for conditional requests
 const ACTIVE_INTERVAL = 5; // seconds between polls when jobs are running
+const RELATIVE_TIME_UPDATE_MS = 15 * 1000;
+const ABSOLUTE_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+let relativeTimeTimerId = 0;
 
 // ── DOM refs (resolved once after DOM ready) ────────────────────
 let $content, $hdr, $barFill, $demoBnr, $errBar, $toast;
 let $kpiRunning, $kpiRunningSub, $kpiRunningVal;
 let $kpiQueued,  $kpiQueuedSub,  $kpiQueuedVal;
 let $kpiFailed,  $kpiFailedSub,  $kpiFailedVal;
-let $kpiLast,    $kpiLastSub,    $kpiLastVal;
+let $kpiLast,    $kpiLastSub,    $kpiLastVal, $kpiLastTime;
 let $beacon, $beaconText, $kpiStrip;
 let _updatePulseTimer = 0;
 
@@ -1083,6 +1120,7 @@ function cacheDOMRefs() {
   $kpiLast       = document.getElementById('kpi-last');
   $kpiLastVal    = $kpiLast.querySelector('.kpi-value');
   $kpiLastSub    = document.getElementById('kpi-last-sub');
+  $kpiLastTime   = document.getElementById('kpi-last-time');
   $beacon        = document.getElementById('status-beacon');
   $beaconText    = document.getElementById('beacon-text');
   $kpiStrip      = document.getElementById('kpi-strip');
@@ -1093,6 +1131,10 @@ function triggerUpdatePulse() {
     clearTimeout(_updatePulseTimer);
     _updatePulseTimer = 0;
   }
+  $hdr.classList.remove('update-pulse');
+  $beacon.classList.remove('update-pulse');
+  $kpiStrip.classList.remove('update-pulse');
+  void $hdr.offsetWidth;
   $hdr.classList.add('update-pulse');
   $beacon.classList.add('update-pulse');
   $kpiStrip.classList.add('update-pulse');
@@ -1101,7 +1143,7 @@ function triggerUpdatePulse() {
     $beacon.classList.remove('update-pulse');
     $kpiStrip.classList.remove('update-pulse');
     _updatePulseTimer = 0;
-  }, 420);
+  }, 320);
 }
 
 // ── Helpers: time formatting ────────────────────────────────────
@@ -1136,6 +1178,67 @@ function dur(start, end) {
   if (m < 60)  return m + 'm ' + (s % 60) + 's';
   const h = Math.floor(m / 60);
   return h + 'h ' + (m % 60) + 'm';
+}
+
+function absTime(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return ABSOLUTE_TIME_FORMATTER.format(date);
+}
+
+function runTimeMeta(r) {
+  if (r.status === 'completed') {
+    return {
+      rel: ago(r.updated_at),
+      absLabel: 'Ended',
+      absIso: r.updated_at,
+    };
+  }
+  if (r.status === 'queued' || r.status === 'waiting') {
+    return {
+      rel: 'queued',
+      absLabel: 'Created',
+      absIso: r.created_at,
+    };
+  }
+  return {
+    rel: elapsed(r.created_at),
+    absLabel: 'Started',
+    absIso: r.created_at,
+  };
+}
+
+function computeRelativeTimeText(mode, iso, fallback = '') {
+  if (!iso) return fallback;
+  if (mode === 'ago') return ago(iso);
+  if (mode === 'elapsed') return elapsed(iso);
+  if (mode === 'ago-short') return agoShort(iso);
+  return fallback;
+}
+
+function updateRelativeTimeDisplays() {
+  const failedRuns = S.runs.filter(r => r.conclusion === 'failure');
+  $kpiFailedSub.textContent = failedRuns.length > 0 ? ago(failedRuns[0].updated_at) : '\u00A0';
+
+  const lastOK = S.runs.find(r => r.conclusion === 'success');
+  $kpiLastVal.textContent = lastOK ? agoShort(lastOK.updated_at) : '—';
+  $kpiLastTime.textContent = lastOK ? `Ended ${absTime(lastOK.updated_at)}` : '\u00A0';
+
+  document.querySelectorAll('[data-relative-time-mode]').forEach((el) => {
+    const mode = el.dataset.relativeTimeMode || '';
+    const iso = el.dataset.relativeTimeIso || '';
+    const fallback = el.dataset.relativeTimeFallback || '';
+    el.textContent = computeRelativeTimeText(mode, iso, fallback);
+  });
+}
+
+function ensureRelativeTimeTimer() {
+  if (relativeTimeTimerId) return;
+  relativeTimeTimerId = window.setInterval(() => {
+    if (document.hidden) return;
+    updateRelativeTimeDisplays();
+  }, RELATIVE_TIME_UPDATE_MS);
 }
 
 // ── Helpers: status ─────────────────────────────────────────────
@@ -1301,6 +1404,9 @@ function renderKPI(nRun, nQ, nF) {
   $kpiLastVal.textContent = lastOK ? agoShort(lastOK.updated_at) : '—';
   $kpiLastSub.textContent =
     lastOK ? (SHORT[lastOK.name] || lastOK.name) : '\u00A0';
+  $kpiLastTime.textContent =
+    lastOK ? `Ended ${absTime(lastOK.updated_at)}` : '\u00A0';
+  $kpiLast.title = lastOK ? `Last successful run ended ${absTime(lastOK.updated_at)}` : 'No successful runs found';
 
   // Status beacon
   if (nRun > 0) {
@@ -1349,9 +1455,7 @@ function renderGrp(g) {
 
 function runRow(r, child) {
   const sc  = sCls(r);
-  const t   = r.status === 'completed' ? ago(r.updated_at)
-            : r.status === 'queued' || r.status === 'waiting' ? 'queued'
-            : elapsed(r.created_at);
+  const timeMeta = runTimeMeta(r);
   const stateCls = r.status === 'in_progress' ? ' active-row'
     : (r.status === 'queued' || r.status === 'waiting') ? ' queued-row'
     : '';
@@ -1377,7 +1481,13 @@ function runRow(r, child) {
           <span class="run-branch" title="${r.head_branch}">${r.head_branch}</span>
         </div>
       </div>
-      <span class="run-time">${t}</span>
+      <span class="run-time-block" title="${timeMeta.absLabel} ${absTime(timeMeta.absIso)}">
+        <span class="run-time-rel"
+              data-relative-time-mode="${r.status === 'completed' ? 'ago' : (r.status === 'queued' || r.status === 'waiting') ? 'static' : 'elapsed'}"
+              data-relative-time-iso="${esc(timeMeta.absIso)}"
+              data-relative-time-fallback="${esc(timeMeta.rel)}">${timeMeta.rel}</span>
+        <span class="run-time-abs">${timeMeta.absLabel} ${absTime(timeMeta.absIso)}</span>
+      </span>
       ${r.status === 'completed' ? `<button class="btn-summary" onclick="event.stopPropagation();showSummary(${r.id},'${(SHORT[r.name]||r.name).replace(/'/g,"\\'")}')">📋</button>` : ''}
       <a class="run-link" href="${esc(r.html_url)}" target="_blank" rel="noopener"
          onclick="event.stopPropagation()" title="Open on GitHub">↗</a>
@@ -1831,6 +1941,7 @@ function ts(ms) { return new Date(ms).toISOString(); }
 // ── Init ────────────────────────────────────────────────────────
 function init() {
   cacheDOMRefs();
+  ensureRelativeTimeTimer();
   if (!S.token) {
     S.demo = true;
     $demoBnr.classList.remove('hidden');

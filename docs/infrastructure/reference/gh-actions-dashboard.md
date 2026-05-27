@@ -70,6 +70,8 @@ Four hero cards at the top of the viewport:
 
 Cards glow with a box-shadow when their value is non-zero (or for "Last OK", always).
 
+The `Last OK` card keeps the relative value as the primary line, shows the workflow short name underneath, and always shows the exact local completion time on a third line.
+
 ### Status Beacon
 A full-width colored banner below the KPI strip indicating overall health:
 
@@ -83,7 +85,7 @@ Runs are grouped by workflow name, sorted so active/failed groups float to the t
 - Workflow short name + run number
 - Triggering actor avatar
 - Trigger type icon (push ⬆, PR ⤴, manual ▶, schedule ⏰)
-- Relative time + elapsed duration
+- Relative time with a local absolute timestamp underneath (`Started` for active/queued runs, `Ended` for completed runs)
 - Expandable job detail with per-step status icons
 
 ### Run Summary Popup
@@ -103,6 +105,9 @@ Internal "Set up job", "Complete job", and "Post …" housekeeping steps are fil
 - Configurable interval (default 15 s) with a countdown indicator and animated progress bar
 - Manual refresh button (⟳) with debounce
 - Rate-limit awareness — the remaining X-RateLimit header is displayed; polling pauses gracefully if exhausted
+- Relative time labels are refreshed client-side every 15 seconds between API polls so `ago` text does not go stale while the underlying run data is unchanged
+
+For always-on installed-app use, steady-state refresh is intentionally limited: a small pulse runs only when a real data refresh completes, active runs keep a small spinning status ring, and the 15-second timer only recalculates visible timestamp strings. That timer does not add GitHub API requests.
 
 ### Settings Overlay
 Gear icon opens a settings panel where the user can change:
