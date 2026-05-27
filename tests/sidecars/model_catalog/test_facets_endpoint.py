@@ -250,15 +250,14 @@ def test_create_local_model_writes_collection_memberships_not_legacy_field(tmp_p
     conn = sqlite3.connect(str(settings.db_path))
     conn.row_factory = sqlite3.Row
     try:
-        row = conn.execute(
-            "SELECT collection_names_json FROM model_catalog_entries WHERE local_model_id = ?",
-            ("local-membership-model",),
-        ).fetchone()
+        columns = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(model_catalog_entries)").fetchall()
+        }
     finally:
         conn.close()
 
-    assert row is not None
-    assert str(row["collection_names_json"] or "[]") == "[]"
+    assert "collection_names_json" not in columns
 
 
 def test_duplicate_collection_create_returns_conflict(tmp_path: Path) -> None:
@@ -272,6 +271,100 @@ def test_duplicate_collection_create_returns_conflict(tmp_path: Path) -> None:
 
     assert first.status_code == 200
     assert second.status_code == 409
+
+
+def test_migration_34_drops_local_collection_names_column(tmp_path: Path) -> None:
+    from sidecars.model_catalog.app.db_migrations import MIGRATION_TABLE_STATEMENT, apply_migrations
+
+    db_path = tmp_path / "model_catalog_v33.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute(MIGRATION_TABLE_STATEMENT)
+        conn.executemany(
+            "INSERT INTO model_catalog_schema_migrations (version, applied_at) VALUES (?, ?)",
+            [(version, "2026-01-01T00:00:00Z") for version in range(1, 34)],
+        )
+        conn.execute(
+            """
+            CREATE TABLE model_catalog_entries (
+                id INTEGER PRIMARY KEY,
+                local_model_id TEXT NOT NULL UNIQUE,
+                model_name TEXT NOT NULL,
+                model_description TEXT,
+                creator_name TEXT,
+                created_by TEXT,
+                collection_names_json TEXT NOT NULL DEFAULT '[]',
+                keyword_names_json TEXT NOT NULL DEFAULT '[]',
+                tags_json TEXT NOT NULL DEFAULT '[]',
+                license_type TEXT,
+                preview_image_url TEXT,
+                source_origin TEXT,
+                source_origin_url TEXT,
+                revision_hash TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                archived_at TEXT,
+                entity_type TEXT NOT NULL DEFAULT 'model'
+            )
+            """
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX idx_model_catalog_entries_local_id ON model_catalog_entries (local_model_id)"
+        )
+        conn.execute(
+            "CREATE INDEX idx_model_catalog_entries_entity_type ON model_catalog_entries(entity_type)"
+        )
+        conn.execute(
+            """
+            INSERT INTO model_catalog_entries (
+                local_model_id, model_name, model_description, creator_name, created_by,
+                collection_names_json, keyword_names_json, tags_json, license_type,
+                preview_image_url, source_origin, source_origin_url, revision_hash,
+                created_at, updated_at, archived_at, entity_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "legacy-model",
+                "Legacy Model",
+                None,
+                "Tester",
+                "unit-test",
+                '["Functional / Gridfinity"]',
+                '["gridfinity"]',
+                '["tag-a"]',
+                None,
+                None,
+                None,
+                None,
+                None,
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+                None,
+                "model",
+            ),
+        )
+        conn.commit()
+
+        apply_migrations(conn)
+
+        columns = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(model_catalog_entries)").fetchall()
+        }
+        row = conn.execute(
+            "SELECT local_model_id, keyword_names_json, tags_json, entity_type FROM model_catalog_entries WHERE local_model_id = ?",
+            ("legacy-model",),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert "collection_names_json" not in columns
+    assert row is not None
+    assert str(row["local_model_id"]) == "legacy-model"
+    assert str(row["keyword_names_json"]) == '["gridfinity"]'
+    assert str(row["tags_json"]) == '["tag-a"]'
+    assert str(row["entity_type"]) == "model"
 
 
 def test_facets_sorted_by_count_desc(tmp_path: Path) -> None:

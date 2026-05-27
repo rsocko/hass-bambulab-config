@@ -181,7 +181,6 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         model_description TEXT,
         creator_name TEXT,
         created_by TEXT,
-        collection_names_json TEXT NOT NULL DEFAULT '[]',
         keyword_names_json TEXT NOT NULL DEFAULT '[]',
         tags_json TEXT NOT NULL DEFAULT '[]',
         license_type TEXT,
@@ -1361,6 +1360,71 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
             """
         CREATE INDEX IF NOT EXISTS idx_model_catalog_collection_memberships_model_ref
         ON model_catalog_collection_memberships(model_ref)
+        """,
+        ),
+    ),
+    (
+        34,
+        (
+            """
+        PRAGMA foreign_keys = OFF
+        """,
+            """
+        CREATE TABLE model_catalog_entries__collections_v34 (
+            id INTEGER PRIMARY KEY,
+            local_model_id TEXT NOT NULL UNIQUE,
+            model_name TEXT NOT NULL,
+            model_description TEXT,
+            creator_name TEXT,
+            created_by TEXT,
+            keyword_names_json TEXT NOT NULL DEFAULT '[]',
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            license_type TEXT,
+            preview_image_url TEXT,
+            source_origin TEXT,
+            source_origin_url TEXT,
+            revision_hash TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            archived_at TEXT,
+            entity_type TEXT NOT NULL DEFAULT 'model'
+        )
+        """,
+            """
+        INSERT INTO model_catalog_entries__collections_v34 (
+            id, local_model_id, model_name, model_description, creator_name,
+            created_by, keyword_names_json, tags_json, license_type,
+            preview_image_url, source_origin, source_origin_url, revision_hash,
+            created_at, updated_at, archived_at, entity_type
+        )
+        SELECT id, local_model_id, model_name, model_description, creator_name,
+               created_by, keyword_names_json, tags_json, license_type,
+               preview_image_url, source_origin, source_origin_url, revision_hash,
+               created_at, updated_at, archived_at, entity_type
+        FROM model_catalog_entries
+        """,
+            """
+        DROP INDEX IF EXISTS idx_model_catalog_entries_local_id
+        """,
+            """
+        DROP INDEX IF EXISTS idx_model_catalog_entries_entity_type
+        """,
+            """
+        DROP TABLE model_catalog_entries
+        """,
+            """
+        ALTER TABLE model_catalog_entries__collections_v34 RENAME TO model_catalog_entries
+        """,
+            """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_model_catalog_entries_local_id
+        ON model_catalog_entries (local_model_id)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_entries_entity_type
+        ON model_catalog_entries(entity_type)
+        """,
+            """
+        PRAGMA foreign_keys = ON
         """,
         ),
     ),

@@ -55,12 +55,12 @@ def create_local_model(
             INSERT INTO model_catalog_entries (
                 local_model_id, model_name, model_description, creator_name,
                 created_by,
-                collection_names_json, keyword_names_json, tags_json,
+                keyword_names_json, tags_json,
                 license_type, preview_image_url,
                 source_origin, source_origin_url, revision_hash,
                 entity_type,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 local_model_id,
@@ -68,7 +68,6 @@ def create_local_model(
                 model_description,
                 creator_name,
                 created_by,
-                "[]",
                 json.dumps(keyword_names or []),
                 json.dumps(tags or []),
                 license_type,
@@ -234,9 +233,6 @@ def update_local_model(
         if keyword_names is not None:
             updates.append("keyword_names_json = ?")
             params.append(json.dumps(keyword_names))
-        if collection_names is not None:
-            updates.append("collection_names_json = ?")
-            params.append("[]")
         if license_type is not None:
             updates.append("license_type = ?")
             params.append(license_type)
@@ -256,7 +252,7 @@ def update_local_model(
             updates.append("entity_type = ?")
             params.append(entity_type)
 
-        if not updates:
+        if not updates and collection_names is None:
             # No updates requested, return current state
             return read_local_model(db_path=db_path, local_model_id=local_model_id)
 
@@ -627,7 +623,7 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         model_description=row["model_description"],
         creator_name=row["creator_name"],
         created_by=row["created_by"],
-        collection_names=_safe_json_list(row["collection_names_json"]),
+        collection_names=(),
         keyword_names=_safe_json_list(row["keyword_names_json"]),
         tags=_safe_json_list(row["tags_json"]),
         license_type=row["license_type"],

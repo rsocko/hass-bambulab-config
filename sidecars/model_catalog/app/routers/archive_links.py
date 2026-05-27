@@ -68,7 +68,7 @@ def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
         rows = connection.execute(
             """
             SELECT local_model_id, model_name, preview_image_url, creator_name,
-                   collection_names_json, keyword_names_json, entity_type
+                   keyword_names_json, entity_type
             FROM model_catalog_entries
             WHERE archived_at IS NULL
             ORDER BY model_name COLLATE NOCASE
@@ -88,9 +88,6 @@ def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
     for row in rows:
         local_model_id = str(row["local_model_id"])
         memberships = memberships_by_model_ref.get(local_model_id, [])
-        collection_names = collection_paths_from_memberships(memberships, collection_rows_by_id)
-        if not collection_names:
-            collection_names = tuple(json.loads(str(row["collection_names_json"] or "[]")))
         summaries.append(
             CatalogModelSummary(
                 model_url=_local_model_url(local_model_id),
@@ -99,7 +96,7 @@ def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
                 name=str(row["model_name"]),
                 preview_url=str(row["preview_image_url"] or "").strip() or None,
                 creator_name=str(row["creator_name"] or "").strip() or None,
-                collection_names=collection_names,
+                collection_names=collection_paths_from_memberships(memberships, collection_rows_by_id),
                 keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
                 entity_type=str(row["entity_type"] or "model"),
             )
@@ -118,7 +115,7 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedCatalogModel]:
         entry_rows = connection.execute(
             """
             SELECT id, local_model_id, model_name, preview_image_url, creator_name,
-                   collection_names_json, keyword_names_json, entity_type,
+                 keyword_names_json, entity_type,
                    created_at, updated_at
             FROM model_catalog_entries
             WHERE archived_at IS NULL
@@ -180,12 +177,9 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedCatalogModel]:
             name=model_name,
             preview_url=str(row["preview_image_url"] or "").strip() or None,
             creator_name=str(row["creator_name"] or "").strip() or None,
-            collection_names=(
-                collection_paths_from_memberships(
-                    memberships_by_model_ref.get(local_model_id, []),
-                    collection_rows_by_id,
-                )
-                or tuple(json.loads(str(row["collection_names_json"] or "[]")))
+            collection_names=collection_paths_from_memberships(
+                memberships_by_model_ref.get(local_model_id, []),
+                collection_rows_by_id,
             ),
             keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
             entity_type=str(row["entity_type"] or "model"),
