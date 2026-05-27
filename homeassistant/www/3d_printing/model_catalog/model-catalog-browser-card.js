@@ -105,6 +105,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
       links: "",
       sketchUrl: "",
     };
+    this._collectionActionDialog = {
+      open: false,
+      mode: "",
+      collectionId: "",
+      label: "",
+      path: "",
+      name: "",
+      selectedParentId: "",
+      options: [],
+      error: "",
+      submitting: false,
+    };
+    this._collectionActionFeedback = null;
+    this._collectionActionFeedbackTimer = null;
+    this._focusCollectionActionPrimaryAfterRender = false;
     this._perfSamples = [];
     this._lastLoadPerf = null;
     this._lastRenderPerf = null;
@@ -872,6 +887,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._thumbnailObserver && typeof this._thumbnailObserver.disconnect === "function") {
       try { this._thumbnailObserver.disconnect(); } catch (_e) { /* ignore */ }
       this._thumbnailObserver = null;
+    }
+    if (this._collectionActionFeedbackTimer) {
+      window.clearTimeout(this._collectionActionFeedbackTimer);
+      this._collectionActionFeedbackTimer = null;
     }
   }
 
@@ -1802,6 +1821,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._queueDialogNotes = String(target.value || "");
       return;
     }
+    if (target && target.classList && target.classList.contains("collection-action-input")) {
+      this._collectionActionDialog.name = String(target.value || "");
+      if (this._collectionActionDialog.error) {
+        this._collectionActionDialog.error = "";
+      }
+      return;
+    }
     if (target && target.classList && target.classList.contains("idea-create-input")) {
       var field = String(target.getAttribute("data-idea-field") || "").trim();
       if (field && Object.prototype.hasOwnProperty.call(this._ideaCreateDraft, field)) {
@@ -1825,6 +1851,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
   async _handleChange(event) {
     var target = event && event.target;
     if (!target) {
+      return;
+    }
+    if (target.classList && target.classList.contains("collection-action-select")) {
+      this._collectionActionDialog.selectedParentId = String(target.value || "").trim().toLowerCase();
+      if (this._collectionActionDialog.error) {
+        this._collectionActionDialog.error = "";
+      }
       return;
     }
     if (target.classList && target.classList.contains("bulk-source-select")) {
@@ -1914,6 +1947,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     // Escape closes the left-nav drawer
     if (event.key === "Escape") {
+      if (this._collectionActionDialog && this._collectionActionDialog.open) {
+        event.preventDefault();
+        this._closeCollectionActionDialog();
+        return;
+      }
       var drawerNav = rawTarget && rawTarget.closest ? rawTarget.closest(".left-nav.drawer-open") : null;
       if (drawerNav && this._leftNavDrawerOpen) {
         event.preventDefault();
@@ -1934,6 +1972,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         event.preventDefault();
         this._submitIdeaCreateDialog();
       }
+      return;
+    }
+    if (target && target.classList && target.classList.contains("collection-action-input")) {
+      event.preventDefault();
+      this._submitCollectionActionDialog();
       return;
     }
     if (!target || !target.classList || !target.classList.contains("control-input")) {
@@ -2126,6 +2169,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "close-collection-action-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target.classList && target.classList.contains("collection-action-backdrop") && rawTarget !== target) {
+        return;
+      }
+      this._closeCollectionActionDialog();
+      return;
+    }
+
+    if (action === "submit-collection-action-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitCollectionActionDialog();
+      return;
+    }
+
+    if (action === "dismiss-collection-feedback") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._clearCollectionActionFeedback(true);
+      return;
+    }
+
     if (action === "submit-idea-create-dialog") {
       event.preventDefault();
       event.stopPropagation();
@@ -2294,10 +2361,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       try {
-        await this._renameCollection(
-          String(target.getAttribute('data-collection-id') || '').trim(),
-          String(target.getAttribute('data-collection-label') || '').trim()
-        );
+        this._openCollectionActionDialog('rename', {
+          collectionId: String(target.getAttribute('data-collection-id') || '').trim(),
+          label: String(target.getAttribute('data-collection-label') || '').trim(),
+          path: String(target.getAttribute('data-collection-path') || '').trim(),
+        });
       } catch (error) {
         this._error = error && error.message ? String(error.message) : 'Could not rename collection.';
         this._render();
@@ -2309,9 +2377,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       try {
-        await this._moveCollection(
-          String(target.getAttribute('data-collection-id') || '').trim()
-        );
+        await this._openCollectionMoveDialog({
+          collectionId: String(target.getAttribute('data-collection-id') || '').trim(),
+          label: String(target.getAttribute('data-collection-label') || '').trim(),
+          path: String(target.getAttribute('data-collection-path') || '').trim(),
+        });
       } catch (error) {
         this._error = error && error.message ? String(error.message) : 'Could not move collection.';
         this._render();
@@ -2326,10 +2396,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return;
       }
       try {
-        await this._deleteCollection(
-          String(target.getAttribute('data-collection-id') || '').trim(),
-          String(target.getAttribute('data-collection-label') || '').trim()
-        );
+        this._openCollectionActionDialog('delete', {
+          collectionId: String(target.getAttribute('data-collection-id') || '').trim(),
+          label: String(target.getAttribute('data-collection-label') || '').trim(),
+          path: String(target.getAttribute('data-collection-path') || '').trim(),
+        });
       } catch (error) {
         this._error = error && error.message ? String(error.message) : 'Could not delete collection.';
         this._render();
@@ -3174,6 +3245,245 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return normalizedId ? ("collection:" + normalizedId) : "";
   }
 
+  _normalizeCollectionId(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  _clearCollectionActionFeedback(shouldRender) {
+    if (this._collectionActionFeedbackTimer) {
+      window.clearTimeout(this._collectionActionFeedbackTimer);
+      this._collectionActionFeedbackTimer = null;
+    }
+    this._collectionActionFeedback = null;
+    if (shouldRender) {
+      this._render();
+    }
+  }
+
+  _setCollectionActionFeedback(message, kind) {
+    var text = String(message || "").trim();
+    if (!text) {
+      this._clearCollectionActionFeedback(false);
+      return;
+    }
+    this._clearCollectionActionFeedback(false);
+    this._collectionActionFeedback = {
+      kind: kind === "error" ? "error" : "success",
+      message: text,
+    };
+    this._collectionActionFeedbackTimer = window.setTimeout(function () {
+      this._collectionActionFeedbackTimer = null;
+      if (this._collectionActionFeedback && this._collectionActionFeedback.message === text) {
+        this._collectionActionFeedback = null;
+        this._render();
+      }
+    }.bind(this), 4200);
+  }
+
+  _collectionDialogTitle(mode) {
+    if (mode === "rename") return "Rename Collection";
+    if (mode === "move") return "Move Collection";
+    if (mode === "delete") return "Delete Collection";
+    return "Collection Action";
+  }
+
+  _collectionDialogSubmitLabel(mode) {
+    if (mode === "rename") return "Save Name";
+    if (mode === "move") return "Move Collection";
+    if (mode === "delete") return "Delete Collection";
+    return "Save";
+  }
+
+  _collectionRowsById(rows) {
+    var source = Array.isArray(rows) ? rows : [];
+    var lookup = {};
+    for (var index = 0; index < source.length; index++) {
+      var row = source[index] || {};
+      var id = this._normalizeCollectionId(row.collection_id);
+      if (id) {
+        lookup[id] = row;
+      }
+    }
+    return lookup;
+  }
+
+  _collectionDescendantIds(collectionId, rows) {
+    var targetId = this._normalizeCollectionId(collectionId);
+    if (!targetId) {
+      return {};
+    }
+    var childrenByParent = {};
+    var source = Array.isArray(rows) ? rows : [];
+    for (var index = 0; index < source.length; index++) {
+      var row = source[index] || {};
+      var parentId = this._normalizeCollectionId(row.parent_collection_id);
+      var rowId = this._normalizeCollectionId(row.collection_id);
+      if (!parentId || !rowId) {
+        continue;
+      }
+      if (!childrenByParent[parentId]) {
+        childrenByParent[parentId] = [];
+      }
+      childrenByParent[parentId].push(rowId);
+    }
+    var seen = {};
+    var queue = (childrenByParent[targetId] || []).slice(0);
+    while (queue.length) {
+      var nextId = queue.shift();
+      if (!nextId || seen[nextId]) {
+        continue;
+      }
+      seen[nextId] = true;
+      var children = childrenByParent[nextId] || [];
+      for (var childIndex = 0; childIndex < children.length; childIndex++) {
+        queue.push(children[childIndex]);
+      }
+    }
+    return seen;
+  }
+
+  _buildCollectionMoveOptions(collectionId, rows) {
+    var targetId = this._normalizeCollectionId(collectionId);
+    var descendants = this._collectionDescendantIds(targetId, rows);
+    var source = Array.isArray(rows) ? rows.slice(0) : [];
+    source.sort(function (left, right) {
+      var leftLabel = String(left.path || left.name || left.collection_id || "").trim().toLowerCase();
+      var rightLabel = String(right.path || right.name || right.collection_id || "").trim().toLowerCase();
+      return leftLabel.localeCompare(rightLabel);
+    });
+    var options = [{ value: "", label: "Root (top level)" }];
+    for (var index = 0; index < source.length; index++) {
+      var row = source[index] || {};
+      var rowId = this._normalizeCollectionId(row.collection_id);
+      if (!rowId || rowId === targetId || descendants[rowId]) {
+        continue;
+      }
+      options.push({
+        value: rowId,
+        label: String(row.path || row.name || row.collection_id || rowId).trim() || rowId,
+      });
+    }
+    return options;
+  }
+
+  _openCollectionActionDialog(mode, config) {
+    var dialogMode = String(mode || "").trim().toLowerCase();
+    var details = config && typeof config === "object" ? config : {};
+    this._activeActionMenu = "";
+    this._collectionActionDialog = {
+      open: true,
+      mode: dialogMode,
+      collectionId: this._normalizeCollectionId(details.collectionId),
+      label: String(details.label || "Collection").trim() || "Collection",
+      path: String(details.path || details.label || "Collection").trim() || "Collection",
+      name: String(details.name || details.label || "").trim(),
+      selectedParentId: this._normalizeCollectionId(details.selectedParentId),
+      options: Array.isArray(details.options) ? details.options : [],
+      error: "",
+      submitting: false,
+    };
+    this._focusCollectionActionPrimaryAfterRender = true;
+    this._render();
+  }
+
+  _closeCollectionActionDialog() {
+    if (this._collectionActionDialog && this._collectionActionDialog.submitting) {
+      return;
+    }
+    this._collectionActionDialog = {
+      open: false,
+      mode: "",
+      collectionId: "",
+      label: "",
+      path: "",
+      name: "",
+      selectedParentId: "",
+      options: [],
+      error: "",
+      submitting: false,
+    };
+    this._render();
+  }
+
+  async _openCollectionMoveDialog(config) {
+    var details = config && typeof config === "object" ? config : {};
+    var collectionsPayload = await this._collectionApiRequest('/api/collections', { method: 'GET' });
+    var rows = collectionsPayload && Array.isArray(collectionsPayload.items) ? collectionsPayload.items : [];
+    var byId = this._collectionRowsById(rows);
+    var currentRow = byId[this._normalizeCollectionId(details.collectionId)] || {};
+    this._openCollectionActionDialog('move', {
+      collectionId: details.collectionId,
+      label: details.label || currentRow.name || currentRow.collection_id || 'Collection',
+      path: details.path || currentRow.path || currentRow.name || details.label || 'Collection',
+      selectedParentId: currentRow.parent_collection_id,
+      options: this._buildCollectionMoveOptions(details.collectionId, rows),
+    });
+  }
+
+  async _submitCollectionActionDialog() {
+    var dialog = this._collectionActionDialog && typeof this._collectionActionDialog === 'object' ? this._collectionActionDialog : null;
+    if (!dialog || !dialog.open || dialog.submitting) {
+      return;
+    }
+    var mode = String(dialog.mode || '').trim().toLowerCase();
+    var collectionId = this._normalizeCollectionId(dialog.collectionId);
+    if (!collectionId) {
+      return;
+    }
+    if (mode === 'rename') {
+      var proposedName = String(dialog.name || '').trim();
+      if (!proposedName) {
+        this._collectionActionDialog.error = 'Collection name is required.';
+        this._render();
+        return;
+      }
+    }
+    dialog.submitting = true;
+    dialog.error = '';
+    this._render();
+    try {
+      var feedbackMessage = '';
+      if (mode === 'rename') {
+        var nextName = String(dialog.name || '').trim();
+        await this._renameCollection(collectionId, nextName);
+        feedbackMessage = 'Renamed collection to "' + nextName + '".';
+      } else if (mode === 'move') {
+        var nextParentId = this._normalizeCollectionId(dialog.selectedParentId) || null;
+        await this._moveCollection(collectionId, nextParentId);
+        var destinationLabel = 'Root';
+        for (var optionIndex = 0; optionIndex < dialog.options.length; optionIndex++) {
+          var option = dialog.options[optionIndex] || {};
+          if (String(option.value || '') === String(nextParentId || '')) {
+            destinationLabel = String(option.label || 'Root');
+            break;
+          }
+        }
+        feedbackMessage = 'Moved "' + dialog.label + '" to ' + destinationLabel + '.';
+      } else if (mode === 'delete') {
+        await this._deleteCollection(collectionId);
+        feedbackMessage = 'Deleted collection "' + dialog.label + '".';
+      }
+
+      var deletedSelectedCollection = mode === 'delete' && this._selectedCollectionKey() === collectionId;
+      this._collectionActionDialog.open = false;
+      this._collectionActionDialog.submitting = false;
+      this._error = '';
+      this._activeActionMenu = '';
+      if (deletedSelectedCollection) {
+        this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: false, render: false });
+      }
+      await this._fetchGlobalFacets();
+      this._requestLoad(deletedSelectedCollection ? 1 : this._currentPage(), true);
+      this._setCollectionActionFeedback(feedbackMessage, 'success');
+      this._render();
+    } catch (error) {
+      dialog.submitting = false;
+      dialog.error = error && error.message ? String(error.message) : 'Collection update failed.';
+      this._setCollectionActionFeedback(dialog.error, 'error');
+      this._render();
+    }
+  }
+
   _collectionApiBaseUrl() {
     return String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
   }
@@ -3203,72 +3513,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return payload && typeof payload === 'object' ? payload : {};
   }
 
-  async _renameCollection(collectionId, currentLabel) {
-    var nextName = (window.prompt('Rename collection', String(currentLabel || '').trim()) || '').trim();
-    if (!nextName || nextName === String(currentLabel || '').trim()) {
-      return;
-    }
+  async _renameCollection(collectionId, nextName) {
     await this._collectionApiRequest('/api/collections/' + encodeURIComponent(String(collectionId || '').trim()), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: nextName }),
     });
-    this._activeActionMenu = '';
-    this._error = '';
-    await this._fetchGlobalFacets();
-    this._requestLoad(this._currentPage(), true);
-    this._render();
   }
 
-  async _moveCollection(collectionId) {
-    var destination = (window.prompt('Move collection to parent path. Leave blank for root.', '') || '').trim();
-    var parentCollectionId = null;
-    if (destination) {
-      var collectionsPayload = await this._collectionApiRequest('/api/collections', { method: 'GET' });
-      var rows = collectionsPayload && Array.isArray(collectionsPayload.items) ? collectionsPayload.items : [];
-      var normalizedDestination = destination.toLowerCase();
-      var match = null;
-      for (var index = 0; index < rows.length; index++) {
-        var row = rows[index] || {};
-        var rowId = String(row.collection_id || '').trim().toLowerCase();
-        var rowPath = String(row.path || row.collection_id || '').trim().toLowerCase();
-        if (rowId === normalizedDestination || rowPath === normalizedDestination) {
-          match = row;
-          break;
-        }
-      }
-      if (!match) {
-        throw new Error('Parent collection not found: ' + destination);
-      }
-      parentCollectionId = String(match.collection_id || '').trim().toLowerCase() || null;
-    }
+  async _moveCollection(collectionId, parentCollectionId) {
     await this._collectionApiRequest('/api/collections/' + encodeURIComponent(String(collectionId || '').trim()), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ parent_collection_id: parentCollectionId }),
     });
-    this._activeActionMenu = '';
-    this._error = '';
-    await this._fetchGlobalFacets();
-    this._requestLoad(this._currentPage(), true);
-    this._render();
   }
 
-  async _deleteCollection(collectionId, label) {
-    if (!window.confirm('Delete collection "' + String(label || 'Collection') + '"? This only succeeds when it is empty.')) {
-      return;
-    }
+  async _deleteCollection(collectionId) {
     await this._collectionApiRequest('/api/collections/' + encodeURIComponent(String(collectionId || '').trim()), {
       method: 'DELETE',
     });
-    this._activeActionMenu = '';
-    this._error = '';
-    if (this._selectedCollectionKey() === String(collectionId || '').trim().toLowerCase()) {
-      this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: false, render: false });
-    }
-    await this._fetchGlobalFacets();
-    this._requestLoad(1, true);
-    this._render();
   }
 
   _setModelFavoriteState(modelRef, isFavorite) {
@@ -5999,9 +6263,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '      <button class="icon-action advanced" type="button" data-action="toggle-actions" data-menu-key="' + this._escapeHtml(actionMenuKey) + '" aria-label="Open collection actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
         + '      <div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
         + '        <button class="advanced-action primary" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-search-outline"></ha-icon><span>Open collection</span></button>'
-        + '        <button class="advanced-action" type="button" data-action="collection-rename" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '"><ha-icon icon="mdi:pencil-outline"></ha-icon><span>Rename</span></button>'
-        + '        <button class="advanced-action" type="button" data-action="collection-move" data-collection-id="' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-move-outline"></ha-icon><span>Move</span></button>'
-        + '        <button class="advanced-action danger" type="button" data-action="collection-delete" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '"' + (deleteDisabled ? ' disabled title="Collection must be empty before deletion"' : '') + '><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>' + (deleteDisabled ? 'Delete (empty only)' : 'Delete') + '</span></button>'
+        + '        <button class="advanced-action" type="button" data-action="collection-rename" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:pencil-outline"></ha-icon><span>Rename</span></button>'
+        + '        <button class="advanced-action" type="button" data-action="collection-move" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:folder-move-outline"></ha-icon><span>Move</span></button>'
+        + '        <button class="advanced-action danger" type="button" data-action="collection-delete" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"' + (deleteDisabled ? ' disabled title="Collection must be empty before deletion"' : '') + '><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>' + (deleteDisabled ? 'Delete (empty only)' : 'Delete') + '</span></button>'
         + '      </div>'
         + '    </div>'
         + '  </div>'
@@ -6031,7 +6295,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var collectionCount = Math.max(0, Number(resultCounts.collections || 0) || 0);
     var modelCount = Math.max(0, Number(resultCounts.models || 0) || 0);
     var title = 'Collections';
-    var subtitle = 'Browse top-level collections and drill into direct models.';
+    var subtitle = 'Browse the hierarchy first, then open the current layer for direct models and recent activity.';
     var note = '';
     var stats = [
       this._renderCollectionHeaderStat('Collections', collectionCount),
@@ -6042,9 +6306,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       title = String(currentNode.label || currentNode.name || currentNode.path || 'Collection').trim() || 'Collection';
       subtitle = String(currentNode.path || title).trim();
       if (Number(currentNode.model_count_direct || 0) <= 0 && Number(currentNode.child_collection_count || 0) > 0) {
-        note = 'Only sub-collections are in this layer right now.';
+        note = 'This layer currently organizes into sub-collections only.';
       } else if (Number(currentNode.model_count_total || 0) <= 0) {
-        note = 'This collection is empty.';
+        note = 'This collection is empty right now.';
       }
       stats = [
         this._renderCollectionHeaderStat('Total models', currentNode.model_count_total || 0),
@@ -6054,8 +6318,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       ];
     } else if (currentCollectionKey === '__unassigned__') {
       title = 'No Collection';
-      subtitle = 'System bucket for models that do not belong to any collection.';
-      note = modelCount > 0 ? 'These models can be assigned from the popup collection editor.' : 'No unassigned models match the current filters.';
+      subtitle = 'Operational bucket for models that are not assigned to any curated collection.';
+      note = modelCount > 0 ? 'Assign these from the popup collection editor when they are ready to be filed.' : 'No unassigned models match the current filters.';
       stats = [
         this._renderCollectionHeaderStat('Models', modelCount),
         this._renderCollectionHeaderStat('Collections', collectionCount),
@@ -6079,18 +6343,77 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderCollectionBrowseEmptyState(browse, currentNode, currentCollectionKey) {
     if (currentCollectionKey === '__unassigned__') {
-      return '<div class="state-row">No unassigned models match the current filters.</div>';
+      return '<div class="state-row">No unassigned models match the current filters right now.</div>';
     }
     if (currentNode) {
       if (Number(currentNode.child_collection_count || 0) > 0 && Number(currentNode.model_count_direct || 0) <= 0) {
-        return '<div class="state-row">No direct models in this collection yet. Browse the sub-collections above.</div>';
+        return '<div class="state-row">No direct models are filed at this level yet. Browse the sub-collections above.</div>';
       }
       if (Number(currentNode.model_count_total || 0) > 0 && Number(currentNode.preview_model_count || 0) <= 0) {
         return '<div class="state-row">Models exist in this collection, but none currently expose preview media.</div>';
       }
-      return '<div class="state-row">This collection has no visible sub-collections or direct models for the current filters.</div>';
+      return '<div class="state-row">This collection has no visible sub-collections or direct models for the active filters.</div>';
     }
     return '<div class="state-row">No collections found for current filters.</div>';
+  }
+
+  _renderCollectionActionFeedback() {
+    var feedback = this._collectionActionFeedback && typeof this._collectionActionFeedback === 'object' ? this._collectionActionFeedback : null;
+    if (!feedback || !feedback.message) {
+      return '';
+    }
+    return ''
+      + '<div class="collection-feedback-toast ' + this._escapeHtml(feedback.kind || 'success') + '" role="status" aria-live="polite">'
+      + '  <div class="collection-feedback-copy">' + this._escapeHtml(String(feedback.message || '')) + '</div>'
+      + '  <button class="collection-feedback-dismiss" type="button" data-action="dismiss-collection-feedback" aria-label="Dismiss feedback">✕</button>'
+      + '</div>';
+  }
+
+  _renderCollectionActionDialog() {
+    var dialog = this._collectionActionDialog && typeof this._collectionActionDialog === 'object' ? this._collectionActionDialog : null;
+    if (!dialog || !dialog.open) {
+      return '';
+    }
+    var mode = String(dialog.mode || '').trim().toLowerCase();
+    var isDelete = mode === 'delete';
+    var submitLabel = this._collectionDialogSubmitLabel(mode);
+    var bodyHtml = '';
+    if (mode === 'rename') {
+      bodyHtml = ''
+        + '<div class="collection-action-note">Update the display name for this collection. Its hierarchy path will refresh after save.</div>'
+        + '<label class="collection-action-field"><span>Name</span><input class="collection-action-input" type="text" maxlength="255" value="' + this._escapeHtml(dialog.name) + '" placeholder="Collection name"></label>';
+    } else if (mode === 'move') {
+      bodyHtml = ''
+        + '<div class="collection-action-note">Choose a new parent for this collection. Invalid destinations are filtered out to avoid hierarchy loops.</div>'
+        + '<label class="collection-action-field"><span>Parent collection</span><select class="collection-action-select">'
+        + dialog.options.map(function (option) {
+            var value = String(option && option.value || '');
+            var label = String(option && option.label || value || 'Root');
+            return '<option value="' + this._escapeHtml(value) + '"' + (String(dialog.selectedParentId || '') === value ? ' selected' : '') + '>' + this._escapeHtml(label) + '</option>';
+          }.bind(this)).join('')
+        + '</select></label>';
+    } else {
+      bodyHtml = ''
+        + '<div class="collection-action-danger-note">Delete this collection only if it is truly no longer needed. The server still blocks deletion when members or child collections remain.</div>'
+        + '<div class="collection-action-summary"><strong>' + this._escapeHtml(dialog.label) + '</strong><span>' + this._escapeHtml(dialog.path) + '</span></div>';
+    }
+    return ''
+      + '<div class="collection-action-backdrop" data-action="close-collection-action-dialog">'
+      + '  <div class="collection-action-dialog" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._collectionDialogTitle(mode)) + '">'
+      + '    <div class="collection-action-header">'
+      + '      <div><h3>' + this._escapeHtml(this._collectionDialogTitle(mode)) + '</h3><div class="collection-action-subtitle">' + this._escapeHtml(dialog.path || dialog.label) + '</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-collection-action-dialog" aria-label="Close">✕</button>'
+      + '    </div>'
+      + '    <div class="collection-action-body">'
+      + bodyHtml
+      + (dialog.error ? '<div class="collection-action-error">' + this._escapeHtml(dialog.error) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="collection-action-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-collection-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
+      + '      <button class="toolbar-btn' + (isDelete ? ' collection-action-submit danger' : ' collection-action-submit') + '" type="button" data-action="submit-collection-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? 'Saving...' : submitLabel) + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
   }
 
   _formatCollectionDate(value) {
@@ -7207,6 +7530,32 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.idea-create-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}'
       + '.idea-create-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}'
       + '.idea-create-submit{background:rgba(250,204,21,0.22);border-color:rgba(250,204,21,0.4);}'
+      + '.collection-feedback-toast{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 2px;padding:12px 14px;border-radius:16px;border:1px solid rgba(96,165,250,0.24);background:rgba(30,64,175,0.16);box-shadow:0 10px 22px rgba(15,23,42,0.16);}'
+      + '.collection-feedback-toast.error{border-color:rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);}'
+      + '.collection-feedback-copy{font-size:13px;line-height:1.4;color:var(--primary-text-color);}'
+      + '.collection-feedback-dismiss{width:30px;min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.16);color:var(--primary-text-color);font-size:13px;font-weight:800;cursor:pointer;}'
+      + '.collection-feedback-dismiss:hover,.collection-feedback-dismiss:focus-visible{outline:none;background:rgba(148,163,184,0.18);border-color:rgba(148,163,184,0.38);}'
+      + '.collection-action-backdrop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}'
+      + '.collection-action-dialog{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;border-radius:20px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 24px 48px rgba(2,6,23,0.42);}'
+      + '.collection-action-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,0.18);}'
+      + '.collection-action-header h3{margin:0;font-size:18px;font-weight:800;}'
+      + '.collection-action-subtitle{margin-top:4px;font-size:12px;color:var(--secondary-text-color);}'
+      + '.collection-action-body{display:grid;gap:12px;padding:18px 20px;overflow:auto;}'
+      + '.collection-action-note,.collection-action-danger-note,.collection-action-summary{padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(148,163,184,0.08);font-size:13px;line-height:1.45;}'
+      + '.collection-action-danger-note{border-color:rgba(248,113,113,0.28);background:rgba(127,29,29,0.22);color:#fecaca;}'
+      + '.collection-action-summary{display:grid;gap:4px;}'
+      + '.collection-action-summary strong{font-size:14px;line-height:1.3;color:var(--primary-text-color);}'
+      + '.collection-action-summary span{font-size:12px;color:var(--secondary-text-color);}'
+      + '.collection-action-field{display:grid;gap:6px;}'
+      + '.collection-action-field span{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}'
+      + '.collection-action-input,.collection-action-select{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}'
+      + '.collection-action-input:focus,.collection-action-select:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
+      + '.collection-action-select{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:rgba(15,23,42,0.92);}'
+      + '.collection-action-select option{background-color:rgba(15,23,42,0.98);color:var(--primary-text-color);}'
+      + '.collection-action-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}'
+      + '.collection-action-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}'
+      + '.collection-action-submit{background:rgba(96,165,250,0.22);border-color:rgba(96,165,250,0.34);}'
+      + '.collection-action-submit.danger{background:rgba(185,28,28,0.20);border-color:rgba(248,113,113,0.34);color:#fecaca;}'
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
@@ -7244,7 +7593,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen));
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open)));
 
     // Preserve focus across the innerHTML reset below. Without this, any
     // active input (most visibly the search box "#mc-q") loses focus on every
@@ -7263,12 +7612,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderFilterBar()
       + this._renderPageControlStrip()
       + '        </div>'
+      + this._renderCollectionActionFeedback()
       + '        <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + '      </div>'
       + '    </div>'
       + this._renderQueueDialog()
       + this._renderIdeaCreateDialog()
+      + this._renderCollectionActionDialog()
       + '  </div>';
 
     this._restoreActiveInputState(focusSnapshot);
@@ -7289,6 +7640,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var toggle = this.shadowRoot.querySelector('.left-nav-toggle') || this.shadowRoot.querySelector('.nav-context-chip');
       if (toggle) {
         requestAnimationFrame(function() { try { toggle.focus(); } catch(_e) {} });
+      }
+    }
+    if (this._focusCollectionActionPrimaryAfterRender) {
+      this._focusCollectionActionPrimaryAfterRender = false;
+      var dialogPrimary = this.shadowRoot.querySelector('.collection-action-input, .collection-action-select, .collection-action-submit');
+      if (dialogPrimary) {
+        requestAnimationFrame(function() { try { dialogPrimary.focus(); } catch(_e) {} });
       }
     }
 
