@@ -1195,13 +1195,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
         frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
-        project_id: this._filters.project_id || null,
         show_ideas: !!(this._typeFilters && this._typeFilters.idea),
         entity_types: entityTypes,
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
         per_page: this._pagination.per_page,
       };
+      if (this._filters.project_id) {
+        requestPayload.project_id = this._filters.project_id;
+      }
 
       var data = includeWorkingInModels
         ? await this._searchModelsFast(Object.assign({}, requestPayload, { page: 1, per_page: 100 }))
@@ -4128,7 +4130,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
     if (!/^https?:\/\//i.test(base)) {
       this._projectsError = "No sidecar URL configured";
-      this._projectsLoaded = true;
       return;
     }
     try {
