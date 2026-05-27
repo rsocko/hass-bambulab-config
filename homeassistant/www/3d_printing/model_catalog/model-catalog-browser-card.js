@@ -373,7 +373,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="left-nav-tree-row' + (hasChildren ? ' has-children' : '') + '" style="--tree-depth:' + this._escapeHtml(String(currentDepth)) + '">'
       + (hasChildren
         ? '<button class="left-nav-tree-toggle" type="button" data-action="toggle-collection-node" data-node-id="' + this._escapeHtml(nodeId) + '" aria-label="' + this._escapeHtml((isExpanded ? 'Collapse ' : 'Expand ') + label) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '"><ha-icon icon="mdi:chevron-' + (isExpanded ? 'down' : 'right') + '"></ha-icon></button>'
-        : '<span class="left-nav-tree-toggle spacer" aria-hidden="true"></span>')
+        : '')
       + (isFilterable
         ? '<button class="left-nav-item left-nav-tree-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(navKey) + '" aria-label="' + this._escapeHtml(label) + '" title="' + this._escapeHtml(label) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '"><span class="left-nav-item-main"><ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon><span class="left-nav-item-label">' + this._escapeHtml(label) + '</span></span>' + trailingMarkup + '</button>'
         : '<div class="left-nav-item left-nav-tree-item left-nav-tree-label" title="' + this._escapeHtml(label) + '"><span class="left-nav-item-main"><ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon><span class="left-nav-item-label">' + this._escapeHtml(label) + '</span></span><span class="left-nav-item-count">' + this._escapeHtml(String(count)) + '</span></div>')
@@ -6573,11 +6573,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-tree-children{display:grid;gap:4px;}'
       + '.left-nav-tree-row{position:relative;display:block;padding-left:calc(var(--tree-depth, 0) * 12px);}'
       + '.left-nav-tree-item{width:100%;padding-left:34px;}'
-      + '.left-nav-tree-row:not(.has-children) .left-nav-tree-item{padding-left:34px;}'
+      + '.left-nav-tree-row:not(.has-children) .left-nav-tree-item{padding-left:8px;}'
       + '.left-nav-tree-toggle{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:22px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.06);color:var(--secondary-text-color);cursor:pointer;z-index:1;}'
       + '.left-nav-tree-toggle:hover,.left-nav-tree-toggle:focus-visible{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.36);outline:none;}'
       + '.left-nav-tree-toggle ha-icon{--mdc-icon-size:14px;}'
-      + '.left-nav-tree-toggle.spacer{border-color:transparent;background:transparent;cursor:default;pointer-events:none;}'
       + '.left-nav-tree-label{cursor:default;}'
       + '.left-nav-item-main{display:flex;align-items:center;gap:8px;min-width:0;}'
       + '.left-nav-item-main ha-icon{--mdc-icon-size:16px;opacity:.9;}'
