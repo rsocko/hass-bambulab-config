@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 import sqlite3
 from pathlib import Path
@@ -379,65 +378,3 @@ def ensure_collection_paths(*, db_path: Path, collection_names: list[str] | tupl
         return [collection_rows_by_id[collection_id] for collection_id in ensured_leaf_ids]
     finally:
         connection.close()
-
-
-def backfill_legacy_local_model_collections(*, db_path: Path) -> dict[str, Any]:
-    connection = connect(db_path)
-    try:
-        rows = connection.execute(
-            """
-            SELECT local_model_id, collection_names_json
-            FROM model_catalog_entries
-            WHERE archived_at IS NULL
-              AND TRIM(COALESCE(collection_names_json, '[]')) NOT IN ('', '[]')
-            ORDER BY local_model_id ASC
-            """
-        ).fetchall()
-    finally:
-        connection.close()
-
-    scanned_models = 0
-    migrated_models = 0
-    cleared_models = 0
-    membership_count = 0
-
-    for row in rows:
-        scanned_models += 1
-        model_ref = str(row["local_model_id"] or "").strip()
-        if not model_ref:
-            continue
-        try:
-            parsed_names = json.loads(str(row["collection_names_json"] or "[]"))
-        except json.JSONDecodeError:
-            parsed_names = []
-        if not isinstance(parsed_names, list):
-            parsed_names = []
-
-        collection_rows = ensure_collection_paths(db_path=db_path, collection_names=parsed_names)
-        memberships = replace_model_collection_memberships(
-            db_path=db_path,
-            model_ref=model_ref,
-            collection_ids=[str(item.get("collection_id") or "") for item in collection_rows],
-        )
-
-        connection = connect(db_path)
-        try:
-            connection.execute(
-                "UPDATE model_catalog_entries SET collection_names_json = '[]', updated_at = ? WHERE local_model_id = ?",
-                (utc_now_iso(), model_ref),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-
-        if parsed_names:
-            migrated_models += 1
-        cleared_models += 1
-        membership_count += len(memberships)
-
-    return {
-        "scanned_models": scanned_models,
-        "migrated_models": migrated_models,
-        "cleared_models": cleared_models,
-        "membership_count": membership_count,
-    }

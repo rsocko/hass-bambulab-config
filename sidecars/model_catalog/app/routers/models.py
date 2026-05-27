@@ -108,7 +108,6 @@ from ..catalog_cache import (
 )
 from ..db_collections import (
     COLLECTION_PATH_SEPARATOR,
-    backfill_legacy_local_model_collections,
     collection_display_path,
     collection_paths_from_memberships,
     create_collection,
@@ -4637,17 +4636,6 @@ async def replace_model_collections_endpoint(request: Request, model_ref: str) -
         "items": memberships,
         "collection_names": list(collection_paths_from_memberships(memberships, collection_rows_by_id)),
     }
-
-
-@router.post("/api/admin/collections/cleanup-legacy")
-def cleanup_legacy_collection_names_endpoint(request: Request) -> dict[str, Any]:
-    state: AppState = request.app.state.model_catalog
-    return {
-        "success": True,
-        **backfill_legacy_local_model_collections(db_path=state.settings.db_path),
-    }
-
-
 @router.get("/api/collections/browse")
 def browse_collections_endpoint(
     request: Request,

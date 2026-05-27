@@ -261,68 +261,6 @@ def test_create_local_model_writes_collection_memberships_not_legacy_field(tmp_p
     assert str(row["collection_names_json"] or "[]") == "[]"
 
 
-def test_cleanup_legacy_collection_names_migrates_existing_rows(tmp_path: Path) -> None:
-    settings = _build_settings(tmp_path)
-    bootstrap_database(settings.db_path)
-    app = create_app(settings=settings)
-
-    conn = sqlite3.connect(str(settings.db_path))
-    try:
-        conn.execute(
-            """
-            INSERT INTO model_catalog_entries (
-                local_model_id, model_name, model_description, creator_name, created_by,
-                collection_names_json, keyword_names_json, tags_json, license_type,
-                preview_image_url, source_origin, source_origin_url, revision_hash,
-                entity_type, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                "legacy-collection-model",
-                "Legacy Collection Model",
-                None,
-                None,
-                None,
-                '["Star Wars / HueForge"]',
-                "[]",
-                "[]",
-                None,
-                None,
-                None,
-                None,
-                None,
-                "model",
-                "2026-01-01T00:00:00Z",
-                "2026-01-01T00:00:00Z",
-            ),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    with TestClient(app) as client:
-        response = client.post("/api/admin/collections/cleanup-legacy")
-        assert response.status_code == 200
-        assert response.json()["migrated_models"] >= 1
-
-        memberships_response = client.get("/api/models/legacy-collection-model/collections")
-        assert memberships_response.status_code == 200
-        assert memberships_response.json()["collection_names"] == ["Star Wars / HueForge"]
-
-    conn = sqlite3.connect(str(settings.db_path))
-    conn.row_factory = sqlite3.Row
-    try:
-        row = conn.execute(
-            "SELECT collection_names_json FROM model_catalog_entries WHERE local_model_id = ?",
-            ("legacy-collection-model",),
-        ).fetchone()
-    finally:
-        conn.close()
-
-    assert row is not None
-    assert str(row["collection_names_json"] or "[]") == "[]"
-
-
 def test_duplicate_collection_create_returns_conflict(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
