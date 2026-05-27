@@ -1468,6 +1468,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _render() {
+    const inlineEditorFocusState = this._captureInlineEditorState();
     const renderPath = this._loading ? 'loading' : this._error ? 'error' : this._modelDetail ? 'popup' : 'empty';
     console.log('[RENDER]', renderPath, '| _loading:', this._loading, '| keywords:', JSON.stringify(this._modelDetail?.model?.keywords));
     const html = this._loading
@@ -1495,6 +1496,59 @@ class ModelDetailPopupCard extends HTMLElement {
       });
     }
 
+    this._restoreInlineEditorState(inlineEditorFocusState);
+
+  }
+
+  _captureInlineEditorState() {
+    if (!this.shadowRoot || !this._modelMetaEditOpen) {
+      return null;
+    }
+    const nameInput = this.shadowRoot.querySelector('#model-meta-name');
+    const descriptionInput = this.shadowRoot.querySelector('#model-meta-description');
+    if (nameInput instanceof HTMLInputElement) {
+      this._modelMetaDraft.modelName = String(nameInput.value || '');
+    }
+    if (descriptionInput instanceof HTMLTextAreaElement) {
+      this._modelMetaDraft.description = String(descriptionInput.value || '');
+    }
+    const activeElement = this.shadowRoot.activeElement instanceof Element ? this.shadowRoot.activeElement : null;
+    if (!activeElement) {
+      return null;
+    }
+    if (activeElement.id !== 'model-meta-name' && activeElement.id !== 'model-meta-description') {
+      return null;
+    }
+    return {
+      id: activeElement.id,
+      selectionStart: Number.isFinite(activeElement.selectionStart) ? activeElement.selectionStart : null,
+      selectionEnd: Number.isFinite(activeElement.selectionEnd) ? activeElement.selectionEnd : null,
+    };
+  }
+
+  _restoreInlineEditorState(focusState) {
+    if (!this.shadowRoot || !focusState || !focusState.id) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      const field = this.shadowRoot && this.shadowRoot.querySelector
+        ? this.shadowRoot.querySelector(`#${focusState.id}`)
+        : null;
+      if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLTextAreaElement)) {
+        return;
+      }
+      field.focus();
+      if (typeof field.setSelectionRange !== 'function') {
+        return;
+      }
+      const nextStart = Number.isFinite(focusState.selectionStart)
+        ? Math.max(0, Math.min(focusState.selectionStart, field.value.length))
+        : field.value.length;
+      const nextEnd = Number.isFinite(focusState.selectionEnd)
+        ? Math.max(nextStart, Math.min(focusState.selectionEnd, field.value.length))
+        : nextStart;
+      field.setSelectionRange(nextStart, nextEnd);
+    });
   }
 
   _isThumbnailLazyEndpoint(url) {
