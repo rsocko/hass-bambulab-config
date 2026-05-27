@@ -15,6 +15,9 @@ model_catalog_search_models:
     {%- if tag is defined and (tag | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['tag=' ~ ((tag | string) | urlencode)] -%}
     {%- endif -%}
+    {%- if tags is defined and (tags | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['tags=' ~ ((tags | string) | urlencode)] -%}
+    {%- endif -%}
     {%- if sort is defined and (sort | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['sort=' ~ ((sort | string) | urlencode)] -%}
     {%- endif -%}

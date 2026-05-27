@@ -1,7 +1,7 @@
 # Phase 6 Search, Ranking, and Discovery Design
 
 > **Status**: Authoritative Phase 6 design.
-> **Last updated**: 2026-05-03
+> **Last updated**: 2026-05-26
 > **Scope**: Unified search, ranking, archive-initiated curated search, related-item discovery, and Home Assistant operator surfaces for the post-Manyfold sidecar-owned catalog.
 
 ## Purpose
@@ -106,6 +106,8 @@ Phase 6 uses one normalized query model for browse, search, archive picker, and 
 ```yaml
 query: string?
 entity_types: [curated_model, working_group]?
+collection: string?          # zero or one collection at a time
+tags: [string]?              # additive AND semantics across all selected tags
 offset: int = 0
 limit: int = 25
 sort: relevance | recent | frequent | common | favorites | rating | linked_archive_count | last_printed_at | queue_rank
@@ -114,6 +116,13 @@ include_facets: bool = false
 include_related_preview: bool = false
 context: browse | archive_picker | related_panel | backlog | popup_search
 ```
+
+Facet-selection rules for the active HA browse card:
+
+- collection is single-select
+- tags are multi-select with additive AND semantics
+- collection and tags can be combined in the same query
+- legacy single-tag callers may still send `tag`, but the current contract should prefer `tags`
 
 ### Facets
 
@@ -137,6 +146,12 @@ Optional later facets:
 - success-rate bucket
 - working stage
 - file type / asset role
+
+Facet-list behavior for the HA browse card:
+
+- facet counts are computed from the currently filtered result set, so the remaining facet list represents valid next refinements
+- selected tags and the selected collection must remain visibly pinned in the operator UI even when they fall out of the top facet-count list
+- selected filters are summarized in a persistent chip row above results, with one-click removal per chip plus `Clear all`
 
 ### Sort Modes
 
@@ -373,8 +388,16 @@ The Phase 6 HA search surface should support:
 
 - free-text search
 - visible facets and sort controls
+- persistent selected-filter chips for the current collection and all selected tags
 - typed results when more than one entity surface is enabled
 - result cards that surface preview, title, creator/collection summary, ranking context, and queue/backlog context when relevant
+
+Current browse-card interaction contract:
+
+- clicking a tag in the left rail toggles that tag into or out of the active filter set
+- clicking an unselected tag narrows results further using AND semantics
+- clicking the active collection clears it; choosing a different collection replaces the prior collection while keeping tag filters intact
+- the left rail continues to show remaining tag and collection refinements relative to the current filtered result set, while selected filters are duplicated in the chip row so state is always explicit
 
 ### Related Panels
 

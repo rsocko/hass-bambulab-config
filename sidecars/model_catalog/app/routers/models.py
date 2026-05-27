@@ -789,6 +789,7 @@ def _search_models_from_projection(
     collection: str | None,
     creator: str | None,
     tag: str | None,
+    tags: str | None,
     to_print_status: str | None,
     to_print_priority: int | None,
     to_print_priority_min: int | None,
@@ -812,6 +813,7 @@ def _search_models_from_projection(
     resolved_min_prints = _normalize_frequents_min_prints(frequent_min_prints)
     resolved_backfill_weight = _normalize_frequents_backfill_weight(frequent_backfill_weight)
     allowed_entity_types = _normalize_model_search_entity_types(entity_types)
+    selected_tags = _normalize_model_search_tags(tags=tags, tag=tag)
 
     base_clauses: list[str] = []
     base_params: list[Any] = []
@@ -854,8 +856,7 @@ def _search_models_from_projection(
         base_clauses.append("p.creator_name_lc LIKE ?")
         base_params.append(f"%{creator_value}%")
 
-    tag_value = str(tag or "").strip().lower()
-    if tag_value:
+    for tag_value in selected_tags:
         base_clauses.append(
             "EXISTS ("
             "SELECT 1 FROM json_each(p.keyword_names_json) k "
@@ -1184,7 +1185,8 @@ def _search_models_from_projection(
         "filters": {
             "collection": collection,
             "creator": creator,
-            "tag": tag,
+            "tag": selected_tags[0] if len(selected_tags) == 1 else "",
+            "tags": list(selected_tags),
             "to_print_status": to_print_status,
             "to_print_priority": to_print_priority,
             "to_print_priority_min": to_print_priority_min,
@@ -1980,6 +1982,31 @@ def _normalize_model_search_entity_types(entity_types: str | None) -> tuple[str,
     if not allowed or len(allowed) == 2:
         return None
     return tuple(allowed)
+
+
+def _normalize_model_search_tags(tags: object | None = None, tag: object | None = None) -> tuple[str, ...]:
+    raw_values: list[str] = []
+
+    if isinstance(tags, str):
+        raw_values.extend(tags.split(","))
+    elif isinstance(tags, (list, tuple, set)):
+        for item in tags:
+            raw_values.append(str(item or ""))
+    elif tags is not None:
+        raw_values.append(str(tags or ""))
+
+    if tag is not None:
+        raw_values.append(str(tag or ""))
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_values:
+        value = str(raw or "").strip().lower()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return tuple(normalized)
 
 
 def _apply_frequents_layer2_derivation(
@@ -2873,7 +2900,7 @@ def _matches_filters(
     summary: CatalogModelSummary,
     collection_filter: str | None = None,
     creator_filter: str | None = None,
-    tag_filter: str | None = None,
+    tag_filters: tuple[str, ...] | list[str] | None = None,
 ) -> bool:
     """Check if model matches all provided filters."""
     if collection_filter:
@@ -2890,11 +2917,12 @@ def _matches_filters(
         if not (summary.creator_name and normalized_filter in summary.creator_name.lower()):
             return False
     
-    if tag_filter:
-        normalized_filter = tag_filter.lower().strip()
+    normalized_tag_filters = _normalize_model_search_tags(tags=tag_filters)
+    if normalized_tag_filters:
         normalized_keywords = {name.lower() for name in _normalized_keyword_names(summary.keyword_names)}
-        if normalized_filter not in normalized_keywords:
-            return False
+        for normalized_filter in normalized_tag_filters:
+            if normalized_filter not in normalized_keywords:
+                return False
     
     return True
 
@@ -3510,6 +3538,7 @@ def search_models(
     collection: str | None = None,
     creator: str | None = None,
     tag: str | None = None,
+    tags: str | None = None,
     to_print_status: str | None = None,
     to_print_priority: int | None = None,
     to_print_priority_min: int | None = None,
@@ -3543,6 +3572,7 @@ def search_models(
     client: object = request.app.state.catalog_client
     perf_start = time.perf_counter()
     allowed_entity_types = _normalize_model_search_entity_types(entity_types)
+    selected_tags = _normalize_model_search_tags(tags=tags, tag=tag)
     
     # Clamp pagination parameters
     page = max(1, page)
@@ -3554,6 +3584,7 @@ def search_models(
         "collection": collection or "",
         "creator": creator or "",
         "tag": tag or "",
+        "tags": ",".join(selected_tags),
         "to_print_status": to_print_status or "",
         "to_print_priority": to_print_priority,
         "to_print_priority_min": to_print_priority_min,
@@ -3605,6 +3636,7 @@ def search_models(
             collection=collection,
             creator=creator,
             tag=tag,
+            tags=tags,
             to_print_status=to_print_status,
             to_print_priority=to_print_priority,
             to_print_priority_min=to_print_priority_min,
@@ -3693,7 +3725,7 @@ def search_models(
     loop_start = time.perf_counter()
     for summary in summaries:
         # Apply filters
-        if not _matches_filters(summary, collection, creator, tag):
+        if not _matches_filters(summary, collection, creator, selected_tags):
             continue
 
         model_ref = summary.public_id or summary.model_id or summary.model_url
@@ -3847,7 +3879,8 @@ def search_models(
         "filters": {
             "collection": collection,
             "creator": creator,
-            "tag": tag,
+            "tag": selected_tags[0] if len(selected_tags) == 1 else "",
+            "tags": list(selected_tags),
             "to_print_status": to_print_status,
             "to_print_priority": to_print_priority,
             "to_print_priority_min": to_print_priority_min,

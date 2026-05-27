@@ -1056,6 +1056,54 @@
       return `${minutes}m`;
     }
 
+    _printerFilterOptions() {
+      const state = this._hass && this._hass.states
+        ? this._hass.states["input_select.print_history_filter_printer"]
+        : null;
+      return state && state.attributes && Array.isArray(state.attributes.options)
+        ? state.attributes.options
+        : [];
+    }
+
+    _resolvePrinterOptionLabel(printer) {
+      const printerIdText = String(printer && (printer.id || printer.printer_id || "") || "").trim();
+      const printerNameText = String(
+        printer && (
+          printer.name
+          || printer.printer_name
+          || printer.display_name
+          || printer.friendly_name
+          || printer.label
+          || ""
+        ) || ""
+      ).trim();
+
+      if (printerNameText) {
+        return printerNameText;
+      }
+
+      const options = this._printerFilterOptions();
+      for (const rawOption of options) {
+        const option = String(rawOption || "").trim();
+        if (!option || option === "All") {
+          continue;
+        }
+        if (printerIdText && option === printerIdText) {
+          return option;
+        }
+        const duplicateSuffix = `(${printerIdText})`;
+        if (printerIdText && option.endsWith(duplicateSuffix)) {
+          return option;
+        }
+      }
+
+      if (printerIdText) {
+        return `Printer ${printerIdText}`;
+      }
+
+      return "Printer ?";
+    }
+
     _resolvePrinterLabel(printerId, printerName) {
       const printerIdText = printerId == null ? "" : String(printerId).trim();
       const printerNameText = printerName == null ? "" : String(printerName).trim();
@@ -1067,7 +1115,7 @@
       for (const printer of this._printersList) {
         const candidateId = String(printer && (printer.id || printer.printer_id || "") || "").trim();
         if (candidateId && candidateId === printerIdText) {
-          const candidateName = String(printer && (printer.name || printer.printer_name || "") || "").trim();
+          const candidateName = this._resolvePrinterOptionLabel(printer);
           if (candidateName) {
             return candidateName;
           }
@@ -1511,8 +1559,8 @@
             --danger-color: var(--error-color, #ef5350);
             --success-color: var(--success-color, #22c55e);
             --warning-color: var(--warning-color, #ff9a3c);
-            --text-primary: var(--primary-text-color);
-            --text-secondary: var(--secondary-text-color);
+                          <option value="${this._escapeHtml(String(printer.id || printer.printer_id || '1'))}" ${String(printer.id || printer.printer_id || '1') === String(this._wizardState.bambuddy_printer_id || '1') ? 'selected' : ''}>
+                            ${this._escapeHtml(this._resolvePrinterOptionLabel(printer))}
             --bg-primary: var(--ha-card-background, var(--card-background-color));
             --bg-card-alt: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 92%, var(--primary-text-color) 8%);
             --border-color: var(--divider-color);

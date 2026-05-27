@@ -105,11 +105,60 @@ Home Assistant package contract (UQ cutover):
 
 Model/search filtering supported by `GET /api/models` and `GET /api/models/search`:
 
+- `collection` (single collection filter; `__unassigned__` supported where the caller exposes it)
+- `tag` (legacy single-tag filter)
+- `tags` (comma-separated tags; additive AND semantics)
+- `creator`
+- `show_archived`
+- `show_ideas`
+- `entity_types`
 - `taxonomy_origin_class` (`reprint`, `remix_or_tweak`, `custom_unique`)
 - `taxonomy_change_axes` (`color`, `model`, `other`)
 - `model_favorite`
 - `model_rating`
 - `colors_used` (Phase 3 baseline: hex-first; later phase may add optional `filament_id` linkage)
+
+Current browse-card facet semantics:
+
+- only one collection may be selected at a time
+- tags may be multi-selected and are combined with AND logic
+- collection and tags may be combined in the same query
+- `facet_counts.collections` and `facet_counts.tags` are relative to the already filtered result set, so callers should separately surface the currently selected filters instead of assuming the facet list itself is the active-state summary
+*** Add File: c:\dev\hass-bambulab-config\tests\phase3\test_model_catalog_tag_filter_ui.py
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+CARD_JS = ROOT / "homeassistant" / "www" / "3d_printing" / "model_catalog" / "model-catalog-browser-card.js"
+
+
+class TestModelCatalogTagFilterUi(unittest.TestCase):
+  def setUp(self):
+    self.assertTrue(CARD_JS.exists(), f"Card JS not found: {CARD_JS}")
+    self.card_content = CARD_JS.read_text(encoding="utf-8")
+
+  def test_default_filters_include_multi_tag_state(self):
+    self.assertIn("tags: []", self.card_content)
+
+  def test_selected_filter_strip_is_rendered(self):
+    self.assertIn("_renderSelectedFilterStrip()", self.card_content)
+    self.assertIn('Selected filters', self.card_content)
+    self.assertIn('data-action="clear-selected-tag"', self.card_content)
+    self.assertIn('data-action="clear-collection-filter"', self.card_content)
+
+  def test_search_request_sends_combined_tags(self):
+    self.assertIn('var activeTags = this._activeTagFilters();', self.card_content)
+    self.assertIn('tags: activeTags.join(",")', self.card_content)
+
+  def test_left_nav_tags_toggle_additively(self):
+    self.assertIn('var contextTags = this._activeTagFilters();', self.card_content)
+    self.assertIn('contextTags = contextTags.concat([nextTag]);', self.card_content)
+    self.assertIn('contextTags = contextTags.filter(function (value) {', self.card_content)
+
+
+if __name__ == "__main__":
+  unittest.main()
 
 Frequents/Favorites Layer 2 contract:
 

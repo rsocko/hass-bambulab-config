@@ -112,6 +112,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       collection: "",
       creator: "",
       tag: "",
+      tags: [],
       sort: "recent",
       favorites_only: false,
       frequents_only: false,
@@ -181,6 +182,97 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
     }
     return filtered;
+  }
+
+  _normalizedTagFilterValues(values) {
+    var source = [];
+    if (Array.isArray(values)) {
+      source = values.slice(0);
+    } else if (typeof values === "string") {
+      source = values.split(",");
+    } else if (values) {
+      source = [values];
+    }
+    var normalized = [];
+    var seen = {};
+    for (var i = 0; i < source.length; i++) {
+      var value = String(source[i] || "").trim().toLowerCase();
+      if (!value || seen[value]) {
+        continue;
+      }
+      seen[value] = true;
+      normalized.push(value);
+    }
+    return normalized;
+  }
+
+  _activeTagFilters() {
+    var normalized = this._normalizedTagFilterValues(this._filters && this._filters.tags);
+    if (normalized.length) {
+      return normalized;
+    }
+    return this._normalizedTagFilterValues(this._filters && this._filters.tag);
+  }
+
+  _setActiveTagFilters(values) {
+    var normalized = this._normalizedTagFilterValues(values);
+    this._filters.tags = normalized;
+    this._filters.tag = normalized.length === 1 ? normalized[0] : "";
+  }
+
+  _hasTagFilter(tagKey) {
+    var normalized = String(tagKey || "").trim().toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+    return this._activeTagFilters().indexOf(normalized) !== -1;
+  }
+
+  _selectedCollectionKey() {
+    return String(this._filters && this._filters.collection || "").trim().toLowerCase();
+  }
+
+  _facetEntry(kind, key) {
+    var normalizedKey = String(key || "").trim().toLowerCase();
+    if (!normalizedKey) {
+      return null;
+    }
+    var entries = this._facetCounts && Array.isArray(this._facetCounts[kind]) ? this._facetCounts[kind] : [];
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i] || {};
+      var entryKey = String(entry.key || "").trim().toLowerCase();
+      if (entryKey === normalizedKey) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  _displayCollectionLabel(collectionKey) {
+    var normalizedKey = String(collectionKey || "").trim().toLowerCase();
+    if (!normalizedKey) {
+      return "";
+    }
+    if (normalizedKey === "__unassigned__") {
+      return "Unassigned";
+    }
+    var facetEntry = this._facetEntry("collections", normalizedKey);
+    if (facetEntry) {
+      return String(facetEntry.label || facetEntry.key || normalizedKey).trim();
+    }
+    return normalizedKey;
+  }
+
+  _displayTagLabel(tagKey) {
+    var normalizedKey = String(tagKey || "").trim().toLowerCase();
+    if (!normalizedKey) {
+      return "";
+    }
+    var facetEntry = this._facetEntry("tags", normalizedKey);
+    if (facetEntry) {
+      return String(facetEntry.label || facetEntry.key || normalizedKey).trim();
+    }
+    return normalizedKey;
   }
 
   _requestedCatalogEntityTypes() {
@@ -731,6 +823,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     addText("collection");
     addText("creator");
     addText("tag");
+    addText("tags");
     addText("sort");
     addBool("favorites_only");
     addBool("frequents_only");
@@ -816,7 +909,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     this._filters.creator = read("#mc-creator");
     if (root.querySelector("#mc-tag")) {
-      this._filters.tag = read("#mc-tag");
+      this._setActiveTagFilters(read("#mc-tag"));
     }
     this._filters.sort = read("#mc-sort") || "recent";
     var perPageTop = Number(read("#mc-per-page") || 0);
@@ -1076,11 +1169,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     try {
       var entityTypes = this._requestedCatalogEntityTypes();
+      var activeTags = this._activeTagFilters();
       var requestPayload = {
         q: this._filters.q,
         collection: this._filters.collection,
         creator: this._filters.creator,
-        tag: this._filters.tag,
+        tag: activeTags.length === 1 ? activeTags[0] : "",
+        tags: activeTags.join(","),
         sort: this._filters.sort,
         favorites_only: !!this._filters.favorites_only,
         frequents_only: !!this._filters.frequents_only,
@@ -1137,6 +1232,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         1,
         9999
       );
+      if (Array.isArray(responseFilters.tags)) {
+        this._setActiveTagFilters(responseFilters.tags);
+      } else if (Object.prototype.hasOwnProperty.call(responseFilters, "tag")) {
+        this._setActiveTagFilters(responseFilters.tag);
+      }
       if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
         this._filters.frequents_only = !!responseFilters.frequents_only;
       }
@@ -1472,6 +1572,34 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._syncFrequentsTuningFromHelpers(true);
       this._error = "";
       this._activeActionMenu = "";
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === "clear-selected-tag") {
+      event.preventDefault();
+      event.stopPropagation();
+      var clearTagKey = String(target.getAttribute("data-tag") || "").trim().toLowerCase();
+      if (!clearTagKey) {
+        return;
+      }
+      this._setActiveTagFilters(this._activeTagFilters().filter(function (value) {
+        return value !== clearTagKey;
+      }));
+      this._syncLeftNavSelectionFromFilters();
+      this._cancelScheduledApply();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === "clear-collection-filter") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._filters.collection = "";
+      this._syncLeftNavSelectionFromFilters();
+      this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
       return;
@@ -3626,7 +3754,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderLeftNavItem(label, key, count, icon) {
-    var isActive = this._leftNavSelectedKey === key;
+    var isActive = false;
+    if (key.indexOf("collection:") === 0) {
+      isActive = this._selectedCollectionKey() === String(key.slice("collection:".length) || "").trim().toLowerCase();
+    } else if (key.indexOf("tag:") === 0) {
+      isActive = this._hasTagFilter(String(key.slice("tag:".length) || "").trim().toLowerCase());
+    } else {
+      isActive = this._leftNavSelectedKey === key;
+    }
     var safeCount = Number.isFinite(Number(count)) ? String(Math.max(0, Number(count))) : "";
     return ''
       + '<button class="left-nav-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(key) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">'
@@ -3790,19 +3925,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _deriveLeftNavKeyFromFilters() {
-    var collection = String(this._filters && this._filters.collection || "").trim();
-    var tag = String(this._filters && this._filters.tag || "").trim();
-    if (collection) {
-      return "collection:" + collection.toLowerCase();
-    }
-    if (tag) {
-      return "tag:" + tag.toLowerCase();
-    }
     if (this._filters && this._filters.favorites_only) {
       return "favorites";
     }
     if (this._filters && this._filters.frequents_only) {
       return "frequents";
+    }
+    if (this._selectedCollectionKey() || this._activeTagFilters().length) {
+      return "";
     }
     return "all-models";
   }
@@ -3816,27 +3946,48 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var key = String(navKey || "all-models").trim() || "all-models";
     this._leftNavSelectedKey = key;
 
-    var contextCollection = "";
-    var contextTag = "";
+    var contextCollection = this._selectedCollectionKey();
+    var contextTags = this._activeTagFilters();
     var contextFavorites = false;
     var contextFrequents = false;
 
     if (key === "favorites") {
+      contextCollection = "";
+      contextTags = [];
       contextFavorites = true;
     } else if (key === "frequents") {
+      contextCollection = "";
+      contextTags = [];
       contextFrequents = true;
     } else if (key.indexOf("collection:") === 0) {
-      contextCollection = String(key.slice("collection:".length) || "").trim();
+      var nextCollection = String(key.slice("collection:".length) || "").trim().toLowerCase();
+      contextCollection = contextCollection === nextCollection ? "" : nextCollection;
     } else if (key.indexOf("tag:") === 0) {
-      contextTag = String(key.slice("tag:".length) || "").trim();
+      var nextTag = String(key.slice("tag:".length) || "").trim().toLowerCase();
+      if (nextTag) {
+        if (contextTags.indexOf(nextTag) !== -1) {
+          contextTags = contextTags.filter(function (value) {
+            return value !== nextTag;
+          });
+        } else {
+          contextTags = contextTags.concat([nextTag]);
+        }
+      }
     } else if (key === "recent-added") {
+      contextCollection = "";
+      contextTags = [];
       this._filters.sort = "recent";
     } else if (key === "recent-printed") {
+      contextCollection = "";
+      contextTags = [];
       this._filters.sort = "frequent";
+    } else {
+      contextCollection = "";
+      contextTags = [];
     }
 
     this._filters.collection = contextCollection;
-    this._filters.tag = contextTag;
+    this._setActiveTagFilters(contextTags);
     this._filters.favorites_only = contextFavorites;
     this._filters.frequents_only = contextFrequents;
 
@@ -3889,8 +4040,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + (this._leftNavDrawerOpen ? ' drawer-open' : '');
 
     var tagsHtml = '';
+    var renderedTagKeys = {};
+    var selectedTags = this._activeTagFilters();
+    for (var selectedTagIndex = 0; selectedTagIndex < selectedTags.length; selectedTagIndex++) {
+      var selectedTagKey = selectedTags[selectedTagIndex];
+      renderedTagKeys[selectedTagKey] = true;
+      tagsHtml += this._renderLeftNavItem(this._displayTagLabel(selectedTagKey), 'tag:' + selectedTagKey, null, 'mdi:tag-outline');
+    }
     for (var tagIndex = 0; tagIndex < topTags.length; tagIndex++) {
       var tagEntry = topTags[tagIndex];
+      if (renderedTagKeys[tagEntry.key]) {
+        continue;
+      }
       tagsHtml += this._renderLeftNavItem(tagEntry.key, 'tag:' + tagEntry.key, tagEntry.count, 'mdi:tag-outline');
     }
     if (!tagsHtml) {
@@ -3898,8 +4059,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     var collectionsHtml = '';
+    var selectedCollectionKey = this._selectedCollectionKey();
+    var renderedCollectionKeys = {};
+    if (selectedCollectionKey) {
+      renderedCollectionKeys[selectedCollectionKey] = true;
+      collectionsHtml += this._renderLeftNavItem(
+        this._displayCollectionLabel(selectedCollectionKey),
+        'collection:' + selectedCollectionKey,
+        null,
+        'mdi:folder-outline'
+      );
+    }
     for (var collectionIndex = 0; collectionIndex < topCollections.length; collectionIndex++) {
       var collectionEntry = topCollections[collectionIndex];
+      if (renderedCollectionKeys[collectionEntry.key]) {
+        continue;
+      }
       collectionsHtml += this._renderLeftNavItem(collectionEntry.label, 'collection:' + collectionEntry.key, collectionEntry.count, 'mdi:folder-outline');
     }
     if (!collectionsHtml) {
@@ -3993,17 +4168,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._browserScope === "working") {
       var workingCount = Math.max(0, Number(this._pagination && this._pagination.total || 0) || 0);
       return ''
+        + '<div class="filter-bar-stack">'
         + '<div class="filter-row working-filter-row">'
         + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search working folders" value="' + this._escapeHtml(this._filters.q) + '">'
         + '  <span class="filter-chip toggle-chip active docs" aria-live="polite">Projected folders · ' + this._escapeHtml(String(workingCount)) + '</span>'
         + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
+        + '</div>'
         + '</div>';
     }
     var windowDays = this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650);
     var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
     var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
     var showArchivedLabel = 'Show archived' + (archivedCount > 0 ? (' \u00b7 ' + String(archivedCount)) : '');
+    var selectedFilterStrip = this._renderSelectedFilterStrip();
     return ''
+      + '<div class="filter-bar-stack">'
       + '<div class="filter-row">'
       + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search models" value="' + this._escapeHtml(this._filters.q) + '">'
       + '  <input id="mc-creator" class="control-input" type="text" placeholder="Creator" value="' + this._escapeHtml(this._filters.creator) + '">'
@@ -4030,6 +4209,37 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
         + '  <input id="mc-show-archived" type="checkbox" hidden ' + (this._filters.show_archived ? 'checked' : '') + '>'
       + '  <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
+      + '</div>'
+      + selectedFilterStrip
+      + '</div>';
+  }
+
+  _renderSelectedFilterStrip() {
+    var selectedCollectionKey = this._selectedCollectionKey();
+    var selectedTags = this._activeTagFilters();
+    if (!selectedCollectionKey && !selectedTags.length) {
+      return '';
+    }
+    var chips = '';
+    if (selectedCollectionKey) {
+      chips += '<button class="selected-filter-chip collection-chip" type="button" data-action="clear-collection-filter">'
+        + '<span class="selected-filter-prefix">Collection</span>'
+        + '<span class="selected-filter-value">' + this._escapeHtml(this._displayCollectionLabel(selectedCollectionKey)) + '</span>'
+        + '<span class="selected-filter-remove" aria-hidden="true">\u00d7</span>'
+        + '</button>';
+    }
+    for (var i = 0; i < selectedTags.length; i++) {
+      var tagKey = selectedTags[i];
+      chips += '<button class="selected-filter-chip tag-chip" type="button" data-action="clear-selected-tag" data-tag="' + this._escapeHtml(tagKey) + '">'
+        + '<span class="selected-filter-prefix">Tag</span>'
+        + '<span class="selected-filter-value">' + this._escapeHtml(this._displayTagLabel(tagKey)) + '</span>'
+        + '<span class="selected-filter-remove" aria-hidden="true">\u00d7</span>'
+        + '</button>';
+    }
+    return '<div class="selected-filter-strip" role="group" aria-label="Selected filters">'
+      + '<span class="selected-filter-label">Selected filters</span>'
+      + chips
+      + '<button class="selected-filter-clear" type="button" data-action="clear-filters">Clear all</button>'
       + '</div>';
   }
 
@@ -5551,7 +5761,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.view-mode-item:hover,.view-mode-item:focus-visible{background:rgba(148,163,184,0.16);outline:none;}'
       + '.view-mode-item.active{background:var(--accent);border-color:var(--accent-strong);}'
       + '.view-mode-item:disabled{opacity:.55;cursor:not-allowed;}'
+      + '.filter-bar-stack{display:grid;gap:10px;}'
       + '.filter-row{display:grid;grid-template-columns:minmax(220px,1.8fr) minmax(160px,1fr) auto auto auto auto auto;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(148,163,184,0.08);align-items:center;}'
+      + '.selected-filter-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px;}'
+      + '.selected-filter-label{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
+      + '.selected-filter-chip{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--primary-text-color);font-size:12px;font-weight:800;cursor:pointer;}'
+      + '.selected-filter-chip:hover,.selected-filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'
+      + '.selected-filter-chip.collection-chip{background:rgba(59,130,246,0.16);border-color:rgba(59,130,246,0.30);}'
+      + '.selected-filter-chip.tag-chip{background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.30);}'
+      + '.selected-filter-prefix{font-size:10px;font-weight:900;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}'
+      + '.selected-filter-value{font-size:12px;font-weight:800;color:var(--primary-text-color);}'
+      + '.selected-filter-remove{font-size:16px;line-height:1;color:var(--secondary-text-color);}'
+      + '.selected-filter-clear{min-height:34px;padding:0 10px;border-radius:999px;border:1px dashed var(--chip-line);background:transparent;color:var(--secondary-text-color);font-size:11px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;}'
+      + '.selected-filter-clear:hover,.selected-filter-clear:focus-visible{outline:none;border-color:rgba(148,163,184,0.42);background:rgba(148,163,184,0.12);}'
       + '.filter-search{grid-column:auto;}'
       + '.inline-select{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}'
       + '.inline-select .tuning-select{min-width:84px;min-height:34px;}'

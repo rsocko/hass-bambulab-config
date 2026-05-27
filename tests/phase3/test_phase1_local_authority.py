@@ -827,6 +827,54 @@ class TestListModelsEndpointMerge:
         assert len(payload["results"]) == 3
         assert all(str(result.get("entity_type") or "model") == "idea" for result in payload["results"])
 
+    def test_search_supports_collection_and_multi_tag_and_filters(self, app_with_local_models):
+        """GET /api/models/search supports one collection plus additive AND tag filters."""
+        client, db = app_with_local_models
+
+        create_local_model(
+            db_path=db,
+            local_model_id="filter-target-01",
+            model_name="Desk Organizer A",
+            collection_names=["Desk"],
+            tags=["gridfinity", "organizer"],
+            entity_type="model",
+        )
+        create_local_model(
+            db_path=db,
+            local_model_id="filter-target-02",
+            model_name="Desk Organizer B",
+            collection_names=["Desk"],
+            tags=["gridfinity"],
+            entity_type="model",
+        )
+        create_local_model(
+            db_path=db,
+            local_model_id="filter-target-03",
+            model_name="Workshop Organizer",
+            collection_names=["Workshop"],
+            tags=["gridfinity", "organizer"],
+            entity_type="model",
+        )
+
+        response = client.get(
+            "/api/models/search",
+            params={
+                "collection": "desk",
+                "tags": "gridfinity,organizer",
+                "sort": "name",
+            },
+        )
+        assert response.status_code == 200
+
+        payload = response.json()
+        result_urls = [result["model_url"] for result in payload["results"]]
+        assert "local://model/filter-target-01" in result_urls
+        assert "local://model/filter-target-02" not in result_urls
+        assert "local://model/filter-target-03" not in result_urls
+        assert payload["filters"]["collection"] == "desk"
+        assert payload["filters"]["tags"] == ["gridfinity", "organizer"]
+        assert payload["pagination"]["total"] == 1
+
     def test_list_models_local_entries_use_local_preview_asset_url(self, app_with_local_models):
         """GET /api/models exposes local preview asset URLs without catalog proxy rewriting."""
         client, db = app_with_local_models
