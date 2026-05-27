@@ -974,6 +974,7 @@ def _search_models_from_projection(
         full_clauses.append(visibility_clause)
         visibility_params = []
     full_where = _where_sql(full_clauses)
+    total_params = [*base_params, *entity_params, *visibility_params]
 
     connection = connect(str(state.settings.db_path))
     connection.row_factory = sqlite3.Row
@@ -1007,7 +1008,6 @@ def _search_models_from_projection(
             if key in visibility_counts:
                 visibility_counts[key] = int(row["cnt"] or 0)
 
-        total_params = [*base_params, *entity_params, *visibility_params]
         total_row = connection.execute(
             f"""
             SELECT COUNT(*) AS cnt
