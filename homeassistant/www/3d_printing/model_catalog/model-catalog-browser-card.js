@@ -5851,6 +5851,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderCollectionCoverMosaic(node) {
     var coverImages = node && Array.isArray(node.cover_images) ? node.cover_images.slice(0, 4) : [];
+    if (coverImages.length > 0 && coverImages.length < 4) {
+      var filledCoverImages = [];
+      for (var fillIndex = 0; fillIndex < 4; fillIndex++) {
+        filledCoverImages.push(coverImages[fillIndex % coverImages.length]);
+      }
+      coverImages = filledCoverImages;
+    }
     var tiles = [];
     for (var index = 0; index < 4; index++) {
       var cover = coverImages[index] && typeof coverImages[index] === 'object' ? coverImages[index] : null;
