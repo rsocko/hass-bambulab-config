@@ -273,6 +273,50 @@ def test_duplicate_collection_create_returns_conflict(tmp_path: Path) -> None:
     assert second.status_code == 409
 
 
+def test_delete_collection_allows_empty_leaf_only(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        root = client.post("/api/collections", json={"name": "Cleanup Root"}).json()["item"]
+        child = client.post(
+            "/api/collections",
+            json={"name": "Cleanup Child", "parent_collection_id": root["collection_id"]},
+        ).json()["item"]
+
+        root_delete = client.delete(f"/api/collections/{root['collection_id']}")
+        assert root_delete.status_code == 409
+
+        child_delete = client.delete(f"/api/collections/{child['collection_id']}")
+        assert child_delete.status_code == 200
+        assert child_delete.json()["deleted"] is True
+
+        root_delete_after = client.delete(f"/api/collections/{root['collection_id']}")
+        assert root_delete_after.status_code == 200
+
+
+def test_delete_collection_rejects_non_empty_membership(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        collection = client.post("/api/collections", json={"name": "Occupied"}).json()["item"]
+        create_response = client.post(
+            "/api/local/models",
+            json={
+                "local_model_id": "occupied-model",
+                "model_name": "Occupied Model",
+                "collection_names": ["Occupied"],
+            },
+        )
+        assert create_response.status_code == 200
+
+        delete_response = client.delete(f"/api/collections/{collection['collection_id']}")
+        assert delete_response.status_code == 409
+
+
 def test_migration_34_drops_local_collection_names_column(tmp_path: Path) -> None:
     from sidecars.model_catalog.app.db_migrations import MIGRATION_TABLE_STATEMENT, apply_migrations
 

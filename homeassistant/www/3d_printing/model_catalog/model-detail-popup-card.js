@@ -40,7 +40,6 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelSidecarUrl = "";
     this._modelDetail = null;
     this._loading = false;
-    this._isSaving = false;
     this._error = "";
     this._activeTab = "details";
     this._isEditMode = false;
@@ -51,10 +50,6 @@ class ModelDetailPopupCard extends HTMLElement {
     this._archiveLinkageFilter = 'all';
     this._linkedArchiveSortOrder = 'desc';
     this._selectedArchiveCandidates = {};
-    this._editAdvancedSectionOpen = false;
-    this._lastModifiedTimestamp = null;
-    this._conflictDialog = null;
-    this._showConflictDialog = false;
     this._photoGallery = [];
     this._activePhotoIndex = null;
     this._heroMediaFilter = 'all';
@@ -83,6 +78,14 @@ class ModelDetailPopupCard extends HTMLElement {
       notes: '',
       externalLinksText: '',
       sketchImageUrl: '',
+    };
+    this._modelMetaEditOpen = false;
+    this._modelMetaLoading = false;
+    this._modelMetaSaving = false;
+    this._modelMetaDraft = {
+      modelName: '',
+      description: '',
+      collectionMemberships: [],
     };
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
@@ -130,6 +133,12 @@ class ModelDetailPopupCard extends HTMLElement {
     this._tagPickerHighlightIndex = 0;
     this._knownTags = []; // populated on first picker open
     this._allTagsFetched = false;
+    this._collectionPickerOpen = false;
+    this._collectionSearchQuery = '';
+    this._collectionPickerHighlightIndex = 0;
+    this._knownCollections = [];
+    this._allCollectionsFetched = false;
+    this._collectionCreateBusy = false;
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -163,10 +172,24 @@ class ModelDetailPopupCard extends HTMLElement {
       this._ideaMetaEditOpen = false;
       this._ideaMetaSaving = false;
       this._ideaPromoteBusy = false;
+      this._modelMetaEditOpen = false;
+      this._modelMetaLoading = false;
+      this._modelMetaSaving = false;
+      this._collectionPickerOpen = false;
+      this._collectionSearchQuery = '';
+      this._collectionPickerHighlightIndex = 0;
+      this._knownCollections = [];
+      this._allCollectionsFetched = false;
+      this._collectionCreateBusy = false;
       this._ideaMetaDraft = {
         notes: '',
         externalLinksText: '',
         sketchImageUrl: '',
+      };
+      this._modelMetaDraft = {
+        modelName: '',
+        description: '',
+        collectionMemberships: [],
       };
     }
     var requestedInitialTab = String(this._config.initial_tab || "details").trim().toLowerCase();
@@ -187,13 +210,8 @@ class ModelDetailPopupCard extends HTMLElement {
       this._loadModelDetail();
     }
 
-    // During edit mode, avoid re-rendering the popup on every HA state tick,
-    // which can recreate the form and steal input focus.
-    if (this._isEditMode) {
-      const editForm = this.shadowRoot.querySelector('model-detail-edit-form');
-      if (editForm) {
-        editForm.hass = hass;
-      }
+    // Avoid re-rendering while an inline editor is open so text input focus is stable.
+    if (this._modelMetaEditOpen || this._ideaMetaEditOpen) {
       return;
     }
 
@@ -420,6 +438,32 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    if (target.closest('[data-action="model-edit-start"]')) {
+      event.preventDefault();
+      this._openModelMetadataEditor();
+      return;
+    }
+
+    if (target.closest('[data-action="model-edit-cancel"]')) {
+      event.preventDefault();
+      this._cancelModelMetadataEditor();
+      return;
+    }
+
+    if (target.closest('[data-action="model-edit-save"]')) {
+      event.preventDefault();
+      this._saveModelMetadataEdits();
+      return;
+    }
+
+    if (this._collectionPickerOpen && !target.closest('.collection-picker-wrap')) {
+      this._collectionPickerOpen = false;
+      this._collectionSearchQuery = '';
+      this._collectionPickerHighlightIndex = 0;
+      this._render();
+      return;
+    }
+
     // Close tag picker when clicking outside it
     if (this._tagPickerOpen && !target.closest('.picker-wrap')) {
       this._tagPickerOpen = false;
@@ -437,6 +481,16 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       const tagName = tagRemoveBtn.dataset.tag;
       if (tagName) this._handleTagRemove(tagName);
+      return;
+    }
+
+    const collectionRemoveBtn = target.closest('[data-action="remove-collection"]');
+    if (collectionRemoveBtn) {
+      event.preventDefault();
+      const collectionId = collectionRemoveBtn.dataset.collectionId;
+      if (collectionId) {
+        this._handleCollectionRemove(collectionId);
+      }
       return;
     }
 
@@ -463,6 +517,15 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    if (target.closest('[data-action="toggle-collection-picker"]')) {
+      event.preventDefault();
+      this._collectionPickerOpen = !this._collectionPickerOpen;
+      this._collectionSearchQuery = '';
+      this._collectionPickerHighlightIndex = 0;
+      this._render();
+      return;
+    }
+
     // Tag picker option click (add existing tag)
     const tagOpt = target.closest('[data-action="add-tag"]');
     if (tagOpt) {
@@ -472,11 +535,25 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const collectionOpt = target.closest('[data-action="add-collection"]');
+    if (collectionOpt) {
+      event.preventDefault();
+      const collectionId = collectionOpt.dataset.collectionId;
+      if (collectionId) this._handleCollectionAdd(collectionId);
+      return;
+    }
+
     // Tag picker "Create new" click
     if (target.closest('[data-action="create-tag"]')) {
       event.preventDefault();
       const q = this._tagSearchQuery.trim();
       if (q) this._handleTagAdd(q, { keepPickerOpen: true });
+      return;
+    }
+
+    if (target.closest('[data-action="create-collection"]')) {
+      event.preventDefault();
+      this._handleCollectionCreate();
       return;
     }
 
@@ -745,37 +822,6 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    // Edit button (Phase 3.1)
-    if (target.closest("#btn-edit") || target.closest("#btn-manage-photos")) {
-      event.preventDefault();
-      if (this._activeTab === "details" || this._activeTab === "gallery") {
-        this._toggleEditMode();
-      }
-      return;
-    }
-
-    // Save button (Phase 3.1)
-    if (target.closest("#btn-save")) {
-      event.preventDefault();
-      this._handleSaveEdits();
-      return;
-    }
-
-    // Cancel button (Phase 3.1)
-    if (target.closest("#btn-cancel")) {
-      event.preventDefault();
-      this._isEditMode = false;
-      this._render();
-      return;
-    }
-
-    if (target.closest("#btn-done")) {
-      event.preventDefault();
-      this._isEditMode = false;
-      this._render();
-      return;
-    }
-
     // Archive toggle
     if (target.closest("#btn-toggle-frequent")) {
       event.preventDefault();
@@ -929,25 +975,6 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    // Conflict dialog buttons
-    if (target.closest("#btn-conflict-cancel")) {
-      event.preventDefault();
-      this._handleConflictResolution('cancel');
-      return;
-    }
-
-    if (target.closest("#btn-conflict-reload")) {
-      event.preventDefault();
-      this._handleConflictResolution('reload');
-      return;
-    }
-
-    if (target.closest("#btn-conflict-overwrite")) {
-      event.preventDefault();
-      this._handleConflictResolution('overwrite');
-      return;
-    }
-
     // Gallery photo actions
     const photoBtn = target.closest('[data-action]');
     if (photoBtn && this._activeTab === 'gallery') {
@@ -1072,6 +1099,24 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _handleInput(event) {
     const target = event.target;
+    if (target instanceof HTMLInputElement && target.dataset.input === 'collection-search') {
+      this._collectionSearchQuery = String(target.value || '');
+      this._collectionPickerHighlightIndex = 0;
+      const pickerDd = this.shadowRoot.querySelector('.collection-picker-wrap .picker-dd');
+      if (pickerDd) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = this._renderCollectionPicker(this._selectedCollectionMemberships());
+        const nextDd = tmp.firstElementChild;
+        if (nextDd) {
+          pickerDd.replaceWith(nextDd);
+          const searchBox = nextDd.querySelector('.search-box');
+          if (searchBox) {
+            searchBox.focus();
+          }
+        }
+      }
+      return;
+    }
     if (target instanceof HTMLTextAreaElement && target.getAttribute("data-queue-dialog-notes")) {
       this._queueDialogNotes = String(target.value || "");
     }
@@ -1450,10 +1495,6 @@ class ModelDetailPopupCard extends HTMLElement {
       });
     }
 
-    // Initialize in-tab edit form after rendering.
-    if (this._isEditMode && this._modelDetail && this._modelDetail.model) {
-      this._initializeEditForm();
-    }
   }
 
   _isThumbnailLazyEndpoint(url) {
@@ -2819,6 +2860,25 @@ class ModelDetailPopupCard extends HTMLElement {
         .summary { padding: 10px; display: grid; gap: 8px; }
         .summary .name { font-size: 15px; font-weight: 700; }
         .summary .meta { color: var(--text-secondary); font-size: 12px; }
+        .summary .desc { color: var(--text); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
+        .summary-edit-grid { display: grid; gap: 8px; }
+        .summary-edit-grid label { display: grid; gap: 4px; }
+        .summary-edit-grid label > span { font-size: 11px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+        .summary-input,
+        .summary-textarea {
+          width: 100%;
+          box-sizing: border-box;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          background: var(--bg-card-alt);
+          color: var(--text);
+          padding: 8px 10px;
+          font: inherit;
+        }
+        .summary-textarea { min-height: 88px; resize: vertical; }
+        .chip-group.stack { align-items: flex-start; flex-direction: column; }
+        .chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .summary-empty { color: var(--text-secondary); font-size: 12px; }
 
         /* tag / collection chip UX */
         .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -2857,6 +2917,7 @@ class ModelDetailPopupCard extends HTMLElement {
         .picker-dd .opt:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
         .picker-dd .opt.selected { background: color-mix(in srgb, var(--text) 10%, transparent); }
         .picker-dd .opt.already { color: var(--accent, #6edacb); opacity: 0.6; cursor: default; }
+        .picker-dd .path-meta { display: block; margin-top: 2px; font-size: 10px; color: var(--text-secondary); }
         .picker-dd .create-new {
           color: var(--accent, #6edacb); font-weight: 700; font-size: 12px;
           padding: 7px 10px; border-top: 1px solid var(--border); cursor: pointer;
@@ -3094,20 +3155,6 @@ class ModelDetailPopupCard extends HTMLElement {
 
       ${this._renderQueueDialog()}
       <input type="file" id="supporting-file-input" multiple style="display: none;">
-
-      ${this._showConflictDialog ? `
-        <div class="conflict-dialog">
-          <div class="conflict-dialog-content">
-            <div class="conflict-dialog-title">Conflict Detected</div>
-            <div class="conflict-dialog-message">This model was modified by another user or session.</div>
-            <div class="conflict-dialog-actions">
-              <button class="btn-cancel-dialog" id="btn-conflict-cancel">Cancel</button>
-              <button class="btn-reload" id="btn-conflict-reload">Reload</button>
-              <button class="btn-overwrite" id="btn-conflict-overwrite">Overwrite</button>
-            </div>
-          </div>
-        </div>
-      ` : ''}
 
     `;
   }
@@ -4456,15 +4503,40 @@ class ModelDetailPopupCard extends HTMLElement {
     const linkedCount = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives.length : Number(this._modelDetail.link_count || 0);
     const candidateCount = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives.length : 0;
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
+    const isIdea = this._getEntityType(model) === 'idea';
+    const selectedCollections = this._selectedCollectionMemberships();
+    const collectionLabels = this._modelMetaEditOpen && !isIdea
+      ? selectedCollections.map((item) => item.path || item.name || item.collection_id)
+      : (Array.isArray(model.collection_names) ? model.collection_names : []);
 
     return `
       <section class="card" data-slot="hero-right:summary">
         <div class="h">
           <span>Summary</span>
+          ${isIdea ? '' : `<span>
+            ${this._modelMetaEditOpen
+              ? `<button class="action-button ghost" data-action="model-edit-cancel" ${this._modelMetaSaving || this._modelMetaLoading ? 'disabled' : ''}>Cancel</button>
+                 <button class="action-button" data-action="model-edit-save" ${this._modelMetaSaving || this._modelMetaLoading ? 'disabled' : ''}>${this._modelMetaSaving ? 'Saving...' : 'Save'}</button>`
+              : '<button class="action-button ghost" data-action="model-edit-start">Edit</button>'}
+          </span>`}
         </div>
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
-            <div class="name">${this._escapeHtml(String(model.name || 'Untitled Model'))}</div>
+            ${this._modelMetaEditOpen && !isIdea ? `
+              <div class="summary-edit-grid">
+                <label>
+                  <span>Model Name</span>
+                  <input id="model-meta-name" class="summary-input" type="text" maxlength="255" value="${this._escapeHtml(String(this._modelMetaDraft.modelName || ''))}">
+                </label>
+                <label>
+                  <span>Description</span>
+                  <textarea id="model-meta-description" class="summary-textarea" maxlength="5000">${this._escapeHtml(String(this._modelMetaDraft.description || ''))}</textarea>
+                </label>
+              </div>
+            ` : `
+              <div class="name">${this._escapeHtml(String(model.name || 'Untitled Model'))}</div>
+              ${model.description ? `<div class="desc">${this._escapeHtml(String(model.description || ''))}</div>` : ''}
+            `}
             <div class="chip-group">
               <span class="label">Tags</span>
               ${tags.length ? tags.map(t => `<span class="tag-chip">${this._escapeHtml(t)} <span class="x" data-action="remove-tag" data-tag="${this._escapeHtml(t)}" title="Remove tag">✕</span></span>`).join('') : ''}
@@ -4473,7 +4545,22 @@ class ModelDetailPopupCard extends HTMLElement {
                 ${this._tagPickerOpen ? this._renderTagPicker(tags) : ''}
               </div>
             </div>
-            <div class="meta">Collections: ${this._escapeHtml((model.collection_names || []).join(', ') || 'none')}</div>
+            <div class="chip-group stack">
+              <span class="label">Collections</span>
+              <div class="chip-row">
+                ${collectionLabels.length
+                  ? collectionLabels.map((label, index) => {
+                      const membership = selectedCollections[index] || null;
+                      return `<span class="tag-chip">${this._escapeHtml(String(label || ''))}${this._modelMetaEditOpen && membership ? ` <span class="x" data-action="remove-collection" data-collection-id="${this._escapeHtml(String(membership.collection_id || ''))}" title="Remove collection">✕</span>` : ''}</span>`;
+                    }).join('')
+                  : '<span class="summary-empty">No collections</span>'}
+                ${this._modelMetaEditOpen && !isIdea ? `<div class="collection-picker-wrap picker-wrap">
+                  <button class="add-chip" data-action="toggle-collection-picker" title="Add collection">+ Collection</button>
+                  ${this._collectionPickerOpen ? this._renderCollectionPicker(selectedCollections) : ''}
+                </div>` : ''}
+              </div>
+            </div>
+            ${this._modelMetaLoading && !isIdea ? '<div class="meta">Loading collection memberships…</div>' : ''}
             <div class="meta">${this._getEntityType(model) === 'idea' ? 'Idea entry: no model files or print history required yet.' : `Print history links: ${linkedCount} linked, ${candidateCount} candidates`}</div>
           </div>
         `)}
@@ -5262,107 +5349,6 @@ class ModelDetailPopupCard extends HTMLElement {
     `;
   }
 
-  _renderHeader(model) {
-    const creator = model.creator_name || "Unknown";
-    const collection = model.collection_names && model.collection_names.length 
-      ? model.collection_names.join(" / ") 
-      : "Uncategorized";
-    const keywords = model.keywords || [];
-    const headerThumbnailSources = this._headerThumbnailSources(model);
-    const headerThumbnailUrl = headerThumbnailSources.length ? headerThumbnailSources[0] : '';
-    const headerThumbnailFallbacks = headerThumbnailSources.length > 1
-      ? this._escapeHtml(headerThumbnailSources.slice(1).join('||'))
-      : '';
-    let thumbnailHtml;
-    if (headerThumbnailUrl) {
-      if (this._isThumbnailLazyEndpoint(headerThumbnailUrl)) {
-        // Reuse a previously resolved object URL when available so re-renders do not flash.
-        const cachedObjectUrl = getCachedThumbnailObjectUrl(headerThumbnailUrl);
-        if (cachedObjectUrl) {
-          thumbnailHtml = `<img src="${this._escapeHtml(cachedObjectUrl)}" data-fallback-sources="${headerThumbnailFallbacks}" alt="Model preview" loading="lazy" onerror='const next=(this.dataset.fallbackSources||"").split("||").filter(Boolean);if(next.length){this.dataset.fallbackSources=next.slice(1).join("||");this.src=next[0];return;}this.onerror=null;this.style.display="none";const icon=this.parentElement&&this.parentElement.querySelector(".header-thumb-fallback-icon");if(icon){icon.style.display="flex";}'>`;
-        } else {
-          thumbnailHtml = `<img data-thumbnail-lazy-url="${this._escapeHtml(headerThumbnailUrl)}" data-fallback-sources="${headerThumbnailFallbacks}" alt="Model preview" loading="lazy" onerror='const next=(this.dataset.fallbackSources||"").split("||").filter(Boolean);if(next.length){this.dataset.fallbackSources=next.slice(1).join("||");this.src=next[0];return;}this.onerror=null;this.style.display="none";const icon=this.parentElement&&this.parentElement.querySelector(".header-thumb-fallback-icon");if(icon){icon.style.display="flex";}'>`;
-        }
-      } else {
-        thumbnailHtml = `<img src="${this._escapeHtml(headerThumbnailUrl)}" data-fallback-sources="${headerThumbnailFallbacks}" alt="Model preview" loading="lazy" onerror='const next=(this.dataset.fallbackSources||"").split("||").filter(Boolean);if(next.length){this.dataset.fallbackSources=next.slice(1).join("||");this.src=next[0];return;}this.onerror=null;this.style.display="none";const icon=this.parentElement&&this.parentElement.querySelector(".header-thumb-fallback-icon");if(icon){icon.style.display="flex";}'>`;
-      }
-    } else {
-      thumbnailHtml = '';
-    }
-    
-    return `
-      <div class="popup-header">
-        <div class="header-thumbnail">${thumbnailHtml}<ha-icon class="header-thumb-fallback-icon" icon="mdi:cube-outline" style="display:${headerThumbnailUrl ? 'none' : 'flex'}"></ha-icon></div>
-        <div class="header-content">
-          <div class="header-title">${this._escapeHtml(model.name || "Untitled Model")}</div>
-          <div class="header-subtitle">by ${this._escapeHtml(creator)}</div>
-          <div class="header-subtitle">📁 ${this._escapeHtml(collection)}</div>
-          
-          ${keywords.length > 0 ? `
-            <div class="header-tags">
-              ${keywords.slice(0, 5).map(tag => 
-                `<span class="tag-chip">${this._escapeHtml(tag)}</span>`
-              ).join('')}
-            </div>
-          ` : ''}
-          
-          <div class="header-actions">
-            ${this._activeTab === 'details' && !this._isEditMode ? `
-              <button class="action-button" id="btn-edit">✏️ Edit</button>
-            ` : ''}
-            ${this._activeTab === 'gallery' && !this._isEditMode ? `
-              <button class="action-button" id="btn-manage-photos">📸 Manage Photos</button>
-            ` : ''}
-            ${this._activeTab === 'gallery' ? `
-              <button class="action-button" id="btn-add-image" style="background: var(--primary-color);">
-                <ha-icon icon="mdi:plus" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon> Add Image
-              </button>
-            ` : ''}
-            ${this._activeTab === 'details' && this._isEditMode ? `
-              <button class="action-button" id="btn-save" style="background: #4CAF50;" ${this._isSaving ? 'disabled' : ''}>
-                ${this._isSaving ? '⏳ Saving...' : '💾 Save'}
-              </button>
-              <button class="action-button" id="btn-cancel" style="background: #f44336;" ${this._isSaving ? 'disabled' : ''}>✕ Cancel</button>
-            ` : this._activeTab === 'gallery' && this._isEditMode ? `
-              <button class="action-button" id="btn-done" style="background: #607D8B;">✓ Done</button>
-            ` : `
-              <button class="action-button" id="btn-viewer">🧊 3D View</button>
-              <button class="action-button" id="btn-download">📥 Download</button>
-              <button class="action-button" id="btn-print">🖨️ Print</button>
-            `}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  _renderTabNavigation() {
-    return `
-      <div class="tab-navigation">
-        <button class="tab-button ${this._activeTab === 'details' ? 'active' : ''}" data-tab="details">
-          Details
-        </button>
-        <button class="tab-button ${this._activeTab === 'gallery' ? 'active' : ''}" data-tab="gallery">
-          Gallery
-        </button>
-        <button class="tab-button ${this._activeTab === 'prints' ? 'active' : ''}" data-tab="prints">
-          Linked Prints
-        </button>
-      </div>
-    `;
-  }
-
-  _renderTabContent(model) {
-    switch (this._activeTab) {
-      case "gallery":
-        return this._renderGalleryTab();
-      case "prints":
-        return this._renderPrintsTab();
-      default:
-        return this._renderDetailsTab(model);
-    }
-  }
-
   _ideaPlaceholderUrl(model) {
     const fields = model && model.custom_fields && typeof model.custom_fields === 'object' ? model.custom_fields : {};
     const seed = String(
@@ -5827,73 +5813,6 @@ class ModelDetailPopupCard extends HTMLElement {
     } catch (err) {
       console.warn('Auto-promote preview failed:', err);
     }
-  }
-
-  _renderDetailsTab(model) {
-    // In edit mode, show the edit form
-    if (this._isEditMode) {
-      return `
-        <div class="tab-content" id="edit-form-container">
-          <!-- Edit form will be inserted here by JavaScript -->
-        </div>
-      `;
-    }
-
-    const enrichment = this._modelDetail.enrichment || {};
-    const files = model.files || [];
-    const linkedCount = this._modelDetail.link_count || 0;
-    
-    return `
-      <div class="tab-content">
-        <div class="details-grid">
-          ${model.description ? `
-            <div class="detail-section" style="grid-column: 1/-1;">
-              <div class="detail-section-title">Description</div>
-              <div class="description-text">${this._escapeHtml(model.description)}</div>
-            </div>
-          ` : ''}
-          
-          <div class="detail-section">
-            <div class="detail-section-title">Quick Stats</div>
-            <ul class="stat-list">
-              <li>📦 Files: ${files.length}</li>
-              <li>⚙️ File types: ${files.map(f => f.asset_type || 'unknown').join(', ') || 'N/A'}</li>
-              <li>🖨️ Linked archives: ${linkedCount}</li>
-              ${model.created_at ? `<li>📅 Created: ${new Date(model.created_at).toLocaleDateString()}</li>` : ''}
-              ${model.updated_at ? `<li>🔄 Updated: ${new Date(model.updated_at).toLocaleDateString()}</li>` : ''}
-            </ul>
-          </div>
-          
-          ${enrichment.print_notes ? `
-            <div class="detail-section">
-              <div class="detail-section-title">Print Notes</div>
-              <div class="description-text">${this._escapeHtml(enrichment.print_notes)}</div>
-            </div>
-          ` : ''}
-          
-          ${enrichment.difficulty_level ? `
-            <div class="detail-section">
-              <div class="detail-section-title">Difficulty</div>
-              <div class="detail-value">${this._escapeHtml(enrichment.difficulty_level)}</div>
-            </div>
-          ` : ''}
-
-          ${enrichment.print_time_estimate !== null && enrichment.print_time_estimate !== undefined && enrichment.print_time_estimate !== '' ? `
-            <div class="detail-section">
-              <div class="detail-section-title">Print Time Estimate</div>
-              <div class="detail-value">${this._escapeHtml(String(enrichment.print_time_estimate))}s</div>
-            </div>
-          ` : ''}
-
-          ${enrichment.support_type_hint ? `
-            <div class="detail-section">
-              <div class="detail-section-title">Support Type</div>
-              <div class="detail-value">${this._escapeHtml(enrichment.support_type_hint)}</div>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
   }
 
   _renderGalleryTab() {
@@ -6783,147 +6702,264 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
-  // Phase 3.1 Methods: Edit Mode & Conflict Detection
-  
-  _toggleEditMode() {
-    this._isEditMode = !this._isEditMode;
-    if (this._isEditMode) {
-      this._lastModifiedTimestamp = this._modelDetail.model.last_modified || Date.now();
-      this._editAdvancedSectionOpen = false;
-    }
-    this._render();
-  }
-
-  async _handleSaveEdits() {
-    const editForm = this.shadowRoot.querySelector('model-detail-edit-form');
-    if (editForm && typeof editForm.submitEdits === 'function') {
-      editForm.submitEdits();
+  async _openModelMetadataEditor() {
+    if (this._modelMetaLoading || this._modelMetaSaving) {
       return;
     }
-
-    console.warn('Edit form is not ready; cannot save yet.');
-  }
-
-  async _fetchCurrentModel() {
-    const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/detail`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    return data.model || {};
-  }
-
-  _handleConflictResolution(action) {
-    this._showConflictDialog = false;
-    
-    if (action === 'reload') {
-      // Reload model and discard changes
-      this._loadModelDetail();
-      this._isEditMode = false;
-    } else if (action === 'overwrite') {
-      // Force save (overwrite upstream)
-      this._handleSaveEdits();
-    }
-    // 'cancel' just closes the dialog
-    
-    this._render();
-  }
-
-  _initializeEditForm() {
-    const container = this.shadowRoot.getElementById('edit-form-container');
-    if (!container) return;
-
-    // Reuse existing form instance to preserve focus and in-progress edits.
-    const existingForm = container.querySelector('model-detail-edit-form');
-    if (existingForm) {
-      existingForm.hass = this._hass;
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const modelRef = String(model.model_ref || this._modelRef || '').trim();
+    const base = String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+    if (!modelRef || !base) {
       return;
     }
-
-    const editForm = document.createElement('model-detail-edit-form');
-    const modelDataForEdit = {
-      ...(this._modelDetail.model || {}),
-      enrichment: this._modelDetail.enrichment || {},
+    this._modelMetaEditOpen = true;
+    this._modelMetaLoading = true;
+    this._collectionPickerOpen = false;
+    this._collectionSearchQuery = '';
+    this._collectionPickerHighlightIndex = 0;
+    this._modelMetaDraft = {
+      modelName: String(model.name || ''),
+      description: String(model.description || ''),
+      collectionMemberships: [],
     };
-    editForm.setConfig({
-      model_data: modelDataForEdit,
-      advanced_section_open: this._editAdvancedSectionOpen,
-      on_advanced_toggle: (isOpen) => {
-        this._editAdvancedSectionOpen = Boolean(isOpen);
-      },
-      on_save: (formData) => this._handleFormSave(formData),
-      on_cancel: () => {
-        this._isEditMode = false;
-        this._editAdvancedSectionOpen = false;
-        this._render();
+    this._render();
+    try {
+      const [collectionsResponse, membershipsResponse] = await Promise.all([
+        fetch(`${base}/api/collections`),
+        fetch(`${base}/api/models/${encodeURIComponent(modelRef)}/collections`),
+      ]);
+      const collectionsBody = await collectionsResponse.json().catch(() => ({}));
+      const membershipsBody = await membershipsResponse.json().catch(() => ({}));
+      if (!collectionsResponse.ok) {
+        throw new Error(String(collectionsBody.error || `Collections load failed (HTTP ${collectionsResponse.status})`));
       }
-    });
-    editForm.hass = this._hass;
-    container.appendChild(editForm);
+      if (!membershipsResponse.ok) {
+        throw new Error(String(membershipsBody.error || `Membership load failed (HTTP ${membershipsResponse.status})`));
+      }
+      this._knownCollections = this._normalizeCollectionRows(Array.isArray(collectionsBody.items) ? collectionsBody.items : []);
+      this._allCollectionsFetched = true;
+      this._modelMetaDraft.collectionMemberships = this._normalizeCollectionRows(Array.isArray(membershipsBody.items) ? membershipsBody.items : []);
+    } catch (error) {
+      this._error = `Failed to load model editor: ${error}`;
+    } finally {
+      this._modelMetaLoading = false;
+      this._render();
+    }
   }
 
-  async _handleFormSave(formData) {
-    // Show immediate feedback before network checks so save click feels responsive.
-    this._isSaving = true;
-    this._error = null;
+  _cancelModelMetadataEditor() {
+    this._modelMetaEditOpen = false;
+    this._modelMetaLoading = false;
+    this._modelMetaSaving = false;
+    this._collectionPickerOpen = false;
+    this._collectionSearchQuery = '';
+    this._collectionPickerHighlightIndex = 0;
     this._render();
+  }
 
-    // Check for conflicts first
-    try {
-      const currentModel = await this._fetchCurrentModel();
-      if (currentModel.last_modified && currentModel.last_modified > this._lastModifiedTimestamp) {
-        this._isSaving = false;
-        this._showConflictDialog = true;
-        this._conflictDialog = {
-          currentModel,
-          formData,
-          action: 'save',
-        };
-        this._render();
-        return;
+  _normalizeCollectionRows(rows) {
+    const normalizedRows = Array.isArray(rows) ? rows.map((row) => ({
+      collection_id: String(row && row.collection_id || '').trim().toLowerCase(),
+      name: String(row && row.name || '').trim(),
+      parent_collection_id: String(row && row.parent_collection_id || '').trim().toLowerCase() || null,
+      path: String(row && row.path || '').trim(),
+    })).filter((row) => row.collection_id) : [];
+    const rowsById = {};
+    normalizedRows.forEach((row) => {
+      rowsById[row.collection_id] = row;
+    });
+    const resolvePath = (row) => {
+      if (!row) {
+        return '';
       }
-    } catch (error) {
-      console.warn('Could not check for conflicts:', error);
-      // Continue with save anyway
+      if (row.path) {
+        return row.path;
+      }
+      const labels = [];
+      const visited = new Set();
+      let cursor = row;
+      while (cursor && !visited.has(cursor.collection_id)) {
+        visited.add(cursor.collection_id);
+        labels.push(cursor.name || cursor.collection_id);
+        cursor = cursor.parent_collection_id ? rowsById[cursor.parent_collection_id] : null;
+      }
+      return labels.reverse().join(' / ');
+    };
+    return normalizedRows.map((row) => Object.assign({}, row, { path: resolvePath(row) || row.name || row.collection_id }));
+  }
+
+  _selectedCollectionMemberships() {
+    return this._modelMetaDraft && Array.isArray(this._modelMetaDraft.collectionMemberships)
+      ? this._modelMetaDraft.collectionMemberships
+      : [];
+  }
+
+  _buildCollectionPickerState(selectedRows) {
+    const selectedIds = new Set((Array.isArray(selectedRows) ? selectedRows : []).map((row) => String(row.collection_id || '').trim().toLowerCase()));
+    const query = String(this._collectionSearchQuery || '').trim();
+    const queryNormalized = query.toLowerCase();
+    const suggestions = (Array.isArray(this._knownCollections) ? this._knownCollections : [])
+      .filter((row) => !selectedIds.has(String(row.collection_id || '').trim().toLowerCase()))
+      .filter((row) => {
+        if (!queryNormalized) {
+          return true;
+        }
+        return String(row.path || '').toLowerCase().includes(queryNormalized)
+          || String(row.name || '').toLowerCase().includes(queryNormalized);
+      })
+      .slice(0, 8)
+      .map((row) => ({ type: 'collection', value: row.collection_id, label: row.path || row.name || row.collection_id }));
+    const exactMatch = (Array.isArray(this._knownCollections) ? this._knownCollections : []).some((row) => String(row.path || '').toLowerCase() === queryNormalized);
+    const options = suggestions.slice(0);
+    if (query && !exactMatch) {
+      options.push({ type: 'create', value: query, label: query });
     }
+    return { options };
+  }
 
-    // Save to sidecar via HA service
-    if (this._hass) {
-      try {
-        console.log('Calling REST command with formData:', formData);
-        
-        const serviceResponse = await this._hass.callService('rest_command', 'model_catalog_update_model', {
-          model_ref: formData.model_ref,
-          model_name: formData.model_name,
-          description: formData.description,
-          tags: formData.tags,
-          collection: formData.collection,
-          enrichment: formData.enrichment,
+  _renderCollectionPicker(selectedRows) {
+    const pickerState = this._buildCollectionPickerState(selectedRows);
+    const options = pickerState.options;
+    if (this._collectionPickerHighlightIndex < 0 || this._collectionPickerHighlightIndex >= options.length) {
+      this._collectionPickerHighlightIndex = options.length ? 0 : -1;
+    }
+    return `
+      <div class="picker-dd">
+        <input class="search-box" type="text" placeholder="Search or create collection path…" data-input="collection-search" value="${this._escapeHtml(this._collectionSearchQuery)}" />
+        ${options.map((option, index) => {
+          const selectedClass = index === this._collectionPickerHighlightIndex ? ' selected' : '';
+          if (option.type === 'create') {
+            return `<div class="create-new${selectedClass}" data-action="create-collection">+ Create "${this._escapeHtml(option.value)}"</div>`;
+          }
+          return `<div class="opt${selectedClass}" data-action="add-collection" data-collection-id="${this._escapeHtml(option.value)}">${this._escapeHtml(option.label)}<span class="path-meta">existing</span></div>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  _handleCollectionRemove(collectionId) {
+    const normalizedId = String(collectionId || '').trim().toLowerCase();
+    this._modelMetaDraft.collectionMemberships = this._selectedCollectionMemberships().filter((row) => String(row.collection_id || '').trim().toLowerCase() !== normalizedId);
+    this._render();
+  }
+
+  _handleCollectionAdd(collectionId) {
+    const normalizedId = String(collectionId || '').trim().toLowerCase();
+    const existingIds = new Set(this._selectedCollectionMemberships().map((row) => String(row.collection_id || '').trim().toLowerCase()));
+    if (!normalizedId || existingIds.has(normalizedId)) {
+      return;
+    }
+    const match = (Array.isArray(this._knownCollections) ? this._knownCollections : []).find((row) => String(row.collection_id || '').trim().toLowerCase() === normalizedId);
+    if (!match) {
+      return;
+    }
+    this._modelMetaDraft.collectionMemberships = this._selectedCollectionMemberships().concat([match]);
+    this._collectionSearchQuery = '';
+    this._collectionPickerHighlightIndex = 0;
+    this._render();
+  }
+
+  async _handleCollectionCreate() {
+    if (this._collectionCreateBusy) {
+      return;
+    }
+    const rawQuery = String(this._collectionSearchQuery || '').trim();
+    const base = String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+    if (!rawQuery || !base) {
+      return;
+    }
+    const segments = rawQuery.split('/').map((part) => part.trim()).filter(Boolean);
+    if (!segments.length) {
+      return;
+    }
+    this._collectionCreateBusy = true;
+    this._render();
+    try {
+      let parentCollectionId = null;
+      for (let index = 0; index < segments.length; index += 1) {
+        const segment = segments[index];
+        const candidateId = segments.slice(0, index + 1).map((part) => part.toLowerCase()).join(' / ');
+        const existing = (Array.isArray(this._knownCollections) ? this._knownCollections : []).find((row) => row.collection_id === candidateId);
+        if (existing) {
+          parentCollectionId = existing.collection_id;
+          continue;
+        }
+        const response = await fetch(`${base}/api/collections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: segment, parent_collection_id: parentCollectionId }),
         });
-        
-        console.log('REST command response:', serviceResponse);
-        
-        // Reload model detail
-        console.log('Reloading model detail after save...');
-        await this._loadModelDetail({ silent: true });
-        
-        // Exit edit mode and close popup
-        this._isEditMode = false;
-        this._editAdvancedSectionOpen = false;
-        this._isSaving = false;
-        this._error = null;
-        console.log('Model saved successfully');
-        this._render();
-        this._notifyBrowserDetailChanged();
-      } catch (error) {
-        console.error('Error saving model:', error);
-        const errorMsg = error?.message || String(error) || 'Unknown error';
-        this._isSaving = false;
-        this._error = `Failed to save: ${errorMsg}`;
-        this._render();
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok && response.status !== 409) {
+          throw new Error(String(body.error || `Collection create failed (HTTP ${response.status})`));
+        }
+        const row = body && body.item ? body.item : { collection_id: candidateId, name: segment, parent_collection_id: parentCollectionId };
+        this._knownCollections = this._normalizeCollectionRows(this._knownCollections.concat([row]));
+        parentCollectionId = candidateId;
       }
-    } else {
-      this._isSaving = false;
-      this._error = 'Home Assistant service context unavailable.';
+      this._handleCollectionAdd(segments.map((part) => part.toLowerCase()).join(' / '));
+      this._collectionPickerOpen = true;
+    } catch (error) {
+      this._error = `Failed to create collection: ${error}`;
+      this._render();
+    } finally {
+      this._collectionCreateBusy = false;
+    }
+  }
+
+  async _saveModelMetadataEdits() {
+    if (this._modelMetaSaving || this._modelMetaLoading) {
+      return;
+    }
+    const model = (this._modelDetail && this._modelDetail.model) || {};
+    const modelRef = String(model.model_ref || this._modelRef || '').trim();
+    const base = String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+    if (!modelRef || !base) {
+      return;
+    }
+    const nameInput = this.shadowRoot && this.shadowRoot.querySelector ? this.shadowRoot.querySelector('#model-meta-name') : null;
+    const descriptionInput = this.shadowRoot && this.shadowRoot.querySelector ? this.shadowRoot.querySelector('#model-meta-description') : null;
+    const modelName = String(nameInput && 'value' in nameInput ? nameInput.value : this._modelMetaDraft.modelName || '').trim();
+    const description = String(descriptionInput && 'value' in descriptionInput ? descriptionInput.value : this._modelMetaDraft.description || '').trim();
+    if (!modelName) {
+      this._error = 'Model name is required.';
+      this._render();
+      return;
+    }
+    this._modelMetaSaving = true;
+    this._modelMetaDraft.modelName = modelName;
+    this._modelMetaDraft.description = description;
+    this._render();
+    try {
+      const patchResponse = await fetch(`${base}/api/models/${encodeURIComponent(modelRef)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_name: modelName, description: description }),
+      });
+      const patchBody = await patchResponse.json().catch(() => ({}));
+      if (!patchResponse.ok || patchBody.success === false) {
+        throw new Error(String(patchBody.error || `Model update failed (HTTP ${patchResponse.status})`));
+      }
+      const collectionResponse = await fetch(`${base}/api/models/${encodeURIComponent(modelRef)}/collections`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collection_ids: this._selectedCollectionMemberships().map((row) => String(row.collection_id || '').trim()).filter(Boolean) }),
+      });
+      const collectionBody = await collectionResponse.json().catch(() => ({}));
+      if (!collectionResponse.ok || collectionBody.success === false) {
+        throw new Error(String(collectionBody.error || `Collection update failed (HTTP ${collectionResponse.status})`));
+      }
+      await this._loadModelDetail({ silent: true });
+      this._modelMetaSaving = false;
+      this._modelMetaEditOpen = false;
+      this._collectionPickerOpen = false;
+      this._collectionSearchQuery = '';
+      this._collectionPickerHighlightIndex = 0;
+      this._notifyBrowserDetailChanged();
+      this._render();
+    } catch (error) {
+      this._modelMetaSaving = false;
+      this._error = `Failed to save model metadata: ${error}`;
       this._render();
     }
   }
@@ -7522,7 +7558,63 @@ class ModelDetailPopupCard extends HTMLElement {
     return false;
   }
 
+  _commitCollectionPickerSelection() {
+    const options = this._buildCollectionPickerState(this._selectedCollectionMemberships()).options;
+    const selected = options[this._collectionPickerHighlightIndex] || null;
+    if (selected && selected.type === 'collection' && selected.value) {
+      this._handleCollectionAdd(selected.value);
+      return true;
+    }
+    if (selected && selected.type === 'create') {
+      this._handleCollectionCreate();
+      return true;
+    }
+    if (this._collectionSearchQuery.trim()) {
+      this._handleCollectionCreate();
+      return true;
+    }
+    return false;
+  }
+
   _handleKeydown(event) {
+    if (this._collectionPickerOpen) {
+      const rawTarget = event.composedPath ? event.composedPath()[0] : event.target;
+      const isCollectionSearch = rawTarget instanceof HTMLInputElement && rawTarget.dataset && rawTarget.dataset.input === 'collection-search';
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') && isCollectionSearch) {
+        const options = this._buildCollectionPickerState(this._selectedCollectionMemberships()).options;
+        if (options.length) {
+          event.preventDefault();
+          if (event.key === 'ArrowDown') {
+            this._collectionPickerHighlightIndex = Math.min(this._collectionPickerHighlightIndex + 1, options.length - 1);
+          } else if (event.key === 'ArrowUp') {
+            this._collectionPickerHighlightIndex = Math.max(this._collectionPickerHighlightIndex - 1, 0);
+          } else if (event.key === 'Home') {
+            this._collectionPickerHighlightIndex = 0;
+          } else if (event.key === 'End') {
+            this._collectionPickerHighlightIndex = options.length - 1;
+          }
+          this._render();
+        }
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this._collectionPickerOpen = false;
+        this._collectionSearchQuery = '';
+        this._collectionPickerHighlightIndex = 0;
+        this._render();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && isCollectionSearch) {
+        const committed = this._commitCollectionPickerSelection();
+        if (!committed && event.key === 'Tab') {
+          return;
+        }
+        event.preventDefault();
+        return;
+      }
+    }
+
     // Tag picker: Enter/Tab/comma to add/create, arrows and Home/End to navigate, Escape to close
     if (this._tagPickerOpen) {
       // Use composedPath()[0] to get the real target inside shadow DOM (event.target at document level is the host element)

@@ -249,6 +249,45 @@ def update_collection(
         connection.close()
 
 
+def delete_collection(*, db_path: Path, collection_id: str) -> dict[str, Any]:
+    target_id = str(collection_id or "").strip().lower()
+    if not target_id:
+        raise ValueError("collection_id is required")
+
+    connection = connect(db_path)
+    try:
+        row = connection.execute(
+            "SELECT collection_id, name, parent_collection_id, created_at, updated_at FROM model_catalog_collections WHERE collection_id = ?",
+            (target_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"collection not found: {target_id}")
+
+        child_row = connection.execute(
+            "SELECT 1 FROM model_catalog_collections WHERE parent_collection_id = ? LIMIT 1",
+            (target_id,),
+        ).fetchone()
+        if child_row is not None:
+            raise ValueError(f"collection has child collections: {target_id}")
+
+        membership_row = connection.execute(
+            "SELECT 1 FROM model_catalog_collection_memberships WHERE collection_id = ? LIMIT 1",
+            (target_id,),
+        ).fetchone()
+        if membership_row is not None:
+            raise ValueError(f"collection has model memberships: {target_id}")
+
+        deleted_item = dict(row)
+        connection.execute(
+            "DELETE FROM model_catalog_collections WHERE collection_id = ?",
+            (target_id,),
+        )
+        connection.commit()
+        return deleted_item
+    finally:
+        connection.close()
+
+
 def read_model_collection_memberships_bulk(*, db_path: Path, model_refs: list[str]) -> dict[str, list[dict[str, Any]]]:
     normalized_refs = [str(model_ref or "").strip() for model_ref in model_refs if str(model_ref or "").strip()]
     if not normalized_refs:

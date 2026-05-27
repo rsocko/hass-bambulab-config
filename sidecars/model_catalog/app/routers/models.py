@@ -111,6 +111,7 @@ from ..db_collections import (
     collection_display_path,
     collection_paths_from_memberships,
     create_collection,
+    delete_collection,
     ensure_collection_paths,
     list_collections,
     read_collection,
@@ -4582,6 +4583,26 @@ async def update_collection_endpoint(request: Request, collection_id: str) -> di
     except ValueError as exc:
         return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
     return {"success": True, "contract": "collections.v1alpha1", "item": row}
+
+
+@router.delete("/api/collections/{collection_id:path}")
+def delete_collection_endpoint(request: Request, collection_id: str) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    try:
+        row = delete_collection(
+            db_path=state.settings.db_path,
+            collection_id=collection_id,
+        )
+    except ValueError as exc:
+        error_text = str(exc).lower()
+        if "not found" in error_text:
+            status_code = 404
+        elif "has child collections" in str(exc) or "has model memberships" in str(exc):
+            status_code = 409
+        else:
+            status_code = 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": str(exc)})
+    return {"success": True, "contract": "collections.v1alpha1", "item": row, "deleted": True}
 
 
 @router.get("/api/models/{model_ref:path}/collections")
