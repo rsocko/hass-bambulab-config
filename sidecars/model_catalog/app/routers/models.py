@@ -531,11 +531,86 @@ def _search_projection_tokens_for_summary(summary: CatalogModelSummary) -> set[s
     tokens: set[str] = set()
     tokens.update(_normalize_tokens(summary.name or ""))
     tokens.update(_normalize_tokens(summary.creator_name or ""))
-    for collection_name in summary.collection_names:
+    for collection_name in _normalized_collection_names(summary.collection_names):
         tokens.update(_normalize_tokens(str(collection_name or "")))
-    for keyword in summary.keyword_names:
+    for keyword in _normalized_keyword_names(summary.keyword_names):
         tokens.update(_normalize_tokens(str(keyword or "")))
     return {token for token in tokens if token}
+
+
+def _normalized_name_values(
+    values: object | None,
+    *,
+    drop_literal_none: bool = False,
+) -> tuple[str, ...]:
+    if not isinstance(values, (list, tuple, set)):
+        return tuple()
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        lower = value.lower()
+        if drop_literal_none and lower == "none":
+            continue
+        if lower in seen:
+            continue
+        seen.add(lower)
+        normalized.append(value)
+    return tuple(normalized)
+
+
+def _normalized_collection_names(values: object | None) -> tuple[str, ...]:
+    return _normalized_name_values(values, drop_literal_none=True)
+
+
+def _normalized_keyword_names(values: object | None) -> tuple[str, ...]:
+    return _normalized_name_values(values, drop_literal_none=False)
+
+
+def _facet_counts_from_payloads(payloads: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    collection_counts: dict[str, int] = {}
+    collection_labels: dict[str, str] = {}
+    keyword_counts: dict[str, int] = {}
+    keyword_labels: dict[str, str] = {}
+    unassigned_count = 0
+
+    for payload in payloads:
+        collections = _normalized_collection_names(payload.get("collection_names"))
+        if not collections:
+            unassigned_count += 1
+        for label in collections:
+            key = label.lower()
+            collection_counts[key] = int(collection_counts.get(key, 0)) + 1
+            if key not in collection_labels:
+                collection_labels[key] = label
+
+        keywords = _normalized_keyword_names(payload.get("keyword_names"))
+        for label in keywords:
+            key = label.lower()
+            keyword_counts[key] = int(keyword_counts.get(key, 0)) + 1
+            if key not in keyword_labels:
+                keyword_labels[key] = label
+
+    collection_entries: list[dict[str, Any]] = []
+    if unassigned_count > 0:
+        collection_entries.append(
+            {"key": COLLECTION_FILTER_UNASSIGNED, "label": "Unassigned", "count": int(unassigned_count)}
+        )
+    for key, count in collection_counts.items():
+        collection_entries.append({"key": key, "label": collection_labels.get(key) or key, "count": int(count)})
+    collection_entries.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("label") or item.get("key") or "")))
+
+    keyword_entries: list[dict[str, Any]] = []
+    for key, count in keyword_counts.items():
+        keyword_entries.append({"key": key, "label": keyword_labels.get(key) or key, "count": int(count)})
+    keyword_entries.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("label") or item.get("key") or "")))
+
+    return {
+        "collections": collection_entries,
+        "tags": keyword_entries,
+    }
 
 
 def _rebuild_search_projection(*, request: Request, settings: Settings, client: object, refresh_runtime_cache: bool) -> None:
@@ -590,6 +665,9 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
         ranking = ranking_by_url.get(summary.model_url)
         linked_archive_count = int(link_counts_by_url.get(summary.model_url, 0))
 
+        normalized_collection_names = _normalized_collection_names(summary.collection_names)
+        normalized_keyword_names = _normalized_keyword_names(summary.keyword_names)
+
         projection_rows.append(
             (
                 model_ref,
@@ -602,10 +680,10 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
                 str(summary.creator_name or "") or None,
                 str(summary.creator_name or "").lower(),
                 str(summary.preview_url or "") or None,
-                json.dumps(list(summary.collection_names)),
-                json.dumps(list(summary.keyword_names)),
-                " ".join(str(item or "").lower() for item in summary.collection_names),
-                " ".join(str(item or "").lower() for item in summary.keyword_names),
+                json.dumps(list(normalized_collection_names)),
+                json.dumps(list(normalized_keyword_names)),
+                " ".join(str(item or "").lower() for item in normalized_collection_names),
+                " ".join(str(item or "").lower() for item in normalized_keyword_names),
                 catalog_visibility,
                 1 if bool(model_favorite) else 0,
                 str(custom_fields.get("to_print_status") or "") or None,
@@ -753,10 +831,21 @@ def _search_models_from_projection(
     collection_value = str(collection or "").strip().lower()
     if collection_value:
         if collection_value == COLLECTION_FILTER_UNASSIGNED:
-            base_clauses.append("(COALESCE(p.collection_blob_lc, '') = '')")
+            base_clauses.append(
+                "NOT EXISTS ("
+                "SELECT 1 FROM json_each(p.collection_names_json) c "
+                "WHERE TRIM(CAST(c.value AS TEXT)) <> '' "
+                "AND LOWER(TRIM(CAST(c.value AS TEXT))) <> 'none'"
+                ")"
+            )
         else:
-            base_clauses.append("p.collection_blob_lc LIKE ?")
-            base_params.append(f"%{collection_value}%")
+            base_clauses.append(
+                "EXISTS ("
+                "SELECT 1 FROM json_each(p.collection_names_json) c "
+                "WHERE LOWER(TRIM(CAST(c.value AS TEXT))) = ?"
+                ")"
+            )
+            base_params.append(collection_value)
 
     creator_value = str(creator or "").strip().lower()
     if creator_value:
@@ -765,8 +854,13 @@ def _search_models_from_projection(
 
     tag_value = str(tag or "").strip().lower()
     if tag_value:
-        base_clauses.append("p.keyword_blob_lc LIKE ?")
-        base_params.append(f"%{tag_value}%")
+        base_clauses.append(
+            "EXISTS ("
+            "SELECT 1 FROM json_each(p.keyword_names_json) k "
+            "WHERE LOWER(TRIM(CAST(k.value AS TEXT))) = ?"
+            ")"
+        )
+        base_params.append(tag_value)
 
     if to_print_status:
         base_clauses.append("COALESCE(p.to_print_status, '') = ?")
@@ -815,6 +909,11 @@ def _search_models_from_projection(
         if not clauses:
             return ""
         return "WHERE " + " AND ".join(f"({clause.strip()})" for clause in clauses)
+
+    def _append_where(where_sql: str, clause: str) -> str:
+        if where_sql:
+            return where_sql + f" AND ({clause})"
+        return "WHERE (" + clause + ")"
 
     normalized_sort = str(sort or "best").strip().lower()
     if normalized_sort == "recent":
@@ -891,15 +990,63 @@ def _search_models_from_projection(
             if key in visibility_counts:
                 visibility_counts[key] = int(row["cnt"] or 0)
 
+        total_params = [*base_params, *entity_params, *visibility_params]
         total_row = connection.execute(
             f"""
             SELECT COUNT(*) AS cnt
             FROM model_catalog_search_projection p
             {full_where}
             """,
-            [*base_params, *entity_params, *visibility_params],
+            total_params,
         ).fetchone()
         total = int(total_row["cnt"] if total_row is not None else 0)
+
+        collection_where = _append_where(
+            full_where,
+            "TRIM(CAST(c.value AS TEXT)) <> '' AND LOWER(TRIM(CAST(c.value AS TEXT))) <> 'none'",
+        )
+        collection_rows = connection.execute(
+            f"""
+            SELECT
+                LOWER(TRIM(CAST(c.value AS TEXT))) AS facet_key,
+                MIN(TRIM(CAST(c.value AS TEXT))) AS facet_label,
+                COUNT(DISTINCT p.model_ref) AS cnt
+            FROM model_catalog_search_projection p
+            JOIN json_each(p.collection_names_json) c
+            {collection_where}
+            GROUP BY facet_key
+            """,
+            total_params,
+        ).fetchall()
+
+        unassigned_row = connection.execute(
+            f"""
+            SELECT COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {_append_where(
+                full_where,
+                "NOT EXISTS (SELECT 1 FROM json_each(p.collection_names_json) c "
+                "WHERE TRIM(CAST(c.value AS TEXT)) <> '' AND LOWER(TRIM(CAST(c.value AS TEXT))) <> 'none')",
+            )}
+            """,
+            total_params,
+        ).fetchone()
+        unassigned_count = int(unassigned_row["cnt"] if unassigned_row is not None else 0)
+
+        tag_where = _append_where(full_where, "TRIM(CAST(k.value AS TEXT)) <> ''")
+        tag_rows = connection.execute(
+            f"""
+            SELECT
+                LOWER(TRIM(CAST(k.value AS TEXT))) AS facet_key,
+                MIN(TRIM(CAST(k.value AS TEXT))) AS facet_label,
+                COUNT(DISTINCT p.model_ref) AS cnt
+            FROM model_catalog_search_projection p
+            JOIN json_each(p.keyword_names_json) k
+            {tag_where}
+            GROUP BY facet_key
+            """,
+            total_params,
+        ).fetchall()
 
         offset = max(0, (max(1, page) - 1) * per_page)
         order_params: list[Any] = q_tokens if (normalized_sort == "best" and q_tokens) else []
@@ -985,6 +1132,38 @@ def _search_models_from_projection(
         )
         results.append(payload)
 
+    collection_facets: list[dict[str, Any]] = []
+    if unassigned_count > 0:
+        collection_facets.append(
+            {"key": COLLECTION_FILTER_UNASSIGNED, "label": "Unassigned", "count": int(unassigned_count)}
+        )
+    for row in collection_rows:
+        key = str(row["facet_key"] or "").strip().lower()
+        if not key:
+            continue
+        collection_facets.append(
+            {
+                "key": key,
+                "label": str(row["facet_label"] or key),
+                "count": int(row["cnt"] or 0),
+            }
+        )
+    collection_facets.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("label") or item.get("key") or "")))
+
+    tag_facets: list[dict[str, Any]] = []
+    for row in tag_rows:
+        key = str(row["facet_key"] or "").strip().lower()
+        if not key:
+            continue
+        tag_facets.append(
+            {
+                "key": key,
+                "label": str(row["facet_label"] or key),
+                "count": int(row["cnt"] or 0),
+            }
+        )
+    tag_facets.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("label") or item.get("key") or "")))
+
     total_pages = (total + per_page - 1) // per_page if per_page > 0 else 0
     return {
         "success": True,
@@ -1016,6 +1195,10 @@ def _search_models_from_projection(
         "visibility": {
             "show_archived": bool(show_archived),
             "counts": visibility_counts,
+        },
+        "facet_counts": {
+            "collections": collection_facets,
+            "tags": tag_facets,
         },
         "entity_type_counts": entity_type_counts,
         "sort": normalized_sort,
@@ -2667,10 +2850,11 @@ def _matches_filters(
     """Check if model matches all provided filters."""
     if collection_filter:
         normalized_filter = collection_filter.lower().strip()
+        normalized_collections = {name.lower() for name in _normalized_collection_names(summary.collection_names)}
         if normalized_filter == COLLECTION_FILTER_UNASSIGNED:
-            if summary.collection_names:
+            if normalized_collections:
                 return False
-        elif not any(normalized_filter in name.lower() for name in summary.collection_names):
+        elif normalized_filter not in normalized_collections:
             return False
     
     if creator_filter:
@@ -2680,7 +2864,8 @@ def _matches_filters(
     
     if tag_filter:
         normalized_filter = tag_filter.lower().strip()
-        if not any(normalized_filter in name.lower() for name in summary.keyword_names):
+        normalized_keywords = {name.lower() for name in _normalized_keyword_names(summary.keyword_names)}
+        if normalized_filter not in normalized_keywords:
             return False
     
     return True
@@ -3645,6 +3830,7 @@ def search_models(
             "show_archived": bool(show_archived),
             "counts": visibility_counts,
         },
+        "facet_counts": _facet_counts_from_payloads([model for _, model in scored_models]),
         "entity_type_counts": entity_type_counts,
         "sort": normalized_sort,
         "pagination": {
@@ -4245,7 +4431,12 @@ def put_model_field(request: Request, model_ref: str, field_key: str, payload: d
     if "value" not in payload:
         return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "value is required"})
     resolved_ref = summary.public_id or summary.model_id or summary.model_url
-    value = set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key, field_value=payload["value"])
+    field_value = payload["value"]
+    if field_key == "collection_names":
+        field_value = list(_normalized_collection_names(field_value))
+    elif field_key in {"keyword_names", "tags"}:
+        field_value = list(_normalized_keyword_names(field_value))
+    value = set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key, field_value=field_value)
     return {
         "success": True,
         "model_ref": model_ref,

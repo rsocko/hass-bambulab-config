@@ -44,6 +44,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     };
     this._visibilityCounts = { active: 0, archived: 0 };
     this._serverEntityTypeCounts = { model: 0, idea: 0 };
+    this._facetCounts = { collections: [], tags: [] };
     this._typeFilters = {
       model: true,
       idea: false,
@@ -1097,6 +1098,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
         active: Math.max(0, Number(responseVisibilityCounts.active || 0) || 0),
         archived: Math.max(0, Number(responseVisibilityCounts.archived || 0) || 0),
       };
+      var responseFacetCounts = data && data.facet_counts && typeof data.facet_counts === "object"
+        ? data.facet_counts
+        : {};
+      this._facetCounts = {
+        collections: Array.isArray(responseFacetCounts.collections) ? responseFacetCounts.collections : [],
+        tags: Array.isArray(responseFacetCounts.tags) ? responseFacetCounts.tags : [],
+      };
       this._frequentsTuning.window_days = this._clampInteger(
         responseFilters.frequent_window_days,
         requestPayload.frequent_window_days,
@@ -1158,6 +1166,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._unifiedQueueByModelRef = {};
       this._visibilityCounts = { active: 0, archived: 0 };
       this._serverEntityTypeCounts = { model: 0, idea: 0 };
+      this._facetCounts = { collections: [], tags: [] };
       this._error = error && error.message ? String(error.message) : "Could not load model catalog.";
     } finally {
       this._loading = false;
@@ -3621,6 +3630,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _leftNavTopTags(limit) {
     var max = Math.max(1, Number(limit || 6));
+    var serverTags = this._facetCounts && Array.isArray(this._facetCounts.tags)
+      ? this._facetCounts.tags
+      : [];
+    if (serverTags.length) {
+      var serverEntries = [];
+      for (var s = 0; s < serverTags.length; s++) {
+        var serverTag = serverTags[s] || {};
+        var label = String(serverTag.label || serverTag.key || "").trim();
+        var key = String(serverTag.key || "").trim().toLowerCase();
+        var count = Number(serverTag.count || 0);
+        if (!label || !key || !Number.isFinite(count) || count <= 0) {
+          continue;
+        }
+        serverEntries.push({ key: key, count: Math.max(0, Math.trunc(count)) });
+      }
+      serverEntries.sort(function (a, b) {
+        if (b.count !== a.count) {
+          return b.count - a.count;
+        }
+        return a.key.localeCompare(b.key);
+      });
+      return serverEntries.slice(0, max);
+    }
+
     var counts = {};
     for (var i = 0; i < this._results.length; i++) {
       var model = this._results[i] || {};
@@ -3628,15 +3661,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (Array.isArray(model.keyword_names)) {
         rawTags = rawTags.concat(model.keyword_names);
       }
-      if (Array.isArray(model.tags)) {
-        rawTags = rawTags.concat(model.tags);
-      }
       var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
       if (Array.isArray(fields.keyword_names)) {
         rawTags = rawTags.concat(fields.keyword_names);
-      }
-      if (Array.isArray(fields.tags)) {
-        rawTags = rawTags.concat(fields.tags);
       }
       var uniquePerModel = {};
       for (var t = 0; t < rawTags.length; t++) {
@@ -3667,6 +3694,35 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _leftNavTopCollections(limit) {
     var max = Math.max(1, Number(limit || 6));
+    var serverCollections = this._facetCounts && Array.isArray(this._facetCounts.collections)
+      ? this._facetCounts.collections
+      : [];
+    if (serverCollections.length) {
+      var serverEntries = [];
+      for (var s = 0; s < serverCollections.length; s++) {
+        var serverCollection = serverCollections[s] || {};
+        var label = String(serverCollection.label || serverCollection.key || "").trim();
+        var rawKey = String(serverCollection.key || "").trim().toLowerCase();
+        var count = Number(serverCollection.count || 0);
+        if (!label || !rawKey || !Number.isFinite(count) || count <= 0) {
+          continue;
+        }
+        var key = rawKey === "unassigned" ? "__unassigned__" : rawKey;
+        serverEntries.push({
+          key: key,
+          label: key === "__unassigned__" ? "Unassigned" : label,
+          count: Math.max(0, Math.trunc(count)),
+        });
+      }
+      serverEntries.sort(function (a, b) {
+        if (b.count !== a.count) {
+          return b.count - a.count;
+        }
+        return a.label.localeCompare(b.label);
+      });
+      return serverEntries.slice(0, max);
+    }
+
     var counts = {};
     var labels = {};
     var unassignedKey = "__unassigned__";
