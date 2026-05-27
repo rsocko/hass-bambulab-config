@@ -4315,22 +4315,21 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var collectionsHtml = '';
     var selectedCollectionKey = this._selectedCollectionKey();
-    var renderedCollectionKeys = {};
-    if (selectedCollectionKey) {
-      renderedCollectionKeys[selectedCollectionKey] = true;
+    var selectedCollectionRendered = false;
+    for (var collectionIndex = 0; collectionIndex < topCollections.length; collectionIndex++) {
+      var collectionEntry = topCollections[collectionIndex];
+      if (selectedCollectionKey && collectionEntry.key === selectedCollectionKey) {
+        selectedCollectionRendered = true;
+      }
+      collectionsHtml += this._renderLeftNavItem(collectionEntry.label, 'collection:' + collectionEntry.key, collectionEntry.count, 'mdi:folder-outline');
+    }
+    if (selectedCollectionKey && !selectedCollectionRendered) {
       collectionsHtml += this._renderLeftNavItem(
         this._displayCollectionLabel(selectedCollectionKey),
         'collection:' + selectedCollectionKey,
         null,
         'mdi:folder-outline'
       );
-    }
-    for (var collectionIndex = 0; collectionIndex < topCollections.length; collectionIndex++) {
-      var collectionEntry = topCollections[collectionIndex];
-      if (renderedCollectionKeys[collectionEntry.key]) {
-        continue;
-      }
-      collectionsHtml += this._renderLeftNavItem(collectionEntry.label, 'collection:' + collectionEntry.key, collectionEntry.count, 'mdi:folder-outline');
     }
     if (!collectionsHtml) {
       collectionsHtml = '<div class="left-nav-empty">No collections detected yet</div>';
