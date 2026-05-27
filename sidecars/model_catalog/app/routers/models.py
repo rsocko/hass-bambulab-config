@@ -655,9 +655,15 @@ def _collection_path_key(parts: tuple[str, ...]) -> str:
         str(part or "").strip().lower() for part in parts if str(part or "").strip()
     )
 
-
-def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count: int) -> dict[str, Any]:
+def _build_collection_tree_payload(
+    rows: list[sqlite3.Row],
+    *,
+    unassigned_count: int,
+    preview_proxy_base_url: str | None = None,
+) -> dict[str, Any]:
     nodes_by_id: dict[str, dict[str, Any]] = {}
+    payloads_by_model_ref: dict[str, dict[str, Any]] = {}
+    unassigned_model_refs: set[str] = set()
 
     def ensure_node(parts: tuple[str, ...]) -> dict[str, Any]:
         node_id = _collection_path_key(parts)
@@ -692,6 +698,17 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
         model_ref = str(row["model_ref"] or "").strip()
         if not model_ref:
             continue
+        preview_url = str(row["preview_url"] or "").strip()
+        source_authority = str(row["source_authority"] or "").strip().lower()
+        if preview_url and preview_proxy_base_url and source_authority != "local":
+            preview_url = f"{preview_proxy_base_url}?source={quote(preview_url, safe='')}"
+        payloads_by_model_ref[model_ref] = {
+            "model_ref": model_ref,
+            "name": str(row["model_name"] or "").strip() or model_ref,
+            "preview_url": preview_url,
+            "last_printed_at": str(row["last_printed_at"] or "").strip(),
+            "model_favorite": int(row["model_favorite"] or 0),
+        }
         try:
             collection_names = json.loads(str(row["collection_names_json"] or "[]"))
         except json.JSONDecodeError:
@@ -699,6 +716,7 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
         if not isinstance(collection_names, list):
             continue
         seen_paths: set[str] = set()
+        has_membership = False
         for raw_name in collection_names:
             raw_label = str(raw_name or "").strip()
             if not raw_label or raw_label.lower() == "none":
@@ -710,6 +728,7 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
             if not terminal_id or terminal_id in seen_paths:
                 continue
             seen_paths.add(terminal_id)
+            has_membership = True
             terminal_node = ensure_node(path_parts)
             terminal_node["has_explicit_membership"] = True
             terminal_node["filter_key"] = raw_label.lower()
@@ -717,6 +736,8 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
             terminal_node["model_refs_direct"].add(model_ref)
             for depth in range(1, len(path_parts) + 1):
                 ensure_node(path_parts[:depth])["model_refs_total"].add(model_ref)
+        if not has_membership:
+            unassigned_model_refs.add(model_ref)
 
     output_nodes: list[dict[str, Any]] = []
     for node in nodes_by_id.values():
@@ -726,6 +747,10 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
                 str(nodes_by_id[child_id]["label"] or "").lower(),
                 str(nodes_by_id[child_id]["collection_id"] or ""),
             ),
+        )
+        activity_summary = _collection_activity_summary(
+            model_refs=node["model_refs_total"],
+            payloads_by_model_ref=payloads_by_model_ref,
         )
         output_nodes.append(
             {
@@ -742,6 +767,12 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
                 "child_collection_count": len(child_ids),
                 "has_explicit_membership": bool(node["has_explicit_membership"]),
                 "child_collection_ids": child_ids,
+                "preview_model_count": int(activity_summary["preview_model_count"]),
+                "recent_print_activity": activity_summary["recent_print_activity"],
+                "cover_images": _collection_cover_images(
+                    model_refs=node["model_refs_total"],
+                    payloads_by_model_ref=payloads_by_model_ref,
+                ),
             }
         )
 
@@ -760,6 +791,10 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
             str(nodes_for_output[node_id]["collection_id"] or ""),
         ),
     )
+    unassigned_activity_summary = _collection_activity_summary(
+        model_refs=unassigned_model_refs,
+        payloads_by_model_ref=payloads_by_model_ref,
+    )
 
     return {
         "contract": "collection-tree.v1alpha1",
@@ -768,6 +803,13 @@ def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count:
         "nodes": output_nodes,
         "items": [build_nested(node_id) for node_id in root_ids],
         "unassigned_model_count": max(0, int(unassigned_count or 0)),
+        "unassigned_preview_model_count": int(unassigned_activity_summary["preview_model_count"]),
+        "unassigned_recent_print_activity": unassigned_activity_summary["recent_print_activity"],
+        "unassigned_cover_images": _collection_cover_images(
+            model_refs=unassigned_model_refs,
+            payloads_by_model_ref=payloads_by_model_ref,
+            limit=6,
+        ),
     }
 
 
@@ -4512,7 +4554,7 @@ def get_facets(
 
         membership_rows = connection.execute(
             f"""
-            SELECT p.model_ref, p.collection_names_json
+            SELECT p.model_ref, p.model_name, p.preview_url, p.last_printed_at, p.model_favorite, p.source_authority, p.collection_names_json
             FROM model_catalog_search_projection p
             {scope_where}
             """,
@@ -4579,7 +4621,12 @@ def get_facets(
 
     total = int(total_row["cnt"] if total_row is not None else 0)
     unassigned_count = int(unassigned_row["cnt"] if unassigned_row is not None else 0)
-    collection_tree = _build_collection_tree_payload(membership_rows, unassigned_count=unassigned_count)
+    preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
+    collection_tree = _build_collection_tree_payload(
+        membership_rows,
+        unassigned_count=unassigned_count,
+        preview_proxy_base_url=preview_proxy_base_url,
+    )
 
     # ── collection facets list ───────────────────────────────────────
     collection_facets: list[dict[str, Any]] = []

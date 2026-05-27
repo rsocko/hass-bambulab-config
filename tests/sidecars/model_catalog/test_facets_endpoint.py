@@ -137,20 +137,26 @@ TREE_SEED_ROWS = [
     {
         "model_ref": "m10",
         "model_name": "Gridfinity Bin",
+        "preview_url": "https://img.test/m10.jpg",
         "collection_names_json": '["Functional / Gridfinity / Bins"]',
         "entity_type": "model",
+        "last_printed_at": "2026-01-02T00:00:00Z",
     },
     {
         "model_ref": "m11",
         "model_name": "Gridfinity Baseplate",
+        "preview_url": "https://img.test/m11.jpg",
         "collection_names_json": '["Functional / Gridfinity"]',
         "entity_type": "model",
+        "model_favorite": 1,
     },
     {
         "model_ref": "m12",
         "model_name": "Phone Stand",
+        "preview_url": "https://img.test/m12.jpg",
         "collection_names_json": '["Functional / Desk Accessories"]',
         "entity_type": "model",
+        "last_printed_at": "2026-01-03T00:00:00Z",
     },
     {
         "model_ref": "m13",
@@ -544,12 +550,30 @@ def test_facets_returns_collection_tree_payload(tmp_path: Path) -> None:
     assert tree["contract"] == "collection-tree.v1alpha1"
     assert tree["path_separator"] == " / "
     assert tree["unassigned_model_count"] == 1
+    assert tree["unassigned_preview_model_count"] == 1
+    assert tree["unassigned_recent_print_activity"] == {
+        "printed_model_count": 1,
+        "last_printed_at": "2026-01-05T00:00:00Z",
+    }
+    assert tree["unassigned_cover_images"] == [
+        {
+            "model_ref": "m14",
+            "model_name": "Loose Model",
+            "preview_url": "http://testserver/api/models/preview?source=https%3A%2F%2Fimg.test%2Fm14.jpg",
+        }
+    ]
 
     nodes = {node["collection_id"]: node for node in tree["nodes"]}
     assert "functional" in nodes
     assert nodes["functional"]["model_count_total"] == 3
     assert nodes["functional"]["model_count_direct"] == 0
     assert nodes["functional"]["has_explicit_membership"] is False
+    assert nodes["functional"]["preview_model_count"] == 3
+    assert nodes["functional"]["recent_print_activity"] == {
+        "printed_model_count": 2,
+        "last_printed_at": "2026-01-03T00:00:00Z",
+    }
+    assert [cover["model_ref"] for cover in nodes["functional"]["cover_images"]] == ["m11", "m12", "m10"]
 
     assert "functional / gridfinity" in nodes
     assert nodes["functional / gridfinity"]["model_count_total"] == 2
