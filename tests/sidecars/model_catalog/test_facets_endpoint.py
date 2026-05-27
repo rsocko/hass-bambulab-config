@@ -664,6 +664,11 @@ def test_collections_browse_returns_deterministic_cover_images(tmp_path: Path) -
     functional = next(item["data"] for item in data["items"] if item["kind"] == "collection" and item["data"]["collection_id"] == "functional")
     assert [cover["model_ref"] for cover in functional["cover_images"]] == ["m11", "m12", "m10", "m14"]
     assert all("/api/models/preview?source=" in cover["preview_url"] for cover in functional["cover_images"])
+    assert functional["preview_model_count"] == 5
+    assert functional["recent_print_activity"] == {
+        "printed_model_count": 3,
+        "last_printed_at": "2026-01-04T00:00:00Z",
+    }
 
 
 def test_collections_browse_nested_node_returns_child_collections_and_direct_models(tmp_path: Path) -> None:

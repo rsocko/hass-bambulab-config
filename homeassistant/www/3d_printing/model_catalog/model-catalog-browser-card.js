@@ -2284,9 +2284,56 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "toggle-actions") {
       event.preventDefault();
       event.stopPropagation();
-      var actionMenuRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var actionMenuRef = String(target.getAttribute("data-menu-key") || target.getAttribute("data-model-ref") || "").trim();
       this._activeActionMenu = this._activeActionMenu === actionMenuRef ? "" : actionMenuRef;
       this._updateActionMenus();
+      return;
+    }
+
+    if (action === 'collection-rename') {
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        await this._renameCollection(
+          String(target.getAttribute('data-collection-id') || '').trim(),
+          String(target.getAttribute('data-collection-label') || '').trim()
+        );
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not rename collection.';
+        this._render();
+      }
+      return;
+    }
+
+    if (action === 'collection-move') {
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        await this._moveCollection(
+          String(target.getAttribute('data-collection-id') || '').trim()
+        );
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not move collection.';
+        this._render();
+      }
+      return;
+    }
+
+    if (action === 'collection-delete') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target.hasAttribute('disabled')) {
+        return;
+      }
+      try {
+        await this._deleteCollection(
+          String(target.getAttribute('data-collection-id') || '').trim(),
+          String(target.getAttribute('data-collection-label') || '').trim()
+        );
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : 'Could not delete collection.';
+        this._render();
+      }
       return;
     }
 
@@ -3106,8 +3153,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var buttons = this.shadowRoot.querySelectorAll('.advanced-menu-shell .icon-action[data-action="toggle-actions"]');
     for (var i = 0; i < buttons.length; i++) {
       var button = buttons[i];
-      var modelRef = String(button.getAttribute("data-model-ref") || "").trim();
-      var open = !!this._activeActionMenu && this._activeActionMenu === modelRef;
+      var menuKey = String(button.getAttribute("data-menu-key") || button.getAttribute("data-model-ref") || "").trim();
+      var open = !!this._activeActionMenu && this._activeActionMenu === menuKey;
       button.setAttribute("aria-expanded", open ? "true" : "false");
       var shell = button.closest(".advanced-menu-shell");
       if (!shell) {
@@ -3120,6 +3167,108 @@ class ModelCatalogBrowserCard extends HTMLElement {
       menu.classList.toggle("is-open", open);
       menu.setAttribute("aria-hidden", open ? "false" : "true");
     }
+  }
+
+  _collectionMenuKey(collectionId) {
+    var normalizedId = String(collectionId || "").trim().toLowerCase();
+    return normalizedId ? ("collection:" + normalizedId) : "";
+  }
+
+  _collectionApiBaseUrl() {
+    return String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+  }
+
+  async _collectionApiRequest(path, options) {
+    var base = this._collectionApiBaseUrl();
+    if (!base) {
+      throw new Error("Model Catalog sidecar URL not configured");
+    }
+    var requestOptions = options && typeof options === "object" ? Object.assign({}, options) : {};
+    requestOptions.headers = Object.assign({}, requestOptions.headers || {}, await this._authHeaders(false));
+    requestOptions.credentials = "omit";
+    var response = await fetch(base + path, requestOptions);
+    if (response.status === 401) {
+      requestOptions.headers = Object.assign({}, requestOptions.headers || {}, await this._authHeaders(true));
+      response = await fetch(base + path, requestOptions);
+    }
+    var payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+    if (!response.ok || (payload && payload.success === false)) {
+      throw new Error(payload && payload.error ? String(payload.error) : ('Collection request failed (HTTP ' + String(response.status) + ')'));
+    }
+    return payload && typeof payload === 'object' ? payload : {};
+  }
+
+  async _renameCollection(collectionId, currentLabel) {
+    var nextName = (window.prompt('Rename collection', String(currentLabel || '').trim()) || '').trim();
+    if (!nextName || nextName === String(currentLabel || '').trim()) {
+      return;
+    }
+    await this._collectionApiRequest('/api/collections/' + encodeURIComponent(String(collectionId || '').trim()), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nextName }),
+    });
+    this._activeActionMenu = '';
+    this._error = '';
+    await this._fetchGlobalFacets();
+    this._requestLoad(this._currentPage(), true);
+    this._render();
+  }
+
+  async _moveCollection(collectionId) {
+    var destination = (window.prompt('Move collection to parent path. Leave blank for root.', '') || '').trim();
+    var parentCollectionId = null;
+    if (destination) {
+      var collectionsPayload = await this._collectionApiRequest('/api/collections', { method: 'GET' });
+      var rows = collectionsPayload && Array.isArray(collectionsPayload.items) ? collectionsPayload.items : [];
+      var normalizedDestination = destination.toLowerCase();
+      var match = null;
+      for (var index = 0; index < rows.length; index++) {
+        var row = rows[index] || {};
+        var rowId = String(row.collection_id || '').trim().toLowerCase();
+        var rowPath = String(row.path || row.collection_id || '').trim().toLowerCase();
+        if (rowId === normalizedDestination || rowPath === normalizedDestination) {
+          match = row;
+          break;
+        }
+      }
+      if (!match) {
+        throw new Error('Parent collection not found: ' + destination);
+      }
+      parentCollectionId = String(match.collection_id || '').trim().toLowerCase() || null;
+    }
+    await this._collectionApiRequest('/api/collections/' + encodeURIComponent(String(collectionId || '').trim()), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_collection_id: parentCollectionId }),
+    });
+    this._activeActionMenu = '';
+    this._error = '';
+    await this._fetchGlobalFacets();
+    this._requestLoad(this._currentPage(), true);
+    this._render();
+  }
+
+  async _deleteCollection(collectionId, label) {
+    if (!window.confirm('Delete collection "' + String(label || 'Collection') + '"? This only succeeds when it is empty.')) {
+      return;
+    }
+    await this._collectionApiRequest('/api/collections/' + encodeURIComponent(String(collectionId || '').trim()), {
+      method: 'DELETE',
+    });
+    this._activeActionMenu = '';
+    this._error = '';
+    if (this._selectedCollectionKey() === String(collectionId || '').trim().toLowerCase()) {
+      this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: false, render: false });
+    }
+    await this._fetchGlobalFacets();
+    this._requestLoad(1, true);
+    this._render();
   }
 
   _setModelFavoriteState(modelRef, isFavorite) {
@@ -4161,6 +4310,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _renderLeftNavItem(label, key, count, icon) {
     var isActive = false;
     var isFacetFilterItem = false;
+    var isSystemBucket = key === "collection:__unassigned__";
     if (key.indexOf("collection:") === 0) {
       isFacetFilterItem = true;
       isActive = this._selectedCollectionKey() === String(key.slice("collection:".length) || "").trim().toLowerCase();
@@ -4178,7 +4328,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var title = String(label || "").trim();
     return ''
-      + '<button class="left-nav-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(key) + '" aria-label="' + this._escapeHtml(title || key) + '" title="' + this._escapeHtml(title || key) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">'
+      + '<button class="left-nav-item' + (isActive ? ' active' : '') + (isSystemBucket ? ' system-bucket' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(key) + '" aria-label="' + this._escapeHtml(title || key) + '" title="' + this._escapeHtml(title || key) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">'
       + '  <span class="left-nav-item-main">'
       + (icon ? '<ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon>' : '')
       + '    <span class="left-nav-item-label">' + this._escapeHtml(label) + '</span>'
@@ -4424,6 +4574,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (key === "recent-added") return "mdi:clock-plus-outline";
     if (key === "recent-printed") return "mdi:printer-3d-nozzle-outline";
     if (key.indexOf("project:") === 0) return "mdi:clipboard-text-outline";
+    if (this._selectedCollectionKey() === "__unassigned__") return "mdi:folder-remove-outline";
     if (this._selectedCollectionKey()) return "mdi:folder-outline";
     if (this._activeTagFilters().length) return "mdi:tag-outline";
     return "mdi:cube-outline";
@@ -5803,6 +5954,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var browse = this._collectionBrowse && typeof this._collectionBrowse === "object" ? this._collectionBrowse : null;
     var items = browse && Array.isArray(browse.items) ? browse.items : [];
     var breadcrumb = browse && Array.isArray(browse.breadcrumb) ? browse.breadcrumb : [];
+    var currentNode = browse && browse.current_node && typeof browse.current_node === 'object' ? browse.current_node : null;
+    var currentCollectionKey = this._selectedCollectionKey();
     var breadcrumbHtml = "";
     if (breadcrumb.length) {
       var crumbParts = ['<button class="toolbar-btn" type="button" data-action="select-left-nav-item" data-nav-key="all-models">All Collections</button>'];
@@ -5812,6 +5965,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       breadcrumbHtml = '<div class="collection-breadcrumb">' + crumbParts.join('<span class="collection-breadcrumb-sep">/</span>') + '</div>';
     }
+    var headerHtml = this._renderCollectionBrowseHeader(browse, currentNode, currentCollectionKey);
 
     var cards = items.map(function (entry) {
       if (!entry || typeof entry !== "object") {
@@ -5827,26 +5981,128 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var directCount = Math.max(0, Number(node.model_count_direct || 0) || 0);
       var totalCount = Math.max(0, Number(node.model_count_total || 0) || 0);
       var childCount = Math.max(0, Number(node.child_collection_count || 0) || 0);
+      var previewCount = Math.max(0, Number(node.preview_model_count || 0) || 0);
+      var activity = node.recent_print_activity && typeof node.recent_print_activity === 'object' ? node.recent_print_activity : {};
+      var recentPrintCount = Math.max(0, Number(activity.printed_model_count || 0) || 0);
+      var lastPrintedAt = String(activity.last_printed_at || '').trim();
       var coverMosaicHtml = this._renderCollectionCoverMosaic(node);
+      var actionMenuKey = this._collectionMenuKey(collectionId);
+      var actionMenuOpen = !!this._activeActionMenu && this._activeActionMenu === actionMenuKey;
+      var deleteDisabled = totalCount > 0 || childCount > 0;
       return ''
         + '<article class="collection-card">'
+        + '  <div class="collection-card-top">'
+        + '    <div class="collection-card-kicker"><span class="collection-card-type">Collection</span>'
+        + (childCount > 0 ? '<span class="collection-card-kicker-meta">Nested</span>' : '<span class="collection-card-kicker-meta">Leaf</span>')
+        + '    </div>'
+        + '    <div class="advanced-menu-shell">'
+        + '      <button class="icon-action advanced" type="button" data-action="toggle-actions" data-menu-key="' + this._escapeHtml(actionMenuKey) + '" aria-label="Open collection actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
+        + '      <div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
+        + '        <button class="advanced-action primary" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-search-outline"></ha-icon><span>Open collection</span></button>'
+        + '        <button class="advanced-action" type="button" data-action="collection-rename" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '"><ha-icon icon="mdi:pencil-outline"></ha-icon><span>Rename</span></button>'
+        + '        <button class="advanced-action" type="button" data-action="collection-move" data-collection-id="' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-move-outline"></ha-icon><span>Move</span></button>'
+        + '        <button class="advanced-action danger" type="button" data-action="collection-delete" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '"' + (deleteDisabled ? ' disabled title="Collection must be empty before deletion"' : '') + '><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>' + (deleteDisabled ? 'Delete (empty only)' : 'Delete') + '</span></button>'
+        + '      </div>'
+        + '    </div>'
+        + '  </div>'
         + coverMosaicHtml
+        + (previewCount <= 0 ? '  <div class="collection-empty-preview">No preview available yet</div>' : '')
         + '  <div class="collection-name">' + this._escapeHtml(label) + '</div>'
         + (path && path !== label ? '  <div class="collection-meta">' + this._escapeHtml(path) + '</div>' : '')
         + '  <div class="collection-stats">'
-        + '    <div class="collection-stat"><div class="collection-stat-label">Models</div><div class="collection-stat-value">' + this._escapeHtml(String(totalCount)) + '</div></div>'
-        + '    <div class="collection-stat"><div class="collection-stat-label">Sub-collections</div><div class="collection-stat-value">' + this._escapeHtml(String(childCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Total</div><div class="collection-stat-value">' + this._escapeHtml(String(totalCount)) + '</div></div>'
         + '    <div class="collection-stat"><div class="collection-stat-label">Direct</div><div class="collection-stat-value">' + this._escapeHtml(String(directCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Sub-collections</div><div class="collection-stat-value">' + this._escapeHtml(String(childCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Recent prints</div><div class="collection-stat-value">' + this._escapeHtml(String(recentPrintCount)) + '</div></div>'
         + '  </div>'
-        + '  <div class="collection-meta collection-meta-row">' + this._escapeHtml(String(childCount) + (childCount === 1 ? ' sub-collection' : ' sub-collections') + ' · ' + String(directCount) + (directCount === 1 ? ' direct model' : ' direct models')) + '</div>'
+        + '  <div class="collection-meta collection-meta-row">' + this._escapeHtml(String(previewCount) + (previewCount === 1 ? ' previewable model' : ' previewable models') + ' · ' + (lastPrintedAt ? ('Last printed ' + this._formatCollectionDate(lastPrintedAt)) : 'No recent print activity')) + '</div>'
         + '  <button class="toolbar-btn collection-open" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '">Open collection</button>'
         + '</article>';
     }.bind(this)).join("");
 
     if (!cards) {
-      return '<div class="state-row">No collections found for current filters.</div>';
+      return breadcrumbHtml + headerHtml + this._renderCollectionBrowseEmptyState(browse, currentNode, currentCollectionKey);
     }
-    return breadcrumbHtml + cards;
+    return breadcrumbHtml + headerHtml + cards;
+  }
+
+  _renderCollectionBrowseHeader(browse, currentNode, currentCollectionKey) {
+    var resultCounts = browse && browse.result_counts && typeof browse.result_counts === 'object' ? browse.result_counts : {};
+    var collectionCount = Math.max(0, Number(resultCounts.collections || 0) || 0);
+    var modelCount = Math.max(0, Number(resultCounts.models || 0) || 0);
+    var title = 'Collections';
+    var subtitle = 'Browse top-level collections and drill into direct models.';
+    var note = '';
+    var stats = [
+      this._renderCollectionHeaderStat('Collections', collectionCount),
+      this._renderCollectionHeaderStat('Direct models', modelCount),
+    ];
+    if (currentNode) {
+      var activity = currentNode.recent_print_activity && typeof currentNode.recent_print_activity === 'object' ? currentNode.recent_print_activity : {};
+      title = String(currentNode.label || currentNode.name || currentNode.path || 'Collection').trim() || 'Collection';
+      subtitle = String(currentNode.path || title).trim();
+      if (Number(currentNode.model_count_direct || 0) <= 0 && Number(currentNode.child_collection_count || 0) > 0) {
+        note = 'Only sub-collections are in this layer right now.';
+      } else if (Number(currentNode.model_count_total || 0) <= 0) {
+        note = 'This collection is empty.';
+      }
+      stats = [
+        this._renderCollectionHeaderStat('Total models', currentNode.model_count_total || 0),
+        this._renderCollectionHeaderStat('Direct models', currentNode.model_count_direct || 0),
+        this._renderCollectionHeaderStat('Sub-collections', currentNode.child_collection_count || 0),
+        this._renderCollectionHeaderStat('Recent prints', activity.printed_model_count || 0),
+      ];
+    } else if (currentCollectionKey === '__unassigned__') {
+      title = 'No Collection';
+      subtitle = 'System bucket for models that do not belong to any collection.';
+      note = modelCount > 0 ? 'These models can be assigned from the popup collection editor.' : 'No unassigned models match the current filters.';
+      stats = [
+        this._renderCollectionHeaderStat('Models', modelCount),
+        this._renderCollectionHeaderStat('Collections', collectionCount),
+      ];
+    }
+    return ''
+      + '<section class="collection-browser-header' + (currentCollectionKey === '__unassigned__' ? ' system-bucket' : '') + '">'
+      + '  <div class="collection-browser-header-copy">'
+      + '    <div class="collection-browser-header-kicker">' + this._escapeHtml(currentCollectionKey === '__unassigned__' ? 'System Bucket' : (currentNode ? 'Collection View' : 'Collections Overview')) + '</div>'
+      + '    <div class="collection-browser-header-title">' + this._escapeHtml(title) + '</div>'
+      + '    <div class="collection-browser-header-subtitle">' + this._escapeHtml(subtitle) + '</div>'
+      + (note ? '<div class="collection-browser-header-note">' + this._escapeHtml(note) + '</div>' : '')
+      + '  </div>'
+      + '  <div class="collection-browser-header-stats">' + stats.join('') + '</div>'
+      + '</section>';
+  }
+
+  _renderCollectionHeaderStat(label, value) {
+    return '<div class="collection-header-stat"><div class="collection-header-stat-label">' + this._escapeHtml(String(label || '')) + '</div><div class="collection-header-stat-value">' + this._escapeHtml(String(Math.max(0, Number(value || 0) || 0))) + '</div></div>';
+  }
+
+  _renderCollectionBrowseEmptyState(browse, currentNode, currentCollectionKey) {
+    if (currentCollectionKey === '__unassigned__') {
+      return '<div class="state-row">No unassigned models match the current filters.</div>';
+    }
+    if (currentNode) {
+      if (Number(currentNode.child_collection_count || 0) > 0 && Number(currentNode.model_count_direct || 0) <= 0) {
+        return '<div class="state-row">No direct models in this collection yet. Browse the sub-collections above.</div>';
+      }
+      if (Number(currentNode.model_count_total || 0) > 0 && Number(currentNode.preview_model_count || 0) <= 0) {
+        return '<div class="state-row">Models exist in this collection, but none currently expose preview media.</div>';
+      }
+      return '<div class="state-row">This collection has no visible sub-collections or direct models for the current filters.</div>';
+    }
+    return '<div class="state-row">No collections found for current filters.</div>';
+  }
+
+  _formatCollectionDate(value) {
+    var raw = String(value || '').trim();
+    if (!raw) {
+      return 'recently';
+    }
+    var parsed = new Date(raw);
+    if (!Number.isFinite(parsed.getTime())) {
+      return raw;
+    }
+    return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   _renderCollectionCoverMosaic(node) {
@@ -6575,6 +6831,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-item{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}'
       + '.left-nav-item:hover,.left-nav-item:focus-visible{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.36);outline:none;}'
       + '.left-nav-item.active{background:var(--accent);border-color:var(--accent-strong);}'
+      + '.left-nav-item.system-bucket{background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.24);}'
+      + '.left-nav-item.system-bucket:hover,.left-nav-item.system-bucket:focus-visible{background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.36);}'
+      + '.left-nav-item.system-bucket.active{background:rgba(245,158,11,0.24);border-color:rgba(245,158,11,0.44);}'
       + '.left-nav-tree{display:grid;gap:4px;}'
       + '.left-nav-tree-node{display:grid;gap:4px;}'
       + '.left-nav-tree-children{display:grid;gap:4px;}'
@@ -6714,19 +6973,37 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.working-thumb ha-icon{--mdc-icon-size:38px;color:#7dd3fc;}'
       + '.results.media-hidden .thumb-wrap,.results.media-hidden .media-wrap,.results.media-hidden .list-wrap{display:none !important;}'
       + '.results.media-hidden .model-card.view-compact,.results.media-hidden .model-card.view-list{grid-template-columns:1fr;}'
+      + '.collection-browser-header{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.5fr) auto;gap:14px;padding:16px 18px;border-radius:20px;border:1px solid rgba(56,189,248,0.18);background:radial-gradient(circle at top left,rgba(56,189,248,0.14),transparent 40%),linear-gradient(180deg,rgba(15,23,42,0.24),rgba(15,23,42,0.12));box-shadow:0 10px 28px rgba(15,23,42,0.16);}'
+      + '.collection-browser-header.system-bucket{border-color:rgba(245,158,11,0.24);background:radial-gradient(circle at top left,rgba(245,158,11,0.16),transparent 42%),linear-gradient(180deg,rgba(15,23,42,0.24),rgba(15,23,42,0.12));}'
+      + '.collection-browser-header-copy{display:grid;gap:6px;min-width:0;}'
+      + '.collection-browser-header-kicker{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#7dd3fc;}'
+      + '.collection-browser-header.system-bucket .collection-browser-header-kicker{color:#fbbf24;}'
+      + '.collection-browser-header-title{font-size:22px;font-weight:900;line-height:1.1;color:var(--primary-text-color);}'
+      + '.collection-browser-header-subtitle{font-size:12px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+      + '.collection-browser-header-note{font-size:12px;color:var(--primary-text-color);opacity:.88;}'
+      + '.collection-browser-header-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;min-width:min(100%,320px);}'
+      + '.collection-header-stat{padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.18);min-width:0;}'
+      + '.collection-header-stat-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.collection-header-stat-value{margin-top:4px;font-size:20px;font-weight:900;line-height:1;color:var(--primary-text-color);}'
       + '.collection-card{display:grid;gap:10px;padding:14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.24),rgba(15,23,42,0.12));box-shadow:0 8px 22px rgba(15,23,42,0.16);align-content:start;}'
       + '.collection-breadcrumb{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;}'
       + '.collection-breadcrumb-sep{font-size:12px;color:var(--secondary-text-color);}'
+      + '.collection-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}'
+      + '.collection-card-kicker{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}'
+      + '.collection-card-type,.collection-card-kicker-meta{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.16);font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;}'
+      + '.collection-card-type{background:rgba(56,189,248,0.14);border-color:rgba(56,189,248,0.24);color:#bae6fd;}'
+      + '.collection-card-kicker-meta{background:rgba(148,163,184,0.10);color:var(--secondary-text-color);}'
       + '.collection-mosaic{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.collection-mosaic-tile{position:relative;aspect-ratio:4/3;overflow:hidden;border-radius:12px;background:rgba(15,23,42,0.26);border:1px solid rgba(148,163,184,0.16);display:flex;align-items:center;justify-content:center;}'
       + '.collection-mosaic-tile img{width:100%;height:100%;object-fit:cover;display:block;}'
       + '.collection-mosaic-tile img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;}'
       + '.collection-mosaic-tile.empty{background:linear-gradient(180deg,rgba(30,41,59,0.55),rgba(15,23,42,0.28));}'
       + '.collection-mosaic-tile.empty ha-icon{--mdc-icon-size:24px;color:rgba(148,163,184,0.72);}'
+      + '.collection-empty-preview{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.collection-name{font-size:15px;font-weight:800;line-height:1.25;}'
       + '.collection-meta{font-size:12px;color:var(--secondary-text-color);}'
       + '.collection-meta-row{padding-top:2px;}'
-      + '.collection-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}'
+      + '.collection-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}'
       + '.collection-stat{padding:9px 10px;border-radius:12px;background:rgba(15,23,42,0.18);border:1px solid rgba(148,163,184,0.14);min-width:0;}'
       + '.collection-stat-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.collection-stat-value{font-size:18px;font-weight:800;line-height:1.15;color:var(--primary-text-color);}'
@@ -6879,6 +7156,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.advanced-menu{position:absolute;top:40px;right:0;z-index:4;display:none;gap:8px;min-width:220px;padding:10px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 18px 34px rgba(15,23,42,0.28);}'
       + '.advanced-menu.is-open{display:grid;}'
       + '.advanced-action{justify-content:flex-start;width:100%;padding:0 12px;border-radius:12px;background:rgba(148,163,184,0.10);}'
+      + '.advanced-action:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}'
       + '.advanced-action.primary{background:rgba(96,165,250,0.14);border-color:rgba(96,165,250,0.26);}'
       + '.advanced-action.danger{background:rgba(185,28,28,0.14);border-color:rgba(185,28,28,0.26);color:#f87171;}'
       + '.advanced-action.danger:hover,.advanced-action.danger:focus-visible{background:rgba(185,28,28,0.24);border-color:rgba(185,28,28,0.44);color:#fca5a5;}'
@@ -6932,7 +7210,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}.collection-browser-header{grid-template-columns:1fr;}.collection-browser-header-stats{min-width:0;}.collection-stats{grid-template-columns:repeat(2,minmax(0,1fr));}}'
       + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
       + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'
       + '.model-card.is-selected{border-color:var(--accent-strong);background:linear-gradient(180deg,rgba(96,165,250,0.12),rgba(96,165,250,0.06));}'
@@ -6959,7 +7237,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-source-select:hover{background:var(--surface-3);border-color:var(--accent);}'
       + '.page-control-strip.multi-select-active .bulk-source-select:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
       + '@media (max-width: 900px){.catalog-layout{grid-template-columns:minmax(0,1fr);}.toolbar-icon-btn.left-nav-toggle{display:inline-flex;}.nav-context-chip{display:inline-flex;}.left-nav{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);max-height:none;border-radius:0 16px 16px 0;z-index:20;transform:translateX(-110%);transition:transform 180ms ease;box-shadow:0 18px 44px rgba(2,6,23,0.46);background:var(--card-background-color, #1e293b);gap:6px;padding:14px 12px;border-left:none;align-content:start;}.left-nav .left-nav-section{gap:4px;}.left-nav .left-nav-section + .left-nav-section{padding-top:8px;}.left-nav .left-nav-item{min-height:32px;}.left-nav.drawer-open{transform:translateX(0);}.left-nav.collapsed{width:min(320px,84vw);padding:12px;}.left-nav.collapsed .left-nav-title-wrap{display:flex;}.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:initial;}.left-nav.collapsed .left-nav-item{justify-content:space-between;padding:0 8px;}.left-nav.collapsed .left-nav-collapse{position:static;opacity:1;pointer-events:auto;}.left-nav-backdrop{display:block;position:fixed;inset:0;z-index:19;border:0;background:rgba(2,6,23,0.55);opacity:0;pointer-events:none;transition:opacity 180ms ease;}.left-nav-backdrop.open{opacity:1;pointer-events:auto;}}'
-      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.card-title{display:none;}.nav-context-chip{max-width:min(180px,40vw);}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
+      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.card-title{display:none;}.nav-context-chip{max-width:min(180px,40vw);}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}.collection-browser-header-title{font-size:18px;}.collection-browser-header-subtitle{white-space:normal;}.collection-card-top{align-items:center;}.collection-stats{grid-template-columns:1fr 1fr;}}';
       this._contentRoot = document.createElement('ha-card');
       this.shadowRoot.textContent = '';
       this.shadowRoot.appendChild(this._persistentStyle);

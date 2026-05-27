@@ -833,6 +833,10 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
                 str(nodes_by_id[child_id]["collection_id"] or ""),
             ),
         )
+        activity_summary = _collection_activity_summary(
+            model_refs=node["model_refs_total"],
+            payloads_by_model_ref=payloads_by_model_ref,
+        )
         nodes.append(
             {
                 "collection_id": node["collection_id"],
@@ -847,6 +851,8 @@ def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict
                 "model_count_total": len(node["model_refs_total"]),
                 "child_collection_count": len(child_ids),
                 "child_collection_ids": child_ids,
+                "preview_model_count": int(activity_summary["preview_model_count"]),
+                "recent_print_activity": activity_summary["recent_print_activity"],
                 "cover_images": _collection_cover_images(
                     model_refs=node["model_refs_total"],
                     payloads_by_model_ref=payloads_by_model_ref,
@@ -911,6 +917,37 @@ def _collection_cover_images(
             }
         )
     return cover_images
+
+
+def _collection_activity_summary(
+    *,
+    model_refs: set[str],
+    payloads_by_model_ref: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    preview_model_count = 0
+    printed_model_count = 0
+    latest_printed_at: str | None = None
+    latest_printed_at_dt: datetime | None = None
+    for model_ref in model_refs:
+      payload = payloads_by_model_ref.get(str(model_ref or "").strip())
+      if not payload:
+          continue
+      if str(payload.get("preview_url") or "").strip():
+          preview_model_count += 1
+      parsed_last_printed_at = _parse_iso_datetime(str(payload.get("last_printed_at") or "").strip())
+      if parsed_last_printed_at is None:
+          continue
+      printed_model_count += 1
+      if latest_printed_at_dt is None or parsed_last_printed_at > latest_printed_at_dt:
+          latest_printed_at_dt = parsed_last_printed_at
+          latest_printed_at = parsed_last_printed_at.isoformat().replace("+00:00", "Z")
+    return {
+        "preview_model_count": int(preview_model_count),
+        "recent_print_activity": {
+            "printed_model_count": int(printed_model_count),
+            "last_printed_at": latest_printed_at,
+        },
+    }
 
 
 def _collection_cover_sort_key(payload: dict[str, Any]) -> tuple[int, float, str, str]:
