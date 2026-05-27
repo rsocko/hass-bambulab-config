@@ -4006,6 +4006,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return "all-models";
   }
 
+  _activeContextLabel() {
+    var key = this._leftNavSelectedKey || "all-models";
+    if (key === "favorites") return "Favorites";
+    if (key === "frequents") return "Frequents";
+    if (key === "recent-added") return "Recently added";
+    if (key === "recent-printed") return "Recently printed";
+    var selectedCollection = this._selectedCollectionKey();
+    var activeTags = this._activeTagFilters();
+    if (selectedCollection && activeTags.length) {
+      return this._displayCollectionLabel(selectedCollection) + " + " + activeTags.length + " tag" + (activeTags.length > 1 ? "s" : "");
+    }
+    if (selectedCollection) {
+      return this._displayCollectionLabel(selectedCollection);
+    }
+    if (activeTags.length === 1) {
+      return this._displayTagLabel(activeTags[0]);
+    }
+    if (activeTags.length > 1) {
+      return activeTags.length + " tags";
+    }
+    return "All models";
+  }
+
+  _activeContextIcon() {
+    var key = this._leftNavSelectedKey || "all-models";
+    if (key === "favorites") return "mdi:star-outline";
+    if (key === "frequents") return "mdi:lightning-bolt-outline";
+    if (key === "recent-added") return "mdi:clock-plus-outline";
+    if (key === "recent-printed") return "mdi:printer-3d-nozzle-outline";
+    if (this._selectedCollectionKey()) return "mdi:folder-outline";
+    if (this._activeTagFilters().length) return "mdi:tag-outline";
+    return "mdi:cube-outline";
+  }
+
   _syncLeftNavSelectionFromFilters() {
     this._leftNavSelectedKey = this._deriveLeftNavKeyFromFilters();
   }
@@ -4301,6 +4335,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="title-row">'
       + '  <div class="title-left">'
       + '    <button class="toolbar-icon-btn left-nav-toggle" type="button" data-action="toggle-left-nav-drawer" aria-label="Toggle catalog navigation" aria-expanded="' + (this._leftNavDrawerOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:menu"></ha-icon></button>'
+      + '    <button class="nav-context-chip" type="button" data-action="toggle-left-nav-drawer" aria-label="Current view: ' + this._escapeHtml(this._activeContextLabel()) + '"><ha-icon icon="' + this._escapeHtml(this._activeContextIcon()) + '"></ha-icon><span class="nav-context-label">' + this._escapeHtml(this._activeContextLabel()) + '</span><ha-icon icon="mdi:chevron-down" class="nav-context-caret"></ha-icon></button>'
       + '    <div class="card-title">' + this._escapeHtml(this._config.title) + '</div>'
       + '  </div>'
       + '  <div class="title-right">'
@@ -6045,6 +6080,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-type-count{font-size:11px;font-weight:700;color:var(--secondary-text-color);}'
       + '.left-nav-empty{font-size:11px;color:var(--secondary-text-color);padding:6px 8px;border:1px dashed rgba(148,163,184,0.26);border-radius:8px;}'
       + '.toolbar-icon-btn.left-nav-toggle{display:none;}'
+      + '.nav-context-chip{display:none;align-items:center;gap:6px;height:34px;padding:0 10px 0 8px;border-radius:10px;border:1px solid var(--chip-line);background:var(--chip-bg);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;transition:background 120ms ease,border-color 120ms ease;}'
+      + '.nav-context-chip:hover,.nav-context-chip:focus-visible{background:rgba(148,163,184,0.22);border-color:rgba(148,163,184,0.4);outline:none;}'
+      + '.nav-context-chip ha-icon{--mdc-icon-size:16px;flex-shrink:0;}'
+      + '.nav-context-chip .nav-context-caret{--mdc-icon-size:14px;opacity:.6;}'
+      + '.nav-context-label{overflow:hidden;text-overflow:ellipsis;}'
       + '.left-nav.collapsed .left-nav-title-wrap{display:none;}'
       + '.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count,.left-nav.collapsed .left-nav-type-label,.left-nav.collapsed .left-nav-type-count{display:none;}'
       + '.left-nav.collapsed .left-nav-title-wrap,.left-nav.collapsed .left-nav-item-main{justify-content:center;}'
@@ -6389,8 +6429,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-source-select{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;appearance:auto;-webkit-appearance:auto;color-scheme:dark;}'
       + '.page-control-strip.multi-select-active .bulk-source-select:hover{background:var(--surface-3);border-color:var(--accent);}'
       + '.page-control-strip.multi-select-active .bulk-source-select:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
-      + '@media (max-width: 900px){.catalog-layout{grid-template-columns:minmax(0,1fr);}.toolbar-icon-btn.left-nav-toggle{display:inline-flex;}.left-nav{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);max-height:none;border-radius:0 16px 16px 0;z-index:20;transform:translateX(-110%);transition:transform 180ms ease;box-shadow:0 18px 44px rgba(2,6,23,0.46);}.left-nav.drawer-open{transform:translateX(0);}.left-nav.collapsed{width:min(320px,84vw);padding:12px;}.left-nav.collapsed .left-nav-title-wrap{display:flex;}.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:initial;}.left-nav.collapsed .left-nav-item{justify-content:space-between;padding:0 8px;}.left-nav.collapsed .left-nav-collapse{position:static;opacity:1;pointer-events:auto;}.left-nav-backdrop{display:block;position:fixed;inset:0;z-index:19;border:0;background:rgba(2,6,23,0.55);opacity:0;pointer-events:none;transition:opacity 180ms ease;}.left-nav-backdrop.open{opacity:1;pointer-events:auto;}}'
-      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
+      + '@media (max-width: 900px){.catalog-layout{grid-template-columns:minmax(0,1fr);}.toolbar-icon-btn.left-nav-toggle{display:inline-flex;}.nav-context-chip{display:inline-flex;}.left-nav{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);max-height:none;border-radius:0 16px 16px 0;z-index:20;transform:translateX(-110%);transition:transform 180ms ease;box-shadow:0 18px 44px rgba(2,6,23,0.46);}.left-nav.drawer-open{transform:translateX(0);}.left-nav.collapsed{width:min(320px,84vw);padding:12px;}.left-nav.collapsed .left-nav-title-wrap{display:flex;}.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:initial;}.left-nav.collapsed .left-nav-item{justify-content:space-between;padding:0 8px;}.left-nav.collapsed .left-nav-collapse{position:static;opacity:1;pointer-events:auto;}.left-nav-backdrop{display:block;position:fixed;inset:0;z-index:19;border:0;background:rgba(2,6,23,0.55);opacity:0;pointer-events:none;transition:opacity 180ms ease;}.left-nav-backdrop.open{opacity:1;pointer-events:auto;}}'
+      + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.card-title{display:none;}.nav-context-chip{max-width:min(180px,40vw);}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}';
       this._contentRoot = document.createElement('ha-card');
       this.shadowRoot.textContent = '';
       this.shadowRoot.appendChild(this._persistentStyle);
