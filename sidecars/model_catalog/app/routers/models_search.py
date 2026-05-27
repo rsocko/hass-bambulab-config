@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from ..services.model_search_service import (
+    get_facets_service,
     get_model_ranking_service,
     get_related_models_service,
     list_models_service,
@@ -46,6 +47,21 @@ def list_models(
         frequents_only=frequents_only,
         show_archived=show_archived,
         sort=sort,
+    )
+
+
+@router.get("/api/facets")
+def get_facets(
+    request: Request,
+    entity_types: str | None = None,
+    show_archived: bool = False,
+    show_ideas: bool = True,
+) -> dict[str, Any]:
+    return get_facets_service(
+        request,
+        entity_types=entity_types,
+        show_archived=show_archived,
+        show_ideas=show_ideas,
     )
 
 

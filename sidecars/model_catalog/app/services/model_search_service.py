@@ -119,3 +119,19 @@ def get_model_ranking_service(request: Request, model_ref: str) -> dict[str, Any
     from ..routers import models as models_router
 
     return models_router.get_model_ranking_endpoint(request, model_ref=model_ref)
+
+
+def get_facets_service(
+    request: Request,
+    entity_types: str | None = None,
+    show_archived: bool = False,
+    show_ideas: bool = True,
+) -> dict[str, Any]:
+    from ..routers import models as models_router
+
+    return models_router.get_facets(
+        request,
+        entity_types=entity_types,
+        show_archived=show_archived,
+        show_ideas=show_ideas,
+    )

@@ -46,6 +46,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._visibilityCounts = { active: 0, archived: 0 };
     this._serverEntityTypeCounts = { model: 0, idea: 0 };
     this._facetCounts = { collections: [], tags: [] };
+    this._globalFacets = null;
+    this._globalFacetsLoading = false;
     this._projects = [];
     this._projectsLoaded = false;
     this._projectsError = "";
@@ -53,9 +55,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       model: true,
       idea: false,
       working: false,
-    };
-    this._entityTypeFilters = {
-      showIdeas: false,
     };
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
@@ -371,6 +370,41 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return links;
   }
 
+  async _fetchGlobalFacets() {
+    if (this._globalFacetsLoading) {
+      return;
+    }
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      return;
+    }
+    this._globalFacetsLoading = true;
+    try {
+      var params = new URLSearchParams();
+      params.set("entity_types", "model,idea");
+      params.set("show_archived", "false");
+      params.set("show_ideas", "true");
+      var resp = await fetch(sidecarUrl + "/api/facets?" + params.toString());
+      if (!resp.ok) {
+        return;
+      }
+      var data = await resp.json();
+      if (data && data.success && data.facet_counts) {
+        this._globalFacets = {
+          collections: Array.isArray(data.facet_counts.collections) ? data.facet_counts.collections : [],
+          tags: Array.isArray(data.facet_counts.tags) ? data.facet_counts.tags : [],
+          entity_type_counts: data.entity_type_counts || {},
+          total: Number(data.total || 0),
+        };
+        this._doRender();
+      }
+    } catch (_e) {
+      // Silently fall back to search-scoped facets
+    } finally {
+      this._globalFacetsLoading = false;
+    }
+  }
+
   async _createIdeaEntity(ideaDraft) {
     var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
     if (!sidecarUrl) {
@@ -461,7 +495,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
         sketch_image: String(this._ideaCreateDraft.sketchUrl || "").trim(),
       });
       var ideaRef = String((created && (created.local_model_id || (created.summary && created.summary.model_ref) || "")) || "").trim();
-      this._entityTypeFilters.showIdeas = true;
       this._typeFilters.idea = true;
       this._activeActionMenu = "";
       this._error = "";
@@ -604,6 +637,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!hadHass && !this._hasAttemptedLoad && !this._loading && !this._error) {
       this._hasAttemptedLoad = true;
       this._didInitialRender = true;
+      this._fetchGlobalFacets();
       this._requestLoad(1, this._isScopeStale());
     } else if (!hadHass || !this._didInitialRender) {
       this._didInitialRender = true;
@@ -914,25 +948,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     };
 
     this._filters.q = read("#mc-q");
-    if (root.querySelector("#mc-collection")) {
-      this._filters.collection = read("#mc-collection");
-    }
     this._filters.creator = read("#mc-creator");
-    if (root.querySelector("#mc-tag")) {
-      this._setActiveTagFilters(read("#mc-tag"));
-    }
     this._filters.sort = read("#mc-sort") || "recent";
     var perPageTop = Number(read("#mc-per-page") || 0);
     var perPageBottom = Number(read("#mc-per-page-bottom") || 0);
     var perPage = Number.isFinite(perPageTop) && perPageTop > 0 ? perPageTop : perPageBottom;
     if (Number.isFinite(perPage) && perPage > 0) {
       this._pagination.per_page = Math.max(1, Math.min(96, perPage));
-    }
-    if (root.querySelector("#mc-favorites-only")) {
-      this._filters.favorites_only = !!(root.querySelector("#mc-favorites-only") && root.querySelector("#mc-favorites-only").checked);
-    }
-    if (root.querySelector("#mc-frequents-only")) {
-      this._filters.frequents_only = !!(root.querySelector("#mc-frequents-only") && root.querySelector("#mc-frequents-only").checked);
     }
     this._filters.has_other_files = !!(root.querySelector("#mc-has-other-files") && root.querySelector("#mc-has-other-files").checked);
     this._filters.show_archived = !!(root.querySelector("#mc-show-archived") && root.querySelector("#mc-show-archived").checked);
@@ -1755,7 +1777,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
 
       this._typeFilters[typeKey] = nextChecked;
-      this._entityTypeFilters.showIdeas = !!this._typeFilters.idea;
 
       if (this._browserScope === "working") {
         this._browserScope = "models";
@@ -1858,7 +1879,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
         if (nextScope === "models" && !this._typeFilters.model && !this._typeFilters.idea) {
           this._typeFilters.model = true;
         }
-        this._entityTypeFilters.showIdeas = !!this._typeFilters.idea;
         this._requestLoad(1, false);
       }
       return;
@@ -1925,18 +1945,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === "toggle-show-archived-filter") {
       this._filters.show_archived = !this._filters.show_archived;
       this._cancelScheduledApply();
-      this._requestLoad(1, false);
-      this._render();
-      return;
-    }
-
-    if (action === "toggle-show-ideas-filter") {
-      this._entityTypeFilters.showIdeas = !this._entityTypeFilters.showIdeas;
-      this._typeFilters.idea = !!this._entityTypeFilters.showIdeas;
-      if (!this._typeFilters.model && !this._typeFilters.idea && !this._typeFilters.working) {
-        this._typeFilters.model = true;
-      }
-      this._syncLeftNavSelectionFromFilters();
       this._requestLoad(1, false);
       this._render();
       return;
@@ -3972,9 +3980,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _leftNavTopCollections(limit) {
     var max = Math.max(1, Number(limit || 6));
-    var serverCollections = this._facetCounts && Array.isArray(this._facetCounts.collections)
-      ? this._facetCounts.collections
-      : [];
+    var serverCollections = this._globalFacets && Array.isArray(this._globalFacets.collections)
+      ? this._globalFacets.collections
+      : (this._facetCounts && Array.isArray(this._facetCounts.collections)
+        ? this._facetCounts.collections
+        : []);
     if (serverCollections.length) {
       var serverEntries = [];
       for (var s = 0; s < serverCollections.length; s++) {
@@ -6311,10 +6321,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.filter-chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:12px;font-weight:800;cursor:pointer;appearance:none;pointer-events:auto;position:relative;z-index:1;}'
       + '.filter-chip:hover,.filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'
       + '.filter-chip.active{color:var(--primary-text-color);}'
-      + '.filter-chip.favorite.active{background:rgba(245,194,66,0.20);border-color:rgba(245,194,66,0.48);color:#f5c242;}'
-      + '.filter-chip.frequent.active{background:rgba(16,185,129,0.20);border-color:rgba(16,185,129,0.44);color:#6ee7b7;}'
       + '.filter-chip.docs.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.34);color:#93c5fd;}'
-      + '.filter-chip.idea.active{background:rgba(250,204,21,0.20);border-color:rgba(250,204,21,0.44);color:#fde68a;}'
       + '.filter-chip.archived.active{background:rgba(148,163,184,0.20);border-color:rgba(148,163,184,0.44);color:#cbd5e1;}'
       + '.page-control-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);}'
       + '.toolbar-group{display:inline-flex;align-items:center;gap:8px;min-width:0;}'
@@ -6554,7 +6561,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
-      + '@media (max-width: 1200px){.filter-row{grid-template-columns:minmax(180px,1fr) minmax(150px,1fr) auto auto auto auto auto;}}'
       + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}}'
       + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
       + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'

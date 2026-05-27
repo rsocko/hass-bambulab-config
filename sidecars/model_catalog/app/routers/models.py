@@ -3988,6 +3988,199 @@ def search_models(
 
     return response_payload
 
+
+# ---------------------------------------------------------------------------
+# Standalone facets endpoint (#1591)
+# ---------------------------------------------------------------------------
+
+
+def get_facets(
+    request: Request,
+    *,
+    entity_types: str | None = None,
+    show_archived: bool = False,
+    show_ideas: bool = True,
+) -> dict[str, Any]:
+    """Return global facet counts for the model catalog.
+
+    Unlike the inline facets in search results (which reflect the active
+    search context), this endpoint returns *stable* counts scoped only by
+    entity-type and visibility.  The left-nav uses this for its navigation
+    tree so that collection/tag counts remain consistent regardless of
+    whatever search query the user currently has active.
+    """
+    state: AppState = request.app.state.model_catalog
+    client: object = request.app.state.catalog_client
+
+    _refresh_search_projection_if_needed(
+        request=request,
+        settings=state.settings,
+        client=client,
+        refresh=False,
+    )
+
+    allowed_entity_types = _normalize_model_search_entity_types(entity_types)
+
+    # ── scope WHERE (entity-type + visibility) ───────────────────────
+    scope_clauses: list[str] = []
+    scope_params: list[Any] = []
+
+    if allowed_entity_types is not None:
+        placeholders = ",".join(["?"] * len(allowed_entity_types))
+        scope_clauses.append(f"p.entity_type IN ({placeholders})")
+        scope_params.extend(allowed_entity_types)
+    elif not show_ideas:
+        scope_clauses.append("p.entity_type <> 'idea'")
+
+    if not show_archived:
+        scope_clauses.append("p.catalog_visibility <> 'archived'")
+
+    scope_where = ""
+    if scope_clauses:
+        scope_where = "WHERE " + " AND ".join(f"({c})" for c in scope_clauses)
+
+    def _append(base_where: str, clause: str) -> str:
+        if base_where:
+            return base_where + f" AND ({clause})"
+        return "WHERE (" + clause + ")"
+
+    # ── visibility-only WHERE (for entity-type counts) ───────────────
+    vis_clauses: list[str] = []
+    if not show_archived:
+        vis_clauses.append("p.catalog_visibility <> 'archived'")
+    vis_where = ("WHERE " + " AND ".join(f"({c})" for c in vis_clauses)) if vis_clauses else ""
+
+    connection = connect(str(state.settings.db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        # entity-type counts (visibility-scoped, NOT entity-type-scoped)
+        entity_rows = connection.execute(
+            f"""
+            SELECT p.entity_type, COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {vis_where}
+            GROUP BY p.entity_type
+            """,
+        ).fetchall()
+
+        # total (full scope)
+        total_row = connection.execute(
+            f"""
+            SELECT COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {scope_where}
+            """,
+            scope_params,
+        ).fetchone()
+
+        # collection facets
+        coll_where = _append(
+            scope_where,
+            "TRIM(CAST(c.value AS TEXT)) <> '' AND LOWER(TRIM(CAST(c.value AS TEXT))) <> 'none'",
+        )
+        collection_rows = connection.execute(
+            f"""
+            SELECT
+                LOWER(TRIM(CAST(c.value AS TEXT))) AS facet_key,
+                MIN(TRIM(CAST(c.value AS TEXT))) AS facet_label,
+                COUNT(DISTINCT p.model_ref) AS cnt
+            FROM model_catalog_search_projection p
+            JOIN json_each(p.collection_names_json) c
+            {coll_where}
+            GROUP BY facet_key
+            """,
+            scope_params,
+        ).fetchall()
+
+        # unassigned count
+        unassigned_row = connection.execute(
+            f"""
+            SELECT COUNT(*) AS cnt
+            FROM model_catalog_search_projection p
+            {_append(
+                scope_where,
+                "NOT EXISTS (SELECT 1 FROM json_each(p.collection_names_json) c "
+                "WHERE TRIM(CAST(c.value AS TEXT)) <> '' "
+                "AND LOWER(TRIM(CAST(c.value AS TEXT))) <> 'none')",
+            )}
+            """,
+            scope_params,
+        ).fetchone()
+
+        # tag facets
+        tag_where = _append(scope_where, "TRIM(CAST(k.value AS TEXT)) <> ''")
+        tag_rows = connection.execute(
+            f"""
+            SELECT
+                LOWER(TRIM(CAST(k.value AS TEXT))) AS facet_key,
+                MIN(TRIM(CAST(k.value AS TEXT))) AS facet_label,
+                COUNT(DISTINCT p.model_ref) AS cnt
+            FROM model_catalog_search_projection p
+            JOIN json_each(p.keyword_names_json) k
+            {tag_where}
+            GROUP BY facet_key
+            """,
+            scope_params,
+        ).fetchall()
+    finally:
+        connection.close()
+
+    # ── assemble entity-type counts ──────────────────────────────────
+    entity_type_counts: dict[str, int] = {"model": 0, "idea": 0}
+    for row in entity_rows:
+        key = str(row["entity_type"] or "model")
+        entity_type_counts[key] = int(row["cnt"] or 0)
+
+    total = int(total_row["cnt"] if total_row is not None else 0)
+    unassigned_count = int(unassigned_row["cnt"] if unassigned_row is not None else 0)
+
+    # ── collection facets list ───────────────────────────────────────
+    collection_facets: list[dict[str, Any]] = []
+    if unassigned_count > 0:
+        collection_facets.append(
+            {"key": COLLECTION_FILTER_UNASSIGNED, "label": "Unassigned", "count": unassigned_count}
+        )
+    for row in collection_rows:
+        key = str(row["facet_key"] or "").strip().lower()
+        if not key:
+            continue
+        collection_facets.append(
+            {"key": key, "label": str(row["facet_label"] or key), "count": int(row["cnt"] or 0)}
+        )
+    collection_facets.sort(
+        key=lambda item: (-int(item.get("count") or 0), str(item.get("label") or item.get("key") or ""))
+    )
+
+    # ── tag facets list ──────────────────────────────────────────────
+    tag_facets: list[dict[str, Any]] = []
+    for row in tag_rows:
+        key = str(row["facet_key"] or "").strip().lower()
+        if not key:
+            continue
+        tag_facets.append(
+            {"key": key, "label": str(row["facet_label"] or key), "count": int(row["cnt"] or 0)}
+        )
+    tag_facets.sort(
+        key=lambda item: (-int(item.get("count") or 0), str(item.get("label") or item.get("key") or ""))
+    )
+
+    return {
+        "success": True,
+        "contract": "facets.v1",
+        "facet_counts": {
+            "collections": collection_facets,
+            "tags": tag_facets,
+        },
+        "entity_type_counts": entity_type_counts,
+        "total": total,
+        "scope": {
+            "entity_types": list(allowed_entity_types) if allowed_entity_types is not None else None,
+            "show_archived": bool(show_archived),
+            "show_ideas": bool(show_ideas),
+        },
+    }
+
+
 # ==================== Local Model CRUD (Phase 1) ====================
 # These endpoints manage models created locally, not imported from external catalog.
 # Local models use local:// scheme and are stored in local SQLite authority.
