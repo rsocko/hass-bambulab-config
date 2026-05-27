@@ -4559,7 +4559,7 @@ class ModelDetailPopupCard extends HTMLElement {
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
     const isIdea = this._getEntityType(model) === 'idea';
     const selectedCollections = this._selectedCollectionMemberships();
-    const collectionLabels = this._modelMetaEditOpen && !isIdea
+    const collectionLabels = this._modelMetaEditOpen
       ? selectedCollections.map((item) => item.path || item.name || item.collection_id)
       : (Array.isArray(model.collection_names) ? model.collection_names : []);
 
@@ -4567,19 +4567,19 @@ class ModelDetailPopupCard extends HTMLElement {
       <section class="card" data-slot="hero-right:summary">
         <div class="h">
           <span>Summary</span>
-          ${isIdea ? '' : `<span>
+          <span>
             ${this._modelMetaEditOpen
               ? `<button class="action-button ghost" data-action="model-edit-cancel" ${this._modelMetaSaving || this._modelMetaLoading ? 'disabled' : ''}>Cancel</button>
                  <button class="action-button" data-action="model-edit-save" ${this._modelMetaSaving || this._modelMetaLoading ? 'disabled' : ''}>${this._modelMetaSaving ? 'Saving...' : 'Save'}</button>`
               : '<button class="action-button ghost" data-action="model-edit-start">Edit</button>'}
-          </span>`}
+          </span>
         </div>
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
-            ${this._modelMetaEditOpen && !isIdea ? `
+            ${this._modelMetaEditOpen ? `
               <div class="summary-edit-grid">
                 <label>
-                  <span>Model Name</span>
+                  <span>${isIdea ? 'Idea Name' : 'Model Name'}</span>
                   <input id="model-meta-name" class="summary-input" type="text" maxlength="255" value="${this._escapeHtml(String(this._modelMetaDraft.modelName || ''))}">
                 </label>
                 <label>
@@ -4607,14 +4607,14 @@ class ModelDetailPopupCard extends HTMLElement {
                       const membership = selectedCollections[index] || null;
                       return `<span class="tag-chip">${this._escapeHtml(String(label || ''))}${this._modelMetaEditOpen && membership ? ` <span class="x" data-action="remove-collection" data-collection-id="${this._escapeHtml(String(membership.collection_id || ''))}" title="Remove collection">✕</span>` : ''}</span>`;
                     }).join('')
-                  : '<span class="summary-empty">No collections</span>'}
-                ${this._modelMetaEditOpen && !isIdea ? `<div class="collection-picker-wrap picker-wrap">
+                  : '<span class="summary-empty">No Collection</span>'}
+                ${this._modelMetaEditOpen ? `<div class="collection-picker-wrap picker-wrap">
                   <button class="add-chip" data-action="toggle-collection-picker" title="Add collection">+ Collection</button>
                   ${this._collectionPickerOpen ? this._renderCollectionPicker(selectedCollections) : ''}
                 </div>` : ''}
               </div>
             </div>
-            ${this._modelMetaLoading && !isIdea ? '<div class="meta">Loading collection memberships…</div>' : ''}
+            ${this._modelMetaLoading ? '<div class="meta">Loading collection memberships…</div>' : ''}
             <div class="meta">${this._getEntityType(model) === 'idea' ? 'Idea entry: no model files or print history required yet.' : `Print history links: ${linkedCount} linked, ${candidateCount} candidates`}</div>
           </div>
         `)}

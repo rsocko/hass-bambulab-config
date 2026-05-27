@@ -3245,6 +3245,132 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return normalizedId ? ("collection:" + normalizedId) : "";
   }
 
+  _collectionResultsViewClass() {
+    var viewMode = this._normalizedViewMode(this._viewMode);
+    if (viewMode === "list") {
+      return "list";
+    }
+    if (viewMode === "media") {
+      return "media";
+    }
+    return "collections";
+  }
+
+  _collectionBreadcrumbUpTarget(currentNode, currentCollectionKey) {
+    if (currentCollectionKey === "__unassigned__") {
+      return { navKey: "all-models", label: "All Collections" };
+    }
+    var parentId = currentNode ? String(currentNode.parent_collection_id || "").trim().toLowerCase() : "";
+    if (parentId) {
+      return { navKey: "collection:" + parentId, label: "Up One Level" };
+    }
+    if (currentNode) {
+      return { navKey: "all-models", label: "All Collections" };
+    }
+    return null;
+  }
+
+  _buildSyntheticUnassignedCollectionNode(browse) {
+    var tree = browse && browse.tree && typeof browse.tree === "object" ? browse.tree : {};
+    var unassignedCount = Math.max(0, Number(tree.unassigned_model_count || 0) || 0);
+    if (unassignedCount <= 0) {
+      return null;
+    }
+    return {
+      collection_id: "__unassigned__",
+      label: "No Collection",
+      name: "No Collection",
+      path: "System bucket",
+      model_count_direct: unassignedCount,
+      model_count_total: unassignedCount,
+      child_collection_count: 0,
+      preview_model_count: 0,
+      recent_print_activity: { printed_model_count: 0, last_printed_at: "" },
+      cover_images: [],
+      is_system_bucket: true,
+    };
+  }
+
+  _renderCollectionNodeCard(node) {
+    var collectionId = String(node.collection_id || "").trim().toLowerCase();
+    var label = String(node.label || node.name || node.path || "Collection").trim() || "Collection";
+    var path = String(node.path || "").trim();
+    var directCount = Math.max(0, Number(node.model_count_direct || 0) || 0);
+    var totalCount = Math.max(0, Number(node.model_count_total || 0) || 0);
+    var childCount = Math.max(0, Number(node.child_collection_count || 0) || 0);
+    var previewCount = Math.max(0, Number(node.preview_model_count || 0) || 0);
+    var activity = node.recent_print_activity && typeof node.recent_print_activity === 'object' ? node.recent_print_activity : {};
+    var recentPrintCount = Math.max(0, Number(activity.printed_model_count || 0) || 0);
+    var lastPrintedAt = String(activity.last_printed_at || '').trim();
+    var coverMosaicHtml = this._renderCollectionCoverMosaic(node);
+    var actionMenuKey = this._collectionMenuKey(collectionId);
+    var actionMenuOpen = !!this._activeActionMenu && this._activeActionMenu === actionMenuKey;
+    var deleteDisabled = totalCount > 0 || childCount > 0;
+    var isSystemBucket = !!node.is_system_bucket;
+    var viewMode = this._normalizedViewMode(this._viewMode);
+    var recentSummary = String(previewCount) + (previewCount === 1 ? ' previewable model' : ' previewable models') + ' · ' + (lastPrintedAt ? ('Last printed ' + this._formatCollectionDate(lastPrintedAt)) : 'No recent print activity');
+
+    if (viewMode === 'list') {
+      return ''
+        + '<article class="collection-card collection-card-view-list' + (isSystemBucket ? ' system-bucket' : '') + '">'
+        + '  <div class="collection-list-thumb">' + coverMosaicHtml + '</div>'
+        + '  <div class="collection-list-main">'
+        + '    <div class="collection-list-title-row"><span class="collection-card-type">' + this._escapeHtml(isSystemBucket ? 'System Bucket' : 'Collection') + '</span><div class="collection-name">' + this._escapeHtml(label) + '</div></div>'
+        + '    <div class="collection-meta">' + this._escapeHtml(path && path !== label ? path : (isSystemBucket ? 'Models without a collection assignment' : 'Collection path')) + '</div>'
+        + '    <div class="collection-meta collection-meta-row">' + this._escapeHtml(recentSummary) + '</div>'
+        + '  </div>'
+        + '  <div class="collection-list-stats">'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Total</div><div class="collection-stat-value">' + this._escapeHtml(String(totalCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Direct</div><div class="collection-stat-value">' + this._escapeHtml(String(directCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Sub-collections</div><div class="collection-stat-value">' + this._escapeHtml(String(childCount)) + '</div></div>'
+        + '    <div class="collection-stat"><div class="collection-stat-label">Recent prints</div><div class="collection-stat-value">' + this._escapeHtml(String(recentPrintCount)) + '</div></div>'
+        + '  </div>'
+        + '  <div class="collection-list-actions">'
+        + '    <button class="toolbar-btn collection-open" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '">Open</button>'
+        + (isSystemBucket ? '' : '    <div class="advanced-menu-shell">'
+            + '      <button class="icon-action advanced" type="button" data-action="toggle-actions" data-menu-key="' + this._escapeHtml(actionMenuKey) + '" aria-label="Open collection actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
+            + '      <div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
+            + '        <button class="advanced-action primary" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-search-outline"></ha-icon><span>Open collection</span></button>'
+            + '        <button class="advanced-action" type="button" data-action="collection-rename" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:pencil-outline"></ha-icon><span>Rename</span></button>'
+            + '        <button class="advanced-action" type="button" data-action="collection-move" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:folder-move-outline"></ha-icon><span>Move</span></button>'
+            + '        <button class="advanced-action danger" type="button" data-action="collection-delete" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"' + (deleteDisabled ? ' disabled title="Collection must be empty before deletion"' : '') + '><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>' + (deleteDisabled ? 'Delete (empty only)' : 'Delete') + '</span></button>'
+            + '      </div>'
+            + '    </div>')
+        + '  </div>'
+        + '</article>';
+    }
+
+    return ''
+      + '<article class="collection-card collection-card-view-' + this._escapeHtml(viewMode === 'media' ? 'media' : 'compact') + (isSystemBucket ? ' system-bucket' : '') + '">'
+      + '  <div class="collection-card-top">'
+      + '    <div class="collection-card-kicker"><span class="collection-card-type">' + this._escapeHtml(isSystemBucket ? 'System Bucket' : 'Collection') + '</span>'
+      + (isSystemBucket ? '' : (childCount > 0 ? '<span class="collection-card-kicker-meta">Nested</span>' : '<span class="collection-card-kicker-meta">Leaf</span>'))
+      + '    </div>'
+      + (isSystemBucket ? '' : '    <div class="advanced-menu-shell">'
+          + '      <button class="icon-action advanced" type="button" data-action="toggle-actions" data-menu-key="' + this._escapeHtml(actionMenuKey) + '" aria-label="Open collection actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
+          + '      <div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
+          + '        <button class="advanced-action primary" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-search-outline"></ha-icon><span>Open collection</span></button>'
+          + '        <button class="advanced-action" type="button" data-action="collection-rename" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:pencil-outline"></ha-icon><span>Rename</span></button>'
+          + '        <button class="advanced-action" type="button" data-action="collection-move" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:folder-move-outline"></ha-icon><span>Move</span></button>'
+          + '        <button class="advanced-action danger" type="button" data-action="collection-delete" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"' + (deleteDisabled ? ' disabled title="Collection must be empty before deletion"' : '') + '><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>' + (deleteDisabled ? 'Delete (empty only)' : 'Delete') + '</span></button>'
+          + '      </div>'
+          + '    </div>')
+      + '  </div>'
+      + coverMosaicHtml
+      + (previewCount <= 0 ? '  <div class="collection-empty-preview">' + this._escapeHtml(isSystemBucket ? 'Open to browse unassigned models' : 'No preview available yet') + '</div>' : '')
+      + '  <div class="collection-name">' + this._escapeHtml(label) + '</div>'
+      + (path && path !== label ? '  <div class="collection-meta">' + this._escapeHtml(path) + '</div>' : '')
+      + '  <div class="collection-stats">'
+      + '    <div class="collection-stat"><div class="collection-stat-label">Total</div><div class="collection-stat-value">' + this._escapeHtml(String(totalCount)) + '</div></div>'
+      + '    <div class="collection-stat"><div class="collection-stat-label">Direct</div><div class="collection-stat-value">' + this._escapeHtml(String(directCount)) + '</div></div>'
+      + '    <div class="collection-stat"><div class="collection-stat-label">Sub-collections</div><div class="collection-stat-value">' + this._escapeHtml(String(childCount)) + '</div></div>'
+      + '    <div class="collection-stat"><div class="collection-stat-label">Recent prints</div><div class="collection-stat-value">' + this._escapeHtml(String(recentPrintCount)) + '</div></div>'
+      + '  </div>'
+      + '  <div class="collection-meta collection-meta-row">' + this._escapeHtml(recentSummary) + '</div>'
+      + '  <button class="toolbar-btn collection-open" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '">Open collection</button>'
+      + '</article>';
+  }
+
   _normalizeCollectionId(value) {
     return String(value || "").trim().toLowerCase();
   }
@@ -6216,18 +6342,31 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _renderCollectionCards() {
     var browse = this._collectionBrowse && typeof this._collectionBrowse === "object" ? this._collectionBrowse : null;
-    var items = browse && Array.isArray(browse.items) ? browse.items : [];
+    var items = browse && Array.isArray(browse.items) ? browse.items.slice(0) : [];
     var breadcrumb = browse && Array.isArray(browse.breadcrumb) ? browse.breadcrumb : [];
     var currentNode = browse && browse.current_node && typeof browse.current_node === 'object' ? browse.current_node : null;
     var currentCollectionKey = this._selectedCollectionKey();
+    var breadcrumbUpTarget = this._collectionBreadcrumbUpTarget(currentNode, currentCollectionKey);
     var breadcrumbHtml = "";
+    if (!currentNode && currentCollectionKey !== '__unassigned__') {
+      var syntheticUnassigned = this._buildSyntheticUnassignedCollectionNode(browse);
+      if (syntheticUnassigned) {
+        items.unshift({ kind: 'collection', data: syntheticUnassigned });
+      }
+    }
     if (breadcrumb.length) {
-      var crumbParts = ['<button class="toolbar-btn" type="button" data-action="select-left-nav-item" data-nav-key="all-models">All Collections</button>'];
+      var crumbParts = [];
+      if (breadcrumbUpTarget) {
+        crumbParts.push('<button class="toolbar-btn ghost collection-breadcrumb-up" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(breadcrumbUpTarget.navKey) + '"><ha-icon icon="mdi:arrow-up-left"></ha-icon><span>' + this._escapeHtml(breadcrumbUpTarget.label) + '</span></button>');
+      }
+      crumbParts.push('<button class="toolbar-btn" type="button" data-action="select-left-nav-item" data-nav-key="all-models">All Collections</button>');
       for (var crumbIndex = 0; crumbIndex < breadcrumb.length; crumbIndex++) {
         var crumb = breadcrumb[crumbIndex] || {};
         crumbParts.push('<button class="toolbar-btn" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(String(crumb.collection_id || "").toLowerCase()) + '">' + this._escapeHtml(String(crumb.label || "Collection")) + '</button>');
       }
       breadcrumbHtml = '<div class="collection-breadcrumb">' + crumbParts.join('<span class="collection-breadcrumb-sep">/</span>') + '</div>';
+    } else if (breadcrumbUpTarget) {
+      breadcrumbHtml = '<div class="collection-breadcrumb"><button class="toolbar-btn ghost collection-breadcrumb-up" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(breadcrumbUpTarget.navKey) + '"><ha-icon icon="mdi:arrow-up-left"></ha-icon><span>' + this._escapeHtml(breadcrumbUpTarget.label) + '</span></button></div>';
     }
     var headerHtml = this._renderCollectionBrowseHeader(browse, currentNode, currentCollectionKey);
 
@@ -6239,49 +6378,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return this._renderModelCard(entry.data || {});
       }
       var node = entry.data && typeof entry.data === "object" ? entry.data : {};
-      var collectionId = String(node.collection_id || "").trim().toLowerCase();
-      var label = String(node.label || node.name || node.path || "Collection").trim() || "Collection";
-      var path = String(node.path || "").trim();
-      var directCount = Math.max(0, Number(node.model_count_direct || 0) || 0);
-      var totalCount = Math.max(0, Number(node.model_count_total || 0) || 0);
-      var childCount = Math.max(0, Number(node.child_collection_count || 0) || 0);
-      var previewCount = Math.max(0, Number(node.preview_model_count || 0) || 0);
-      var activity = node.recent_print_activity && typeof node.recent_print_activity === 'object' ? node.recent_print_activity : {};
-      var recentPrintCount = Math.max(0, Number(activity.printed_model_count || 0) || 0);
-      var lastPrintedAt = String(activity.last_printed_at || '').trim();
-      var coverMosaicHtml = this._renderCollectionCoverMosaic(node);
-      var actionMenuKey = this._collectionMenuKey(collectionId);
-      var actionMenuOpen = !!this._activeActionMenu && this._activeActionMenu === actionMenuKey;
-      var deleteDisabled = totalCount > 0 || childCount > 0;
-      return ''
-        + '<article class="collection-card">'
-        + '  <div class="collection-card-top">'
-        + '    <div class="collection-card-kicker"><span class="collection-card-type">Collection</span>'
-        + (childCount > 0 ? '<span class="collection-card-kicker-meta">Nested</span>' : '<span class="collection-card-kicker-meta">Leaf</span>')
-        + '    </div>'
-        + '    <div class="advanced-menu-shell">'
-        + '      <button class="icon-action advanced" type="button" data-action="toggle-actions" data-menu-key="' + this._escapeHtml(actionMenuKey) + '" aria-label="Open collection actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
-        + '      <div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
-        + '        <button class="advanced-action primary" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '"><ha-icon icon="mdi:folder-search-outline"></ha-icon><span>Open collection</span></button>'
-        + '        <button class="advanced-action" type="button" data-action="collection-rename" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:pencil-outline"></ha-icon><span>Rename</span></button>'
-        + '        <button class="advanced-action" type="button" data-action="collection-move" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"><ha-icon icon="mdi:folder-move-outline"></ha-icon><span>Move</span></button>'
-        + '        <button class="advanced-action danger" type="button" data-action="collection-delete" data-collection-id="' + this._escapeHtml(collectionId) + '" data-collection-label="' + this._escapeHtml(label) + '" data-collection-path="' + this._escapeHtml(path || label) + '"' + (deleteDisabled ? ' disabled title="Collection must be empty before deletion"' : '') + '><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>' + (deleteDisabled ? 'Delete (empty only)' : 'Delete') + '</span></button>'
-        + '      </div>'
-        + '    </div>'
-        + '  </div>'
-        + coverMosaicHtml
-        + (previewCount <= 0 ? '  <div class="collection-empty-preview">No preview available yet</div>' : '')
-        + '  <div class="collection-name">' + this._escapeHtml(label) + '</div>'
-        + (path && path !== label ? '  <div class="collection-meta">' + this._escapeHtml(path) + '</div>' : '')
-        + '  <div class="collection-stats">'
-        + '    <div class="collection-stat"><div class="collection-stat-label">Total</div><div class="collection-stat-value">' + this._escapeHtml(String(totalCount)) + '</div></div>'
-        + '    <div class="collection-stat"><div class="collection-stat-label">Direct</div><div class="collection-stat-value">' + this._escapeHtml(String(directCount)) + '</div></div>'
-        + '    <div class="collection-stat"><div class="collection-stat-label">Sub-collections</div><div class="collection-stat-value">' + this._escapeHtml(String(childCount)) + '</div></div>'
-        + '    <div class="collection-stat"><div class="collection-stat-label">Recent prints</div><div class="collection-stat-value">' + this._escapeHtml(String(recentPrintCount)) + '</div></div>'
-        + '  </div>'
-        + '  <div class="collection-meta collection-meta-row">' + this._escapeHtml(String(previewCount) + (previewCount === 1 ? ' previewable model' : ' previewable models') + ' · ' + (lastPrintedAt ? ('Last printed ' + this._formatCollectionDate(lastPrintedAt)) : 'No recent print activity')) + '</div>'
-        + '  <button class="toolbar-btn collection-open" type="button" data-action="select-left-nav-item" data-nav-key="collection:' + this._escapeHtml(collectionId) + '">Open collection</button>'
-        + '</article>';
+      return this._renderCollectionNodeCard(node);
     }.bind(this)).join("");
 
     if (!cards) {
@@ -7154,9 +7251,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-item{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}'
       + '.left-nav-item:hover,.left-nav-item:focus-visible{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.36);outline:none;}'
       + '.left-nav-item.active{background:var(--accent);border-color:var(--accent-strong);}'
-      + '.left-nav-item.system-bucket{background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.24);}'
-      + '.left-nav-item.system-bucket:hover,.left-nav-item.system-bucket:focus-visible{background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.36);}'
-      + '.left-nav-item.system-bucket.active{background:rgba(245,158,11,0.24);border-color:rgba(245,158,11,0.44);}'
       + '.left-nav-tree{display:grid;gap:4px;}'
       + '.left-nav-tree-node{display:grid;gap:4px;}'
       + '.left-nav-tree-children{display:grid;gap:4px;}'
@@ -7308,14 +7402,29 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.collection-header-stat{padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.18);min-width:0;}'
       + '.collection-header-stat-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.collection-header-stat-value{margin-top:4px;font-size:20px;font-weight:900;line-height:1;color:var(--primary-text-color);}'
-      + '.collection-card{display:grid;gap:10px;padding:14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.24),rgba(15,23,42,0.12));box-shadow:0 8px 22px rgba(15,23,42,0.16);align-content:start;}'
+      + '.collection-card{display:grid;gap:10px;padding:14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.24),rgba(15,23,42,0.12));box-shadow:0 8px 22px rgba(15,23,42,0.16);align-content:start;min-width:0;}'
       + '.collection-breadcrumb{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;}'
       + '.collection-breadcrumb-sep{font-size:12px;color:var(--secondary-text-color);}'
+      + '.collection-breadcrumb-up{display:inline-flex;align-items:center;gap:6px;}'
+      + '.collection-breadcrumb-up ha-icon{--mdc-icon-size:15px;}'
       + '.collection-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}'
       + '.collection-card-kicker{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}'
       + '.collection-card-type,.collection-card-kicker-meta{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.16);font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;}'
       + '.collection-card-type{background:rgba(56,189,248,0.14);border-color:rgba(56,189,248,0.24);color:#bae6fd;}'
+      + '.collection-card.system-bucket .collection-card-type{background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.24);color:#fde68a;}'
       + '.collection-card-kicker-meta{background:rgba(148,163,184,0.10);color:var(--secondary-text-color);}'
+      + '.collection-card.collection-card-view-media{gap:12px;}'
+      + '.collection-card.collection-card-view-media .collection-mosaic{gap:8px;}'
+      + '.collection-card.collection-card-view-media .collection-mosaic-tile{border-radius:14px;aspect-ratio:16/10;}'
+      + '.collection-card.collection-card-view-list{grid-template-columns:128px minmax(0,1fr) auto auto;align-items:center;column-gap:14px;}'
+      + '.collection-card.collection-card-view-list .collection-list-thumb{min-width:0;}'
+      + '.collection-card.collection-card-view-list .collection-mosaic{gap:4px;}'
+      + '.collection-card.collection-card-view-list .collection-mosaic-tile{border-radius:10px;}'
+      + '.collection-list-main{display:grid;gap:6px;min-width:0;}'
+      + '.collection-list-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}'
+      + '.collection-list-title-row .collection-name{font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+      + '.collection-list-stats{display:grid;grid-template-columns:repeat(2,minmax(88px,1fr));gap:8px;min-width:min(100%,240px);}'
+      + '.collection-list-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;}'
       + '.collection-mosaic{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.collection-mosaic-tile{position:relative;aspect-ratio:4/3;overflow:hidden;border-radius:12px;background:rgba(15,23,42,0.26);border:1px solid rgba(148,163,184,0.16);display:flex;align-items:center;justify-content:center;}'
       + '.collection-mosaic-tile img{width:100%;height:100%;object-fit:cover;display:block;}'
@@ -7559,7 +7668,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}'
       + '@keyframes compact-enter{0%{opacity:0;transform:translateY(4px);}100%{opacity:1;transform:translateY(0);}}'
       + '@keyframes spin-refresh{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
-      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}.collection-browser-header{grid-template-columns:1fr;}.collection-browser-header-stats{min-width:0;}.collection-stats{grid-template-columns:repeat(2,minmax(0,1fr));}}'
+      + '@media (max-width: 820px){.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row,.compact-title-row,.compact-tags-row,.media-title-row,.media-footer-row,.list-top-row,.list-bottom-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions,.media-actions{justify-content:flex-start;}.compact-file-kinds,.list-file-kinds,.list-top-actions{justify-content:flex-start;}.list-action-stack{justify-items:start;}.title-row{align-items:flex-start;}.title-right{width:100%;justify-content:space-between;}.filter-row{grid-template-columns:1fr 1fr;}.inline-select{justify-content:space-between;}.inline-select .tuning-select{min-width:72px;}.page-control-strip{justify-content:flex-start;}.media-overlay-actions{left:10px;right:auto;}.collection-browser-header{grid-template-columns:1fr;}.collection-browser-header-stats{min-width:0;}.collection-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.collection-card.collection-card-view-list{grid-template-columns:1fr;}.collection-list-stats{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;}.collection-list-actions{justify-content:flex-start;}}'
       + '.model-card-checkbox{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;cursor:pointer;}'
       + '.model-card-checkbox input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:var(--accent);}'
       + '.model-card.is-selected{border-color:var(--accent-strong);background:linear-gradient(180deg,rgba(96,165,250,0.12),rgba(96,165,250,0.06));}'
@@ -7613,7 +7722,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderPageControlStrip()
       + '        </div>'
       + this._renderCollectionActionFeedback()
-      + '        <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? "collections" : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
+      + '        <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? this._collectionResultsViewClass() : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + '      </div>'
       + '    </div>'
