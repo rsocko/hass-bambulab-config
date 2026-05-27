@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · No Collection system bucket options</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0b0f14;
+    --bg-card: rgba(21, 27, 36, 0.94);
+    --bg-elev: rgba(31, 38, 49, 0.96);
+    --bg-muted: rgba(255,255,255,0.03);
+    --border: rgba(148,163,184,0.18);
+    --border-strong: rgba(148,163,184,0.32);
+    --text: #edf2f7;
+    --text-secondary: #98a4b3;
+    --text-muted: #6d7886;
+    --accent: #76e4d3;
+    --accent-blue: #76b8ff;
+    --warning: #f0c768;
+    --danger: #f59da7;
+    --shadow: 0 20px 48px rgba(0,0,0,0.34);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgba(118,184,255,0.10), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(118,228,211,0.08), transparent 26%),
+      linear-gradient(180deg, #0b0f14 0%, #0e1319 100%);
+    color: var(--text);
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  }
+  body { padding: 36px clamp(18px, 4vw, 52px) 56px; }
+
+  .shell { max-width: 1540px; margin: 0 auto; }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .header h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+  .header p {
+    margin: 8px 0 0;
+    max-width: 920px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a {
+    text-decoration: none;
+    color: var(--text-secondary);
+    padding: 7px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+  }
+  .nav a.active {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: rgba(255,255,255,0.06);
+  }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  @media (max-width: 1260px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+
+  .variant {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .variant-head {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  }
+  .variant-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(240,199,104,0.28);
+    background: rgba(240,199,104,0.10);
+    color: var(--warning);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .variant h2 { margin: 12px 0 6px; font-size: 20px; letter-spacing: -0.02em; }
+  .variant p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .board {
+    padding: 18px;
+    background:
+      radial-gradient(circle at top, rgba(118,184,255,0.08), transparent 22%),
+      linear-gradient(180deg, rgba(255,255,255,0.02), transparent 18%);
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--bg-elev);
+  }
+  .seg {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(8,12,17,0.62);
+  }
+  .seg span {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+  .seg span.active {
+    background: rgba(118,184,255,0.16);
+    color: var(--accent-blue);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  @media (max-width: 1260px) {
+    .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 940px) {
+    .card-grid { grid-template-columns: 1fr; }
+  }
+
+  .collection-card {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(20,26,34,0.96), rgba(16,21,28,0.92));
+    min-height: 100%;
+  }
+  .collection-card.system {
+    border-color: rgba(240,199,104,0.24);
+    background:
+      radial-gradient(circle at top left, rgba(240,199,104,0.08), transparent 38%),
+      linear-gradient(180deg, rgba(20,26,34,0.96), rgba(16,21,28,0.92));
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .type-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(240,199,104,0.28);
+    background: rgba(240,199,104,0.10);
+    color: var(--warning);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .type-chip.collection {
+    background: rgba(118, 184, 255, 0.12);
+    border-color: rgba(118, 184, 255, 0.24);
+    color: var(--accent-blue);
+  }
+  .menu-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+  }
+  .card-name {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .card-name strong { font-size: 16px; }
+  .path { color: var(--text-muted); font-size: 11px; }
+  .card-copy {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .stat {
+    padding: 9px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-muted);
+  }
+  .stat .k {
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat .v { margin-top: 2px; font-size: 16px; font-weight: 800; }
+  .actions { display: flex; gap: 8px; }
+  .actions button {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 11px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .actions .primary {
+    border-color: rgba(118,228,211,0.28);
+    background: rgba(118,228,211,0.10);
+    color: var(--accent);
+  }
+
+  .mosaic-frame {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  }
+  .mosaic-footer {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 36%;
+    background: linear-gradient(180deg, transparent, rgba(11,15,20,0.72));
+    pointer-events: none;
+  }
+
+  .tile-visual {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background-size: cover;
+    background-position: center;
+  }
+  .thumb-a { background-image: linear-gradient(140deg, #404f63, #1a2432 55%, #8896aa); }
+  .thumb-b { background-image: linear-gradient(140deg, #6b4b34, #2d1f16 55%, #bd8d63); }
+  .thumb-c { background-image: linear-gradient(140deg, #3a6553, #11261f 58%, #8ec3ad); }
+  .thumb-d { background-image: linear-gradient(140deg, #6c5878, #24192b 58%, #b79cc7); }
+  .thumb-e { background-image: linear-gradient(140deg, #5e6570, #1c222b 58%, #c9d0d6); }
+  .thumb-f { background-image: linear-gradient(140deg, #6a5d4a, #272218 58%, #d5bb8e); }
+  .thumb-g { background-image: linear-gradient(140deg, #3a4f73, #141d2c 58%, #9bb4dc); }
+  .thumb-h { background-image: linear-gradient(140deg, #53636e, #1b2228 58%, #c5d0d9); }
+  .thumb-i { background-image: linear-gradient(140deg, #77455d, #2b1720 58%, #d39eb7); }
+
+  .fade-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    padding: 8px;
+    aspect-ratio: 1 / 1;
+  }
+  .fade-grid .tile-visual {
+    aspect-ratio: 1 / 1;
+    filter: saturate(0.44) brightness(0.92);
+  }
+  .fade-grid .tile-visual:nth-child(1) { opacity: 0.98; }
+  .fade-grid .tile-visual:nth-child(2) { opacity: 0.92; }
+  .fade-grid .tile-visual:nth-child(3) { opacity: 0.86; }
+  .fade-grid .tile-visual:nth-child(4) { opacity: 0.82; }
+  .fade-grid .tile-visual:nth-child(5) { opacity: 0.76; }
+  .fade-grid .tile-visual:nth-child(6) { opacity: 0.72; }
+  .fade-grid .tile-visual:nth-child(7) { opacity: 0.66; }
+  .fade-grid .tile-visual:nth-child(8) { opacity: 0.60; }
+  .fade-grid .tile-visual:nth-child(9) { opacity: 0.56; }
+  .fade-grid .tile-visual:nth-child(10) { opacity: 0.50; }
+  .fade-grid .tile-visual:nth-child(11) { opacity: 0.44; }
+  .fade-grid .tile-visual:nth-child(12) { opacity: 0.38; }
+  .fade-grid .tile-visual:nth-child(13) { opacity: 0.34; }
+  .fade-grid .tile-visual:nth-child(14) { opacity: 0.28; }
+  .fade-grid .tile-visual:nth-child(15) { opacity: 0.22; }
+  .fade-grid .tile-visual:nth-child(16) { opacity: 0.16; }
+
+  .contact-sheet {
+    position: relative;
+    padding: 12px 12px 10px;
+    min-height: 188px;
+  }
+  .contact-label {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 8px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+  }
+  .contact-grid .tile-visual {
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    filter: saturate(0.38) brightness(0.88);
+  }
+  .contact-grid .tile-visual:nth-child(n + 13) { opacity: 0.56; }
+  .contact-grid .tile-visual:nth-child(n + 19) { opacity: 0.30; }
+  .contact-grid::after {
+    content: "";
+    position: absolute;
+    inset: auto 12px 10px 12px;
+    height: 62%;
+    background: linear-gradient(180deg, rgba(11,15,20,0.02), rgba(11,15,20,0.58));
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  .polaroid-pile {
+    position: relative;
+    min-height: 206px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,0.06), transparent 18%),
+      linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+  }
+  .polaroid {
+    position: absolute;
+    width: 92px;
+    height: 112px;
+    padding: 7px 7px 18px;
+    border-radius: 6px;
+    background: rgba(245,247,250,0.94);
+    box-shadow: 0 10px 18px rgba(0,0,0,0.22);
+    transform-origin: center;
+    opacity: 0.96;
+  }
+  .polaroid .tile-visual {
+    width: 100%;
+    height: 100%;
+    border-radius: 3px;
+    border-color: rgba(11,15,20,0.10);
+    filter: saturate(0.60) contrast(0.92);
+  }
+  .polaroid.p1 { left: 18px; top: 34px; transform: rotate(-10deg); }
+  .polaroid.p2 { left: 72px; top: 18px; transform: rotate(8deg); }
+  .polaroid.p3 { left: 138px; top: 46px; transform: rotate(-4deg); }
+  .polaroid.p4 { left: 210px; top: 22px; transform: rotate(10deg); }
+  .polaroid.p5 { left: 96px; top: 94px; transform: rotate(-12deg); opacity: 0.70; }
+  .polaroid.p6 { left: 192px; top: 96px; transform: rotate(6deg); opacity: 0.52; }
+  .pile-shadow {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 44%;
+    background: linear-gradient(180deg, transparent, rgba(11,15,20,0.80));
+    pointer-events: none;
+  }
+
+  .other-card .mosaic-frame {
+    aspect-ratio: 4 / 3;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    padding: 8px;
+  }
+  .other-card .tile-visual { aspect-ratio: 4 / 3; }
+
+  .review {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .review h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .review ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .review strong { color: var(--text); }
+
+  .footer-note {
+    margin-top: 22px;
+    padding: 14px 16px;
+    border: 1px dashed var(--border);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .footer-note strong { color: var(--text); }
+  .footer-note code {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="header">
+    <div>
+      <h1>No Collection · System Bucket Mockup Options</h1>
+      <p>Three full-fidelity treatments for the synthetic <strong>No Collection</strong> bucket within the existing collections browser grammar. Each option is shown in-context beside normal collection cards so the comparison is about semantic fit, not isolated artwork.</p>
+    </div>
+    <div class="nav">
+      <a href="index.html">← Index</a>
+      <a href="collections.html">Collections Mode</a>
+      <a class="active" href="collections-no-collection-options.html">No Collection Options</a>
+    </div>
+  </div>
+
+  <div class="compare-grid">
+    <section class="variant">
+      <div class="variant-head">
+        <span class="variant-kicker">Option A</span>
+        <h2>4×4 Faded Field</h2>
+        <p>Ordered, dense, and intentionally backlog-like. This is the strongest signal for “there are lots of unfiled items here” while still staying inside the existing collection-card system.</p>
+      </div>
+      <div class="board">
+        <div class="toolbar">
+          <div class="seg"><span>Models</span><span class="active">Collections</span></div>
+          <span class="chip">Root overview</span>
+          <span class="chip">7 collections · 128 models</span>
+        </div>
+        <div class="card-grid">
+          <article class="collection-card system">
+            <div class="card-top">
+              <span class="type-chip">System Bucket</span>
+              <div class="menu-dot"></div>
+            </div>
+            <div class="mosaic-frame">
+              <div class="fade-grid">
+                <div class="tile-visual thumb-a"></div><div class="tile-visual thumb-b"></div><div class="tile-visual thumb-c"></div><div class="tile-visual thumb-d"></div>
+                <div class="tile-visual thumb-e"></div><div class="tile-visual thumb-f"></div><div class="tile-visual thumb-g"></div><div class="tile-visual thumb-h"></div>
+                <div class="tile-visual thumb-i"></div><div class="tile-visual thumb-a"></div><div class="tile-visual thumb-c"></div><div class="tile-visual thumb-e"></div>
+                <div class="tile-visual thumb-f"></div><div class="tile-visual thumb-h"></div><div class="tile-visual thumb-b"></div><div class="tile-visual thumb-d"></div>
+              </div>
+              <div class="mosaic-footer"></div>
+            </div>
+            <div class="card-name"><strong>No Collection</strong><span class="path">System bucket</span></div>
+            <div class="card-copy">A structured impression of accumulation: many items visible up front, the rest fading into the background.</div>
+            <div class="stats">
+              <div class="stat"><div class="k">Models</div><div class="v">128</div></div>
+              <div class="stat"><div class="k">Sub-collections</div><div class="v">0</div></div>
+              <div class="stat"><div class="k">Recent prints</div><div class="v">19</div></div>
+            </div>
+            <div class="actions"><button class="primary">Open bucket</button><button>More</button></div>
+          </article>
+
+          <article class="collection-card other-card">
+            <div class="card-top"><span class="type-chip collection">Collection</span><div class="menu-dot"></div></div>
+            <div class="mosaic-frame">
+              <div class="tile-visual thumb-a"></div><div class="tile-visual thumb-g"></div><div class="tile-visual thumb-c"></div><div class="tile-visual thumb-f"></div>
+            </div>
+            <div class="card-name"><strong>Gridfinity</strong><span class="path">Functional</span></div>
+            <div class="card-copy">Normal curated collection card for contrast.</div>
+            <div class="stats"><div class="stat"><div class="k">Models</div><div class="v">42</div></div><div class="stat"><div class="k">Children</div><div class="v">5</div></div><div class="stat"><div class="k">Prints</div><div class="v">118</div></div></div>
+            <div class="actions"><button class="primary">Open</button><button>More</button></div>
+          </article>
+        </div>
+      </div>
+      <div class="review">
+        <h3>Read</h3>
+        <ul>
+          <li><strong>Best for:</strong> backlog density with minimal new UI language.</li>
+          <li><strong>Risk:</strong> if opacity is too strong, it starts feeling like a featured cover instead of an operational bucket.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="variant">
+      <div class="variant-head">
+        <span class="variant-kicker">Option B</span>
+        <h2>Contact-Sheet Strip</h2>
+        <p>Quieter and more utility-oriented. This reads like an inventory proof sheet or filing tray preview rather than a cover image, so it keeps the bucket feeling more operational.</p>
+      </div>
+      <div class="board">
+        <div class="toolbar">
+          <div class="seg"><span>Models</span><span class="active">Collections</span></div>
+          <span class="chip">Root overview</span>
+          <span class="chip">7 collections · 128 models</span>
+        </div>
+        <div class="card-grid">
+          <article class="collection-card system">
+            <div class="card-top">
+              <span class="type-chip">System Bucket</span>
+              <div class="menu-dot"></div>
+            </div>
+            <div class="mosaic-frame contact-sheet">
+              <span class="contact-label">Proof Sheet · Unassigned</span>
+              <div class="contact-grid">
+                <div class="tile-visual thumb-a"></div><div class="tile-visual thumb-b"></div><div class="tile-visual thumb-c"></div><div class="tile-visual thumb-d"></div><div class="tile-visual thumb-e"></div><div class="tile-visual thumb-f"></div>
+                <div class="tile-visual thumb-g"></div><div class="tile-visual thumb-h"></div><div class="tile-visual thumb-i"></div><div class="tile-visual thumb-a"></div><div class="tile-visual thumb-c"></div><div class="tile-visual thumb-e"></div>
+                <div class="tile-visual thumb-f"></div><div class="tile-visual thumb-g"></div><div class="tile-visual thumb-b"></div><div class="tile-visual thumb-h"></div><div class="tile-visual thumb-i"></div><div class="tile-visual thumb-d"></div>
+              </div>
+            </div>
+            <div class="card-name"><strong>No Collection</strong><span class="path">System bucket</span></div>
+            <div class="card-copy">Less like a collection cover, more like a compact inventory preview. Quiet, orderly, and intentionally secondary.</div>
+            <div class="stats">
+              <div class="stat"><div class="k">Models</div><div class="v">128</div></div>
+              <div class="stat"><div class="k">Sub-collections</div><div class="v">0</div></div>
+              <div class="stat"><div class="k">Recent prints</div><div class="v">19</div></div>
+            </div>
+            <div class="actions"><button class="primary">Open bucket</button><button>More</button></div>
+          </article>
+
+          <article class="collection-card other-card">
+            <div class="card-top"><span class="type-chip collection">Collection</span><div class="menu-dot"></div></div>
+            <div class="mosaic-frame">
+              <div class="tile-visual thumb-e"></div><div class="tile-visual thumb-b"></div><div class="tile-visual thumb-i"></div><div class="tile-visual thumb-g"></div>
+            </div>
+            <div class="card-name"><strong>Printer Upgrades</strong><span class="path">Root</span></div>
+            <div class="card-copy">Normal curated collection card for contrast.</div>
+            <div class="stats"><div class="stat"><div class="k">Models</div><div class="v">8</div></div><div class="stat"><div class="k">Children</div><div class="v">0</div></div><div class="stat"><div class="k">Prints</div><div class="v">22</div></div></div>
+            <div class="actions"><button class="primary">Open</button><button>More</button></div>
+          </article>
+        </div>
+      </div>
+      <div class="review">
+        <h3>Read</h3>
+        <ul>
+          <li><strong>Best for:</strong> a more conservative, utility-first system-bucket presentation.</li>
+          <li><strong>Risk:</strong> may feel a little too quiet if the goal is to strongly signal “there are lots of things here.”</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="variant">
+      <div class="variant-head">
+        <span class="variant-kicker">Option C</span>
+        <h2>Scattered Polaroid Pile</h2>
+        <p>An intentionally tossed arrangement that leans into disorder and backlog. Included as a contrast option because it is expressive, but it pushes furthest away from the current orderly collection-card grammar.</p>
+      </div>
+      <div class="board">
+        <div class="toolbar">
+          <div class="seg"><span>Models</span><span class="active">Collections</span></div>
+          <span class="chip">Root overview</span>
+          <span class="chip">7 collections · 128 models</span>
+        </div>
+        <div class="card-grid">
+          <article class="collection-card system">
+            <div class="card-top">
+              <span class="type-chip">System Bucket</span>
+              <div class="menu-dot"></div>
+            </div>
+            <div class="mosaic-frame polaroid-pile">
+              <div class="polaroid p1"><div class="tile-visual thumb-a"></div></div>
+              <div class="polaroid p2"><div class="tile-visual thumb-f"></div></div>
+              <div class="polaroid p3"><div class="tile-visual thumb-g"></div></div>
+              <div class="polaroid p4"><div class="tile-visual thumb-c"></div></div>
+              <div class="polaroid p5"><div class="tile-visual thumb-i"></div></div>
+              <div class="polaroid p6"><div class="tile-visual thumb-b"></div></div>
+              <div class="pile-shadow"></div>
+            </div>
+            <div class="card-name"><strong>No Collection</strong><span class="path">System bucket</span></div>
+            <div class="card-copy">High character and high clutter: it says “these are tossed in here,” but it starts to feel like a different visual language than the rest of Collections mode.</div>
+            <div class="stats">
+              <div class="stat"><div class="k">Models</div><div class="v">128</div></div>
+              <div class="stat"><div class="k">Sub-collections</div><div class="v">0</div></div>
+              <div class="stat"><div class="k">Recent prints</div><div class="v">19</div></div>
+            </div>
+            <div class="actions"><button class="primary">Open bucket</button><button>More</button></div>
+          </article>
+
+          <article class="collection-card other-card">
+            <div class="card-top"><span class="type-chip collection">Collection</span><div class="menu-dot"></div></div>
+            <div class="mosaic-frame">
+              <div class="tile-visual thumb-d"></div><div class="tile-visual thumb-h"></div><div class="tile-visual thumb-a"></div><div class="tile-visual thumb-f"></div>
+            </div>
+            <div class="card-name"><strong>Warhammer Terrain</strong><span class="path">Miniatures</span></div>
+            <div class="card-copy">Normal curated collection card for contrast.</div>
+            <div class="stats"><div class="stat"><div class="k">Models</div><div class="v">27</div></div><div class="stat"><div class="k">Children</div><div class="v">3</div></div><div class="stat"><div class="k">Prints</div><div class="v">64</div></div></div>
+            <div class="actions"><button class="primary">Open</button><button>More</button></div>
+          </article>
+        </div>
+      </div>
+      <div class="review">
+        <h3>Read</h3>
+        <ul>
+          <li><strong>Best for:</strong> strongest emotional signal of “unfinished pile.”</li>
+          <li><strong>Risk:</strong> most chaotic option; may feel off-brand beside the structured collection cards and toolbar.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <div class="footer-note">
+    <strong>Recommendation if you want to keep current UI grammar:</strong> Option A is the strongest fit if you want backlog density without leaving the existing collection-card system. Option B is the safest if you want the system bucket to stay quieter. Option C is intentionally included as a contrast study; it is the least consistent with the current collections surface even if it is visually memorable.
+  </div>
+</div>
+</body>
+</html>
