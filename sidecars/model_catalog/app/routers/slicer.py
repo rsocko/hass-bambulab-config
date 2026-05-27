@@ -30,6 +30,10 @@ from ..db_slicer_jobs import (
     update_slicer_job,
     _slicer_job_to_dict,
 )
+from ..db_unified_queue import (
+    list_unified_queue_entries,
+    update_unified_queue_entry,
+)
 from ..settings import Settings
 from ..slicer_bridge import (
     SlicerBridgeError,
@@ -50,6 +54,92 @@ from ..state import AppState
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["slicer"])
+
+_ARCHIVE_INTENT_ESTIMATE_ONLY = "estimate_only"
+
+
+def _job_retains_sliced_output(job: SlicerJob) -> bool:
+    """Return whether a job should keep its local sliced artifact."""
+    return job.archive_intent != _ARCHIVE_INTENT_ESTIMATE_ONLY
+
+
+def _build_slicer_estimate_profile_key(job: SlicerJob) -> str | None:
+    """Build a stable queue-facing profile key from slicer job selection state."""
+    overrides = job.overrides or {}
+    parts: list[str] = []
+    for key in ("printer", "preset", "filament", "filaments", "bedType", "exportType"):
+        value = overrides.get(key)
+        if value is None:
+            continue
+        normalized = str(value).strip()
+        if normalized:
+            parts.append(f"{key}={normalized}")
+
+    plate_value = overrides.get("plate")
+    if plate_value is None and job.selected_plate_index is not None:
+        plate_value = job.selected_plate_index
+    if plate_value is not None:
+        normalized_plate = str(plate_value).strip()
+        if normalized_plate:
+            parts.append(f"plate={normalized_plate}")
+
+    return "|".join(parts) or None
+
+
+def _estimate_minutes_from_seconds(value: object | None) -> int | None:
+    """Convert slicer-provided seconds to queue estimate minutes."""
+    if value is None:
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+    if seconds <= 0:
+        return None
+    return max(1, int((seconds + 59) // 60))
+
+
+def _sync_estimate_only_result_to_queue(
+    *,
+    db_path: Path,
+    job: SlicerJob,
+    source_sha256: str,
+    print_time_seconds: object | None,
+    generated_at: str,
+) -> list[str]:
+    """Update matching unified queue entries with slicer estimate metadata."""
+    match_refs = {
+        str(value).strip()
+        for value in (job.local_model_id, job.source_ref)
+        if str(value or "").strip()
+    }
+    if not match_refs:
+        return []
+
+    slicer_metadata: dict[str, Any] = {
+        "minutes": _estimate_minutes_from_seconds(print_time_seconds),
+        "status": "fresh" if print_time_seconds is not None else "missing",
+        "generated_at": generated_at,
+        "profile_key": _build_slicer_estimate_profile_key(job),
+        "source_sha256": source_sha256,
+    }
+
+    updated_ids: list[str] = []
+    for entry in list_unified_queue_entries(db_path=db_path):
+        if str(entry.source_ref or "").strip() not in match_refs:
+            continue
+        existing_metadata = entry.estimate_metadata if isinstance(entry.estimate_metadata, dict) else {}
+        merged_metadata = dict(existing_metadata)
+        merged_metadata["slicer"] = slicer_metadata
+        updated = update_unified_queue_entry(
+            db_path=db_path,
+            queue_entry_id=entry.queue_entry_id,
+            estimate_metadata=merged_metadata,
+        )
+        if updated is not None:
+            updated_ids.append(updated.queue_entry_id)
+
+    return updated_ids
 
 
 def _probe_bambu_studio_api(
@@ -479,17 +569,50 @@ def execute_job(job_id: str, request: Request) -> JSONResponse:
             timeout=settings.slicer_request_timeout_seconds,
         )
 
+        result_summary = {
+            **output_result.metadata,
+            "content_length": output_result.content_length,
+        }
+        sliced_output_path: str | None = str(output_result.output_path)
+        sliced_output_sha256: str | None = output_result.sha256
+
+        if not _job_retains_sliced_output(job):
+            queue_entry_ids = _sync_estimate_only_result_to_queue(
+                db_path=settings.db_path,
+                job=job,
+                source_sha256=source_sha256,
+                print_time_seconds=output_result.metadata.get("print_time_seconds"),
+                generated_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            )
+            try:
+                output_result.output_path.unlink(missing_ok=True)
+            except Exception:
+                logger.warning(
+                    "Failed to delete estimate-only slice artifact for job %s",
+                    job_id,
+                    exc_info=True,
+                )
+            sliced_output_path = None
+            sliced_output_sha256 = None
+            result_summary.update(
+                {
+                    "estimate_only": True,
+                    "artifact_retained": False,
+                    "estimated_print_time_seconds": output_result.metadata.get(
+                        "print_time_seconds"
+                    ),
+                    "queue_entry_ids_updated": queue_entry_ids,
+                }
+            )
+
         # 9. Transition to sliced
         job = transition_slicer_job(
             db_path=settings.db_path,
             job_id=job_id,
             new_status="sliced",
-            sliced_output_path=str(output_result.output_path),
-            sliced_output_sha256=output_result.sha256,
-            result_summary={
-                **output_result.metadata,
-                "content_length": output_result.content_length,
-            },
+            sliced_output_path=sliced_output_path,
+            sliced_output_sha256=sliced_output_sha256,
+            result_summary=result_summary,
         )
         return JSONResponse(content=_slicer_job_to_dict(job))
 
@@ -594,6 +717,16 @@ async def commit_archive(job_id: str, request: Request) -> JSONResponse:
                 "error": (
                     f"Job {job_id} is in status '{job.status}'; "
                     "must be 'sliced' to commit archive"
+                ),
+            },
+        )
+
+    if job.archive_intent == _ARCHIVE_INTENT_ESTIMATE_ONLY:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": (
+                    f"Job {job_id} is estimate-only and cannot commit an archive"
                 ),
             },
         )

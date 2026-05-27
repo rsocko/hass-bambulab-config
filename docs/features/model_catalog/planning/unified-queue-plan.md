@@ -58,6 +58,14 @@ Database guardrail:
 - Plate Unit: selected plate scope, state, completion linkage, attempt tracking.
 - Linkage Evidence: confidence tier and reason for suggested/automatic completion.
 
+Estimate guardrail:
+
+- treat `estimate` as provenance-aware metadata, not a single timeless field
+- retain estimate source (`history`, `slicer`, `manual`) and freshness state so
+	planner/ranking logic can prefer higher-confidence signals
+- do not revive legacy curated-model `to_print_priority` as the persistence home
+	for slicer-derived durations
+
 ## State model
 
 - Entry states: `idea`, `todo`, `ready`, `started`, `blocked`, `done`.
@@ -91,10 +99,19 @@ Deliverables:
 - Archive linkage worker with confidence tiers (`high`, `medium`, `low`).
 - Planner scoring endpoint with strategy presets.
 - Apply/undo reorder endpoint and audit metadata.
+- Ranking contract for estimate sources: prefer linked print-history duration,
+	then fresh slicer-derived estimate, then manual estimate, then no-duration fallback.
 
 Acceptance gate:
 
 - Deterministic planner output and reversible rank rewrites.
+
+Planning rule for first implementation:
+
+- slicer-derived estimates should primarily improve ordering for entries that do
+	not yet have print-history data
+- queue consumers must be able to surface why a duration is shown (`history`,
+	`slicer`, `manual`) and whether it is stale
 
 ## Phase 3: Frontend queue board and add flow
 
@@ -132,6 +149,9 @@ Acceptance gate:
 - If JS assets are added/changed under `homeassistant/www/**`, bump matching resource URL versions in `homeassistant/packages/3d_printing/common/dashboards/_resources.yaml`.
 - Do not introduce new queue behavior through model-catalog legacy queue fields; unified queue storage is the single queue contract.
 - Extend existing `db_migrations.py` and `db_unified_queue.py` patterns; do not introduce a second SQLite file for queue data.
+- If queue ranking consumes slicer-derived estimates, keep the estimate cache and
+	invalidation keys in sidecar-owned persistence rather than recomputing on every
+	board load.
 
 ## Test Plan (Minimum)
 
@@ -142,6 +162,7 @@ Backend:
 - Add-flow selection validation tests.
 - Archive-linkage confidence and completion behavior tests.
 - Planner scoring/apply/undo tests.
+- Estimate-source precedence tests (`history` over `slicer`, `slicer` over `manual`, stale handling).
 
 Frontend:
 
@@ -149,12 +170,14 @@ Frontend:
 - Queue board rendering and mutation-refresh tests.
 - Planner drawer apply/undo behavior tests.
 - Responsive layout and empty/error states.
+- Duration badge/source-state rendering tests for fresh, stale, and missing estimates.
 
 Integration:
 
 - Mixed-source queue item lifecycle test.
 - Failed archive attempt does not complete plate test.
 - Medium-confidence suggestion accept/reject test.
+- No-history queue entry receives slicer estimate and planner output changes accordingly.
 
 ## Work Tracking
 

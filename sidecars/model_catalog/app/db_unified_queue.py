@@ -31,6 +31,7 @@ class UnifiedQueueEntry:
     selection_mode: str
     estimated_total_minutes: int | None
     duration_bucket: str
+    estimate_metadata: dict[str, object]
     ams_ready_score: int
     overnight_fit_score: int
     queue_notes: str | None
@@ -118,6 +119,7 @@ def _entry_from_row(row) -> UnifiedQueueEntry:
         selection_mode=str(row["selection_mode"]),
         estimated_total_minutes=int(row["estimated_total_minutes"]) if row["estimated_total_minutes"] is not None else None,
         duration_bucket=str(row["duration_bucket"]),
+        estimate_metadata=json.loads(str(row["estimate_metadata_json"] or "{}")),
         ams_ready_score=int(row["ams_ready_score"]),
         overnight_fit_score=int(row["overnight_fit_score"]),
         queue_notes=str(row["queue_notes"] or "").strip() or None,
@@ -217,6 +219,7 @@ def create_unified_queue_entry(
     selection_mode: str = "all_files_all_plates",
     estimated_total_minutes: int | None = None,
     duration_bucket: str = "unknown",
+    estimate_metadata: dict[str, object] | None = None,
     ams_ready_score: int = 0,
     overnight_fit_score: int = 0,
     queue_notes: str | None = None,
@@ -244,6 +247,7 @@ def create_unified_queue_entry(
                 selection_mode,
                 estimated_total_minutes,
                 duration_bucket,
+                estimate_metadata_json,
                 ams_ready_score,
                 overnight_fit_score,
                 queue_notes,
@@ -252,7 +256,7 @@ def create_unified_queue_entry(
                 last_attempt_outcome,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 queue_entry_id,
@@ -269,6 +273,7 @@ def create_unified_queue_entry(
                 selection_mode,
                 estimated_total_minutes,
                 duration_bucket,
+                json.dumps(estimate_metadata or {}),
                 ams_ready_score,
                 overnight_fit_score,
                 queue_notes,
@@ -329,6 +334,7 @@ def update_unified_queue_entry(
     selection_mode: str | None = None,
     estimated_total_minutes: int | None = None,
     duration_bucket: str | None = None,
+    estimate_metadata: dict[str, object] | None = None,
     ams_ready_score: int | None = None,
     overnight_fit_score: int | None = None,
     queue_notes: str | None = None,
@@ -357,6 +363,8 @@ def update_unified_queue_entry(
     _set("selection_mode", selection_mode)
     _set("estimated_total_minutes", estimated_total_minutes)
     _set("duration_bucket", duration_bucket)
+    if estimate_metadata is not None:
+        _set("estimate_metadata_json", json.dumps(estimate_metadata))
     _set("ams_ready_score", ams_ready_score)
     _set("overnight_fit_score", overnight_fit_score)
     _set("queue_notes", queue_notes)

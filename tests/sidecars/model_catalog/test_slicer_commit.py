@@ -210,6 +210,27 @@ class TestCommitArchiveTimestampOverride:
         assert call_kwargs["patch_body"]["completed_at"] == "2024-06-01T09:30:00-04:00"
 
 
+class TestCommitArchiveEstimateOnly:
+    def test_estimate_only_job_cannot_commit(self, tmp_path: Path) -> None:
+        client = _create_client(tmp_path)
+        try:
+            job, _, _ = _create_sliced_job(
+                client,
+                tmp_path,
+                archive_intent="estimate_only",
+            )
+
+            resp = client.post(
+                f"/api/slicer/jobs/{job['job_id']}/commit-archive",
+                json=_COMMIT_BODY,
+            )
+
+            assert resp.status_code == 409
+            assert "estimate-only" in resp.json()["error"]
+        finally:
+            client.__exit__(None, None, None)
+
+
 class TestCommitArchiveSourceAttachment:
     """Acceptance: source-only provenance is a separate explicit step."""
 

@@ -1435,6 +1435,137 @@ def test_planner_score_v1_computes_ams_overnight_duration_and_ranks(tmp_path: Pa
         client.__exit__(None, None, None)
 
 
+def test_unified_queue_entry_round_trips_estimate_metadata(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Estimated Widget",
+                "estimate_metadata": {
+                    "slicer": {
+                        "minutes": 95,
+                        "status": "fresh",
+                        "profile_key": "p1s:0.20:pla:plate0",
+                        "source_sha256": "abc123",
+                    },
+                    "manual": {
+                        "minutes": 120,
+                    },
+                },
+            },
+        )
+        assert create_response.status_code == 200
+        entry = create_response.json()["entry"]
+        assert entry["estimate_metadata"]["slicer"]["minutes"] == 95
+        assert entry["estimate_metadata"]["slicer"]["status"] == "fresh"
+
+        get_response = client.get(f"/api/unified-queue/entries/{entry['queue_entry_id']}")
+        assert get_response.status_code == 200
+        fetched = get_response.json()["entry"]
+        assert fetched["estimate_metadata"]["manual"]["minutes"] == 120
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_planner_score_v1_prefers_history_then_fresh_slicer_then_manual(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        history_entry = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "History Preferred",
+                "estimated_total_minutes": 600,
+                "estimate_metadata": {
+                    "history": {"minutes": 90, "source_archive_id": "arch-1"},
+                    "slicer": {"minutes": 110, "status": "fresh"},
+                    "manual": {"minutes": 240},
+                },
+                "rank": 0,
+            },
+        )
+        slicer_entry = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Slicer Preferred",
+                "estimated_total_minutes": 700,
+                "estimate_metadata": {
+                    "slicer": {"minutes": 100, "status": "fresh"},
+                    "manual": {"minutes": 300},
+                },
+                "rank": 1,
+            },
+        )
+        manual_entry = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Manual Fallback",
+                "estimated_total_minutes": 300,
+                "rank": 2,
+            },
+        )
+        assert history_entry.status_code == 200
+        assert slicer_entry.status_code == 200
+        assert manual_entry.status_code == 200
+
+        response = client.post("/api/v1/queues/p1/planner/score", json={})
+        assert response.status_code == 200
+        payload = response.json()
+        by_id = {entry["queue_entry_id"]: entry for entry in payload["entries"]}
+
+        history_id = history_entry.json()["entry"]["queue_entry_id"]
+        slicer_id = slicer_entry.json()["entry"]["queue_entry_id"]
+        manual_id = manual_entry.json()["entry"]["queue_entry_id"]
+
+        assert by_id[history_id]["estimated_minutes"] == 90
+        assert by_id[history_id]["duration"]["source"] == "history"
+        assert by_id[history_id]["duration"]["bucket"] == "quick"
+
+        assert by_id[slicer_id]["estimated_minutes"] == 100
+        assert by_id[slicer_id]["duration"]["source"] == "slicer"
+        assert by_id[slicer_id]["duration"]["bucket"] == "quick"
+
+        assert by_id[manual_id]["estimated_minutes"] == 300
+        assert by_id[manual_id]["duration"]["source"] == "manual"
+        assert by_id[manual_id]["duration"]["bucket"] == "overnight"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_planner_score_v1_ignores_stale_slicer_and_uses_manual(tmp_path: Path) -> None:
+    client, _db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "idea",
+                "title": "Stale Slicer",
+                "estimated_total_minutes": 360,
+                "estimate_metadata": {
+                    "slicer": {"minutes": 90, "status": "stale"},
+                    "manual": {"minutes": 360},
+                },
+            },
+        )
+        assert create_response.status_code == 200
+        entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        response = client.post("/api/v1/queues/p1/planner/score", json={})
+        assert response.status_code == 200
+        payload = response.json()
+        by_id = {entry["queue_entry_id"]: entry for entry in payload["entries"]}
+
+        assert by_id[entry_id]["estimated_minutes"] == 360
+        assert by_id[entry_id]["duration"]["source"] == "manual"
+        assert by_id[entry_id]["duration"]["bucket"] == "overnight"
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_planner_score_v1_handles_unknown_ams_state_gracefully(tmp_path: Path) -> None:
     client, db_path = _create_client(tmp_path)
     try:

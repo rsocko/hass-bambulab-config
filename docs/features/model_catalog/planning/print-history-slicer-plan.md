@@ -150,6 +150,93 @@ Target outcome:
 
 - operator can complete the full reviewed flow from a Model Catalog entrypoint
 
+## Follow-on: Estimate-Only Slicing For Queue Planning
+
+This should be implemented as a separate follow-on slice, not folded into the
+archive-creation happy path.
+
+### Purpose
+
+Use the slicer to derive a planning-grade `estimated_print_time` for a source
+model before it has print history, so Unified Queue and backlog views can sort
+or badge likely short/long prints.
+
+### Scope
+
+- estimate is derived from `source file + selected plate + printer preset + process preset + filament preset(s)`
+- estimate is cacheable metadata, not a canonical property of the model record
+- estimate-only flow must not create a Bambuddy archive
+- estimate-only flow must not retain generated `.gcode.3mf` by default
+
+### Persistence Contract
+
+- persist the estimate and its provenance in Model Catalog state
+- persist source hash plus a profile key or profile hash so stale estimates can
+	be invalidated deterministically
+- persist estimate status (`fresh`, `stale`, `missing`, `failed`) so queue and
+	detail views can explain why an item is or is not ranked by slicer-derived time
+- if the slice output must be downloaded to obtain metadata, treat the file as a
+	transient artifact and delete it immediately after metadata extraction
+
+Recommended persisted fields:
+
+- `estimated_print_time_seconds`
+- `estimate_source` (`slicer` | `history` | `manual`)
+- `estimate_profile_key`
+- `estimate_source_sha256`
+- `estimate_generated_at`
+- `estimate_status`
+- `estimate_last_error`
+
+### Artifact Retention Decision
+
+Default behavior:
+
+- do not keep generated `.gcode.3mf` files alongside working/source models
+- do not treat estimate-only output as a reusable durable asset
+
+Reasons:
+
+- slice output becomes stale when printer/process/filament presets change
+- plate selection and orientation changes can invalidate the estimate without any
+	source-model change
+- retaining all generated outputs creates storage and cleanup debt with weak
+	operator value for planning-only use cases
+
+Allowed exceptions:
+
+- operator explicitly pins a printer-ready build for later reuse
+- a reviewed archive-commit retry needs a short-lived staged artifact
+- a future audit/reproducibility feature requires opt-in retention with explicit
+	profile provenance
+
+### Execution Contract
+
+- prefer upstream metadata if the slicer exposes print-time metadata before
+	result download
+- otherwise allow Model Catalog to download the result, capture the metadata,
+	persist the estimate, and delete the local artifact immediately
+- do not rely on the upstream sidecar to retain jobs or artifacts; continue to
+	poll to terminal and `DELETE` upstream jobs after retrieval
+
+### Queue Integration Rules
+
+- use slicer-derived estimates first for items with no linked print-history
+	duration
+- when historical print-time data exists, treat history as the higher-confidence
+	signal unless the operator explicitly requests a fresh estimate for a different
+	printer/preset combination
+- expose the estimate as planning metadata for queue ranking and badges, not as
+	a hidden auto-write to legacy `to_print_priority`
+
+### Suggested Implementation Slice
+
+1. Add estimate-only job mode and DTOs to the existing slicer job model.
+2. Persist estimate metadata and invalidation keys in sidecar SQLite.
+3. Add a cleanup rule so estimate-only artifacts are deleted after metadata is captured.
+4. Expose estimate freshness and source in model detail and queue payloads.
+5. Consume the estimate in Unified Queue ranking for no-history items.
+
 ## Risks To Control Early
 
 1. Bambu Studio or OrcaSlicer runtime behavior may differ across host environments and container images.
@@ -157,6 +244,7 @@ Target outcome:
 3. Archive commit needs idempotent safeguards to avoid duplicate historical records.
 4. Historical print timestamps may be inferred or approximate, so the UI and API must preserve operator intent and confidence.
 5. Temp/output artifact growth can become operational debt if cleanup rules are not built in from the start.
+6. Estimate-only metadata can drift silently if profile changes are not part of the invalidation key.
 
 ## Recommended Validation Strategy
 
@@ -175,3 +263,4 @@ Recommended GitHub issues:
 4. Historical timestamp review and archive-commit contract
 5. Canonical archive commit and provenance follow-up
 6. HA workflow and UX states for source-3MF archive creation
+7. Estimate-only slicer metadata flow for queue planning

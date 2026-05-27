@@ -57,6 +57,7 @@ router = APIRouter(tags=["unified-queue"])
 VALID_SOURCE_KINDS = {"catalog_model", "working_group", "working_file", "idea"}
 VALID_STATES = {"backlog", "up_next", "preparing", "ready", "in_progress", "blocked", "done"}
 VALID_DURATION_BUCKETS = {"quick", "medium", "overnight", "marathon", "unknown"}
+VALID_ESTIMATE_SLICER_STATUSES = {"fresh", "stale", "missing", "failed"}
 VALID_SELECTION_MODES = {"all_files_all_plates", "selected_files", "selected_plates"}
 STATE_TRANSITIONS: dict[str, set[str]] = {
     "backlog": {"up_next", "preparing", "ready", "in_progress"},
@@ -156,6 +157,45 @@ def _entry_to_response(entry: Any) -> dict[str, Any]:
     payload["source_id"] = payload.get("source_ref")
     payload["copies"] = payload.get("copies_requested")
     return payload
+
+
+def _normalize_estimate_metadata(value: object | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("estimate_metadata must be an object")
+
+    normalized: dict[str, Any] = {}
+    for source in ("history", "slicer", "manual"):
+        raw = value.get(source)
+        if raw is None:
+            continue
+        if not isinstance(raw, dict):
+            raise ValueError(f"estimate_metadata.{source} must be an object")
+
+        item: dict[str, Any] = {}
+        if "minutes" in raw:
+            item["minutes"] = _coerce_optional_int(
+                raw.get("minutes"),
+                field=f"estimate_metadata.{source}.minutes",
+                minimum=0,
+            )
+
+        for field_name in ("generated_at", "profile_key", "source_sha256", "last_error", "source_archive_id"):
+            if field_name in raw:
+                item[field_name] = str(raw.get(field_name) or "").strip() or None
+
+        if source == "slicer" and "status" in raw:
+            status = str(raw.get("status") or "").strip().lower()
+            if status not in VALID_ESTIMATE_SLICER_STATUSES:
+                raise ValueError(
+                    f"estimate_metadata.slicer.status must be one of {sorted(VALID_ESTIMATE_SLICER_STATUSES)}"
+                )
+            item["status"] = status
+
+        normalized[source] = item
+
+    return normalized
 
 
 def _selection_mode_from_units(file_units: list[Any], plate_units_by_file_unit_id: dict[str, list[Any]]) -> str:
@@ -622,12 +662,69 @@ def _filename_stem(value: str | None) -> str:
 
 
 def _entry_estimated_minutes(entry: Any, file_units: list[Any]) -> int | None:
-    if entry.estimated_total_minutes is not None:
-        return int(entry.estimated_total_minutes)
+    estimate_context = _resolve_entry_estimate(entry, file_units)
+    if estimate_context["minutes"] is not None:
+        return int(estimate_context["minutes"])
     minute_values = [int(unit.estimated_minutes) for unit in file_units if unit.estimated_minutes is not None]
     if minute_values:
         return sum(minute_values)
     return None
+
+
+def _resolve_entry_estimate(entry: Any, file_units: list[Any]) -> dict[str, Any]:
+    raw_meta = getattr(entry, "estimate_metadata", None)
+    estimate_metadata = raw_meta if isinstance(raw_meta, dict) else {}
+
+    history = estimate_metadata.get("history") if isinstance(estimate_metadata.get("history"), dict) else {}
+    history_minutes = history.get("minutes")
+    if history_minutes is not None:
+        return {
+            "minutes": int(history_minutes),
+            "source": "history",
+            "status": "fresh",
+        }
+
+    slicer = estimate_metadata.get("slicer") if isinstance(estimate_metadata.get("slicer"), dict) else {}
+    slicer_minutes = slicer.get("minutes")
+    slicer_status = str(slicer.get("status") or "fresh").strip().lower()
+    if slicer_minutes is not None and slicer_status == "fresh":
+        return {
+            "minutes": int(slicer_minutes),
+            "source": "slicer",
+            "status": slicer_status,
+            "profile_key": slicer.get("profile_key"),
+            "source_sha256": slicer.get("source_sha256"),
+        }
+
+    manual = estimate_metadata.get("manual") if isinstance(estimate_metadata.get("manual"), dict) else {}
+    manual_minutes = manual.get("minutes")
+    if manual_minutes is not None:
+        return {
+            "minutes": int(manual_minutes),
+            "source": "manual",
+            "status": "fresh",
+        }
+
+    if entry.estimated_total_minutes is not None:
+        return {
+            "minutes": int(entry.estimated_total_minutes),
+            "source": "manual",
+            "status": "legacy",
+        }
+
+    minute_values = [int(unit.estimated_minutes) for unit in file_units if unit.estimated_minutes is not None]
+    if minute_values:
+        return {
+            "minutes": sum(minute_values),
+            "source": "file_units",
+            "status": "derived",
+        }
+
+    return {
+        "minutes": None,
+        "source": "missing",
+        "status": slicer_status if slicer_status in VALID_ESTIMATE_SLICER_STATUSES else "missing",
+    }
 
 
 def _score_archive_match_candidate(
@@ -1002,6 +1099,7 @@ def create_entry(request: Request, body: dict[str, Any] = Body(default_factory=d
         estimated_total_minutes = _coerce_optional_int(
             body.get("estimated_total_minutes"), field="estimated_total_minutes", minimum=0
         )
+        estimate_metadata = _normalize_estimate_metadata(body.get("estimate_metadata"))
     except ValueError as exc:
         return _error_response(status_code=400, error="validation_error", message=str(exc))
 
@@ -1036,6 +1134,7 @@ def create_entry(request: Request, body: dict[str, Any] = Body(default_factory=d
             selection_mode=selection_mode,
             estimated_total_minutes=estimated_total_minutes,
             duration_bucket=duration_bucket,
+            estimate_metadata=estimate_metadata,
             ams_ready_score=_coerce_optional_int(body.get("ams_ready_score"), field="ams_ready_score", minimum=0) or 0,
             overnight_fit_score=_coerce_optional_int(body.get("overnight_fit_score"), field="overnight_fit_score", minimum=0)
             or 0,
@@ -1518,6 +1617,8 @@ def update_entry(
             updates["estimated_total_minutes"] = _coerce_optional_int(
                 body.get("estimated_total_minutes"), field="estimated_total_minutes", minimum=0
             )
+        if "estimate_metadata" in body:
+            updates["estimate_metadata"] = _normalize_estimate_metadata(body.get("estimate_metadata")) or {}
         if "ams_ready_score" in body:
             updates["ams_ready_score"] = _coerce_optional_int(body.get("ams_ready_score"), field="ams_ready_score", minimum=0)
         if "overnight_fit_score" in body:
@@ -2301,7 +2402,8 @@ def _compute_planner_scores_immutable(
     scored: list[dict[str, Any]] = []
     for entry in entries:
         file_units = list_unified_queue_file_units(db_path=db_path, queue_entry_id=entry.queue_entry_id)
-        estimated_minutes = _entry_estimated_minutes(entry, file_units)
+        estimate_context = _resolve_entry_estimate(entry, file_units)
+        estimated_minutes = estimate_context["minutes"]
         required_uuids = _extract_required_tray_uuids(file_units)
 
         if not ams_state_known:
@@ -2349,6 +2451,8 @@ def _compute_planner_scores_immutable(
                 "duration": {
                     "bucket": duration_bucket,
                     "score": duration_score,
+                    "source": estimate_context["source"],
+                    "status": estimate_context["status"],
                 },
                 "planner_score": planner_score,
             }
@@ -2440,7 +2544,8 @@ def planner_score_queue_entries_v1(
         scored: list[dict[str, Any]] = []
         for entry in entries:
             file_units = list_unified_queue_file_units(db_path=state.settings.db_path, queue_entry_id=entry.queue_entry_id)
-            estimated_minutes = _entry_estimated_minutes(entry, file_units)
+            estimate_context = _resolve_entry_estimate(entry, file_units)
+            estimated_minutes = estimate_context["minutes"]
             required_uuids = _extract_required_tray_uuids(file_units)
 
             if not ams_state_known:
@@ -2495,6 +2600,8 @@ def planner_score_queue_entries_v1(
                     "duration": {
                         "bucket": duration_bucket,
                         "score": duration_score,
+                        "source": estimate_context["source"],
+                        "status": estimate_context["status"],
                     },
                     "planner_score": planner_score,
                 }

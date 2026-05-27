@@ -619,6 +619,95 @@ class TestExecuteJob:
                 resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
 
             assert resp.status_code == 200
+        finally:
+            client.__exit__(None, None, None)
+
+    def test_execute_estimate_only_discards_output_but_keeps_metadata(self, tmp_path: Path) -> None:
+        client = _create_client(tmp_path)
+        try:
+            job, _ = _create_draft_with_file(
+                client,
+                tmp_path,
+                archive_intent="estimate_only",
+            )
+            job_id = job["job_id"]
+
+            with (
+                patch("app.routers.slicer.enqueue_slice", return_value=_MOCK_ENQUEUE),
+                patch("app.routers.slicer.poll_until_terminal", return_value=_MOCK_POLL_COMPLETED),
+                patch("app.routers.slicer.retrieve_output", side_effect=_mock_retrieve_output),
+                patch("app.routers.slicer.cleanup_slice", return_value=True),
+            ):
+                resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
+
+            assert resp.status_code == 200
+            result = resp.json()
+            assert result["status"] == "sliced"
+            assert result["archive_intent"] == "estimate_only"
+            assert result["sliced_output_path"] is None
+            assert result["sliced_output_sha256"] is None
+            assert result["result_summary"]["estimate_only"] is True
+            assert result["result_summary"]["artifact_retained"] is False
+            assert result["result_summary"]["estimated_print_time_seconds"] == 3600.0
+        finally:
+            client.__exit__(None, None, None)
+
+    def test_execute_estimate_only_updates_matching_unified_queue_entry(self, tmp_path: Path) -> None:
+        client = _create_client(tmp_path)
+        try:
+            queue_resp = client.post(
+                "/api/unified-queue/entries",
+                json={
+                    "source_kind": "catalog_model",
+                    "source_id": "model-123",
+                    "title": "Queue Target",
+                    "estimate_metadata": {
+                        "manual": {
+                            "minutes": 120,
+                        },
+                    },
+                },
+            )
+            assert queue_resp.status_code == 200
+            queue_entry_id = queue_resp.json()["entry"]["queue_entry_id"]
+
+            job, _ = _create_draft_with_file(
+                client,
+                tmp_path,
+                archive_intent="estimate_only",
+                local_model_id="model-123",
+                overrides={
+                    "printer": "Bambu Lab P1S 0.4 nozzle",
+                    "preset": "0.20mm Standard @BBL P1S",
+                    "filament": "Bambu PLA Basic @BBL P1S",
+                },
+            )
+            job_id = job["job_id"]
+
+            with (
+                patch("app.routers.slicer.enqueue_slice", return_value=_MOCK_ENQUEUE),
+                patch("app.routers.slicer.poll_until_terminal", return_value=_MOCK_POLL_COMPLETED),
+                patch("app.routers.slicer.retrieve_output", side_effect=_mock_retrieve_output),
+                patch("app.routers.slicer.cleanup_slice", return_value=True),
+            ):
+                execute_resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
+
+            assert execute_resp.status_code == 200
+            execute_body = execute_resp.json()
+            assert execute_body["result_summary"]["queue_entry_ids_updated"] == [queue_entry_id]
+
+            queue_get = client.get(f"/api/unified-queue/entries/{queue_entry_id}")
+            assert queue_get.status_code == 200
+            queue_entry = queue_get.json()["entry"]
+            assert queue_entry["estimate_metadata"]["manual"]["minutes"] == 120
+            assert queue_entry["estimate_metadata"]["slicer"]["minutes"] == 60
+            assert queue_entry["estimate_metadata"]["slicer"]["status"] == "fresh"
+            assert queue_entry["estimate_metadata"]["slicer"]["profile_key"] is not None
+            assert queue_entry["estimate_metadata"]["slicer"]["source_sha256"] is not None
+        finally:
+            client.__exit__(None, None, None)
+
+            assert resp.status_code == 200
             assert mock_enqueue.call_args.kwargs["overrides"]["filaments"] == "Bambu PLA Basic @BBL P1S;Bambu PETG Basic @BBL P1S"
         finally:
             client.__exit__(None, None, None)

@@ -441,6 +441,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         selection_mode TEXT NOT NULL DEFAULT 'all_files_all_plates',
         estimated_total_minutes INTEGER,
         duration_bucket TEXT NOT NULL DEFAULT 'unknown',
+        estimate_metadata_json TEXT NOT NULL DEFAULT '{}',
         ams_ready_score INTEGER NOT NULL DEFAULT 0,
         overnight_fit_score INTEGER NOT NULL DEFAULT 0,
         queue_notes TEXT,
@@ -1428,6 +1429,14 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        35,
+        (
+            """
+        SELECT 1
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
@@ -1505,6 +1514,8 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
             ensure_column(connection, "intake_queue_uploads", "terminal_actor", "TEXT")
         if version == 23:
             _repair_unified_queue_file_units_foreign_key(connection)
+        if version == 35:
+            ensure_column(connection, "unified_queue_entries", "estimate_metadata_json", "TEXT NOT NULL DEFAULT '{}' ")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
