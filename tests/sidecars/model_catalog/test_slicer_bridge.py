@@ -378,6 +378,32 @@ class TestExecuteJob:
         finally:
             client.__exit__(None, None, None)
 
+    def test_execute_rejects_non_3mf_source(self, tmp_path: Path) -> None:
+        client = _create_client(tmp_path)
+        try:
+            source_file = tmp_path / "test_model.stl"
+            source_file.write_bytes(b"fake-stl-content-for-testing")
+
+            resp = client.post(
+                "/api/slicer/jobs",
+                json={
+                    "source_kind": "local_file",
+                    "archive_intent": "create_new",
+                    "working_file_path": str(source_file),
+                },
+            )
+            assert resp.status_code == 201
+            job_id = resp.json()["job_id"]
+
+            with patch("app.routers.slicer.enqueue_slice") as enqueue_mock:
+                execute_resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
+
+            assert execute_resp.status_code == 400
+            assert ".3mf" in execute_resp.json()["error"]
+            enqueue_mock.assert_not_called()
+        finally:
+            client.__exit__(None, None, None)
+
     def test_execute_wrong_status(self, tmp_path: Path) -> None:
         client = _create_client(tmp_path)
         try:

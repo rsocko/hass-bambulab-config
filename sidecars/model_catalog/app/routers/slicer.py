@@ -411,6 +411,15 @@ def execute_job(job_id: str, request: Request) -> JSONResponse:
             status_code=400,
             content={"error": f"Source file not found: {job.working_file_path}"},
         )
+    if source_path.suffix.lower() != ".3mf":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": (
+                    f"Source file must be a .3mf before slicing; got: {source_path.name}"
+                ),
+            },
+        )
 
     # 4. Compute source hash and determine output path
     source_sha256 = _sha256_file(source_path)
