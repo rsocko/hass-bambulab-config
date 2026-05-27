@@ -69,6 +69,10 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('left-nav-type-icon', self.card_content)
         self.assertIn('.left-nav-section + .left-nav-section{padding-top:10px;border-top:1px solid rgba(148,163,184,0.14);}', self.card_content)
 
+    def test_type_counts_are_derived_from_visible_results(self):
+        self.assertIn('var counts = { model: 0, idea: 0 };', self.card_content)
+        self.assertNotIn('return this._serverEntityTypeCounts;', self.card_content)
+
     def test_sort_picker_uses_explicit_recent_labels(self):
         self.assertIn('<option value="added"', self.card_content)
         self.assertIn('>Recently added</option>', self.card_content)

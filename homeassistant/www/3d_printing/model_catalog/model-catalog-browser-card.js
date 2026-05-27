@@ -159,9 +159,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _entityTypeCounts() {
-    if (this._serverEntityTypeCounts) {
-      return this._serverEntityTypeCounts;
-    }
     var counts = { model: 0, idea: 0 };
     for (var i = 0; i < this._results.length; i++) {
       var entityType = this._entityTypeForModel(this._results[i]);
