@@ -1552,6 +1552,49 @@ class ModelCatalogBrowserCard extends HTMLElement {
       cardTarget.click();
       return;
     }
+
+    // Arrow-key navigation within the left-nav
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+      var navHost = rawTarget && rawTarget.closest ? rawTarget.closest(".left-nav") : null;
+      if (navHost) {
+        var focusables = navHost.querySelectorAll("button.left-nav-item, button.left-nav-section-trigger, label.left-nav-type-toggle");
+        if (focusables.length) {
+          event.preventDefault();
+          var currentIndex = -1;
+          for (var fi = 0; fi < focusables.length; fi++) {
+            if (focusables[fi] === rawTarget || focusables[fi].contains(rawTarget)) {
+              currentIndex = fi;
+              break;
+            }
+          }
+          var nextIndex;
+          if (event.key === "Home") {
+            nextIndex = 0;
+          } else if (event.key === "End") {
+            nextIndex = focusables.length - 1;
+          } else if (event.key === "ArrowDown") {
+            nextIndex = currentIndex < focusables.length - 1 ? currentIndex + 1 : 0;
+          } else {
+            nextIndex = currentIndex > 0 ? currentIndex - 1 : focusables.length - 1;
+          }
+          focusables[nextIndex].focus({ preventScroll: false });
+          return;
+        }
+      }
+    }
+
+    // Escape closes the left-nav drawer
+    if (event.key === "Escape") {
+      var drawerNav = rawTarget && rawTarget.closest ? rawTarget.closest(".left-nav.drawer-open") : null;
+      if (drawerNav && this._leftNavDrawerOpen) {
+        event.preventDefault();
+        this._leftNavDrawerOpen = false;
+        this._focusNavToggleAfterRender = true;
+        this._render();
+        return;
+      }
+    }
+
     if (event.key !== "Enter") {
       return;
     }
@@ -1643,6 +1686,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._leftNavDrawerOpen = !this._leftNavDrawerOpen;
+      if (this._leftNavDrawerOpen) {
+        this._focusNavFirstItemAfterRender = true;
+      } else {
+        this._focusNavToggleAfterRender = true;
+      }
       this._render();
       return;
     }
@@ -1652,6 +1700,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.stopPropagation();
       if (this._leftNavDrawerOpen) {
         this._leftNavDrawerOpen = false;
+        this._focusNavToggleAfterRender = true;
         this._render();
       }
       return;
@@ -1661,6 +1710,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       var navKey = String(target.getAttribute("data-nav-key") || "all-models").trim() || "all-models";
+      if (this._leftNavDrawerOpen) {
+        this._focusNavToggleAfterRender = true;
+      }
       this._applyLeftNavSelection(navKey, { closeDrawer: true, requestLoad: true, render: true });
       return;
     }
@@ -4215,7 +4267,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       : collectionsHtml;
 
     return ''
-      + '<aside class="' + navClass + '" aria-label="Catalog navigation">'
+      + '<aside class="' + navClass + '" role="navigation" aria-label="Catalog navigation">'
       + '  <div class="left-nav-head">'
       + '    <div class="left-nav-title-wrap">'
       + '      <ha-icon icon="mdi:view-dashboard-outline"></ha-icon>'
@@ -4223,13 +4275,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '    <button class="toolbar-icon-btn left-nav-collapse" type="button" data-action="toggle-left-nav-collapse" aria-label="Toggle navigation collapse" aria-pressed="' + (this._leftNavCollapsed ? 'true' : 'false') + '"><ha-icon icon="mdi:chevron-left"></ha-icon></button>'
       + '  </div>'
-      + '  <div class="left-nav-section">'
+      + '  <div class="left-nav-section" role="group" aria-label="Type filters">'
       + '    <div class="left-nav-section-label">Type</div>'
       +      this._renderLeftNavTypeToggle('Model', 'model', typeCounts.model || 0)
       +      this._renderLeftNavTypeToggle('Idea', 'idea', typeCounts.idea || 0)
       +      this._renderLeftNavTypeToggle('Working Files', 'working', workingCount)
       + '  </div>'
-      + '  <div class="left-nav-section">'
+      + '  <div class="left-nav-section" role="group" aria-label="Quick pivots">'
       + '    <div class="left-nav-section-label">Quick pivots</div>'
       +      this._renderLeftNavItem('All models', 'all-models', totalCount, 'mdi:cube-outline')
       +      this._renderLeftNavItem('Favorites', 'favorites', favoritesCount, 'mdi:star-outline')
@@ -4237,11 +4289,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       +      this._renderLeftNavItem('Recently added', 'recent-added', recentAddedCount, 'mdi:clock-plus-outline')
       +      this._renderLeftNavItem('Recently printed', 'recent-printed', recentPrintedCount, 'mdi:printer-3d-nozzle-outline')
       + '  </div>'
-      + '  <div class="left-nav-section">'
+      + '  <div class="left-nav-section" role="group" aria-label="Collections">'
       + '    <div class="left-nav-section-label">Collections</div>'
         +      collectionsSectionHtml
       + '  </div>'
-      + '  <div class="left-nav-section">'
+      + '  <div class="left-nav-section" role="group" aria-label="Tags">'
       + '    <div class="left-nav-section-label">Tags</div>'
         +      tagsSectionHtml
       + '  </div>'
@@ -6465,6 +6517,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>';
 
     this._restoreActiveInputState(focusSnapshot);
+
+    // Focus management for left-nav drawer open/close
+    if (this._focusNavFirstItemAfterRender) {
+      this._focusNavFirstItemAfterRender = false;
+      var nav = this.shadowRoot.querySelector('.left-nav.drawer-open');
+      if (nav) {
+        var firstItem = nav.querySelector('button.left-nav-item, label.left-nav-type-toggle');
+        if (firstItem) {
+          requestAnimationFrame(function() { try { firstItem.focus(); } catch(_e) {} });
+        }
+      }
+    }
+    if (this._focusNavToggleAfterRender) {
+      this._focusNavToggleAfterRender = false;
+      var toggle = this.shadowRoot.querySelector('.left-nav-toggle') || this.shadowRoot.querySelector('.nav-context-chip');
+      if (toggle) {
+        requestAnimationFrame(function() { try { toggle.focus(); } catch(_e) {} });
+      }
+    }
 
     this._scheduleThumbnailObserverSetup(0);
     if (progressiveRemainder && progressiveRemainder.length) {
