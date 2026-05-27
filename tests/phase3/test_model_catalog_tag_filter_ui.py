@@ -29,6 +29,16 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('contextTags = contextTags.concat([nextTag]);', self.card_content)
         self.assertIn('contextTags = contextTags.filter(function (value) {', self.card_content)
 
+    def test_working_files_not_in_top_scope_pivot(self):
+        self.assertIn('this._renderOptionToggle("models")', self.card_content)
+        self.assertIn('this._renderOptionToggle("collections")', self.card_content)
+        self.assertNotIn('this._renderOptionToggle("working")', self.card_content)
+        self.assertIn('includeWorkingInModels = this._browserScope === "models"', self.card_content)
+
+    def test_selected_left_nav_filters_show_remove_glyph(self):
+        self.assertIn('left-nav-item-count dismiss', self.card_content)
+        self.assertIn("if (isActive && isFacetFilterItem)", self.card_content)
+
 
 if __name__ == "__main__":
     unittest.main()

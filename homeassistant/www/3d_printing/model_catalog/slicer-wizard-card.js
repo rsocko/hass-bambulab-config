@@ -45,6 +45,7 @@
       this._error = "";
       this._workerStatus = null; // { reachable, providers: [...] }
       this._printersList = []; // List of available printers from Bambuddy API
+      this._sourcePlates = []; // Parsed 3MF plate metadata, including filament_colors per plate
       this._currentStep = "entry-point"; // "entry-point" | "validation" | "filament" | "timestamp" | "progress" | "completion"
       this._jobData = {
         model_ref: "",
@@ -106,6 +107,7 @@
       this._error = "";
       this._workerStatus = null;
       this._printersList = [];
+      this._sourcePlates = [];
       this._jobData = {
         model_ref: "",
         job_id: null,
@@ -187,6 +189,10 @@
           if (this._activeContextKey !== contextKey) {
             return;
           }
+          await this._loadSourcePlates();
+          if (this._activeContextKey !== contextKey) {
+            return;
+          }
         }
 
         // Probe worker status
@@ -222,6 +228,419 @@
       } finally {
         this._loading = false;
       }
+    }
+
+    async _loadSourcePlates() {
+      this._sourcePlates = [];
+      if (!this._modelSidecarUrl || !this._modelDetail) {
+        return;
+      }
+
+      const sourceAsset = this._resolveSourceAsset();
+      const fileId = String(sourceAsset && (sourceAsset.asset_id || sourceAsset.file_id || sourceAsset.id) || "").trim();
+      if (!fileId) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/files/${encodeURIComponent(fileId)}/plates`);
+        if (!response.ok) {
+          return;
+        }
+        const payload = await response.json();
+        const rawPlates = Array.isArray(payload && payload.plates) ? payload.plates : [];
+        this._sourcePlates = rawPlates.map((plate, index) => {
+          const colors = Array.isArray(plate && plate.filament_colors)
+            ? plate.filament_colors
+                .map((value) => this._normalizeHexColor(value))
+                .filter((value, valueIndex, list) => value && list.indexOf(value) === valueIndex)
+            : [];
+          return {
+            plate_index: index,
+            plate_key: String(plate && (plate.plate_key || plate.plater_id || plate.id) || `plate_${index}`).trim(),
+            plate_name: String(plate && (plate.plate_name || plate.plater_name || plate.name) || `Plate ${index + 1}`).trim(),
+            filament_colors: colors,
+            object_ids: Array.isArray(plate && plate.object_ids) ? plate.object_ids.slice() : [],
+          };
+        });
+        if (this._sourcePlates.length > 0 && Number(this._wizardState.plate_index || 0) >= this._sourcePlates.length) {
+          this._wizardState.plate_index = 0;
+        }
+      } catch (error) {
+        console.debug("Failed to load 3MF plate metadata:", error);
+      }
+    }
+
+    _getStructuredMetadata() {
+      const candidates = [
+        this._modelDetail && this._modelDetail.structured_metadata,
+        this._modelDetail && this._modelDetail.model && this._modelDetail.model.structured_metadata,
+        this._modelDetail && this._modelDetail.enrichment && this._modelDetail.enrichment.structured_metadata,
+        this._modelDetail && this._modelDetail.entry && this._modelDetail.entry.structured_metadata,
+      ];
+      for (const candidate of candidates) {
+        if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+          return candidate;
+        }
+      }
+      return {};
+    }
+
+    _getAvailablePlates() {
+      if (Array.isArray(this._sourcePlates) && this._sourcePlates.length > 0) {
+        return this._sourcePlates;
+      }
+
+      const model = this._modelDetail || {};
+      const metadataPlates = Array.isArray(model.metadata && model.metadata.plates)
+        ? model.metadata.plates
+        : [];
+      return metadataPlates.map((plate, index) => ({
+        plate_index: index,
+        plate_key: `plate_${index}`,
+        plate_name: String(plate && plate.name || `Plate ${index + 1}`).trim(),
+        filament_colors: [],
+        object_ids: [],
+      }));
+    }
+
+    _getSelectedPlateMetadata() {
+      const plates = this._getAvailablePlates();
+      if (!plates.length) {
+        return null;
+      }
+      const requestedIndex = Number(this._wizardState.plate_index || 0);
+      const index = Number.isFinite(requestedIndex)
+        ? Math.min(Math.max(requestedIndex, 0), plates.length - 1)
+        : 0;
+      return plates[index] || plates[0] || null;
+    }
+
+    _normalizeHexColor(value) {
+      const raw = String(value || "").trim().replace(/^#/, "").toLowerCase();
+      if (!/^[0-9a-f]{6}$/.test(raw)) {
+        return "";
+      }
+      return `#${raw.toUpperCase()}`;
+    }
+
+    _hexToRgb(value) {
+      const hex = this._normalizeHexColor(value);
+      if (!hex) {
+        return null;
+      }
+      return {
+        r: parseInt(hex.slice(1, 3), 16),
+        g: parseInt(hex.slice(3, 5), 16),
+        b: parseInt(hex.slice(5, 7), 16),
+      };
+    }
+
+    _hexSimilarity(left, right) {
+      const leftRgb = this._hexToRgb(left);
+      const rightRgb = this._hexToRgb(right);
+      if (!leftRgb || !rightRgb) {
+        return 0;
+      }
+      const distance = Math.sqrt(
+        Math.pow(leftRgb.r - rightRgb.r, 2)
+        + Math.pow(leftRgb.g - rightRgb.g, 2)
+        + Math.pow(leftRgb.b - rightRgb.b, 2)
+      );
+      const maxDistance = Math.sqrt(255 * 255 * 3);
+      return Math.max(0, 1 - distance / maxDistance);
+    }
+
+    _parseMultiColorHexes(value) {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => this._normalizeHexColor(item))
+          .filter((item, index, list) => item && list.indexOf(item) === index);
+      }
+      return String(value || "")
+        .split(",")
+        .map((item) => this._normalizeHexColor(item))
+        .filter((item, index, list) => item && list.indexOf(item) === index);
+    }
+
+    _inferFilamentMaterial(value) {
+      const text = String(value || "").toUpperCase();
+      const knownMaterials = ["PLA-CF", "PETG-CF", "PA-CF", "ASA", "PETG", "PLA", "ABS", "TPU", "PC", "PA", "PVA", "HIPS"];
+      return knownMaterials.find((material) => text.includes(material)) || "";
+    }
+
+    _getModelColorTaxonomy() {
+      const structured = this._getStructuredMetadata();
+      const rawColors = Array.isArray(structured && structured.colors_used) ? structured.colors_used : [];
+      return rawColors
+        .map((item, index) => {
+          const hex = this._normalizeHexColor(item && item.hex);
+          if (!hex) {
+            return null;
+          }
+          return {
+            index,
+            hex,
+            display_name: String(item && item.display_name || "").trim(),
+            source: String(item && item.source || "").trim(),
+          };
+        })
+        .filter(Boolean);
+    }
+
+    _getFilamentCatalogEntries() {
+      if (!this._hass || !this._hass.states) {
+        return [];
+      }
+
+      const normalizeBool = (value) => value === true || value === "true" || value === "True" || value === 1 || value === "1" || value === "on";
+      const records = new Map();
+      const states = this._hass.states;
+      const entityIds = Object.keys(states);
+
+      const ensureRecord = (key) => {
+        if (!records.has(key)) {
+          records.set(key, {
+            key,
+            filament_id: "",
+            entity_ids: [],
+            display_name: "",
+            material: "",
+            vendor_name: "",
+            group_name: "",
+            color_hex: "",
+            multi_color_hexes: [],
+            available_spool_count: 0,
+            archived_spool_count: 0,
+            total_remaining_weight: 0,
+            inventory_rule: "",
+            has_filament_entity: false,
+            has_spool_entity: false,
+          });
+        }
+        return records.get(key);
+      };
+
+      entityIds
+        .filter((entityId) => /^sensor\.spoolman_filament_\d+$/.test(entityId))
+        .forEach((entityId) => {
+          const attrs = states[entityId] && states[entityId].attributes || {};
+          const filamentId = String(attrs.id != null ? attrs.id : attrs.filament_id != null ? attrs.filament_id : entityId).trim();
+          const record = ensureRecord(`filament:${filamentId}`);
+          if (!record.entity_ids.includes(entityId)) {
+            record.entity_ids.push(entityId);
+          }
+          record.filament_id = filamentId;
+          record.display_name = record.display_name || String(attrs.filament_name || attrs.friendly_name || attrs.name || `Filament ${filamentId}`).trim();
+          record.material = record.material || String(attrs.filament_material || "").trim();
+          record.vendor_name = record.vendor_name || String(attrs.filament_vendor_name || "").trim();
+          record.group_name = record.group_name || String(attrs.filament_group_name || attrs.filament_name || record.display_name).trim();
+          record.color_hex = record.color_hex || this._normalizeHexColor(attrs.filament_color_hex);
+          record.multi_color_hexes = record.multi_color_hexes.length
+            ? record.multi_color_hexes
+            : this._parseMultiColorHexes(attrs.filament_multi_color_hexes);
+          record.inventory_rule = record.inventory_rule || String(attrs.extra_inventory_rule || attrs.filament_extra_inventory_rule || "").trim();
+          record.has_filament_entity = true;
+        });
+
+      entityIds
+        .filter((entityId) => /^sensor\.spoolman_spool_\d+$/.test(entityId))
+        .forEach((entityId) => {
+          const attrs = states[entityId] && states[entityId].attributes || {};
+          const filamentId = String(attrs.filament_id != null ? attrs.filament_id : attrs.id != null ? attrs.id : entityId).trim();
+          const record = ensureRecord(`filament:${filamentId}`);
+          if (!record.entity_ids.includes(entityId)) {
+            record.entity_ids.push(entityId);
+          }
+          record.filament_id = filamentId;
+          record.display_name = record.display_name || String(attrs.filament_name || attrs.friendly_name || attrs.name || `Filament ${filamentId}`).trim();
+          record.material = record.material || String(attrs.filament_material || "").trim();
+          record.vendor_name = record.vendor_name || String(attrs.filament_vendor_name || "").trim();
+          record.group_name = record.group_name || String(attrs.filament_group_name || attrs.filament_name || record.display_name).trim();
+          record.color_hex = record.color_hex || this._normalizeHexColor(attrs.filament_color_hex);
+          if (!record.multi_color_hexes.length) {
+            record.multi_color_hexes = this._parseMultiColorHexes(attrs.filament_multi_color_hexes);
+          }
+          record.inventory_rule = record.inventory_rule || String(attrs.filament_extra_inventory_rule || attrs.extra_inventory_rule || "").trim();
+          record.has_spool_entity = true;
+          const archived = normalizeBool(attrs.archived);
+          if (archived) {
+            record.archived_spool_count += 1;
+          } else {
+            record.available_spool_count += 1;
+          }
+          const remainingWeight = Number(attrs.remaining_weight || 0);
+          if (Number.isFinite(remainingWeight) && remainingWeight > 0) {
+            record.total_remaining_weight += remainingWeight;
+          }
+        });
+
+      return Array.from(records.values());
+    }
+
+    _scoreFilamentCatalogEntry(entry, requirement) {
+      const stockThreshold = parseFloat(this._hass && this._hass.states && this._hass.states["input_number.filament_catalog_stock_threshold"] && this._hass.states["input_number.filament_catalog_stock_threshold"].state) || 150;
+      const requiredHex = this._normalizeHexColor(requirement && requirement.required_hex);
+      const candidateHex = this._normalizeHexColor(entry && entry.color_hex);
+      const requiredMaterial = String(requirement && requirement.material || "").trim().toUpperCase();
+      const candidateMaterial = String(entry && entry.material || "").trim().toUpperCase();
+      const sourceDisplayName = String(requirement && requirement.source_display_name || "").trim().toLowerCase();
+      const candidateText = [entry && entry.display_name, entry && entry.group_name, entry && entry.vendor_name]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      let score = 0;
+      const reasons = [];
+
+      if (requiredHex && candidateHex) {
+        if (requiredHex === candidateHex) {
+          score += 0.55;
+          reasons.push("exact hex match");
+        } else {
+          const similarity = this._hexSimilarity(requiredHex, candidateHex);
+          if (similarity >= 0.9) {
+            score += 0.32;
+            reasons.push("very close color");
+          } else if (similarity >= 0.75) {
+            score += 0.2;
+            reasons.push("similar color");
+          }
+        }
+      }
+
+      if (requiredHex && Array.isArray(entry && entry.multi_color_hexes) && entry.multi_color_hexes.includes(requiredHex) && candidateHex !== requiredHex) {
+        score += 0.45;
+        reasons.push("multi-color spool contains required hex");
+      }
+
+      if (requiredMaterial && candidateMaterial && requiredMaterial === candidateMaterial) {
+        score += 0.18;
+        reasons.push("material match");
+      }
+
+      if (sourceDisplayName) {
+        if (candidateText.includes(sourceDisplayName)) {
+          score += 0.16;
+          reasons.push("name match");
+        } else {
+          const tokens = sourceDisplayName.split(/[^a-z0-9]+/).filter((token) => token.length >= 4);
+          const overlap = tokens.filter((token) => candidateText.includes(token)).length;
+          if (overlap >= 2) {
+            score += 0.1;
+            reasons.push("label overlap");
+          }
+        }
+      }
+
+      if (Number(entry && entry.available_spool_count || 0) > 0) {
+        score += 0.1;
+        reasons.push(`${entry.available_spool_count} spool${entry.available_spool_count === 1 ? "" : "s"} available`);
+      } else if (entry && entry.has_filament_entity) {
+        score += 0.03;
+        reasons.push("catalog record only");
+      }
+
+      if (Number(entry && entry.total_remaining_weight || 0) >= stockThreshold) {
+        score += 0.03;
+      }
+
+      if (Number(entry && entry.archived_spool_count || 0) > 0 && Number(entry && entry.available_spool_count || 0) === 0) {
+        score -= 0.05;
+      }
+
+      const clampedScore = Math.max(0, Math.min(score, 1));
+      return {
+        ...entry,
+        match_score: clampedScore,
+        match_percent: Math.round(clampedScore * 100),
+        match_reasons: reasons,
+      };
+    }
+
+    _buildFilamentRequirements() {
+      const model = this._modelDetail || {};
+      const selectedPlate = this._getSelectedPlateMetadata();
+      const selectedPlateIndex = Number(selectedPlate && selectedPlate.plate_index || this._wizardState.plate_index || 0);
+      const selectedPlateName = String(selectedPlate && selectedPlate.plate_name || `Plate ${selectedPlateIndex + 1}`).trim();
+      const structuredColors = this._getModelColorTaxonomy();
+      const structuredByHex = new Map(structuredColors.map((item) => [item.hex, item]));
+      const recommendedFilament = String(model.metadata && model.metadata.filament || "").trim();
+      const inferredMaterial = this._inferFilamentMaterial(recommendedFilament);
+
+      let slotHexes = Array.isArray(selectedPlate && selectedPlate.filament_colors) ? selectedPlate.filament_colors.slice() : [];
+      if (!slotHexes.length && structuredColors.length) {
+        slotHexes = structuredColors.map((item) => item.hex);
+      }
+
+      if (!slotHexes.length && recommendedFilament) {
+        slotHexes = [""];
+      }
+
+      const catalogEntries = this._getFilamentCatalogEntries();
+      return slotHexes.map((rawHex, index) => {
+        const requiredHex = this._normalizeHexColor(rawHex);
+        const structured = requiredHex ? structuredByHex.get(requiredHex) : null;
+        const sourceDisplayName = String(structured && structured.display_name || recommendedFilament || `Embedded slot ${index + 1}`).trim();
+        const requirement = {
+          slot_key: `plate-${selectedPlateIndex}-slot-${index}`,
+          slot_index: index,
+          plate_index: selectedPlateIndex,
+          plate_name: selectedPlateName,
+          required_hex: requiredHex,
+          source_display_name: sourceDisplayName,
+          material: this._inferFilamentMaterial(sourceDisplayName) || inferredMaterial,
+        };
+        const rankedCandidates = catalogEntries
+          .map((entry) => this._scoreFilamentCatalogEntry(entry, requirement))
+          .sort((left, right) => {
+            if (right.match_score !== left.match_score) {
+              return right.match_score - left.match_score;
+            }
+            if (Number(right.available_spool_count || 0) !== Number(left.available_spool_count || 0)) {
+              return Number(right.available_spool_count || 0) - Number(left.available_spool_count || 0);
+            }
+            if (Number(right.total_remaining_weight || 0) !== Number(left.total_remaining_weight || 0)) {
+              return Number(right.total_remaining_weight || 0) - Number(left.total_remaining_weight || 0);
+            }
+            return String(left.display_name || "").localeCompare(String(right.display_name || ""));
+          })
+          .slice(0, 4);
+
+        return {
+          ...requirement,
+          candidates: rankedCandidates,
+          best_candidate: rankedCandidates[0] || null,
+        };
+      });
+    }
+
+    _getFilamentSelectionForSlot(slotKey) {
+      if (!Array.isArray(this._wizardState.filament_candidates)) {
+        return null;
+      }
+      return this._wizardState.filament_candidates.find((item) => item && item.slot_key === slotKey) || null;
+    }
+
+    _getSelectedFilamentCandidateForSlot(requirement) {
+      const selection = this._getFilamentSelectionForSlot(requirement && requirement.slot_key);
+      if (selection) {
+        return selection.use_embedded ? null : selection.selected_candidate || null;
+      }
+      const bestCandidate = requirement && requirement.best_candidate || null;
+      return bestCandidate && Number(bestCandidate.match_score || 0) >= 0.65 ? bestCandidate : null;
+    }
+
+    _formatFilamentAvailability(candidate) {
+      if (!candidate) {
+        return "";
+      }
+      if (Number(candidate.available_spool_count || 0) > 0) {
+        const weight = Number(candidate.total_remaining_weight || 0);
+        const spoolText = `${candidate.available_spool_count} spool${candidate.available_spool_count === 1 ? "" : "s"}`;
+        return weight > 0 ? `${spoolText} · ${Math.round(weight)}g` : spoolText;
+      }
+      return candidate.has_filament_entity ? "Catalog record" : "No stock data";
     }
 
     async _loadPrintersList() {
@@ -456,7 +875,11 @@
       const printer = model.metadata?.printer || "Not specified";
       const process = model.metadata?.process || "Not specified";
       const filament = model.metadata?.filament || "Not specified";
-      const plates = model.metadata?.plates || []; // Array of plate names/indices
+      const plates = this._getAvailablePlates();
+      const selectedPlate = this._getSelectedPlateMetadata();
+      const selectedPlateFilaments = Array.isArray(selectedPlate && selectedPlate.filament_colors)
+        ? selectedPlate.filament_colors.length
+        : 0;
 
       // Build warnings list
       const warnings = [];
@@ -553,7 +976,7 @@
                         value="${idx}" 
                         ${this._wizardState.plate_index === idx ? "checked" : ""}
                       />
-                      <span>${this._escapeHtml(plate.name || `Plate ${idx + 1}`)}</span>
+                      <span>${this._escapeHtml(plate.plate_name || plate.name || `Plate ${idx + 1}`)}${Array.isArray(plate.filament_colors) && plate.filament_colors.length ? ` · ${plate.filament_colors.length} color slot${plate.filament_colors.length === 1 ? "" : "s"}` : ""}</span>
                     </label>
                   `).join("")}
                 </div>
@@ -561,7 +984,7 @@
             ` : ""}
 
             <div class="info-box">
-              <strong>Next:</strong> If filament substitution is needed, you'll be prompted in the next step.
+              <strong>Next:</strong> The next step will show one chooser for each filament color used on ${this._escapeHtml(selectedPlate && selectedPlate.plate_name || `Plate ${Number(this._wizardState.plate_index || 0) + 1}`)}${selectedPlateFilaments ? ` (${selectedPlateFilaments} slot${selectedPlateFilaments === 1 ? "" : "s"})` : ""} and pre-rank catalog matches when possible.
             </div>
           </div>
 
@@ -590,55 +1013,107 @@
       if (!model) {
         return `<div class="error-banner">Model data unavailable</div>`;
       }
-
-      // Recommended filament from model metadata
+      const requirements = this._buildFilamentRequirements();
+      const selectedPlate = this._getSelectedPlateMetadata();
       const recommendedFilament = model.metadata?.filament || "Not specified";
-      
-      // Mock candidates (Phase 2 will integrate with Filament Catalog for deterministic lookup)
-      const candidates = [
-        { id: "generic-pla", name: "Generic PLA", match_score: 0.95 },
-        { id: "bambu-pla", name: "Bambu Lab PLA", match_score: 0.88 },
-        { id: "prusament-pla", name: "Prusament PLA", match_score: 0.82 },
-      ];
-      
-      const selectedCandidate = this._wizardState.filament_candidates[0] || candidates[0];
 
       return `
         <div class="wizard-container">
           <div class="wizard-header">
             <h2>Select Filament</h2>
-            <p class="wizard-subtitle">Choose filament for slicing (or accept recommended)</p>
+            <p class="wizard-subtitle">Review the used filament slots for ${this._escapeHtml(selectedPlate && selectedPlate.plate_name || `Plate ${Number(this._wizardState.plate_index || 0) + 1}`)}</p>
           </div>
 
           <div class="wizard-content">
             <div class="filament-recommended">
-              <div class="section-title">Recommended</div>
+              <div class="section-title">Embedded 3MF Summary</div>
               <div class="filament-card recommended">
                 <div class="filament-name">${this._escapeHtml(recommendedFilament)}</div>
-                <div class="filament-meta">From model metadata</div>
+                <div class="filament-meta">Used as the fallback when a slot keeps the model-specified filament mapping</div>
               </div>
             </div>
 
             <div class="filament-candidates">
-              <div class="section-title">Filament Candidates</div>
-              <div class="candidates-grid">
-                ${candidates.map((cand, idx) => `
-                  <label class="candidate-radio">
-                    <input 
-                      type="radio" 
-                      name="filament_candidate" 
-                      value="${cand.id}"
-                      ${selectedCandidate && selectedCandidate.id === cand.id ? "checked" : ""}
-                    />
-                    <div class="candidate-box">
-                      <div class="candidate-name">${this._escapeHtml(cand.name)}</div>
-                      <div class="candidate-score">Match: ${Math.round(cand.match_score * 100)}%</div>
+              <div class="section-title">Filament Slots</div>
+              ${requirements.length > 0 ? requirements.map((requirement) => {
+                const selectedCandidate = this._getSelectedFilamentCandidateForSlot(requirement);
+                const fallbackChecked = !selectedCandidate;
+                return `
+                  <div class="filament-slot-card">
+                    <div class="filament-slot-header">
+                      <div>
+                        <div class="filament-slot-title">${this._escapeHtml(requirement.plate_name)} · Slot ${requirement.slot_index + 1}</div>
+                        <div class="filament-slot-subtitle">${this._escapeHtml(requirement.source_display_name || "Embedded filament mapping")}</div>
+                      </div>
+                      ${requirement.required_hex ? `
+                        <div class="filament-slot-swatch-group">
+                          <span class="filament-slot-swatch" style="background:${this._escapeHtml(requirement.required_hex)};"></span>
+                          <span class="filament-slot-hex">${this._escapeHtml(requirement.required_hex)}</span>
+                        </div>
+                      ` : ""}
                     </div>
-                  </label>
-                `).join("")}
-              </div>
+                    <div class="filament-slot-note">
+                      ${requirement.material ? `Material hint: ${this._escapeHtml(requirement.material)}.` : "Material is not explicitly extracted for this slot."}
+                      ${requirement.best_candidate && Number(requirement.best_candidate.match_score || 0) >= 0.65 ? " The top catalog match is preselected because the confidence is strong enough." : " Embedded fallback stays selected until a stronger catalog match is available or you choose one manually."}
+                    </div>
+                    <div class="candidates-grid slot-candidates">
+                      <label class="candidate-radio ${fallbackChecked ? "selected" : ""}">
+                        <input
+                          type="radio"
+                          name="filament_candidate_${this._escapeHtml(requirement.slot_key)}"
+                          value=""
+                          data-filament-slot-key="${this._escapeHtml(requirement.slot_key)}"
+                          data-keep-embedded="true"
+                          ${fallbackChecked ? "checked" : ""}
+                        />
+                        <div class="candidate-box">
+                          <div class="candidate-name">Keep embedded 3MF filament mapping</div>
+                          <div class="candidate-score">Model-specified filament</div>
+                          <div class="candidate-description">Use the filament definition already embedded in the source 3MF for this slot.</div>
+                        </div>
+                      </label>
+                      ${requirement.candidates.map((candidate) => `
+                        <label class="candidate-radio ${selectedCandidate && selectedCandidate.key === candidate.key ? "selected" : ""}">
+                          <input
+                            type="radio"
+                            name="filament_candidate_${this._escapeHtml(requirement.slot_key)}"
+                            value="${this._escapeHtml(candidate.key)}"
+                            data-filament-slot-key="${this._escapeHtml(requirement.slot_key)}"
+                            data-candidate-key="${this._escapeHtml(candidate.key)}"
+                            data-name="${this._escapeHtml(candidate.display_name)}"
+                            data-match-score="${String(candidate.match_score)}"
+                            data-material="${this._escapeHtml(candidate.material || "")}" 
+                            data-color-hex="${this._escapeHtml(candidate.color_hex || "")}" 
+                            data-filament-id="${this._escapeHtml(candidate.filament_id || "")}" 
+                            data-profile-name="${this._escapeHtml(candidate.group_name || candidate.display_name || "")}" 
+                            data-source-type="${candidate.has_spool_entity ? "spool" : "filament"}"
+                            ${selectedCandidate && selectedCandidate.key === candidate.key ? "checked" : ""}
+                          />
+                          <div class="candidate-box">
+                            <div class="candidate-name">${this._escapeHtml(candidate.display_name || candidate.group_name || "Catalog Filament")}</div>
+                            <div class="candidate-score">Match %: ${candidate.match_percent}%</div>
+                            <div class="candidate-description">${this._escapeHtml(candidate.match_reasons.join(" + ") || "Catalog fallback candidate")}</div>
+                            <div class="candidate-meta-row">
+                              ${candidate.color_hex ? `<span class="candidate-chip"><span class="candidate-chip-swatch" style="background:${this._escapeHtml(candidate.color_hex)};"></span>${this._escapeHtml(candidate.color_hex)}</span>` : ""}
+                              ${candidate.material ? `<span class="candidate-chip">${this._escapeHtml(candidate.material)}</span>` : ""}
+                              <span class="candidate-chip">${this._escapeHtml(this._formatFilamentAvailability(candidate))}</span>
+                            </div>
+                          </div>
+                        </label>
+                      `).join("")}
+                      ${requirement.candidates.length === 0 ? `
+                        <div class="candidate-empty">No filament catalog candidates were found for this slot. The embedded 3MF filament will be used.</div>
+                      ` : ""}
+                    </div>
+                  </div>
+                `;
+              }).join("") : `
+                <div class="info-box">
+                  <strong>No filament slots were detected for the selected plate.</strong> The wizard will keep the embedded 3MF mapping for slicing.
+                </div>
+              `}
               <div class="info-box">
-                <strong>Note:</strong> Filament candidates are deterministic based on the model's material requirements and filament catalog inventory.
+                <strong>How matching works:</strong> the wizard ranks Filament Catalog entries using the selected plate's 3MF filament colors first, then material and name hints. You can always fall back to the model-specified filament for any slot.
               </div>
             </div>
           </div>
@@ -656,9 +1131,29 @@
       `;
     }
 
-    _handleFilamentSelect(event, candidate) {
+    _handleFilamentSelect(event, slotKey, candidate, requirement) {
       if (event.target.checked) {
-        this._wizardState.filament_candidates = [candidate];
+        const currentSelection = this._getFilamentSelectionForSlot(slotKey);
+        const currentMode = currentSelection && currentSelection.use_embedded ? "embedded" : "candidate";
+        const nextMode = candidate ? "candidate" : "embedded";
+        const currentId = currentSelection && currentSelection.selected_candidate && currentSelection.selected_candidate.key
+          ? String(currentSelection.selected_candidate.key)
+          : "";
+        const nextId = candidate && candidate.key ? String(candidate.key) : "";
+        if (currentMode === nextMode && currentId === nextId) {
+          return;
+        }
+        const nextSelections = Array.isArray(this._wizardState.filament_candidates)
+          ? this._wizardState.filament_candidates.filter((item) => !item || item.slot_key !== slotKey)
+          : [];
+        nextSelections.push({
+          slot_key: slotKey,
+          use_embedded: !candidate,
+          required_hex: requirement && requirement.required_hex || "",
+          source_display_name: requirement && requirement.source_display_name || "",
+          selected_candidate: candidate || null,
+        });
+        this._wizardState.filament_candidates = nextSelections;
         this._render();
       }
     }
@@ -927,6 +1422,13 @@
       } catch (_error) {
         timezone = null;
       }
+      const overrides = {
+        plate: String(Number(this._wizardState.plate_index || 0)),
+      };
+      const filamentOverrides = this._serializeFilamentOverrides();
+      if (filamentOverrides.length > 0) {
+        overrides.filament_overrides = filamentOverrides;
+      }
       return {
         source_kind: "local_file",
         archive_intent: "create_new",
@@ -942,10 +1444,40 @@
         requested_print_completed_at: timestamp,
         requested_print_timezone: timezone,
         date_override_strategy: timestamp ? "operator_supplied" : "operator_default",
-        overrides: {
-          plate: String(Number(this._wizardState.plate_index || 0)),
-        },
+        overrides,
       };
+    }
+
+    _serializeFilamentOverrides() {
+      if (!Array.isArray(this._wizardState.filament_candidates)) {
+        return [];
+      }
+      return this._wizardState.filament_candidates
+        .filter((item) => item && !item.use_embedded && item.selected_candidate)
+        .map((item) => ({
+          slot_key: String(item.slot_key || "").trim(),
+          slot_index: Number(String(item.slot_key || "").split("-").pop() || 0),
+          required_hex: String(item.required_hex || "").trim() || null,
+          source_display_name: String(item.source_display_name || "").trim() || null,
+          filament_id: item.selected_candidate && item.selected_candidate.filament_id
+            ? String(item.selected_candidate.filament_id).trim()
+            : null,
+          profile_name: item.selected_candidate && item.selected_candidate.profile_name
+            ? String(item.selected_candidate.profile_name).trim()
+            : null,
+          display_name: item.selected_candidate && item.selected_candidate.display_name
+            ? String(item.selected_candidate.display_name).trim()
+            : null,
+          material: item.selected_candidate && item.selected_candidate.material
+            ? String(item.selected_candidate.material).trim()
+            : null,
+          color_hex: item.selected_candidate && item.selected_candidate.color_hex
+            ? String(item.selected_candidate.color_hex).trim()
+            : null,
+          match_score: item.selected_candidate && Number.isFinite(Number(item.selected_candidate.match_score))
+            ? Number(item.selected_candidate.match_score)
+            : null,
+        }));
     }
 
     _buildCommitBody() {
@@ -1999,12 +2531,76 @@
             margin-bottom: 16px;
           }
 
+          .filament-slot-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            background: var(--bg-card-alt);
+            margin-bottom: 12px;
+          }
+
+          .filament-slot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 8px;
+          }
+
+          .filament-slot-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+
+          .filament-slot-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 3px;
+          }
+
+          .filament-slot-swatch-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+            border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+            white-space: nowrap;
+          }
+
+          .filament-slot-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 0, 0, 0.18);
+            flex-shrink: 0;
+          }
+
+          .filament-slot-hex {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+
+          .filament-slot-note {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            line-height: 1.45;
+          }
+
           .candidates-grid {
             display: grid;
             grid-template-columns: 1fr;
             gap: 8px;
             margin-top: 8px;
             margin-bottom: 12px;
+          }
+
+          .slot-candidates {
+            margin-bottom: 0;
           }
 
           .candidate-radio {
@@ -2016,12 +2612,18 @@
             border-radius: 6px;
             cursor: pointer;
             background: var(--bg-primary);
-            transition: all 0.2s ease;
+            transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
           }
 
           .candidate-radio:hover {
             background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
             border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+          }
+
+          .candidate-radio.selected {
+            border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+            background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+            box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
           }
 
           .candidate-radio input[type="radio"] {
@@ -2030,6 +2632,7 @@
             height: 18px;
             accent-color: var(--accent);
             flex-shrink: 0;
+            margin: 2px 0 0;
           }
 
           .candidate-box {
@@ -2046,6 +2649,50 @@
             font-size: 12px;
             color: var(--text-secondary);
             margin-top: 2px;
+          }
+
+          .candidate-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            line-height: 1.4;
+          }
+
+          .candidate-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+          }
+
+          .candidate-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+            border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+            color: var(--text-primary);
+            font-size: 11px;
+            font-weight: 500;
+          }
+
+          .candidate-chip-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 0, 0, 0.18);
+            flex-shrink: 0;
+          }
+
+          .candidate-empty {
+            padding: 12px;
+            border-radius: 6px;
+            background: var(--bg-primary);
+            border: 1px dashed var(--border-color);
+            color: var(--text-secondary);
+            font-size: 12px;
           }
 
           /* Timestamp Review Step (6.4) */
@@ -2566,20 +3213,27 @@
         });
       });
 
-      const filamentInputs = this.shadowRoot.querySelectorAll('input[name="filament_candidate"]');
+      const filamentInputs = this.shadowRoot.querySelectorAll('input[data-filament-slot-key]');
       filamentInputs.forEach((input) => {
         input.addEventListener("change", (event) => {
-          const candidateBox = input.closest('.candidate-radio') && input.closest('.candidate-radio').querySelector('.candidate-box');
-          const nameEl = candidateBox ? candidateBox.querySelector('.candidate-name') : null;
-          const scoreEl = candidateBox ? candidateBox.querySelector('.candidate-score') : null;
-          const scoreText = scoreEl ? String(scoreEl.textContent || '') : '';
-          const scoreMatch = scoreText.match(/(\d+)/);
-          const candidate = {
-            id: input.value,
-            name: nameEl ? String(nameEl.textContent || '').trim() : input.value,
-            match_score: scoreMatch ? Number(scoreMatch[1]) / 100 : 0,
-          };
-          this._handleFilamentSelect(event, candidate);
+          const slotKey = String(input.getAttribute('data-filament-slot-key') || '').trim();
+          const requirement = this._buildFilamentRequirements().find((item) => item.slot_key === slotKey) || null;
+          const keepEmbedded = String(input.getAttribute('data-keep-embedded') || '').toLowerCase() === 'true';
+          const candidate = keepEmbedded
+            ? null
+            : {
+                key: String(input.getAttribute('data-candidate-key') || input.value || '').trim(),
+                id: String(input.getAttribute('data-candidate-key') || input.value || '').trim(),
+                name: String(input.getAttribute('data-name') || input.value).trim(),
+                match_score: Number(input.getAttribute('data-match-score') || 0),
+                display_name: String(input.getAttribute('data-name') || input.value).trim(),
+                material: String(input.getAttribute('data-material') || '').trim(),
+                color_hex: this._normalizeHexColor(input.getAttribute('data-color-hex') || ''),
+                filament_id: String(input.getAttribute('data-filament-id') || '').trim(),
+                profile_name: String(input.getAttribute('data-profile-name') || '').trim(),
+                has_spool_entity: String(input.getAttribute('data-source-type') || '') === 'spool',
+              };
+          this._handleFilamentSelect(event, slotKey, candidate, requirement);
         });
       });
 
