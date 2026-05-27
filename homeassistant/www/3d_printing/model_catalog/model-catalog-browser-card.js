@@ -1524,8 +1524,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
           page: requestPayload.page,
           per_page: requestPayload.per_page,
           collection_id: this._filters.collection,
-          display_mode: "mixed",
-          collection_sort: "name",
         });
       } else {
         data = includeWorkingInModels

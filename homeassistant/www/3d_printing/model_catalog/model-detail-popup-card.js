@@ -138,6 +138,9 @@ class ModelDetailPopupCard extends HTMLElement {
     this._collectionPickerHighlightIndex = 0;
     this._knownCollections = [];
     this._allCollectionsFetched = false;
+    this._collectionEditFeedback = null;
+    this._collectionEditFeedbackTimer = null;
+    this._collectionMembershipStaleIds = [];
     this._collectionCreateBusy = false;
     
     // Bound handlers
@@ -180,6 +183,9 @@ class ModelDetailPopupCard extends HTMLElement {
       this._collectionPickerHighlightIndex = 0;
       this._knownCollections = [];
       this._allCollectionsFetched = false;
+      this._collectionEditFeedback = null;
+      this._clearCollectionEditFeedbackTimer();
+      this._collectionMembershipStaleIds = [];
       this._collectionCreateBusy = false;
       this._ideaMetaDraft = {
         notes: '',
@@ -250,6 +256,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
+    this._clearCollectionEditFeedbackTimer();
     this._destroyOverlayRoot();
   }
 
@@ -453,6 +460,24 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('[data-action="model-edit-save"]')) {
       event.preventDefault();
       this._saveModelMetadataEdits();
+      return;
+    }
+
+    if (target.closest('[data-action="undo-collection-change"]')) {
+      event.preventDefault();
+      this._undoLastCollectionMembershipChange();
+      return;
+    }
+
+    if (target.closest('[data-action="dismiss-collection-feedback"]')) {
+      event.preventDefault();
+      this._dismissCollectionEditFeedback();
+      return;
+    }
+
+    if (target.closest('[data-action="refresh-collections"]')) {
+      event.preventDefault();
+      this._refreshCollectionEditorCollections({ showFeedback: true });
       return;
     }
 
@@ -2933,6 +2958,39 @@ class ModelDetailPopupCard extends HTMLElement {
         .chip-group.stack { align-items: flex-start; flex-direction: column; }
         .chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .summary-empty { color: var(--text-secondary); font-size: 12px; }
+        .collection-edit-feedback {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
+          margin-bottom: 8px;
+        }
+        .collection-edit-feedback.warning {
+          background: rgba(245, 158, 11, 0.12);
+          border-color: rgba(245, 158, 11, 0.28);
+        }
+        .collection-edit-feedback.error {
+          background: rgba(239, 68, 68, 0.12);
+          border-color: rgba(239, 68, 68, 0.28);
+        }
+        .collection-edit-feedback-message { font-size: 12px; color: var(--text); line-height: 1.35; }
+        .collection-edit-feedback-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .action-button.small { padding: 5px 9px; font-size: 10px; }
+        .meta-warning {
+          margin-top: 8px;
+          padding: 8px 10px;
+          border-radius: 10px;
+          border: 1px solid rgba(245, 158, 11, 0.28);
+          background: rgba(245, 158, 11, 0.10);
+          color: var(--text);
+          font-size: 12px;
+          line-height: 1.35;
+        }
+        .meta-warning-actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
 
         /* tag / collection chip UX */
         .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -2942,6 +3000,18 @@ class ModelDetailPopupCard extends HTMLElement {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
           background: rgba(110,218,203,0.10); color: var(--accent-color, #6edacb); border: 1px solid rgba(110,218,203,0.28);
+        }
+        .tag-chip.stale {
+          background: rgba(239, 68, 68, 0.12);
+          border-color: rgba(239, 68, 68, 0.28);
+          color: #fca5a5;
+        }
+        .tag-chip .stale-note {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          opacity: 0.92;
         }
         .tag-chip .x { cursor: pointer; opacity: 0.6; font-size: 12px; margin-left: 2px; line-height: 1; }
         .tag-chip .x:hover { opacity: 1; }
@@ -4559,6 +4629,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
     const isIdea = this._getEntityType(model) === 'idea';
     const selectedCollections = this._selectedCollectionMemberships();
+    const staleCollectionIds = Array.isArray(this._collectionMembershipStaleIds) ? this._collectionMembershipStaleIds : [];
+    const staleCollectionSet = new Set(staleCollectionIds);
     const collectionLabels = this._modelMetaEditOpen
       ? selectedCollections.map((item) => item.path || item.name || item.collection_id)
       : (Array.isArray(model.collection_names) ? model.collection_names : []);
@@ -4576,6 +4648,7 @@ class ModelDetailPopupCard extends HTMLElement {
         </div>
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
+            ${this._modelMetaEditOpen ? this._renderCollectionEditFeedback() : ''}
             ${this._modelMetaEditOpen ? `
               <div class="summary-edit-grid">
                 <label>
@@ -4605,7 +4678,9 @@ class ModelDetailPopupCard extends HTMLElement {
                 ${collectionLabels.length
                   ? collectionLabels.map((label, index) => {
                       const membership = selectedCollections[index] || null;
-                      return `<span class="tag-chip">${this._escapeHtml(String(label || ''))}${this._modelMetaEditOpen && membership ? ` <span class="x" data-action="remove-collection" data-collection-id="${this._escapeHtml(String(membership.collection_id || ''))}" title="Remove collection">✕</span>` : ''}</span>`;
+                      const collectionId = String(membership && membership.collection_id || '').trim().toLowerCase();
+                      const isStaleMembership = this._modelMetaEditOpen && staleCollectionSet.has(collectionId);
+                      return `<span class="tag-chip${isStaleMembership ? ' stale' : ''}">${this._escapeHtml(String(label || ''))}${isStaleMembership ? ' <span class="stale-note">Missing</span>' : ''}${this._modelMetaEditOpen && membership ? ` <span class="x" data-action="remove-collection" data-collection-id="${this._escapeHtml(String(membership.collection_id || ''))}" title="Remove collection">✕</span>` : ''}</span>`;
                     }).join('')
                   : '<span class="summary-empty">No Collection</span>'}
                 ${this._modelMetaEditOpen ? `<div class="collection-picker-wrap picker-wrap">
@@ -4613,6 +4688,7 @@ class ModelDetailPopupCard extends HTMLElement {
                   ${this._collectionPickerOpen ? this._renderCollectionPicker(selectedCollections) : ''}
                 </div>` : ''}
               </div>
+              ${this._modelMetaEditOpen && staleCollectionIds.length ? `<div class="meta-warning">${this._escapeHtml(staleCollectionIds.length === 1 ? 'One selected collection no longer exists. Refresh the collection list or remove the stale chip before saving.' : `${staleCollectionIds.length} selected collections no longer exist. Refresh the collection list or remove the stale chips before saving.`)}</div><div class="meta-warning-actions"><button class="action-button ghost small" data-action="refresh-collections" ${this._modelMetaLoading || this._modelMetaSaving ? 'disabled' : ''}>Refresh collections</button></div>` : ''}
             </div>
             ${this._modelMetaLoading ? '<div class="meta">Loading collection memberships…</div>' : ''}
             <div class="meta">${this._getEntityType(model) === 'idea' ? 'Idea entry: no model files or print history required yet.' : `Print history links: ${linkedCount} linked, ${candidateCount} candidates`}</div>
@@ -6793,6 +6869,7 @@ class ModelDetailPopupCard extends HTMLElement {
       this._knownCollections = this._normalizeCollectionRows(Array.isArray(collectionsBody.items) ? collectionsBody.items : []);
       this._allCollectionsFetched = true;
       this._modelMetaDraft.collectionMemberships = this._normalizeCollectionRows(Array.isArray(membershipsBody.items) ? membershipsBody.items : []);
+      this._syncCollectionMembershipStaleness();
     } catch (error) {
       this._error = `Failed to load model editor: ${error}`;
     } finally {
@@ -6808,7 +6885,8 @@ class ModelDetailPopupCard extends HTMLElement {
     this._collectionPickerOpen = false;
     this._collectionSearchQuery = '';
     this._collectionPickerHighlightIndex = 0;
-    this._render();
+    this._collectionMembershipStaleIds = [];
+    this._dismissCollectionEditFeedback();
   }
 
   _normalizeCollectionRows(rows) {
@@ -6846,6 +6924,123 @@ class ModelDetailPopupCard extends HTMLElement {
     return this._modelMetaDraft && Array.isArray(this._modelMetaDraft.collectionMemberships)
       ? this._modelMetaDraft.collectionMemberships
       : [];
+  }
+
+  _clearCollectionEditFeedbackTimer() {
+    if (this._collectionEditFeedbackTimer) {
+      window.clearTimeout(this._collectionEditFeedbackTimer);
+      this._collectionEditFeedbackTimer = null;
+    }
+  }
+
+  _showCollectionEditFeedback(feedback, options) {
+    var settings = options && typeof options === 'object' ? options : {};
+    this._clearCollectionEditFeedbackTimer();
+    this._collectionEditFeedback = feedback && typeof feedback === 'object' ? Object.assign({}, feedback) : null;
+    if (this._collectionEditFeedback && settings.autoDismiss !== false) {
+      this._collectionEditFeedbackTimer = window.setTimeout(function () {
+        this._collectionEditFeedbackTimer = null;
+        this._collectionEditFeedback = null;
+        this._render();
+      }.bind(this), Math.max(1000, Number(settings.timeoutMs || 5000) || 5000));
+    }
+    this._render();
+  }
+
+  _dismissCollectionEditFeedback() {
+    this._clearCollectionEditFeedbackTimer();
+    this._collectionEditFeedback = null;
+    this._render();
+  }
+
+  _computeStaleCollectionMembershipIds(selectedRows, knownCollections) {
+    var knownIds = new Set((Array.isArray(knownCollections) ? knownCollections : []).map(function (row) {
+      return String(row && row.collection_id || '').trim().toLowerCase();
+    }).filter(Boolean));
+    return (Array.isArray(selectedRows) ? selectedRows : []).map(function (row) {
+      return String(row && row.collection_id || '').trim().toLowerCase();
+    }).filter(function (collectionId) {
+      return collectionId && !knownIds.has(collectionId);
+    });
+  }
+
+  _syncCollectionMembershipStaleness() {
+    this._collectionMembershipStaleIds = this._computeStaleCollectionMembershipIds(this._selectedCollectionMemberships(), this._knownCollections);
+    return this._collectionMembershipStaleIds.slice(0);
+  }
+
+  async _refreshCollectionEditorCollections(options) {
+    var settings = options && typeof options === 'object' ? options : {};
+    var base = String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+    if (!base) {
+      return [];
+    }
+    var response = await fetch(base + '/api/collections');
+    var body = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      throw new Error(String(body.error || ('Collections load failed (HTTP ' + response.status + ')')));
+    }
+    this._knownCollections = this._normalizeCollectionRows(Array.isArray(body.items) ? body.items : []);
+    this._allCollectionsFetched = true;
+    var staleIds = this._syncCollectionMembershipStaleness();
+    if (settings.showFeedback) {
+      if (staleIds.length) {
+        this._showCollectionEditFeedback({
+          kind: 'warning',
+          message: staleIds.length === 1
+            ? 'One selected collection no longer exists. Remove the stale chip before saving.'
+            : staleIds.length + ' selected collections no longer exist. Remove the stale chips before saving.',
+        }, { autoDismiss: false });
+      } else {
+        this._showCollectionEditFeedback({ kind: 'info', message: 'Collection list refreshed.' }, { timeoutMs: 2500 });
+      }
+    } else if (settings.render !== false) {
+      this._render();
+    }
+    return this._knownCollections;
+  }
+
+  _undoLastCollectionMembershipChange() {
+    var feedback = this._collectionEditFeedback && typeof this._collectionEditFeedback === 'object' ? this._collectionEditFeedback : null;
+    var undo = feedback && feedback.undo && typeof feedback.undo === 'object' ? feedback.undo : null;
+    if (!undo || !undo.collectionId) {
+      return;
+    }
+    var current = this._selectedCollectionMemberships().slice(0);
+    if (undo.type === 'add') {
+      this._modelMetaDraft.collectionMemberships = current.filter(function (row) {
+        return String(row && row.collection_id || '').trim().toLowerCase() !== undo.collectionId;
+      });
+    } else if (undo.type === 'remove') {
+      var exists = current.some(function (row) {
+        return String(row && row.collection_id || '').trim().toLowerCase() === undo.collectionId;
+      });
+      if (!exists && undo.row) {
+        var insertIndex = Math.max(0, Math.min(Number(undo.index || 0) || 0, current.length));
+        current.splice(insertIndex, 0, undo.row);
+      }
+      this._modelMetaDraft.collectionMemberships = current;
+    } else {
+      return;
+    }
+    this._syncCollectionMembershipStaleness();
+    this._showCollectionEditFeedback({ kind: 'info', message: 'Collection change undone.' }, { timeoutMs: 2500 });
+  }
+
+  _renderCollectionEditFeedback() {
+    var feedback = this._collectionEditFeedback && typeof this._collectionEditFeedback === 'object' ? this._collectionEditFeedback : null;
+    var canUndo = !!(feedback && feedback.undo && feedback.undo.collectionId);
+    if (!feedback || !feedback.message) {
+      return '';
+    }
+    return ''
+      + '<div class="collection-edit-feedback ' + this._escapeHtml(String(feedback.kind || 'info')) + '" role="status" aria-live="polite">'
+      + '  <div class="collection-edit-feedback-message">' + this._escapeHtml(String(feedback.message || '')) + '</div>'
+      + '  <div class="collection-edit-feedback-actions">'
+      + (canUndo ? '    <button class="action-button ghost small" data-action="undo-collection-change">Undo</button>' : '')
+      + '    <button class="action-button ghost small" data-action="dismiss-collection-feedback">Dismiss</button>'
+      + '  </div>'
+      + '</div>';
   }
 
   _buildCollectionPickerState(selectedRows) {
@@ -6893,24 +7088,53 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _handleCollectionRemove(collectionId) {
     const normalizedId = String(collectionId || '').trim().toLowerCase();
-    this._modelMetaDraft.collectionMemberships = this._selectedCollectionMemberships().filter((row) => String(row.collection_id || '').trim().toLowerCase() !== normalizedId);
-    this._render();
+    const current = this._selectedCollectionMemberships();
+    const removedIndex = current.findIndex((row) => String(row && row.collection_id || '').trim().toLowerCase() === normalizedId);
+    if (removedIndex === -1) {
+      return;
+    }
+    const removedRow = current[removedIndex];
+    this._modelMetaDraft.collectionMemberships = current.filter((row) => String(row.collection_id || '').trim().toLowerCase() !== normalizedId);
+    this._syncCollectionMembershipStaleness();
+    this._showCollectionEditFeedback({
+      kind: 'info',
+      message: `Removed ${String(removedRow && (removedRow.path || removedRow.name || removedRow.collection_id) || 'collection')}.`,
+      undo: {
+        type: 'remove',
+        collectionId: normalizedId,
+        row: removedRow,
+        index: removedIndex,
+      },
+    });
   }
 
   _handleCollectionAdd(collectionId) {
     const normalizedId = String(collectionId || '').trim().toLowerCase();
     const existingIds = new Set(this._selectedCollectionMemberships().map((row) => String(row.collection_id || '').trim().toLowerCase()));
     if (!normalizedId || existingIds.has(normalizedId)) {
+      if (normalizedId) {
+        this._showCollectionEditFeedback({ kind: 'info', message: 'That collection is already selected.' }, { timeoutMs: 2500 });
+      }
       return;
     }
     const match = (Array.isArray(this._knownCollections) ? this._knownCollections : []).find((row) => String(row.collection_id || '').trim().toLowerCase() === normalizedId);
     if (!match) {
+      this._showCollectionEditFeedback({ kind: 'warning', message: 'That collection is no longer available. Refresh the collection list and try again.' }, { autoDismiss: false });
       return;
     }
     this._modelMetaDraft.collectionMemberships = this._selectedCollectionMemberships().concat([match]);
     this._collectionSearchQuery = '';
     this._collectionPickerHighlightIndex = 0;
-    this._render();
+    this._syncCollectionMembershipStaleness();
+    this._showCollectionEditFeedback({
+      kind: 'info',
+      message: `Added ${String(match.path || match.name || match.collection_id)}.`,
+      undo: {
+        type: 'add',
+        collectionId: normalizedId,
+        row: match,
+      },
+    });
   }
 
   async _handleCollectionCreate() {
@@ -6985,6 +7209,18 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelMetaDraft.description = description;
     this._render();
     try {
+      await this._refreshCollectionEditorCollections({ showFeedback: false, render: false });
+      const staleIds = this._syncCollectionMembershipStaleness();
+      if (staleIds.length) {
+        this._modelMetaSaving = false;
+        this._showCollectionEditFeedback({
+          kind: 'warning',
+          message: staleIds.length === 1
+            ? 'One selected collection no longer exists. Remove the stale chip before saving.'
+            : `${staleIds.length} selected collections no longer exist. Remove the stale chips before saving.`,
+        }, { autoDismiss: false });
+        return;
+      }
       const patchResponse = await fetch(`${base}/api/models/${encodeURIComponent(modelRef)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -7009,6 +7245,8 @@ class ModelDetailPopupCard extends HTMLElement {
       this._collectionPickerOpen = false;
       this._collectionSearchQuery = '';
       this._collectionPickerHighlightIndex = 0;
+      this._collectionMembershipStaleIds = [];
+      this._dismissCollectionEditFeedback();
       this._notifyBrowserDetailChanged();
       this._render();
     } catch (error) {
