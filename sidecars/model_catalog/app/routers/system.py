@@ -127,17 +127,17 @@ def diagnostics(request: Request) -> dict[str, Any]:
     intake_roots = _configured_intake_source_roots(state.settings)
     working_roots = _configured_working_files_roots(state.settings)
 
-    # Check what collection names exist in cache
+    # Inspect cached remote catalog collection metadata only.
     connection = connect(state.settings.db_path)
     try:
         collection_stats = connection.execute("""
             SELECT
-                COUNT(DISTINCT collection_names_json) as unique_collections_json,
+                COUNT(DISTINCT collection_names_json) as unique_collection_payloads,
                 COUNT(*) as total_models
             FROM model_summary_cache
         """).fetchone()
 
-        # Get sample collection names
+        # Get sample cached collection labels from model_summary_cache.
         sample_collections = connection.execute("""
             SELECT DISTINCT collection_names_json
             FROM model_summary_cache
@@ -243,10 +243,10 @@ def diagnostics(request: Request) -> dict[str, Any]:
         },
         "db_seed_result": state.db_seed_result,
         "catalog_base_url": state.settings.catalog_base_url,
-        "cache_stats": {
-            "total_models": collection_stats[1] if collection_stats else 0,
-            "models_with_collections": None,
-            "sample_collection_names": list(set(collection_sample)),
+        "cache_collection_stats": {
+            "total_cached_models": collection_stats[1] if collection_stats else 0,
+            "distinct_cached_collection_payloads": collection_stats[0] if collection_stats else 0,
+            "sample_cached_collection_names": list(set(collection_sample)),
         },
         "upload_telemetry": {
             "tracked_upload_count": tracked_upload_count,
