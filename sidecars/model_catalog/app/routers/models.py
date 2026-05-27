@@ -982,10 +982,10 @@ def _search_models_from_projection(
             f"""
             SELECT p.entity_type, COUNT(*) AS cnt
             FROM model_catalog_search_projection p
-            {base_where}
+            {full_where}
             GROUP BY p.entity_type
             """,
-            base_params,
+            total_params,
         ).fetchall()
         entity_type_counts = {"model": 0, "idea": 0}
         for row in entity_rows:

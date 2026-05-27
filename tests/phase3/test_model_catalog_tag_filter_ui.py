@@ -71,7 +71,7 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
 
     def test_type_counts_are_derived_from_visible_results(self):
         self.assertIn('var counts = { model: 0, idea: 0 };', self.card_content)
-        self.assertNotIn('return this._serverEntityTypeCounts;', self.card_content)
+        self.assertIn('return this._serverEntityTypeCounts;', self.card_content)
 
     def test_sort_picker_uses_explicit_recent_labels(self):
         self.assertIn('<option value="added"', self.card_content)

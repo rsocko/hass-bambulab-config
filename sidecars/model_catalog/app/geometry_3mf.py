@@ -405,16 +405,17 @@ def _dominant_extruder_from_paint_color(value: Any) -> int:
     return resolved
 
 
-def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any]], dict[str, int]]:
+def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any]], dict[str, int], dict[str, list[str]]]:
     if not text:
-        return [], {}
+        return [], {}, {}
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
-        return [], {}
+        return [], {}, {}
 
     plates: list[dict[str, Any]] = []
     object_extruders: dict[str, int] = {}
+    object_part_ids: dict[str, list[str]] = {}
 
     for child in list(root):
         child_name = _local_name(child.tag)
@@ -446,6 +447,7 @@ def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any
                 part_id = str(part.attrib.get("id") or "").strip()
                 if not part_id:
                     continue
+                object_part_ids.setdefault(object_id, []).append(part_id)
                 part_extruder: int | None = object_default_extruder
                 for part_meta in list(part):
                     if _local_name(part_meta.tag) != "metadata":
@@ -494,7 +496,7 @@ def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any
         ]
         plates.append(plate_data)
 
-    return plates, object_extruders
+    return plates, object_extruders, object_part_ids
 
 
 def _merge_plate_metadata(
@@ -504,6 +506,7 @@ def _merge_plate_metadata(
     plates: list[dict[str, Any]],
     palette: list[str],
     object_extruders: dict[str, int],
+    object_part_ids: dict[str, list[str]],
 ) -> list[dict[str, Any]]:
     enriched: list[dict[str, Any]] = []
     for index, plate in enumerate(plates, start=1):
@@ -526,14 +529,21 @@ def _merge_plate_metadata(
         derived_colors: list[str] = list(merged.get("filament_colors") or [])
         if not derived_colors:
             for object_id in merged.get("object_ids") or []:
-                extruder = object_extruders.get(str(object_id))
-                if extruder is None:
-                    continue
-                palette_index = extruder - 1 if extruder > 0 else extruder
-                if 0 <= palette_index < len(palette):
-                    color_value = palette[palette_index]
-                    if color_value and color_value not in derived_colors:
-                        derived_colors.append(color_value)
+                candidate_ids = [str(object_id)]
+                candidate_ids.extend(object_part_ids.get(str(object_id), []))
+                seen_candidate_ids: set[str] = set()
+                for candidate_id in candidate_ids:
+                    if candidate_id in seen_candidate_ids:
+                        continue
+                    seen_candidate_ids.add(candidate_id)
+                    extruder = object_extruders.get(candidate_id)
+                    if extruder is None:
+                        continue
+                    palette_index = extruder - 1 if extruder > 0 else extruder
+                    if 0 <= palette_index < len(palette):
+                        color_value = palette[palette_index]
+                        if color_value and color_value not in derived_colors:
+                            derived_colors.append(color_value)
         if derived_colors:
             merged["filament_colors"] = derived_colors
         enriched.append(merged)
@@ -927,13 +937,14 @@ def extract_3mf_plates_metadata(package_bytes: bytes) -> dict[str, Any]:
                     if normalized
                 ]
 
-        plates, object_extruders = _parse_model_settings_metadata(model_settings_text)
+        plates, object_extruders, object_part_ids = _parse_model_settings_metadata(model_settings_text)
         plates = _merge_plate_metadata(
             package=package,
             part_name_map=part_name_map,
             plates=plates,
             palette=palette,
             object_extruders=object_extruders,
+            object_part_ids=object_part_ids,
         )
 
     return {
@@ -978,13 +989,14 @@ def extract_3mf_geometry(
                     if normalized
                 ]
 
-        plates, object_extruders = _parse_model_settings_metadata(model_settings_text)
+        plates, object_extruders, object_part_ids = _parse_model_settings_metadata(model_settings_text)
         plates = _merge_plate_metadata(
             package=package,
             part_name_map=part_name_map,
             plates=plates,
             palette=palette,
             object_extruders=object_extruders,
+            object_part_ids=object_part_ids,
         )
 
         # Resolve selected plate FIRST so we can plate-filter the root parse

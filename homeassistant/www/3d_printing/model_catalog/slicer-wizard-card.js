@@ -700,6 +700,40 @@
         return profiles;
       }
 
+      _getWorkerFilamentProfileSet() {
+        const providers = Array.isArray(this._workerStatus && this._workerStatus.providers)
+          ? this._workerStatus.providers
+          : [];
+        const availableProfiles = new Set();
+        providers.forEach((provider) => {
+          const bundles = Array.isArray(provider && provider.bundles) ? provider.bundles : [];
+          bundles.forEach((bundle) => {
+            const filamentProfiles = Array.isArray(bundle && bundle.filament) ? bundle.filament : [];
+            filamentProfiles.forEach((profile) => {
+              const normalized = this._normalizeProfileName(profile).toLowerCase();
+              if (normalized) {
+                availableProfiles.add(normalized);
+              }
+            });
+          });
+        });
+        return availableProfiles;
+      }
+
+      _canForwardExecutableFilamentProfiles(profileNames) {
+        if (!Array.isArray(profileNames) || profileNames.length === 0) {
+          return false;
+        }
+        const availableProfiles = this._getWorkerFilamentProfileSet();
+        if (availableProfiles.size === 0) {
+          return false;
+        }
+        return profileNames.every((profile) => {
+          const normalized = this._normalizeProfileName(profile).toLowerCase();
+          return normalized && availableProfiles.has(normalized);
+        });
+      }
+
     _getFilamentSelectionForSlot(slotKey) {
       if (!Array.isArray(this._wizardState.filament_candidates)) {
         return null;
@@ -1534,7 +1568,11 @@
       }
       const executableFilamentProfiles = this._buildExecutableFilamentProfileList();
       if (Array.isArray(executableFilamentProfiles) && executableFilamentProfiles.length > 0) {
-        overrides.filaments = executableFilamentProfiles.join(";");
+        if (this._canForwardExecutableFilamentProfiles(executableFilamentProfiles)) {
+          overrides.filaments = executableFilamentProfiles.join(";");
+        } else {
+          console.warn("Skipping filaments override because worker does not expose matching profile names", executableFilamentProfiles);
+        }
       }
       return {
         source_kind: "local_file",
@@ -1674,8 +1712,14 @@
         body = null;
       }
       if (!response.ok) {
-        const errorMessage = body && body.error
-          ? String(body.error)
+        const detailedError = body && (
+          body.last_error
+          || body.error
+          || body.message
+          || body.detail
+        );
+        const errorMessage = detailedError
+          ? `${fallbackLabel}: ${String(detailedError)}`
           : `${fallbackLabel}: ${response.status} ${response.statusText}`;
         throw new Error(errorMessage);
       }
