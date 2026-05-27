@@ -58,7 +58,7 @@ def _seed_projection(db_path: Path, rows: list[dict]) -> None:
         # Mark projection as fresh so it is not rebuilt.
         # The fingerprint must match what _search_projection_source_fingerprint
         # computes from the (empty) source tables.
-        empty_fingerprint = "0|0|||"
+        empty_fingerprint = "0|0|||||"
         conn.execute(
             """
             INSERT OR REPLACE INTO model_catalog_search_projection_meta
@@ -123,6 +123,40 @@ SEED_ROWS = [
         "keyword_names_json": '["old"]',
         "entity_type": "model",
         "catalog_visibility": "archived",
+    },
+]
+
+
+TREE_SEED_ROWS = [
+    {
+        "model_ref": "m10",
+        "model_name": "Gridfinity Bin",
+        "collection_names_json": '["Functional / Gridfinity / Bins"]',
+        "entity_type": "model",
+    },
+    {
+        "model_ref": "m11",
+        "model_name": "Gridfinity Baseplate",
+        "collection_names_json": '["Functional / Gridfinity"]',
+        "entity_type": "model",
+    },
+    {
+        "model_ref": "m12",
+        "model_name": "Phone Stand",
+        "collection_names_json": '["Functional / Desk Accessories"]',
+        "entity_type": "model",
+    },
+    {
+        "model_ref": "m13",
+        "model_name": "Cable Clip",
+        "collection_names_json": '["Utility"]',
+        "entity_type": "model",
+    },
+    {
+        "model_ref": "m14",
+        "model_name": "Loose Model",
+        "collection_names_json": '[]',
+        "entity_type": "model",
     },
 ]
 
@@ -269,3 +303,160 @@ def test_facets_empty_projection(tmp_path: Path) -> None:
     assert data["total"] == 0
     assert data["facet_counts"]["collections"] == []
     assert data["facet_counts"]["tags"] == []
+
+
+def test_facets_returns_collection_tree_payload(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _seed_projection(settings.db_path, TREE_SEED_ROWS)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        data = client.get("/api/facets").json()
+
+    tree = data["collection_tree"]
+    assert tree["contract"] == "collection-tree.v1alpha1"
+    assert tree["path_separator"] == " / "
+    assert tree["unassigned_model_count"] == 1
+
+    nodes = {node["collection_id"]: node for node in tree["nodes"]}
+    assert "functional" in nodes
+    assert nodes["functional"]["model_count_total"] == 3
+    assert nodes["functional"]["model_count_direct"] == 0
+    assert nodes["functional"]["has_explicit_membership"] is False
+
+    assert "functional / gridfinity" in nodes
+    assert nodes["functional / gridfinity"]["model_count_total"] == 2
+    assert nodes["functional / gridfinity"]["model_count_direct"] == 1
+    assert nodes["functional / gridfinity"]["has_explicit_membership"] is True
+
+    assert "functional / gridfinity / bins" in nodes
+    assert nodes["functional / gridfinity / bins"]["model_count_direct"] == 1
+    assert nodes["functional / gridfinity / bins"]["depth"] == 2
+
+
+def test_facets_collection_tree_is_nested(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _seed_projection(settings.db_path, TREE_SEED_ROWS)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        data = client.get("/api/facets").json()
+
+    root_items = data["collection_tree"]["items"]
+    functional = next(item for item in root_items if item["collection_id"] == "functional")
+    assert functional["child_collection_count"] == 2
+    assert [child["collection_id"] for child in functional["children"]] == [
+        "functional / desk accessories",
+        "functional / gridfinity",
+    ]
+    gridfinity = next(child for child in functional["children"] if child["collection_id"] == "functional / gridfinity")
+    assert [child["collection_id"] for child in gridfinity["children"]] == [
+        "functional / gridfinity / bins",
+    ]
+
+
+def test_collections_browse_root_returns_top_level_collection_nodes(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _seed_projection(settings.db_path, TREE_SEED_ROWS)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/collections/browse?per_page=20")
+        assert resp.status_code == 200
+        data = resp.json()
+
+    assert data["success"] is True
+    assert data["contract"] == "collection-browse.v1alpha1"
+    assert data["result_counts"]["collections"] == 2
+    assert data["result_counts"]["models"] == 0
+    assert data["tree"]["unassigned_model_count"] == 1
+    assert [item["kind"] for item in data["items"]] == ["collection", "collection"]
+    assert [item["data"]["label"] for item in data["items"]] == ["Functional", "Utility"]
+
+
+def test_collections_browse_nested_node_returns_child_collections_and_direct_models(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _seed_projection(settings.db_path, TREE_SEED_ROWS)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/collections/browse?collection_id=functional%20/%20gridfinity&per_page=20")
+        assert resp.status_code == 200
+        data = resp.json()
+
+    assert data["result_counts"] == {"collections": 1, "models": 1}
+    assert [item["kind"] for item in data["items"]] == ["collection", "model"]
+    assert data["items"][0]["data"]["label"] == "Bins"
+    assert data["items"][1]["data"]["name"] == "Gridfinity Baseplate"
+    assert [crumb["label"] for crumb in data["breadcrumb"]] == ["Functional", "Gridfinity"]
+
+
+def test_collection_crud_and_model_membership_endpoints(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        root_resp = client.post("/api/collections", json={"name": "Functional"})
+        assert root_resp.status_code == 200
+        root = root_resp.json()["item"]
+
+        child_resp = client.post(
+            "/api/collections",
+            json={"name": "Gridfinity", "parent_collection_id": root["collection_id"]},
+        )
+        assert child_resp.status_code == 200
+        child = child_resp.json()["item"]
+
+        list_resp = client.get("/api/collections")
+        assert list_resp.status_code == 200
+        assert [item["collection_id"] for item in list_resp.json()["items"]] == [
+            "functional",
+            "functional / gridfinity",
+        ]
+
+        replace_resp = client.put(
+            "/api/models/local:test/collections",
+            json={"collection_ids": [child["collection_id"]]},
+        )
+        assert replace_resp.status_code == 200
+
+        memberships_resp = client.get("/api/models/local:test/collections")
+        assert memberships_resp.status_code == 200
+        memberships = memberships_resp.json()["items"]
+        assert len(memberships) == 1
+        assert memberships[0]["collection_id"] == "functional / gridfinity"
+
+
+def test_collection_rename_rewrites_model_memberships(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        root = client.post("/api/collections", json={"name": "Functional"}).json()["item"]
+        child = client.post(
+            "/api/collections",
+            json={"name": "Gridfinity", "parent_collection_id": root["collection_id"]},
+        ).json()["item"]
+        replace_resp = client.put(
+            "/api/models/local:test/collections",
+            json={"collection_ids": [child["collection_id"]]},
+        )
+        assert replace_resp.status_code == 200
+
+        rename_resp = client.patch(
+            "/api/collections/functional / gridfinity",
+            json={"name": "Bins"},
+        )
+        assert rename_resp.status_code == 200
+        renamed = rename_resp.json()["item"]
+        assert renamed["collection_id"] == "functional / bins"
+
+        memberships = client.get("/api/models/local:test/collections").json()["items"]
+        assert len(memberships) == 1
+        assert memberships[0]["collection_id"] == "functional / bins"

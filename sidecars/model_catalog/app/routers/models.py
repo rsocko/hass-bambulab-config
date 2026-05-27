@@ -106,6 +106,15 @@ from ..catalog_cache import (
     read_cached_catalog_models,
     read_cached_model_summaries,
 )
+from ..db_collections import (
+    COLLECTION_PATH_SEPARATOR,
+    create_collection,
+    list_collections,
+    read_collection,
+    read_model_collection_memberships_bulk,
+    replace_model_collection_memberships,
+    update_collection,
+)
 
 from ..models import CatalogModelSummary, LocalModelEntry
 
@@ -172,6 +181,8 @@ DEFAULT_FREQUENT_WINDOW_DAYS = 90
 DEFAULT_FREQUENT_MIN_PRINTS = 3
 DEFAULT_FREQUENT_BACKFILL_WEIGHT = 0.5
 COLLECTION_FILTER_UNASSIGNED = "__unassigned__"
+COLLECTION_PATH_SEPARATOR = " / "
+COLLECTION_PATH_SPLIT_RE = re.compile(r"\s*(?:/|>|::)\s*")
 GEOMETRY_LOD_TRIANGLE_LIMITS: dict[str, int] = {
     "low": 150_000,
     "medium": 400_000,
@@ -508,14 +519,16 @@ def _search_projection_source_fingerprint(*, db_path: Any) -> str:
                 (SELECT COALESCE(MAX(updated_at), '')
                  FROM model_catalog_custom_fields
                  WHERE entity_type = 'catalog_model' AND field_namespace = 'model_catalog') AS custom_fields_updated_at,
-                (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_links) AS links_updated_at
+                (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_links) AS links_updated_at,
+                (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_collections) AS collections_updated_at,
+                (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_collection_memberships) AS collection_memberships_updated_at
             """
         ).fetchone()
     finally:
         connection.close()
 
     if row is None:
-        return "0|0||||"
+        return "0|0|||||"
     return "|".join(
         [
             str(int(row["summary_count"] or 0)),
@@ -523,8 +536,76 @@ def _search_projection_source_fingerprint(*, db_path: Any) -> str:
             str(row["local_updated_at"] or ""),
             str(row["custom_fields_updated_at"] or ""),
             str(row["links_updated_at"] or ""),
+            str(row["collections_updated_at"] or ""),
+            str(row["collection_memberships_updated_at"] or ""),
         ]
     )
+
+
+def _model_ref_for_summary(summary: CatalogModelSummary) -> str:
+    return str(summary.public_id or summary.model_id or summary.model_url or "").strip()
+
+
+def _collection_paths_from_memberships(memberships: list[dict[str, Any]] | None) -> tuple[str, ...]:
+    if not memberships:
+        return tuple()
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for membership in memberships:
+        collection_id = str(membership.get("collection_id") or "").strip().lower()
+        if not collection_id or collection_id in seen:
+            continue
+        seen.add(collection_id)
+        normalized.append(COLLECTION_PATH_SEPARATOR.join(segment for segment in collection_id.split(COLLECTION_PATH_SEPARATOR) if segment))
+    return tuple(normalized)
+
+
+def _overlay_collection_names_on_summary(
+    summary: CatalogModelSummary,
+    memberships_by_model_ref: dict[str, list[dict[str, Any]]] | None,
+) -> CatalogModelSummary:
+    model_ref = _model_ref_for_summary(summary)
+    memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
+    explicit_collection_names = _collection_paths_from_memberships(memberships)
+    if not explicit_collection_names:
+        return summary
+    return CatalogModelSummary(
+        model_url=summary.model_url,
+        public_id=summary.public_id,
+        model_id=summary.model_id,
+        name=summary.name,
+        preview_url=summary.preview_url,
+        creator_name=summary.creator_name,
+        collection_names=explicit_collection_names,
+        keyword_names=summary.keyword_names,
+        entity_type=summary.entity_type,
+        created_at=summary.created_at,
+        updated_at=summary.updated_at,
+    )
+
+
+def _overlay_collection_data_on_payload(
+    payload: dict[str, Any],
+    memberships_by_model_ref: dict[str, list[dict[str, Any]]] | None,
+) -> dict[str, Any]:
+    model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
+    memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
+    explicit_collection_names = _collection_paths_from_memberships(memberships)
+    if explicit_collection_names:
+        payload["collection_names"] = list(explicit_collection_names)
+    payload["collection_memberships"] = [
+        {
+            "collection_id": str(membership.get("collection_id") or "").strip().lower(),
+            "name": str(membership.get("name") or "").strip(),
+            "parent_collection_id": str(membership.get("parent_collection_id") or "").strip().lower() or None,
+            "path": COLLECTION_PATH_SEPARATOR.join(
+                segment for segment in str(membership.get("collection_id") or "").split(COLLECTION_PATH_SEPARATOR) if segment
+            ),
+        }
+        for membership in memberships
+        if str(membership.get("collection_id") or "").strip()
+    ]
+    return payload
 
 
 def _search_projection_tokens_for_summary(summary: CatalogModelSummary) -> set[str]:
@@ -567,6 +648,239 @@ def _normalized_collection_names(values: object | None) -> tuple[str, ...]:
 
 def _normalized_keyword_names(values: object | None) -> tuple[str, ...]:
     return _normalized_name_values(values, drop_literal_none=False)
+
+
+def _split_collection_path(value: object | None) -> tuple[str, ...]:
+    raw = str(value or "").strip()
+    if not raw:
+        return tuple()
+    parts = [segment.strip() for segment in COLLECTION_PATH_SPLIT_RE.split(raw) if str(segment or "").strip()]
+    if not parts:
+        return tuple()
+    return tuple(parts)
+
+
+def _collection_path_key(parts: tuple[str, ...]) -> str:
+    return COLLECTION_PATH_SEPARATOR.join(
+        str(part or "").strip().lower() for part in parts if str(part or "").strip()
+    )
+
+
+def _build_collection_tree_payload(rows: list[sqlite3.Row], *, unassigned_count: int) -> dict[str, Any]:
+    nodes_by_id: dict[str, dict[str, Any]] = {}
+
+    def ensure_node(parts: tuple[str, ...]) -> dict[str, Any]:
+        node_id = _collection_path_key(parts)
+        if not node_id:
+            raise ValueError("collection path key cannot be empty")
+        existing = nodes_by_id.get(node_id)
+        if existing is not None:
+            return existing
+        parent_parts = parts[:-1]
+        parent_id = _collection_path_key(parent_parts) if parent_parts else None
+        node = {
+            "collection_id": node_id,
+            "filter_key": "",
+            "name": parts[-1],
+            "label": parts[-1],
+            "path": COLLECTION_PATH_SEPARATOR.join(parts),
+            "path_labels": list(parts),
+            "parent_collection_id": parent_id,
+            "depth": max(0, len(parts) - 1),
+            "model_refs_direct": set(),
+            "model_refs_total": set(),
+            "child_ids": set(),
+            "has_explicit_membership": False,
+        }
+        nodes_by_id[node_id] = node
+        if parent_id:
+            parent_node = ensure_node(parent_parts)
+            parent_node["child_ids"].add(node_id)
+        return node
+
+    for row in rows:
+        model_ref = str(row["model_ref"] or "").strip()
+        if not model_ref:
+            continue
+        try:
+            collection_names = json.loads(str(row["collection_names_json"] or "[]"))
+        except json.JSONDecodeError:
+            collection_names = []
+        if not isinstance(collection_names, list):
+            continue
+        seen_paths: set[str] = set()
+        for raw_name in collection_names:
+            raw_label = str(raw_name or "").strip()
+            if not raw_label or raw_label.lower() == "none":
+                continue
+            path_parts = _split_collection_path(raw_label)
+            if not path_parts:
+                continue
+            terminal_id = _collection_path_key(path_parts)
+            if not terminal_id or terminal_id in seen_paths:
+                continue
+            seen_paths.add(terminal_id)
+            terminal_node = ensure_node(path_parts)
+            terminal_node["has_explicit_membership"] = True
+            terminal_node["filter_key"] = raw_label.lower()
+            terminal_node["label"] = path_parts[-1]
+            terminal_node["model_refs_direct"].add(model_ref)
+            for depth in range(1, len(path_parts) + 1):
+                ensure_node(path_parts[:depth])["model_refs_total"].add(model_ref)
+
+    output_nodes: list[dict[str, Any]] = []
+    for node in nodes_by_id.values():
+        child_ids = sorted(
+            node["child_ids"],
+            key=lambda child_id: (
+                str(nodes_by_id[child_id]["label"] or "").lower(),
+                str(nodes_by_id[child_id]["collection_id"] or ""),
+            ),
+        )
+        output_nodes.append(
+            {
+                "collection_id": node["collection_id"],
+                "filter_key": node["filter_key"] or None,
+                "name": node["name"],
+                "label": node["label"],
+                "path": node["path"],
+                "path_labels": list(node["path_labels"]),
+                "parent_collection_id": node["parent_collection_id"],
+                "depth": int(node["depth"]),
+                "model_count_direct": len(node["model_refs_direct"]),
+                "model_count_total": len(node["model_refs_total"]),
+                "child_collection_count": len(child_ids),
+                "has_explicit_membership": bool(node["has_explicit_membership"]),
+                "child_collection_ids": child_ids,
+            }
+        )
+
+    nodes_for_output = {node["collection_id"]: node for node in output_nodes}
+
+    def build_nested(node_id: str) -> dict[str, Any]:
+        node = dict(nodes_for_output[node_id])
+        child_ids = list(node.get("child_collection_ids") or [])
+        node["children"] = [build_nested(child_id) for child_id in child_ids]
+        return node
+
+    root_ids = sorted(
+        [node["collection_id"] for node in output_nodes if not node.get("parent_collection_id")],
+        key=lambda node_id: (
+            str(nodes_for_output[node_id]["label"] or "").lower(),
+            str(nodes_for_output[node_id]["collection_id"] or ""),
+        ),
+    )
+
+    return {
+        "contract": "collection-tree.v1alpha1",
+        "path_separator": COLLECTION_PATH_SEPARATOR,
+        "root_collection_ids": root_ids,
+        "nodes": output_nodes,
+        "items": [build_nested(node_id) for node_id in root_ids],
+        "unassigned_model_count": max(0, int(unassigned_count or 0)),
+    }
+
+
+def _build_collection_tree_from_payloads(payloads: list[dict[str, Any]]) -> dict[str, Any]:
+    nodes_by_id: dict[str, dict[str, Any]] = {}
+    direct_models_by_collection_id: dict[str, list[dict[str, Any]]] = {}
+    unassigned_models: list[dict[str, Any]] = []
+
+    def ensure_node(parts: tuple[str, ...]) -> dict[str, Any]:
+        node_id = _collection_path_key(parts)
+        existing = nodes_by_id.get(node_id)
+        if existing is not None:
+            return existing
+        parent_parts = parts[:-1]
+        parent_id = _collection_path_key(parent_parts) if parent_parts else None
+        node = {
+            "collection_id": node_id,
+            "filter_key": COLLECTION_PATH_SEPARATOR.join(parts).lower(),
+            "name": parts[-1],
+            "label": parts[-1],
+            "path": COLLECTION_PATH_SEPARATOR.join(parts),
+            "path_labels": list(parts),
+            "parent_collection_id": parent_id,
+            "depth": max(0, len(parts) - 1),
+            "child_ids": set(),
+            "model_refs_direct": set(),
+            "model_refs_total": set(),
+        }
+        nodes_by_id[node_id] = node
+        if parent_id:
+            ensure_node(parent_parts)["child_ids"].add(node_id)
+        return node
+
+    for payload in payloads:
+        model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
+        collections = _normalized_collection_names(payload.get("collection_names"))
+        if not collections:
+            unassigned_models.append(payload)
+            continue
+        seen_paths: set[str] = set()
+        for collection_label in collections:
+            parts = _split_collection_path(collection_label)
+            if not parts:
+                continue
+            node_id = _collection_path_key(parts)
+            if not node_id or node_id in seen_paths:
+                continue
+            seen_paths.add(node_id)
+            ensure_node(parts)["model_refs_direct"].add(model_ref)
+            direct_models_by_collection_id.setdefault(node_id, []).append(payload)
+            for depth in range(1, len(parts) + 1):
+                ensure_node(parts[:depth])["model_refs_total"].add(model_ref)
+
+    nodes: list[dict[str, Any]] = []
+    for node in nodes_by_id.values():
+        child_ids = sorted(
+            node["child_ids"],
+            key=lambda child_id: (
+                str(nodes_by_id[child_id]["label"] or "").lower(),
+                str(nodes_by_id[child_id]["collection_id"] or ""),
+            ),
+        )
+        nodes.append(
+            {
+                "collection_id": node["collection_id"],
+                "filter_key": node["filter_key"],
+                "name": node["name"],
+                "label": node["label"],
+                "path": node["path"],
+                "path_labels": list(node["path_labels"]),
+                "parent_collection_id": node["parent_collection_id"],
+                "depth": int(node["depth"]),
+                "model_count_direct": len(node["model_refs_direct"]),
+                "model_count_total": len(node["model_refs_total"]),
+                "child_collection_count": len(child_ids),
+                "child_collection_ids": child_ids,
+            }
+        )
+
+    node_lookup = {node["collection_id"]: node for node in nodes}
+
+    def build_nested(node_id: str) -> dict[str, Any]:
+        node = dict(node_lookup[node_id])
+        node["children"] = [build_nested(child_id) for child_id in node.get("child_collection_ids") or []]
+        return node
+
+    root_ids = sorted(
+        [node["collection_id"] for node in nodes if not node.get("parent_collection_id")],
+        key=lambda node_id: (
+            str(node_lookup[node_id]["label"] or "").lower(),
+            str(node_lookup[node_id]["collection_id"] or ""),
+        ),
+    )
+    return {
+        "contract": "collection-tree.v1alpha1",
+        "path_separator": COLLECTION_PATH_SEPARATOR,
+        "root_collection_ids": root_ids,
+        "nodes": nodes,
+        "items": [build_nested(node_id) for node_id in root_ids],
+        "unassigned_model_count": len(unassigned_models),
+        "direct_models_by_collection_id": direct_models_by_collection_id,
+        "unassigned_models": unassigned_models,
+    }
 
 
 def _facet_counts_from_payloads(payloads: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -619,6 +933,10 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
         client=client,
         refresh=refresh_runtime_cache,
     )
+    memberships_by_model_ref = read_model_collection_memberships_bulk(
+        db_path=settings.db_path,
+        model_refs=[_model_ref_for_summary(summary) for summary in summaries],
+    )
     ranking_by_url = read_all_model_ranking(db_path=settings.db_path)
     link_counts_by_url = read_model_link_counts(db_path=settings.db_path)
     local_asset_kind_counts = _read_local_asset_kind_counts_bulk(db_path=settings.db_path)
@@ -637,7 +955,8 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
     projection_rows: list[tuple[Any, ...]] = []
     token_rows: list[tuple[str, str]] = []
 
-    for summary in summaries:
+    for raw_summary in summaries:
+        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref)
         model_ref = str(summary.public_id or summary.model_id or summary.model_url)
         if not model_ref:
             continue
@@ -3487,6 +3806,10 @@ def list_models(
         client=client,
         refresh=refresh,
     )
+    memberships_by_model_ref = read_model_collection_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=[_model_ref_for_summary(summary) for summary in all_summaries],
+    )
 
     ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
     link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
@@ -3501,7 +3824,8 @@ def list_models(
     )
     models = []
     visibility_counts = {"active": 0, "archived": 0}
-    for summary in all_summaries:
+    for raw_summary in all_summaries:
+        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref)
         model_ref = summary.public_id or summary.model_id or summary.model_url
         custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
         if to_print_status and str(custom_fields.get("to_print_status") or "") != to_print_status:
@@ -3513,17 +3837,16 @@ def list_models(
             to_print_priority_max=to_print_priority_max,
         ):
             continue
-        models.append(
-            _serialize_model_summary(
-                summary,
-                custom_fields=custom_fields,
-                ranking_by_url=ranking_by_url,
-                link_counts_by_url=link_counts_by_url,
-                preview_proxy_base_url=preview_proxy_base_url,
-                request=request,
-                settings=state.settings,
-            )
+        model_payload = _serialize_model_summary(
+            summary,
+            custom_fields=custom_fields,
+            ranking_by_url=ranking_by_url,
+            link_counts_by_url=link_counts_by_url,
+            preview_proxy_base_url=preview_proxy_base_url,
+            request=request,
+            settings=state.settings,
         )
+        models.append(_overlay_collection_data_on_payload(model_payload, memberships_by_model_ref))
 
         model_payload = models[-1]
         stats = frequency_stats_by_url.get(summary.model_url)
@@ -3753,6 +4076,10 @@ def search_models(
         for summary in summaries
         if str(summary.public_id or summary.model_id or summary.model_url).strip()
     ]
+    memberships_by_model_ref = read_model_collection_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=model_refs_for_fields,
+    )
     fields_by_model_ref = _read_model_fields_bulk(
         db_path=state.settings.db_path,
         model_refs=model_refs_for_fields,
@@ -3764,7 +4091,8 @@ def search_models(
     visibility_counts = {"active": 0, "archived": 0}
     entity_type_counts = {"model": 0, "idea": 0}
     loop_start = time.perf_counter()
-    for summary in summaries:
+    for raw_summary in summaries:
+        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref)
         # Apply filters
         if not _matches_filters(summary, collection, creator, selected_tags):
             continue
@@ -3836,6 +4164,7 @@ def search_models(
             request=request,
             settings=state.settings,
         )
+        model_payload = _overlay_collection_data_on_payload(model_payload, memberships_by_model_ref)
 
         # Attach archive context boost signals to the payload when present
         if _archive_picker and archive_context_signals:
@@ -4073,6 +4402,15 @@ def get_facets(
             scope_params,
         ).fetchone()
 
+        membership_rows = connection.execute(
+            f"""
+            SELECT p.model_ref, p.collection_names_json
+            FROM model_catalog_search_projection p
+            {scope_where}
+            """,
+            scope_params,
+        ).fetchall()
+
         # collection facets
         coll_where = _append(
             scope_where,
@@ -4133,6 +4471,7 @@ def get_facets(
 
     total = int(total_row["cnt"] if total_row is not None else 0)
     unassigned_count = int(unassigned_row["cnt"] if unassigned_row is not None else 0)
+    collection_tree = _build_collection_tree_payload(membership_rows, unassigned_count=unassigned_count)
 
     # ── collection facets list ───────────────────────────────────────
     collection_facets: list[dict[str, Any]] = []
@@ -4171,6 +4510,7 @@ def get_facets(
             "collections": collection_facets,
             "tags": tag_facets,
         },
+        "collection_tree": collection_tree,
         "entity_type_counts": entity_type_counts,
         "total": total,
         "scope": {
@@ -4178,6 +4518,243 @@ def get_facets(
             "show_archived": bool(show_archived),
             "show_ideas": bool(show_ideas),
         },
+    }
+
+
+@router.get("/api/collections")
+def list_collections_endpoint(request: Request) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    rows = list_collections(db_path=state.settings.db_path)
+    return {
+        "success": True,
+        "contract": "collections.v1alpha1",
+        "items": rows,
+    }
+
+
+@router.post("/api/collections")
+async def create_collection_endpoint(request: Request) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    payload: dict[str, Any] = {}
+    try:
+        parsed_payload = await request.json()
+        if isinstance(parsed_payload, dict):
+            payload = parsed_payload
+    except Exception:
+        payload = {}
+    try:
+        row = create_collection(
+            db_path=state.settings.db_path,
+            name=str(payload.get("name") or ""),
+            parent_collection_id=str(payload.get("parent_collection_id") or "").strip() or None,
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+    return {"success": True, "contract": "collections.v1alpha1", "item": row}
+
+
+@router.patch("/api/collections/{collection_id:path}")
+async def update_collection_endpoint(request: Request, collection_id: str) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    payload: dict[str, Any] = {}
+    try:
+        parsed_payload = await request.json()
+        if isinstance(parsed_payload, dict):
+            payload = parsed_payload
+    except Exception:
+        payload = {}
+    try:
+        row = update_collection(
+            db_path=state.settings.db_path,
+            collection_id=collection_id,
+            name=str(payload.get("name") or "").strip() or None,
+            parent_collection_id=(
+                str(payload.get("parent_collection_id") or "").strip()
+                if "parent_collection_id" in payload
+                else None
+            ),
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+    return {"success": True, "contract": "collections.v1alpha1", "item": row}
+
+
+@router.get("/api/models/{model_ref:path}/collections")
+def get_model_collections_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    memberships = read_model_collection_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=[str(model_ref or "").strip()],
+    ).get(str(model_ref or "").strip(), [])
+    return {
+        "success": True,
+        "contract": "model-collections.v1alpha1",
+        "model_ref": str(model_ref or "").strip(),
+        "items": memberships,
+    }
+
+
+@router.put("/api/models/{model_ref:path}/collections")
+async def replace_model_collections_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    payload: dict[str, Any] = {}
+    try:
+        parsed_payload = await request.json()
+        if isinstance(parsed_payload, dict):
+            payload = parsed_payload
+    except Exception:
+        payload = {}
+    collection_ids = payload.get("collection_ids")
+    if not isinstance(collection_ids, list):
+        return JSONResponse(status_code=400, content={"success": False, "error": "collection_ids must be an array"})
+    try:
+        memberships = replace_model_collection_memberships(
+            db_path=state.settings.db_path,
+            model_ref=str(model_ref or "").strip(),
+            collection_ids=[str(value or "").strip() for value in collection_ids],
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+    return {
+        "success": True,
+        "contract": "model-collections.v1alpha1",
+        "model_ref": str(model_ref or "").strip(),
+        "items": memberships,
+    }
+
+
+@router.get("/api/collections/browse")
+def browse_collections_endpoint(
+    request: Request,
+    q: str | None = None,
+    creator: str | None = None,
+    tag: str | None = None,
+    tags: str | None = None,
+    favorites_only: bool = False,
+    frequents_only: bool = False,
+    recent_added_only: bool = False,
+    recent_printed_only: bool = False,
+    frequent_window_days: int = DEFAULT_FREQUENT_WINDOW_DAYS,
+    frequent_min_prints: int = DEFAULT_FREQUENT_MIN_PRINTS,
+    frequent_backfill_weight: float = DEFAULT_FREQUENT_BACKFILL_WEIGHT,
+    has_other_files: bool = False,
+    show_archived: bool = False,
+    show_ideas: bool = True,
+    entity_types: str | None = None,
+    sort: str = "best",
+    refresh: bool = False,
+    page: int = 1,
+    per_page: int = 12,
+    collection_id: str | None = None,
+    display_mode: str = "mixed",
+    collection_sort: str = "name",
+) -> dict[str, Any]:
+    display_mode_normalized = str(display_mode or "mixed").strip().lower()
+    if display_mode_normalized not in {"mixed", "collections", "models"}:
+        display_mode_normalized = "mixed"
+    page = max(1, int(page or 1))
+    per_page = max(1, min(int(per_page or 12), 100))
+    search_payload = _search_models_from_projection(
+        request=request,
+        q=q,
+        collection=None,
+        creator=creator,
+        tag=tag,
+        tags=tags,
+        to_print_status=None,
+        to_print_priority=None,
+        to_print_priority_min=None,
+        to_print_priority_max=None,
+        favorites_only=bool(favorites_only),
+        frequents_only=bool(frequents_only),
+        recent_added_only=bool(recent_added_only),
+        recent_printed_only=bool(recent_printed_only),
+        frequent_window_days=frequent_window_days,
+        frequent_min_prints=frequent_min_prints,
+        frequent_backfill_weight=frequent_backfill_weight,
+        has_other_files=bool(has_other_files),
+        show_archived=bool(show_archived),
+        show_ideas=bool(show_ideas),
+        entity_types=entity_types,
+        sort=sort,
+        refresh=bool(refresh),
+        page=1,
+        per_page=100000,
+        project_id=None,
+    )
+    filtered_models = list(search_payload.get("results") or [])
+    tree = _build_collection_tree_from_payloads(filtered_models)
+    node_lookup = {str(node.get("collection_id") or ""): node for node in tree.get("nodes") or []}
+    selected_collection_id = str(collection_id or "").strip().lower() or None
+    current_node = node_lookup.get(selected_collection_id) if selected_collection_id and selected_collection_id != COLLECTION_FILTER_UNASSIGNED else None
+    if selected_collection_id and selected_collection_id != COLLECTION_FILTER_UNASSIGNED and current_node is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "collection_not_found"})
+
+    child_collection_ids = list((current_node or {}).get("child_collection_ids") or []) if current_node else list(tree.get("root_collection_ids") or [])
+    collection_nodes = [node_lookup[child_id] for child_id in child_collection_ids if child_id in node_lookup]
+    direct_models = []
+    if selected_collection_id == COLLECTION_FILTER_UNASSIGNED:
+        direct_models = list(tree.get("unassigned_models") or [])
+    elif selected_collection_id:
+        direct_models = list(tree.get("direct_models_by_collection_id", {}).get(selected_collection_id, []) or [])
+
+    if str(collection_sort or "name").strip().lower() == "model_count":
+        collection_nodes.sort(key=lambda item: (-int(item.get("model_count_total") or 0), str(item.get("label") or "").lower()))
+    else:
+        collection_nodes.sort(key=lambda item: str(item.get("label") or item.get("path") or "").lower())
+
+    ordered_items: list[dict[str, Any]] = []
+    if display_mode_normalized in {"mixed", "collections"}:
+        for node in collection_nodes:
+            ordered_items.append({"kind": "collection", "data": node})
+    if display_mode_normalized in {"mixed", "models"}:
+        for model in direct_models:
+            ordered_items.append({"kind": "model", "data": model})
+
+    total = len(ordered_items)
+    start_idx = max(0, (page - 1) * per_page)
+    paged_items = ordered_items[start_idx:start_idx + per_page]
+    breadcrumb = []
+    if current_node is not None:
+        cursor = current_node
+        ancestry = []
+        while cursor is not None:
+            ancestry.append({
+                "collection_id": cursor.get("collection_id"),
+                "label": cursor.get("label") or cursor.get("name") or cursor.get("path"),
+            })
+            cursor = node_lookup.get(str(cursor.get("parent_collection_id") or "")) if cursor.get("parent_collection_id") else None
+        breadcrumb = list(reversed(ancestry))
+    elif selected_collection_id == COLLECTION_FILTER_UNASSIGNED:
+        breadcrumb = [{"collection_id": COLLECTION_FILTER_UNASSIGNED, "label": "No Collection"}]
+
+    return {
+        "success": True,
+        "contract": "collection-browse.v1alpha1",
+        "display_mode": display_mode_normalized,
+        "collection_sort": str(collection_sort or "name").strip().lower() or "name",
+        "filters": search_payload.get("filters") or {},
+        "current_node": current_node,
+        "breadcrumb": breadcrumb,
+        "tree": {
+            "contract": tree.get("contract"),
+            "path_separator": tree.get("path_separator"),
+            "root_collection_ids": tree.get("root_collection_ids") or [],
+            "nodes": tree.get("nodes") or [],
+            "items": tree.get("items") or [],
+            "unassigned_model_count": int(tree.get("unassigned_model_count") or 0),
+        },
+        "result_counts": {
+            "collections": len(collection_nodes),
+            "models": len(direct_models),
+        },
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": (total + per_page - 1) // per_page if per_page > 0 else 0,
+        },
+        "items": paged_items,
     }
 
 

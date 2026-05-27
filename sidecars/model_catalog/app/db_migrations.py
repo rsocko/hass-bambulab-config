@@ -1329,6 +1329,41 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        33,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_collections (
+            collection_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            parent_collection_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (parent_collection_id) REFERENCES model_catalog_collections(collection_id)
+                ON DELETE RESTRICT
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_collections_parent
+        ON model_catalog_collections(parent_collection_id)
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_collection_memberships (
+            collection_id TEXT NOT NULL,
+            model_ref TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (collection_id, model_ref),
+            FOREIGN KEY (collection_id) REFERENCES model_catalog_collections(collection_id)
+                ON DELETE CASCADE
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_collection_memberships_model_ref
+        ON model_catalog_collection_memberships(model_ref)
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
