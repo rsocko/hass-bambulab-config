@@ -3255,15 +3255,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _collectionBreadcrumbUpTarget(currentNode, currentCollectionKey) {
-    if (currentCollectionKey === "__unassigned__") {
-      return { navKey: "all-models", label: "All Collections" };
-    }
     var parentId = currentNode ? String(currentNode.parent_collection_id || "").trim().toLowerCase() : "";
     if (parentId) {
-      return { navKey: "collection:" + parentId, label: "Up One Level" };
-    }
-    if (currentNode) {
-      return { navKey: "all-models", label: "All Collections" };
+      return { navKey: "collection:" + parentId, label: "Up" };
     }
     return null;
   }
@@ -6361,7 +6355,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (breadcrumb.length) {
       var crumbParts = [];
       if (breadcrumbUpTarget) {
-        crumbParts.push('<button class="toolbar-btn ghost collection-breadcrumb-up" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(breadcrumbUpTarget.navKey) + '"><ha-icon icon="mdi:arrow-up-left"></ha-icon><span>' + this._escapeHtml(breadcrumbUpTarget.label) + '</span></button>');
+        crumbParts.push('<button class="toolbar-btn ghost collection-breadcrumb-up" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(breadcrumbUpTarget.navKey) + '"><ha-icon icon="mdi:arrow-up"></ha-icon><span>' + this._escapeHtml(breadcrumbUpTarget.label) + '</span></button>');
       }
       crumbParts.push('<button class="toolbar-btn" type="button" data-action="select-left-nav-item" data-nav-key="all-models">All Collections</button>');
       for (var crumbIndex = 0; crumbIndex < breadcrumb.length; crumbIndex++) {
@@ -6370,7 +6364,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       breadcrumbHtml = '<div class="collection-breadcrumb">' + crumbParts.join('<span class="collection-breadcrumb-sep">/</span>') + '</div>';
     } else if (breadcrumbUpTarget) {
-      breadcrumbHtml = '<div class="collection-breadcrumb"><button class="toolbar-btn ghost collection-breadcrumb-up" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(breadcrumbUpTarget.navKey) + '"><ha-icon icon="mdi:arrow-up-left"></ha-icon><span>' + this._escapeHtml(breadcrumbUpTarget.label) + '</span></button></div>';
+      breadcrumbHtml = '<div class="collection-breadcrumb"><button class="toolbar-btn ghost collection-breadcrumb-up" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(breadcrumbUpTarget.navKey) + '"><ha-icon icon="mdi:arrow-up"></ha-icon><span>' + this._escapeHtml(breadcrumbUpTarget.label) + '</span></button></div>';
     }
     var headerHtml = this._renderCollectionBrowseHeader(browse, currentNode, currentCollectionKey);
 
