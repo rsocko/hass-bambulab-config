@@ -19,6 +19,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._browserScope = "models";
     this._leftNavSelectedKey = "all-models";
     this._leftNavCollapsed = false;
+    this._leftNavAutoCollapsePending = false;
     this._leftNavDrawerOpen = false;
     this._workingProjection = [];
     this._workingProjectionRootPath = "";
@@ -1074,7 +1075,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (!resultsNode) {
         return;
       }
-      resultsNode.insertAdjacentHTML('beforeend', remainder.map(this._renderModelCard.bind(this)).join(""));
+      resultsNode.insertAdjacentHTML('beforeend', remainder.map(this._renderCatalogEntryCard.bind(this)).join(""));
       this._scheduleThumbnailObserverSetup(0);
     }.bind(this), 0);
   }
@@ -1190,12 +1191,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
         per_page: this._pagination.per_page,
       };
 
-      var data = await this._searchModelsFast(requestPayload);
+      var data = includeWorkingInModels
+        ? await this._searchModelsFast(Object.assign({}, requestPayload, { page: 1, per_page: 100 }))
+        : await this._searchModelsFast(requestPayload);
       searchEnd = (window.performance && typeof window.performance.now === "function") ? window.performance.now() : Date.now();
       if (this._pendingNavPerf) {
         this._pendingNavPerf.searchEndMs = searchEnd;
       }
-      this._results = Array.isArray(data && data.results) ? data.results : [];
+      this._results = includeWorkingInModels
+        ? await this._loadAllModelSearchResults(Object.assign({}, requestPayload, { page: 1, per_page: 100 }), data)
+        : (Array.isArray(data && data.results) ? data.results : []);
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
       var responseVisibility = data && data.visibility && typeof data.visibility === "object" ? data.visibility : {};
       var responseVisibilityCounts = responseVisibility && responseVisibility.counts && typeof responseVisibility.counts === "object"
@@ -1252,10 +1257,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
 
       var pagination = data && data.pagination ? data.pagination : {};
-      this._pagination.page = Number(pagination.page || requestPayload.page) || 1;
-      this._pagination.per_page = Number(pagination.per_page || this._pagination.per_page) || this._pagination.per_page;
-      this._pagination.total = Number(pagination.total || 0) || 0;
-      this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
+      this._pagination.page = Number(requestPayload.page || 1) || 1;
+      this._pagination.per_page = Number(requestPayload.per_page || this._pagination.per_page) || this._pagination.per_page;
+      if (includeWorkingInModels) {
+        var mixedTotal = this._results.length + this._workingProjection.length;
+        this._pagination.total = mixedTotal;
+        this._pagination.total_pages = Math.max(1, Math.ceil(mixedTotal / (this._pagination.per_page || 12)));
+        if (this._pagination.page > this._pagination.total_pages) {
+          this._pagination.page = this._pagination.total_pages;
+        }
+      } else {
+        this._pagination.total = Number(pagination.total || 0) || 0;
+        this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
+      }
       if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
         this._lastAppliedScopeStamp = stampSnapshot;
       }
@@ -1608,6 +1622,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._leftNavCollapsed = !this._leftNavCollapsed;
+      this._leftNavAutoCollapsePending = false;
       this._render();
       return;
     }
@@ -1635,6 +1650,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.stopPropagation();
       var navKey = String(target.getAttribute("data-nav-key") || "all-models").trim() || "all-models";
       this._applyLeftNavSelection(navKey, { closeDrawer: true, requestLoad: true, render: true });
+      return;
+    }
+
+    if (action === "expand-left-nav-section") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this._leftNavCollapsed) {
+        this._leftNavCollapsed = false;
+        this._leftNavAutoCollapsePending = true;
+        this._render();
+      }
       return;
     }
 
@@ -3760,8 +3786,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else if (count !== null && count !== undefined && count !== "" && Number.isFinite(Number(count))) {
       trailingMarkup = '<span class="left-nav-item-count">' + this._escapeHtml(String(Math.max(0, Number(count)))) + '</span>';
     }
+    var title = String(label || "").trim();
     return ''
-      + '<button class="left-nav-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(key) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">'
+      + '<button class="left-nav-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(key) + '" aria-label="' + this._escapeHtml(title || key) + '" title="' + this._escapeHtml(title || key) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">'
       + '  <span class="left-nav-item-main">'
       + (icon ? '<ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon>' : '')
       + '    <span class="left-nav-item-label">' + this._escapeHtml(label) + '</span>'
@@ -3770,14 +3797,41 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</button>';
   }
 
+  _leftNavTypeIcon(typeKey) {
+    if (typeKey === "idea") {
+      return "mdi:lightbulb-outline";
+    }
+    if (typeKey === "working") {
+      return "mdi:folder-open-outline";
+    }
+    return "mdi:cube-outline";
+  }
+
   _renderLeftNavTypeToggle(label, typeKey, count) {
     var checked = !!(this._typeFilters && this._typeFilters[typeKey]);
+    var icon = this._leftNavTypeIcon(typeKey);
     return ''
-      + '<label class="left-nav-type-toggle" data-action="toggle-left-nav-type" data-type="' + this._escapeHtml(typeKey) + '">'
+      + '<label class="left-nav-type-toggle" data-action="toggle-left-nav-type" data-type="' + this._escapeHtml(typeKey) + '" aria-label="Toggle ' + this._escapeHtml(label) + ' filter" title="' + this._escapeHtml(label) + '">'
       + '  <input class="left-nav-type-checkbox" type="checkbox" ' + (checked ? 'checked' : '') + ' data-action="toggle-left-nav-type" data-type="' + this._escapeHtml(typeKey) + '">'
+      + '  <span class="left-nav-type-icon" aria-hidden="true"><ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon></span>'
       + '  <span class="left-nav-type-label">' + this._escapeHtml(label) + '</span>'
       + '  <span class="left-nav-type-count">' + this._escapeHtml(String(Math.max(0, Number(count || 0) || 0))) + '</span>'
       + '</label>';
+  }
+
+  _renderCollapsedFacetSectionTrigger(label, sectionKey, icon, isActive, count) {
+    var numericCount = Number(count || 0);
+    var trailingMarkup = numericCount > 0
+      ? '<span class="left-nav-item-count">' + this._escapeHtml(String(Math.max(0, Math.trunc(numericCount)))) + '</span>'
+      : '';
+    return ''
+      + '<button class="left-nav-item left-nav-section-trigger' + (isActive ? ' active' : '') + '" type="button" data-action="expand-left-nav-section" data-section="' + this._escapeHtml(sectionKey) + '" aria-label="Open ' + this._escapeHtml(label) + ' filters" title="' + this._escapeHtml(label) + '">'
+      + '  <span class="left-nav-item-main">'
+      + '    <ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon>'
+      + '    <span class="left-nav-item-label">' + this._escapeHtml(label) + '</span>'
+      + '  </span>'
+      + trailingMarkup
+      + '</button>';
   }
 
   _leftNavTopTags(limit) {
@@ -3992,6 +4046,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._browserScope = "models";
     }
 
+    if (this._leftNavAutoCollapsePending) {
+      this._leftNavCollapsed = true;
+      this._leftNavAutoCollapsePending = false;
+    }
+
     if (settings.closeDrawer !== false && this._leftNavDrawerOpen) {
       this._leftNavDrawerOpen = false;
     }
@@ -4078,6 +4137,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       collectionsHtml = '<div class="left-nav-empty">No collections detected yet</div>';
     }
 
+    var tagsSectionHtml = this._leftNavCollapsed
+      ? this._renderCollapsedFacetSectionTrigger('Tags', 'tags', 'mdi:tag-multiple-outline', selectedTags.length > 0, selectedTags.length)
+      : tagsHtml;
+    var collectionsSectionHtml = this._leftNavCollapsed
+      ? this._renderCollapsedFacetSectionTrigger('Collections', 'collections', 'mdi:folder-multiple-outline', !!selectedCollectionKey, selectedCollectionKey ? 1 : 0)
+      : collectionsHtml;
+
     return ''
       + '<aside class="' + navClass + '" aria-label="Catalog navigation">'
       + '  <div class="left-nav-head">'
@@ -4103,11 +4169,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>'
       + '  <div class="left-nav-section">'
       + '    <div class="left-nav-section-label">Collections</div>'
-      +      collectionsHtml
+        +      collectionsSectionHtml
       + '  </div>'
       + '  <div class="left-nav-section">'
       + '    <div class="left-nav-section-label">Tags</div>'
-      +      tagsHtml
+        +      tagsSectionHtml
       + '  </div>'
       + '</aside>';
   }
@@ -4442,6 +4508,24 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return this._sortWorkingProjection(entries);
   }
 
+  async _loadAllModelSearchResults(requestPayload, firstPayload) {
+    var initialPayload = firstPayload && typeof firstPayload === "object" ? firstPayload : {};
+    var firstResults = Array.isArray(initialPayload.results) ? initialPayload.results.slice(0) : [];
+    var pagination = initialPayload && initialPayload.pagination ? initialPayload.pagination : {};
+    var totalPages = Math.max(1, Number(pagination.total_pages || 1) || 1);
+    if (totalPages <= 1) {
+      return firstResults;
+    }
+
+    var combined = firstResults.slice(0);
+    for (var page = 2; page <= totalPages; page++) {
+      var pagePayload = await this._searchModelsFast(Object.assign({}, requestPayload, { page: page }));
+      var pageResults = Array.isArray(pagePayload && pagePayload.results) ? pagePayload.results : [];
+      combined = combined.concat(pageResults);
+    }
+    return combined;
+  }
+
   async _loadWorkingProjectionPage(refresh) {
     if (!this._hass) {
       return;
@@ -4485,6 +4569,72 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var hasSidecar = !!(entry && (entry.has_modelmeta || entry.has_readme));
     var relativeLabel = this._relativeTimeLabel(String(entry && entry.last_seen_at || "").trim());
     var loose = String(entry && entry.projection_type || "") === "working_loose";
+    if (this._viewMode === "media") {
+      return ''
+        + '<article class="model-card view-media working-folder-card" tabindex="0" role="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '" aria-label="Open Working Files for ' + this._escapeHtml(name) + '">'
+        + '  <div class="thumb-wrap media-wrap">'
+        + '    <div class="media-preview working-thumb media-working-thumb">'
+        + '      <ha-icon icon="' + this._escapeHtml(loose ? 'mdi:file-multiple-outline' : 'mdi:folder-cog-outline') + '"></ha-icon>'
+        + '    </div>'
+        + '  </div>'
+        + '  <div class="body media-body">'
+        + '    <div class="media-title-row">'
+        + '      <div class="media-title-block">'
+        + '        <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+        + '        <div class="subtle-line">'
+        + this._renderModelTagChip('Working Files', 'subtle-chip')
+        + (hasSidecar ? this._renderModelTagChip('Sidecar', 'signal-chip') : this._renderModelTagChip('No sidecar', 'subtle-chip'))
+        + '        </div>'
+        + '      </div>'
+        + '    </div>'
+        + '    <div class="metrics media-metrics">'
+        + this._renderModelMetric('Files', fileCount)
+        + this._renderModelMetric('3MF', modelCount)
+        + this._renderModelMetric('Size', this._formatBytes(sizeBytes))
+        + '    </div>'
+        + '    <div class="media-footer-row">'
+        + '      <div class="tags">'
+        + this._renderModelTagChip('Updated ' + relativeLabel, 'subtle-chip')
+        + (folderPath ? this._renderModelTagChip(folderPath, 'subtle-chip source-chip') : '')
+        + '      </div>'
+        + '      <div class="media-actions">'
+        + '        <button class="toolbar-btn" type="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '">Open Working Files</button>'
+        + (loose || !folderPath ? '' : '<button class="toolbar-btn ghost" type="button" data-action="open-working-intake" data-folder-path="' + this._escapeHtml(folderPath) + '">Run Intake</button>')
+        + '      </div>'
+        + '    </div>'
+        + '  </div>'
+        + '</article>';
+    }
+    if (this._viewMode === "compact") {
+      return ''
+        + '<article class="model-card view-compact working-folder-card" tabindex="0" role="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '" aria-label="Open Working Files for ' + this._escapeHtml(name) + '">'
+        + '  <div class="thumb-wrap compact-wrap">'
+        + '    <div class="thumb working-thumb compact-working-thumb">'
+        + '      <ha-icon icon="' + this._escapeHtml(loose ? 'mdi:file-multiple-outline' : 'mdi:folder-cog-outline') + '"></ha-icon>'
+        + '    </div>'
+        + '  </div>'
+        + '  <div class="body compact-main">'
+        + '    <div class="compact-title-row">'
+        + '      <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+        + '    </div>'
+        + '    <div class="subtle-line">'
+        + this._renderModelTagChip('Working Files', 'subtle-chip')
+        + (hasSidecar ? this._renderModelTagChip('Sidecar', 'signal-chip') : this._renderModelTagChip('No sidecar', 'subtle-chip'))
+        + '    </div>'
+        + '  </div>'
+        + '  <div class="body compact-full">'
+        + '    <div class="metrics compact-metrics">'
+        + this._renderModelMetric('Files', fileCount)
+        + this._renderModelMetric('3MF', modelCount)
+        + this._renderModelMetric('Size', this._formatBytes(sizeBytes))
+        + '    </div>'
+        + '    <div class="compact-tags-row">'
+        + this._renderModelTagChip('Updated ' + relativeLabel, 'subtle-chip')
+        + (folderPath ? this._renderModelTagChip(folderPath, 'subtle-chip source-chip') : '')
+        + '    </div>'
+        + '  </div>'
+        + '</article>';
+    }
     return ''
       + '<article class="model-card view-list working-folder-card" tabindex="0" role="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '" aria-label="Open Working Files for ' + this._escapeHtml(name) + '">'
       + '  <div class="thumb-wrap list-wrap">'
@@ -4519,6 +4669,115 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '  </div>'
       + '</article>';
+  }
+
+  _buildMixedCatalogEntries(models, workingEntries) {
+    var mixed = [];
+    var modelRows = Array.isArray(models) ? models : [];
+    var workingRows = Array.isArray(workingEntries) ? workingEntries : [];
+    for (var i = 0; i < modelRows.length; i++) {
+      mixed.push({ kind: 'model', order: i, data: modelRows[i] });
+    }
+    for (var j = 0; j < workingRows.length; j++) {
+      mixed.push({ kind: 'working', order: j, data: workingRows[j] });
+    }
+    return mixed;
+  }
+
+  _sortMixedCatalogEntries(entries) {
+    var list = Array.isArray(entries) ? entries.slice(0) : [];
+    var sortKey = String(this._filters.sort || 'recent').trim().toLowerCase();
+    var entryName = function (entry) {
+      return String(entry && entry.data && entry.data.name || '').trim().toLowerCase();
+    };
+    var entryTimestamp = function (entry) {
+      var data = entry && entry.data ? entry.data : {};
+      var ranking = data && data.ranking && typeof data.ranking === 'object' ? data.ranking : {};
+      var value = entry && entry.kind === 'working'
+        ? String(data.last_seen_at || '').trim()
+        : String(data.last_printed_at || ranking.last_printed_at || '').trim();
+      var parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    var entryCommon = function (entry) {
+      var data = entry && entry.data ? entry.data : {};
+      var ranking = data && data.ranking && typeof data.ranking === 'object' ? data.ranking : {};
+      return entry && entry.kind === 'working'
+        ? Number(data.size_bytes || 0) || 0
+        : Number(ranking.common_score || 0) || 0;
+    };
+    var entryFrequent = function (entry) {
+      var data = entry && entry.data ? entry.data : {};
+      var ranking = data && data.ranking && typeof data.ranking === 'object' ? data.ranking : {};
+      return entry && entry.kind === 'working' ? 0 : (Number(ranking.frequent_score || 0) || 0);
+    };
+
+    if (sortKey === 'name') {
+      list.sort(function (a, b) {
+        return entryName(a).localeCompare(entryName(b));
+      });
+      return list;
+    }
+    if (sortKey === 'common') {
+      list.sort(function (a, b) {
+        var delta = entryCommon(b) - entryCommon(a);
+        return delta || entryName(a).localeCompare(entryName(b));
+      });
+      return list;
+    }
+    if (sortKey === 'frequent') {
+      list.sort(function (a, b) {
+        var delta = entryFrequent(b) - entryFrequent(a);
+        if (delta) {
+          return delta;
+        }
+        var timeDelta = entryTimestamp(b) - entryTimestamp(a);
+        return timeDelta || entryName(a).localeCompare(entryName(b));
+      });
+      return list;
+    }
+    if (sortKey === 'best') {
+      list.sort(function (a, b) {
+        if (a.kind !== b.kind) {
+          return a.kind === 'model' ? -1 : 1;
+        }
+        if (a.kind === 'model') {
+          return Number(a.order || 0) - Number(b.order || 0);
+        }
+        var workingTimeDelta = entryTimestamp(b) - entryTimestamp(a);
+        return workingTimeDelta || entryName(a).localeCompare(entryName(b));
+      });
+      return list;
+    }
+    list.sort(function (a, b) {
+      var delta = entryTimestamp(b) - entryTimestamp(a);
+      return delta || entryName(a).localeCompare(entryName(b));
+    });
+    return list;
+  }
+
+  _renderCatalogEntryCard(entry) {
+    if (entry && entry.kind === 'working') {
+      return this._renderWorkingFolderCard(entry.data);
+    }
+    return this._renderModelCard(entry && entry.data ? entry.data : entry);
+  }
+
+  _currentDisplayEntries() {
+    if (this._browserScope === "collections") {
+      return [];
+    }
+    var visibleResults = this._filteredResultsForScope();
+    var includeWorkingInModels = this._browserScope === "models" && !!(this._typeFilters && this._typeFilters.working);
+    var visibleWorkingProjection = includeWorkingInModels ? (Array.isArray(this._workingProjection) ? this._workingProjection : []) : [];
+    if (!includeWorkingInModels) {
+      return this._buildMixedCatalogEntries(visibleResults, []);
+    }
+    var mixed = this._sortMixedCatalogEntries(this._buildMixedCatalogEntries(visibleResults, visibleWorkingProjection));
+    var perPage = Math.max(1, Number(this._pagination.per_page || 12) || 12);
+    var page = Math.max(1, Number(this._pagination.page || 1) || 1);
+    var start = Math.max(0, (page - 1) * perPage);
+    return mixed.slice(start, start + perPage);
   }
 
   _renderWorkingProjectionCards() {
@@ -5406,9 +5665,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._browserScope === "collections") {
       return [];
     }
-    var visibleResults = this._filteredResultsForScope();
-    return visibleResults.map(function (model) {
-      return this._modelRef(model);
+    var visibleEntries = this._currentDisplayEntries();
+    return visibleEntries.map(function (entry) {
+      if (!entry || entry.kind !== 'model') {
+        return "";
+      }
+      return this._modelRef(entry.data);
     }.bind(this)).filter(function (ref) {
       return !!ref;
     });
@@ -5628,6 +5890,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var visibleResults = this._filteredResultsForScope();
     var includeWorkingInModels = this._browserScope === "models" && !!(this._typeFilters && this._typeFilters.working);
     var visibleWorkingProjection = includeWorkingInModels ? (Array.isArray(this._workingProjection) ? this._workingProjection : []) : [];
+    var displayEntries = this._currentDisplayEntries();
     var progressiveRemainder = null;
 
     var resultsHtml = "";
@@ -5644,29 +5907,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else if (this._browserScope === "collections") {
       resultsHtml = this._renderCollectionCards();
     } else {
-      var modelHtml = "";
-      if (this._shouldProgressiveResultsRender(visibleResults)) {
-        var initialCount = Math.min(18, visibleResults.length);
-        modelHtml = visibleResults.slice(0, initialCount).map(this._renderModelCard.bind(this)).join("");
-        progressiveRemainder = visibleResults.slice(initialCount);
+      var entryHtml = "";
+      if (this._shouldProgressiveResultsRender(displayEntries)) {
+        var initialCount = Math.min(18, displayEntries.length);
+        entryHtml = displayEntries.slice(0, initialCount).map(this._renderCatalogEntryCard.bind(this)).join("");
+        progressiveRemainder = displayEntries.slice(initialCount);
       } else {
-        modelHtml = visibleResults.map(this._renderModelCard.bind(this)).join("");
+        entryHtml = displayEntries.map(this._renderCatalogEntryCard.bind(this)).join("");
       }
-      var workingHtml = "";
-      if (visibleWorkingProjection.length) {
-        workingHtml = ''
-          + '<div class="working-inline-section">'
-          + '  <div class="state-row working-inline-header">Working Files</div>'
-          + this._renderWorkingProjectionCards()
-          + '</div>';
-      }
-      if (modelHtml && workingHtml) {
-        resultsHtml = modelHtml + workingHtml;
-      } else if (modelHtml) {
-        resultsHtml = modelHtml;
-      } else if (workingHtml) {
-        resultsHtml = workingHtml;
-      }
+      resultsHtml = entryHtml;
     }
 
     // Inject the <style> element once so the browser never re-parses ~300
@@ -5693,6 +5942,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-collapse ha-icon{--mdc-icon-size:16px;transition:transform 160ms ease;}'
       + '.left-nav.collapsed .left-nav-collapse ha-icon{transform:rotate(180deg);}'
       + '.left-nav-section{display:grid;gap:6px;}'
+      + '.left-nav-section + .left-nav-section{padding-top:10px;border-top:1px solid rgba(148,163,184,0.14);}'
       + '.left-nav-section-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}'
       + '.left-nav-item{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;text-align:left;}'
       + '.left-nav-item:hover,.left-nav-item:focus-visible{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.36);outline:none;}'
@@ -5702,9 +5952,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav-item-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
       + '.left-nav-item-count{font-size:11px;font-weight:800;color:var(--secondary-text-color);}'
       + '.left-nav-item-count.dismiss{font-size:16px;line-height:1;color:var(--secondary-text-color);}'
-      + '.left-nav-type-toggle{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;min-height:32px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);cursor:pointer;}'
+      + '.left-nav-type-toggle{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:8px;min-height:32px;padding:0 8px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.08);cursor:pointer;}'
       + '.left-nav-type-toggle:hover,.left-nav-type-toggle:focus-within{background:rgba(148,163,184,0.14);border-color:rgba(148,163,184,0.36);}'
       + '.left-nav-type-checkbox{width:14px;height:14px;margin:0;accent-color:#60a5fa;cursor:pointer;}'
+      + '.left-nav-type-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:#93c5fd;}'
+      + '.left-nav-type-icon ha-icon{--mdc-icon-size:16px;}'
       + '.left-nav-type-label{font-size:12px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
       + '.left-nav-type-count{font-size:11px;font-weight:700;color:var(--secondary-text-color);}'
       + '.left-nav-empty{font-size:11px;color:var(--secondary-text-color);padding:6px 8px;border:1px dashed rgba(148,163,184,0.26);border-radius:8px;}'
@@ -5713,7 +5965,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count,.left-nav.collapsed .left-nav-type-label,.left-nav.collapsed .left-nav-type-count{display:none;}'
       + '.left-nav.collapsed .left-nav-title-wrap,.left-nav.collapsed .left-nav-item-main{justify-content:center;}'
       + '.left-nav.collapsed .left-nav-item{justify-content:center;padding:0 4px;}'
-      + '.left-nav.collapsed .left-nav-type-toggle{grid-template-columns:auto;justify-items:center;padding:0 4px;}'
+      + '.left-nav.collapsed .left-nav-type-toggle{grid-template-columns:auto auto;justify-content:center;justify-items:center;column-gap:6px;padding:0 4px;}'
       + '.left-nav.collapsed .left-nav-head{justify-content:center;position:relative;min-height:32px;}'
       + '.left-nav.collapsed .left-nav-collapse{position:static;opacity:1;pointer-events:auto;z-index:1;background:rgba(96,165,250,0.20);border-color:rgba(96,165,250,0.40);}'
       + '.shell-header{display:grid;gap:10px;}'

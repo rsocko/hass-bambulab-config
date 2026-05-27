@@ -39,6 +39,22 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('left-nav-item-count dismiss', self.card_content)
         self.assertIn("if (isActive && isFacetFilterItem)", self.card_content)
 
+    def test_working_files_render_through_mixed_entry_pipeline(self):
+        self.assertIn("_currentDisplayEntries()", self.card_content)
+        self.assertIn("_renderCatalogEntryCard(entry)", self.card_content)
+        self.assertIn("_buildMixedCatalogEntries(", self.card_content)
+        self.assertIn("_sortMixedCatalogEntries(", self.card_content)
+
+    def test_collapsed_left_nav_uses_section_triggers_for_facets(self):
+        self.assertIn("_renderCollapsedFacetSectionTrigger(", self.card_content)
+        self.assertIn('data-action="expand-left-nav-section"', self.card_content)
+        self.assertIn("this._leftNavAutoCollapsePending = true;", self.card_content)
+
+    def test_type_toggles_include_icons_and_section_separators(self):
+        self.assertIn("_leftNavTypeIcon(typeKey)", self.card_content)
+        self.assertIn('left-nav-type-icon', self.card_content)
+        self.assertIn('.left-nav-section + .left-nav-section{padding-top:10px;border-top:1px solid rgba(148,163,184,0.14);}', self.card_content)
+
 
 if __name__ == "__main__":
     unittest.main()

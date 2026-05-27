@@ -363,6 +363,14 @@
         .filter((item, index, list) => item && list.indexOf(item) === index);
     }
 
+    _normalizeProfileName(value) {
+      const text = String(value == null ? "" : value).trim();
+      if (!text) {
+        return "";
+      }
+      return text.replace(/^"|"$/g, "").trim();
+    }
+
     _inferFilamentMaterial(value) {
       const text = String(value || "").toUpperCase();
       const knownMaterials = ["PLA-CF", "PETG-CF", "PA-CF", "ASA", "PETG", "PLA", "ABS", "TPU", "PC", "PA", "PVA", "HIPS"];
@@ -405,6 +413,7 @@
             filament_id: "",
             entity_ids: [],
             display_name: "",
+            profile_name: "",
             material: "",
             vendor_name: "",
             group_name: "",
@@ -432,6 +441,7 @@
           }
           record.filament_id = filamentId;
           record.display_name = record.display_name || String(attrs.filament_name || attrs.friendly_name || attrs.name || `Filament ${filamentId}`).trim();
+          record.profile_name = record.profile_name || this._normalizeProfileName(attrs.filament_extra_profile_name || attrs.extra_profile_name || "");
           record.material = record.material || String(attrs.filament_material || "").trim();
           record.vendor_name = record.vendor_name || String(attrs.filament_vendor_name || "").trim();
           record.group_name = record.group_name || String(attrs.filament_group_name || attrs.filament_name || record.display_name).trim();
@@ -454,6 +464,7 @@
           }
           record.filament_id = filamentId;
           record.display_name = record.display_name || String(attrs.filament_name || attrs.friendly_name || attrs.name || `Filament ${filamentId}`).trim();
+          record.profile_name = record.profile_name || this._normalizeProfileName(attrs.filament_extra_profile_name || attrs.extra_profile_name || "");
           record.material = record.material || String(attrs.filament_material || "").trim();
           record.vendor_name = record.vendor_name || String(attrs.filament_vendor_name || "").trim();
           record.group_name = record.group_name || String(attrs.filament_group_name || attrs.filament_name || record.display_name).trim();
@@ -485,6 +496,8 @@
       const requiredMaterial = String(requirement && requirement.material || "").trim().toUpperCase();
       const candidateMaterial = String(entry && entry.material || "").trim().toUpperCase();
       const sourceDisplayName = String(requirement && requirement.source_display_name || "").trim().toLowerCase();
+      const sourceProfileName = this._normalizeProfileName(requirement && requirement.source_profile_name || "").toLowerCase();
+      const candidateProfileName = this._normalizeProfileName(entry && entry.profile_name || "");
       const candidateText = [entry && entry.display_name, entry && entry.group_name, entry && entry.vendor_name]
         .filter(Boolean)
         .join(" ")
@@ -519,6 +532,16 @@
         reasons.push("material match");
       }
 
+      if (sourceProfileName && candidateProfileName) {
+        if (candidateProfileName.toLowerCase() === sourceProfileName) {
+          score += 0.28;
+          reasons.push("exact profile match");
+        } else if (candidateProfileName.toLowerCase().includes(sourceProfileName) || sourceProfileName.includes(candidateProfileName.toLowerCase())) {
+          score += 0.16;
+          reasons.push("profile overlap");
+        }
+      }
+
       if (sourceDisplayName) {
         if (candidateText.includes(sourceDisplayName)) {
           score += 0.16;
@@ -539,6 +562,13 @@
       } else if (entry && entry.has_filament_entity) {
         score += 0.03;
         reasons.push("catalog record only");
+      }
+
+      if (candidateProfileName) {
+        score += 0.08;
+      } else {
+        score -= 0.12;
+        reasons.push("no slicer profile linked");
       }
 
       if (Number(entry && entry.total_remaining_weight || 0) >= stockThreshold) {
@@ -567,6 +597,7 @@
       const structuredByHex = new Map(structuredColors.map((item) => [item.hex, item]));
       const recommendedFilament = String(model.metadata && model.metadata.filament || "").trim();
       const inferredMaterial = this._inferFilamentMaterial(recommendedFilament);
+      const embeddedProfileNames = this._getEmbeddedFilamentProfileNames();
 
       let slotHexes = Array.isArray(selectedPlate && selectedPlate.filament_colors) ? selectedPlate.filament_colors.slice() : [];
       if (!slotHexes.length && structuredColors.length) {
@@ -589,10 +620,12 @@
           plate_name: selectedPlateName,
           required_hex: requiredHex,
           source_display_name: sourceDisplayName,
+          source_profile_name: this._normalizeProfileName(embeddedProfileNames[index] || ""),
           material: this._inferFilamentMaterial(sourceDisplayName) || inferredMaterial,
         };
         const rankedCandidates = catalogEntries
           .map((entry) => this._scoreFilamentCatalogEntry(entry, requirement))
+          .filter((entry) => !!entry.profile_name)
           .sort((left, right) => {
             if (right.match_score !== left.match_score) {
               return right.match_score - left.match_score;
@@ -614,6 +647,58 @@
         };
       });
     }
+
+      _getEmbeddedFilamentProfileNames() {
+        const raw = this._modelDetail && this._modelDetail.metadata && this._modelDetail.metadata.filament;
+        if (Array.isArray(raw)) {
+          return raw
+            .map((item) => this._normalizeProfileName(item))
+            .filter((item) => item);
+        }
+        const text = String(raw || "").trim();
+        if (!text) {
+          return [];
+        }
+        if ((text.startsWith("[") && text.endsWith("]")) || (text.startsWith("{") && text.endsWith("}"))) {
+          try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed)) {
+              return parsed
+                .map((item) => this._normalizeProfileName(item))
+                .filter((item) => item);
+            }
+          } catch (_error) {
+            // Fall through to delimiter parsing.
+          }
+        }
+        return text
+          .split(/[\n;,]+/)
+          .map((item) => this._normalizeProfileName(item))
+          .filter((item) => item);
+      }
+
+      _buildExecutableFilamentProfileList() {
+        const requirements = this._buildFilamentRequirements();
+        if (!requirements.length) {
+          return [];
+        }
+        const embeddedProfileNames = this._getEmbeddedFilamentProfileNames();
+        const profiles = [];
+        for (const requirement of requirements) {
+          const selectedCandidate = this._getSelectedFilamentCandidateForSlot(requirement);
+          const selectedProfileName = this._normalizeProfileName(selectedCandidate && selectedCandidate.profile_name || "");
+          if (selectedProfileName) {
+            profiles.push(selectedProfileName);
+            continue;
+          }
+          const embeddedProfileName = this._normalizeProfileName(embeddedProfileNames[requirement.slot_index] || requirement.source_profile_name || "");
+          if (!embeddedProfileName) {
+            return null;
+          }
+          profiles.push(embeddedProfileName);
+        }
+        return profiles;
+      }
 
     _getFilamentSelectionForSlot(slotKey) {
       if (!Array.isArray(this._wizardState.filament_candidates)) {
@@ -1044,6 +1129,7 @@
                       <div>
                         <div class="filament-slot-title">${this._escapeHtml(requirement.plate_name)} · Slot ${requirement.slot_index + 1}</div>
                         <div class="filament-slot-subtitle">${this._escapeHtml(requirement.source_display_name || "Embedded filament mapping")}</div>
+                        ${requirement.source_profile_name ? `<div class="filament-slot-profile">Embedded profile: ${this._escapeHtml(requirement.source_profile_name)}</div>` : ""}
                       </div>
                       ${requirement.required_hex ? `
                         <div class="filament-slot-swatch-group">
@@ -1055,6 +1141,7 @@
                     <div class="filament-slot-note">
                       ${requirement.material ? `Material hint: ${this._escapeHtml(requirement.material)}.` : "Material is not explicitly extracted for this slot."}
                       ${requirement.best_candidate && Number(requirement.best_candidate.match_score || 0) >= 0.65 ? " The top catalog match is preselected because the confidence is strong enough." : " Embedded fallback stays selected until a stronger catalog match is available or you choose one manually."}
+                      ${!requirement.source_profile_name ? " If no embedded slicer profile name is available for untouched slots, execution can only apply overrides when every slot on this plate resolves to a linked slicer profile." : ""}
                     </div>
                     <div class="candidates-grid slot-candidates">
                       <label class="candidate-radio ${fallbackChecked ? "selected" : ""}">
@@ -1096,6 +1183,7 @@
                             <div class="candidate-meta-row">
                               ${candidate.color_hex ? `<span class="candidate-chip"><span class="candidate-chip-swatch" style="background:${this._escapeHtml(candidate.color_hex)};"></span>${this._escapeHtml(candidate.color_hex)}</span>` : ""}
                               ${candidate.material ? `<span class="candidate-chip">${this._escapeHtml(candidate.material)}</span>` : ""}
+                              ${candidate.profile_name ? `<span class="candidate-chip">${this._escapeHtml(candidate.profile_name)}</span>` : ""}
                               <span class="candidate-chip">${this._escapeHtml(this._formatFilamentAvailability(candidate))}</span>
                             </div>
                           </div>
@@ -1115,6 +1203,21 @@
               <div class="info-box">
                 <strong>How matching works:</strong> the wizard ranks Filament Catalog entries using the selected plate's 3MF filament colors first, then material and name hints. You can always fall back to the model-specified filament for any slot.
               </div>
+              ${(() => {
+                const executableProfiles = this._buildExecutableFilamentProfileList();
+                if (executableProfiles && executableProfiles.length > 0) {
+                  return `
+                    <div class="info-box execution-ready-box">
+                      <strong>Execution path:</strong> this selection can be sent to the slicer as ${this._escapeHtml(executableProfiles.join(" ; "))}.
+                    </div>
+                  `;
+                }
+                return `
+                  <div class="info-box warning-box">
+                    <strong>Execution limit:</strong> the worker only accepts a full slot-ordered slicer profile list. If any untouched slot lacks an embedded profile name, the slice falls back to the 3MF's embedded filament mapping for the whole plate.
+                  </div>
+                `;
+              })()}
             </div>
           </div>
 
@@ -1428,6 +1531,10 @@
       const filamentOverrides = this._serializeFilamentOverrides();
       if (filamentOverrides.length > 0) {
         overrides.filament_overrides = filamentOverrides;
+      }
+      const executableFilamentProfiles = this._buildExecutableFilamentProfileList();
+      if (Array.isArray(executableFilamentProfiles) && executableFilamentProfiles.length > 0) {
+        overrides.filaments = executableFilamentProfiles.join(";");
       }
       return {
         source_kind: "local_file",
@@ -2559,6 +2666,12 @@
             margin-top: 3px;
           }
 
+          .filament-slot-profile {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+          }
+
           .filament-slot-swatch-group {
             display: inline-flex;
             align-items: center;
@@ -3230,7 +3343,7 @@
                 material: String(input.getAttribute('data-material') || '').trim(),
                 color_hex: this._normalizeHexColor(input.getAttribute('data-color-hex') || ''),
                 filament_id: String(input.getAttribute('data-filament-id') || '').trim(),
-                profile_name: String(input.getAttribute('data-profile-name') || '').trim(),
+                profile_name: this._normalizeProfileName(input.getAttribute('data-profile-name') || ''),
                 has_spool_entity: String(input.getAttribute('data-source-type') || '') === 'spool',
               };
           this._handleFilamentSelect(event, slotKey, candidate, requirement);

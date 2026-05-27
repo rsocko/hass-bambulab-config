@@ -107,7 +107,7 @@ def enqueue_slice(
     data: dict[str, str] = {}
     if overrides:
         for key in (
-            "printer", "preset", "filament", "bedType",
+            "printer", "preset", "filament", "filaments", "bedType",
             "plate", "arrange", "orient", "exportType",
             "multicolorOnePlate",
         ):

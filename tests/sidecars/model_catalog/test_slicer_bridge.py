@@ -190,6 +190,32 @@ class TestEnqueueSlice:
         assert data["printer"] == "Bambu Lab X1C"
         assert data["plate"] == "0"
 
+    def test_enqueue_passes_multi_filament_override(self, tmp_path: Path) -> None:
+        source = tmp_path / "model.3mf"
+        source.write_bytes(b"test-3mf")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 202
+        mock_resp.json.return_value = {
+            "requestId": "xyz", "status": "pending", "statusUrl": "",
+        }
+
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_resp
+
+        with patch("app.slicer_bridge.httpx.Client", return_value=mock_client):
+            enqueue_slice(
+                base_url="http://slicer:3000",
+                file_path=source,
+                overrides={"filaments": "Bambu PLA Basic @BBL P1S;Bambu PETG Basic @BBL P1S"},
+            )
+
+        call_kwargs = mock_client.post.call_args
+        data = call_kwargs[1]["data"]
+        assert data["filaments"] == "Bambu PLA Basic @BBL P1S;Bambu PETG Basic @BBL P1S"
+
 
 class TestPollSlice:
     def test_poll_completed(self) -> None:
@@ -539,6 +565,35 @@ class TestExecuteJob:
 
             assert resp.status_code == 200
             assert mock_enqueue.call_args.kwargs["overrides"]["plate"] == "2"
+        finally:
+            client.__exit__(None, None, None)
+
+    def test_execute_forwards_multi_filament_override(self, tmp_path: Path) -> None:
+        client = _create_client(tmp_path)
+        try:
+            job, _ = _create_draft_with_file(
+                client,
+                tmp_path,
+                overrides={
+                    "filament_overrides": [
+                        {"slot_index": 0, "profile_name": "Bambu PLA Basic @BBL P1S"},
+                        {"slot_index": 1, "profile_name": "Bambu PETG Basic @BBL P1S"},
+                    ],
+                    "filaments": "Bambu PLA Basic @BBL P1S;Bambu PETG Basic @BBL P1S",
+                },
+            )
+            job_id = job["job_id"]
+
+            with (
+                patch("app.routers.slicer.enqueue_slice", return_value=_MOCK_ENQUEUE) as mock_enqueue,
+                patch("app.routers.slicer.poll_until_terminal", return_value=_MOCK_POLL_COMPLETED),
+                patch("app.routers.slicer.retrieve_output", side_effect=_mock_retrieve_output),
+                patch("app.routers.slicer.cleanup_slice", return_value=True),
+            ):
+                resp = client.post(f"/api/slicer/jobs/{job_id}/execute")
+
+            assert resp.status_code == 200
+            assert mock_enqueue.call_args.kwargs["overrides"]["filaments"] == "Bambu PLA Basic @BBL P1S;Bambu PETG Basic @BBL P1S"
         finally:
             client.__exit__(None, None, None)
 
