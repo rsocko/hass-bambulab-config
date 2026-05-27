@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +41,48 @@ def _collection_depth(collection_id: str | None) -> int:
     if not normalized:
         return 0
     return len([segment for segment in normalized.split(COLLECTION_PATH_SEPARATOR) if segment])
+
+
+def collection_display_path(collection_id: str | None, collection_rows_by_id: dict[str, dict[str, Any]]) -> str:
+    normalized_id = str(collection_id or "").strip().lower()
+    if not normalized_id:
+        return ""
+    current = collection_rows_by_id.get(normalized_id)
+    if current is None:
+        return normalized_id
+
+    segments: list[str] = []
+    visited: set[str] = set()
+    while current is not None:
+        current_id = str(current.get("collection_id") or "").strip().lower()
+        if not current_id or current_id in visited:
+            break
+        visited.add(current_id)
+        current_name = str(current.get("name") or "").strip()
+        if current_name:
+            segments.append(current_name)
+        parent_id = str(current.get("parent_collection_id") or "").strip().lower()
+        current = collection_rows_by_id.get(parent_id) if parent_id else None
+    return COLLECTION_PATH_SEPARATOR.join(reversed(segments)) or normalized_id
+
+
+def collection_paths_from_memberships(
+    memberships: list[dict[str, Any]] | None,
+    collection_rows_by_id: dict[str, dict[str, Any]],
+) -> tuple[str, ...]:
+    if not memberships:
+        return tuple()
+    ordered_names: list[str] = []
+    seen: set[str] = set()
+    for membership in memberships:
+        collection_id = str(membership.get("collection_id") or "").strip().lower()
+        if not collection_id or collection_id in seen:
+            continue
+        seen.add(collection_id)
+        display_path = collection_display_path(collection_id, collection_rows_by_id)
+        if display_path:
+            ordered_names.append(display_path)
+    return tuple(ordered_names)
 
 
 def list_collections(*, db_path: Path) -> list[dict[str, Any]]:
@@ -90,14 +134,17 @@ def create_collection(*, db_path: Path, name: str, parent_collection_id: str | N
         if _collection_depth(collection_id) > MAX_COLLECTION_DEPTH:
             raise ValueError(f"collection depth exceeds max depth {MAX_COLLECTION_DEPTH}")
         now_iso = utc_now_iso()
-        connection.execute(
-            """
-            INSERT INTO model_catalog_collections (
-                collection_id, name, parent_collection_id, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?)
-            """,
-            (collection_id, normalized_name, parent_id, now_iso, now_iso),
-        )
+        try:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_collections (
+                    collection_id, name, parent_collection_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (collection_id, normalized_name, parent_id, now_iso, now_iso),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(f"collection path already exists: {collection_id}") from exc
         connection.commit()
         row = connection.execute(
             "SELECT collection_id, name, parent_collection_id, created_at, updated_at FROM model_catalog_collections WHERE collection_id = ?",
@@ -273,3 +320,124 @@ def replace_model_collection_memberships(*, db_path: Path, model_ref: str, colle
     finally:
         connection.close()
     return read_model_collection_memberships_bulk(db_path=db_path, model_refs=[normalized_model_ref]).get(normalized_model_ref, [])
+
+
+def ensure_collection_paths(*, db_path: Path, collection_names: list[str] | tuple[str, ...] | None) -> list[dict[str, Any]]:
+    normalized_names = [str(value or "").strip() for value in collection_names or [] if str(value or "").strip()]
+    if not normalized_names:
+        return []
+
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT collection_id, name, parent_collection_id, created_at, updated_at FROM model_catalog_collections ORDER BY collection_id ASC"
+        ).fetchall()
+        collection_rows_by_id: dict[str, dict[str, Any]] = {
+            str(row["collection_id"]): dict(row) for row in rows
+        }
+        ensured_leaf_ids: list[str] = []
+        seen_leaf_ids: set[str] = set()
+        now_iso = utc_now_iso()
+
+        for raw_name in normalized_names:
+            path_parts = _split_collection_path(raw_name)
+            if not path_parts:
+                continue
+            if len(path_parts) > MAX_COLLECTION_DEPTH:
+                raise ValueError(f"collection depth exceeds max depth {MAX_COLLECTION_DEPTH}")
+
+            built_parts: list[str] = []
+            parent_id: str | None = None
+            for part in path_parts:
+                normalized_part = _normalize_collection_name(part)
+                built_parts.append(normalized_part)
+                collection_id = _join_collection_id(tuple(built_parts))
+                existing = collection_rows_by_id.get(collection_id)
+                if existing is None:
+                    connection.execute(
+                        """
+                        INSERT INTO model_catalog_collections (
+                            collection_id, name, parent_collection_id, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (collection_id, normalized_part, parent_id, now_iso, now_iso),
+                    )
+                    existing = {
+                        "collection_id": collection_id,
+                        "name": normalized_part,
+                        "parent_collection_id": parent_id,
+                        "created_at": now_iso,
+                        "updated_at": now_iso,
+                    }
+                    collection_rows_by_id[collection_id] = existing
+                parent_id = collection_id
+            if parent_id and parent_id not in seen_leaf_ids:
+                seen_leaf_ids.add(parent_id)
+                ensured_leaf_ids.append(parent_id)
+
+        connection.commit()
+        return [collection_rows_by_id[collection_id] for collection_id in ensured_leaf_ids]
+    finally:
+        connection.close()
+
+
+def backfill_legacy_local_model_collections(*, db_path: Path) -> dict[str, Any]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT local_model_id, collection_names_json
+            FROM model_catalog_entries
+            WHERE archived_at IS NULL
+              AND TRIM(COALESCE(collection_names_json, '[]')) NOT IN ('', '[]')
+            ORDER BY local_model_id ASC
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    scanned_models = 0
+    migrated_models = 0
+    cleared_models = 0
+    membership_count = 0
+
+    for row in rows:
+        scanned_models += 1
+        model_ref = str(row["local_model_id"] or "").strip()
+        if not model_ref:
+            continue
+        try:
+            parsed_names = json.loads(str(row["collection_names_json"] or "[]"))
+        except json.JSONDecodeError:
+            parsed_names = []
+        if not isinstance(parsed_names, list):
+            parsed_names = []
+
+        collection_rows = ensure_collection_paths(db_path=db_path, collection_names=parsed_names)
+        memberships = replace_model_collection_memberships(
+            db_path=db_path,
+            model_ref=model_ref,
+            collection_ids=[str(item.get("collection_id") or "") for item in collection_rows],
+        )
+
+        connection = connect(db_path)
+        try:
+            connection.execute(
+                "UPDATE model_catalog_entries SET collection_names_json = '[]', updated_at = ? WHERE local_model_id = ?",
+                (utc_now_iso(), model_ref),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        if parsed_names:
+            migrated_models += 1
+        cleared_models += 1
+        membership_count += len(memberships)
+
+    return {
+        "scanned_models": scanned_models,
+        "migrated_models": migrated_models,
+        "cleared_models": cleared_models,
+        "membership_count": membership_count,
+    }

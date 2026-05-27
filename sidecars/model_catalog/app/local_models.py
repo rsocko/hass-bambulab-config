@@ -14,6 +14,13 @@ from pathlib import Path
 from typing import Any
 
 from .db import connect, utc_now_iso
+from .db_collections import (
+    collection_paths_from_memberships,
+    ensure_collection_paths,
+    list_collections,
+    read_model_collection_memberships_bulk,
+    replace_model_collection_memberships,
+)
 from .models import LocalModelEntry, ModelAsset
 
 
@@ -39,6 +46,7 @@ def create_local_model(
     entity_type: str = "model",
 ) -> LocalModelEntry:
     """Create a new local model catalog entry."""
+    collection_rows = ensure_collection_paths(db_path=db_path, collection_names=collection_names)
     connection = connect(db_path)
     try:
         now = utc_now_iso()
@@ -60,7 +68,7 @@ def create_local_model(
                 model_description,
                 creator_name,
                 created_by,
-                json.dumps(collection_names or []),
+                "[]",
                 json.dumps(keyword_names or []),
                 json.dumps(tags or []),
                 license_type,
@@ -74,6 +82,11 @@ def create_local_model(
             ),
         )
         connection.commit()
+        replace_model_collection_memberships(
+            db_path=db_path,
+            model_ref=local_model_id,
+            collection_ids=[str(row.get("collection_id") or "") for row in collection_rows],
+        )
         entry = read_local_model(db_path=db_path, local_model_id=local_model_id)
         if entry is None:
             raise RuntimeError(f"Failed to create model {local_model_id}")
@@ -99,7 +112,7 @@ def read_local_model(
         ).fetchone()
         if not row:
             return None
-        return _row_to_local_model_entry(row)
+        return _hydrate_local_entry_collections(db_path=db_path, entry=_row_to_local_model_entry(row))
     finally:
         connection.close()
 
@@ -155,6 +168,7 @@ def list_local_models(
         ).fetchall()
 
         entries = [_row_to_local_model_entry(row) for row in rows]
+        entries = _hydrate_local_entries_collections(db_path=db_path, entries=entries)
         return entries, total
     finally:
         connection.close()
@@ -183,6 +197,10 @@ def update_local_model(
     Only provided fields are updated; None values are skipped.
     Returns updated entry or None if not found.
     """
+    collection_rows = None
+    if collection_names is not None:
+        collection_rows = ensure_collection_paths(db_path=db_path, collection_names=collection_names)
+
     connection = connect(db_path)
     try:
         # Check if model exists
@@ -218,7 +236,7 @@ def update_local_model(
             params.append(json.dumps(keyword_names))
         if collection_names is not None:
             updates.append("collection_names_json = ?")
-            params.append(json.dumps(collection_names))
+            params.append("[]")
         if license_type is not None:
             updates.append("license_type = ?")
             params.append(license_type)
@@ -252,6 +270,13 @@ def update_local_model(
             params,
         )
         connection.commit()
+
+        if collection_names is not None:
+            replace_model_collection_memberships(
+                db_path=db_path,
+                model_ref=local_model_id,
+                collection_ids=[str(row.get("collection_id") or "") for row in collection_rows or []],
+            )
 
         return read_local_model(db_path=db_path, local_model_id=local_model_id)
     finally:
@@ -614,6 +639,53 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
+
+
+def _hydrate_local_entries_collections(*, db_path: Path, entries: list[LocalModelEntry]) -> list[LocalModelEntry]:
+    if not entries:
+        return entries
+    memberships_by_model_ref = read_model_collection_memberships_bulk(
+        db_path=db_path,
+        model_refs=[entry.local_model_id for entry in entries],
+    )
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=db_path)
+    }
+
+    hydrated_entries: list[LocalModelEntry] = []
+    for entry in entries:
+        memberships = memberships_by_model_ref.get(entry.local_model_id, [])
+        if not memberships:
+            hydrated_entries.append(entry)
+            continue
+        hydrated_entries.append(
+            LocalModelEntry(
+                id=entry.id,
+                local_model_id=entry.local_model_id,
+                model_name=entry.model_name,
+                model_description=entry.model_description,
+                creator_name=entry.creator_name,
+                created_by=entry.created_by,
+                collection_names=collection_paths_from_memberships(memberships, collection_rows_by_id),
+                keyword_names=entry.keyword_names,
+                tags=entry.tags,
+                license_type=entry.license_type,
+                preview_image_url=entry.preview_image_url,
+                source_origin=entry.source_origin,
+                source_origin_url=entry.source_origin_url,
+                revision_hash=entry.revision_hash,
+                entity_type=entry.entity_type,
+                created_at=entry.created_at,
+                updated_at=entry.updated_at,
+            )
+        )
+    return hydrated_entries
+
+
+def _hydrate_local_entry_collections(*, db_path: Path, entry: LocalModelEntry) -> LocalModelEntry:
+    hydrated_entries = _hydrate_local_entries_collections(db_path=db_path, entries=[entry])
+    return hydrated_entries[0] if hydrated_entries else entry
 
 
 def _row_to_model_asset(row: Any) -> ModelAsset:

@@ -108,7 +108,11 @@ from ..catalog_cache import (
 )
 from ..db_collections import (
     COLLECTION_PATH_SEPARATOR,
+    backfill_legacy_local_model_collections,
+    collection_display_path,
+    collection_paths_from_memberships,
     create_collection,
+    ensure_collection_paths,
     list_collections,
     read_collection,
     read_model_collection_memberships_bulk,
@@ -546,51 +550,6 @@ def _model_ref_for_summary(summary: CatalogModelSummary) -> str:
     return str(summary.public_id or summary.model_id or summary.model_url or "").strip()
 
 
-def _collection_display_path(
-    collection_id: str | None,
-    collection_rows_by_id: dict[str, dict[str, Any]] | None,
-) -> str:
-    normalized_collection_id = str(collection_id or "").strip().lower()
-    if not normalized_collection_id:
-        return ""
-    rows_by_id = collection_rows_by_id or {}
-    labels: list[str] = []
-    cursor = normalized_collection_id
-    visited: set[str] = set()
-    while cursor and cursor not in visited:
-        visited.add(cursor)
-        row = rows_by_id.get(cursor) or {}
-        label = str(row.get("name") or "").strip()
-        if not label:
-            segments = [segment.strip() for segment in cursor.split(COLLECTION_PATH_SEPARATOR) if str(segment or "").strip()]
-            label = segments[-1] if segments else cursor
-        labels.append(label)
-        cursor = str(row.get("parent_collection_id") or "").strip().lower()
-    if not labels:
-        return COLLECTION_PATH_SEPARATOR.join(
-            segment for segment in normalized_collection_id.split(COLLECTION_PATH_SEPARATOR) if segment
-        )
-    return COLLECTION_PATH_SEPARATOR.join(reversed(labels))
-
-
-def _collection_paths_from_memberships(
-    memberships: list[dict[str, Any]] | None,
-    collection_rows_by_id: dict[str, dict[str, Any]] | None,
-) -> tuple[str, ...]:
-    if not memberships:
-        return tuple()
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for membership in memberships:
-        collection_id = str(membership.get("collection_id") or "").strip().lower()
-        if not collection_id or collection_id in seen:
-            continue
-        seen.add(collection_id)
-        display_path = _collection_display_path(collection_id, collection_rows_by_id)
-        normalized.append(display_path or COLLECTION_PATH_SEPARATOR.join(segment for segment in collection_id.split(COLLECTION_PATH_SEPARATOR) if segment))
-    return tuple(normalized)
-
-
 def _overlay_collection_names_on_summary(
     summary: CatalogModelSummary,
     memberships_by_model_ref: dict[str, list[dict[str, Any]]] | None,
@@ -598,7 +557,7 @@ def _overlay_collection_names_on_summary(
 ) -> CatalogModelSummary:
     model_ref = _model_ref_for_summary(summary)
     memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
-    explicit_collection_names = _collection_paths_from_memberships(memberships, collection_rows_by_id)
+    explicit_collection_names = collection_paths_from_memberships(memberships, collection_rows_by_id or {})
     if not explicit_collection_names:
         return summary
     return CatalogModelSummary(
@@ -623,7 +582,7 @@ def _overlay_collection_data_on_payload(
 ) -> dict[str, Any]:
     model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
     memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
-    explicit_collection_names = _collection_paths_from_memberships(memberships, collection_rows_by_id)
+    explicit_collection_names = collection_paths_from_memberships(memberships, collection_rows_by_id or {})
     if explicit_collection_names:
         payload["collection_names"] = list(explicit_collection_names)
     payload["collection_memberships"] = [
@@ -631,7 +590,7 @@ def _overlay_collection_data_on_payload(
             "collection_id": str(membership.get("collection_id") or "").strip().lower(),
             "name": str(membership.get("name") or "").strip(),
             "parent_collection_id": str(membership.get("parent_collection_id") or "").strip().lower() or None,
-            "path": _collection_display_path(str(membership.get("collection_id") or ""), collection_rows_by_id),
+            "path": collection_display_path(str(membership.get("collection_id") or ""), collection_rows_by_id or {}),
         }
         for membership in memberships
         if str(membership.get("collection_id") or "").strip()
@@ -4595,7 +4554,8 @@ async def create_collection_endpoint(request: Request) -> dict[str, Any]:
             parent_collection_id=str(payload.get("parent_collection_id") or "").strip() or None,
         )
     except ValueError as exc:
-        return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+        status_code = 409 if "already exists" in str(exc).lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": str(exc)})
     return {"success": True, "contract": "collections.v1alpha1", "item": row}
 
 
@@ -4632,11 +4592,16 @@ def get_model_collections_endpoint(request: Request, model_ref: str) -> dict[str
         db_path=state.settings.db_path,
         model_refs=[str(model_ref or "").strip()],
     ).get(str(model_ref or "").strip(), [])
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=state.settings.db_path)
+    }
     return {
         "success": True,
         "contract": "model-collections.v1alpha1",
         "model_ref": str(model_ref or "").strip(),
         "items": memberships,
+        "collection_names": list(collection_paths_from_memberships(memberships, collection_rows_by_id)),
     }
 
 
@@ -4661,11 +4626,25 @@ async def replace_model_collections_endpoint(request: Request, model_ref: str) -
         )
     except ValueError as exc:
         return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=state.settings.db_path)
+    }
     return {
         "success": True,
         "contract": "model-collections.v1alpha1",
         "model_ref": str(model_ref or "").strip(),
         "items": memberships,
+        "collection_names": list(collection_paths_from_memberships(memberships, collection_rows_by_id)),
+    }
+
+
+@router.post("/api/admin/collections/cleanup-legacy")
+def cleanup_legacy_collection_names_endpoint(request: Request) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    return {
+        "success": True,
+        **backfill_legacy_local_model_collections(db_path=state.settings.db_path),
     }
 
 
@@ -5365,8 +5344,15 @@ def put_model_field(request: Request, model_ref: str, field_key: str, payload: d
     resolved_ref = summary.public_id or summary.model_id or summary.model_url
     field_value = payload["value"]
     if field_key == "collection_names":
-        field_value = list(_normalized_collection_names(field_value))
-    elif field_key in {"keyword_names", "tags"}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "deprecated_field",
+                "message": "collection_names is no longer writable via model fields; use collection memberships endpoints instead.",
+            },
+        )
+    if field_key in {"keyword_names", "tags"}:
         field_value = list(_normalized_keyword_names(field_value))
     value = set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key, field_value=field_value)
     return {
@@ -5826,16 +5812,28 @@ async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, A
         normalized_tags = tags
         if isinstance(normalized_tags, str):
             normalized_tags = [token.strip() for token in normalized_tags.split(",") if token.strip()]
+        collection_ids = payload.get("collection_ids") if isinstance(payload.get("collection_ids"), list) else None
+        if collection_ids is None and collection is not None and str(collection).strip():
+            ensured_rows = ensure_collection_paths(
+                db_path=state.settings.db_path,
+                collection_names=[str(collection).strip()],
+            )
+            collection_ids = [str(row.get("collection_id") or "") for row in ensured_rows]
         updated_entry = update_local_model(
             db_path=state.settings.db_path,
             local_model_id=str(summary.public_id or model_ref),
             model_name=str(model_name) if model_name is not None else None,
             model_description=str(description) if description is not None else None,
             tags=normalized_tags if isinstance(normalized_tags, list) else None,
-            collection_names=[str(collection).strip()] if collection is not None and str(collection).strip() else None,
         )
         if updated_entry is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
+        if collection_ids is not None:
+            replace_model_collection_memberships(
+                db_path=state.settings.db_path,
+                model_ref=str(summary.public_id or model_ref),
+                collection_ids=[str(value or "") for value in collection_ids],
+            )
         for key, value in normalized_enrichment.items():
             set_model_field(
                 db_path=state.settings.db_path,

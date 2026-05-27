@@ -24,6 +24,11 @@ from ..catalog_cache import (
     canonicalize_model_url,
     read_cached_model_summaries,
 )
+from ..db_collections import (
+    collection_paths_from_memberships,
+    list_collections,
+    read_model_collection_memberships_bulk,
+)
 from ..models import CatalogModelSummary
 from ..state import AppState
 
@@ -71,9 +76,21 @@ def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
         ).fetchall()
     finally:
         connection.close()
+    memberships_by_model_ref = read_model_collection_memberships_bulk(
+        db_path=db_path,
+        model_refs=[str(row["local_model_id"]) for row in rows],
+    )
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=db_path)
+    }
     summaries: list[CatalogModelSummary] = []
     for row in rows:
         local_model_id = str(row["local_model_id"])
+        memberships = memberships_by_model_ref.get(local_model_id, [])
+        collection_names = collection_paths_from_memberships(memberships, collection_rows_by_id)
+        if not collection_names:
+            collection_names = tuple(json.loads(str(row["collection_names_json"] or "[]")))
         summaries.append(
             CatalogModelSummary(
                 model_url=_local_model_url(local_model_id),
@@ -82,7 +99,7 @@ def _read_local_catalog_summaries(db_path: Any) -> list[CatalogModelSummary]:
                 name=str(row["model_name"]),
                 preview_url=str(row["preview_image_url"] or "").strip() or None,
                 creator_name=str(row["creator_name"] or "").strip() or None,
-                collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
+                collection_names=collection_names,
                 keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
                 entity_type=str(row["entity_type"] or "model"),
             )
@@ -121,6 +138,15 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedCatalogModel]:
     finally:
         connection.close()
 
+    memberships_by_model_ref = read_model_collection_memberships_bulk(
+        db_path=db_path,
+        model_refs=[str(row["local_model_id"]) for row in entry_rows],
+    )
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=db_path)
+    }
+
     # Group assets by entry ID
     assets_by_entry_id: dict[int, list[dict[str, Any]]] = {}
     for asset_row in asset_rows:
@@ -154,7 +180,13 @@ def _read_local_catalog_for_matching(db_path: Any) -> list[CachedCatalogModel]:
             name=model_name,
             preview_url=str(row["preview_image_url"] or "").strip() or None,
             creator_name=str(row["creator_name"] or "").strip() or None,
-            collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
+            collection_names=(
+                collection_paths_from_memberships(
+                    memberships_by_model_ref.get(local_model_id, []),
+                    collection_rows_by_id,
+                )
+                or tuple(json.loads(str(row["collection_names_json"] or "[]")))
+            ),
             keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
             entity_type=str(row["entity_type"] or "model"),
         )
