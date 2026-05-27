@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database
 from sidecars.model_catalog.app.main import create_app
+from sidecars.model_catalog.app.routers.models import _collection_paths_from_memberships
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -190,6 +191,40 @@ def test_facets_returns_collections_and_tags(tmp_path: Path) -> None:
     tag_keys = {t["key"] for t in tags}
     assert "organizer" in tag_keys
     assert "bin" in tag_keys
+
+
+def test_collection_paths_from_memberships_preserve_collection_name_casing() -> None:
+    collection_rows_by_id = {
+        "star wars": {
+            "collection_id": "star wars",
+            "name": "Star Wars",
+            "parent_collection_id": None,
+        },
+        "star wars / hueforge": {
+            "collection_id": "star wars / hueforge",
+            "name": "Hueforge",
+            "parent_collection_id": "star wars",
+        },
+        "printer accessories": {
+            "collection_id": "printer accessories",
+            "name": "Printer Accessories",
+            "parent_collection_id": None,
+        },
+        "printer accessories / ams": {
+            "collection_id": "printer accessories / ams",
+            "name": "AMS",
+            "parent_collection_id": "printer accessories",
+        },
+    }
+    memberships = [
+        {"collection_id": "star wars / hueforge"},
+        {"collection_id": "printer accessories / ams"},
+    ]
+
+    assert _collection_paths_from_memberships(memberships, collection_rows_by_id) == (
+        "Star Wars / Hueforge",
+        "Printer Accessories / AMS",
+    )
 
 
 def test_facets_sorted_by_count_desc(tmp_path: Path) -> None:

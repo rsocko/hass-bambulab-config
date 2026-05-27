@@ -546,7 +546,37 @@ def _model_ref_for_summary(summary: CatalogModelSummary) -> str:
     return str(summary.public_id or summary.model_id or summary.model_url or "").strip()
 
 
-def _collection_paths_from_memberships(memberships: list[dict[str, Any]] | None) -> tuple[str, ...]:
+def _collection_display_path(
+    collection_id: str | None,
+    collection_rows_by_id: dict[str, dict[str, Any]] | None,
+) -> str:
+    normalized_collection_id = str(collection_id or "").strip().lower()
+    if not normalized_collection_id:
+        return ""
+    rows_by_id = collection_rows_by_id or {}
+    labels: list[str] = []
+    cursor = normalized_collection_id
+    visited: set[str] = set()
+    while cursor and cursor not in visited:
+        visited.add(cursor)
+        row = rows_by_id.get(cursor) or {}
+        label = str(row.get("name") or "").strip()
+        if not label:
+            segments = [segment.strip() for segment in cursor.split(COLLECTION_PATH_SEPARATOR) if str(segment or "").strip()]
+            label = segments[-1] if segments else cursor
+        labels.append(label)
+        cursor = str(row.get("parent_collection_id") or "").strip().lower()
+    if not labels:
+        return COLLECTION_PATH_SEPARATOR.join(
+            segment for segment in normalized_collection_id.split(COLLECTION_PATH_SEPARATOR) if segment
+        )
+    return COLLECTION_PATH_SEPARATOR.join(reversed(labels))
+
+
+def _collection_paths_from_memberships(
+    memberships: list[dict[str, Any]] | None,
+    collection_rows_by_id: dict[str, dict[str, Any]] | None,
+) -> tuple[str, ...]:
     if not memberships:
         return tuple()
     normalized: list[str] = []
@@ -556,17 +586,19 @@ def _collection_paths_from_memberships(memberships: list[dict[str, Any]] | None)
         if not collection_id or collection_id in seen:
             continue
         seen.add(collection_id)
-        normalized.append(COLLECTION_PATH_SEPARATOR.join(segment for segment in collection_id.split(COLLECTION_PATH_SEPARATOR) if segment))
+        display_path = _collection_display_path(collection_id, collection_rows_by_id)
+        normalized.append(display_path or COLLECTION_PATH_SEPARATOR.join(segment for segment in collection_id.split(COLLECTION_PATH_SEPARATOR) if segment))
     return tuple(normalized)
 
 
 def _overlay_collection_names_on_summary(
     summary: CatalogModelSummary,
     memberships_by_model_ref: dict[str, list[dict[str, Any]]] | None,
+    collection_rows_by_id: dict[str, dict[str, Any]] | None,
 ) -> CatalogModelSummary:
     model_ref = _model_ref_for_summary(summary)
     memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
-    explicit_collection_names = _collection_paths_from_memberships(memberships)
+    explicit_collection_names = _collection_paths_from_memberships(memberships, collection_rows_by_id)
     if not explicit_collection_names:
         return summary
     return CatalogModelSummary(
@@ -587,10 +619,11 @@ def _overlay_collection_names_on_summary(
 def _overlay_collection_data_on_payload(
     payload: dict[str, Any],
     memberships_by_model_ref: dict[str, list[dict[str, Any]]] | None,
+    collection_rows_by_id: dict[str, dict[str, Any]] | None,
 ) -> dict[str, Any]:
     model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
     memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
-    explicit_collection_names = _collection_paths_from_memberships(memberships)
+    explicit_collection_names = _collection_paths_from_memberships(memberships, collection_rows_by_id)
     if explicit_collection_names:
         payload["collection_names"] = list(explicit_collection_names)
     payload["collection_memberships"] = [
@@ -598,9 +631,7 @@ def _overlay_collection_data_on_payload(
             "collection_id": str(membership.get("collection_id") or "").strip().lower(),
             "name": str(membership.get("name") or "").strip(),
             "parent_collection_id": str(membership.get("parent_collection_id") or "").strip().lower() or None,
-            "path": COLLECTION_PATH_SEPARATOR.join(
-                segment for segment in str(membership.get("collection_id") or "").split(COLLECTION_PATH_SEPARATOR) if segment
-            ),
+            "path": _collection_display_path(str(membership.get("collection_id") or ""), collection_rows_by_id),
         }
         for membership in memberships
         if str(membership.get("collection_id") or "").strip()
@@ -933,6 +964,11 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
         client=client,
         refresh=refresh_runtime_cache,
     )
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=settings.db_path)
+        if str(row.get("collection_id") or "").strip()
+    }
     memberships_by_model_ref = read_model_collection_memberships_bulk(
         db_path=settings.db_path,
         model_refs=[_model_ref_for_summary(summary) for summary in summaries],
@@ -956,7 +992,7 @@ def _rebuild_search_projection(*, request: Request, settings: Settings, client: 
     token_rows: list[tuple[str, str]] = []
 
     for raw_summary in summaries:
-        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref)
+        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref, collection_rows_by_id)
         model_ref = str(summary.public_id or summary.model_id or summary.model_url)
         if not model_ref:
             continue
@@ -3806,6 +3842,11 @@ def list_models(
         client=client,
         refresh=refresh,
     )
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=state.settings.db_path)
+        if str(row.get("collection_id") or "").strip()
+    }
     memberships_by_model_ref = read_model_collection_memberships_bulk(
         db_path=state.settings.db_path,
         model_refs=[_model_ref_for_summary(summary) for summary in all_summaries],
@@ -3825,7 +3866,7 @@ def list_models(
     models = []
     visibility_counts = {"active": 0, "archived": 0}
     for raw_summary in all_summaries:
-        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref)
+        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref, collection_rows_by_id)
         model_ref = summary.public_id or summary.model_id or summary.model_url
         custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
         if to_print_status and str(custom_fields.get("to_print_status") or "") != to_print_status:
@@ -3846,7 +3887,7 @@ def list_models(
             request=request,
             settings=state.settings,
         )
-        models.append(_overlay_collection_data_on_payload(model_payload, memberships_by_model_ref))
+        models.append(_overlay_collection_data_on_payload(model_payload, memberships_by_model_ref, collection_rows_by_id))
 
         model_payload = models[-1]
         stats = frequency_stats_by_url.get(summary.model_url)
@@ -4076,6 +4117,11 @@ def search_models(
         for summary in summaries
         if str(summary.public_id or summary.model_id or summary.model_url).strip()
     ]
+    collection_rows_by_id = {
+        str(row.get("collection_id") or "").strip().lower(): row
+        for row in list_collections(db_path=state.settings.db_path)
+        if str(row.get("collection_id") or "").strip()
+    }
     memberships_by_model_ref = read_model_collection_memberships_bulk(
         db_path=state.settings.db_path,
         model_refs=model_refs_for_fields,
@@ -4092,7 +4138,7 @@ def search_models(
     entity_type_counts = {"model": 0, "idea": 0}
     loop_start = time.perf_counter()
     for raw_summary in summaries:
-        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref)
+        summary = _overlay_collection_names_on_summary(raw_summary, memberships_by_model_ref, collection_rows_by_id)
         # Apply filters
         if not _matches_filters(summary, collection, creator, selected_tags):
             continue
@@ -4164,7 +4210,7 @@ def search_models(
             request=request,
             settings=state.settings,
         )
-        model_payload = _overlay_collection_data_on_payload(model_payload, memberships_by_model_ref)
+        model_payload = _overlay_collection_data_on_payload(model_payload, memberships_by_model_ref, collection_rows_by_id)
 
         # Attach archive context boost signals to the payload when present
         if _archive_picker and archive_context_signals:
