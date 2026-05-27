@@ -801,6 +801,7 @@ def _search_models_from_projection(
     has_other_files: bool,
     show_archived: bool,
     show_ideas: bool,
+    entity_types: str | None,
     sort: str,
     refresh: bool,
     page: int,
@@ -810,6 +811,7 @@ def _search_models_from_projection(
     resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
     resolved_min_prints = _normalize_frequents_min_prints(frequent_min_prints)
     resolved_backfill_weight = _normalize_frequents_backfill_weight(frequent_backfill_weight)
+    allowed_entity_types = _normalize_model_search_entity_types(entity_types)
 
     base_clauses: list[str] = []
     base_params: list[Any] = []
@@ -897,7 +899,11 @@ def _search_models_from_projection(
 
     entity_clauses: list[str] = []
     entity_params: list[Any] = []
-    if not show_ideas:
+    if allowed_entity_types is not None:
+        placeholders = ",".join(["?"] * len(allowed_entity_types))
+        entity_clauses.append(f"p.entity_type IN ({placeholders})")
+        entity_params.extend(allowed_entity_types)
+    elif not show_ideas:
         entity_clauses.append("p.entity_type <> 'idea'")
 
     visibility_clause = ""
@@ -1191,6 +1197,7 @@ def _search_models_from_projection(
             "has_other_files": has_other_files,
             "show_archived": bool(show_archived),
             "show_ideas": bool(show_ideas),
+            "entity_types": list(allowed_entity_types) if allowed_entity_types is not None else None,
         },
         "visibility": {
             "show_archived": bool(show_archived),
@@ -1952,6 +1959,27 @@ def _normalize_frequents_backfill_weight(value: object | None) -> float:
     except (TypeError, ValueError):
         return DEFAULT_FREQUENT_BACKFILL_WEIGHT
     return max(0.0, min(candidate, 1.0))
+
+
+def _normalize_model_search_entity_types(entity_types: str | None) -> tuple[str, ...] | None:
+    raw_value = str(entity_types or "").strip().lower()
+    if not raw_value:
+        return None
+
+    allowed: list[str] = []
+    seen: set[str] = set()
+    for part in raw_value.split(","):
+        normalized = str(part or "").strip().lower()
+        if normalized not in {"model", "idea"}:
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        allowed.append(normalized)
+
+    if not allowed or len(allowed) == 2:
+        return None
+    return tuple(allowed)
 
 
 def _apply_frequents_layer2_derivation(
@@ -3494,6 +3522,7 @@ def search_models(
     has_other_files: bool = False,
     show_archived: bool = False,
     show_ideas: bool = True,
+    entity_types: str | None = None,
     sort: str = "best",
     refresh: bool = False,
     page: int = 1,
@@ -3513,6 +3542,7 @@ def search_models(
     state: AppState = request.app.state.model_catalog
     client: object = request.app.state.catalog_client
     perf_start = time.perf_counter()
+    allowed_entity_types = _normalize_model_search_entity_types(entity_types)
     
     # Clamp pagination parameters
     page = max(1, page)
@@ -3536,6 +3566,7 @@ def search_models(
         "has_other_files": bool(has_other_files),
         "show_archived": bool(show_archived),
         "show_ideas": bool(show_ideas),
+        "entity_types": entity_types or "",
         "sort": sort or "best",
         "page": int(page),
         "per_page": int(per_page),
@@ -3586,6 +3617,7 @@ def search_models(
             has_other_files=bool(has_other_files),
             show_archived=bool(show_archived),
             show_ideas=bool(show_ideas),
+            entity_types=entity_types,
             sort=sort,
             refresh=bool(refresh),
             page=page,
@@ -3771,7 +3803,10 @@ def search_models(
         entity_type = str(summary.entity_type or "model")
         entity_type_counts[entity_type] = int(entity_type_counts.get(entity_type, 0)) + 1
 
-        if entity_type == "idea" and not show_ideas:
+        if allowed_entity_types is not None:
+            if entity_type not in allowed_entity_types:
+                continue
+        elif entity_type == "idea" and not show_ideas:
             continue
 
         catalog_visibility = _model_catalog_visibility(model_payload)
@@ -3825,6 +3860,7 @@ def search_models(
             "has_other_files": has_other_files,
             "show_archived": bool(show_archived),
             "show_ideas": bool(show_ideas),
+            "entity_types": list(allowed_entity_types) if allowed_entity_types is not None else None,
         },
         "visibility": {
             "show_archived": bool(show_archived),

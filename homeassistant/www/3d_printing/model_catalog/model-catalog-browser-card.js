@@ -183,6 +183,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return filtered;
   }
 
+  _requestedCatalogEntityTypes() {
+    if (this._browserScope !== "models") {
+      return "";
+    }
+    var requested = [];
+    if (this._typeFilters && this._typeFilters.model) {
+      requested.push("model");
+    }
+    if (this._typeFilters && this._typeFilters.idea) {
+      requested.push("idea");
+    }
+    if (requested.length !== 1) {
+      return "";
+    }
+    return requested[0];
+  }
+
   _localModelIdForModel(model) {
     var localModelId = String(model && model.local_model_id || "").trim();
     if (localModelId) {
@@ -723,6 +740,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     addBool("has_other_files");
     addBool("show_archived");
     addBool("show_ideas");
+    addText("entity_types");
     addBool("refresh");
     addText("context");
     addText("archive_name");
@@ -1057,6 +1075,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       : 0;
 
     try {
+      var entityTypes = this._requestedCatalogEntityTypes();
       var requestPayload = {
         q: this._filters.q,
         collection: this._filters.collection,
@@ -1071,6 +1090,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
         show_ideas: !!(this._typeFilters && this._typeFilters.idea),
+        entity_types: entityTypes,
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
         per_page: this._pagination.per_page,

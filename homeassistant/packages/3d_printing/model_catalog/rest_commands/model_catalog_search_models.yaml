@@ -48,6 +48,9 @@ model_catalog_search_models:
     {%- if show_ideas is defined -%}
       {%- set ns.params = ns.params + ['show_ideas=' ~ ((show_ideas | bool) | string | lower)] -%}
     {%- endif -%}
+    {%- if entity_types is defined and (entity_types | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['entity_types=' ~ ((entity_types | string) | urlencode)] -%}
+    {%- endif -%}
     {%- if refresh is defined -%}
       {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
     {%- endif -%}

@@ -667,6 +667,7 @@ class TestListModelsEndpointMerge:
             settings = Settings(
                     catalog_base_url="http://localhost:8314",
                     db_path=db,
+                    authority_mode="local",
                     refresh_ttl_seconds=900,
                     host="127.0.0.1",
                     port=8314,
@@ -780,6 +781,51 @@ class TestListModelsEndpointMerge:
         assert payload["pagination"]["total_pages"] == 2
         assert len(payload["results"]) == 12
         assert all(str(result.get("entity_type") or "model") == "model" for result in payload["results"])
+
+    def test_search_pagination_entity_types_idea_only(self, app_with_local_models):
+        """Search pagination totals/pages are computed from explicit idea-only filters."""
+        client, db = app_with_local_models
+
+        for index in range(1, 25):
+            create_local_model(
+                db_path=db,
+                local_model_id=f"idea-filter-model-{index:02d}",
+                model_name=f"Idea Filter Model {index:02d}",
+                entity_type="model",
+            )
+
+        for index in range(1, 8):
+            create_local_model(
+                db_path=db,
+                local_model_id=f"idea-filter-idea-{index:02d}",
+                model_name=f"Idea Filter Model {index:02d} Idea",
+                entity_type="idea",
+            )
+
+        response = client.get(
+            "/api/models/search",
+            params={
+                "q": "Idea Filter Model",
+                "sort": "name",
+                "page": 2,
+                "per_page": 3,
+                "show_ideas": "true",
+                "entity_types": "idea",
+            },
+        )
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["filters"]["show_ideas"] is True
+        assert payload["filters"]["entity_types"] == ["idea"]
+        assert payload["entity_type_counts"]["model"] == 24
+        assert payload["entity_type_counts"]["idea"] == 7
+        assert payload["pagination"]["per_page"] == 3
+        assert payload["pagination"]["page"] == 2
+        assert payload["pagination"]["total"] == 7
+        assert payload["pagination"]["total_pages"] == 3
+        assert len(payload["results"]) == 3
+        assert all(str(result.get("entity_type") or "model") == "idea" for result in payload["results"])
 
     def test_list_models_local_entries_use_local_preview_asset_url(self, app_with_local_models):
         """GET /api/models exposes local preview asset URLs without catalog proxy rewriting."""
