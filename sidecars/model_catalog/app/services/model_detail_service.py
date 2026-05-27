@@ -247,6 +247,63 @@ def _linked_archives_payload(models_router: Any, state: Any, summary: Any) -> di
         return {"linked_archives": [], "candidate_archives": [], "link_count": 0}
 
 
+def _resolve_queue_entry_estimate(entry: Any, file_units: list[Any]) -> dict[str, Any]:
+    raw_meta = getattr(entry, "estimate_metadata", None)
+    estimate_metadata = raw_meta if isinstance(raw_meta, dict) else {}
+
+    history = estimate_metadata.get("history") if isinstance(estimate_metadata.get("history"), dict) else {}
+    history_minutes = history.get("minutes")
+    if history_minutes is not None:
+        return {
+            "minutes": int(history_minutes),
+            "source": "history",
+            "status": "fresh",
+        }
+
+    slicer = estimate_metadata.get("slicer") if isinstance(estimate_metadata.get("slicer"), dict) else {}
+    slicer_minutes = slicer.get("minutes")
+    slicer_status = str(slicer.get("status") or "fresh").strip().lower()
+    if slicer_minutes is not None and slicer_status == "fresh":
+        return {
+            "minutes": int(slicer_minutes),
+            "source": "slicer",
+            "status": slicer_status,
+            "profile_key": slicer.get("profile_key"),
+            "source_sha256": slicer.get("source_sha256"),
+        }
+
+    manual = estimate_metadata.get("manual") if isinstance(estimate_metadata.get("manual"), dict) else {}
+    manual_minutes = manual.get("minutes")
+    if manual_minutes is not None:
+        return {
+            "minutes": int(manual_minutes),
+            "source": "manual",
+            "status": "fresh",
+        }
+
+    legacy_minutes = getattr(entry, "estimated_total_minutes", None)
+    if legacy_minutes is not None:
+        return {
+            "minutes": int(legacy_minutes),
+            "source": "manual",
+            "status": "legacy",
+        }
+
+    minute_values = [int(unit.estimated_minutes) for unit in file_units if unit.estimated_minutes is not None]
+    if minute_values:
+        return {
+            "minutes": sum(minute_values),
+            "source": "file_units",
+            "status": "derived",
+        }
+
+    return {
+        "minutes": None,
+        "source": "missing",
+        "status": slicer_status if slicer_status in {"fresh", "stale", "missing", "failed"} else "missing",
+    }
+
+
 def _queued_items_payload(state: Any, local_model_id: str, model_url: str) -> list[dict[str, Any]]:
     """Fetch unified queue entries whose source_ref matches this model."""
     try:
@@ -264,6 +321,7 @@ def _queued_items_payload(state: Any, local_model_id: str, model_url: str) -> li
                 db_path=state.settings.db_path,
                 queue_entry_id=entry.queue_entry_id,
             )
+            resolved_estimate = _resolve_queue_entry_estimate(entry, file_units)
             files: list[dict[str, Any]] = []
             for fu in file_units:
                 plate_units = list_unified_queue_plate_units(
@@ -304,6 +362,9 @@ def _queued_items_payload(state: Any, local_model_id: str, model_url: str) -> li
                 "duration_bucket": entry.duration_bucket,
                 "blocked_reason": entry.blocked_reason,
                 "queue_notes": entry.queue_notes,
+                "estimated_minutes": resolved_estimate.get("minutes"),
+                "estimate": resolved_estimate,
+                "estimate_metadata": entry.estimate_metadata if isinstance(entry.estimate_metadata, dict) else {},
                 "created_at": entry.created_at,
                 "updated_at": entry.updated_at,
                 "files": files,

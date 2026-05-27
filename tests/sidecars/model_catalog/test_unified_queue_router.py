@@ -1566,6 +1566,83 @@ def test_planner_score_v1_ignores_stale_slicer_and_uses_manual(tmp_path: Path) -
         client.__exit__(None, None, None)
 
 
+def test_update_entry_selection_marks_fresh_slicer_estimate_stale(tmp_path: Path) -> None:
+    client, db_path = _create_client(tmp_path)
+    try:
+        create_response = client.post(
+            "/api/unified-queue/entries",
+            json={
+                "source_kind": "working_file",
+                "source_ref": "wg-selection-stale",
+                "title": "Selection Sensitive Estimate",
+                "estimate_metadata": {
+                    "slicer": {
+                        "minutes": 95,
+                        "status": "fresh",
+                        "profile_key": "p1:0.20:pla:plate-1",
+                    },
+                    "manual": {"minutes": 120},
+                },
+            },
+        )
+        assert create_response.status_code == 200
+        queue_entry_id = create_response.json()["entry"]["queue_entry_id"]
+
+        file_unit = create_unified_queue_file_unit(
+            db_path=db_path,
+            queue_entry_id=queue_entry_id,
+            file_unit_id="qfu-stale-001",
+            file_id="file-a",
+            file_name="widget.3mf",
+            selected=True,
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=queue_entry_id,
+            file_unit_id=file_unit.file_unit_id,
+            plate_unit_id="qpu-stale-001",
+            plate_key="plate-1",
+            plate_name="Plate 1",
+            selected=True,
+            state="pending",
+        )
+        create_unified_queue_plate_unit(
+            db_path=db_path,
+            queue_entry_id=queue_entry_id,
+            file_unit_id=file_unit.file_unit_id,
+            plate_unit_id="qpu-stale-002",
+            plate_key="plate-2",
+            plate_name="Plate 2",
+            selected=False,
+            state="pending",
+        )
+
+        update_response = client.patch(
+            f"/api/unified-queue/entries/{queue_entry_id}/selection",
+            json={
+                "files": [
+                    {
+                        "file_unit_id": file_unit.file_unit_id,
+                        "selected": True,
+                        "plates": [
+                            {
+                                "plate_unit_id": "qpu-stale-002",
+                                "selected": True,
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+        assert update_response.status_code == 200
+        payload = update_response.json()
+
+        assert payload["entry"]["estimate_metadata"]["slicer"]["status"] == "stale"
+        assert payload["entry"]["estimate_metadata"]["manual"]["minutes"] == 120
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_planner_score_v1_handles_unknown_ams_state_gracefully(tmp_path: Path) -> None:
     client, db_path = _create_client(tmp_path)
     try:

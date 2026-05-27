@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from sidecars.model_catalog.app.models import CatalogModelSummary
+from sidecars.model_catalog.app.services import model_detail_service
 from sidecars.model_catalog.app.services.model_detail_service import build_model_detail_response
 
 
@@ -106,6 +107,109 @@ def test_build_model_detail_response_local_success(monkeypatch) -> None:
     assert "uploaded_photos" not in payload["enrichment"]["custom_fields"]
     assert payload["preview_photo_id"] == "photo-1"
     assert payload["_debug"]["authority"] == "local"
+
+
+def test_build_model_detail_response_includes_queue_estimate_context(monkeypatch) -> None:
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    summary = CatalogModelSummary(
+        model_url="local://local-model-1",
+        public_id="local-model-1",
+        model_id="1",
+        name="Local Model",
+        preview_url=None,
+        creator_name="Local Creator",
+        collection_names=["Inbox"],
+        keyword_names=["keyword-1"],
+    )
+    entry = SimpleNamespace(
+        model_name="Local Model",
+        model_description="Local description",
+        creator_name="Local Creator",
+        created_by="operator",
+        collection_names=["Inbox"],
+        tags=["local", "queued"],
+        license_type="CC-BY",
+        source_origin="intake_queue",
+        source_origin_url="intake://uploads/u1",
+        revision_hash=None,
+        created_at="2026-05-01T00:00:00Z",
+        updated_at="2026-05-01T00:00:00Z",
+        entity_type="model",
+    )
+    queue_entry = SimpleNamespace(
+        queue_entry_id="uq-1",
+        source_ref="local-model-1",
+        source_kind="catalog_model",
+        title="Queued Local Model",
+        state="up_next",
+        rank=2,
+        copies_requested=1,
+        copies_completed=0,
+        duration_bucket="quick",
+        blocked_reason=None,
+        queue_notes=None,
+        estimated_total_minutes=120,
+        estimate_metadata={
+            "slicer": {
+                "minutes": 95,
+                "status": "fresh",
+                "profile_key": "p1:0.20:pla:plate-1",
+            },
+            "manual": {"minutes": 120},
+        },
+        created_at="2026-05-02T00:00:00Z",
+        updated_at="2026-05-02T00:00:00Z",
+    )
+    file_unit = SimpleNamespace(
+        file_unit_id="qfu-1",
+        file_name="widget.3mf",
+        selected=True,
+        estimated_minutes=95,
+    )
+    plate_unit = SimpleNamespace(
+        plate_unit_id="qpu-1",
+        plate_key="plate-1",
+        plate_name="Plate 1",
+        selected=True,
+        state="pending",
+        completed_by_archive_id=None,
+        estimated_minutes=95,
+    )
+
+    monkeypatch.setattr(models_router, "_summary_map", lambda _db_path: {summary.model_url: summary})
+    monkeypatch.setattr(models_router, "_resolve_model_summary", lambda _map, _model_ref: summary)
+    monkeypatch.setattr(models_router, "_is_local_summary", lambda _summary: True)
+    monkeypatch.setattr(models_router, "read_local_model", lambda **_kwargs: entry)
+    monkeypatch.setattr(models_router, "read_model_fields", lambda **_kwargs: {})
+    monkeypatch.setattr(models_router, "read_model_ranking", lambda **_kwargs: None)
+    monkeypatch.setattr(models_router, "list_model_assets", lambda **_kwargs: [])
+    monkeypatch.setattr(models_router, "_select_local_preview_asset_id", lambda **_kwargs: None)
+    monkeypatch.setattr(models_router, "_serialize_local_model_assets", lambda **_kwargs: [])
+    monkeypatch.setattr(models_router, "_local_summary_preview_url", lambda **_kwargs: "/preview.png")
+    monkeypatch.setattr(models_router, "_local_entry_to_summary", lambda *_args, **_kwargs: summary)
+    monkeypatch.setattr(models_router, "_structured_detail_metadata", lambda _fields: {"provenance": {}})
+    monkeypatch.setattr(models_router, "_read_uploaded_photo_rows", lambda **_kwargs: [])
+    monkeypatch.setattr(models_router, "_serialize_uploaded_photo_rows", lambda **_kwargs: [])
+    monkeypatch.setattr(model_detail_service, "list_unified_queue_entries", lambda **_kwargs: [queue_entry])
+    monkeypatch.setattr(model_detail_service, "list_unified_queue_file_units", lambda **_kwargs: [file_unit])
+    monkeypatch.setattr(model_detail_service, "list_unified_queue_plate_units", lambda **_kwargs: [plate_unit])
+
+    payload = build_model_detail_response(
+        _state_with_db_path(Path("test.db")),
+        Mock(),
+        "local-model-1",
+        include_debug=False,
+        helpers=models_router.__dict__,
+    )
+
+    assert payload["success"] is True
+    assert len(payload["queued_items"]) == 1
+    queued = payload["queued_items"][0]
+    assert queued["estimated_minutes"] == 95
+    assert queued["estimate"]["source"] == "slicer"
+    assert queued["estimate"]["status"] == "fresh"
+    assert queued["estimate_metadata"]["manual"]["minutes"] == 120
 
 
 def test_build_model_detail_response_catalog_degraded(monkeypatch) -> None:

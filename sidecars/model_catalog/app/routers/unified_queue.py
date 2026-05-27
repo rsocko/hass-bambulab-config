@@ -217,6 +217,38 @@ def _selection_mode_from_units(file_units: list[Any], plate_units_by_file_unit_i
     return "selected_plates"
 
 
+def _selection_signature(file_units: list[Any], plate_units_by_file_unit_id: dict[str, list[Any]]) -> tuple[Any, ...]:
+    signature: list[tuple[str, bool, tuple[tuple[str, bool], ...]]] = []
+    for file_unit in sorted(file_units, key=lambda item: str(item.file_unit_id or "")):
+        plate_units = plate_units_by_file_unit_id.get(file_unit.file_unit_id, [])
+        plate_signature = tuple(
+            (
+                str(plate_unit.plate_unit_id or ""),
+                bool(plate_unit.selected),
+            )
+            for plate_unit in sorted(plate_units, key=lambda item: str(item.plate_unit_id or ""))
+        )
+        signature.append((str(file_unit.file_unit_id or ""), bool(file_unit.selected), plate_signature))
+    return tuple(signature)
+
+
+def _stale_slicer_estimate_metadata(value: object | None) -> dict[str, Any] | None:
+    estimate_metadata = _normalize_estimate_metadata(value) or {}
+    slicer = estimate_metadata.get("slicer") if isinstance(estimate_metadata.get("slicer"), dict) else None
+    if slicer is None:
+        return None
+
+    current_status = str(slicer.get("status") or "fresh").strip().lower()
+    if current_status == "stale":
+        return None
+
+    updated = dict(estimate_metadata)
+    updated_slicer = dict(slicer)
+    updated_slicer["status"] = "stale"
+    updated["slicer"] = updated_slicer
+    return updated
+
+
 def _queue_detail_to_response(*, entry: Any, db_path: Path) -> dict[str, Any]:
     file_units = list_unified_queue_file_units(db_path=db_path, queue_entry_id=entry.queue_entry_id)
     plate_units_by_file_unit_id: dict[str, list[Any]] = {}
@@ -1730,6 +1762,15 @@ def update_entry_selection(
     file_units_by_id = {file_unit.file_unit_id: file_unit for file_unit in file_units}
     if not file_units_by_id:
         return _error_response(status_code=400, error="validation_error", message="Queue entry has no editable file units")
+    initial_plate_units_by_file_unit_id = {
+        file_unit.file_unit_id: list_unified_queue_plate_units(
+            db_path=state.settings.db_path,
+            queue_entry_id=queue_entry_id,
+            file_unit_id=file_unit.file_unit_id,
+        )
+        for file_unit in file_units
+    }
+    initial_selection_signature = _selection_signature(file_units, initial_plate_units_by_file_unit_id)
 
     touched_file_ids: set[str] = set()
     try:
@@ -1877,12 +1918,17 @@ def update_entry_selection(
         for file_unit in refreshed_file_units
     }
     derived_selection_mode = _selection_mode_from_units(refreshed_file_units, plate_units_by_file_unit_id)
+    selection_changed = _selection_signature(refreshed_file_units, plate_units_by_file_unit_id) != initial_selection_signature
+    update_kwargs: dict[str, Any] = {"selection_mode": derived_selection_mode}
+    stale_estimate_metadata = _stale_slicer_estimate_metadata(existing.estimate_metadata) if selection_changed else None
+    if stale_estimate_metadata is not None:
+        update_kwargs["estimate_metadata"] = stale_estimate_metadata
 
     try:
         updated_entry = update_unified_queue_entry(
             db_path=state.settings.db_path,
             queue_entry_id=queue_entry_id,
-            selection_mode=derived_selection_mode,
+            **update_kwargs,
         )
     except Exception as exc:
         return _error_response(status_code=500, error="internal_error", message=str(exc))

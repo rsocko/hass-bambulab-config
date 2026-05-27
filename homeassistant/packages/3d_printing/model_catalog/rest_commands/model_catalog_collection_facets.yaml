@@ -1,0 +1,99 @@
+# Model Catalog left-nav Phase 2 wrappers for stable facets and hierarchical collections browse.
+# Exposes the sidecar collections tree/facet endpoints through HA services.
+
+model_catalog_get_facets:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if entity_types is defined and (entity_types | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['entity_types=' ~ ((entity_types | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if show_archived is defined -%}
+      {%- set ns.params = ns.params + ['show_archived=' ~ ((show_archived | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if show_ideas is defined -%}
+      {%- set ns.params = ns.params + ['show_ideas=' ~ ((show_ideas | bool) | string | lower)] -%}
+    {%- endif -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/facets{%- if ns.params | count > 0 %}?{{ ns.params | join('&') }}{%- endif -%}
+  method: GET
+
+model_catalog_browse_collections:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if q is defined and (q | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['q=' ~ ((q | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if creator is defined and (creator | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['creator=' ~ ((creator | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if tag is defined and (tag | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['tag=' ~ ((tag | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if tags is defined and (tags | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['tags=' ~ ((tags | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if sort is defined and (sort | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['sort=' ~ ((sort | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if favorites_only is defined -%}
+      {%- set ns.params = ns.params + ['favorites_only=' ~ ((favorites_only | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if frequents_only is defined -%}
+      {%- set ns.params = ns.params + ['frequents_only=' ~ ((frequents_only | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if recent_added_only is defined -%}
+      {%- set ns.params = ns.params + ['recent_added_only=' ~ ((recent_added_only | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if recent_printed_only is defined -%}
+      {%- set ns.params = ns.params + ['recent_printed_only=' ~ ((recent_printed_only | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- set configured_frequent_window_days = states('input_number.model_catalog_frequent_window_days') | int(90) -%}
+    {%- set configured_frequent_min_prints = states('input_number.model_catalog_frequent_min_prints') | int(3) -%}
+    {%- if frequent_window_days is defined -%}
+      {%- set ns.params = ns.params + ['frequent_window_days=' ~ ((frequent_window_days | int(configured_frequent_window_days)) | string)] -%}
+    {%- else -%}
+      {%- set ns.params = ns.params + ['frequent_window_days=' ~ (configured_frequent_window_days | string)] -%}
+    {%- endif -%}
+    {%- if frequent_min_prints is defined -%}
+      {%- set ns.params = ns.params + ['frequent_min_prints=' ~ ((frequent_min_prints | int(configured_frequent_min_prints)) | string)] -%}
+    {%- else -%}
+      {%- set ns.params = ns.params + ['frequent_min_prints=' ~ (configured_frequent_min_prints | string)] -%}
+    {%- endif -%}
+    {%- if frequent_backfill_weight is defined -%}
+      {%- set ns.params = ns.params + ['frequent_backfill_weight=' ~ ((frequent_backfill_weight | float(0.5)) | string)] -%}
+    {%- endif -%}
+    {%- if has_other_files is defined -%}
+      {%- set ns.params = ns.params + ['has_other_files=' ~ ((has_other_files | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if show_archived is defined -%}
+      {%- set ns.params = ns.params + ['show_archived=' ~ ((show_archived | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if show_ideas is defined -%}
+      {%- set ns.params = ns.params + ['show_ideas=' ~ ((show_ideas | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if entity_types is defined and (entity_types | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['entity_types=' ~ ((entity_types | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if refresh is defined -%}
+      {%- set ns.params = ns.params + ['refresh=' ~ ((refresh | bool) | string | lower)] -%}
+    {%- endif -%}
+    {%- if collection_id is defined and (collection_id | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['collection_id=' ~ ((collection_id | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if display_mode is defined and (display_mode | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['display_mode=' ~ ((display_mode | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if collection_sort is defined and (collection_sort | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['collection_sort=' ~ ((collection_sort | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- set ns.params = ns.params + ['page=' ~ ((page | default(1)) | int(1) | string)] -%}
+    {%- set ns.params = ns.params + ['per_page=' ~ ((per_page | default(12)) | int(12) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/collections/browse{%- if ns.params | count > 0 %}?{{ ns.params | join('&') }}{%- endif -%}
+  method: GET

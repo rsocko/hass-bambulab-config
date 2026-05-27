@@ -1702,6 +1702,49 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return current;
   }
 
+  _deriveQueueEstimateBadge(entry) {
+    var meta = entry && entry.estimate_metadata && typeof entry.estimate_metadata === 'object'
+      ? entry.estimate_metadata
+      : {};
+    var history = meta && meta.history && typeof meta.history === 'object' ? meta.history : null;
+    var slicer = meta && meta.slicer && typeof meta.slicer === 'object' ? meta.slicer : null;
+    var manual = meta && meta.manual && typeof meta.manual === 'object' ? meta.manual : null;
+
+    if (history && history.minutes !== null && history.minutes !== undefined) {
+      return {
+        label: 'Hist',
+        tone: 'history',
+        title: 'Queue estimate source: print history',
+      };
+    }
+
+    if (slicer && slicer.minutes !== null && slicer.minutes !== undefined) {
+      var slicerStatus = String(slicer.status || 'fresh').trim().toLowerCase();
+      if (slicerStatus === 'stale') {
+        return {
+          label: 'Slice stale',
+          tone: 'stale',
+          title: 'Queue estimate source: slicer (stale)',
+        };
+      }
+      return {
+        label: 'Slice',
+        tone: 'slicer',
+        title: 'Queue estimate source: slicer',
+      };
+    }
+
+    if ((manual && manual.minutes !== null && manual.minutes !== undefined) || (entry && entry.estimated_total_minutes !== null && entry.estimated_total_minutes !== undefined)) {
+      return {
+        label: 'Manual',
+        tone: 'manual',
+        title: 'Queue estimate source: manual',
+      };
+    }
+
+    return null;
+  }
+
   async _refreshUnifiedQueueIndex(options) {
     var opts = options && typeof options === "object" ? options : {};
     var force = !!opts.force;
@@ -1738,6 +1781,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
           queue_entry_id: String(entry.queue_entry_id || ""),
           state: String(entry.state || "").toLowerCase(),
           rank: Number(entry.rank || 0),
+          estimated_total_minutes: entry.estimated_total_minutes,
+          estimate_metadata: entry && entry.estimate_metadata && typeof entry.estimate_metadata === 'object'
+            ? entry.estimate_metadata
+            : {},
+          estimate_badge: this._deriveQueueEstimateBadge(entry),
         };
         if (!byModelRef[modelRef]) {
           byModelRef[modelRef] = { preferred: null, count: 0, entries: [] };
@@ -6188,10 +6236,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var queueEntryCount = queueStateInfo && queueStateInfo.count ? queueStateInfo.count : 0;
     var queueStatusClass = queueEntryCount > 0 ? ' has-queue-entries' : '';
     var queueCountBadge = queueEntryCount > 0 ? '<span class="queue-count-badge">' + this._escapeHtml(String(queueEntryCount)) + '</span>' : '';
+    var queueEstimateBadge = preferred && preferred.estimate_badge
+      ? '<span class="queue-estimate-badge tone-' + this._escapeHtml(String(preferred.estimate_badge.tone || 'manual')) + '" title="' + this._escapeHtml(String(preferred.estimate_badge.title || 'Queue estimate')) + '">' + this._escapeHtml(String(preferred.estimate_badge.label || '')) + '</span>'
+      : '';
     var queueButton = ''
       + '<button class="icon-action queue-action' + queueStatusClass + '" type="button" data-action="queue-add" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Add to queue">'
       + '  <ha-icon icon="mdi:playlist-plus"></ha-icon>'
       + queueCountBadge
+      + queueEstimateBadge
       + '</button>';
 
     var compactActionsHtml = ''
@@ -7536,11 +7588,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.favorite-action{border-color:rgba(245,194,66,0.34);}'
       + '.favorite-action.is-active{background:rgba(245,194,66,0.20);color:#f5c242;border-color:rgba(245,194,66,0.52);}'
       + '.favorite-action.is-active:hover,.favorite-action.is-active:focus-visible{background:rgba(245,194,66,0.26);color:#f5c242;border-color:rgba(245,194,66,0.62);box-shadow:0 0 0 1px rgba(245,194,66,0.28);transform:translateY(-1px);outline:none;}'
-      + '.queue-action{border-color:rgba(160,124,255,0.30);background:rgba(100,60,180,0.14);color:#c4b5fd;position:relative;}'
+      + '.queue-action{border-color:rgba(160,124,255,0.30);background:rgba(100,60,180,0.14);color:#c4b5fd;position:relative;overflow:visible;}'
       + '.queue-action:hover,.queue-action:focus-visible{background:rgba(160,124,255,0.20);color:#ede9fe;border-color:rgba(160,124,255,0.52);box-shadow:0 0 0 1px rgba(160,124,255,0.20),0 8px 18px rgba(15,23,42,0.20);transform:translateY(-1px);outline:none;}'
       + '.queue-action.has-queue-entries{background:rgba(160,124,255,0.24);color:#ddd6fe;border-color:rgba(160,124,255,0.50);}'
       + '.queue-action.has-queue-entries:hover,.queue-action.has-queue-entries:focus-visible{background:rgba(160,124,255,0.30);color:#f5f3ff;border-color:rgba(196,181,253,0.66);box-shadow:0 0 0 1px rgba(160,124,255,0.28),0 10px 22px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}'
       + '.queue-count-badge{position:absolute;top:-8px;right:-8px;width:18px;height:18px;min-width:18px;padding:0;border-radius:50%;background:#a07cff;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;box-sizing:border-box;pointer-events:none;border:1px solid rgba(15,23,42,0.6);}'
+      + '.queue-estimate-badge{position:absolute;right:-10px;bottom:-9px;min-width:22px;max-width:72px;padding:2px 6px;border-radius:999px;background:#334155;color:#f8fafc;font-size:9px;font-weight:800;line-height:1;letter-spacing:0.03em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;pointer-events:none;border:1px solid rgba(15,23,42,0.55);box-shadow:0 3px 10px rgba(15,23,42,0.28);}'
+      + '.queue-estimate-badge.tone-history{background:#14532d;color:#dcfce7;}'
+      + '.queue-estimate-badge.tone-slicer{background:#1d4ed8;color:#dbeafe;}'
+      + '.queue-estimate-badge.tone-manual{background:#7c2d12;color:#ffedd5;}'
+      + '.queue-estimate-badge.tone-stale{background:#991b1b;color:#fee2e2;}'
       + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
       + '.media-body{gap:8px;padding:12px 14px 14px;}'
       + '.media-title-row{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;}'
