@@ -72,6 +72,7 @@ def search_models_service(
     archive_name: str | None = None,
     source_file_name: str | None = None,
     source_hash: str | None = None,
+    project_id: int | None = None,
 ) -> dict[str, Any]:
     from ..routers import models as models_router
 
@@ -104,6 +105,7 @@ def search_models_service(
         archive_name=archive_name,
         source_file_name=source_file_name,
         source_hash=source_hash,
+        project_id=project_id,
     )
 
 

@@ -811,6 +811,7 @@ def _search_models_from_projection(
     refresh: bool,
     page: int,
     per_page: int,
+    project_id: int | None = None,
 ) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
@@ -905,6 +906,17 @@ def _search_models_from_projection(
         base_clauses.append("COALESCE(p.recent_score, 0) > 0")
     if has_other_files:
         base_clauses.append("p.has_other_files = 1")
+    if project_id is not None:
+        base_clauses.append(
+            "EXISTS ("
+            "SELECT 1 FROM model_catalog_custom_fields cf "
+            "WHERE cf.entity_type = 'model' "
+            "AND cf.field_key = 'project_id' "
+            "AND cf.entity_id = p.model_ref "
+            "AND json_extract(cf.field_value_json, '$') = ?"
+            ")"
+        )
+        base_params.append(int(project_id))
 
     entity_clauses: list[str] = []
     entity_params: list[Any] = []
@@ -3583,6 +3595,7 @@ def search_models(
     archive_name: str | None = None,
     source_file_name: str | None = None,
     source_hash: str | None = None,
+    project_id: int | None = None,
 ) -> dict[str, Any]:
     """Search catalog with pagination and filtering support.
 
@@ -3629,6 +3642,7 @@ def search_models(
         "archive_name": archive_name or "",
         "source_file_name": source_file_name or "",
         "source_hash": source_hash or "",
+        "project_id": project_id,
         "debug_collection_lookup": bool(debug_collection_lookup),
     }
     cache_key = _model_search_cache_key(cache_key_payload)
@@ -3680,6 +3694,7 @@ def search_models(
             refresh=bool(refresh),
             page=page,
             per_page=per_page,
+            project_id=project_id,
         )
         if not refresh:
             _model_search_cache_put(cache_key, response_payload)

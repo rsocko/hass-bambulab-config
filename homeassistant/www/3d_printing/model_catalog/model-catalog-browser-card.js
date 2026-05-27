@@ -46,6 +46,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._visibilityCounts = { active: 0, archived: 0 };
     this._serverEntityTypeCounts = { model: 0, idea: 0 };
     this._facetCounts = { collections: [], tags: [] };
+    this._projects = [];
+    this._projectsLoaded = false;
+    this._projectsError = "";
     this._typeFilters = {
       model: true,
       idea: false,
@@ -121,6 +124,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       recent_printed_only: false,
       has_other_files: false,
       show_archived: false,
+      project_id: null,
     };
   }
 
@@ -844,6 +848,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     addText("archive_name");
     addText("source_file_name");
     addText("source_hash");
+    addInt("project_id");
     addInt("page");
     addInt("per_page");
 
@@ -1190,6 +1195,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
+        project_id: this._filters.project_id || null,
         show_ideas: !!(this._typeFilters && this._typeFilters.idea),
         entity_types: entityTypes,
         refresh: !!refresh,
@@ -4040,6 +4046,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _deriveLeftNavKeyFromFilters() {
+    if (this._filters && this._filters.project_id) {
+      return "project:" + this._filters.project_id;
+    }
     if (this._filters && this._filters.favorites_only) {
       return "favorites";
     }
@@ -4064,6 +4073,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (key === "frequents") return "Frequents";
     if (key === "recent-added") return "Recently added";
     if (key === "recent-printed") return "Recently printed";
+    if (key.indexOf("project:") === 0) {
+      var projectId = parseInt(key.slice("project:".length), 10);
+      var project = this._findProjectById(projectId);
+      return project ? project.title : "Project";
+    }
     var selectedCollection = this._selectedCollectionKey();
     var activeTags = this._activeTagFilters();
     if (selectedCollection && activeTags.length) {
@@ -4087,6 +4101,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (key === "frequents") return "mdi:lightning-bolt-outline";
     if (key === "recent-added") return "mdi:clock-plus-outline";
     if (key === "recent-printed") return "mdi:printer-3d-nozzle-outline";
+    if (key.indexOf("project:") === 0) return "mdi:clipboard-text-outline";
     if (this._selectedCollectionKey()) return "mdi:folder-outline";
     if (this._activeTagFilters().length) return "mdi:tag-outline";
     return "mdi:cube-outline";
@@ -4094,6 +4109,47 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _syncLeftNavSelectionFromFilters() {
     this._leftNavSelectedKey = this._deriveLeftNavKeyFromFilters();
+  }
+
+  _findProjectById(id) {
+    var numId = Number(id);
+    for (var i = 0; i < this._projects.length; i++) {
+      if (Number(this._projects[i].id) === numId) {
+        return this._projects[i];
+      }
+    }
+    return null;
+  }
+
+  async _loadProjects() {
+    if (this._projectsLoaded) {
+      return;
+    }
+    var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!/^https?:\/\//i.test(base)) {
+      this._projectsError = "No sidecar URL configured";
+      this._projectsLoaded = true;
+      return;
+    }
+    try {
+      var resp = await fetch(base + "/api/projects?limit=50&offset=0", {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+      });
+      if (!resp.ok) {
+        this._projectsError = "Failed to load projects (" + resp.status + ")";
+        this._projects = [];
+      } else {
+        var data = await resp.json();
+        this._projects = Array.isArray(data) ? data : (data && Array.isArray(data.items) ? data.items : []);
+        this._projectsError = "";
+      }
+    } catch (err) {
+      this._projectsError = "Projects fetch error";
+      this._projects = [];
+    }
+    this._projectsLoaded = true;
+    this._doRender();
   }
 
   _applyLeftNavSelection(navKey, options) {
@@ -4146,6 +4202,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       contextRecentAdded = false;
       contextRecentPrinted = true;
       this._filters.sort = "recent";
+    } else if (key.indexOf("project:") === 0) {
+      var projectId = parseInt(key.slice("project:".length), 10);
+      contextCollection = "";
+      contextTags = [];
+      contextRecentAdded = false;
+      contextRecentPrinted = false;
+      this._filters.project_id = projectId || null;
     } else {
       contextCollection = "";
       contextTags = [];
@@ -4153,6 +4216,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       contextRecentPrinted = false;
     }
 
+    if (key.indexOf("project:") !== 0) {
+      this._filters.project_id = null;
+    }
     this._filters.collection = contextCollection;
     this._setActiveTagFilters(contextTags);
     this._filters.favorites_only = contextFavorites;
@@ -4297,7 +4363,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="left-nav-section-label">Tags</div>'
         +      tagsSectionHtml
       + '  </div>'
+      + this._renderLeftNavProjectsSection()
       + '</aside>';
+  }
+
+  _renderLeftNavProjectsSection() {
+    if (!this._projectsLoaded) {
+      this._loadProjects();
+      return '<div class="left-nav-section" role="group" aria-label="Projects">'
+        + '<div class="left-nav-section-label">Projects</div>'
+        + '<div class="left-nav-empty">Loading\u2026</div>'
+        + '</div>';
+    }
+    if (this._projectsError || !this._projects.length) {
+      var emptyMsg = this._projectsError || 'No projects yet';
+      return '<div class="left-nav-section" role="group" aria-label="Projects">'
+        + '<div class="left-nav-section-label">Projects</div>'
+        + '<div class="left-nav-empty">' + this._escapeHtml(emptyMsg) + '</div>'
+        + '</div>';
+    }
+    if (this._leftNavCollapsed) {
+      var selectedProjectId = this._filters && this._filters.project_id ? this._filters.project_id : null;
+      return this._renderCollapsedFacetSectionTrigger('Projects', 'projects', 'mdi:clipboard-text-multiple-outline', !!selectedProjectId, selectedProjectId ? 1 : 0);
+    }
+    var html = '';
+    for (var i = 0; i < this._projects.length; i++) {
+      var p = this._projects[i];
+      var title = String(p.title || p.name || 'Untitled').trim();
+      var modelCount = p.model_count != null ? Number(p.model_count) : null;
+      html += this._renderLeftNavItem(title, 'project:' + p.id, modelCount, 'mdi:clipboard-text-outline');
+    }
+    return '<div class="left-nav-section" role="group" aria-label="Projects">'
+      + '<div class="left-nav-section-label">Projects</div>'
+      + html
+      + '</div>';
   }
 
   _advancedFilterCount() {
