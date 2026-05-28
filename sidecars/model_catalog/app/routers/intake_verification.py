@@ -829,6 +829,7 @@ def _read_indexed_filename_maps(
 def _read_indexed_hash_match_contexts(
     db_path: Path,
     *,
+    exclude_upload_id: str | None = None,
     max_contexts_per_hash: int = 5,
 ) -> dict[str, list[dict[str, Any]]]:
     """Build hash match context text for duplicate findings in validation UI."""
@@ -904,16 +905,29 @@ def _read_indexed_hash_match_contexts(
             )
 
         placeholders = ", ".join("?" for _ in _TERMINAL_INBOX_STATES)
-        queue_rows = connection.execute(
-            f"""
-            SELECT upload_id, source_entries_json, file_hashes_json
-            FROM intake_queue_uploads
-            WHERE file_hashes_json IS NOT NULL
-              AND TRIM(file_hashes_json) != ''
-              AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
-            """,
-            _TERMINAL_INBOX_STATES,
-        ).fetchall()
+        if exclude_upload_id:
+            queue_rows = connection.execute(
+                f"""
+                SELECT upload_id, source_entries_json, file_hashes_json
+                FROM intake_queue_uploads
+                WHERE file_hashes_json IS NOT NULL
+                  AND TRIM(file_hashes_json) != ''
+                  AND upload_id != ?
+                  AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
+                """,
+                (exclude_upload_id, *_TERMINAL_INBOX_STATES),
+            ).fetchall()
+        else:
+            queue_rows = connection.execute(
+                f"""
+                SELECT upload_id, source_entries_json, file_hashes_json
+                FROM intake_queue_uploads
+                WHERE file_hashes_json IS NOT NULL
+                  AND TRIM(file_hashes_json) != ''
+                  AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
+                """,
+                _TERMINAL_INBOX_STATES,
+            ).fetchall()
         for row in queue_rows:
             upload_id = str(row[0] or "").strip()
             source_entries_raw = str(row[1] or "[]")
@@ -2721,8 +2735,12 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
     existing_hashes = get_all_indexed_file_hashes(
         state.settings.db_path,
         exclude_source_paths=_collect_self_exclude_compare_keys(expanded_files),
+        exclude_upload_id=item_id,
     )
-    indexed_hash_contexts = _read_indexed_hash_match_contexts(state.settings.db_path)
+    indexed_hash_contexts = _read_indexed_hash_match_contexts(
+        state.settings.db_path,
+        exclude_upload_id=item_id,
+    )
     indexed_exact_names, indexed_normalized_names, indexed_exact_contexts, indexed_normalized_contexts = _read_indexed_filename_maps(
         state.settings.db_path,
         exclude_upload_id=item_id,

@@ -25,6 +25,9 @@ from sidecars.model_catalog.app.services import (
 from sidecars.model_catalog.app.services.intake_service import (
     get_working_file_inventory_hashes,
 )
+from sidecars.model_catalog.app.routers.intake_verification import (
+    _read_indexed_hash_match_contexts,
+)
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -333,6 +336,71 @@ def test_detect_duplicate_files_catches_queue_collisions(tmp_path: Path) -> None
     assert len(duplicates) == 1
     assert duplicates[0]["hash"].lower() == queue_hash.lower()
     assert duplicates[0]["collision_type"] == "indexed"
+
+
+def test_queue_hash_helpers_can_exclude_current_upload(tmp_path: Path) -> None:
+    """Regression: validation must not flag the current queue item as its own duplicate."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-04-30T00:00:00Z"
+        self_hash = "self_hash_123"
+        other_hash = "other_hash_456"
+
+        for upload_id, file_hash, path in [
+            ("upload-self", self_hash, "/data/.source_intake/self/makerworld-1021562.3mf"),
+            ("upload-other", other_hash, "/data/.source_intake/other/existing.3mf"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, file_hashes_json,
+                    verification_status, cleanup_policy, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    upload_id,
+                    "queued",
+                    json.dumps([
+                        {"path": path, "type": "file", "source_type": "makerworld_download"}
+                    ]),
+                    json.dumps([file_hash]),
+                    "unverified",
+                    "keep",
+                    now,
+                    now,
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    all_hashes = get_all_intake_queue_hashes(settings.db_path)
+    assert self_hash in all_hashes
+    assert other_hash in all_hashes
+
+    filtered_hashes = get_all_intake_queue_hashes(
+        settings.db_path,
+        exclude_upload_id="upload-self",
+    )
+    assert self_hash not in filtered_hashes
+    assert other_hash in filtered_hashes
+
+    combined_hashes = get_all_indexed_file_hashes(
+        settings.db_path,
+        exclude_upload_id="upload-self",
+    )
+    assert self_hash not in combined_hashes
+    assert other_hash in combined_hashes
+
+    contexts = _read_indexed_hash_match_contexts(
+        settings.db_path,
+        exclude_upload_id="upload-self",
+    )
+    assert self_hash not in contexts
+    assert contexts[other_hash][0]["parent_name"] == "Queued intake (upload-o)"
 
 
 def test_detect_duplicate_files_catches_batch_local_collisions(tmp_path: Path) -> None:

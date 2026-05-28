@@ -26,7 +26,11 @@ logger = logging.getLogger(__name__)
 _TERMINAL_INBOX_STATES = tuple(sorted(TERMINAL_STATES))
 
 
-def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
+def get_all_intake_queue_hashes(
+    db_path: Path | str,
+    *,
+    exclude_upload_id: str | None = None,
+) -> set[str]:
     """
     Read file hashes from **in-flight** intake queue uploads only.
 
@@ -38,6 +42,9 @@ def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
 
     Args:
         db_path: Path to SQLite database
+        exclude_upload_id: Optional upload ID to exclude from the in-flight
+            queue hash set. Used by intake validation to prevent an upload
+            from matching its own persisted hash as a duplicate.
 
     Returns:
         Set of SHA256 hex strings (lowercase) from in-flight queue uploads
@@ -45,15 +52,27 @@ def get_all_intake_queue_hashes(db_path: Path | str) -> set[str]:
     connection = connect(db_path)
     try:
         placeholders = ", ".join("?" for _ in _TERMINAL_INBOX_STATES)
-        rows = connection.execute(
-            f"""
-            SELECT file_hashes_json
-            FROM intake_queue_uploads
-            WHERE file_hashes_json IS NOT NULL
-              AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
-            """,
-            _TERMINAL_INBOX_STATES,
-        ).fetchall()
+        if exclude_upload_id:
+            rows = connection.execute(
+                f"""
+                SELECT file_hashes_json
+                FROM intake_queue_uploads
+                WHERE file_hashes_json IS NOT NULL
+                  AND upload_id != ?
+                  AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
+                """,
+                (exclude_upload_id, *_TERMINAL_INBOX_STATES),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                f"""
+                SELECT file_hashes_json
+                FROM intake_queue_uploads
+                WHERE file_hashes_json IS NOT NULL
+                  AND COALESCE(inbox_state, 'submitted') NOT IN ({placeholders})
+                """,
+                _TERMINAL_INBOX_STATES,
+            ).fetchall()
         all_hashes: set[str] = set()
         for row in rows:
             file_hashes_json = str(row[0] or "").strip()
@@ -158,6 +177,7 @@ def get_all_indexed_file_hashes(
     db_path: Path | str,
     *,
     exclude_source_paths: set[str] | None = None,
+    exclude_upload_id: str | None = None,
 ) -> set[str]:
     """
     Get all indexed file hashes from actual inventory + in-flight imports.
@@ -181,6 +201,9 @@ def get_all_indexed_file_hashes(
             intake validation path so files chosen from inside the Working
             Files root do not self-match their own inventory entry as a
             duplicate.
+        exclude_upload_id: Optional upload ID to exclude from the in-flight
+            queue hash set. Used by intake validation to prevent an upload
+            from matching its own queue record as a duplicate.
 
     Returns:
         Set of SHA256 hex strings (lowercase) from inventory + in-flight
@@ -189,7 +212,10 @@ def get_all_indexed_file_hashes(
         db_path, exclude_source_paths=exclude_source_paths
     )
     catalog_hashes = get_catalog_asset_hashes(db_path)
-    inflight_hashes = get_all_intake_queue_hashes(db_path)
+    inflight_hashes = get_all_intake_queue_hashes(
+        db_path,
+        exclude_upload_id=exclude_upload_id,
+    )
     return inventory_hashes | catalog_hashes | inflight_hashes
 
 

@@ -2860,6 +2860,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
         nextScope = "projects";
       }
       if (this._browserScope !== nextScope) {
+        if (nextScope === "projects") {
+          var selectedProjectId = this._selectedProjectId();
+          if (selectedProjectId > 0) {
+            this._openProjectDetail(selectedProjectId);
+            return;
+          }
+        }
         this._browserScope = nextScope;
         if (nextScope === "models" && !this._typeFilters.model && !this._typeFilters.idea) {
           this._typeFilters.model = true;
