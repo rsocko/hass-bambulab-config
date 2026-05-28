@@ -50,6 +50,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._globalFacetsLoading = false;
     this._collectionTree = null;
     this._collectionBrowse = null;
+    this._projectBrowse = null;
     this._expandedCollectionNodeIds = {};
     this._projects = [];
     this._projectsLoaded = false;
@@ -206,6 +207,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _filteredResultsForScope() {
     if (this._browserScope === "collections") {
       return this._results;
+    }
+    if (this._browserScope === "projects") {
+      return [];
     }
     if (this._browserScope === "working") {
       return this._workingProjection;
@@ -1365,11 +1369,121 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _shouldProgressiveResultsRender(visibleResults) {
-    if (this._loading || this._browserScope === "collections" || this._viewMode === "media") {
+    if (this._loading || this._browserScope === "collections" || this._browserScope === "projects" || this._viewMode === "media") {
       return false;
     }
     var count = Array.isArray(visibleResults) ? visibleResults.length : 0;
     return count >= 24;
+  }
+
+  _normalizeProjectListResponse(data) {
+    var payload = data && typeof data === "object" ? data : {};
+    var projects = Array.isArray(payload.projects)
+      ? payload.projects.filter(function (project) {
+          return project && typeof project === "object";
+        })
+      : [];
+    var pagination = payload.pagination && typeof payload.pagination === "object"
+      ? payload.pagination
+      : {};
+    return {
+      projects: projects,
+      pagination: {
+        limit: Math.max(1, Number(pagination.limit || 0) || 0),
+        offset: Math.max(0, Number(pagination.offset || 0) || 0),
+        total: Math.max(0, Number(pagination.total || projects.length) || 0),
+      },
+    };
+  }
+
+  _projectSearchHaystack(project) {
+    if (!project || typeof project !== "object") {
+      return "";
+    }
+    return [
+      project.title,
+      project.description,
+      project.notes,
+      project.status,
+      project.project_type,
+      project.origin,
+      project.created_by,
+    ].map(function (value) {
+      return String(value || "").trim().toLowerCase();
+    }).filter(function (value) {
+      return !!value;
+    }).join(" ");
+  }
+
+  _sortProjectsForBrowse(projects) {
+    var list = Array.isArray(projects) ? projects.slice(0) : [];
+    var sortKey = String(this._filters && this._filters.sort || "recent").trim().toLowerCase();
+    var timestampFor = function (project) {
+      var recent = new Date(String(project && (project.updated_at || project.completed_at || project.created_at) || "")).getTime();
+      return Number.isFinite(recent) ? recent : 0;
+    };
+    list.sort(function (a, b) {
+      if (sortKey === "name") {
+        return String(a && a.title || "").localeCompare(String(b && b.title || ""));
+      }
+      if (sortKey === "added") {
+        var createdDelta = new Date(String(b && b.created_at || "")).getTime() - new Date(String(a && a.created_at || "")).getTime();
+        if (createdDelta) {
+          return createdDelta;
+        }
+      }
+      var updatedDelta = timestampFor(b) - timestampFor(a);
+      if (updatedDelta) {
+        return updatedDelta;
+      }
+      return String(a && a.title || "").localeCompare(String(b && b.title || ""));
+    });
+    return list;
+  }
+
+  _filterProjectsForBrowse(projects) {
+    var list = Array.isArray(projects) ? projects.slice(0) : [];
+    var rawQuery = String(this._filters && this._filters.q || "").trim().toLowerCase();
+    var queryTokens = rawQuery ? rawQuery.split(/\s+/).filter(function (token) { return !!token; }) : [];
+    var selectedProjectId = Number(this._filters && this._filters.project_id || 0) || 0;
+    var filtered = list.filter(function (project) {
+      if (selectedProjectId > 0 && Number(project && project.id || 0) !== selectedProjectId) {
+        return false;
+      }
+      if (!queryTokens.length) {
+        return true;
+      }
+      var haystack = this._projectSearchHaystack(project);
+      for (var i = 0; i < queryTokens.length; i++) {
+        if (haystack.indexOf(queryTokens[i]) === -1) {
+          return false;
+        }
+      }
+      return true;
+    }.bind(this));
+    return this._sortProjectsForBrowse(filtered);
+  }
+
+  async _fetchProjectsIndex() {
+    var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!/^https?:\/\//i.test(base)) {
+      throw new Error("No sidecar URL configured");
+    }
+    var params = new URLSearchParams();
+    params.set("limit", "500");
+    params.set("offset", "0");
+    if (this._filters && this._filters.show_archived) {
+      params.set("show_archived", "true");
+    }
+    var resp = await fetch(base + "/api/projects?" + params.toString(), {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+    });
+    if (!resp.ok) {
+      throw new Error("Failed to load projects (" + resp.status + ")");
+    }
+    var data = await resp.json();
+    return this._normalizeProjectListResponse(data);
   }
 
   _scheduleProgressiveResultsAppend(remainder, renderEpoch) {
@@ -1537,6 +1651,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
           per_page: requestPayload.per_page,
           collection_id: this._filters.collection,
         });
+      } else if (this._browserScope === "projects") {
+        var projectIndex = await this._fetchProjectsIndex();
+        var filteredProjects = this._filterProjectsForBrowse(projectIndex.projects);
+        var activeProjectCount = filteredProjects.filter(function (project) {
+          return String(project && project.status || "").trim().toLowerCase() === "active";
+        }).length;
+        var completedProjectCount = filteredProjects.filter(function (project) {
+          return String(project && project.status || "").trim().toLowerCase() === "completed";
+        }).length;
+        var perPage = Math.max(1, Number(requestPayload.per_page || this._pagination.per_page || 12) || 12);
+        var targetPage = Math.max(1, Number(requestPayload.page || 1) || 1);
+        var totalProjects = filteredProjects.length;
+        var totalProjectPages = Math.max(1, Math.ceil(totalProjects / perPage));
+        if (targetPage > totalProjectPages) {
+          targetPage = totalProjectPages;
+        }
+        var startIndex = Math.max(0, (targetPage - 1) * perPage);
+        data = {
+          projects: filteredProjects.slice(startIndex, startIndex + perPage),
+          summary: {
+            active_count: activeProjectCount,
+            completed_count: completedProjectCount,
+          },
+          pagination: {
+            page: targetPage,
+            per_page: perPage,
+            total: totalProjects,
+            total_pages: totalProjectPages,
+          },
+        };
+        this._projectBrowse = data;
+        this._projects = projectIndex.projects;
+        this._projectsLoaded = true;
+        this._projectsError = "";
       } else {
         data = includeWorkingInModels
           ? await this._searchModelsFast(Object.assign({}, requestPayload, { page: 1, per_page: 100 }))
@@ -1546,7 +1694,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (this._pendingNavPerf) {
         this._pendingNavPerf.searchEndMs = searchEnd;
       }
-      this._results = this._browserScope === "collections"
+      this._results = this._browserScope === "projects"
+        ? this._results
+        : this._browserScope === "collections"
         ? (Array.isArray(data && data.items)
           ? data.items.filter(function (entry) {
               return entry && entry.kind === "model" && entry.data && typeof entry.data === "object";
@@ -1558,6 +1708,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
           ? await this._loadAllModelSearchResults(Object.assign({}, requestPayload, { page: 1, per_page: 100 }), data)
           : (Array.isArray(data && data.results) ? data.results : []));
       this._collectionBrowse = this._browserScope === "collections" && data && typeof data === "object" ? data : null;
+      if (this._browserScope !== "projects") {
+        this._projectBrowse = null;
+      }
       var responseFilters = data && data.filters && typeof data.filters === "object" ? data.filters : {};
       var responseVisibility = data && data.visibility && typeof data.visibility === "object" ? data.visibility : {};
       var responseVisibilityCounts = responseVisibility && responseVisibility.counts && typeof responseVisibility.counts === "object"
@@ -1566,50 +1719,52 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var responseEntityTypeCounts = data && data.entity_type_counts && typeof data.entity_type_counts === "object"
         ? data.entity_type_counts
         : {};
-      this._serverEntityTypeCounts = {
-        model: Math.max(0, Number(responseEntityTypeCounts.model || 0) || 0),
-        idea: Math.max(0, Number(responseEntityTypeCounts.idea || 0) || 0),
-      };
-      this._visibilityCounts = {
-        active: Math.max(0, Number(responseVisibilityCounts.active || 0) || 0),
-        archived: Math.max(0, Number(responseVisibilityCounts.archived || 0) || 0),
-      };
-      var responseFacetCounts = data && data.facet_counts && typeof data.facet_counts === "object"
-        ? data.facet_counts
-        : {};
-      this._facetCounts = {
-        collections: Array.isArray(responseFacetCounts.collections) ? responseFacetCounts.collections : [],
-        tags: Array.isArray(responseFacetCounts.tags) ? responseFacetCounts.tags : [],
-      };
-      if (this._collectionBrowse && this._collectionBrowse.tree) {
-        this._collectionTree = this._normalizeCollectionTreePayload(this._collectionBrowse.tree);
-        this._hydrateCollectionTreeExpansionState(this._collectionTree);
-      }
-      this._frequentsTuning.window_days = this._clampInteger(
-        responseFilters.frequent_window_days,
-        requestPayload.frequent_window_days,
-        7,
-        3650
-      );
-      this._frequentsTuning.min_prints = this._clampInteger(
-        responseFilters.frequent_min_prints,
-        requestPayload.frequent_min_prints,
-        1,
-        9999
-      );
-      if (Array.isArray(responseFilters.tags)) {
-        this._setActiveTagFilters(responseFilters.tags);
-      } else if (Object.prototype.hasOwnProperty.call(responseFilters, "tag")) {
-        this._setActiveTagFilters(responseFilters.tag);
-      }
-      if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
-        this._filters.frequents_only = !!responseFilters.frequents_only;
-      }
-      if (Object.prototype.hasOwnProperty.call(responseFilters, "recent_added_only")) {
-        this._filters.recent_added_only = !!responseFilters.recent_added_only;
-      }
-      if (Object.prototype.hasOwnProperty.call(responseFilters, "recent_printed_only")) {
-        this._filters.recent_printed_only = !!responseFilters.recent_printed_only;
+      if (this._browserScope !== "projects") {
+        this._serverEntityTypeCounts = {
+          model: Math.max(0, Number(responseEntityTypeCounts.model || 0) || 0),
+          idea: Math.max(0, Number(responseEntityTypeCounts.idea || 0) || 0),
+        };
+        this._visibilityCounts = {
+          active: Math.max(0, Number(responseVisibilityCounts.active || 0) || 0),
+          archived: Math.max(0, Number(responseVisibilityCounts.archived || 0) || 0),
+        };
+        var responseFacetCounts = data && data.facet_counts && typeof data.facet_counts === "object"
+          ? data.facet_counts
+          : {};
+        this._facetCounts = {
+          collections: Array.isArray(responseFacetCounts.collections) ? responseFacetCounts.collections : [],
+          tags: Array.isArray(responseFacetCounts.tags) ? responseFacetCounts.tags : [],
+        };
+        if (this._collectionBrowse && this._collectionBrowse.tree) {
+          this._collectionTree = this._normalizeCollectionTreePayload(this._collectionBrowse.tree);
+          this._hydrateCollectionTreeExpansionState(this._collectionTree);
+        }
+        this._frequentsTuning.window_days = this._clampInteger(
+          responseFilters.frequent_window_days,
+          requestPayload.frequent_window_days,
+          7,
+          3650
+        );
+        this._frequentsTuning.min_prints = this._clampInteger(
+          responseFilters.frequent_min_prints,
+          requestPayload.frequent_min_prints,
+          1,
+          9999
+        );
+        if (Array.isArray(responseFilters.tags)) {
+          this._setActiveTagFilters(responseFilters.tags);
+        } else if (Object.prototype.hasOwnProperty.call(responseFilters, "tag")) {
+          this._setActiveTagFilters(responseFilters.tag);
+        }
+        if (Object.prototype.hasOwnProperty.call(responseFilters, "frequents_only")) {
+          this._filters.frequents_only = !!responseFilters.frequents_only;
+        }
+        if (Object.prototype.hasOwnProperty.call(responseFilters, "recent_added_only")) {
+          this._filters.recent_added_only = !!responseFilters.recent_added_only;
+        }
+        if (Object.prototype.hasOwnProperty.call(responseFilters, "recent_printed_only")) {
+          this._filters.recent_printed_only = !!responseFilters.recent_printed_only;
+        }
       }
       this._syncLeftNavSelectionFromFilters();
 
@@ -1627,6 +1782,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.page = Number(requestPayload.page || 1) || 1;
       this._pagination.per_page = Number(requestPayload.per_page || this._pagination.per_page) || this._pagination.per_page;
       if (this._browserScope === "collections") {
+        this._pagination.total = Number(pagination.total || 0) || 0;
+        this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
+      } else if (this._browserScope === "projects") {
+        this._pagination.page = Number(pagination.page || requestPayload.page || 1) || 1;
         this._pagination.total = Number(pagination.total || 0) || 0;
         this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
       } else if (includeWorkingInModels) {
@@ -2208,6 +2367,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "browse-project-models") {
+      event.preventDefault();
+      event.stopPropagation();
+      var projectId = parseInt(String(target.getAttribute("data-project-id") || "0"), 10);
+      this._browserScope = "models";
+      this._applyLeftNavSelection(projectId > 0 ? ("project:" + String(projectId)) : "all-models", { closeDrawer: true, requestLoad: true, render: true });
+      return;
+    }
+
     if (action === "toggle-collection-node") {
       event.preventDefault();
       event.stopPropagation();
@@ -2405,6 +2573,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var nextScope = "models";
       if (scope === "collections") {
         nextScope = "collections";
+      } else if (scope === "projects") {
+        nextScope = "projects";
       }
       if (this._browserScope !== nextScope) {
         this._browserScope = nextScope;
@@ -2476,6 +2646,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action === "toggle-show-archived-filter") {
       this._filters.show_archived = !this._filters.show_archived;
+      this._projectsLoaded = false;
+      this._projects = [];
+      this._projectsError = "";
       this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
@@ -5471,6 +5644,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var label = "All models";
     if (option === "collections") {
       label = "Collections";
+    } else if (option === "projects") {
+      label = "Projects";
     } else if (option === "working") {
       label = "Working";
     }
@@ -5713,6 +5888,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _activeContextLabel() {
+    if (this._browserScope === "projects" && !(this._filters && this._filters.project_id)) {
+      return "Projects";
+    }
     var key = this._leftNavSelectedKey || "all-models";
     if (key === "favorites") return "Favorites";
     if (key === "frequents") return "Frequents";
@@ -5741,6 +5919,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _activeContextIcon() {
+    if (this._browserScope === "projects" && !(this._filters && this._filters.project_id)) return "mdi:clipboard-text-multiple-outline";
     var key = this._leftNavSelectedKey || "all-models";
     if (key === "favorites") return "mdi:star-outline";
     if (key === "frequents") return "mdi:lightning-bolt-outline";
@@ -5771,26 +5950,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._projectsLoaded) {
       return;
     }
-    var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
-    if (!/^https?:\/\//i.test(base)) {
-      this._projectsError = "No sidecar URL configured";
-      return;
-    }
     try {
-      var resp = await fetch(base + "/api/projects?limit=50&offset=0", {
-        method: "GET",
-        headers: { "Accept": "application/json" },
-      });
-      if (!resp.ok) {
-        this._projectsError = "Failed to load projects (" + resp.status + ")";
-        this._projects = [];
-      } else {
-        var data = await resp.json();
-        this._projects = Array.isArray(data) ? data : (data && Array.isArray(data.items) ? data.items : []);
-        this._projectsError = "";
-      }
+      var projectIndex = await this._fetchProjectsIndex();
+      this._projects = projectIndex.projects;
+      this._projectsError = "";
     } catch (err) {
-      this._projectsError = "Projects fetch error";
+      this._projectsError = err && err.message ? String(err.message) : "Projects fetch error";
       this._projects = [];
     }
     this._projectsLoaded = true;
@@ -5871,7 +6036,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._filters.recent_added_only = contextRecentAdded;
     this._filters.recent_printed_only = contextRecentPrinted;
 
-    if (this._browserScope !== "models" && this._browserScope !== "collections") {
+    if (this._browserScope !== "models" && this._browserScope !== "collections" && this._browserScope !== "projects") {
       this._browserScope = "models";
     }
 
@@ -6140,6 +6305,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="segmented-toggle" role="group" aria-label="Catalog scope">'
       + this._renderOptionToggle("models")
       + this._renderOptionToggle("collections")
+      + this._renderOptionToggle("projects")
       + '    </div>'
       + '    <div class="toolbar-group sort-group">'
       + '      <label for="mc-sort">Sort</label>'
@@ -6177,10 +6343,86 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return ''
       + '<div class="filter-bar-stack">'
       + '<div class="filter-row search-only-filter-row">'
-      + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="Search models" value="' + this._escapeHtml(this._filters.q) + '">'
+      + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="' + this._escapeHtml(this._browserScope === "projects" ? 'Search projects' : 'Search models') + '" value="' + this._escapeHtml(this._filters.q) + '">'
       + '</div>'
       + selectedFilterStrip
       + '</div>';
+  }
+
+  _renderProjectHeaderStat(label, value) {
+    return '<div class="collection-header-stat"><div class="collection-header-stat-label">' + this._escapeHtml(label) + '</div><div class="collection-header-stat-value">' + this._escapeHtml(String(value)) + '</div></div>';
+  }
+
+  _renderProjectCard(project) {
+    var item = project && typeof project === 'object' ? project : {};
+    var title = String(item.title || item.name || 'Untitled Project').trim() || 'Untitled Project';
+    var status = String(item.status || 'evaluating').trim() || 'evaluating';
+    var projectType = String(item.project_type || '').trim();
+    var origin = String(item.origin || '').trim();
+    var createdBy = String(item.created_by || '').trim();
+    var updatedAt = String(item.updated_at || item.created_at || '').trim();
+    var completedAt = String(item.completed_at || '').trim();
+    var archivedAt = String(item.archived_at || '').trim();
+    var description = String(item.description || item.notes || '').trim();
+    var subtitleParts = [];
+    if (projectType) {
+      subtitleParts.push(projectType.replace(/_/g, ' '));
+    }
+    if (origin) {
+      subtitleParts.push(origin.replace(/_/g, ' '));
+    }
+    if (createdBy) {
+      subtitleParts.push('Owner ' + createdBy);
+    }
+    var note = archivedAt
+      ? 'Archived ' + this._formatCollectionDate(archivedAt)
+      : completedAt
+        ? 'Completed ' + this._formatCollectionDate(completedAt)
+        : updatedAt
+          ? 'Updated ' + this._formatCollectionDate(updatedAt)
+          : 'Lifecycle project';
+    return ''
+      + '<article class="collection-card collection-card-view-list project-card">'
+      + '  <div class="collection-list-thumb project-list-thumb"><div class="project-badge project-status-' + this._escapeHtml(status) + '">' + this._escapeHtml(status) + '</div></div>'
+      + '  <div class="collection-list-main">'
+      + '    <div class="collection-list-title-row"><span class="collection-card-type">Project</span><div class="collection-name">' + this._escapeHtml(title) + '</div></div>'
+      + '    <div class="collection-meta">' + this._escapeHtml(subtitleParts.join(' · ') || 'Lifecycle project') + '</div>'
+      + '    <div class="collection-meta collection-meta-row">' + this._escapeHtml(description || note) + '</div>'
+      + '  </div>'
+      + '  <div class="collection-list-stats">'
+      + '    <div class="collection-stat"><div class="collection-stat-label">Status</div><div class="collection-stat-value">' + this._escapeHtml(status) + '</div></div>'
+      + '    <div class="collection-stat"><div class="collection-stat-label">Updated</div><div class="collection-stat-value">' + this._escapeHtml(updatedAt ? this._formatCollectionDate(updatedAt) : 'n/a') + '</div></div>'
+      + '  </div>'
+      + '  <div class="collection-list-actions">'
+        + '    <button class="toolbar-btn collection-open" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Browse models</button>'
+      + '  </div>'
+      + '</article>';
+  }
+
+  _renderProjectCards() {
+    var browse = this._projectBrowse && typeof this._projectBrowse === 'object' ? this._projectBrowse : {};
+    var projects = Array.isArray(browse.projects) ? browse.projects : [];
+    if (!projects.length) {
+      return '<div class="state-row">No projects match the current filters.</div>';
+    }
+    var total = Math.max(0, Number(this._pagination && this._pagination.total || projects.length) || 0);
+    var summary = browse.summary && typeof browse.summary === 'object' ? browse.summary : {};
+    var activeCount = Math.max(0, Number(summary.active_count || 0) || 0);
+    var completedCount = Math.max(0, Number(summary.completed_count || 0) || 0);
+    var header = ''
+      + '<section class="collection-browser-header project-browser-header">'
+      + '  <div class="collection-browser-header-copy">'
+      + '    <div class="collection-browser-header-kicker">Project View</div>'
+      + '    <div class="collection-browser-header-title">Projects</div>'
+      + '    <div class="collection-browser-header-subtitle">Lifecycle objects spanning evaluation, planning, active work, and archival.</div>'
+      + '  </div>'
+      + '  <div class="collection-browser-header-stats">'
+      + this._renderProjectHeaderStat('Visible', total)
+      + this._renderProjectHeaderStat('Active', activeCount)
+      + this._renderProjectHeaderStat('Completed', completedCount)
+      + '  </div>'
+      + '</section>';
+    return header + projects.map(this._renderProjectCard.bind(this)).join('');
   }
 
   _renderSelectedFilterStrip() {
@@ -6779,6 +7021,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _currentDisplayEntries() {
     if (this._browserScope === "collections") {
       return this._collectionBrowse && Array.isArray(this._collectionBrowse.items) ? this._collectionBrowse.items : [];
+    }
+    if (this._browserScope === "projects") {
+      return [];
     }
     var visibleResults = this._filteredResultsForScope();
     var includeWorkingInModels = this._browserScope === "models" && !!(this._typeFilters && this._typeFilters.working);
@@ -8089,6 +8334,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       resultsHtml = '<div class="state-row error">' + this._escapeHtml(this._error) + '</div>';
     } else if (this._browserScope === "collections") {
       resultsHtml = this._renderCollectionCards();
+    } else if (this._browserScope === "projects") {
+      resultsHtml = this._renderProjectCards();
     } else if (!visibleResults.length && !visibleWorkingProjection.length) {
       resultsHtml = '<div class="state-row">'
         + (((this._typeFilters && this._typeFilters.working) && !(this._typeFilters.model || this._typeFilters.idea))
@@ -8619,6 +8866,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.bulk-collection-picker .opt,.bulk-collection-picker .create-new{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.22);color:var(--primary-text-color);font:inherit;text-align:left;cursor:pointer;transition:border-color 160ms ease, background 160ms ease;}'
       + '.bulk-collection-picker .opt:hover,.bulk-collection-picker .opt.selected,.bulk-collection-picker .create-new:hover,.bulk-collection-picker .create-new.selected{border-color:rgba(96,165,250,0.5);background:rgba(30,41,59,0.62);}'
       + '.bulk-collection-picker .path-meta{font-size:11px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:0.06em;}'
+      + '.project-card .collection-list-thumb{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(14,116,144,0.18),rgba(15,23,42,0.08));}'
+      + '.project-badge{display:inline-flex;align-items:center;justify-content:center;min-width:92px;padding:8px 12px;border-radius:999px;background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.3);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#dbeafe;}'
+      + '.project-status-active{background:rgba(16,185,129,0.18);border-color:rgba(16,185,129,0.32);color:#d1fae5;}'
+      + '.project-status-completed{background:rgba(14,165,233,0.18);border-color:rgba(14,165,233,0.32);color:#e0f2fe;}'
+      + '.project-status-archived{background:rgba(148,163,184,0.18);border-color:rgba(148,163,184,0.32);color:#e2e8f0;}'
+      + '.project-status-planning{background:rgba(245,158,11,0.18);border-color:rgba(245,158,11,0.34);color:#fef3c7;}'
+      + '.project-status-evaluating{background:rgba(168,85,247,0.18);border-color:rgba(168,85,247,0.32);color:#f3e8ff;}'
+      + '.project-status-backlog{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.28);color:#ffe4e6;}'
       + '.bulk-collection-empty{padding:10px 12px;border-radius:12px;border:1px dashed rgba(148,163,184,0.24);color:var(--secondary-text-color);font-size:12px;}'
       + '.bulk-collection-error{margin-top:2px;}'
       + '@media (max-width: 900px){.catalog-layout{grid-template-columns:minmax(0,1fr);}.toolbar-icon-btn.left-nav-toggle{display:inline-flex;}.nav-context-chip{display:inline-flex;}.left-nav{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);max-height:none;border-radius:0 16px 16px 0;z-index:20;transform:translateX(-110%);transition:transform 180ms ease;box-shadow:0 18px 44px rgba(2,6,23,0.46);background:var(--card-background-color, #1e293b);gap:6px;padding:14px 12px;border-left:none;align-content:start;}.left-nav .left-nav-section{gap:4px;}.left-nav .left-nav-section + .left-nav-section{padding-top:8px;}.left-nav .left-nav-item{min-height:32px;}.left-nav .left-nav-collapse{display:none;}.left-nav.drawer-open{transform:translateX(0);}.left-nav.collapsed{width:min(320px,84vw);padding:12px;}.left-nav.collapsed .left-nav-title-wrap{display:flex;}.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:initial;}.left-nav.collapsed .left-nav-item{justify-content:space-between;padding:0 8px;}.left-nav.collapsed .left-nav-collapse{display:none;position:static;opacity:1;pointer-events:none;}.left-nav-backdrop{display:block;position:fixed;inset:0;z-index:19;border:0;background:rgba(2,6,23,0.55);opacity:0;pointer-events:none;transition:opacity 180ms ease;}.left-nav-backdrop.open{opacity:1;pointer-events:auto;}}'
@@ -8649,7 +8904,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderPageControlStrip()
       + '        </div>'
       + this._renderCollectionActionFeedback()
-      + '        <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? this._collectionResultsViewClass() : this._viewMode) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
+      + '        <div class="results' + (this._loading ? ' is-loading' : '') + ' view-' + this._escapeHtml(this._browserScope === "collections" ? this._collectionResultsViewClass() : (this._browserScope === "projects" ? 'list' : this._viewMode)) + (this._showMedia ? '' : ' media-hidden') + '">' + resultsHtml + '</div>'
       + this._renderBottomMirrorStrip()
       + '      </div>'
       + '    </div>'

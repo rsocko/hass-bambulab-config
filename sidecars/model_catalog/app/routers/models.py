@@ -1587,6 +1587,10 @@ def _search_models_from_projection(
 
     model_refs = [str(row["model_ref"] or "") for row in rows if str(row["model_ref"] or "")]
     fields_by_model_ref = _read_model_fields_bulk(db_path=state.settings.db_path, model_refs=model_refs)
+    project_memberships_by_model_ref = read_model_project_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=model_refs,
+    )
     preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
 
     results: list[dict[str, Any]] = []
@@ -1623,6 +1627,7 @@ def _search_models_from_projection(
             request=request,
             settings=state.settings,
         )
+        payload = _overlay_project_data_on_payload(payload, project_memberships_by_model_ref)
         payload["model_favorite"] = bool(row["model_favorite"])
         payload["catalog_visibility"] = _normalize_catalog_visibility(row["catalog_visibility"]) or "active"
         weighted_print_count = float(row["frequent_score"]) if row["frequent_score"] is not None else 0.0
