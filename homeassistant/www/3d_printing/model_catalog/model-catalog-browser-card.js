@@ -117,6 +117,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       error: "",
       submitting: false,
     };
+    this._bulkTagDialog = {
+      open: false,
+      addTags: "",
+      removeTags: "",
+      error: "",
+      submitting: false,
+    };
     this._bulkCollectionSearchQuery = "";
     this._bulkCollectionSearchSelectionStart = null;
     this._bulkCollectionSearchSelectionEnd = null;
@@ -2614,6 +2621,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "bulk-edit-tags") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openBulkTagDialog();
+      return;
+    }
+
     if (action === 'bulk-add-to-collection') {
       event.preventDefault();
       event.stopPropagation();
@@ -2752,6 +2766,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.stopPropagation();
       this._multiSelectMode = !this._multiSelectMode;
       if (!this._multiSelectMode) {
+        this._bulkTagDialog.open = false;
         this._selectedModelRefs.clear();
         this._notifySelectionChanged();
       }
@@ -2763,6 +2778,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._multiSelectMode = false;
+      this._bulkTagDialog.open = false;
       this._selectedModelRefs.clear();
       this._notifySelectionChanged();
       this._render();
@@ -2777,6 +2793,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return;
       }
       this._toggleModelSelection(selectModelRef);
+      return;
+    }
+
+    if (action === "close-bulk-tag-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeBulkTagDialog();
+      return;
+    }
+
+    if (action === "submit-bulk-tag-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitBulkTagDialog();
       return;
     }
 
@@ -4368,6 +4398,181 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._render();
   }
 
+  _parseBulkTagList(rawValue) {
+    var tokens = String(rawValue || "").split(",");
+    var tags = [];
+    var seen = {};
+    for (var i = 0; i < tokens.length; i++) {
+      var cleaned = String(tokens[i] || "").trim();
+      if (!cleaned) {
+        continue;
+      }
+      var lowered = cleaned.toLowerCase();
+      if (seen[lowered]) {
+        continue;
+      }
+      seen[lowered] = true;
+      tags.push(cleaned);
+    }
+    return tags;
+  }
+
+  _mergeBulkTagLists(currentTags, addTags, removeTags) {
+    var existing = Array.isArray(currentTags) ? currentTags : [];
+    var additions = Array.isArray(addTags) ? addTags : [];
+    var removals = Array.isArray(removeTags) ? removeTags : [];
+    var removalMap = {};
+    for (var i = 0; i < removals.length; i++) {
+      removalMap[String(removals[i] || "").trim().toLowerCase()] = true;
+    }
+    var next = [];
+    var seen = {};
+    for (var j = 0; j < existing.length; j++) {
+      var existingTag = String(existing[j] || "").trim();
+      var existingKey = existingTag.toLowerCase();
+      if (!existingTag || removalMap[existingKey] || seen[existingKey]) {
+        continue;
+      }
+      seen[existingKey] = true;
+      next.push(existingTag);
+    }
+    for (var k = 0; k < additions.length; k++) {
+      var addedTag = String(additions[k] || "").trim();
+      var addedKey = addedTag.toLowerCase();
+      if (!addedTag || removalMap[addedKey] || seen[addedKey]) {
+        continue;
+      }
+      seen[addedKey] = true;
+      next.push(addedTag);
+    }
+    return next;
+  }
+
+  _updateModelTagsLocally(modelRef, tags) {
+    var targetRef = String(modelRef || "").trim();
+    var nextTags = Array.isArray(tags) ? tags.slice(0) : [];
+    var model = this._modelByRef(targetRef);
+    if (model) {
+      model.keyword_names = nextTags.slice(0);
+      model.keywords = nextTags.slice(0);
+      model.tags = nextTags.slice(0);
+      if (!model.custom_fields || typeof model.custom_fields !== "object") {
+        model.custom_fields = {};
+      }
+      model.custom_fields.keyword_names = nextTags.slice(0);
+      model.custom_fields.tags = nextTags.slice(0);
+    }
+    var detail = this._modelDetailCache && this._modelDetailCache[targetRef] ? this._modelDetailCache[targetRef] : null;
+    if (detail && detail.model && typeof detail.model === "object") {
+      detail.model.keyword_names = nextTags.slice(0);
+      detail.model.keywords = nextTags.slice(0);
+      detail.model.tags = nextTags.slice(0);
+    }
+  }
+
+  async _loadModelTags(modelRef) {
+    var targetRef = String(modelRef || "").trim();
+    var model = this._modelByRef(targetRef);
+    if (model) {
+      return this._extractModelTags(model);
+    }
+    var detail = this._modelDetailCache && this._modelDetailCache[targetRef] && this._modelDetailCache[targetRef].model
+      ? this._modelDetailCache[targetRef].model
+      : null;
+    if (detail) {
+      return this._extractModelTags(detail);
+    }
+    var response = await fetch(this._resolveModelSidecarUrl() + "/api/models/" + encodeURIComponent(targetRef) + "/detail");
+    if (!response.ok) {
+      throw new Error("Failed to load model detail (" + String(response.status) + ").");
+    }
+    var payload = await response.json().catch(function () { return {}; });
+    if (payload && typeof payload === "object") {
+      this._modelDetailCache[targetRef] = payload;
+    }
+    return this._extractModelTags(payload && payload.model && typeof payload.model === "object" ? payload.model : {});
+  }
+
+  async _submitBulkTagDialog() {
+    var dialog = this._bulkTagDialog && typeof this._bulkTagDialog === "object" ? this._bulkTagDialog : null;
+    var selectedRefs = this.getSelectedModelRefs();
+    if (!dialog || !dialog.open || dialog.submitting || !selectedRefs.length) {
+      return;
+    }
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!sidecarUrl) {
+      dialog.error = "Model sidecar URL not configured.";
+      this._render();
+      return;
+    }
+
+    var addTags = this._parseBulkTagList(this._bulkTagDialogValue("model-catalog-bulk-tag-add-host"));
+    var removeTags = this._parseBulkTagList(this._bulkTagDialogValue("model-catalog-bulk-tag-remove-host"));
+    dialog.addTags = addTags.join(", ");
+    dialog.removeTags = removeTags.join(", ");
+    if (!addTags.length && !removeTags.length) {
+      dialog.error = "Add at least one tag to add or remove.";
+      this._render();
+      return;
+    }
+
+    dialog.submitting = true;
+    dialog.error = "";
+    this._render();
+
+    var updatedCount = 0;
+    var skippedCount = 0;
+    var failedRefs = [];
+
+    for (var i = 0; i < selectedRefs.length; i++) {
+      var modelRef = selectedRefs[i];
+      try {
+        var currentTags = await this._loadModelTags(modelRef);
+        var nextTags = this._mergeBulkTagLists(currentTags, addTags, removeTags);
+        if (JSON.stringify(currentTags) === JSON.stringify(nextTags)) {
+          skippedCount += 1;
+          continue;
+        }
+        var response = await fetch(sidecarUrl + "/api/models/" + encodeURIComponent(modelRef), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: nextTags }),
+        });
+        if (!response.ok) {
+          failedRefs.push(modelRef);
+          continue;
+        }
+        this._updateModelTagsLocally(modelRef, nextTags);
+        updatedCount += 1;
+      } catch (_error) {
+        failedRefs.push(modelRef);
+      }
+    }
+
+    if (updatedCount > 0) {
+      this._requestLoad(this._currentPage(), true);
+    }
+
+    if (failedRefs.length) {
+      dialog.submitting = false;
+      dialog.error = "Applied tags to " + String(updatedCount) + " selected items; " + String(failedRefs.length) + " failed.";
+      this._setCollectionActionFeedback(dialog.error, "error");
+      this._render();
+      return;
+    }
+
+    this._closeBulkTagDialog();
+    if (updatedCount > 0) {
+      var successMessage = "Updated tags on " + String(updatedCount) + " selected item" + (updatedCount === 1 ? "" : "s") + ".";
+      if (skippedCount > 0) {
+        successMessage += " " + String(skippedCount) + " already matched.";
+      }
+      this._setCollectionActionFeedback(successMessage, "success");
+    } else {
+      this._setCollectionActionFeedback("No selected items needed tag changes.", "success");
+    }
+  }
+
   async _deleteModel(modelRef, modelName) {
     if (!this._hass || !modelRef) {
       return;
@@ -4566,6 +4771,61 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _modelRef(model) {
     return String((model && (model.public_id || model.model_id || model.model_url)) || "").trim();
+  }
+
+  _modelByRef(modelRef) {
+    var targetRef = String(modelRef || "").trim();
+    if (!targetRef) {
+      return null;
+    }
+    for (var i = 0; i < this._results.length; i++) {
+      if (this._modelRef(this._results[i]) === targetRef) {
+        return this._results[i];
+      }
+    }
+    return null;
+  }
+
+  _extractModelTags(model) {
+    var rawTags = [];
+    if (Array.isArray(model && model.keyword_names)) {
+      rawTags = rawTags.concat(model.keyword_names);
+    }
+    if (Array.isArray(model && model.keywords)) {
+      rawTags = rawTags.concat(model.keywords);
+    }
+    if (Array.isArray(model && model.tags)) {
+      rawTags = rawTags.concat(model.tags);
+    }
+    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
+    if (Array.isArray(fields.keyword_names)) {
+      rawTags = rawTags.concat(fields.keyword_names);
+    }
+    if (Array.isArray(fields.keywords)) {
+      rawTags = rawTags.concat(fields.keywords);
+    }
+    if (Array.isArray(fields.tags)) {
+      rawTags = rawTags.concat(fields.tags);
+    }
+    var fieldTagsText = String(fields.tags || "").trim();
+    if (fieldTagsText && !Array.isArray(fields.tags)) {
+      rawTags = rawTags.concat(fieldTagsText.split(/[,;|]/));
+    }
+    var seenTags = {};
+    var tags = [];
+    for (var t = 0; t < rawTags.length; t++) {
+      var normalizedTag = String(rawTags[t] || "").trim();
+      if (!normalizedTag) {
+        continue;
+      }
+      var tagKey = normalizedTag.toLowerCase();
+      if (seenTags[tagKey]) {
+        continue;
+      }
+      seenTags[tagKey] = true;
+      tags.push(normalizedTag);
+    }
+    return tags;
   }
 
   _currentModelMediaIndex(modelRef, imageCount) {
@@ -6031,6 +6291,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="page-control-strip multi-select-active' + extraClass + '">'
       + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-edit-tags"><ha-icon icon="mdi:tag-multiple-outline"></ha-icon> Edit Tags</button>'
       + this._renderBulkCollectionPickerTrigger()
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
@@ -6040,6 +6301,100 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="ms-spacer"></div>'
       + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
       + '</div>';
+  }
+
+  _bulkTagDialogValue(hostId) {
+    var host = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById(hostId) : null;
+    var editor = host && host.firstElementChild && typeof host.firstElementChild.getTags === "function"
+      ? host.firstElementChild
+      : null;
+    return editor ? editor.getTags().join(", ") : "";
+  }
+
+  _openBulkTagDialog() {
+    if (!this.getSelectedModelRefs().length || this._loading) {
+      return;
+    }
+    this._bulkTagDialog = {
+      open: true,
+      addTags: "",
+      removeTags: "",
+      error: "",
+      submitting: false,
+    };
+    this._render();
+  }
+
+  _closeBulkTagDialog() {
+    if (this._bulkTagDialog && this._bulkTagDialog.submitting) {
+      return;
+    }
+    this._bulkTagDialog = {
+      open: false,
+      addTags: "",
+      removeTags: "",
+      error: "",
+      submitting: false,
+    };
+    this._render();
+  }
+
+  _renderBulkTagDialog() {
+    var dialog = this._bulkTagDialog && typeof this._bulkTagDialog === "object" ? this._bulkTagDialog : null;
+    if (!dialog || !dialog.open) {
+      return "";
+    }
+    var selectedCount = this.getSelectedModelRefs().length;
+    return ''
+      + '<div class="collection-action-backdrop">'
+      + '  <div class="collection-action-dialog" role="dialog" aria-modal="true" aria-label="Edit Tags">'
+      + '    <div class="collection-action-header">'
+      + '      <div><h3>Edit Tags</h3><div class="collection-action-subtitle">' + this._escapeHtml(String(selectedCount) + (selectedCount === 1 ? ' selected item' : ' selected items')) + '</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-bulk-tag-dialog" aria-label="Close"' + (dialog.submitting ? ' disabled' : '') + '>✕</button>'
+      + '    </div>'
+      + '    <div class="collection-action-body">'
+      + '      <div class="collection-action-note">Only tags are changed. Add tags are appended, remove tags are stripped, and matching removes win when the same tag is entered in both lists.</div>'
+      + '      <div class="collection-action-field"><div id="model-catalog-bulk-tag-add-host"></div></div>'
+      + '      <div class="collection-action-field"><div id="model-catalog-bulk-tag-remove-host"></div></div>'
+      + (dialog.error ? '<div class="collection-action-error">' + this._escapeHtml(dialog.error) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="collection-action-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-bulk-tag-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
+      + '      <button class="toolbar-btn collection-action-submit" type="button" data-action="submit-bulk-tag-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? 'Applying...' : 'Apply Tags') + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  _mountBulkTagEditors() {
+    var dialog = this._bulkTagDialog && typeof this._bulkTagDialog === "object" ? this._bulkTagDialog : null;
+    if (!dialog || !dialog.open) {
+      return;
+    }
+    var addHost = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("model-catalog-bulk-tag-add-host") : null;
+    var removeHost = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("model-catalog-bulk-tag-remove-host") : null;
+    if (!addHost || !removeHost || typeof customElements === "undefined" || !customElements.get("print-history-tag-editor-card")) {
+      return;
+    }
+
+    var createEditor = function (title, helperText, initialTags) {
+      var editor = document.createElement("print-history-tag-editor-card");
+      editor.setConfig({
+        local_only: true,
+        initial_tags: initialTags || "",
+        suggestions_entity: "input_select.print_history_filter_tag",
+        title: title,
+        placeholder: "Add a tag and press Enter",
+        helper: helperText,
+      });
+      editor.hass = this._hass;
+      return editor;
+    }.bind(this);
+
+    addHost.innerHTML = "";
+    addHost.appendChild(createEditor("Add Tags", "Reuse an existing tag or create a new one. Each added tag is appended to every selected item.", dialog.addTags));
+    removeHost.innerHTML = "";
+    removeHost.appendChild(createEditor("Remove Tags", "Matching tags are removed from every selected item.", dialog.removeTags));
   }
 
   async _openIntakePopup(mode) {
@@ -6512,13 +6867,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var name = String(model.name || "Unnamed Model");
     var creator = String(model.creator_name || "Unknown Creator");
     var collections = Array.isArray(model.collection_names) ? model.collection_names : [];
-    var rawTags = [];
-    if (Array.isArray(model.keyword_names)) {
-      rawTags = rawTags.concat(model.keyword_names);
-    }
-    if (Array.isArray(model.tags)) {
-      rawTags = rawTags.concat(model.tags);
-    }
+    var tags = this._extractModelTags(model);
     var linkedCount = Number(model.linked_archive_count || 0) || 0;
     var modelRef = this._modelRef(model);
     var localModelId = this._localModelIdForModel(model);
@@ -6543,30 +6892,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var provenance = structured && structured.provenance && typeof structured.provenance === "object" ? structured.provenance : {};
     var publishing = structured && structured.publishing && typeof structured.publishing === "object" ? structured.publishing : {};
     var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
-    if (Array.isArray(fields.keyword_names)) {
-      rawTags = rawTags.concat(fields.keyword_names);
-    }
-    if (Array.isArray(fields.tags)) {
-      rawTags = rawTags.concat(fields.tags);
-    }
-    var fieldTagsText = String(fields.tags || "").trim();
-    if (fieldTagsText && !Array.isArray(fields.tags)) {
-      rawTags = rawTags.concat(fieldTagsText.split(/[,;|]/));
-    }
-    var seenTags = {};
-    var tags = [];
-    for (var t = 0; t < rawTags.length; t++) {
-      var normalizedTag = String(rawTags[t] || "").trim();
-      if (!normalizedTag) {
-        continue;
-      }
-      var tagKey = normalizedTag.toLowerCase();
-      if (seenTags[tagKey]) {
-        continue;
-      }
-      seenTags[tagKey] = true;
-      tags.push(normalizedTag);
-    }
     var queueStateInfo = this._unifiedQueueByModelRef[modelRef] || null;
     var preferred = queueStateInfo && queueStateInfo.preferred ? queueStateInfo.preferred : null;
     var queueStatus = preferred ? this._queueStateToRibbonState(preferred.state) : "none";
@@ -7485,6 +7810,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else {
       this._selectedModelRefs.add(modelRefStr);
     }
+    if (!this._selectedModelRefs.size && this._bulkTagDialog && this._bulkTagDialog.open) {
+      this._bulkTagDialog.open = false;
+    }
     this._notifySelectionChanged();
     this._render();
   }
@@ -7515,6 +7843,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     this._selectedModelRefs.clear();
+    if (this._bulkTagDialog && this._bulkTagDialog.open) {
+      this._bulkTagDialog.open = false;
+    }
     this._notifySelectionChanged();
     this._render();
   }
@@ -8298,7 +8629,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add')));
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._bulkTagDialog && this._bulkTagDialog.open)));
 
     // Preserve focus across the innerHTML reset below. Without this, any
     // active input (most visibly the search box "#mc-q") loses focus on every
@@ -8325,7 +8656,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderQueueDialog()
       + this._renderIdeaCreateDialog()
       + this._renderCollectionActionDialog()
+      + this._renderBulkTagDialog()
       + '  </div>';
+
+    this._mountBulkTagEditors();
 
     this._restoreActiveInputState(focusSnapshot);
 

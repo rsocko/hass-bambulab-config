@@ -413,6 +413,8 @@
       this._overflowMenuSlug = '';
       this._catalogScope = 'working';
       this._lastAppliedScopeStamp = 0;
+      this._pendingFocusSlug = '';
+      this._pendingScrollSlug = '';
       // Folder-navigation view-mode state (per non-loose group)
       this._groupViewMode = {};         // slug -> 'files'|'folders'
       this._groupFolderPath = {};       // slug -> current subfolder path under group root
@@ -420,6 +422,7 @@
       this._previewObserver = null;
       this._boundClick = this._handleClick.bind(this);
       this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
+      this._boundWorkingFocus = this._handleWorkingFocus.bind(this);
     }
 
     setConfig(config) {
@@ -441,15 +444,20 @@
     connectedCallback() {
       if (this.shadowRoot) this.shadowRoot.addEventListener('click', this._boundClick);
       window.addEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
+      window.addEventListener('model-catalog-working-focus', this._boundWorkingFocus);
       this._ensurePreviewObserver();
+      this._hydratePendingWorkingFocus();
       if (this._hass && !this._loading && this._tree === null) {
         this._loadTree();
+      } else {
+        this._applyPendingWorkingFocus();
       }
     }
 
     disconnectedCallback() {
       if (this.shadowRoot) this.shadowRoot.removeEventListener('click', this._boundClick);
       window.removeEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
+      window.removeEventListener('model-catalog-working-focus', this._boundWorkingFocus);
       if (this._previewObserver) {
         try { this._previewObserver.disconnect(); } catch (_e) { /* ignore */ }
         this._previewObserver = null;
@@ -472,6 +480,78 @@
       var stamp = Number(detail.stamp || 0) || 0;
       if (stamp) this._lastAppliedScopeStamp = stamp;
       this._refreshTree();
+    }
+
+    _handleWorkingFocus(event) {
+      var detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
+      var slug = String(detail.folder_slug || detail.slug || '').trim();
+      if (!slug) return;
+      this._pendingFocusSlug = slug;
+      this._applyPendingWorkingFocus();
+    }
+
+    _hydratePendingWorkingFocus() {
+      if (this._pendingFocusSlug) return;
+      var slug = '';
+      try {
+        slug = String(window.__modelCatalogWorkingFocusSlug || '').trim();
+      } catch (_error) {
+        slug = '';
+      }
+      if (slug) {
+        this._pendingFocusSlug = slug;
+      }
+    }
+
+    _clearPendingWorkingFocus() {
+      try {
+        window.__modelCatalogWorkingFocusSlug = '';
+      } catch (_error) {
+      }
+    }
+
+    _applyPendingWorkingFocus() {
+      var slug = String(this._pendingFocusSlug || '').trim();
+      if (!slug || !this._tree) return;
+      var groups = Array.isArray(this._tree.groups) ? this._tree.groups : [];
+      var found = false;
+      groups.forEach(function (group) {
+        var groupSlug = String(group && group.slug || '');
+        if (!groupSlug) return;
+        if (groupSlug === slug) found = true;
+        this._collapsedGroups[groupSlug] = groupSlug !== slug;
+      }, this);
+      this._collapsedGroups[LOOSE_SLUG] = true;
+      this._pendingFocusSlug = '';
+      this._clearPendingWorkingFocus();
+      if (!found) return;
+      this._overflowMenuSlug = '';
+      this._fileActionMenuKey = '';
+      this._pendingScrollSlug = slug;
+      this._render();
+      this._loadGroup(slug);
+    }
+
+    _flushPendingScroll() {
+      var slug = String(this._pendingScrollSlug || '').trim();
+      if (!slug || !this.shadowRoot) return;
+      var rows = this.shadowRoot.querySelectorAll('.group-row[data-group-slug]');
+      var row = null;
+      for (var index = 0; index < rows.length; index += 1) {
+        if (String(rows[index].getAttribute('data-group-slug') || '') === slug) {
+          row = rows[index];
+          break;
+        }
+      }
+      if (!row) return;
+      this._pendingScrollSlug = '';
+      requestAnimationFrame(function () {
+        try {
+          row.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        } catch (_error) {
+          row.scrollIntoView(true);
+        }
+      });
     }
 
     // ─── Data fetch ───────────────────────────────────────────────────────
@@ -515,6 +595,8 @@
         this._loading = false;
         this._loadingPhase = '';
         this._render();
+        this._hydratePendingWorkingFocus();
+        this._applyPendingWorkingFocus();
       }
     }
 
@@ -1408,7 +1490,7 @@
       var pseudoGroup = { slug: slug, name: '(loose files)', file_count: loose.file_count, has_modelmeta: false, has_readme: false };
       var body = collapsed ? '' : this._renderGroupBody(pseudoGroup);
       return ''
-        + '<div class="group-row virtual ' + (collapsed ? 'collapsed' : '') + '" data-thumb="' + this._thumbSize + '">'
+        + '<div class="group-row virtual ' + (collapsed ? 'collapsed' : '') + '" data-group-slug="' + escapeHtml(slug) + '" data-thumb="' + this._thumbSize + '">'
         + this._renderLooseHeader(loose)
         + body
         + '</div>';
@@ -1419,7 +1501,7 @@
       var collapsed = this._collapsedGroups[slug] !== false;
       var body = collapsed ? '' : this._renderGroupBody(group);
       return ''
-        + '<div class="group-row ' + (collapsed ? 'collapsed' : '') + '" data-thumb="' + this._thumbSize + '">'
+        + '<div class="group-row ' + (collapsed ? 'collapsed' : '') + '" data-group-slug="' + escapeHtml(slug) + '" data-thumb="' + this._thumbSize + '">'
         + this._renderGroupHeader(group)
         + this._renderOverflowMenu(group)
         + body
@@ -1467,6 +1549,7 @@
         + '</ha-card>';
       // Attach IntersectionObserver to any newly rendered lazy preview images.
       this._attachLazyPreviews();
+      this._flushPendingScroll();
     }
 
     // ─── Event handling ───────────────────────────────────────────────────
