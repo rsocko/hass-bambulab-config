@@ -554,7 +554,11 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
             json={},
         )
         assert publish_response.status_code == 200, publish_response.text
-        local_model_id = str(publish_response.json().get("local_model_id") or "").strip()
+        publish_payload = publish_response.json()
+        created_models = publish_payload.get("created_models") or []
+        local_model_id = str(publish_payload.get("local_model_id") or "").strip()
+        if not local_model_id and created_models:
+            local_model_id = str((created_models[0] or {}).get("local_model_id") or "").strip()
         assert local_model_id
 
         connection = sqlite3.connect(db_path)
@@ -580,6 +584,7 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
                     'source_capture_image_urls',
                     'source_capture_provider',
                     'source_capture_record_id',
+                                        'print_estimates',
                     'source_prediction_summary',
                     'source_description_raw'
                   )
@@ -609,6 +614,9 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
         assert fields["source_description_raw"] == "Large display figurine."
         assert fields["source_prediction_summary"][0]["prediction"] == {"printTimeMinutes": 92}
         assert fields["source_prediction_summary"][0]["plate_predictions"][0]["prediction"] == {"printTimeMinutes": 54}
+        assert fields["print_estimates"][0]["source"] == "makerworld"
+        assert fields["print_estimates"][0]["estimated_print_time_seconds"] == {"printTimeMinutes": 92}
+        assert fields["print_estimates"][0]["plate_estimates"][0]["estimated_print_time_seconds"] == {"printTimeMinutes": 54}
     finally:
         client.__exit__(None, None, None)
 

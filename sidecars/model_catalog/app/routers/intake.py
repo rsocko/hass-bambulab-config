@@ -1190,6 +1190,79 @@ def _source_intake_publish_context(
     return enriched_plan, source_context
 
 
+def _normalize_print_estimates(prediction_summary: Any) -> list[dict[str, Any]]:
+    summaries = prediction_summary if isinstance(prediction_summary, list) else []
+    normalized: list[dict[str, Any]] = []
+    for item in summaries:
+        if not isinstance(item, dict):
+            continue
+        normalized.append(
+            {
+                "source": "makerworld",
+                "instance_id": item.get("instance_id"),
+                "profile_id": item.get("profile_id"),
+                "title": item.get("title"),
+                "estimated_print_time_seconds": item.get("prediction"),
+                "plate_estimates": [
+                    {
+                        "plate_id": plate.get("plate_id"),
+                        "estimated_print_time_seconds": plate.get("prediction"),
+                    }
+                    for plate in (item.get("plate_predictions") if isinstance(item.get("plate_predictions"), list) else [])
+                    if isinstance(plate, dict)
+                ],
+            }
+        )
+    return normalized
+
+
+def _persist_source_publish_context(*, db_path: Path, model_ref: str, source_publish_context: dict[str, Any] | None) -> None:
+    if not isinstance(source_publish_context, dict):
+        return
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_capture_provider",
+        field_value=source_publish_context.get("provider_id"),
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_capture_record_id",
+        field_value=source_publish_context.get("source_record_id"),
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_capture_model_id",
+        field_value=source_publish_context.get("source_model_id"),
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_capture_image_urls",
+        field_value=source_publish_context.get("image_urls") or [],
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_description_raw",
+        field_value=source_publish_context.get("description_raw"),
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_prediction_summary",
+        field_value=source_publish_context.get("prediction_summary") or [],
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="print_estimates",
+        field_value=_normalize_print_estimates(source_publish_context.get("prediction_summary") or []),
+    )
+
+
 def _publish_group_to_local_destination(
     *,
     state: AppState,
@@ -1499,43 +1572,11 @@ def _publish_group_to_local_destination(
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_timestamp_summary", field_value=source_timestamp_summary)
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_imported_at", field_value=_bulk_utc_now_iso())
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="internal_notes", field_value=f"Imported from intake upload {upload_id}")
-    if isinstance(source_publish_context, dict):
-        set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=local_model_id,
-            field_key="source_capture_provider",
-            field_value=source_publish_context.get("provider_id"),
-        )
-        set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=local_model_id,
-            field_key="source_capture_record_id",
-            field_value=source_publish_context.get("source_record_id"),
-        )
-        set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=local_model_id,
-            field_key="source_capture_model_id",
-            field_value=source_publish_context.get("source_model_id"),
-        )
-        set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=local_model_id,
-            field_key="source_capture_image_urls",
-            field_value=source_publish_context.get("image_urls") or [],
-        )
-        set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=local_model_id,
-            field_key="source_description_raw",
-            field_value=source_publish_context.get("description_raw"),
-        )
-        set_model_field(
-            db_path=state.settings.db_path,
-            model_ref=local_model_id,
-            field_key="source_prediction_summary",
-            field_value=source_publish_context.get("prediction_summary") or [],
-        )
+    _persist_source_publish_context(
+        db_path=state.settings.db_path,
+        model_ref=local_model_id,
+        source_publish_context=source_publish_context,
+    )
 
     # --- Auto-extract 3MF source metadata (best-effort) ---
     extraction_log = _auto_extract_3mf_metadata(
@@ -2293,6 +2334,35 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     user_provided_source_origin = str(payload.get("source_origin") or "").strip() or None
     user_provided_source_url = str(payload.get("source_origin_url") or "").strip() or None
     requested_preview_source_path = str(payload.get("preview_source_path") or "").strip()
+    destination_defaults, source_publish_context = _source_intake_publish_context(
+        db_path=state.settings.db_path,
+        source_entries=source_entries,
+        destination_plan={
+            "model_ref": requested_model_ref,
+            "model_name": requested_model_name,
+            "description": requested_description,
+            "tags": requested_tags,
+            "collection_names": requested_collection_names,
+            "creator_name": requested_creator_name,
+            "created_by": requested_created_by,
+            "source_origin": requested_source_origin,
+            "source_origin_url": requested_source_origin_url,
+            "preview_source_path": requested_preview_source_path,
+        },
+    )
+    requested_model_ref = str(destination_defaults.get("model_ref") or destination_defaults.get("local_model_id") or requested_model_ref).strip()
+    requested_model_name = str(destination_defaults.get("model_name") or requested_model_name).strip()
+    requested_description = str(destination_defaults.get("description") or requested_description).strip()
+    requested_tags = destination_defaults.get("tags") if isinstance(destination_defaults.get("tags"), list) else requested_tags
+    requested_collection_names = destination_defaults.get("collection_names") if isinstance(destination_defaults.get("collection_names"), list) else requested_collection_names
+    requested_creator_name = str(destination_defaults.get("creator_name") or requested_creator_name or "").strip() or None
+    requested_created_by = str(destination_defaults.get("created_by") or requested_created_by).strip() or requested_created_by
+    requested_source_origin = str(destination_defaults.get("source_origin") or requested_source_origin).strip() or requested_source_origin
+    requested_source_origin_url = str(destination_defaults.get("source_origin_url") or requested_source_origin_url).strip()
+    requested_preview_source_path = str(destination_defaults.get("preview_source_path") or requested_preview_source_path).strip()
+    requested_preview_image_url = str(destination_defaults.get("preview_image_url") or "").strip() or None
+    if requested_preview_image_url is None and isinstance(source_publish_context, dict):
+        requested_preview_image_url = str(source_publish_context.get("thumbnail_url") or "").strip() or None
     default_model_title = requested_model_name or _default_group_title(source_entries, expanded_files) or "Working Group"
     planned_groups, plan_summary = _build_publish_groups(
         source_entries=source_entries,
@@ -2345,6 +2415,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
                 keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
                 source_origin=requested_source_origin,
+                preview_image_url=requested_preview_image_url,
                 source_origin_url=requested_source_origin_url or None,
             )
 
@@ -2497,6 +2568,11 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 model_ref=local_model_id,
                 field_key="internal_notes",
                 field_value=f"Imported from intake upload {upload_id}",
+            )
+            _persist_source_publish_context(
+                db_path=state.settings.db_path,
+                model_ref=local_model_id,
+                source_publish_context=source_publish_context,
             )
 
             extraction_log = _auto_extract_3mf_metadata(
@@ -2683,6 +2759,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             source_origin=requested_source_origin,
+            preview_image_url=requested_preview_image_url,
             source_origin_url=requested_source_origin_url or None,
         )
         created_model = True
@@ -2698,6 +2775,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             source_origin=requested_source_origin,
+            preview_image_url=requested_preview_image_url,
             source_origin_url=requested_source_origin_url or None,
         )
 
@@ -2850,6 +2928,11 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         model_ref=local_model_id,
         field_key="internal_notes",
         field_value=f"Imported from intake upload {upload_id}",
+    )
+    _persist_source_publish_context(
+        db_path=state.settings.db_path,
+        model_ref=local_model_id,
+        source_publish_context=source_publish_context,
     )
 
     extraction_log = _auto_extract_3mf_metadata(
