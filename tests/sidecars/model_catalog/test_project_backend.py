@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -271,6 +272,122 @@ def test_project_internal_tasks_crud(tmp_path: Path) -> None:
         tasks_after_delete = client.get(f"/api/projects/{project_id}/tasks")
         assert tasks_after_delete.status_code == 200
         assert tasks_after_delete.json()["items"] == []
+
+
+def test_project_task_backend_can_be_updated(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/projects",
+            json={
+                "title": "Task Backend Update",
+                "task_backend": "none",
+            },
+        )
+        assert create_response.status_code == 200
+        project_id = int(create_response.json()["project"]["id"])
+
+        update_response = client.patch(
+            f"/api/projects/{project_id}",
+            json={
+                "title": "Task Backend Update",
+                "task_backend": "internal",
+            },
+        )
+        assert update_response.status_code == 200
+        updated_project = update_response.json()["project"]
+        assert updated_project["task_backend"] == "internal"
+
+        detail_response = client.get(f"/api/projects/{project_id}")
+        assert detail_response.status_code == 200
+        assert detail_response.json()["project"]["task_backend"] == "internal"
+
+
+def test_bootstrap_repairs_stale_project_task_schema_drift(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute("DROP TABLE IF EXISTS model_catalog_project_tasks")
+        connection.execute("ALTER TABLE model_catalog_projects RENAME TO model_catalog_projects_drift_backup")
+        connection.execute(
+            """
+            CREATE TABLE model_catalog_projects (
+                id INTEGER PRIMARY KEY,
+                slug TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                description TEXT,
+                notes TEXT,
+                bambuddy_project_id INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                archived_at TEXT,
+                status TEXT NOT NULL DEFAULT 'evaluating',
+                project_type TEXT,
+                origin TEXT,
+                origin_url TEXT,
+                completed_at TEXT,
+                created_by TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_projects (
+                id, slug, title, description, notes, bambuddy_project_id,
+                created_at, updated_at, archived_at, status, project_type,
+                origin, origin_url, completed_at, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                "stale-project-task-schema",
+                "Stale Project Task Schema",
+                None,
+                None,
+                None,
+                "2026-05-28T00:00:00Z",
+                "2026-05-28T00:00:00Z",
+                None,
+                "evaluating",
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+        )
+        connection.execute("DROP TABLE model_catalog_projects_drift_backup")
+        connection.commit()
+    finally:
+        connection.close()
+
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        detail_before = client.get("/api/projects/1")
+        assert detail_before.status_code == 200
+        assert detail_before.json()["project"]["task_backend"] == "none"
+
+        update_response = client.patch(
+            "/api/projects/1",
+            json={
+                "title": "Stale Project Task Schema",
+                "task_backend": "internal",
+            },
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["project"]["task_backend"] == "internal"
+
+        tasks_response = client.get("/api/projects/1/tasks")
+        assert tasks_response.status_code == 200
+        assert tasks_response.json()["task_backend"] == "internal"
+        assert tasks_response.json()["items"] == []
 
 
 def test_project_tasks_require_internal_backend(tmp_path: Path) -> None:

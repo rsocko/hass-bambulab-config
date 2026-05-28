@@ -1804,7 +1804,52 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
     # Always run FK drift repair after migration application, even when no
     # migration versions are pending. Some deployed DBs can retain stale
     # references to temporary renamed entry tables from prior schema upgrades.
+    _repair_project_task_schema(connection)
     _repair_unified_queue_file_units_foreign_key(connection)
+
+
+def _repair_project_task_schema(connection: sqlite3.Connection) -> None:
+    """Repair stale version-37 bookkeeping when project task schema is missing.
+
+    Some deployed databases recorded migration 37 as applied even though the
+    task_backend column and task table were never created. Re-assert the schema
+    slice on every startup so those databases self-heal during bootstrap.
+    """
+    row = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='model_catalog_projects'"
+    ).fetchone()
+    if row is None:
+        return
+
+    ensure_column(connection, "model_catalog_projects", "task_backend", "TEXT NOT NULL DEFAULT 'none'")
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS model_catalog_project_tasks (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            due_at TEXT,
+            source_url TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES model_catalog_projects(id)
+                ON DELETE CASCADE
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_project_tasks_project_id
+        ON model_catalog_project_tasks(project_id, status, updated_at DESC)
+        """
+    )
+    connection.execute(
+        """
+        UPDATE model_catalog_projects
+        SET task_backend = COALESCE(NULLIF(TRIM(task_backend), ''), 'none')
+        """
+    )
 
 
 def _repair_unified_queue_file_units_foreign_key(connection: sqlite3.Connection) -> None:
