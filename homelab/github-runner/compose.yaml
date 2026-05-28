@@ -1,6 +1,7 @@
 services:
   github-runner:
     image: myoung34/github-runner:latest
+    pull_policy: always
     container_name: ${RUNNER_CONTAINER_NAME:-github-runner-ha}
     restart: unless-stopped
     env_file:
@@ -13,7 +14,6 @@ services:
       LABELS: ${LABELS:-self-hosted,linux,docker,ha,homelab,dockhand}
       RUNNER_WORKDIR: ${RUNNER_WORKDIR:-_work}
       RUNNER_GROUP: ${RUNNER_GROUP:-Default}
-      DISABLE_AUTO_UPDATE: ${DISABLE_AUTO_UPDATE:-false}
       EPHEMERAL: ${EPHEMERAL:-false}
       ACCESS_TOKEN: ${ACCESS_TOKEN}
     volumes:
@@ -26,6 +26,7 @@ services:
 
   github-runner-build:
     image: myoung34/github-runner:latest
+    pull_policy: always
     container_name: ${BUILD_RUNNER_CONTAINER_NAME:-github-runner-build}
     restart: unless-stopped
     env_file:
@@ -38,7 +39,6 @@ services:
       LABELS: ${BUILD_RUNNER_LABELS:-self-hosted,linux,docker,build,homelab,dockhand}
       RUNNER_WORKDIR: ${BUILD_RUNNER_WORKDIR:-_work_build}
       RUNNER_GROUP: ${BUILD_RUNNER_GROUP:-${RUNNER_GROUP:-Default}}
-      DISABLE_AUTO_UPDATE: ${BUILD_RUNNER_DISABLE_AUTO_UPDATE:-${DISABLE_AUTO_UPDATE:-false}}
       EPHEMERAL: ${BUILD_RUNNER_EPHEMERAL:-${EPHEMERAL:-false}}
       ACCESS_TOKEN: ${ACCESS_TOKEN}
     volumes:
