@@ -1605,6 +1605,10 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        38,
+        (),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
@@ -1795,6 +1799,8 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
                 SET task_backend = COALESCE(NULLIF(TRIM(task_backend), ''), 'none')
                 """
             )
+        if version == 38:
+            ensure_column(connection, "model_catalog_project_tasks", "notes", "TEXT")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
@@ -1844,6 +1850,7 @@ def _repair_project_task_schema(connection: sqlite3.Connection) -> None:
         ON model_catalog_project_tasks(project_id, status, updated_at DESC)
         """
     )
+    ensure_column(connection, "model_catalog_project_tasks", "notes", "TEXT")
     connection.execute(
         """
         UPDATE model_catalog_projects

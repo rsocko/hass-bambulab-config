@@ -136,8 +136,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       submitting: false,
     };
     this._projectTaskDraftTitle = "";
+    this._projectTaskDraftNotes = "";
+    this._projectTaskDraftDueAt = "";
     this._projectTaskDraftError = "";
     this._projectTaskDraftSubmitting = false;
+    this._projectTaskDialog = {
+      open: false,
+      taskId: "",
+      title: "",
+      notes: "",
+      dueAt: "",
+      error: "",
+      submitting: false,
+    };
     this._bulkProjectDialog = {
       open: false,
       projectId: "",
@@ -2393,8 +2404,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var taskField = String(target.getAttribute("data-project-task-field") || "").trim();
       if (taskField === 'title') {
         this._projectTaskDraftTitle = String(target.value || '');
-        if (this._projectTaskDraftError) {
-          this._projectTaskDraftError = '';
+      } else if (taskField === 'notes') {
+        this._projectTaskDraftNotes = String(target.value || '');
+      } else if (taskField === 'dueAt') {
+        this._projectTaskDraftDueAt = String(target.value || '');
+      }
+      if (this._projectTaskDraftError) {
+        this._projectTaskDraftError = '';
+      }
+      return;
+    }
+    if (target && target.classList && target.classList.contains("project-task-dialog-input")) {
+      var dialogField = String(target.getAttribute("data-project-task-dialog-field") || "").trim();
+      if (dialogField && this._projectTaskDialog && Object.prototype.hasOwnProperty.call(this._projectTaskDialog, dialogField)) {
+        this._projectTaskDialog[dialogField] = String(target.value || '');
+        if (this._projectTaskDialog.error) {
+          this._projectTaskDialog.error = '';
         }
       }
       return;
@@ -2465,6 +2490,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._projectActionDialog[selectField] = String(target.value || "").trim();
         if (this._projectActionDialog.error) {
           this._projectActionDialog.error = "";
+        }
+      }
+      return;
+    }
+    if (target.classList && target.classList.contains("project-task-dialog-select")) {
+      var taskDialogField = String(target.getAttribute("data-project-task-dialog-field") || "").trim();
+      if (taskDialogField && this._projectTaskDialog && Object.prototype.hasOwnProperty.call(this._projectTaskDialog, taskDialogField)) {
+        this._projectTaskDialog[taskDialogField] = String(target.value || "").trim();
+        if (this._projectTaskDialog.error) {
+          this._projectTaskDialog.error = "";
         }
       }
       return;
@@ -3347,6 +3382,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       await this._createProjectTask();
+      return;
+    }
+
+    if (action === 'open-project-task-dialog') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openProjectTaskDialog(target.getAttribute('data-task-id'));
+      return;
+    }
+
+    if (action === 'close-project-task-dialog') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target.classList && target.classList.contains('collection-action-backdrop') && rawTarget !== target) {
+        return;
+      }
+      this._closeProjectTaskDialog();
+      return;
+    }
+
+    if (action === 'submit-project-task-dialog') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitProjectTaskDialog();
       return;
     }
 
@@ -4590,8 +4649,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._browserScope = 'projects';
     this._projectDetailMemberStateFilter = '';
     this._projectTaskDraftTitle = '';
+    this._projectTaskDraftNotes = '';
+    this._projectTaskDraftDueAt = '';
     this._projectTaskDraftError = '';
     this._projectTaskDraftSubmitting = false;
+    this._projectTaskDialog.open = false;
     this._applyLeftNavSelection('project:' + String(normalizedProjectId), { closeDrawer: true, requestLoad: true, render: true, forceSelection: true });
   }
 
@@ -4599,8 +4661,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._browserScope = 'projects';
     this._projectDetailMemberStateFilter = '';
     this._projectTaskDraftTitle = '';
+    this._projectTaskDraftNotes = '';
+    this._projectTaskDraftDueAt = '';
     this._projectTaskDraftError = '';
     this._projectTaskDraftSubmitting = false;
+    this._projectTaskDialog.open = false;
     this._projectDetail = null;
     this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: true, render: true });
   }
@@ -4614,6 +4679,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var project = this._activeProjectDetailProject();
     var projectId = Number(project && project.id || 0) || 0;
     var title = String(this._projectTaskDraftTitle || '').trim();
+    var notes = String(this._projectTaskDraftNotes || '').trim();
+    var dueAt = String(this._projectTaskDraftDueAt || '').trim();
     if (!projectId || this._projectTaskDraftSubmitting) {
       return;
     }
@@ -4626,14 +4693,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._projectTaskDraftError = '';
     this._render();
     try {
-      await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks', {
+      var responsePayload = await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title }),
+        body: JSON.stringify({
+          title: title,
+          notes: notes || null,
+          due_at: dueAt || null,
+        }),
       });
+      if (responsePayload && responsePayload.task) {
+        this._upsertLocalProjectTask(responsePayload.task);
+      }
       this._projectTaskDraftTitle = '';
+      this._projectTaskDraftNotes = '';
+      this._projectTaskDraftDueAt = '';
       this._setCollectionActionFeedback('Added project task.', 'success');
-      this._requestLoad(this._currentPage(), false);
     } catch (error) {
       this._projectTaskDraftError = error && error.message ? String(error.message) : 'Could not create project task.';
     } finally {
@@ -4658,13 +4733,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var nextStatus = String(task.status || 'open').trim().toLowerCase() === 'done' ? 'open' : 'done';
     try {
-      await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks/' + encodeURIComponent(String(normalizedTaskId)), {
+      var responsePayload = await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks/' + encodeURIComponent(String(normalizedTaskId)), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
       });
+      if (responsePayload && responsePayload.task) {
+        this._upsertLocalProjectTask(responsePayload.task);
+      }
       this._setCollectionActionFeedback('Updated project task.', 'success');
-      this._requestLoad(this._currentPage(), false);
+      this._render();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not update project task.';
       this._render();
@@ -4682,10 +4760,90 @@ class ModelCatalogBrowserCard extends HTMLElement {
       await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks/' + encodeURIComponent(String(normalizedTaskId)), {
         method: 'DELETE',
       });
+      this._removeLocalProjectTask(normalizedTaskId);
       this._setCollectionActionFeedback('Deleted project task.', 'success');
-      this._requestLoad(this._currentPage(), false);
+      this._render();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not delete project task.';
+      this._render();
+    }
+  }
+
+  _projectTaskDialogStateFromTask(task) {
+    var item = task && typeof task === 'object' ? task : {};
+    return {
+      open: true,
+      taskId: item.id != null ? String(item.id) : '',
+      title: String(item.title || '').trim(),
+      status: String(item.status || 'open').trim().toLowerCase() || 'open',
+      notes: String(item.notes || '').trim(),
+      dueAt: String(item.due_at || '').trim(),
+      error: '',
+      submitting: false,
+    };
+  }
+
+  _openProjectTaskDialog(taskId) {
+    var project = this._activeProjectDetailProject();
+    var tasks = Array.isArray(project && project.tasks) ? project.tasks : [];
+    var normalizedTaskId = parseInt(String(taskId || '0'), 10);
+    var task = tasks.find(function (item) {
+      return Number(item && item.id || 0) === normalizedTaskId;
+    }) || null;
+    if (!task) {
+      return;
+    }
+    this._projectTaskDialog = this._projectTaskDialogStateFromTask(task);
+    this._render();
+  }
+
+  _closeProjectTaskDialog() {
+    if (this._projectTaskDialog && this._projectTaskDialog.submitting) {
+      return;
+    }
+    this._projectTaskDialog = this._projectTaskDialogStateFromTask(null);
+    this._projectTaskDialog.open = false;
+    this._render();
+  }
+
+  async _submitProjectTaskDialog() {
+    var dialog = this._projectTaskDialog && typeof this._projectTaskDialog === 'object' ? this._projectTaskDialog : null;
+    var project = this._activeProjectDetailProject();
+    var projectId = Number(project && project.id || 0) || 0;
+    var taskId = parseInt(String(dialog && dialog.taskId || '0'), 10);
+    var title = String(dialog && dialog.title || '').trim();
+    if (!dialog || !dialog.open || dialog.submitting || !projectId || !Number.isFinite(taskId) || taskId <= 0) {
+      return;
+    }
+    if (!title) {
+      dialog.error = 'Task title is required.';
+      this._render();
+      return;
+    }
+    dialog.submitting = true;
+    dialog.error = '';
+    this._render();
+    try {
+      var responsePayload = await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks/' + encodeURIComponent(String(taskId)), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          status: String(dialog.status || 'open').trim().toLowerCase() || 'open',
+          notes: String(dialog.notes || '').trim() || null,
+          due_at: String(dialog.dueAt || '').trim() || null,
+        }),
+      });
+      if (responsePayload && responsePayload.task) {
+        this._upsertLocalProjectTask(responsePayload.task);
+      }
+      this._projectTaskDialog.open = false;
+      this._projectTaskDialog.submitting = false;
+      this._setCollectionActionFeedback('Saved project task.', 'success');
+      this._render();
+    } catch (error) {
+      dialog.submitting = false;
+      dialog.error = error && error.message ? String(error.message) : 'Could not save project task.';
       this._render();
     }
   }
@@ -4699,11 +4857,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
       ? tasks.map(function (task) {
           var status = String(task && task.status || 'open').trim().toLowerCase() || 'open';
           var taskId = Number(task && task.id || 0) || 0;
+          var notes = String(task && task.notes || '').trim();
+          var dueAt = String(task && task.due_at || '').trim();
+          var metaBits = [];
+          if (dueAt) {
+            metaBits.push('Due ' + dueAt);
+          }
           return ''
             + '<div class="project-task-row' + (status === 'done' ? ' is-done' : '') + '">'
             + '  <button class="project-task-toggle" type="button" data-action="toggle-project-task-status" data-task-id="' + this._escapeHtml(String(taskId)) + '">' + this._escapeHtml(status === 'done' ? 'Done' : 'Open') + '</button>'
-            + '  <div class="project-task-copy"><div class="project-task-title">' + this._escapeHtml(String(task && task.title || 'Untitled task')) + '</div></div>'
-            + '  <button class="project-task-delete" type="button" data-action="delete-project-task" data-task-id="' + this._escapeHtml(String(taskId)) + '">Delete</button>'
+            + '  <div class="project-task-copy"><div class="project-task-title">' + this._escapeHtml(String(task && task.title || 'Untitled task')) + '</div>'
+            + (metaBits.length ? '<div class="project-task-meta">' + this._escapeHtml(metaBits.join(' · ')) + '</div>' : '')
+            + (notes ? '<div class="project-task-notes">' + this._escapeHtml(notes) + '</div>' : '')
+            + '</div>'
+            + '  <div class="project-task-actions">'
+            + '    <button class="project-task-edit" type="button" data-action="open-project-task-dialog" data-task-id="' + this._escapeHtml(String(taskId)) + '">Edit</button>'
+            + '    <button class="project-task-delete" type="button" data-action="delete-project-task" data-task-id="' + this._escapeHtml(String(taskId)) + '">Delete</button>'
+            + '  </div>'
             + '</div>';
         }.bind(this)).join('')
       : '<div class="state-row project-task-empty">No project tasks yet.</div>';
@@ -4711,6 +4881,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       ? ''
         + '<div class="project-task-composer">'
         + '  <input class="collection-action-input project-task-input" data-project-task-field="title" type="text" maxlength="255" placeholder="Add a task" value="' + this._escapeHtml(this._projectTaskDraftTitle) + '"' + (this._projectTaskDraftSubmitting ? ' disabled' : '') + '>'
+        + '  <textarea class="collection-action-input project-task-input project-task-notes-input" data-project-task-field="notes" rows="2" maxlength="5000" placeholder="Optional notes">' + this._escapeHtml(this._projectTaskDraftNotes) + '</textarea>'
+        + '  <input class="collection-action-input project-task-input project-task-date-input" data-project-task-field="dueAt" type="date" value="' + this._escapeHtml(this._projectTaskDraftDueAt) + '"' + (this._projectTaskDraftSubmitting ? ' disabled' : '') + '>'
         + '  <button class="toolbar-btn" type="button" data-action="create-project-task"' + (this._projectTaskDraftSubmitting ? ' disabled' : '') + '>' + this._escapeHtml(this._projectTaskDraftSubmitting ? 'Adding...' : '+ Task') + '</button>'
         + '</div>'
         + (this._projectTaskDraftError ? '<div class="collection-action-error">' + this._escapeHtml(this._projectTaskDraftError) + '</div>' : '')
@@ -4856,6 +5028,82 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     this._projectsLoaded = true;
     this._projectsError = '';
+  }
+
+  _sortProjectTasks(tasks) {
+    var list = Array.isArray(tasks) ? tasks.slice(0) : [];
+    list.sort(function (a, b) {
+      var aStatus = String(a && a.status || 'open').trim().toLowerCase() || 'open';
+      var bStatus = String(b && b.status || 'open').trim().toLowerCase() || 'open';
+      if (aStatus !== bStatus) {
+        return aStatus === 'open' ? -1 : 1;
+      }
+      var aUpdated = new Date(String(a && a.updated_at || '')).getTime();
+      var bUpdated = new Date(String(b && b.updated_at || '')).getTime();
+      var updatedDelta = (Number.isFinite(bUpdated) ? bUpdated : 0) - (Number.isFinite(aUpdated) ? aUpdated : 0);
+      if (updatedDelta) {
+        return updatedDelta;
+      }
+      return Number(b && b.id || 0) - Number(a && a.id || 0);
+    });
+    return list;
+  }
+
+  _projectTaskSummaryFromTasks(tasks) {
+    var list = Array.isArray(tasks) ? tasks : [];
+    var openCount = 0;
+    var doneCount = 0;
+    for (var index = 0; index < list.length; index++) {
+      if (String(list[index] && list[index].status || 'open').trim().toLowerCase() === 'done') {
+        doneCount += 1;
+      } else {
+        openCount += 1;
+      }
+    }
+    return {
+      total: list.length,
+      open: openCount,
+      done: doneCount,
+    };
+  }
+
+  _upsertLocalProjectTask(task) {
+    var project = this._activeProjectDetailProject();
+    var item = task && typeof task === 'object' ? task : null;
+    var taskId = Number(item && item.id || 0);
+    if (!project || !item || !Number.isFinite(taskId) || taskId <= 0) {
+      return;
+    }
+    var tasks = Array.isArray(project.tasks) ? project.tasks.slice(0) : [];
+    var replaced = false;
+    for (var index = 0; index < tasks.length; index++) {
+      if (Number(tasks[index] && tasks[index].id || 0) === taskId) {
+        tasks[index] = Object.assign({}, tasks[index], item);
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) {
+      tasks.unshift(item);
+    }
+    project.tasks = this._sortProjectTasks(tasks);
+    project.task_summary = this._projectTaskSummaryFromTasks(project.tasks);
+    if (item.updated_at) {
+      project.updated_at = item.updated_at;
+    }
+  }
+
+  _removeLocalProjectTask(taskId) {
+    var project = this._activeProjectDetailProject();
+    var normalizedTaskId = parseInt(String(taskId || '0'), 10);
+    if (!project || !Number.isFinite(normalizedTaskId) || normalizedTaskId <= 0) {
+      return;
+    }
+    var tasks = Array.isArray(project.tasks) ? project.tasks : [];
+    project.tasks = tasks.filter(function (item) {
+      return Number(item && item.id || 0) !== normalizedTaskId;
+    });
+    project.task_summary = this._projectTaskSummaryFromTasks(project.tasks);
   }
 
   async _setProjectMemberState(projectId, modelRef, memberState) {
@@ -9152,6 +9400,36 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</div>';
   }
 
+  _renderProjectTaskDialog() {
+    var dialog = this._projectTaskDialog && typeof this._projectTaskDialog === 'object' ? this._projectTaskDialog : null;
+    if (!dialog || !dialog.open) {
+      return '';
+    }
+    return ''
+      + '<div class="collection-action-backdrop" data-action="close-project-task-dialog">'
+      + '  <div class="collection-action-dialog" role="dialog" aria-modal="true" aria-label="Edit project task">'
+      + '    <div class="collection-action-header">'
+      + '      <div><h3>Edit Task</h3><div class="collection-action-subtitle">Update title, notes, or due date.</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-project-task-dialog" aria-label="Close">✕</button>'
+      + '    </div>'
+      + '    <div class="collection-action-body">'
+      + '      <label class="collection-action-field"><span>Title</span><input id="project-task-dialog-title" class="collection-action-input project-task-dialog-input" data-project-task-dialog-field="title" type="text" maxlength="255" value="' + this._escapeHtml(dialog.title) + '" placeholder="Task title"></label>'
+      + '      <label class="collection-action-field"><span>Status</span><select class="collection-action-select project-task-dialog-select" data-project-task-dialog-field="status">'
+      + '        <option value="open"' + (String(dialog.status || 'open') === 'open' ? ' selected' : '') + '>Open</option>'
+      + '        <option value="done"' + (String(dialog.status || 'open') === 'done' ? ' selected' : '') + '>Done</option>'
+      + '      </select></label>'
+      + '      <label class="collection-action-field"><span>Notes</span><textarea class="collection-action-input project-task-dialog-input" data-project-task-dialog-field="notes" rows="4" maxlength="5000" placeholder="Optional task notes">' + this._escapeHtml(dialog.notes) + '</textarea></label>'
+      + '      <label class="collection-action-field"><span>Due date</span><input class="collection-action-input project-task-dialog-input" data-project-task-dialog-field="dueAt" type="date" value="' + this._escapeHtml(dialog.dueAt) + '"></label>'
+      + (dialog.error ? '<div class="collection-action-error">' + this._escapeHtml(dialog.error) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="collection-action-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-project-task-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
+      + '      <button class="toolbar-btn collection-action-submit" type="button" data-action="submit-project-task-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? 'Saving...' : 'Save Task') + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
   _renderBulkProjectDialog() {
     var dialog = this._bulkProjectDialog && typeof this._bulkProjectDialog === 'object' ? this._bulkProjectDialog : null;
     if (!dialog || !dialog.open) {
@@ -10074,15 +10352,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.project-task-panel{display:grid;gap:12px;margin:0 0 14px;padding:16px 18px;border-radius:18px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}'
       + '.project-task-panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
       + '.project-task-panel-subtitle{font-size:12px;color:var(--secondary-text-color);}'
-      + '.project-task-composer{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}'
-      + '.project-task-composer .project-task-input{flex:1 1 260px;}'
+      + '.project-task-composer{display:grid;gap:10px;grid-template-columns:minmax(0,1fr) minmax(180px,240px) auto;align-items:start;}'
+      + '.project-task-composer .project-task-input{width:100%;}'
+      + '.project-task-notes-input{min-height:78px;resize:vertical;}'
+      + '.project-task-date-input{min-height:42px;}'
       + '.project-task-list{display:grid;gap:10px;}'
-      + '.project-task-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.14);}'
+      + '.project-task-row{display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.14);}'
       + '.project-task-row.is-done{opacity:.72;}'
       + '.project-task-copy{min-width:0;display:grid;gap:4px;}'
       + '.project-task-title{font-size:13px;font-weight:700;color:var(--primary-text-color);word-break:break-word;}'
-      + '.project-task-toggle,.project-task-delete{min-height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:11px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;}'
-      + '.project-task-toggle:hover,.project-task-delete:hover,.project-task-toggle:focus-visible,.project-task-delete:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);color:var(--primary-text-color);}'
+      + '.project-task-meta,.project-task-notes{font-size:12px;line-height:1.45;color:var(--secondary-text-color);word-break:break-word;}'
+      + '.project-task-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}'
+      + '.project-task-toggle,.project-task-edit,.project-task-delete{min-height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:11px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;}'
+      + '.project-task-toggle:hover,.project-task-edit:hover,.project-task-delete:hover,.project-task-toggle:focus-visible,.project-task-edit:focus-visible,.project-task-delete:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);color:var(--primary-text-color);}'
       + '.project-task-empty{margin:0;}'
       + '.project-detail-group-section{display:grid;gap:10px;}'
       + '.project-detail-group-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 4px 0;}'
@@ -10498,7 +10780,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._projectActionDialog && this._projectActionDialog.open) || (this._bulkProjectDialog && this._bulkProjectDialog.open) || (this._bulkTagDialog && this._bulkTagDialog.open)));
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._projectActionDialog && this._projectActionDialog.open) || (this._projectTaskDialog && this._projectTaskDialog.open) || (this._bulkProjectDialog && this._bulkProjectDialog.open) || (this._bulkTagDialog && this._bulkTagDialog.open)));
 
     // Preserve focus across the innerHTML reset below. Without this, any
     // active input (most visibly the search box "#mc-q") loses focus on every
@@ -10526,6 +10808,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderIdeaCreateDialog()
       + this._renderCollectionActionDialog()
       + this._renderProjectActionDialog()
+      + this._renderProjectTaskDialog()
       + this._renderBulkProjectDialog()
       + this._renderBulkTagDialog()
       + '  </div>';
@@ -10565,6 +10848,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (projectDialogPrimary) {
         requestAnimationFrame(function() { try { projectDialogPrimary.focus(); } catch(_e) {} });
       }
+    }
+    var projectTaskDialogPrimary = this.shadowRoot.querySelector('#project-task-dialog-title');
+    if (this._projectTaskDialog && this._projectTaskDialog.open && projectTaskDialogPrimary && this.shadowRoot.activeElement !== projectTaskDialogPrimary) {
+      requestAnimationFrame(function() { try { projectTaskDialogPrimary.focus(); } catch(_e) {} });
     }
     if (this._focusBulkProjectSearchAfterRender) {
       this._focusBulkProjectSearchAfterRender = false;

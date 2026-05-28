@@ -362,6 +362,7 @@ def _serialize_project_task_row(task_row: Any) -> dict[str, Any]:
         "project_id": int(task_row["project_id"]),
         "title": str(task_row["title"] or "").strip(),
         "status": str(task_row["status"] or "open").strip().lower() or "open",
+        "notes": task_row["notes"] if "notes" in set(task_row.keys()) else None,
         "due_at": task_row["due_at"] if "due_at" in set(task_row.keys()) else None,
         "source_url": task_row["source_url"] if "source_url" in set(task_row.keys()) else None,
         "created_at": task_row["created_at"],
@@ -1374,15 +1375,16 @@ def create_project_task_service(*, settings: Settings, project_id: int, payload:
             return backend_error
         now_iso = _bulk_utc_now_iso()
         status_value = normalize_project_task_status(payload.get("status"))
+        notes = _normalize_optional_text(payload.get("notes"))
         due_at = _normalize_optional_text(payload.get("due_at"))
         source_url = _normalize_optional_text(payload.get("source_url"))
         connection.execute(
             """
             INSERT INTO model_catalog_project_tasks (
-                project_id, title, status, due_at, source_url, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                project_id, title, status, notes, due_at, source_url, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (project_id, title, status_value, due_at, source_url, now_iso, now_iso),
+            (project_id, title, status_value, notes, due_at, source_url, now_iso, now_iso),
         )
         task_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
         connection.execute("UPDATE model_catalog_projects SET updated_at = ? WHERE id = ?", (now_iso, project_id))
@@ -1396,7 +1398,7 @@ def create_project_task_service(*, settings: Settings, project_id: int, payload:
 
 
 def update_project_task_service(*, settings: Settings, project_id: int, task_id: int, payload: dict[str, Any]) -> Any:
-    mutable_fields = {"title", "status", "due_at", "source_url"}
+    mutable_fields = {"title", "status", "notes", "due_at", "source_url"}
     if not any(field in payload for field in mutable_fields):
         return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "No mutable fields provided"})
     connection = connect(settings.db_path)
@@ -1425,6 +1427,9 @@ def update_project_task_service(*, settings: Settings, project_id: int, task_id:
         if "status" in payload:
             updates.append("status = ?")
             params.append(normalize_project_task_status(payload.get("status")))
+        if "notes" in payload:
+            updates.append("notes = ?")
+            params.append(_normalize_optional_text(payload.get("notes")))
         if "due_at" in payload:
             updates.append("due_at = ?")
             params.append(_normalize_optional_text(payload.get("due_at")))

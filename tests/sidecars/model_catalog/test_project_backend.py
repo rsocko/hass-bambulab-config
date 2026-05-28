@@ -244,19 +244,30 @@ def test_project_internal_tasks_crud(tmp_path: Path) -> None:
 
         task_create = client.post(
             f"/api/projects/{project_id}/tasks",
-            json={"title": "Buy M3 screws"},
+            json={
+                "title": "Buy M3 screws",
+                "notes": "Check the bin in the garage first.",
+                "due_at": "2026-06-01T12:00:00Z",
+            },
         )
         assert task_create.status_code == 200
         created_task = task_create.json()["task"]
         task_id = int(created_task["id"])
         assert created_task["status"] == "open"
+        assert created_task["notes"] == "Check the bin in the garage first."
+        assert created_task["due_at"] == "2026-06-01T12:00:00Z"
 
         task_toggle = client.patch(
             f"/api/projects/{project_id}/tasks/{task_id}",
-            json={"status": "done"},
+            json={
+                "status": "done",
+                "notes": "Found a partial pack already.",
+            },
         )
         assert task_toggle.status_code == 200
-        assert task_toggle.json()["task"]["status"] == "done"
+        updated_task = task_toggle.json()["task"]
+        assert updated_task["status"] == "done"
+        assert updated_task["notes"] == "Found a partial pack already."
 
         detail_response = client.get(f"/api/projects/{project_id}")
         assert detail_response.status_code == 200
@@ -265,6 +276,8 @@ def test_project_internal_tasks_crud(tmp_path: Path) -> None:
         assert detail_project["task_summary"] == {"total": 1, "open": 0, "done": 1}
         assert len(detail_project["tasks"]) == 1
         assert detail_project["tasks"][0]["title"] == "Buy M3 screws"
+        assert detail_project["tasks"][0]["notes"] == "Found a partial pack already."
+        assert detail_project["tasks"][0]["due_at"] == "2026-06-01T12:00:00Z"
 
         task_delete = client.delete(f"/api/projects/{project_id}/tasks/{task_id}")
         assert task_delete.status_code == 200
