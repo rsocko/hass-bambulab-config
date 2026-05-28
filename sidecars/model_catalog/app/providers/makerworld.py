@@ -37,6 +37,27 @@ def _record_recent_makerworld_request(
     error: Exception | None = None,
 ) -> None:
     parsed = urlparse(str(request_url or "").strip())
+    response_body_excerpt: str | None = None
+    response_json_message: str | None = None
+    response_json_error: str | None = None
+    response_json_code: Any = None
+    if response is not None:
+        content_type = str(response.headers.get("content-type") or "").lower()
+        if "json" in content_type or "text/" in content_type:
+            try:
+                excerpt_bytes = response.content[:512]
+                response_body_excerpt = excerpt_bytes.decode("utf-8", errors="replace").strip() or None
+            except Exception:
+                response_body_excerpt = None
+        if "json" in content_type:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            if isinstance(payload, dict):
+                response_json_message = str(payload.get("message") or "").strip() or None
+                response_json_error = str(payload.get("error") or "").strip() or None
+                response_json_code = payload.get("code")
     entry = {
         "timestamp": _utc_now_iso(),
         "method": str(method or "").upper(),
@@ -49,6 +70,10 @@ def _record_recent_makerworld_request(
         "content_length": str(response.headers.get("content-length") or "").strip() or None if response is not None else None,
         "server": str(response.headers.get("server") or "").strip() or None if response is not None else None,
         "cf_ray": str(response.headers.get("cf-ray") or "").strip() or None if response is not None else None,
+        "response_json_message": response_json_message,
+        "response_json_error": response_json_error,
+        "response_json_code": response_json_code,
+        "response_body_excerpt": response_body_excerpt,
         "error_type": type(error).__name__ if error is not None else None,
         "error": str(error) if error is not None else None,
     }

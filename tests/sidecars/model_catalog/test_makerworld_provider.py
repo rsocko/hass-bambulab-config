@@ -402,13 +402,49 @@ def test_download_3mf_falls_back_to_web_api_after_primary_418(tmp_path: Path) ->
     assert recent_requests[0]["query"] == "type=download"
     assert recent_requests[0]["status_code"] == 418
     assert recent_requests[0]["content_type"] == "text/plain; charset=utf-8"
+    assert recent_requests[0]["response_body_excerpt"] == "blocked"
+    assert recent_requests[0]["response_json_message"] is None
     assert recent_requests[0]["error"] is None
     assert recent_requests[1]["request_label"] == "binary_download_web_fallback"
     assert recent_requests[1]["host"] == "makerworld.com"
     assert recent_requests[1]["path"] == "/api/v1/design-service/instance/1309482/f3mf"
     assert recent_requests[1]["query"] == "type=download"
     assert recent_requests[1]["status_code"] == 200
+    assert recent_requests[1]["response_body_excerpt"] is None
+    assert recent_requests[1]["response_json_message"] is None
     assert recent_requests[1]["error"] is None
+
+
+def test_recent_request_diagnostics_capture_json_error_fields(tmp_path: Path) -> None:
+    reset_recent_makerworld_request_diagnostics()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            418,
+            json={"message": "blocked by upstream", "error": "teapot", "code": 41801},
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+
+    try:
+        asyncio.run(adapter.download_3mf(1309482, destination))
+    except ProviderUnavailableError:
+        pass
+    else:
+        raise AssertionError("Expected ProviderUnavailableError")
+
+    recent_requests = get_recent_makerworld_request_diagnostics(limit=2)
+    assert len(recent_requests) == 2
+    assert recent_requests[0]["response_json_message"] == "blocked by upstream"
+    assert recent_requests[0]["response_json_error"] == "teapot"
+    assert recent_requests[0]["response_json_code"] == 41801
+    assert '"message":"blockedbyupstream"' in recent_requests[0]["response_body_excerpt"].replace(" ", "")
 
 
 def test_download_3mf_rejects_invalid_payload(tmp_path: Path) -> None:
