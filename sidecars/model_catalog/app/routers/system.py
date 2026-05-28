@@ -5,8 +5,10 @@ refresh endpoints.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
+from datetime import UTC, datetime
 from sqlite3 import connect
 from typing import Any
 
@@ -26,6 +28,66 @@ from .._helpers import (
 )
 
 router = APIRouter(tags=["system"])
+
+
+def _decode_jwt_expiry(access_token: str | None) -> datetime | None:
+    token = str(access_token or "").strip()
+    if not token:
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+
+    payload_segment = parts[1]
+    padding = "=" * (-len(payload_segment) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(payload_segment + padding)
+        payload = json.loads(decoded.decode("utf-8"))
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+    exp = payload.get("exp")
+    if not isinstance(exp, (int, float)):
+        return None
+    return datetime.fromtimestamp(float(exp), tz=UTC)
+
+
+def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
+    configured = bool(str(token or "").strip())
+    expiry = _decode_jwt_expiry(token)
+    if not configured:
+        return {
+            "configured": False,
+            "status": "missing",
+            "token_exp_utc": None,
+            "seconds_until_expiry": None,
+            "expires_within_7_days": None,
+        }
+
+    if expiry is None:
+        return {
+            "configured": True,
+            "status": "configured_unparseable",
+            "token_exp_utc": None,
+            "seconds_until_expiry": None,
+            "expires_within_7_days": None,
+        }
+
+    seconds_until_expiry = int((expiry - datetime.now(tz=UTC)).total_seconds())
+    if seconds_until_expiry <= 0:
+        status = "expired"
+    elif seconds_until_expiry <= 7 * 24 * 60 * 60:
+        status = "expiring_soon"
+    else:
+        status = "configured"
+
+    return {
+        "configured": True,
+        "status": status,
+        "token_exp_utc": expiry.isoformat(),
+        "seconds_until_expiry": seconds_until_expiry,
+        "expires_within_7_days": seconds_until_expiry <= 7 * 24 * 60 * 60,
+    }
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -97,6 +159,7 @@ def config(request: Request) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     intake_roots = _configured_intake_source_roots(state.settings)
     working_roots = _configured_working_files_roots(state.settings)
+    makerworld_auth = _makerworld_auth_diagnostics(state.settings.makerworld_auth_token)
     return {
         "authority_mode": _normalized_authority_mode(state.settings),
         "intake_source_roots": [str(root) for root in intake_roots],
@@ -115,6 +178,8 @@ def config(request: Request) -> dict[str, Any]:
         "db_seed_test_overwrite": state.settings.seed_test_db_overwrite,
         "db_seed_result": state.db_seed_result,
         "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
+        "makerworld_api_base_url": state.settings.makerworld_api_base_url,
+        "makerworld_auth": makerworld_auth,
         "host": state.settings.host,
         "port": state.settings.port,
         **_image_metadata(state.settings),
@@ -126,6 +191,7 @@ def diagnostics(request: Request) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     intake_roots = _configured_intake_source_roots(state.settings)
     working_roots = _configured_working_files_roots(state.settings)
+    makerworld_auth = _makerworld_auth_diagnostics(state.settings.makerworld_auth_token)
 
     # Inspect cached remote catalog collection metadata only.
     connection = connect(state.settings.db_path)
@@ -243,6 +309,8 @@ def diagnostics(request: Request) -> dict[str, Any]:
         },
         "db_seed_result": state.db_seed_result,
         "catalog_base_url": state.settings.catalog_base_url,
+        "makerworld_api_base_url": state.settings.makerworld_api_base_url,
+        "makerworld_auth": makerworld_auth,
         "cache_collection_stats": {
             "total_cached_models": collection_stats[1] if collection_stats else 0,
             "distinct_cached_collection_payloads": collection_stats[0] if collection_stats else 0,

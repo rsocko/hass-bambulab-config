@@ -278,9 +278,20 @@ MODEL_CATALOG_DB_SEED_TEST_OVERWRITE=false
 MODEL_CATALOG_CURATED_ASSETS_ROOT=/assets/Model Catalog
 MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
 MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
+MODEL_CATALOG_MAKERWORLD_API_BASE_URL=https://api.bambulab.com/v1
+MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN=
+MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS=10
+MODEL_CATALOG_MAKERWORLD_DOWNLOAD_TIMEOUT_SECONDS=60
+MODEL_CATALOG_MAKERWORLD_RATE_LIMIT_QPS=2.0
 ```
 
 See `.env.example` for complete template with detailed comments on each option.
+
+MakerWorld note:
+
+- `MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN` is required for authenticated MakerWorld resolve/download flows.
+- If it is unset, source capture still succeeds but degrades to `link_only` with `makerworld_auth_unavailable`.
+- Set the real token only in the host stack `.env`, then redeploy `model-catalog` with `docker compose up -d model-catalog`.
 
 ## Deployment Tiers & Storage
 
@@ -443,6 +454,11 @@ Topics covered:
 - `MODEL_CATALOG_INTAKE_ROOTS_TEST` — optional test-profile intake roots override for strict prod/test separation
 - `MODEL_CATALOG_WORKING_FILES_ROOT` — container path used by Working Files explorer, reindex, and reorganize destination
 - `MODEL_CATALOG_WORKING_FILES_ROOT_TEST` — optional test-profile working root override for strict prod/test separation
+- `MODEL_CATALOG_MAKERWORLD_API_BASE_URL` — MakerWorld API base URL used for external source resolve/download
+- `MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN` — Bambu Cloud Bearer token for authenticated MakerWorld requests
+- `MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS` — timeout for MakerWorld metadata/resolve requests
+- `MODEL_CATALOG_MAKERWORLD_DOWNLOAD_TIMEOUT_SECONDS` — timeout for MakerWorld binary downloads
+- `MODEL_CATALOG_MAKERWORLD_RATE_LIMIT_QPS` — per-process MakerWorld request throttle target
 - `MODEL_CATALOG_IMAGE_TAG` — image tag emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_VERSION` — semantic image version emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)

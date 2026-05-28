@@ -95,6 +95,50 @@ def test_resolve_design_id_normalizes_response() -> None:
     ]
 
 
+def test_resolve_design_id_falls_back_to_cover_and_design_pictures() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 1295917,
+                "title": "Big Brick Man",
+                "designCreator": {"uid": 1234567890, "name": "pippo the printer"},
+                "summary": "Large display figurine.",
+                "instances": [
+                    {
+                        "id": 1309482,
+                        "isDefault": False,
+                        "title": "Default",
+                        "plates": [],
+                    }
+                ],
+                "tags": ["brick", "figure"],
+                "coverUrl": "https://makerworld.bblmw.com/cover.jpg",
+                "designExtension": {
+                    "design_pictures": [
+                        {"url": "https://makerworld.bblmw.com/cover.jpg", "isRealLifePhoto": 0},
+                        {"url": "https://makerworld.bblmw.com/detail-1.jpg", "isRealLifePhoto": 0},
+                    ]
+                },
+            },
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.resolve_design_id(1295917))
+
+    assert result is not None
+    assert result.design.tags == ["brick", "figure"]
+    assert result.design.images == [
+        {"url": "https://makerworld.bblmw.com/cover.jpg", "role": "cover"},
+        {"url": "https://makerworld.bblmw.com/detail-1.jpg", "isRealLifePhoto": 0},
+    ]
+
+
 def test_resolve_design_id_returns_none_for_404() -> None:
     adapter = MakerWorldAdapter(
         "token",

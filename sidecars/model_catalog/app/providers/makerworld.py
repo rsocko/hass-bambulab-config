@@ -222,12 +222,16 @@ class MakerWorldAdapter:
             raise ProviderUnavailableError("MakerWorld design response did not include any instances")
         default_instance = next((item for item in instances if item.get("isDefault")), instances[0])
         creator = payload.get("designCreator") or {}
-        tags = [
-            str(tag.get("name") or "").strip()
-            for tag in (payload.get("tags") or [])
-            if isinstance(tag, dict) and str(tag.get("name") or "").strip()
-        ]
-        images = [item for item in (payload.get("images") or []) if isinstance(item, dict)]
+        tags: list[str] = []
+        for tag in (payload.get("tags") or []):
+            if isinstance(tag, dict):
+                tag_name = str(tag.get("name") or "").strip()
+            else:
+                tag_name = str(tag or "").strip()
+            if tag_name:
+                tags.append(tag_name)
+
+        images = self._normalize_images(payload)
         design_id = int(payload.get("id") or 0)
         if design_id <= 0:
             raise ProviderUnavailableError("MakerWorld design response did not include a valid design id")
@@ -252,6 +256,33 @@ class MakerWorldAdapter:
             canonical_url=canonical_url,
             raw_response=payload,
         )
+
+    def _normalize_images(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        seen_urls: set[str] = set()
+
+        def add_image(image: Any) -> None:
+            if not isinstance(image, dict):
+                return
+            image_url = str(image.get("url") or "").strip()
+            if not image_url or image_url in seen_urls:
+                return
+            normalized.append(image)
+            seen_urls.add(image_url)
+
+        for image in (payload.get("images") or []):
+            add_image(image)
+
+        cover_url = str(payload.get("coverUrl") or "").strip()
+        if cover_url and cover_url not in seen_urls:
+            normalized.append({"url": cover_url, "role": "cover"})
+            seen_urls.add(cover_url)
+
+        design_extension = payload.get("designExtension") or {}
+        for image in (design_extension.get("design_pictures") or []):
+            add_image(image)
+
+        return normalized
 
     def _canonical_design_url(self, design_id: int, *, source_url: str | None = None) -> str:
         region = "en"
