@@ -266,7 +266,7 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
         connection = sqlite3.connect(db_path)
         try:
             record_row = connection.execute(
-                "SELECT review_state, import_job_id FROM source_intake_records WHERE id = ?",
+                "SELECT review_state, import_job_id, snapshot_json FROM source_intake_records WHERE id = ?",
                 (record_id,),
             ).fetchone()
             queue_row = connection.execute(
@@ -280,6 +280,11 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
             connection.close()
 
         assert record_row[0] == "imported"
+    snapshot_json = json.loads(str(record_row[2] or "{}"))
+    provenance = snapshot_json.get("_model_catalog_source_capture") or {}
+    assert provenance["selected_instance_id"] == 1309482
+    assert provenance["selected_profile_id"] == 1309482
+    assert provenance["upload_id"] == payload["upload_id"]
         assert queue_row[0] == payload["upload_id"]
         assert queue_row[1] == "queued"
         assert record_id in str(queue_row[2])

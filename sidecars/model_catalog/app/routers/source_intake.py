@@ -20,6 +20,21 @@ router = APIRouter(tags=["intake"])
 
 _CAPTURE_MODES = {"link_only", "metadata_only", "full_import"}
 _REVIEWABLE_STATES = {"pending", "approved", "imported", "rejected"}
+_SNAPSHOT_PROVENANCE_KEY = "_model_catalog_source_capture"
+
+
+def _snapshot_with_provenance(snapshot_json: Any, provenance_updates: dict[str, Any]) -> dict[str, Any]:
+    base_snapshot = snapshot_json if isinstance(snapshot_json, dict) else {}
+    provenance = base_snapshot.get(_SNAPSHOT_PROVENANCE_KEY)
+    if not isinstance(provenance, dict):
+        provenance = {}
+    merged_provenance = dict(provenance)
+    merged_provenance.update({
+        key: value for key, value in provenance_updates.items() if value is not None
+    })
+    next_snapshot = dict(base_snapshot)
+    next_snapshot[_SNAPSHOT_PROVENANCE_KEY] = merged_provenance
+    return next_snapshot
 
 
 def _preferred_instance_id_from_record(adapter: MakerWorldAdapter, record: dict[str, Any]) -> int | None:
@@ -409,7 +424,20 @@ async def capture_source(request: Request, payload: dict[str, Any]) -> Any:
             "file_manifest_json": resolved.file_manifest,
             "confidence": resolved.confidence,
             "warnings_json": resolved.warnings,
-            "snapshot_json": resolved.design.raw_response,
+            "snapshot_json": _snapshot_with_provenance(
+                resolved.design.raw_response,
+                {
+                    "provider_id": provider_id,
+                    "capture_channel": channel,
+                    "capture_mode": requested_mode,
+                    "source_url_original": url,
+                    "source_url_canonical": resolved.design.canonical_url,
+                    "source_model_id": str(resolved.design.design_id),
+                    "confidence": resolved.confidence,
+                    "file_manifest_count": len(resolved.file_manifest or []),
+                    "warning_count": len(resolved.warnings or []),
+                },
+            ),
             "review_state": "pending",
             "import_job_id": None,
             "captured_at": now_iso,
@@ -509,6 +537,8 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
         attempted_instance_ids: list[int] = []
         last_retryable_error: ProviderUnavailableError | None = None
         download_completed = False
+        selected_instance_id: int | None = None
+        selected_profile_id: int | None = None
         for instance_id in candidate_instance_ids:
             attempted_instance_ids.append(int(instance_id))
             manifest_entry = _manifest_entry_for_instance_id(file_manifest, int(instance_id)) or {}
@@ -527,6 +557,8 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
                         pass
                     raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
                 download_completed = True
+                selected_instance_id = int(instance_id)
+                selected_profile_id = profile_id
                 break
             except ProviderUnavailableError as exc:
                 if target_instance != "default" or not _is_retryable_instance_download_error(exc):
@@ -557,10 +589,22 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
             cleanup_policy="keep",
             telemetry={"transport_mode": "makerworld_api", "warnings_count": len(record.get("warnings_json") or [])},
         )
+        snapshot_json = _snapshot_with_provenance(
+            record.get("snapshot_json"),
+            {
+                "import_job_id": job_id,
+                "target_instance": target_instance,
+                "attempted_instance_ids": attempted_instance_ids,
+                "selected_instance_id": selected_instance_id,
+                "selected_profile_id": selected_profile_id,
+                "download_filename": download_path.name,
+                "upload_id": upload_id,
+            },
+        )
         updated = _update_record(
             db_path=state.settings.db_path,
             record_id=record_id,
-            updates={"review_state": "imported", "updated_at": _utc_now_iso()},
+            updates={"review_state": "imported", "updated_at": _utc_now_iso(), "snapshot_json": snapshot_json},
         )
         _finish_import_job(
             db_path=state.settings.db_path,

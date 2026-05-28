@@ -13,6 +13,7 @@ from io import BytesIO
 from pathlib import Path
 from threading import Lock
 from typing import Any
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -35,10 +36,15 @@ def _record_recent_makerworld_request(
     request_url: str,
     request_label: str | None,
     response: httpx.Response | None = None,
+    status_code: int | None = None,
+    content_type: str | None = None,
+    content_length: str | None = None,
+    server: str | None = None,
+    cf_ray: str | None = None,
+    response_body_excerpt: str | None = None,
     error: Exception | None = None,
 ) -> None:
     parsed = urlparse(str(request_url or "").strip())
-    response_body_excerpt: str | None = None
     response_json_message: str | None = None
     response_json_error: str | None = None
     response_json_code: Any = None
@@ -66,11 +72,11 @@ def _record_recent_makerworld_request(
         "host": str(parsed.netloc or "").strip() or None,
         "path": str(parsed.path or "").strip() or None,
         "query": str(parsed.query or "").strip() or None,
-        "status_code": int(response.status_code) if response is not None else None,
-        "content_type": str(response.headers.get("content-type") or "").strip() or None if response is not None else None,
-        "content_length": str(response.headers.get("content-length") or "").strip() or None if response is not None else None,
-        "server": str(response.headers.get("server") or "").strip() or None if response is not None else None,
-        "cf_ray": str(response.headers.get("cf-ray") or "").strip() or None if response is not None else None,
+        "status_code": int(response.status_code) if response is not None else (int(status_code) if status_code is not None else None),
+        "content_type": str(response.headers.get("content-type") or "").strip() or None if response is not None else (str(content_type or "").strip() or None),
+        "content_length": str(response.headers.get("content-length") or "").strip() or None if response is not None else (str(content_length or "").strip() or None),
+        "server": str(response.headers.get("server") or "").strip() or None if response is not None else (str(server or "").strip() or None),
+        "cf_ray": str(response.headers.get("cf-ray") or "").strip() or None if response is not None else (str(cf_ray or "").strip() or None),
         "response_json_message": response_json_message,
         "response_json_error": response_json_error,
         "response_json_code": response_json_code,
@@ -594,7 +600,7 @@ class MakerWorldAdapter:
             def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
                 return None
 
-        def _blocking_fetch() -> bytes:
+        def _blocking_fetch() -> tuple[bytes, dict[str, Any]]:
             opener = build_opener(_NoRedirect)
             request = Request(
                 signed_url,
@@ -603,17 +609,67 @@ class MakerWorldAdapter:
                     "User-Agent": self.DEFAULT_USER_AGENT,
                 },
             )
-            with opener.open(request, timeout=self._download_timeout) as response:
-                status_code = int(getattr(response, "status", 200) or 200)
-                if status_code != 200:
-                    raise ProviderUnavailableError(
-                        f"MakerWorld signed download failed with status {status_code}"
-                    )
-                return response.read()
+            try:
+                with opener.open(request, timeout=self._download_timeout) as response:
+                    status_code = int(getattr(response, "status", 200) or 200)
+                    payload = response.read()
+                    headers = response.headers
+                    metadata = {
+                        "status_code": status_code,
+                        "content_type": str(headers.get("Content-Type") or "").strip() or None,
+                        "content_length": str(headers.get("Content-Length") or "").strip() or str(len(payload)),
+                        "server": str(headers.get("Server") or "").strip() or None,
+                        "cf_ray": str(headers.get("CF-Ray") or "").strip() or None,
+                    }
+                    if status_code != 200:
+                        raise ProviderUnavailableError(
+                            f"MakerWorld signed download failed with status {status_code}"
+                        )
+                    return payload, metadata
+            except HTTPError as exc:
+                error_body = b""
+                try:
+                    error_body = exc.read() or b""
+                except Exception:
+                    error_body = b""
+                metadata = {
+                    "status_code": int(getattr(exc, "code", 0) or 0) or None,
+                    "content_type": str(exc.headers.get("Content-Type") or "").strip() or None if exc.headers is not None else None,
+                    "content_length": str(exc.headers.get("Content-Length") or "").strip() or None if exc.headers is not None else None,
+                    "server": str(exc.headers.get("Server") or "").strip() or None if exc.headers is not None else None,
+                    "cf_ray": str(exc.headers.get("CF-Ray") or "").strip() or None if exc.headers is not None else None,
+                    "response_body_excerpt": error_body[:512].decode("utf-8", errors="replace").strip() or None,
+                }
+                raise ProviderUnavailableError(
+                    f"MakerWorld signed download failed with status {metadata['status_code']}"
+                ) from exc
 
         try:
-            payload = await asyncio.to_thread(_blocking_fetch)
-        except ProviderUnavailableError:
+            payload, metadata = await asyncio.to_thread(_blocking_fetch)
+        except ProviderUnavailableError as exc:
+            http_error = exc.__cause__ if isinstance(exc.__cause__, HTTPError) else None
+            if http_error is not None:
+                _record_recent_makerworld_request(
+                    method="GET",
+                    request_url=signed_url,
+                    request_label="signed_binary_download_s3",
+                    status_code=int(getattr(http_error, "code", 0) or 0) or None,
+                    content_type=str(http_error.headers.get("Content-Type") or "").strip() or None if http_error.headers is not None else None,
+                    content_length=str(http_error.headers.get("Content-Length") or "").strip() or None if http_error.headers is not None else None,
+                    server=str(http_error.headers.get("Server") or "").strip() or None if http_error.headers is not None else None,
+                    cf_ray=str(http_error.headers.get("CF-Ray") or "").strip() or None if http_error.headers is not None else None,
+                    response_body_excerpt=(
+                        (lambda body: body[:512].decode("utf-8", errors="replace").strip() or None)(getattr(http_error, "fp", None).read() if False else b"")
+                    ),
+                    error=exc,
+                )
+            else:
+                _record_recent_makerworld_request(
+                    method="GET",
+                    request_url=signed_url,
+                    request_label="signed_binary_download_s3",
+                    error=exc,
+                )
             raise
         except Exception as exc:
             _record_recent_makerworld_request(
@@ -628,6 +684,11 @@ class MakerWorldAdapter:
             method="GET",
             request_url=signed_url,
             request_label="signed_binary_download_s3",
+            status_code=metadata.get("status_code"),
+            content_type=metadata.get("content_type"),
+            content_length=metadata.get("content_length"),
+            server=metadata.get("server"),
+            cf_ray=metadata.get("cf_ray"),
         )
         return payload
 

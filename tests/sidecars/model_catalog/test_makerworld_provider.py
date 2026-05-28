@@ -4,6 +4,8 @@ import asyncio
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from urllib.error import HTTPError
+from urllib.response import addinfourl
 
 import httpx
 
@@ -444,6 +446,86 @@ def test_download_3mf_falls_back_to_legacy_when_signed_manifest_fails(tmp_path: 
         "https://api.example.invalid/v1/iot-service/api/user/profile/1309483?model_id=US2bb73b106683e5",
         "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download",
     ]
+
+
+def test_download_3mf_records_urllib_s3_success_metadata(tmp_path: Path, monkeypatch) -> None:
+    reset_recent_makerworld_request_diagnostics()
+    payload = _minimal_3mf_payload()
+
+    class _FakeUrlLibResponse:
+        def __init__(self, payload_bytes: bytes):
+            self.status = 200
+            self.headers = {
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(len(payload_bytes)),
+                "Server": "AmazonS3",
+            }
+            self._payload = payload_bytes
+
+        def read(self) -> bytes:
+            return self._payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeOpener:
+        def __init__(self, payload_bytes: bytes):
+            self._payload = payload_bytes
+
+        def open(self, request, timeout=0):
+            return _FakeUrlLibResponse(self._payload)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == "https://api.example.invalid/v1/design-service/design/1295917":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 1295917,
+                    "modelId": "US2bb73b106683e5",
+                    "title": "Big Brick Man",
+                    "designCreator": {"uid": 1, "name": "creator"},
+                    "instances": [{"id": 1309482, "profileId": 1309483, "isDefault": True, "title": "Default", "plates": []}],
+                },
+            )
+        if str(request.url) == "https://api.example.invalid/v1/iot-service/api/user/profile/1309483?model_id=US2bb73b106683e5":
+            return httpx.Response(
+                200,
+                json={
+                    "url": "https://s3.us-west-2.amazonaws.com/or-cloud-model-prod/publish/US2bb73b106683e5/1309483/origin/model.3mf?sig=abc",
+                },
+            )
+        return httpx.Response(500, text="unexpected")
+
+    monkeypatch.setattr("app.providers.makerworld.build_opener", lambda *args, **kwargs: _FakeOpener(payload))
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+    result = asyncio.run(
+        adapter.download_3mf(
+            1309482,
+            destination,
+            design_id=1295917,
+            profile_id=1309483,
+        )
+    )
+
+    assert result == destination
+    recent_requests = get_recent_makerworld_request_diagnostics(limit=4)
+    s3_request = recent_requests[-1]
+    assert s3_request["request_label"] == "signed_binary_download_s3"
+    assert s3_request["host"] == "s3.us-west-2.amazonaws.com"
+    assert s3_request["status_code"] == 200
+    assert s3_request["content_type"] == "application/octet-stream"
+    assert s3_request["content_length"] == str(len(payload))
+    assert s3_request["server"] == "AmazonS3"
+    assert s3_request["error"] is None
 
 
 def test_download_3mf_classifies_418_as_access_blocked(tmp_path: Path) -> None:

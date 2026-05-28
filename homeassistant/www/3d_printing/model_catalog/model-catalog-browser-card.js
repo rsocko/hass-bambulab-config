@@ -1962,12 +1962,49 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._projectDetail = null;
         var selectedProjectId = Number(this._filters && this._filters.project_id || 0) || 0;
         if (selectedProjectId > 0) {
-          var detailResponse = await this._fetchProjectDetail(selectedProjectId);
           var memberData = await this._searchModelsFast(requestPayload);
-          this._projectDetail = {
-            project: detailResponse && detailResponse.project && typeof detailResponse.project === 'object'
+          var detailProject = null;
+          try {
+            var detailResponse = await this._fetchProjectDetail(selectedProjectId);
+            detailProject = detailResponse && detailResponse.project && typeof detailResponse.project === 'object'
               ? detailResponse.project
-              : null,
+              : null;
+          } catch (detailError) {
+            detailProject = projectIndex.projects.find(function (project) {
+              return Number(project && project.id || 0) === selectedProjectId;
+            }) || null;
+            if (!detailProject) {
+              throw detailError;
+            }
+          }
+          if (detailProject && !Array.isArray(detailProject.model_memberships)) {
+            detailProject = Object.assign({}, detailProject, {
+              model_memberships: (Array.isArray(memberData && memberData.results) ? memberData.results : []).map(function (item) {
+                var memberships = Array.isArray(item && item.project_memberships) ? item.project_memberships : [];
+                for (var membershipIndex = 0; membershipIndex < memberships.length; membershipIndex++) {
+                  var membership = memberships[membershipIndex] && typeof memberships[membershipIndex] === 'object'
+                    ? memberships[membershipIndex]
+                    : null;
+                  if (membership && Number(membership.project_id || 0) === selectedProjectId) {
+                    return {
+                      project_id: selectedProjectId,
+                      model_ref: this._modelRef(item),
+                      member_state: String(membership.member_state || 'candidate').trim().toLowerCase() || 'candidate',
+                    };
+                  }
+                }
+                return {
+                  project_id: selectedProjectId,
+                  model_ref: this._modelRef(item),
+                  member_state: 'candidate',
+                };
+              }.bind(this)).filter(function (membership) {
+                return !!String(membership && membership.model_ref || '').trim();
+              }),
+            });
+          }
+          this._projectDetail = {
+            project: detailProject,
             items: Array.isArray(memberData && memberData.results) ? memberData.results : [],
             pagination: memberData && memberData.pagination && typeof memberData.pagination === 'object'
               ? memberData.pagination
