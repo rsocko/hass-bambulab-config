@@ -1466,7 +1466,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   async _fetchProjectsIndex() {
     var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
-    if (!/^https?:\/\//i.test(base)) {
+    if (!base) {
       throw new Error("No sidecar URL configured");
     }
     var params = new URLSearchParams();
@@ -1477,8 +1477,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var resp = await fetch(base + "/api/projects?" + params.toString(), {
       method: "GET",
-      headers: { "Accept": "application/json" },
+      headers: Object.assign({ "Accept": "application/json" }, await this._authHeaders(false)),
+      credentials: "omit",
     });
+    if (resp.status === 401) {
+      resp = await fetch(base + "/api/projects?" + params.toString(), {
+        method: "GET",
+        headers: Object.assign({ "Accept": "application/json" }, await this._authHeaders(true)),
+        credentials: "omit",
+      });
+    }
     if (!resp.ok) {
       throw new Error("Failed to load projects (" + resp.status + ")");
     }
