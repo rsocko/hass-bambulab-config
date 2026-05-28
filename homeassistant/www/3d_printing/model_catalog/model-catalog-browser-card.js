@@ -2389,6 +2389,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._render();
       return;
     }
+    if (target && target.classList && target.classList.contains("project-task-input")) {
+      var taskField = String(target.getAttribute("data-project-task-field") || "").trim();
+      if (taskField === 'title') {
+        this._projectTaskDraftTitle = String(target.value || '');
+        if (this._projectTaskDraftError) {
+          this._projectTaskDraftError = '';
+        }
+      }
+      return;
+    }
     if (target && target.classList && target.classList.contains("collection-action-input")) {
       this._collectionActionDialog.name = String(target.value || "");
       if (this._collectionActionDialog && this._collectionActionDialog.mode === 'bulk-add') {
@@ -2407,16 +2417,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._projectActionDialog[projectField] = String(target.value || "");
       if (this._projectActionDialog.error) {
         this._projectActionDialog.error = "";
-      }
-      return;
-    }
-    if (target && target.classList && target.classList.contains("project-task-input")) {
-      var taskField = String(target.getAttribute("data-project-task-field") || "").trim();
-      if (taskField === 'title') {
-        this._projectTaskDraftTitle = String(target.value || '');
-        if (this._projectTaskDraftError) {
-          this._projectTaskDraftError = '';
-        }
       }
       return;
     }
