@@ -87,7 +87,35 @@ class _StubMakerWorldAdapter:
                 summary="Large display figurine.",
                 images=[{"url": "https://makerworld.bblmw.com/example.jpg"}],
                 canonical_url="https://makerworld.com/en/models/1295917",
-                raw_response={"id": 1295917, "title": "Big Brick Man"},
+                raw_response={
+                    "id": 1295917,
+                    "title": "Big Brick Man",
+                    "summary": "<p>Large display figurine.</p>",
+                    "tags": [
+                        {"name": "brick"},
+                        {"name": "figurine"},
+                    ],
+                    "instances": [
+                        {
+                            "id": 1309482,
+                            "profileId": 1309482,
+                            "title": "Default",
+                            "prediction": {"printTimeMinutes": 92},
+                            "plates": [
+                                {
+                                    "plateId": 1,
+                                    "prediction": {"printTimeMinutes": 54},
+                                }
+                            ],
+                        },
+                        {
+                            "id": 1309483,
+                            "profileId": 1309483,
+                            "title": "Single Color",
+                            "prediction": {"printTimeMinutes": 61},
+                        },
+                    ],
+                },
             ),
             confidence="high",
             warnings=[],
@@ -280,15 +308,67 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
             connection.close()
 
         assert record_row[0] == "imported"
-    snapshot_json = json.loads(str(record_row[2] or "{}"))
-    provenance = snapshot_json.get("_model_catalog_source_capture") or {}
-    assert provenance["selected_instance_id"] == 1309482
-    assert provenance["selected_profile_id"] == 1309482
-    assert provenance["upload_id"] == payload["upload_id"]
+        snapshot_json = json.loads(str(record_row[2] or "{}"))
+        provenance = snapshot_json.get("_model_catalog_source_capture") or {}
+        assert provenance["selected_instance_id"] == 1309482
+        assert provenance["selected_profile_id"] == 1309482
+        assert provenance["selected_instance_ids"] == [1309482]
+        assert provenance["selected_profile_ids"] == [1309482]
+        assert provenance["upload_id"] == payload["upload_id"]
         assert queue_row[0] == payload["upload_id"]
         assert queue_row[1] == "queued"
         assert record_id in str(queue_row[2])
         assert job_row[0] == "completed"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_commit_source_full_import_supports_multiple_selected_instances(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={
+                "mode": "full_import",
+                "options": {"target_instances": [1309482, 1309483]},
+            },
+        )
+        assert commit_response.status_code == 200, commit_response.text
+        payload = commit_response.json()
+
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            record_row = connection.execute(
+                "SELECT snapshot_json FROM source_intake_records WHERE id = ?",
+                (record_id,),
+            ).fetchone()
+            queue_row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (payload["upload_id"],),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        provenance = json.loads(str(record_row["snapshot_json"] or "{}")).get("_model_catalog_source_capture") or {}
+        assert provenance["target_instances"] == [1309482, 1309483]
+        assert provenance["selected_instance_ids"] == [1309482, 1309483]
+        assert provenance["selected_profile_ids"] == [1309482, 1309483]
+        source_entries = json.loads(str(queue_row["source_entries_json"] or "[]"))
+        assert len(source_entries) == 2
+        relative_paths = [str(entry.get("relative_path") or "") for entry in source_entries]
+        assert any("1309482" in value for value in relative_paths)
+        assert any("1309483" in value for value in relative_paths)
     finally:
         client.__exit__(None, None, None)
 
@@ -445,6 +525,90 @@ def test_publish_curated_attaches_makerworld_snapshot_json(tmp_path: Path, monke
         assert snapshot["provider_id"] == "makerworld"
         assert snapshot["source_record_id"] == record_id
         assert snapshot["snapshot"]["id"] == 1295917
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import", "options": {"target_instance": "default"}},
+        )
+        assert commit_response.status_code == 200
+        upload_id = commit_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={},
+        )
+        assert publish_response.status_code == 200, publish_response.text
+        local_model_id = str(publish_response.json().get("local_model_id") or "").strip()
+        assert local_model_id
+
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            entry_row = connection.execute(
+                """
+                SELECT model_name, model_description, creator_name, preview_image_url,
+                       source_origin, source_origin_url, tags_json, keyword_names_json
+                FROM model_catalog_entries
+                WHERE local_model_id = ?
+                """,
+                (local_model_id,),
+            ).fetchone()
+            field_rows = connection.execute(
+                """
+                SELECT field_key, field_value_json
+                FROM model_catalog_custom_fields
+                WHERE entity_type = 'catalog_model'
+                  AND entity_id = ?
+                  AND field_namespace = 'model_catalog'
+                  AND field_key IN (
+                    'source_capture_image_urls',
+                    'source_capture_provider',
+                    'source_capture_record_id',
+                    'source_prediction_summary',
+                    'source_description_raw'
+                  )
+                """,
+                (local_model_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        assert entry_row is not None
+        assert entry_row["model_name"] == "Big Brick Man"
+        assert entry_row["model_description"] == "Large display figurine."
+        assert entry_row["creator_name"] == "pippo_the_printer"
+        assert entry_row["preview_image_url"] == "https://makerworld.bblmw.com/example.jpg"
+        assert entry_row["source_origin"] == "makerworld"
+        assert entry_row["source_origin_url"] == "https://makerworld.com/en/models/1295917"
+        assert json.loads(str(entry_row["tags_json"] or "[]")) == ["brick", "figurine"]
+        assert json.loads(str(entry_row["keyword_names_json"] or "[]")) == ["brick", "figurine"]
+
+        fields = {
+            str(row["field_key"]): json.loads(str(row["field_value_json"] or "null"))
+            for row in field_rows
+        }
+        assert fields["source_capture_provider"] == "makerworld"
+        assert fields["source_capture_record_id"] == record_id
+        assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_description_raw"] == "Large display figurine."
+        assert fields["source_prediction_summary"][0]["prediction"] == {"printTimeMinutes": 92}
+        assert fields["source_prediction_summary"][0]["plate_predictions"][0]["prediction"] == {"printTimeMinutes": 54}
     finally:
         client.__exit__(None, None, None)
 

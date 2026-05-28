@@ -88,6 +88,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._makerworldUrl = "";
     this._makerworldRecord = null;
     this._makerworldResult = null;
+    this._makerworldSelectedInstanceIds = [];
   }
 
   setConfig(config) {
@@ -1385,10 +1386,95 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return fileManifest[0] || null;
   }
 
+  _makerworldManifestEntries(record) {
+    return Array.isArray(record && record.file_manifest_json) ? record.file_manifest_json.filter(function (entry) {
+      return entry && Number(entry.instance_id || 0) > 0;
+    }) : [];
+  }
+
+  _makerworldSnapshot(record) {
+    return record && record.snapshot_json && typeof record.snapshot_json === 'object'
+      ? record.snapshot_json
+      : {};
+  }
+
+  _makerworldInstanceDetailsById(record) {
+    var snapshot = this._makerworldSnapshot(record);
+    var instances = Array.isArray(snapshot.instances) ? snapshot.instances : [];
+    var byId = {};
+    for (var index = 0; index < instances.length; index += 1) {
+      var instance = instances[index];
+      if (!instance || typeof instance !== 'object') {
+        continue;
+      }
+      var instanceId = Number(instance.id || 0);
+      if (instanceId > 0) {
+        byId[String(instanceId)] = instance;
+      }
+    }
+    return byId;
+  }
+
+  _makerworldNormalizedSelection(record, selectedIds) {
+    var manifestEntries = this._makerworldManifestEntries(record);
+    if (!manifestEntries.length) {
+      return [];
+    }
+    var availableIds = {};
+    for (var index = 0; index < manifestEntries.length; index += 1) {
+      availableIds[String(Number(manifestEntries[index].instance_id || 0))] = true;
+    }
+    var nextIds = [];
+    var seen = {};
+    (Array.isArray(selectedIds) ? selectedIds : []).forEach(function (value) {
+      var instanceId = Number(value || 0);
+      var key = String(instanceId);
+      if (instanceId > 0 && availableIds[key] && !seen[key]) {
+        seen[key] = true;
+        nextIds.push(instanceId);
+      }
+    });
+    if (nextIds.length) {
+      return nextIds;
+    }
+    var defaultEntry = this._makerworldDefaultManifestEntry(record);
+    var defaultInstanceId = Number(defaultEntry && defaultEntry.instance_id || 0);
+    if (defaultInstanceId > 0) {
+      return [defaultInstanceId];
+    }
+    return [Number(manifestEntries[0].instance_id || 0)].filter(Boolean);
+  }
+
+  _setMakerWorldRecord(record, options) {
+    var nextOptions = options || {};
+    this._makerworldRecord = record || null;
+    this._makerworldSelectedInstanceIds = this._makerworldNormalizedSelection(record, nextOptions.preserveSelection ? this._makerworldSelectedInstanceIds : []);
+  }
+
+  _makerworldSourceStats(record) {
+    var snapshot = this._makerworldSnapshot(record);
+    var tags = Array.isArray(snapshot.tags) ? snapshot.tags : [];
+    var boostInfo = snapshot.boostInfo && typeof snapshot.boostInfo === 'object' ? snapshot.boostInfo : {};
+    return {
+      imageCount: Array.isArray(record && record.media_manifest_json) ? record.media_manifest_json.length : 0,
+      tagCount: tags.length,
+      likeCount: Number(snapshot.likeCount || 0),
+      downloadCount: Number(snapshot.downloadCount || 0),
+      commentCount: Number(snapshot.commentCount || 0),
+      canBoost: boostInfo.canBoost === true,
+      boostTotal: Number(boostInfo.total || 0),
+      availableBoosts: Number(boostInfo.availableTotal || 0),
+      hasLike: snapshot.hasLike === true,
+      hasCollect: snapshot.hasCollect === true,
+      hasBacked: snapshot.hasBacked === true,
+    };
+  }
+
   _clearMakerWorldState(options) {
     var nextOptions = options || {};
     this._makerworldRecord = null;
     this._makerworldResult = null;
+    this._makerworldSelectedInstanceIds = [];
     if (!nextOptions.preserveUrl) {
       this._makerworldUrl = '';
     }
@@ -1431,16 +1517,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._setBusyPhase('Capturing MakerWorld metadata', 'Resolving the MakerWorld URL and collecting file/provenance details');
     try {
       var record = await this._captureMakerWorldRecord(url);
-      this._makerworldRecord = record;
+      this._setMakerWorldRecord(record);
       this._makerworldResult = null;
-      this._status = 'MakerWorld metadata captured. Review the default file choice and queue it when ready.';
+      this._status = 'MakerWorld metadata captured. Review the profile choices and queue the selected 3MF files when ready.';
       this._loading = false;
       this._clearBusyState();
       this._render();
     } catch (error) {
       var fallbackRecord = error && error.payload && error.payload.record ? error.payload.record : null;
       if (fallbackRecord) {
-        this._makerworldRecord = fallbackRecord;
+        this._setMakerWorldRecord(fallbackRecord);
         this._makerworldResult = null;
       }
       this._error = error && error.message ? String(error.message) : 'Could not capture MakerWorld metadata.';
@@ -1483,13 +1569,62 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       : (validationState && validationState !== 'unknown' ? ' warn' : '');
     var warningMessages = this._makerworldWarningMessages((result && result.warnings) || (record && record.warnings_json));
     var defaultManifestEntry = this._makerworldDefaultManifestEntry(record);
-    var fileManifestCount = Array.isArray(record && record.file_manifest_json) ? record.file_manifest_json.length : 0;
+    var fileManifest = this._makerworldManifestEntries(record);
+    var fileManifestCount = fileManifest.length;
     var selectedSourceUrl = this._makerworldSourceUrl(record) || trimmedUrl;
+    var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
+    var canImportSelection = !!(record && selectedInstanceIds.length && !this._loading);
+    var importLabel = selectedInstanceIds.length > 1 ? 'Queue Selected 3MFs' : 'Queue Selected 3MF';
+    var instanceDetailsById = this._makerworldInstanceDetailsById(record);
+    var sourceStats = this._makerworldSourceStats(record);
+    var profileCards = fileManifest.map(function (entry) {
+      var instanceId = Number(entry && entry.instance_id || 0);
+      var checked = selectedInstanceIds.indexOf(instanceId) !== -1;
+      var details = instanceDetailsById[String(instanceId)] || {};
+      var extention = details.extention && typeof details.extention === 'object' ? details.extention : {};
+      var modelInfo = extention.modelInfo && typeof extention.modelInfo === 'object' ? extention.modelInfo : {};
+      var prediction = details.prediction != null ? details.prediction : null;
+      var plates = Array.isArray(details.plates) ? details.plates : (Array.isArray(modelInfo.plates) ? modelInfo.plates : []);
+      var detailBits = [];
+      if (details.needAms === true) {
+        detailBits.push('AMS');
+      } else if (details.needAms === false) {
+        detailBits.push('No AMS');
+      }
+      if (Number(details.materialCnt || 0) > 0) {
+        detailBits.push(String(Number(details.materialCnt || 0)) + ' material' + (Number(details.materialCnt || 0) === 1 ? '' : 's'));
+      }
+      if (Number(entry.plate_count || plates.length || 0) > 0) {
+        detailBits.push(String(Number(entry.plate_count || plates.length || 0)) + ' plate' + (Number(entry.plate_count || plates.length || 0) === 1 ? '' : 's'));
+      }
+      if (Number(details.printCount || 0) > 0) {
+        detailBits.push(String(Number(details.printCount || 0)) + ' prints');
+      }
+      var predictionText = '';
+      if (prediction != null && prediction !== '') {
+        predictionText = '<div class="muted">Prediction: ' + escapeHtml(String(prediction)) + ' sec</div>';
+      }
+      var platePredictionCount = plates.filter(function (plate) {
+        return plate && plate.prediction != null && plate.prediction !== '';
+      }).length;
+      if (platePredictionCount) {
+        predictionText += '<div class="muted">Plate predictions: ' + String(platePredictionCount) + '</div>';
+      }
+      return ''
+        + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + '">'
+        + '  <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
+        + '  <div class="summary-label">' + escapeHtml(String(entry.title || details.title || ('Instance ' + String(instanceId)))) + '</div>'
+        + '  <div class="summary-value">Instance ' + escapeHtml(String(instanceId)) + '</div>'
+        + (entry.profile_id ? '<div class="muted">Profile ' + escapeHtml(String(entry.profile_id)) + '</div>' : '')
+        + (detailBits.length ? '<div class="muted">' + escapeHtml(detailBits.join(' | ')) + '</div>' : '')
+        + predictionText
+        + '</label>';
+    }).join('');
     return ''
       + '    <article class="launch-card launch-card-makerworld">'
       + '      <div class="launch-kicker">Path 1</div><div class="launch-title">MakerWorld URL</div><div class="muted">Paste a MakerWorld design URL, capture the source record and provenance first, then queue the default 3MF into Active Queue for the normal review flow.</div>'
       + '      <div class="field"><label>Source URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
-      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture Preview</button><button class="button primary" data-action="import-makerworld-url"' + importDisabled + '>Queue Default 3MF</button><button class="button" data-action="goto-inbox">Open Active Queue</button>' + ((record || result) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
+      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture Preview</button><button class="button primary" data-action="import-makerworld-url"' + (canImportSelection ? '' : ' disabled') + '>' + importLabel + '</button><button class="button" data-action="goto-inbox">Open Active Queue</button>' + ((record || result) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
       + (record
         ? '<article class="entry-row makerworld-result">'
           + '<div class="entry-top">'
@@ -1501,12 +1636,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '</div>'
           + (record.source_model_id ? '<div class="muted">Design ID: ' + escapeHtml(record.source_model_id) + '</div>' : '')
           + '<div class="makerworld-preview-grid">'
-          + '<div class="summary-card"><div class="summary-label">Download Choice</div><div class="summary-value">' + escapeHtml(String(defaultManifestEntry && (defaultManifestEntry.title || defaultManifestEntry.instance_id) || 'Default instance')) + '</div><div class="muted">' + (defaultManifestEntry && defaultManifestEntry.profile_id ? 'Profile ' + escapeHtml(String(defaultManifestEntry.profile_id)) : 'Uses the first valid default file') + '</div></div>'
+          + '<div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">' + (defaultManifestEntry && defaultManifestEntry.profile_id ? 'Default profile ' + escapeHtml(String(defaultManifestEntry.profile_id)) : 'Choose one or many profiles') + '</div></div>'
           + '<div class="summary-card"><div class="summary-label">Available Files</div><div class="summary-value">' + String(fileManifestCount) + '</div><div class="muted">Captured into the source record for later review.</div></div>'
+          + '<div class="summary-card"><div class="summary-label">Images / Tags</div><div class="summary-value">' + String(sourceStats.imageCount) + ' / ' + String(sourceStats.tagCount) + '</div><div class="muted">Main image and MakerWorld tags will follow the publish path.</div></div>'
+          + '<div class="summary-card"><div class="summary-label">Likes / Downloads</div><div class="summary-value">' + String(sourceStats.likeCount) + ' / ' + String(sourceStats.downloadCount) + '</div><div class="muted">Comments ' + String(sourceStats.commentCount) + (sourceStats.canBoost ? ', boosts available ' + String(sourceStats.availableBoosts) : '') + '</div></div>'
+          + '<div class="summary-card"><div class="summary-label">User State</div><div class="summary-value">' + escapeHtml((sourceStats.hasLike ? 'Liked' : 'Not liked') + ' / ' + (sourceStats.hasCollect ? 'Collected' : 'Not collected')) + '</div><div class="muted">Boosted: ' + escapeHtml(sourceStats.hasBacked ? 'yes' : 'no') + ', total boosts ' + String(sourceStats.boostTotal) + '</div></div>'
           + '<div class="summary-card"><div class="summary-label">Provenance</div><div class="summary-value">Snapshot Ready</div><div class="muted">Publish attaches the MakerWorld snapshot JSON as a supporting file.</div></div>'
           + '</div>'
+          + (profileCards ? '<div class="field"><label>Profiles To Queue</label><div class="makerworld-profile-grid">' + profileCards + '</div><div class="muted">Select one or many MakerWorld profiles. Multiple selections will queue multiple 3MF files into the same intake upload.</div></div>' : '')
           + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
-          + ((result && result.upload_id) ? '<div class="muted">Active Queue now holds the downloaded 3MF while the original MakerWorld source record stays linked for the later snapshot attachment.</div>' : '<div class="muted">This preview is only metadata. Queue Default 3MF to create the Active Queue item.</div>')
+          + ((result && result.upload_id) ? '<div class="muted">Active Queue now holds the selected MakerWorld 3MF file(s) while the original source record stays linked for later snapshot attachment and metadata hydration.</div>' : '<div class="muted">This preview is only metadata. Queue the selected 3MF file(s) to create the Active Queue item.</div>')
           + '</article>'
         : '')
       + '    </article>';
@@ -1532,10 +1671,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         record = await this._captureMakerWorldRecord(url);
       }
       var recordId = String(record && record.id || '').trim();
-      this._makerworldRecord = record;
+      this._setMakerWorldRecord(record, { preserveSelection: true });
+      var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
+      if (!selectedInstanceIds.length) {
+        throw new Error('Select at least one MakerWorld profile before queueing the import.');
+      }
       this._setBusyPhase('Importing MakerWorld files', 'Downloading the default 3MF and creating the intake queue upload');
       var commitResponse = await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/' + encodeURIComponent(recordId) + '/commit'), {
         mode: 'full_import',
+        options: {
+          target_instances: selectedInstanceIds,
+        },
       });
       if (!commitResponse || !commitResponse.upload_id) {
         throw new Error('MakerWorld import did not return an intake upload id.');
@@ -1558,6 +1704,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     } catch (error) {
       var fallbackRecord = error && error.payload && error.payload.record ? error.payload.record : null;
       if (fallbackRecord) {
+        this._setMakerWorldRecord(fallbackRecord, { preserveSelection: true });
         this._makerworldResult = this._makerworldResultFromRecord(fallbackRecord, '', '');
       }
       this._error = error && error.message ? String(error.message) : 'Could not import MakerWorld URL.';
@@ -2299,6 +2446,20 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._render();
       return;
     }
+    if (action === 'makerworld-instance') {
+      var nextInstanceId = Number(target.getAttribute('data-instance-id') || 0);
+      var nextSelection = this._makerworldNormalizedSelection(this._makerworldRecord, this._makerworldSelectedInstanceIds);
+      if (target.checked) {
+        if (nextInstanceId > 0 && nextSelection.indexOf(nextInstanceId) === -1) {
+          nextSelection = nextSelection.concat([nextInstanceId]);
+        }
+      } else {
+        nextSelection = nextSelection.filter(function (value) { return value !== nextInstanceId; });
+      }
+      this._makerworldSelectedInstanceIds = nextSelection;
+      this._render();
+      return;
+    }
     var path = String(target.getAttribute('data-path') || '');
     if (!path || !this._selected[path]) {
       return;
@@ -2428,6 +2589,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.launch-card{display:grid;gap:10px;padding:18px;border-radius:20px;border:1px solid rgba(148,163,184,0.2);background:linear-gradient(180deg,rgba(30,41,59,0.18),rgba(15,23,42,0.1));}'
       + '.launch-card-makerworld{align-content:start;}'
       + '.makerworld-preview-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
+      + '.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}'
+      + '.makerworld-profile-card{cursor:pointer;align-content:start;}'
+      + '.makerworld-profile-card.selected{border-color:rgba(56,189,248,0.65);box-shadow:0 0 0 1px rgba(56,189,248,0.35) inset;}'
       + '.launch-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.launch-title{font-size:18px;font-weight:800;line-height:1.2;}'
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'

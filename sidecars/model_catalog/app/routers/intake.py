@@ -11,6 +11,7 @@ Publishing operations (publish-to-local, upload-to-catalog) remain here.
 
 from __future__ import annotations
 
+import html as html_module
 import hashlib
 import json
 import re
@@ -989,6 +990,206 @@ def _attach_source_snapshot_assets(
     return attached
 
 
+def _source_record_ids_from_entries(source_entries: list[dict[str, Any]] | None) -> list[str]:
+    record_ids: list[str] = []
+    seen_record_ids: set[str] = set()
+    for entry in source_entries or []:
+        if not isinstance(entry, dict):
+            continue
+        record_id = str(entry.get("source_record_id") or "").strip()
+        if not record_id or record_id in seen_record_ids:
+            continue
+        seen_record_ids.add(record_id)
+        record_ids.append(record_id)
+    return record_ids
+
+
+def _read_source_intake_records(*, db_path: Path, record_ids: list[str]) -> list[dict[str, Any]]:
+    if not record_ids:
+        return []
+    connection = connect(db_path)
+    try:
+        placeholders = ",".join("?" for _ in record_ids)
+        rows = connection.execute(
+            f"""
+            SELECT id, provider_id, source_model_id, source_url_canonical, source_url_original,
+                   title, creator_name, description_raw, thumbnail_url,
+                   media_manifest_json, file_manifest_json, snapshot_json
+            FROM source_intake_records
+            WHERE id IN ({placeholders})
+            """,
+            tuple(record_ids),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        media_manifest_json: list[Any] = []
+        file_manifest_json: list[Any] = []
+        snapshot_json: dict[str, Any] = {}
+        try:
+            media_manifest_json = json.loads(str(row[9] or "[]"))
+        except json.JSONDecodeError:
+            media_manifest_json = []
+        try:
+            file_manifest_json = json.loads(str(row[10] or "[]"))
+        except json.JSONDecodeError:
+            file_manifest_json = []
+        try:
+            snapshot_json = json.loads(str(row[11] or "{}"))
+        except json.JSONDecodeError:
+            snapshot_json = {}
+        by_id[str(row[0])] = {
+            "id": str(row[0]),
+            "provider_id": str(row[1] or "").strip() or None,
+            "source_model_id": str(row[2] or "").strip() or None,
+            "source_url_canonical": str(row[3] or "").strip() or None,
+            "source_url_original": str(row[4] or "").strip() or None,
+            "title": str(row[5] or "").strip() or None,
+            "creator_name": str(row[6] or "").strip() or None,
+            "description_raw": str(row[7] or "").strip() or None,
+            "thumbnail_url": str(row[8] or "").strip() or None,
+            "media_manifest_json": media_manifest_json if isinstance(media_manifest_json, list) else [],
+            "file_manifest_json": file_manifest_json if isinstance(file_manifest_json, list) else [],
+            "snapshot_json": snapshot_json if isinstance(snapshot_json, dict) else {},
+        }
+
+    return [by_id[record_id] for record_id in record_ids if record_id in by_id]
+
+
+def _sanitize_source_description(value: Any) -> str | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    text_value = re.sub(r"<br\s*/?>", "\n", raw_value, flags=re.IGNORECASE)
+    text_value = re.sub(r"</p\s*>", "\n\n", text_value, flags=re.IGNORECASE)
+    text_value = re.sub(r"<[^>]+>", " ", text_value)
+    text_value = html_module.unescape(text_value)
+    text_value = text_value.replace("\r\n", "\n").replace("\r", "\n")
+    text_value = re.sub(r"[ \t]+", " ", text_value)
+    text_value = re.sub(r"\n{3,}", "\n\n", text_value)
+    text_value = "\n".join(line.strip() for line in text_value.split("\n"))
+    text_value = text_value.strip()
+    return text_value or None
+
+
+def _makerworld_prediction_summary(source_record: dict[str, Any]) -> list[dict[str, Any]]:
+    snapshot = source_record.get("snapshot_json") if isinstance(source_record, dict) else {}
+    if not isinstance(snapshot, dict):
+        return []
+    instances = snapshot.get("instances") if isinstance(snapshot.get("instances"), list) else []
+    summaries: list[dict[str, Any]] = []
+    for instance in instances:
+        if not isinstance(instance, dict):
+            continue
+        prediction_value = instance.get("prediction")
+        extention = instance.get("extention") if isinstance(instance.get("extention"), dict) else {}
+        model_info = extention.get("modelInfo") if isinstance(extention.get("modelInfo"), dict) else {}
+        prediction = prediction_value if isinstance(prediction_value, (dict, int, float, str)) else {}
+        plates = instance.get("plates") if isinstance(instance.get("plates"), list) else []
+        if not plates and isinstance(model_info.get("plates"), list):
+            plates = model_info.get("plates")
+        plate_summaries: list[dict[str, Any]] = []
+        for plate in plates:
+            if not isinstance(plate, dict):
+                continue
+            plate_prediction = plate.get("prediction")
+            if plate_prediction in ({}, [], None, ""):
+                continue
+            plate_summaries.append(
+                {
+                    "plate_id": plate.get("plateId") or plate.get("id"),
+                    "prediction": plate_prediction,
+                }
+            )
+        summaries.append(
+            {
+                "instance_id": instance.get("id"),
+                "profile_id": instance.get("profileId"),
+                "title": instance.get("title"),
+                "prediction": prediction,
+                "plate_predictions": plate_summaries,
+            }
+        )
+    return summaries
+
+
+def _source_intake_publish_context(
+    *,
+    db_path: Path,
+    source_entries: list[dict[str, Any]] | None,
+    destination_plan: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    source_records = _read_source_intake_records(
+        db_path=db_path,
+        record_ids=_source_record_ids_from_entries(source_entries),
+    )
+    makerworld_record = next(
+        (
+            record for record in source_records
+            if str(record.get("provider_id") or "").strip().lower() == "makerworld"
+        ),
+        None,
+    )
+    if makerworld_record is None:
+        return dict(destination_plan), None
+
+    enriched_plan = dict(destination_plan)
+    if not str(enriched_plan.get("model_name") or "").strip():
+        enriched_plan["model_name"] = makerworld_record.get("title") or enriched_plan.get("model_name")
+    if not str(enriched_plan.get("description") or "").strip():
+        enriched_plan["description"] = _sanitize_source_description(makerworld_record.get("description_raw"))
+    if not str(enriched_plan.get("creator_name") or "").strip():
+        enriched_plan["creator_name"] = makerworld_record.get("creator_name")
+    source_origin = str(enriched_plan.get("source_origin") or "").strip().lower()
+    if not source_origin or source_origin == "intake_queue":
+        enriched_plan["source_origin"] = "makerworld"
+    source_origin_url = str(enriched_plan.get("source_origin_url") or "").strip()
+    if not source_origin_url or source_origin_url.startswith("intake://uploads/"):
+        enriched_plan["source_origin_url"] = (
+            makerworld_record.get("source_url_canonical")
+            or makerworld_record.get("source_url_original")
+            or source_origin_url
+        )
+    if not isinstance(enriched_plan.get("tags"), list) or not enriched_plan.get("tags"):
+        snapshot = makerworld_record.get("snapshot_json") if isinstance(makerworld_record.get("snapshot_json"), dict) else {}
+        raw_tags = snapshot.get("tags") if isinstance(snapshot.get("tags"), list) else []
+        next_tags: list[str] = []
+        seen_tags: set[str] = set()
+        for raw_tag in raw_tags:
+            if isinstance(raw_tag, dict):
+                tag_name = str(raw_tag.get("name") or "").strip()
+            else:
+                tag_name = str(raw_tag or "").strip()
+            key = tag_name.lower()
+            if not tag_name or key in seen_tags:
+                continue
+            seen_tags.add(key)
+            next_tags.append(tag_name)
+        if next_tags:
+            enriched_plan["tags"] = next_tags
+
+    source_context = {
+        "provider_id": "makerworld",
+        "source_record_id": makerworld_record.get("id"),
+        "source_model_id": makerworld_record.get("source_model_id"),
+        "canonical_url": makerworld_record.get("source_url_canonical") or makerworld_record.get("source_url_original"),
+        "original_url": makerworld_record.get("source_url_original") or makerworld_record.get("source_url_canonical"),
+        "creator_name": makerworld_record.get("creator_name"),
+        "thumbnail_url": makerworld_record.get("thumbnail_url"),
+        "image_urls": [
+            str(item.get("url") or "").strip()
+            for item in (makerworld_record.get("media_manifest_json") or [])
+            if isinstance(item, dict) and str(item.get("url") or "").strip()
+        ],
+        "description_raw": makerworld_record.get("description_raw"),
+        "description_text": _sanitize_source_description(makerworld_record.get("description_raw")),
+        "prediction_summary": _makerworld_prediction_summary(makerworld_record),
+    }
+    return enriched_plan, source_context
+
+
 def _publish_group_to_local_destination(
     *,
     state: AppState,
@@ -1001,6 +1202,12 @@ def _publish_group_to_local_destination(
     if not group_files:
         return None, [], []
 
+    destination_plan, source_publish_context = _source_intake_publish_context(
+        db_path=state.settings.db_path,
+        source_entries=source_entries,
+        destination_plan=destination_plan,
+    )
+
     requested_model_ref = str(destination_plan.get("model_ref") or destination_plan.get("local_model_id") or "").strip()
     requested_model_name = str(destination_plan.get("model_name") or group.get("title") or "").strip()
     requested_description = str(destination_plan.get("description") or "").strip()
@@ -1011,6 +1218,9 @@ def _publish_group_to_local_destination(
     requested_source_origin = str(destination_plan.get("source_origin") or "intake_queue").strip() or "intake_queue"
     requested_source_origin_url = str(destination_plan.get("source_origin_url") or f"intake://uploads/{upload_id}").strip()
     requested_preview_source_path = str(destination_plan.get("preview_source_path") or "").strip()
+    requested_preview_image_url = str(destination_plan.get("preview_image_url") or "").strip() or None
+    if requested_preview_image_url is None and isinstance(source_publish_context, dict):
+        requested_preview_image_url = str(source_publish_context.get("thumbnail_url") or "").strip() or None
     group_title = str(group.get("title") or requested_model_name or "Working Group").strip() or "Working Group"
     preserve_folder_structure = _coerce_bool(group.get("preserve_folder_structure", True))
     grouping_strategy = str(group.get("strategy") or "none").strip() or "none"
@@ -1034,6 +1244,7 @@ def _publish_group_to_local_destination(
             tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             source_origin=requested_source_origin,
+            preview_image_url=requested_preview_image_url,
             source_origin_url=requested_source_origin_url or None,
         )
         created_model = True
@@ -1049,6 +1260,7 @@ def _publish_group_to_local_destination(
             tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
             source_origin=requested_source_origin,
+            preview_image_url=requested_preview_image_url,
             source_origin_url=requested_source_origin_url or None,
         )
 
@@ -1287,6 +1499,43 @@ def _publish_group_to_local_destination(
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_timestamp_summary", field_value=source_timestamp_summary)
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_imported_at", field_value=_bulk_utc_now_iso())
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="internal_notes", field_value=f"Imported from intake upload {upload_id}")
+    if isinstance(source_publish_context, dict):
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_capture_provider",
+            field_value=source_publish_context.get("provider_id"),
+        )
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_capture_record_id",
+            field_value=source_publish_context.get("source_record_id"),
+        )
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_capture_model_id",
+            field_value=source_publish_context.get("source_model_id"),
+        )
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_capture_image_urls",
+            field_value=source_publish_context.get("image_urls") or [],
+        )
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_description_raw",
+            field_value=source_publish_context.get("description_raw"),
+        )
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="source_prediction_summary",
+            field_value=source_publish_context.get("prediction_summary") or [],
+        )
 
     # --- Auto-extract 3MF source metadata (best-effort) ---
     extraction_log = _auto_extract_3mf_metadata(
