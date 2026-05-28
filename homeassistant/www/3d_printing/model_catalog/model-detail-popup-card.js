@@ -86,6 +86,7 @@ class ModelDetailPopupCard extends HTMLElement {
       modelName: '',
       description: '',
       collectionMemberships: [],
+      projectMemberships: [],
     };
     this._queueDialogController = new UnifiedQueueDialogController(this, {
       loadSourceDetail: this._loadQueueDialogSourceDetail.bind(this),
@@ -144,6 +145,17 @@ class ModelDetailPopupCard extends HTMLElement {
     this._collectionEditFeedbackTimer = null;
     this._collectionMembershipStaleIds = [];
     this._collectionCreateBusy = false;
+    this._projectPickerOpen = false;
+    this._projectSearchQuery = '';
+    this._projectSearchSelectionStart = null;
+    this._projectSearchSelectionEnd = null;
+    this._projectPickerHighlightIndex = 0;
+    this._knownProjects = [];
+    this._allProjectsFetched = false;
+    this._projectEditFeedback = null;
+    this._projectEditFeedbackTimer = null;
+    this._projectMembershipStaleIds = [];
+    this._projectCreateBusy = false;
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -189,6 +201,15 @@ class ModelDetailPopupCard extends HTMLElement {
       this._clearCollectionEditFeedbackTimer();
       this._collectionMembershipStaleIds = [];
       this._collectionCreateBusy = false;
+      this._projectPickerOpen = false;
+      this._projectSearchQuery = '';
+      this._projectPickerHighlightIndex = 0;
+      this._knownProjects = [];
+      this._allProjectsFetched = false;
+      this._projectEditFeedback = null;
+      this._clearProjectEditFeedbackTimer();
+      this._projectMembershipStaleIds = [];
+      this._projectCreateBusy = false;
       this._ideaMetaDraft = {
         notes: '',
         externalLinksText: '',
@@ -198,6 +219,7 @@ class ModelDetailPopupCard extends HTMLElement {
         modelName: '',
         description: '',
         collectionMemberships: [],
+        projectMemberships: [],
       };
     }
     var requestedInitialTab = String(this._config.initial_tab || "details").trim().toLowerCase();
@@ -259,6 +281,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
     this._clearCollectionEditFeedbackTimer();
+    this._clearProjectEditFeedbackTimer();
     this._destroyOverlayRoot();
   }
 
@@ -471,15 +494,41 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    if (target.closest('[data-action="undo-project-change"]')) {
+      event.preventDefault();
+      this._undoLastProjectMembershipChange();
+      return;
+    }
+
     if (target.closest('[data-action="dismiss-collection-feedback"]')) {
       event.preventDefault();
       this._dismissCollectionEditFeedback();
       return;
     }
 
+    if (target.closest('[data-action="dismiss-project-feedback"]')) {
+      event.preventDefault();
+      this._dismissProjectEditFeedback();
+      return;
+    }
+
     if (target.closest('[data-action="refresh-collections"]')) {
       event.preventDefault();
       this._refreshCollectionEditorCollections({ showFeedback: true });
+      return;
+    }
+
+    if (target.closest('[data-action="refresh-projects"]')) {
+      event.preventDefault();
+      this._refreshProjectEditorProjects({ showFeedback: true });
+      return;
+    }
+
+    if (this._projectPickerOpen && !target.closest('.project-picker-wrap')) {
+      this._projectPickerOpen = false;
+      this._projectSearchQuery = '';
+      this._projectPickerHighlightIndex = 0;
+      this._render();
       return;
     }
 
@@ -521,6 +570,16 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const projectRemoveBtn = target.closest('[data-action="remove-project"]');
+    if (projectRemoveBtn) {
+      event.preventDefault();
+      const projectId = projectRemoveBtn.dataset.projectId;
+      if (projectId) {
+        this._handleProjectRemove(projectId);
+      }
+      return;
+    }
+
     // Tag picker toggle
     if (target.closest('[data-action="toggle-tag-picker"]')) {
       event.preventDefault();
@@ -547,8 +606,19 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('[data-action="toggle-collection-picker"]')) {
       event.preventDefault();
       this._collectionPickerOpen = !this._collectionPickerOpen;
+      this._projectPickerOpen = false;
       this._collectionSearchQuery = '';
       this._collectionPickerHighlightIndex = 0;
+      this._render();
+      return;
+    }
+
+    if (target.closest('[data-action="toggle-project-picker"]')) {
+      event.preventDefault();
+      this._projectPickerOpen = !this._projectPickerOpen;
+      this._collectionPickerOpen = false;
+      this._projectSearchQuery = '';
+      this._projectPickerHighlightIndex = 0;
       this._render();
       return;
     }
@@ -570,6 +640,14 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const projectOpt = target.closest('[data-action="add-project"]');
+    if (projectOpt) {
+      event.preventDefault();
+      const projectId = projectOpt.dataset.projectId;
+      if (projectId) this._handleProjectAdd(projectId);
+      return;
+    }
+
     // Tag picker "Create new" click
     if (target.closest('[data-action="create-tag"]')) {
       event.preventDefault();
@@ -581,6 +659,12 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest('[data-action="create-collection"]')) {
       event.preventDefault();
       this._handleCollectionCreate();
+      return;
+    }
+
+    if (target.closest('[data-action="create-project"]')) {
+      event.preventDefault();
+      this._handleProjectCreate();
       return;
     }
 
@@ -1126,6 +1210,23 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _handleInput(event) {
     const target = event.target;
+    if (target instanceof HTMLInputElement && target.dataset.input === 'project-search') {
+      this._projectSearchQuery = String(target.value || '');
+      this._projectSearchSelectionStart = Number.isFinite(target.selectionStart) ? target.selectionStart : this._projectSearchQuery.length;
+      this._projectSearchSelectionEnd = Number.isFinite(target.selectionEnd) ? target.selectionEnd : this._projectSearchSelectionStart;
+      this._projectPickerHighlightIndex = 0;
+      const pickerDd = this.shadowRoot.querySelector('.project-picker-wrap .picker-dd');
+      if (pickerDd) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = this._renderProjectPicker(this._selectedProjectMemberships());
+        const nextDd = tmp.firstElementChild;
+        if (nextDd) {
+          pickerDd.replaceWith(nextDd);
+          this._focusProjectSearchBox(nextDd);
+        }
+      }
+      return;
+    }
     if (target instanceof HTMLInputElement && target.dataset.input === 'collection-search') {
       this._collectionSearchQuery = String(target.value || '');
       this._collectionSearchSelectionStart = Number.isFinite(target.selectionStart) ? target.selectionStart : this._collectionSearchQuery.length;
@@ -1218,6 +1319,31 @@ class ModelDetailPopupCard extends HTMLElement {
         : searchBox.value.length;
       const nextEnd = Number.isFinite(this._collectionSearchSelectionEnd)
         ? Math.max(nextStart, Math.min(this._collectionSearchSelectionEnd, searchBox.value.length))
+        : nextStart;
+      searchBox.setSelectionRange(nextStart, nextEnd);
+    });
+  }
+
+  _focusProjectSearchBox(scopeRoot) {
+    requestAnimationFrame(() => {
+      const root = scopeRoot && typeof scopeRoot.querySelector === 'function'
+        ? scopeRoot
+        : this.shadowRoot;
+      const searchBox = root && typeof root.querySelector === 'function'
+        ? root.querySelector('.search-box')
+        : null;
+      if (!(searchBox instanceof HTMLInputElement)) {
+        return;
+      }
+      searchBox.focus();
+      if (typeof searchBox.setSelectionRange !== 'function') {
+        return;
+      }
+      const nextStart = Number.isFinite(this._projectSearchSelectionStart)
+        ? Math.max(0, Math.min(this._projectSearchSelectionStart, searchBox.value.length))
+        : searchBox.value.length;
+      const nextEnd = Number.isFinite(this._projectSearchSelectionEnd)
+        ? Math.max(nextStart, Math.min(this._projectSearchSelectionEnd, searchBox.value.length))
         : nextStart;
       searchBox.setSelectionRange(nextStart, nextEnd);
     });
@@ -4671,11 +4797,16 @@ class ModelDetailPopupCard extends HTMLElement {
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
     const isIdea = this._getEntityType(model) === 'idea';
     const selectedCollections = this._selectedCollectionMemberships();
+    const selectedProjects = this._selectedProjectMemberships();
     const staleCollectionIds = Array.isArray(this._collectionMembershipStaleIds) ? this._collectionMembershipStaleIds : [];
+    const staleProjectIds = Array.isArray(this._projectMembershipStaleIds) ? this._projectMembershipStaleIds : [];
     const staleCollectionSet = new Set(staleCollectionIds);
+    const staleProjectSet = new Set(staleProjectIds);
     const collectionLabels = this._modelMetaEditOpen
       ? selectedCollections.map((item) => item.path || item.name || item.collection_id)
       : (Array.isArray(model.collection_names) ? model.collection_names : []);
+    const staticProjectMemberships = this._normalizeProjectRows(Array.isArray(model.projects) ? model.projects : []);
+    const projectRows = this._modelMetaEditOpen ? selectedProjects : staticProjectMemberships;
 
     return `
       <section class="card" data-slot="hero-right:summary">
@@ -4691,6 +4822,7 @@ class ModelDetailPopupCard extends HTMLElement {
         ${this._renderExtensionSlot('hero-right:summary', `
           <div class="summary">
             ${this._modelMetaEditOpen ? this._renderCollectionEditFeedback() : ''}
+            ${this._modelMetaEditOpen ? this._renderProjectEditFeedback() : ''}
             ${this._modelMetaEditOpen ? `
               <div class="summary-edit-grid">
                 <label>
@@ -4732,7 +4864,24 @@ class ModelDetailPopupCard extends HTMLElement {
               </div>
               ${this._modelMetaEditOpen && staleCollectionIds.length ? `<div class="meta-warning">${this._escapeHtml(staleCollectionIds.length === 1 ? 'One selected collection no longer exists. Refresh the collection list or remove the stale chip before saving.' : `${staleCollectionIds.length} selected collections no longer exist. Refresh the collection list or remove the stale chips before saving.`)}</div><div class="meta-warning-actions"><button class="action-button ghost small" data-action="refresh-collections" ${this._modelMetaLoading || this._modelMetaSaving ? 'disabled' : ''}>Refresh collections</button></div>` : ''}
             </div>
-            ${this._modelMetaLoading ? '<div class="meta">Loading collection memberships…</div>' : ''}
+            <div class="chip-group stack">
+              <span class="label">Projects</span>
+              <div class="chip-row">
+                ${projectRows.length
+                  ? projectRows.map((membership) => {
+                      const projectId = String(membership && membership.project_id || '').trim();
+                      const isStaleMembership = this._modelMetaEditOpen && staleProjectSet.has(projectId);
+                      return `<span class="tag-chip${isStaleMembership ? ' stale' : ''}">${this._escapeHtml(this._projectMembershipLabel(membership))}${isStaleMembership ? ' <span class="stale-note">Missing</span>' : ''}${this._modelMetaEditOpen ? ` <span class="x" data-action="remove-project" data-project-id="${this._escapeHtml(projectId)}" title="Remove project">✕</span>` : ''}</span>`;
+                    }).join('')
+                  : '<span class="summary-empty">No Project</span>'}
+                ${this._modelMetaEditOpen ? `<div class="project-picker-wrap picker-wrap">
+                  <button class="add-chip" data-action="toggle-project-picker" title="Add project">+ Project</button>
+                  ${this._projectPickerOpen ? this._renderProjectPicker(selectedProjects) : ''}
+                </div>` : ''}
+              </div>
+              ${this._modelMetaEditOpen && staleProjectIds.length ? `<div class="meta-warning">${this._escapeHtml(staleProjectIds.length === 1 ? 'One selected project no longer exists. Refresh the project list or remove the stale chip before saving.' : `${staleProjectIds.length} selected projects no longer exist. Refresh the project list or remove the stale chips before saving.`)}</div><div class="meta-warning-actions"><button class="action-button ghost small" data-action="refresh-projects" ${this._modelMetaLoading || this._modelMetaSaving ? 'disabled' : ''}>Refresh projects</button></div>` : ''}
+            </div>
+            ${this._modelMetaLoading ? '<div class="meta">Loading collection and project memberships…</div>' : ''}
             <div class="meta">${this._getEntityType(model) === 'idea' ? 'Idea entry: no model files or print history required yet.' : `Print history links: ${linkedCount} linked, ${candidateCount} candidates`}</div>
           </div>
         `)}
@@ -6889,29 +7038,47 @@ class ModelDetailPopupCard extends HTMLElement {
     this._collectionPickerOpen = false;
     this._collectionSearchQuery = '';
     this._collectionPickerHighlightIndex = 0;
+    this._projectPickerOpen = false;
+    this._projectSearchQuery = '';
+    this._projectPickerHighlightIndex = 0;
     this._modelMetaDraft = {
       modelName: String(model.name || ''),
       description: String(model.description || ''),
       collectionMemberships: [],
+      projectMemberships: [],
     };
     this._render();
     try {
-      const [collectionsResponse, membershipsResponse] = await Promise.all([
+      const [collectionsResponse, membershipsResponse, projectsResponse, projectMembershipsResponse] = await Promise.all([
         fetch(`${base}/api/collections`),
         fetch(`${base}/api/models/${encodeURIComponent(modelRef)}/collections`),
+        fetch(`${base}/api/projects?show_archived=true&limit=500`),
+        fetch(`${base}/api/models/${encodeURIComponent(modelRef)}/projects`),
       ]);
       const collectionsBody = await collectionsResponse.json().catch(() => ({}));
       const membershipsBody = await membershipsResponse.json().catch(() => ({}));
+      const projectsBody = await projectsResponse.json().catch(() => ({}));
+      const projectMembershipsBody = await projectMembershipsResponse.json().catch(() => ({}));
       if (!collectionsResponse.ok) {
         throw new Error(String(collectionsBody.error || `Collections load failed (HTTP ${collectionsResponse.status})`));
       }
       if (!membershipsResponse.ok) {
         throw new Error(String(membershipsBody.error || `Membership load failed (HTTP ${membershipsResponse.status})`));
       }
+      if (!projectsResponse.ok) {
+        throw new Error(String(projectsBody.error || `Projects load failed (HTTP ${projectsResponse.status})`));
+      }
+      if (!projectMembershipsResponse.ok) {
+        throw new Error(String(projectMembershipsBody.error || `Project membership load failed (HTTP ${projectMembershipsResponse.status})`));
+      }
       this._knownCollections = this._normalizeCollectionRows(Array.isArray(collectionsBody.items) ? collectionsBody.items : []);
       this._allCollectionsFetched = true;
       this._modelMetaDraft.collectionMemberships = this._normalizeCollectionRows(Array.isArray(membershipsBody.items) ? membershipsBody.items : []);
+      this._knownProjects = this._normalizeProjectRows(Array.isArray(projectsBody.projects) ? projectsBody.projects : []);
+      this._allProjectsFetched = true;
+      this._modelMetaDraft.projectMemberships = this._normalizeProjectRows(Array.isArray(projectMembershipsBody.items) ? projectMembershipsBody.items : []);
       this._syncCollectionMembershipStaleness();
+      this._syncProjectMembershipStaleness();
     } catch (error) {
       this._error = `Failed to load model editor: ${error}`;
     } finally {
@@ -6927,8 +7094,13 @@ class ModelDetailPopupCard extends HTMLElement {
     this._collectionPickerOpen = false;
     this._collectionSearchQuery = '';
     this._collectionPickerHighlightIndex = 0;
+    this._projectPickerOpen = false;
+    this._projectSearchQuery = '';
+    this._projectPickerHighlightIndex = 0;
     this._collectionMembershipStaleIds = [];
+    this._projectMembershipStaleIds = [];
     this._dismissCollectionEditFeedback();
+    this._dismissProjectEditFeedback();
   }
 
   _normalizeCollectionRows(rows) {
@@ -6968,6 +7140,28 @@ class ModelDetailPopupCard extends HTMLElement {
       : [];
   }
 
+  _normalizeProjectRows(rows) {
+    return Array.isArray(rows) ? rows.map((row) => {
+      const project = row && typeof row.project === 'object' ? row.project : row;
+      const projectId = String(project && project.id != null ? project.id : row && row.project_id != null ? row.project_id : '').trim();
+      return {
+        project_id: projectId,
+        title: String(project && project.title || row && row.title || '').trim(),
+        status: String(project && project.status || row && row.status || '').trim().toLowerCase(),
+        project_type: String(project && project.project_type || row && row.project_type || '').trim().toLowerCase(),
+        origin: String(project && project.origin || row && row.origin || '').trim().toLowerCase(),
+        archived_at: String(project && project.archived_at || row && row.archived_at || '').trim() || null,
+        member_state: String(row && row.member_state || '').trim().toLowerCase() || 'candidate',
+      };
+    }).filter((row) => row.project_id) : [];
+  }
+
+  _selectedProjectMemberships() {
+    return this._modelMetaDraft && Array.isArray(this._modelMetaDraft.projectMemberships)
+      ? this._modelMetaDraft.projectMemberships
+      : [];
+  }
+
   _clearCollectionEditFeedbackTimer() {
     if (this._collectionEditFeedbackTimer) {
       window.clearTimeout(this._collectionEditFeedbackTimer);
@@ -6995,6 +7189,33 @@ class ModelDetailPopupCard extends HTMLElement {
     this._render();
   }
 
+  _clearProjectEditFeedbackTimer() {
+    if (this._projectEditFeedbackTimer) {
+      window.clearTimeout(this._projectEditFeedbackTimer);
+      this._projectEditFeedbackTimer = null;
+    }
+  }
+
+  _showProjectEditFeedback(feedback, options) {
+    var settings = options && typeof options === 'object' ? options : {};
+    this._clearProjectEditFeedbackTimer();
+    this._projectEditFeedback = feedback && typeof feedback === 'object' ? Object.assign({}, feedback) : null;
+    if (this._projectEditFeedback && settings.autoDismiss !== false) {
+      this._projectEditFeedbackTimer = window.setTimeout(function () {
+        this._projectEditFeedbackTimer = null;
+        this._projectEditFeedback = null;
+        this._render();
+      }.bind(this), Math.max(1000, Number(settings.timeoutMs || 5000) || 5000));
+    }
+    this._render();
+  }
+
+  _dismissProjectEditFeedback() {
+    this._clearProjectEditFeedbackTimer();
+    this._projectEditFeedback = null;
+    this._render();
+  }
+
   _computeStaleCollectionMembershipIds(selectedRows, knownCollections) {
     var knownIds = new Set((Array.isArray(knownCollections) ? knownCollections : []).map(function (row) {
       return String(row && row.collection_id || '').trim().toLowerCase();
@@ -7009,6 +7230,22 @@ class ModelDetailPopupCard extends HTMLElement {
   _syncCollectionMembershipStaleness() {
     this._collectionMembershipStaleIds = this._computeStaleCollectionMembershipIds(this._selectedCollectionMemberships(), this._knownCollections);
     return this._collectionMembershipStaleIds.slice(0);
+  }
+
+  _computeStaleProjectMembershipIds(selectedRows, knownProjects) {
+    var knownIds = new Set((Array.isArray(knownProjects) ? knownProjects : []).map(function (row) {
+      return String(row && row.project_id || '').trim();
+    }).filter(Boolean));
+    return (Array.isArray(selectedRows) ? selectedRows : []).map(function (row) {
+      return String(row && row.project_id || '').trim();
+    }).filter(function (projectId) {
+      return projectId && !knownIds.has(projectId);
+    });
+  }
+
+  _syncProjectMembershipStaleness() {
+    this._projectMembershipStaleIds = this._computeStaleProjectMembershipIds(this._selectedProjectMemberships(), this._knownProjects);
+    return this._projectMembershipStaleIds.slice(0);
   }
 
   async _refreshCollectionEditorCollections(options) {
@@ -7042,6 +7279,37 @@ class ModelDetailPopupCard extends HTMLElement {
     return this._knownCollections;
   }
 
+  async _refreshProjectEditorProjects(options) {
+    var settings = options && typeof options === 'object' ? options : {};
+    var base = String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+    if (!base) {
+      return [];
+    }
+    var response = await fetch(base + '/api/projects?show_archived=true&limit=500');
+    var body = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      throw new Error(String(body.error || ('Projects load failed (HTTP ' + response.status + ')')));
+    }
+    this._knownProjects = this._normalizeProjectRows(Array.isArray(body.projects) ? body.projects : []);
+    this._allProjectsFetched = true;
+    var staleIds = this._syncProjectMembershipStaleness();
+    if (settings.showFeedback) {
+      if (staleIds.length) {
+        this._showProjectEditFeedback({
+          kind: 'warning',
+          message: staleIds.length === 1
+            ? 'One selected project no longer exists. Remove the stale chip before saving.'
+            : staleIds.length + ' selected projects no longer exist. Remove the stale chips before saving.',
+        }, { autoDismiss: false });
+      } else {
+        this._showProjectEditFeedback({ kind: 'info', message: 'Project list refreshed.' }, { timeoutMs: 2500 });
+      }
+    } else if (settings.render !== false) {
+      this._render();
+    }
+    return this._knownProjects;
+  }
+
   _undoLastCollectionMembershipChange() {
     var feedback = this._collectionEditFeedback && typeof this._collectionEditFeedback === 'object' ? this._collectionEditFeedback : null;
     var undo = feedback && feedback.undo && typeof feedback.undo === 'object' ? feedback.undo : null;
@@ -7069,6 +7337,33 @@ class ModelDetailPopupCard extends HTMLElement {
     this._showCollectionEditFeedback({ kind: 'info', message: 'Collection change undone.' }, { timeoutMs: 2500 });
   }
 
+  _undoLastProjectMembershipChange() {
+    var feedback = this._projectEditFeedback && typeof this._projectEditFeedback === 'object' ? this._projectEditFeedback : null;
+    var undo = feedback && feedback.undo && typeof feedback.undo === 'object' ? feedback.undo : null;
+    if (!undo || !undo.projectId) {
+      return;
+    }
+    var current = this._selectedProjectMemberships().slice(0);
+    if (undo.type === 'add') {
+      this._modelMetaDraft.projectMemberships = current.filter(function (row) {
+        return String(row && row.project_id || '').trim() !== undo.projectId;
+      });
+    } else if (undo.type === 'remove') {
+      var exists = current.some(function (row) {
+        return String(row && row.project_id || '').trim() === undo.projectId;
+      });
+      if (!exists && undo.row) {
+        var insertIndex = Math.max(0, Math.min(Number(undo.index || 0) || 0, current.length));
+        current.splice(insertIndex, 0, undo.row);
+      }
+      this._modelMetaDraft.projectMemberships = current;
+    } else {
+      return;
+    }
+    this._syncProjectMembershipStaleness();
+    this._showProjectEditFeedback({ kind: 'info', message: 'Project change undone.' }, { timeoutMs: 2500 });
+  }
+
   _renderCollectionEditFeedback() {
     var feedback = this._collectionEditFeedback && typeof this._collectionEditFeedback === 'object' ? this._collectionEditFeedback : null;
     var canUndo = !!(feedback && feedback.undo && feedback.undo.collectionId);
@@ -7083,6 +7378,88 @@ class ModelDetailPopupCard extends HTMLElement {
       + '    <button class="action-button ghost small" data-action="dismiss-collection-feedback">Dismiss</button>'
       + '  </div>'
       + '</div>';
+  }
+
+  _renderProjectEditFeedback() {
+    var feedback = this._projectEditFeedback && typeof this._projectEditFeedback === 'object' ? this._projectEditFeedback : null;
+    var canUndo = !!(feedback && feedback.undo && feedback.undo.projectId);
+    if (!feedback || !feedback.message) {
+      return '';
+    }
+    return ''
+      + '<div class="collection-edit-feedback ' + this._escapeHtml(String(feedback.kind || 'info')) + '" role="status" aria-live="polite">'
+      + '  <div class="collection-edit-feedback-message">' + this._escapeHtml(String(feedback.message || '')) + '</div>'
+      + '  <div class="collection-edit-feedback-actions">'
+      + (canUndo ? '    <button class="action-button ghost small" data-action="undo-project-change">Undo</button>' : '')
+      + '    <button class="action-button ghost small" data-action="dismiss-project-feedback">Dismiss</button>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  _projectMembershipLabel(row) {
+    return String(row && row.title || row && row.project_id || 'Project').trim();
+  }
+
+  _projectPickerMeta(row) {
+    var details = [];
+    if (row && row.status) {
+      details.push(String(row.status).replace(/_/g, ' '));
+    }
+    if (row && row.project_type) {
+      details.push(String(row.project_type).replace(/_/g, ' '));
+    }
+    return details.join(' · ');
+  }
+
+  _buildProjectPickerState(selectedRows) {
+    const selectedIds = new Set((Array.isArray(selectedRows) ? selectedRows : []).map((row) => String(row.project_id || '').trim()));
+    const query = String(this._projectSearchQuery || '').trim();
+    const queryNormalized = query.toLowerCase();
+    const suggestions = (Array.isArray(this._knownProjects) ? this._knownProjects : [])
+      .filter((row) => !selectedIds.has(String(row.project_id || '').trim()))
+      .filter((row) => !(row.archived_at || '') && String(row.status || '') !== 'archived')
+      .filter((row) => {
+        if (!queryNormalized) {
+          return true;
+        }
+        return String(row.title || '').toLowerCase().includes(queryNormalized)
+          || String(row.status || '').toLowerCase().includes(queryNormalized)
+          || String(row.project_type || '').toLowerCase().includes(queryNormalized)
+          || String(row.origin || '').toLowerCase().includes(queryNormalized);
+      })
+      .slice(0, 8)
+      .map((row) => ({
+        type: 'project',
+        value: row.project_id,
+        label: this._projectMembershipLabel(row),
+        meta: this._projectPickerMeta(row),
+      }));
+    const exactMatch = (Array.isArray(this._knownProjects) ? this._knownProjects : []).some((row) => String(row.title || '').trim().toLowerCase() === queryNormalized);
+    const options = suggestions.slice(0);
+    if (query && !exactMatch) {
+      options.push({ type: 'create', value: query, label: query, meta: 'new project' });
+    }
+    return { options };
+  }
+
+  _renderProjectPicker(selectedRows) {
+    const pickerState = this._buildProjectPickerState(selectedRows);
+    const options = pickerState.options;
+    if (this._projectPickerHighlightIndex < 0 || this._projectPickerHighlightIndex >= options.length) {
+      this._projectPickerHighlightIndex = options.length ? 0 : -1;
+    }
+    return `
+      <div class="picker-dd">
+        <input class="search-box" type="text" placeholder="Search or create project…" data-input="project-search" value="${this._escapeHtml(this._projectSearchQuery)}" />
+        ${options.map((option, index) => {
+          const selectedClass = index === this._projectPickerHighlightIndex ? ' selected' : '';
+          if (option.type === 'create') {
+            return `<div class="create-new${selectedClass}" data-action="create-project">+ Create "${this._escapeHtml(option.value)}"</div>`;
+          }
+          return `<div class="opt${selectedClass}" data-action="add-project" data-project-id="${this._escapeHtml(option.value)}">${this._escapeHtml(option.label)}${option.meta ? `<span class="path-meta">${this._escapeHtml(option.meta)}</span>` : ''}</div>`;
+        }).join('')}
+      </div>
+    `;
   }
 
   _buildCollectionPickerState(selectedRows) {
@@ -7150,6 +7527,28 @@ class ModelDetailPopupCard extends HTMLElement {
     });
   }
 
+  _handleProjectRemove(projectId) {
+    const normalizedId = String(projectId || '').trim();
+    const current = this._selectedProjectMemberships();
+    const removedIndex = current.findIndex((row) => String(row && row.project_id || '').trim() === normalizedId);
+    if (removedIndex === -1) {
+      return;
+    }
+    const removedRow = current[removedIndex];
+    this._modelMetaDraft.projectMemberships = current.filter((row) => String(row.project_id || '').trim() !== normalizedId);
+    this._syncProjectMembershipStaleness();
+    this._showProjectEditFeedback({
+      kind: 'info',
+      message: `Removed ${this._projectMembershipLabel(removedRow)}.`,
+      undo: {
+        type: 'remove',
+        projectId: normalizedId,
+        row: removedRow,
+        index: removedIndex,
+      },
+    });
+  }
+
   _handleCollectionAdd(collectionId) {
     const normalizedId = String(collectionId || '').trim().toLowerCase();
     const existingIds = new Set(this._selectedCollectionMemberships().map((row) => String(row.collection_id || '').trim().toLowerCase()));
@@ -7174,6 +7573,37 @@ class ModelDetailPopupCard extends HTMLElement {
       undo: {
         type: 'add',
         collectionId: normalizedId,
+        row: match,
+      },
+    });
+  }
+
+  _handleProjectAdd(projectId) {
+    const normalizedId = String(projectId || '').trim();
+    const existingIds = new Set(this._selectedProjectMemberships().map((row) => String(row.project_id || '').trim()));
+    if (!normalizedId || existingIds.has(normalizedId)) {
+      if (normalizedId) {
+        this._showProjectEditFeedback({ kind: 'info', message: 'That project is already selected.' }, { timeoutMs: 2500 });
+      }
+      return;
+    }
+    const match = (Array.isArray(this._knownProjects) ? this._knownProjects : []).find((row) => String(row.project_id || '').trim() === normalizedId);
+    if (!match) {
+      this._showProjectEditFeedback({ kind: 'warning', message: 'That project is no longer available. Refresh the project list and try again.' }, { autoDismiss: false });
+      return;
+    }
+    this._modelMetaDraft.projectMemberships = this._selectedProjectMemberships().concat([
+      Object.assign({}, match, { member_state: String(match.member_state || 'candidate').trim().toLowerCase() || 'candidate' }),
+    ]);
+    this._projectSearchQuery = '';
+    this._projectPickerHighlightIndex = 0;
+    this._syncProjectMembershipStaleness();
+    this._showProjectEditFeedback({
+      kind: 'info',
+      message: `Added ${this._projectMembershipLabel(match)}.`,
+      undo: {
+        type: 'add',
+        projectId: normalizedId,
         row: match,
       },
     });
@@ -7227,6 +7657,42 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  async _handleProjectCreate() {
+    if (this._projectCreateBusy) {
+      return;
+    }
+    const rawQuery = String(this._projectSearchQuery || '').trim();
+    const base = String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+    if (!rawQuery || !base) {
+      return;
+    }
+    this._projectCreateBusy = true;
+    this._render();
+    try {
+      const response = await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: rawQuery }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.success === false) {
+        throw new Error(String(body.error || body.message || `Project create failed (HTTP ${response.status})`));
+      }
+      const createdProject = body && body.project ? body.project : null;
+      if (createdProject) {
+        this._knownProjects = this._normalizeProjectRows(this._knownProjects.concat([createdProject]));
+        this._allProjectsFetched = true;
+        this._handleProjectAdd(createdProject.id);
+      }
+      this._projectPickerOpen = true;
+    } catch (error) {
+      this._error = `Failed to create project: ${error}`;
+      this._render();
+    } finally {
+      this._projectCreateBusy = false;
+    }
+  }
+
   async _saveModelMetadataEdits() {
     if (this._modelMetaSaving || this._modelMetaLoading) {
       return;
@@ -7252,6 +7718,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._render();
     try {
       await this._refreshCollectionEditorCollections({ showFeedback: false, render: false });
+      await this._refreshProjectEditorProjects({ showFeedback: false, render: false });
       const staleIds = this._syncCollectionMembershipStaleness();
       if (staleIds.length) {
         this._modelMetaSaving = false;
@@ -7260,6 +7727,17 @@ class ModelDetailPopupCard extends HTMLElement {
           message: staleIds.length === 1
             ? 'One selected collection no longer exists. Remove the stale chip before saving.'
             : `${staleIds.length} selected collections no longer exist. Remove the stale chips before saving.`,
+        }, { autoDismiss: false });
+        return;
+      }
+      const staleProjectIds = this._syncProjectMembershipStaleness();
+      if (staleProjectIds.length) {
+        this._modelMetaSaving = false;
+        this._showProjectEditFeedback({
+          kind: 'warning',
+          message: staleProjectIds.length === 1
+            ? 'One selected project no longer exists. Remove the stale chip before saving.'
+            : `${staleProjectIds.length} selected projects no longer exist. Remove the stale chips before saving.`,
         }, { autoDismiss: false });
         return;
       }
@@ -7281,14 +7759,33 @@ class ModelDetailPopupCard extends HTMLElement {
       if (!collectionResponse.ok || collectionBody.success === false) {
         throw new Error(String(collectionBody.error || `Collection update failed (HTTP ${collectionResponse.status})`));
       }
+      const projectResponse = await fetch(`${base}/api/models/${encodeURIComponent(modelRef)}/projects`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_memberships: this._selectedProjectMemberships().map((row) => ({
+            project_id: Number(row.project_id),
+            member_state: String(row.member_state || 'candidate').trim().toLowerCase() || 'candidate',
+          })).filter((row) => Number.isFinite(row.project_id) && row.project_id > 0),
+        }),
+      });
+      const projectBody = await projectResponse.json().catch(() => ({}));
+      if (!projectResponse.ok || projectBody.success === false) {
+        throw new Error(String(projectBody.error || `Project update failed (HTTP ${projectResponse.status})`));
+      }
       await this._loadModelDetail({ silent: true });
       this._modelMetaSaving = false;
       this._modelMetaEditOpen = false;
       this._collectionPickerOpen = false;
       this._collectionSearchQuery = '';
       this._collectionPickerHighlightIndex = 0;
+      this._projectPickerOpen = false;
+      this._projectSearchQuery = '';
+      this._projectPickerHighlightIndex = 0;
       this._collectionMembershipStaleIds = [];
+      this._projectMembershipStaleIds = [];
       this._dismissCollectionEditFeedback();
+      this._dismissProjectEditFeedback();
       this._notifyBrowserDetailChanged();
       this._render();
     } catch (error) {
@@ -7910,7 +8407,68 @@ class ModelDetailPopupCard extends HTMLElement {
     return false;
   }
 
+  _commitProjectPickerSelection() {
+    const options = this._buildProjectPickerState(this._selectedProjectMemberships()).options;
+    const selected = options[this._projectPickerHighlightIndex] || null;
+    if (selected && selected.type === 'project' && selected.value) {
+      this._handleProjectAdd(selected.value);
+      return true;
+    }
+    if (selected && selected.type === 'create') {
+      this._handleProjectCreate();
+      return true;
+    }
+    if (this._projectSearchQuery.trim()) {
+      this._handleProjectCreate();
+      return true;
+    }
+    return false;
+  }
+
   _handleKeydown(event) {
+    if (this._projectPickerOpen) {
+      const rawTarget = event.composedPath ? event.composedPath()[0] : event.target;
+      const isProjectSearch = rawTarget instanceof HTMLInputElement && rawTarget.dataset && rawTarget.dataset.input === 'project-search';
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') && isProjectSearch) {
+        const options = this._buildProjectPickerState(this._selectedProjectMemberships()).options;
+        if (options.length) {
+          event.preventDefault();
+          this._projectSearchSelectionStart = Number.isFinite(rawTarget.selectionStart) ? rawTarget.selectionStart : this._projectSearchQuery.length;
+          this._projectSearchSelectionEnd = Number.isFinite(rawTarget.selectionEnd) ? rawTarget.selectionEnd : this._projectSearchSelectionStart;
+          if (event.key === 'ArrowDown') {
+            this._projectPickerHighlightIndex = Math.min(this._projectPickerHighlightIndex + 1, options.length - 1);
+          } else if (event.key === 'ArrowUp') {
+            this._projectPickerHighlightIndex = Math.max(this._projectPickerHighlightIndex - 1, 0);
+          } else if (event.key === 'Home') {
+            this._projectPickerHighlightIndex = 0;
+          } else if (event.key === 'End') {
+            this._projectPickerHighlightIndex = options.length - 1;
+          }
+          this._render();
+          this._focusProjectSearchBox();
+        }
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this._projectPickerOpen = false;
+        this._projectSearchQuery = '';
+        this._projectSearchSelectionStart = null;
+        this._projectSearchSelectionEnd = null;
+        this._projectPickerHighlightIndex = 0;
+        this._render();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && isProjectSearch) {
+        const committed = this._commitProjectPickerSelection();
+        if (!committed && event.key === 'Tab') {
+          return;
+        }
+        event.preventDefault();
+        return;
+      }
+    }
+
     if (this._collectionPickerOpen) {
       const rawTarget = event.composedPath ? event.composedPath()[0] : event.target;
       const isCollectionSearch = rawTarget instanceof HTMLInputElement && rawTarget.dataset && rawTarget.dataset.input === 'collection-search';
