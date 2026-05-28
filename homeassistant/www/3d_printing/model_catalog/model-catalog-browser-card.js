@@ -118,6 +118,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       error: "",
       submitting: false,
     };
+    this._projectActionDialog = {
+      open: false,
+      mode: "",
+      projectId: "",
+      title: "",
+      description: "",
+      notes: "",
+      status: "evaluating",
+      projectType: "",
+      origin: "",
+      createdBy: "",
+      error: "",
+      submitting: false,
+    };
     this._bulkTagDialog = {
       open: false,
       addTags: "",
@@ -133,6 +147,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._collectionActionFeedback = null;
     this._collectionActionFeedbackTimer = null;
     this._focusCollectionActionPrimaryAfterRender = false;
+    this._focusProjectActionPrimaryAfterRender = false;
     this._perfSamples = [];
     this._lastLoadPerf = null;
     this._lastRenderPerf = null;
@@ -2068,6 +2083,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       return;
     }
+    if (target && target.classList && target.classList.contains("project-action-input")) {
+      var projectField = String(target.getAttribute("data-project-field") || "").trim();
+      if (!projectField || !this._projectActionDialog || !Object.prototype.hasOwnProperty.call(this._projectActionDialog, projectField)) {
+        return;
+      }
+      this._projectActionDialog[projectField] = String(target.value || "");
+      if (this._projectActionDialog.error) {
+        this._projectActionDialog.error = "";
+      }
+      return;
+    }
     if (target && target.classList && target.classList.contains("idea-create-input")) {
       var field = String(target.getAttribute("data-idea-field") || "").trim();
       if (field && Object.prototype.hasOwnProperty.call(this._ideaCreateDraft, field)) {
@@ -2097,6 +2123,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._collectionActionDialog.selectedParentId = String(target.value || "").trim().toLowerCase();
       if (this._collectionActionDialog.error) {
         this._collectionActionDialog.error = "";
+      }
+      return;
+    }
+    if (target.classList && target.classList.contains("project-action-select")) {
+      var selectField = String(target.getAttribute("data-project-field") || "").trim();
+      if (selectField && this._projectActionDialog && Object.prototype.hasOwnProperty.call(this._projectActionDialog, selectField)) {
+        this._projectActionDialog[selectField] = String(target.value || "").trim();
+        if (this._projectActionDialog.error) {
+          this._projectActionDialog.error = "";
+        }
       }
       return;
     }
@@ -2471,6 +2507,32 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return;
       }
       this._closeCollectionActionDialog();
+      return;
+    }
+
+    if (action === "open-project-action-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openProjectActionDialog(String(target.getAttribute("data-mode") || "create"), {
+        projectId: String(target.getAttribute("data-project-id") || "").trim(),
+      });
+      return;
+    }
+
+    if (action === "close-project-action-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target.classList && target.classList.contains("collection-action-backdrop") && rawTarget !== target) {
+        return;
+      }
+      this._closeProjectActionDialog();
+      return;
+    }
+
+    if (action === "submit-project-action-dialog") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitProjectActionDialog();
       return;
     }
 
@@ -3813,6 +3875,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return String(source.path || source.name || source.collection_id || '').trim();
   }
 
+  _projectDialogTitle(mode) {
+    if (mode === 'create') return 'New Project';
+    if (mode === 'edit') return 'Edit Project';
+    if (mode === 'delete') return 'Delete Project';
+    return 'Project Action';
+  }
+
+  _projectDialogSubmitLabel(mode) {
+    if (mode === 'create') return 'Create Project';
+    if (mode === 'edit') return 'Save Project';
+    if (mode === 'delete') return 'Delete Project';
+    return 'Save';
+  }
+
+  _projectStatusOptions() {
+    return ['evaluating', 'planning', 'active', 'backlog', 'completed', 'archived'];
+  }
+
+  _projectTypeOptions() {
+    return ['', 'model_family', 'remix_set', 'multi_part', 'author_collection', 'other'];
+  }
+
+  _projectOriginOptions() {
+    return ['', 'makerworld', 'printables', 'custom', 'unknown', 'commercial', 'remix'];
+  }
+
+  _projectOptionLabel(value, fallback) {
+    var normalized = String(value || '').trim();
+    if (!normalized) {
+      return fallback || 'None';
+    }
+    return normalized.replace(/_/g, ' ');
+  }
+
   _normalizedCollectionPathText(value) {
     return String(value || '')
       .split('/')
@@ -4387,6 +4483,150 @@ class ModelCatalogBrowserCard extends HTMLElement {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ parent_collection_id: parentCollectionId }),
     });
+  }
+
+  _projectApiBaseUrl() {
+    return String(this._resolveModelSidecarUrl() || '').trim().replace(/\/$/, '');
+  }
+
+  async _projectApiRequest(path, options) {
+    var base = this._projectApiBaseUrl();
+    if (!base) {
+      throw new Error('Model Catalog sidecar URL not configured');
+    }
+    var requestOptions = options && typeof options === 'object' ? Object.assign({}, options) : {};
+    requestOptions.headers = Object.assign({}, requestOptions.headers || {}, await this._authHeaders(false));
+    requestOptions.credentials = 'omit';
+    var response = await fetch(base + path, requestOptions);
+    if (response.status === 401) {
+      requestOptions.headers = Object.assign({}, requestOptions.headers || {}, await this._authHeaders(true));
+      response = await fetch(base + path, requestOptions);
+    }
+    var payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+    if (!response.ok || (payload && payload.success === false)) {
+      throw new Error(payload && (payload.message || payload.error) ? String(payload.message || payload.error) : ('Project request failed (HTTP ' + String(response.status) + ')'));
+    }
+    return payload && typeof payload === 'object' ? payload : {};
+  }
+
+  _projectDialogStateFromProject(mode, project) {
+    var item = project && typeof project === 'object' ? project : {};
+    return {
+      open: true,
+      mode: String(mode || 'create').trim().toLowerCase(),
+      projectId: item.id != null ? String(item.id) : '',
+      title: String(item.title || '').trim(),
+      description: String(item.description || '').trim(),
+      notes: String(item.notes || '').trim(),
+      status: String(item.status || 'evaluating').trim().toLowerCase() || 'evaluating',
+      projectType: String(item.project_type || '').trim().toLowerCase(),
+      origin: String(item.origin || '').trim().toLowerCase(),
+      createdBy: String(item.created_by || '').trim(),
+      error: '',
+      submitting: false,
+    };
+  }
+
+  _openProjectActionDialog(mode, config) {
+    var dialogMode = String(mode || 'create').trim().toLowerCase();
+    var details = config && typeof config === 'object' ? config : {};
+    var projectId = parseInt(String(details.projectId || '').trim(), 10);
+    var project = Number.isFinite(projectId) && projectId > 0 ? this._findProjectById(projectId) : null;
+    this._activeActionMenu = '';
+    this._projectActionDialog = this._projectDialogStateFromProject(dialogMode, project);
+    if (dialogMode === 'create') {
+      this._projectActionDialog = this._projectDialogStateFromProject('create', {
+        status: 'evaluating',
+      });
+    }
+    this._focusProjectActionPrimaryAfterRender = true;
+    this._render();
+  }
+
+  _closeProjectActionDialog() {
+    if (this._projectActionDialog && this._projectActionDialog.submitting) {
+      return;
+    }
+    this._projectActionDialog = this._projectDialogStateFromProject('', null);
+    this._projectActionDialog.open = false;
+    this._render();
+  }
+
+  async _submitProjectActionDialog() {
+    var dialog = this._projectActionDialog && typeof this._projectActionDialog === 'object' ? this._projectActionDialog : null;
+    if (!dialog || !dialog.open || dialog.submitting) {
+      return;
+    }
+    var mode = String(dialog.mode || '').trim().toLowerCase();
+    var projectId = parseInt(String(dialog.projectId || '0'), 10);
+    var title = String(dialog.title || '').trim();
+    if (mode !== 'delete' && !title) {
+      dialog.error = 'Project title is required.';
+      this._render();
+      return;
+    }
+    dialog.submitting = true;
+    dialog.error = '';
+    this._render();
+    try {
+      var payload = {
+        title: title,
+        description: String(dialog.description || '').trim(),
+        notes: String(dialog.notes || '').trim(),
+        status: String(dialog.status || 'evaluating').trim() || 'evaluating',
+        project_type: String(dialog.projectType || '').trim() || null,
+        origin: String(dialog.origin || '').trim() || null,
+        created_by: String(dialog.createdBy || '').trim() || null,
+      };
+      var feedbackMessage = '';
+      if (mode === 'create') {
+        await this._projectApiRequest('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        feedbackMessage = 'Created project "' + title + '".';
+      } else if (mode === 'edit' && Number.isFinite(projectId) && projectId > 0) {
+        await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        feedbackMessage = 'Saved project "' + title + '".';
+      } else if (mode === 'delete' && Number.isFinite(projectId) && projectId > 0) {
+        await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)), {
+          method: 'DELETE',
+          headers: { 'Accept': 'application/json' },
+        });
+        feedbackMessage = 'Deleted project "' + (title || 'Project') + '".';
+      } else {
+        throw new Error('Project action is missing a valid target.');
+      }
+
+      var deletedSelectedProject = mode === 'delete' && Number(this._filters && this._filters.project_id || 0) === projectId;
+      this._projectActionDialog.open = false;
+      this._projectActionDialog.submitting = false;
+      this._projectsLoaded = false;
+      this._projects = [];
+      this._projectsError = '';
+      this._error = '';
+      if (deletedSelectedProject) {
+        this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: false, render: false });
+      }
+      this._setCollectionActionFeedback(feedbackMessage, 'success');
+      this._requestLoad(deletedSelectedProject ? 1 : this._currentPage(), true);
+      this._render();
+    } catch (error) {
+      dialog.submitting = false;
+      dialog.error = error && error.message ? String(error.message) : 'Project update failed.';
+      this._setCollectionActionFeedback(dialog.error, 'error');
+      this._render();
+    }
   }
 
   async _deleteCollection(collectionId) {
@@ -6413,6 +6653,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  </div>'
       + '  <div class="collection-list-actions">'
         + '    <button class="toolbar-btn collection-open" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Browse models</button>'
+        + '    <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="edit" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Edit</button>'
+        + '    <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="delete" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Delete</button>'
       + '  </div>'
       + '</article>';
   }
@@ -6420,9 +6662,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _renderProjectCards() {
     var browse = this._projectBrowse && typeof this._projectBrowse === 'object' ? this._projectBrowse : {};
     var projects = Array.isArray(browse.projects) ? browse.projects : [];
-    if (!projects.length) {
-      return '<div class="state-row">No projects match the current filters.</div>';
-    }
     var total = Math.max(0, Number(this._pagination && this._pagination.total || projects.length) || 0);
     var summary = browse.summary && typeof browse.summary === 'object' ? browse.summary : {};
     var activeCount = Math.max(0, Number(summary.active_count || 0) || 0);
@@ -6433,6 +6672,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="collection-browser-header-kicker">Project View</div>'
       + '    <div class="collection-browser-header-title">Projects</div>'
       + '    <div class="collection-browser-header-subtitle">Lifecycle objects spanning evaluation, planning, active work, and archival.</div>'
+      + '    <div class="project-browser-header-actions"><button class="toolbar-btn" type="button" data-action="open-project-action-dialog" data-mode="create">New Project</button></div>'
       + '  </div>'
       + '  <div class="collection-browser-header-stats">'
       + this._renderProjectHeaderStat('Visible', total)
@@ -6440,6 +6680,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderProjectHeaderStat('Completed', completedCount)
       + '  </div>'
       + '</section>';
+    if (!projects.length) {
+      return header + '<div class="state-row">No projects match the current filters.</div>';
+    }
     return header + projects.map(this._renderProjectCard.bind(this)).join('');
   }
 
@@ -7627,6 +7870,63 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="collection-action-footer">'
       + '      <button class="toolbar-btn ghost" type="button" data-action="close-collection-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
       + '      <button class="toolbar-btn' + (isDelete ? ' collection-action-submit danger' : ' collection-action-submit') + '" type="button" data-action="submit-collection-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? 'Saving...' : submitLabel) + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  _renderProjectActionDialog() {
+    var dialog = this._projectActionDialog && typeof this._projectActionDialog === 'object' ? this._projectActionDialog : null;
+    if (!dialog || !dialog.open) {
+      return '';
+    }
+    var mode = String(dialog.mode || '').trim().toLowerCase();
+    var isDelete = mode === 'delete';
+    var submitLabel = this._projectDialogSubmitLabel(mode);
+    var subtitle = String(dialog.title || 'Lifecycle project').trim() || 'Lifecycle project';
+    var bodyHtml = '';
+    if (isDelete) {
+      bodyHtml = ''
+        + '<div class="collection-action-danger-note">Delete this project only if it no longer has curated-model or working-group memberships. The server will block deletion while it is still in use.</div>'
+        + '<div class="collection-action-summary"><strong>' + this._escapeHtml(subtitle) + '</strong><span>' + this._escapeHtml(this._projectOptionLabel(dialog.status, 'evaluating')) + '</span></div>';
+    } else {
+      bodyHtml = ''
+        + '<label class="collection-action-field"><span>Title</span><input class="collection-action-input project-action-input" data-project-field="title" type="text" maxlength="255" value="' + this._escapeHtml(dialog.title) + '" placeholder="Project title"></label>'
+        + '<label class="collection-action-field"><span>Description</span><textarea class="collection-action-input project-action-input" data-project-field="description" rows="3" maxlength="5000" placeholder="What is this project trying to accomplish?">' + this._escapeHtml(dialog.description) + '</textarea></label>'
+        + '<label class="collection-action-field"><span>Notes</span><textarea class="collection-action-input project-action-input" data-project-field="notes" rows="4" maxlength="5000" placeholder="Optional execution notes, constraints, or follow-ups.">' + this._escapeHtml(dialog.notes) + '</textarea></label>'
+        + '<div class="collection-action-grid">'
+        + '  <label class="collection-action-field"><span>Status</span><select class="collection-action-select project-action-select" data-project-field="status">'
+        + this._projectStatusOptions().map(function (option) {
+            return '<option value="' + this._escapeHtml(option) + '"' + (String(dialog.status || 'evaluating') === option ? ' selected' : '') + '>' + this._escapeHtml(this._projectOptionLabel(option, option)) + '</option>';
+          }.bind(this)).join('')
+        + '  </select></label>'
+        + '  <label class="collection-action-field"><span>Type</span><select class="collection-action-select project-action-select" data-project-field="projectType">'
+        + this._projectTypeOptions().map(function (option) {
+            return '<option value="' + this._escapeHtml(option) + '"' + (String(dialog.projectType || '') === option ? ' selected' : '') + '>' + this._escapeHtml(this._projectOptionLabel(option, 'None')) + '</option>';
+          }.bind(this)).join('')
+        + '  </select></label>'
+        + '  <label class="collection-action-field"><span>Origin</span><select class="collection-action-select project-action-select" data-project-field="origin">'
+        + this._projectOriginOptions().map(function (option) {
+            return '<option value="' + this._escapeHtml(option) + '"' + (String(dialog.origin || '') === option ? ' selected' : '') + '>' + this._escapeHtml(this._projectOptionLabel(option, 'None')) + '</option>';
+          }.bind(this)).join('')
+        + '  </select></label>'
+        + '  <label class="collection-action-field"><span>Owner</span><input class="collection-action-input project-action-input" data-project-field="createdBy" type="text" maxlength="255" value="' + this._escapeHtml(dialog.createdBy) + '" placeholder="Optional owner"></label>'
+        + '</div>';
+    }
+    return ''
+      + '<div class="collection-action-backdrop" data-action="close-project-action-dialog">'
+      + '  <div class="collection-action-dialog" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._projectDialogTitle(mode)) + '">'
+      + '    <div class="collection-action-header">'
+      + '      <div><h3>' + this._escapeHtml(this._projectDialogTitle(mode)) + '</h3><div class="collection-action-subtitle">' + this._escapeHtml(subtitle) + '</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-project-action-dialog" aria-label="Close">✕</button>'
+      + '    </div>'
+      + '    <div class="collection-action-body">'
+      + bodyHtml
+      + (dialog.error ? '<div class="collection-action-error">' + this._escapeHtml(dialog.error) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="collection-action-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-project-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
+      + '      <button class="toolbar-btn' + (isDelete ? ' collection-action-submit danger' : ' collection-action-submit') + '" type="button" data-action="submit-project-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? (isDelete ? 'Deleting...' : 'Saving...') : submitLabel) + '</button>'
       + '    </div>'
       + '  </div>'
       + '</div>';
@@ -8902,7 +9202,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._bulkTagDialog && this._bulkTagDialog.open)));
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._projectActionDialog && this._projectActionDialog.open) || (this._bulkTagDialog && this._bulkTagDialog.open)));
 
     // Preserve focus across the innerHTML reset below. Without this, any
     // active input (most visibly the search box "#mc-q") loses focus on every
@@ -8929,6 +9229,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderQueueDialog()
       + this._renderIdeaCreateDialog()
       + this._renderCollectionActionDialog()
+      + this._renderProjectActionDialog()
       + this._renderBulkTagDialog()
       + '  </div>';
 
@@ -8959,6 +9260,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var dialogPrimary = this.shadowRoot.querySelector('.collection-action-input, .collection-action-select, .collection-action-submit');
       if (dialogPrimary) {
         requestAnimationFrame(function() { try { dialogPrimary.focus(); } catch(_e) {} });
+      }
+    }
+    if (this._focusProjectActionPrimaryAfterRender) {
+      this._focusProjectActionPrimaryAfterRender = false;
+      var projectDialogPrimary = this.shadowRoot.querySelector('.project-action-input, .project-action-select, [data-action="submit-project-action-dialog"]');
+      if (projectDialogPrimary) {
+        requestAnimationFrame(function() { try { projectDialogPrimary.focus(); } catch(_e) {} });
       }
     }
     if (this._focusBulkCollectionSearchAfterRender) {
