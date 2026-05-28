@@ -1154,7 +1154,8 @@ def _source_intake_publish_context(
         )
     if not isinstance(enriched_plan.get("tags"), list) or not enriched_plan.get("tags"):
         snapshot = makerworld_record.get("snapshot_json") if isinstance(makerworld_record.get("snapshot_json"), dict) else {}
-        raw_tags = snapshot.get("tags") if isinstance(snapshot.get("tags"), list) else []
+        has_reviewed_tags = "selected_tags" in snapshot and isinstance(snapshot.get("selected_tags"), list)
+        raw_tags = snapshot.get("selected_tags") if has_reviewed_tags else (snapshot.get("tags") if isinstance(snapshot.get("tags"), list) else [])
         next_tags: list[str] = []
         seen_tags: set[str] = set()
         for raw_tag in raw_tags:

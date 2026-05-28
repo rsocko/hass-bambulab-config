@@ -474,6 +474,40 @@ async def capture_source(request: Request, payload: dict[str, Any]) -> Any:
     return {"success": True, "record": record}
 
 
+@router.post("/api/intake/source/{record_id}/review")
+async def review_source_intake(record_id: str, request: Request, payload: dict[str, Any] | None = None) -> Any:
+    state: AppState = request.app.state.model_catalog
+    record = _read_record(db_path=state.settings.db_path, record_id=record_id)
+    if record is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "record_not_found", "message": "Source intake record was not found."})
+    if str(record.get("provider_id") or "") != "makerworld":
+        return JSONResponse(status_code=400, content={"success": False, "error": "unsupported_provider", "message": "Only MakerWorld source intake is currently supported."})
+    if str(record.get("review_state") or "pending") not in _REVIEWABLE_STATES:
+        return JSONResponse(status_code=409, content={"success": False, "error": "invalid_review_state", "message": "Record is not in a reviewable state."})
+
+    payload = payload or {}
+    raw_tags = payload.get("tags") if isinstance(payload.get("tags"), list) else []
+    reviewed_tags: list[str] = []
+    seen_tags: set[str] = set()
+    for item in raw_tags:
+        tag_name = str(item or "").strip()
+        tag_key = tag_name.lower()
+        if not tag_name or tag_key in seen_tags:
+            continue
+        seen_tags.add(tag_key)
+        reviewed_tags.append(tag_name)
+
+    snapshot_json = record.get("snapshot_json") if isinstance(record.get("snapshot_json"), dict) else {}
+    next_snapshot = dict(snapshot_json)
+    next_snapshot["selected_tags"] = reviewed_tags
+    updated = _update_record(
+        db_path=state.settings.db_path,
+        record_id=record_id,
+        updates={"snapshot_json": next_snapshot, "updated_at": _utc_now_iso()},
+    )
+    return {"success": True, "record": updated}
+
+
 @router.post("/api/intake/source/{record_id}/commit")
 async def commit_source_intake(record_id: str, request: Request, payload: dict[str, Any] | None = None) -> Any:
     state: AppState = request.app.state.model_catalog

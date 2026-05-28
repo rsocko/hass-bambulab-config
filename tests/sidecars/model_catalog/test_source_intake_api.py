@@ -621,6 +621,67 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
         client.__exit__(None, None, None)
 
 
+def test_publish_to_local_uses_reviewed_makerworld_tags(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        review_response = client.post(
+            f"/api/intake/source/{record_id}/review",
+            json={"tags": ["Desk Toy", "Gift"]},
+        )
+        assert review_response.status_code == 200, review_response.text
+        reviewed_snapshot = review_response.json()["record"]["snapshot_json"]
+        assert reviewed_snapshot["selected_tags"] == ["Desk Toy", "Gift"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import", "options": {"target_instance": "default"}},
+        )
+        assert commit_response.status_code == 200
+        upload_id = commit_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={},
+        )
+        assert publish_response.status_code == 200, publish_response.text
+        publish_payload = publish_response.json()
+        created_models = publish_payload.get("created_models") or []
+        local_model_id = str(publish_payload.get("local_model_id") or "").strip()
+        if not local_model_id and created_models:
+            local_model_id = str((created_models[0] or {}).get("local_model_id") or "").strip()
+        assert local_model_id
+
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            entry_row = connection.execute(
+                """
+                SELECT tags_json, keyword_names_json
+                FROM model_catalog_entries
+                WHERE local_model_id = ?
+                """,
+                (local_model_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert entry_row is not None
+        assert json.loads(str(entry_row["tags_json"] or "[]")) == ["Desk Toy", "Gift"]
+        assert json.loads(str(entry_row["keyword_names_json"] or "[]")) == ["Desk Toy", "Gift"]
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_commit_source_full_import_rejects_invalid_download_payload(tmp_path: Path, monkeypatch) -> None:
     db_path = tmp_path / "model_catalog.db"
     stub_adapter = _StubInvalidDownloadMakerWorldAdapter(tmp_path)

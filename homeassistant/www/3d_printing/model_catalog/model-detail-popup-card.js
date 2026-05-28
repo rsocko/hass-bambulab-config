@@ -4819,6 +4819,7 @@ class ModelDetailPopupCard extends HTMLElement {
     const linkedCount = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives.length : Number(this._modelDetail.link_count || 0);
     const candidateCount = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives.length : 0;
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
+    const printEstimates = this._getModelPrintEstimates(model);
     const isIdea = this._getEntityType(model) === 'idea';
     const selectedCollections = this._selectedCollectionMemberships();
     const selectedProjects = this._selectedProjectMemberships();
@@ -4870,6 +4871,12 @@ class ModelDetailPopupCard extends HTMLElement {
                 ${this._tagPickerOpen ? this._renderTagPicker(tags) : ''}
               </div>
             </div>
+            ${printEstimates.length ? `
+              <div class="chip-group stack">
+                <span class="label">Print Estimates</span>
+                ${printEstimates.map((estimate) => this._renderPrintEstimateLine(estimate)).join('')}
+              </div>
+            ` : ''}
             <div class="chip-group stack">
               <span class="label">Collections</span>
               <div class="chip-row">
@@ -4915,6 +4922,73 @@ class ModelDetailPopupCard extends HTMLElement {
         `)}
       </section>
     `;
+  }
+
+  _getModelPrintEstimates(model) {
+    const detailModel = this._modelDetail && this._modelDetail.model && typeof this._modelDetail.model === 'object'
+      ? this._modelDetail.model
+      : {};
+    const detailFields = detailModel.custom_fields && typeof detailModel.custom_fields === 'object'
+      ? detailModel.custom_fields
+      : {};
+    const modelFields = model && model.custom_fields && typeof model.custom_fields === 'object'
+      ? model.custom_fields
+      : {};
+    const rawEstimates = Array.isArray(detailFields.print_estimates)
+      ? detailFields.print_estimates
+      : (Array.isArray(modelFields.print_estimates) ? modelFields.print_estimates : []);
+    return rawEstimates.filter((item) => item && typeof item === 'object');
+  }
+
+  _printEstimateMinutes(value) {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return value > 1000 ? Math.round(value / 60) : Math.round(value);
+    }
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+    if (typeof value.printTimeMinutes === 'number' && Number.isFinite(value.printTimeMinutes) && value.printTimeMinutes > 0) {
+      return Math.round(value.printTimeMinutes);
+    }
+    if (typeof value.minutes === 'number' && Number.isFinite(value.minutes) && value.minutes > 0) {
+      return Math.round(value.minutes);
+    }
+    if (typeof value.printTimeSeconds === 'number' && Number.isFinite(value.printTimeSeconds) && value.printTimeSeconds > 0) {
+      return Math.round(value.printTimeSeconds / 60);
+    }
+    if (typeof value.seconds === 'number' && Number.isFinite(value.seconds) && value.seconds > 0) {
+      return Math.round(value.seconds / 60);
+    }
+    return null;
+  }
+
+  _formatPrintEstimate(value) {
+    const minutes = this._printEstimateMinutes(value);
+    if (!minutes) {
+      return 'Unknown';
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    if (hours <= 0) {
+      return `${minutes}m`;
+    }
+    if (remainder <= 0) {
+      return `${hours}h`;
+    }
+    return `${hours}h ${remainder}m`;
+  }
+
+  _renderPrintEstimateLine(estimate) {
+    const title = String(estimate.title || estimate.profile_id || estimate.instance_id || 'Profile').trim();
+    const plateEstimates = Array.isArray(estimate.plate_estimates) ? estimate.plate_estimates : [];
+    const plateSummary = plateEstimates.length
+      ? ` · Plates: ${plateEstimates.map((plate) => {
+          const plateLabel = String(plate && plate.plate_id || '').trim();
+          const plateDuration = this._formatPrintEstimate(plate && plate.estimated_print_time_seconds);
+          return plateLabel ? `${plateLabel} ${plateDuration}` : plateDuration;
+        }).join(', ')}`
+      : '';
+    return `<div class="meta"><strong>${this._escapeHtml(title)}</strong>: ${this._escapeHtml(this._formatPrintEstimate(estimate.estimated_print_time_seconds))}${this._escapeHtml(plateSummary)}</div>`;
   }
 
   _renderModelFilesCard(model) {

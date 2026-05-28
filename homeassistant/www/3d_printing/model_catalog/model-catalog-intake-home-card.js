@@ -89,6 +89,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._makerworldRecord = null;
     this._makerworldResult = null;
     this._makerworldSelectedInstanceIds = [];
+    this._makerworldSelectedTags = [];
   }
 
   setConfig(config) {
@@ -1449,6 +1450,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var nextOptions = options || {};
     this._makerworldRecord = record || null;
     this._makerworldSelectedInstanceIds = this._makerworldNormalizedSelection(record, nextOptions.preserveSelection ? this._makerworldSelectedInstanceIds : []);
+    this._makerworldSelectedTags = nextOptions.preserveTags
+      ? this._makerworldNormalizedTags(this._makerworldSelectedTags)
+      : this._makerworldSelectedTagsFromRecord(record);
   }
 
   _makerworldSourceStats(record) {
@@ -1470,11 +1474,47 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     };
   }
 
+  _makerworldNormalizedTags(tags) {
+    var nextTags = [];
+    var seenTags = {};
+    (Array.isArray(tags) ? tags : []).forEach(function (value) {
+      var tagName = String(value || '').trim();
+      var key = tagName.toLowerCase();
+      if (!tagName || seenTags[key]) {
+        return;
+      }
+      seenTags[key] = true;
+      nextTags.push(tagName);
+    });
+    return nextTags;
+  }
+
+  _makerworldSelectedTagsFromRecord(record) {
+    var snapshot = this._makerworldSnapshot(record);
+    var reviewedTags = snapshot && Object.prototype.hasOwnProperty.call(snapshot, 'selected_tags') && Array.isArray(snapshot.selected_tags)
+      ? snapshot.selected_tags
+      : null;
+    if (Array.isArray(reviewedTags)) {
+      return this._makerworldNormalizedTags(reviewedTags);
+    }
+    var sourceTags = Array.isArray(snapshot.tags) ? snapshot.tags : [];
+    var nextTags = [];
+    sourceTags.forEach(function (value) {
+      if (value && typeof value === 'object') {
+        nextTags.push(value.name);
+      } else {
+        nextTags.push(value);
+      }
+    });
+    return this._makerworldNormalizedTags(nextTags);
+  }
+
   _clearMakerWorldState(options) {
     var nextOptions = options || {};
     this._makerworldRecord = null;
     this._makerworldResult = null;
     this._makerworldSelectedInstanceIds = [];
+    this._makerworldSelectedTags = [];
     if (!nextOptions.preserveUrl) {
       this._makerworldUrl = '';
     }
@@ -1573,6 +1613,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var fileManifestCount = fileManifest.length;
     var selectedSourceUrl = this._makerworldSourceUrl(record) || trimmedUrl;
     var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
+    var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
     var canImportSelection = !!(record && selectedInstanceIds.length && !this._loading);
     var importLabel = selectedInstanceIds.length > 1 ? 'Queue Selected 3MFs' : 'Queue Selected 3MF';
     var instanceDetailsById = this._makerworldInstanceDetailsById(record);
@@ -1638,11 +1679,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '<div class="makerworld-preview-grid">'
           + '<div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">' + (defaultManifestEntry && defaultManifestEntry.profile_id ? 'Default profile ' + escapeHtml(String(defaultManifestEntry.profile_id)) : 'Choose one or many profiles') + '</div></div>'
           + '<div class="summary-card"><div class="summary-label">Available Files</div><div class="summary-value">' + String(fileManifestCount) + '</div><div class="muted">Captured into the source record for later review.</div></div>'
-          + '<div class="summary-card"><div class="summary-label">Images / Tags</div><div class="summary-value">' + String(sourceStats.imageCount) + ' / ' + String(sourceStats.tagCount) + '</div><div class="muted">Main image and MakerWorld tags will follow the publish path.</div></div>'
+          + '<div class="summary-card"><div class="summary-label">Images / Tags</div><div class="summary-value">' + String(sourceStats.imageCount) + ' / ' + String(reviewedTags.length) + '</div><div class="muted">Source tags: ' + String(sourceStats.tagCount) + '. Edit before queueing if you want different publish tags.</div></div>'
           + '<div class="summary-card"><div class="summary-label">Likes / Downloads</div><div class="summary-value">' + String(sourceStats.likeCount) + ' / ' + String(sourceStats.downloadCount) + '</div><div class="muted">Comments ' + String(sourceStats.commentCount) + (sourceStats.canBoost ? ', boosts available ' + String(sourceStats.availableBoosts) : '') + '</div></div>'
           + '<div class="summary-card"><div class="summary-label">User State</div><div class="summary-value">' + escapeHtml((sourceStats.hasLike ? 'Liked' : 'Not liked') + ' / ' + (sourceStats.hasCollect ? 'Collected' : 'Not collected')) + '</div><div class="muted">Boosted: ' + escapeHtml(sourceStats.hasBacked ? 'yes' : 'no') + ', total boosts ' + String(sourceStats.boostTotal) + '</div></div>'
           + '<div class="summary-card"><div class="summary-label">Provenance</div><div class="summary-value">Snapshot Ready</div><div class="muted">Publish attaches the MakerWorld snapshot JSON as a supporting file.</div></div>'
           + '</div>'
+          + '<div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"><div class="muted">These tags are saved onto the source record now and applied later when you publish from Active Queue. Clear the field to publish without MakerWorld tags.</div></div>'
           + (profileCards ? '<div class="field"><label>Profiles To Queue</label><div class="makerworld-profile-grid">' + profileCards + '</div><div class="muted">Select one or many MakerWorld profiles. Multiple selections will queue multiple 3MF files into the same intake upload.</div></div>' : '')
           + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
           + ((result && result.upload_id) ? '<div class="muted">Active Queue now holds the selected MakerWorld 3MF file(s) while the original source record stays linked for later snapshot attachment and metadata hydration.</div>' : '<div class="muted">This preview is only metadata. Queue the selected 3MF file(s) to create the Active Queue item.</div>')
@@ -1671,11 +1713,15 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         record = await this._captureMakerWorldRecord(url);
       }
       var recordId = String(record && record.id || '').trim();
-      this._setMakerWorldRecord(record, { preserveSelection: true });
+      this._setMakerWorldRecord(record, { preserveSelection: true, preserveTags: true });
       var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
       if (!selectedInstanceIds.length) {
         throw new Error('Select at least one MakerWorld profile before queueing the import.');
       }
+      var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
+      await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/' + encodeURIComponent(recordId) + '/review'), {
+        tags: reviewedTags,
+      });
       this._setBusyPhase('Importing MakerWorld files', 'Downloading the default 3MF and creating the intake queue upload');
       var commitResponse = await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/' + encodeURIComponent(recordId) + '/commit'), {
         mode: 'full_import',
@@ -2462,6 +2508,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._render();
       return;
     }
+    if (action === 'makerworld-tags') {
+      var rawTags = String(target.value || '').split(',');
+      this._makerworldSelectedTags = this._makerworldNormalizedTags(rawTags);
+      this._render();
+      return;
+    }
     var path = String(target.getAttribute('data-path') || '');
     if (!path || !this._selected[path]) {
       return;
@@ -2539,6 +2591,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (!this._makerworldRecordMatchesUrl(this._makerworldRecord, nextUrl)) {
         this._makerworldRecord = null;
         this._makerworldResult = null;
+        this._makerworldSelectedTags = [];
       }
       this._render();
       return;
