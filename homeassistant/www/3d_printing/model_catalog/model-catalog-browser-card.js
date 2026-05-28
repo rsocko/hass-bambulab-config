@@ -7905,53 +7905,53 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _renderModelCard(model) {
-    var name = String(model.name || "Unnamed Model");
-    var creator = String(model.creator_name || "Unknown Creator");
-    var collections = Array.isArray(model.collection_names) ? model.collection_names : [];
-    var tags = this._extractModelTags(model);
-    var linkedCount = Number(model.linked_archive_count || 0) || 0;
-    var modelRef = this._modelRef(model);
-    var localModelId = this._localModelIdForModel(model);
-    var entityType = this._entityTypeForModel(model);
+    var item = model && typeof model === "object" ? model : {};
+    var structured = item.structured_metadata && typeof item.structured_metadata === "object" ? item.structured_metadata : {};
+    var fields = item.custom_fields && typeof item.custom_fields === "object" ? item.custom_fields : {};
+    var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
+    var provenance = structured && structured.provenance && typeof structured.provenance === "object" ? structured.provenance : {};
+    var publishing = structured && structured.publishing && typeof structured.publishing === "object" ? structured.publishing : {};
+    var name = String(item.name || "Unnamed Model");
+    var creator = String(item.creator_name || "Unknown Creator");
+    var collections = Array.isArray(item.collection_names) ? item.collection_names : [];
+    var tags = this._extractModelTags(item);
+    var linkedCount = Number(item.linked_archive_count || 0) || 0;
+    var modelRef = this._modelRef(item);
+    var localModelId = this._localModelIdForModel(item);
+    var entityType = this._entityTypeForModel(item);
     var entityTypeBadgeText = this._entityTypeBadgeLabel(entityType);
     var entityTypeBadge = entityTypeBadgeText
       ? '<span class="entity-type-pill ' + this._escapeHtml(entityType) + '">' + this._escapeHtml(entityTypeBadgeText) + '</span>'
       : '';
-    var isArchived = String((structured && structured.catalog_signals && structured.catalog_signals.catalog_visibility) || model.catalog_visibility || "").trim().toLowerCase() === "archived";
+    var isArchived = String(catalogSignals.catalog_visibility || item.catalog_visibility || "").trim().toLowerCase() === "archived";
     var archivedBadge = isArchived
       ? '<span class="archived-pill"><ha-icon icon="mdi:archive-outline"></ha-icon>Archived</span>'
       : '';
     var actionMenuOpen = this._activeActionMenu === modelRef;
 
-    var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
+    var ranking = item.ranking && typeof item.ranking === "object" ? item.ranking : {};
     var recent = Number(ranking.recent_score || 0);
     var frequent = Number(ranking.frequent_score || 0);
     var common = Number(ranking.common_score || 0);
-
-    var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
-    var structured = model && model.structured_metadata && typeof model.structured_metadata === "object" ? model.structured_metadata : {};
-    var provenance = structured && structured.provenance && typeof structured.provenance === "object" ? structured.provenance : {};
-    var publishing = structured && structured.publishing && typeof structured.publishing === "object" ? structured.publishing : {};
-    var catalogSignals = structured && structured.catalog_signals && typeof structured.catalog_signals === "object" ? structured.catalog_signals : {};
     var queueStateInfo = this._unifiedQueueByModelRef[modelRef] || null;
     var preferred = queueStateInfo && queueStateInfo.preferred ? queueStateInfo.preferred : null;
     var queueStatus = preferred ? this._queueStateToRibbonState(preferred.state) : "none";
     var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
-    var originType = String(model.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
-    var sourcePlatform = String(model.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
-    var sourceDownloadUrl = String(model.source_download_url || provenance.source_download_url || fields.source_download_url || "").trim();
-    var rawPublishedTo = Array.isArray(model.published_to) && model.published_to.length
-      ? model.published_to
+    var originType = String(item.origin_type || provenance.origin_type || fields.origin_type || "custom_unique").trim().toLowerCase();
+    var sourcePlatform = String(item.source_platform || provenance.source_platform || fields.source_platform || "").trim().toLowerCase();
+    var sourceDownloadUrl = String(item.source_download_url || provenance.source_download_url || fields.source_download_url || "").trim();
+    var rawPublishedTo = Array.isArray(item.published_to) && item.published_to.length
+      ? item.published_to
       : (Array.isArray(publishing.published_to) ? publishing.published_to : (Array.isArray(fields.published_to) ? fields.published_to : []));
     var publishedTo = rawPublishedTo.map(function (value) {
       return String(value || "").trim().toLowerCase();
     }).filter(function (value) {
       return !!value;
     });
-    var publishedUrlMap = model && model.published_urls && typeof model.published_urls === "object"
-      ? model.published_urls
+    var publishedUrlMap = item.published_urls && typeof item.published_urls === "object"
+      ? item.published_urls
       : (publishing && publishing.published_urls && typeof publishing.published_urls === "object" ? publishing.published_urls : {});
-    var modelFavorite = this._coerceBoolish(model.model_favorite);
+    var modelFavorite = this._coerceBoolish(item.model_favorite);
     if (modelFavorite === null) {
       modelFavorite = this._coerceBoolish(catalogSignals.model_favorite);
     }
@@ -7972,18 +7972,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!tagMarkup) {
       tagMarkup = this._renderModelTagChip("No tags", "subtle-chip");
     }
-    var mediaUrls = this._modelMediaUrls(model);
+    var mediaUrls = this._modelMediaUrls(item);
     var mediaCount = mediaUrls.length;
     var mediaIndex = this._currentModelMediaIndex(modelRef, mediaCount || 1);
     var mediaUrl = mediaCount > 0 ? mediaUrls[mediaIndex] : "";
     if (!mediaUrl && entityType === "idea") {
-      mediaUrl = this._ideaPlaceholderUrlForModel(model, modelRef);
+      mediaUrl = this._ideaPlaceholderUrlForModel(item, modelRef);
     }
     var detail = modelRef ? this._modelDetailCache[modelRef] : null;
-    var fileKindCounts = this._deriveFileKindCounts(model, structured, fields, detail);
+    var fileKindCounts = this._deriveFileKindCounts(item, structured, fields, detail);
     var fileKindChipMarkup = this._renderFileKindChipRow(fileKindCounts);
-    var lastPrintedAt = String(model.last_printed_at || ranking.last_printed_at || "").trim();
-    var successRatePct = Number(model.success_rate_pct);
+    var lastPrintedAt = String(item.last_printed_at || ranking.last_printed_at || "").trim();
+    var successRatePct = Number(item.success_rate_pct);
     if (!Number.isFinite(successRatePct)) {
       var rankingSuccess = Number(ranking.success_rate_score);
       if (Number.isFinite(rankingSuccess)) {
@@ -8004,9 +8004,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     // source-URL images.
     var fileKindTotal = fileKindCounts.model_files + fileKindCounts.images + fileKindCounts.other;
     var hasUploadedPhotosNoDetail = !detail && fields && Array.isArray(fields.uploaded_photos) && fields.uploaded_photos.length > 0;
-    var needsDetailForPreview = this._showMedia && this._viewMode === "compact" && !detail && mediaCount > 0 && !String(model.preview_url || "").trim();
+    var needsDetailForPreview = this._showMedia && this._viewMode === "compact" && !detail && mediaCount > 0 && !String(item.preview_url || "").trim();
     if ((this._showMedia && ((this._viewMode === "compact" && mediaCount === 0) || this._viewMode === "media")) || fileKindTotal === 0 || hasUploadedPhotosNoDetail || needsDetailForPreview) {
-      this._loadModelMedia(model);
+      this._loadModelMedia(item);
     }
 
     var previewHtml = mediaUrl
@@ -8025,7 +8025,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       )
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
 
-    var isLocalModel = String(model.authority || "").trim() === "local";
+    var isLocalModel = String(item.authority || "").trim() === "local";
     var deleteButton = isLocalModel
       ? '  <button class="advanced-action danger" type="button" data-action="delete-model" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>Delete model</span></button>'
       : '';
