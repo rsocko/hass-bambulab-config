@@ -69,6 +69,9 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelFilePlateCounts = {};
     this._modelFilePlateCountPending = new Set();
     this._modelFilePlateCountRequestToken = 0;
+    this._modelFilePlateDetails = {};
+    this._modelFilePlateDetailsPending = new Set();
+    this._modelFilePlateDetailsRequestToken = 0;
     this._popupExtensions = new Map();
     this._pendingPopupShellScroll = null;
     this._ideaMetaEditOpen = false;
@@ -1849,6 +1852,9 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelFilePlateCounts = {};
     this._modelFilePlateCountPending = new Set();
     this._modelFilePlateCountRequestToken += 1;
+    this._modelFilePlateDetails = {};
+    this._modelFilePlateDetailsPending = new Set();
+    this._modelFilePlateDetailsRequestToken += 1;
   }
 
   _extractModelFileId(file) {
@@ -1955,6 +1961,68 @@ class ModelDetailPopupCard extends HTMLElement {
     if (results.some(Boolean)) {
       this._render();
     }
+  }
+
+  _getModelFilePlateDetails(file) {
+    const inlinePlates = Array.isArray(file && file.plates) ? file.plates : null;
+    if (inlinePlates) {
+      return inlinePlates;
+    }
+    const fileId = String(file && (file.id || file.file_id) || '').trim();
+    if (!fileId) {
+      return null;
+    }
+    const cached = this._modelFilePlateDetails[fileId];
+    return Array.isArray(cached) ? cached : null;
+  }
+
+  async _ensureModelFilePlateDetails(files) {
+    const rows = Array.isArray(files) ? files : [];
+    if (!rows.length || !this._modelRef || !this._modelSidecarUrl) {
+      return;
+    }
+    const sidecarUrl = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!sidecarUrl) {
+      return;
+    }
+    const requestToken = this._modelFilePlateDetailsRequestToken;
+    rows.forEach((file) => {
+      if (!this._is3mfModelFile(file)) {
+        return;
+      }
+      const fileId = String(file && (file.id || file.file_id) || '').trim();
+      if (!fileId) {
+        return;
+      }
+      if (Array.isArray(this._modelFilePlateDetails[fileId]) || this._modelFilePlateDetailsPending.has(fileId)) {
+        return;
+      }
+      this._modelFilePlateDetailsPending.add(fileId);
+      const url = `${sidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/files/${encodeURIComponent(fileId)}/plates`;
+      fetch(url)
+        .then((response) => response.ok ? response.json() : null)
+        .then((payload) => {
+          if (requestToken !== this._modelFilePlateDetailsRequestToken) {
+            return;
+          }
+          const plates = Array.isArray(payload && payload.plates) ? payload.plates : [];
+          this._modelFilePlateDetails[fileId] = plates;
+          const previous = this._modelFilePlateCounts[fileId];
+          if (!Number.isFinite(previous) || previous !== plates.length) {
+            this._modelFilePlateCounts[fileId] = plates.length;
+          }
+          this._render();
+        })
+        .catch(() => {
+          if (requestToken !== this._modelFilePlateDetailsRequestToken) {
+            return;
+          }
+          this._modelFilePlateDetails[fileId] = [];
+        })
+        .finally(() => {
+          this._modelFilePlateDetailsPending.delete(fileId);
+        });
+    });
   }
 
   _headerThumbnailUrl(model) {
@@ -3285,12 +3353,151 @@ class ModelDetailPopupCard extends HTMLElement {
           cursor: pointer;
           gap: 8px;
         }
+        .file-row-toggle {
+          align-items: center;
+          gap: 14px;
+          padding: 10px 12px;
+        }
+        .file-row-main {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .file-row-main > div:last-child {
+          min-width: 0;
+        }
+        .file-row-main strong {
+          display: block;
+          font-size: 13px;
+          line-height: 1.3;
+          color: var(--text);
+          word-break: break-word;
+        }
+        .file-row-side {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 12px;
+        }
+        .file-total-estimate {
+          display: grid;
+          justify-items: end;
+          gap: 1px;
+          min-width: 68px;
+        }
+        .file-total-label {
+          font-size: 10px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+        }
+        .file-total-estimate strong {
+          font-size: 14px;
+          color: var(--text);
+        }
+        .file-chevron {
+          width: 24px;
+          text-align: center;
+          font-size: 14px;
+          color: var(--text-secondary);
+        }
         .collapse-toggle.archive-row-static {
           cursor: default;
         }
         .collapse-body {
           padding: 8px;
           border-top: 1px solid var(--border);
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+        .file-collapse-body {
+          padding: 10px 12px 12px;
+          background: color-mix(in srgb, var(--bg-card-alt) 72%, transparent);
+        }
+        .file-plate-list {
+          display: grid;
+          gap: 10px;
+        }
+        .file-plate-row {
+          display: grid;
+          grid-template-columns: 78px minmax(0, 1fr);
+          gap: 12px;
+          align-items: center;
+          padding: 8px 0;
+        }
+        .file-plate-row + .file-plate-row {
+          border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+        }
+        .file-plate-visual {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .file-plate-card {
+          width: 58px;
+          height: 36px;
+          border-radius: 10px;
+          border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+          background:
+            linear-gradient(135deg, color-mix(in srgb, var(--text) 8%, transparent), transparent),
+            color-mix(in srgb, var(--bg-card) 80%, var(--text) 20%);
+          box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
+          position: relative;
+          overflow: hidden;
+        }
+        .file-plate-card::after {
+          content: '';
+          position: absolute;
+          inset: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+          background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+        }
+        .plate-color-strip {
+          position: absolute;
+          inset: auto 6px 5px 6px;
+          display: flex;
+          gap: 3px;
+          z-index: 1;
+        }
+        .plate-color-swatch {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.35);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+        }
+        .file-plate-main {
+          min-width: 0;
+          display: grid;
+          gap: 4px;
+        }
+        .file-plate-name {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text);
+          line-height: 1.3;
+        }
+        .file-plate-meta {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+        .file-plate-meta span {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+          background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+        }
+        .file-plate-loading,
+        .file-plate-empty {
+          padding: 8px 0 4px;
           font-size: 11px;
           color: var(--text-secondary);
         }
@@ -3363,6 +3570,21 @@ class ModelDetailPopupCard extends HTMLElement {
           .media-with-thumbs { flex-direction: column; }
           .thumbs {
             flex: 0 0 auto;
+          .file-row-toggle {
+            grid-template-columns: 1fr;
+          }
+          .file-row-side {
+            justify-content: space-between;
+          }
+          .file-total-estimate {
+            justify-items: start;
+          }
+          .file-plate-row {
+            grid-template-columns: 1fr;
+          }
+          .file-plate-visual {
+            justify-content: flex-start;
+          }
             flex-direction: row;
             max-height: none;
             overflow-x: auto;
@@ -4819,7 +5041,6 @@ class ModelDetailPopupCard extends HTMLElement {
     const linkedCount = Array.isArray(this._modelDetail.linked_archives) ? this._modelDetail.linked_archives.length : Number(this._modelDetail.link_count || 0);
     const candidateCount = Array.isArray(this._modelDetail.candidate_archives) ? this._modelDetail.candidate_archives.length : 0;
     const tags = Array.isArray(model.keywords) ? model.keywords : [];
-    const printEstimates = this._getModelPrintEstimates(model);
     const isIdea = this._getEntityType(model) === 'idea';
     const selectedCollections = this._selectedCollectionMemberships();
     const selectedProjects = this._selectedProjectMemberships();
@@ -4871,12 +5092,6 @@ class ModelDetailPopupCard extends HTMLElement {
                 ${this._tagPickerOpen ? this._renderTagPicker(tags) : ''}
               </div>
             </div>
-            ${printEstimates.length ? `
-              <div class="chip-group stack">
-                <span class="label">Print Estimates</span>
-                ${printEstimates.map((estimate) => this._renderPrintEstimateLine(estimate)).join('')}
-              </div>
-            ` : ''}
             <div class="chip-group stack">
               <span class="label">Collections</span>
               <div class="chip-row">
@@ -4991,6 +5206,103 @@ class ModelDetailPopupCard extends HTMLElement {
     return `<div class="meta"><strong>${this._escapeHtml(title)}</strong>: ${this._escapeHtml(this._formatPrintEstimate(estimate.estimated_print_time_seconds))}${this._escapeHtml(plateSummary)}</div>`;
   }
 
+  _normalizePlateKey(value, fallbackIndex = 0) {
+    const normalized = String(value || '').trim();
+    if (normalized) {
+      return normalized;
+    }
+    return String(fallbackIndex + 1);
+  }
+
+  _fileEstimateMatchScore(file, estimate) {
+    const filename = String(file && (file.filename || file.asset_filename || '') || '').trim().toLowerCase();
+    const title = String(estimate && estimate.title || '').trim().toLowerCase();
+    const instanceId = String(estimate && estimate.instance_id || '').trim();
+    const profileId = String(estimate && estimate.profile_id || '').trim();
+    let score = 0;
+    if (instanceId && filename.includes(instanceId)) {
+      score += 100;
+    }
+    if (profileId && filename.includes(profileId)) {
+      score += 20;
+    }
+    if (title) {
+      const titleSlug = title.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (titleSlug && filename.includes(titleSlug)) {
+        score += 40;
+      }
+    }
+    return score;
+  }
+
+  _estimateForModelFile(file, estimates) {
+    const rows = Array.isArray(estimates) ? estimates : [];
+    let bestEstimate = null;
+    let bestScore = 0;
+    rows.forEach((estimate) => {
+      const score = this._fileEstimateMatchScore(file, estimate);
+      if (score > bestScore) {
+        bestEstimate = estimate;
+        bestScore = score;
+      }
+    });
+    return bestEstimate;
+  }
+
+  _plateEstimateMap(estimate) {
+    const map = {};
+    const rows = Array.isArray(estimate && estimate.plate_estimates) ? estimate.plate_estimates : [];
+    rows.forEach((plate, index) => {
+      const key = this._normalizePlateKey(plate && plate.plate_id, index);
+      map[key] = plate;
+    });
+    return map;
+  }
+
+  _plateColorsHtml(plate) {
+    const colors = Array.isArray(plate && plate.filament_colors) ? plate.filament_colors.filter(Boolean) : [];
+    if (!colors.length) {
+      return '';
+    }
+    return `<div class="plate-color-strip">${colors.map((color) => {
+      const safeColor = this._escapeHtml(String(color));
+      return `<span class="plate-color-swatch" style="background:${safeColor};" title="${safeColor}"></span>`;
+    }).join('')}</div>`;
+  }
+
+  _renderPlateDetailRows(file, estimate) {
+    const plates = this._getModelFilePlateDetails(file);
+    if (!Array.isArray(plates)) {
+      return '<div class="file-plate-loading">Loading plate details…</div>';
+    }
+    if (!plates.length) {
+      return '<div class="file-plate-empty">No plate details available.</div>';
+    }
+    const estimateByPlate = this._plateEstimateMap(estimate);
+    return `<div class="file-plate-list">${plates.map((plate, index) => {
+      const key = this._normalizePlateKey(plate && plate.id, index);
+      const matchedEstimate = estimateByPlate[key] || estimateByPlate[String(index + 1)] || null;
+      const title = String(plate && (plate.name || plate.plate_name || plate.plate_key) || `Plate ${index + 1}`).trim();
+      const timeLabel = matchedEstimate ? this._formatPrintEstimate(matchedEstimate.estimated_print_time_seconds) : 'Unknown';
+      const objectCount = Array.isArray(plate && plate.object_ids) ? plate.object_ids.length : 0;
+      return `
+        <div class="file-plate-row">
+          <div class="file-plate-visual">
+            <div class="file-plate-card">${this._plateColorsHtml(plate)}</div>
+          </div>
+          <div class="file-plate-main">
+            <div class="file-plate-name">${this._escapeHtml(title)}</div>
+            <div class="file-plate-meta">
+              <span>${this._escapeHtml(timeLabel)}</span>
+              ${objectCount ? `<span>${this._escapeHtml(String(objectCount))} objects</span>` : ''}
+              ${Array.isArray(plate && plate.filament_colors) && plate.filament_colors.length ? `<span>${this._escapeHtml(String(plate.filament_colors.length))} colors</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('')}</div>`;
+  }
+
   _renderModelFilesCard(model) {
     const MODEL_ROLES = new Set(['primary']);
     const MODEL_TYPES = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
@@ -5000,6 +5312,8 @@ class ModelDetailPopupCard extends HTMLElement {
       return MODEL_ROLES.has(role) || MODEL_TYPES.has(type);
     });
     this._ensureModelFilePlateCounts(files);
+    this._ensureModelFilePlateDetails(files);
+    const printEstimates = this._getModelPrintEstimates(model);
     const rows = files.length ? files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
       const rawName = String(file.filename || file.asset_filename || file.id || '');
@@ -5009,6 +5323,12 @@ class ModelDetailPopupCard extends HTMLElement {
       const extClass = ext ? `x-${this._escapeHtml(ext)}` : '';
       const thumbUrl = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
       const plateCount = this._getModelFilePlateCount(file);
+      const fileEstimate = this._estimateForModelFile(file, printEstimates);
+      const totalEstimate = fileEstimate ? this._formatPrintEstimate(fileEstimate.estimated_print_time_seconds) : '';
+      const sectionId = `file-${String(file.id || filename)}`;
+      const isCollapsed = Object.prototype.hasOwnProperty.call(this._collapsedSections, sectionId)
+        ? !!this._collapsedSections[sectionId]
+        : true;
       const meta = [
         file.asset_type ? String(file.asset_type) : '',
         file.file_size_bytes ? `${Math.round(Number(file.file_size_bytes) / (1024 * 1024))} MB` : '',
@@ -5019,12 +5339,15 @@ class ModelDetailPopupCard extends HTMLElement {
         : `<span class="file-ext-badge ${extClass}">${this._escapeHtml(extUpper)}</span>`;
       return `
         <article class="collapsible-group">
-          <button class="collapse-toggle" data-collapse-toggle="file-${this._escapeHtml(String(file.id || filename))}">
-            <div style="display:flex;align-items:center;gap:10px;">${previewHtml}<div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div></div>
-            <div>▾</div>
+          <button class="collapse-toggle file-row-toggle" data-collapse-toggle="${this._escapeHtml(sectionId)}">
+            <div class="file-row-main">${previewHtml}<div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div></div>
+            <div class="file-row-side">
+              ${totalEstimate ? `<div class="file-total-estimate"><span class="file-total-label">Total</span><strong>${this._escapeHtml(totalEstimate)}</strong></div>` : ''}
+              <div class="file-chevron">${isCollapsed ? '▸' : '▾'}</div>
+            </div>
           </button>
-          <div class="collapse-body ${this._collapsedSections[`file-${String(file.id || filename)}`] ? 'hidden' : ''}">
-            Plate and file details host (Phase 0). File id: ${this._escapeHtml(String(file.id || 'n/a'))}
+          <div class="collapse-body file-collapse-body ${isCollapsed ? 'hidden' : ''}">
+            ${this._renderPlateDetailRows(file, fileEstimate)}
           </div>
         </article>
       `;
