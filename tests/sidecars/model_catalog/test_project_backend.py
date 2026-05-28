@@ -186,6 +186,32 @@ def test_model_search_and_detail_include_project_membership_contract(tmp_path: P
             int(project_two["id"]): "candidate",
         }
 
+        state_filtered_response = client.get(
+            "/api/models/search",
+            params={
+                "project_id": project_one["id"],
+                "project_member_state": "chosen",
+                "page": 1,
+                "per_page": 10,
+            },
+        )
+        assert state_filtered_response.status_code == 200
+        state_filtered_results = state_filtered_response.json()["results"]
+        assert len(state_filtered_results) == 1
+        assert state_filtered_results[0]["public_id"] == "project-contract-model"
+
+        empty_state_filtered_response = client.get(
+            "/api/models/search",
+            params={
+                "project_id": project_one["id"],
+                "project_member_state": "rejected",
+                "page": 1,
+                "per_page": 10,
+            },
+        )
+        assert empty_state_filtered_response.status_code == 200
+        assert empty_state_filtered_response.json()["results"] == []
+
         projects_response = client.get("/api/projects")
         assert projects_response.status_code == 200
         projects_payload = projects_response.json()

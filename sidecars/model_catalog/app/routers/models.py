@@ -120,6 +120,7 @@ from ..db_collections import (
     update_collection,
 )
 from ..db_projects import (
+    normalize_project_member_state,
     read_model_project_memberships_bulk,
     replace_model_project_memberships,
 )
@@ -1288,6 +1289,7 @@ def _search_models_from_projection(
     page: int,
     per_page: int,
     project_id: int | None = None,
+    project_member_state: str | None = None,
 ) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     resolved_window_days = _normalize_frequents_window_days(frequent_window_days)
@@ -1382,15 +1384,20 @@ def _search_models_from_projection(
         base_clauses.append("COALESCE(p.recent_score, 0) > 0")
     if has_other_files:
         base_clauses.append("p.has_other_files = 1")
-    if project_id is not None:
+    project_member_state_value = normalize_project_member_state(project_member_state) if project_member_state else None
+    if project_id is not None or project_member_state_value is not None:
         base_clauses.append(
             "EXISTS ("
             "SELECT 1 FROM model_catalog_project_memberships pm "
             "WHERE pm.model_ref = p.model_ref "
-            "AND pm.project_id = ?"
-            ")"
+            + ("AND pm.project_id = ?" if project_id is not None else "")
+            + (" AND pm.member_state = ?" if project_member_state_value is not None else "")
+            + ")"
         )
-        base_params.append(int(project_id))
+        if project_id is not None:
+            base_params.append(int(project_id))
+        if project_member_state_value is not None:
+            base_params.append(project_member_state_value)
 
     entity_clauses: list[str] = []
     entity_params: list[Any] = []
@@ -1453,18 +1460,83 @@ def _search_models_from_projection(
         else:
             order_sql = "ORDER BY p.model_name_lc ASC"
 
-    base_where = _where_sql(base_clauses)
-    entity_where = _where_sql(base_clauses + entity_clauses)
-    full_clauses = list(base_clauses + entity_clauses)
-    if visibility_clause:
-        full_clauses.append(visibility_clause)
-        visibility_params = []
-    full_where = _where_sql(full_clauses)
-    total_params = [*base_params, *entity_params, *visibility_params]
-
     connection = connect(str(state.settings.db_path))
     connection.row_factory = sqlite3.Row
     try:
+        if project_member_state_value is not None:
+            membership_sql = (
+                "SELECT DISTINCT pm.model_ref FROM model_catalog_project_memberships pm WHERE pm.member_state = ?"
+                + (" AND pm.project_id = ?" if project_id is not None else "")
+            )
+            membership_params: list[Any] = [project_member_state_value]
+            if project_id is not None:
+                membership_params.append(int(project_id))
+            matching_rows = connection.execute(membership_sql, membership_params).fetchall()
+            matching_model_refs = [str(row["model_ref"] or "") for row in matching_rows if str(row["model_ref"] or "")]
+            if not matching_model_refs:
+                return {
+                    "success": True,
+                    "contract": "model-search.v1alpha1",
+                    "query": q or "",
+                    "refresh_status": {
+                        "refresh_requested": bool(refresh),
+                        "outcome": "projection",
+                        "preserved_cache": False,
+                        "authority_mode": _normalized_authority_mode(state.settings),
+                    },
+                    "filters": {
+                        "collection": collection,
+                        "creator": creator,
+                        "tag": selected_tags[0] if len(selected_tags) == 1 else "",
+                        "tags": list(selected_tags),
+                        "to_print_status": to_print_status,
+                        "to_print_priority": to_print_priority,
+                        "to_print_priority_min": to_print_priority_min,
+                        "to_print_priority_max": to_print_priority_max,
+                        "favorites_only": favorites_only,
+                        "frequents_only": frequents_only,
+                        "recent_added_only": recent_added_only,
+                        "recent_printed_only": recent_printed_only,
+                        "frequent_window_days": resolved_window_days,
+                        "frequent_min_prints": resolved_min_prints,
+                        "frequent_backfill_weight": resolved_backfill_weight,
+                        "has_other_files": has_other_files,
+                        "show_archived": bool(show_archived),
+                        "show_ideas": bool(show_ideas),
+                        "entity_types": list(allowed_entity_types) if allowed_entity_types is not None else None,
+                        "project_member_state": project_member_state_value,
+                    },
+                    "visibility": {
+                        "show_archived": bool(show_archived),
+                        "counts": {"active": 0, "archived": 0},
+                    },
+                    "facet_counts": {
+                        "collections": [],
+                        "tags": [],
+                    },
+                    "entity_type_counts": {"model": 0, "idea": 0},
+                    "sort": normalized_sort,
+                    "pagination": {
+                        "page": max(1, int(page)),
+                        "per_page": int(per_page),
+                        "total": 0,
+                        "total_pages": 0,
+                    },
+                    "results": [],
+                }
+            placeholders = ",".join(["?"] * len(matching_model_refs))
+            base_clauses.append(f"p.model_ref IN ({placeholders})")
+            base_params.extend(matching_model_refs)
+
+        base_where = _where_sql(base_clauses)
+        entity_where = _where_sql(base_clauses + entity_clauses)
+        full_clauses = list(base_clauses + entity_clauses)
+        if visibility_clause:
+            full_clauses.append(visibility_clause)
+            visibility_params = []
+        full_where = _where_sql(full_clauses)
+        total_params = [*base_params, *entity_params, *visibility_params]
+
         entity_rows = connection.execute(
             f"""
             SELECT p.entity_type, COUNT(*) AS cnt
@@ -1707,6 +1779,7 @@ def _search_models_from_projection(
             "show_archived": bool(show_archived),
             "show_ideas": bool(show_ideas),
             "entity_types": list(allowed_entity_types) if allowed_entity_types is not None else None,
+            "project_member_state": project_member_state_value,
         },
         "visibility": {
             "show_archived": bool(show_archived),
@@ -4095,6 +4168,7 @@ def search_models(
     source_file_name: str | None = None,
     source_hash: str | None = None,
     project_id: int | None = None,
+    project_member_state: str | None = None,
 ) -> dict[str, Any]:
     """Search catalog with pagination and filtering support.
 
@@ -4142,6 +4216,7 @@ def search_models(
         "source_file_name": source_file_name or "",
         "source_hash": source_hash or "",
         "project_id": project_id,
+        "project_member_state": project_member_state or "",
         "debug_collection_lookup": bool(debug_collection_lookup),
     }
     cache_key = _model_search_cache_key(cache_key_payload)
@@ -4194,6 +4269,7 @@ def search_models(
             page=page,
             per_page=per_page,
             project_id=project_id,
+            project_member_state=project_member_state,
         )
         if not refresh:
             _model_search_cache_put(cache_key, response_payload)

@@ -96,6 +96,7 @@ def search_models(
     source_file_name: str | None = None,
     source_hash: str | None = None,
     project_id: int | None = None,
+    project_member_state: str | None = None,
 ) -> dict[str, Any]:
     return search_models_service(
         request,
@@ -127,6 +128,7 @@ def search_models(
         source_file_name=source_file_name,
         source_hash=source_hash,
         project_id=project_id,
+        project_member_state=project_member_state,
     )
 
 

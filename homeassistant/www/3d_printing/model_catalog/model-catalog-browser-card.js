@@ -160,6 +160,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._focusProjectActionPrimaryAfterRender = false;
     this._focusBulkProjectSearchAfterRender = false;
     this._projectMemberStatePending = {};
+    this._projectDetailMemberStateFilter = '';
     this._projectDetail = null;
     this._perfSamples = [];
     this._lastLoadPerf = null;
@@ -1208,6 +1209,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     addText("source_file_name");
     addText("source_hash");
     addInt("project_id");
+    addText("project_member_state");
     addInt("page");
     addInt("per_page");
 
@@ -1808,6 +1810,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       };
       if (this._filters.project_id) {
         requestPayload.project_id = this._filters.project_id;
+      }
+      if (this._browserScope === 'projects' && this._projectDetailActive() && this._projectDetailMemberStateFilterValue()) {
+        requestPayload.project_member_state = this._projectDetailMemberStateFilterValue();
       }
 
       var data;
@@ -3194,6 +3199,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === 'set-project-detail-member-filter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._setProjectDetailMemberStateFilter(target.getAttribute('data-member-state'));
+      return;
+    }
+
     if (action === 'close-project-detail') {
       event.preventDefault();
       event.stopPropagation();
@@ -4407,11 +4419,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     this._browserScope = 'projects';
+    this._projectDetailMemberStateFilter = '';
     this._applyLeftNavSelection('project:' + String(normalizedProjectId), { closeDrawer: true, requestLoad: true, render: true, forceSelection: true });
   }
 
   _closeProjectDetail() {
     this._browserScope = 'projects';
+    this._projectDetailMemberStateFilter = '';
     this._projectDetail = null;
     this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: true, render: true });
   }
@@ -4423,6 +4437,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _projectMemberStateOptions() {
     return ['candidate', 'chosen', 'rejected'];
+  }
+
+  _projectDetailMemberStateFilterValue() {
+    return String(this._projectDetailMemberStateFilter || '').trim().toLowerCase();
+  }
+
+  _setProjectDetailMemberStateFilter(value) {
+    var nextValue = String(value || '').trim().toLowerCase();
+    var allowed = this._projectMemberStateOptions();
+    if (allowed.indexOf(nextValue) === -1) {
+      nextValue = '';
+    }
+    if (this._projectDetailMemberStateFilterValue() === nextValue) {
+      nextValue = '';
+    }
+    this._projectDetailMemberStateFilter = nextValue;
+    this._requestLoad(1, false);
   }
 
   _projectMemberStateKey(projectId, modelRef) {
@@ -7365,9 +7396,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var memberStateKey = String(memberRows[memberIndex] && memberRows[memberIndex].member_state || 'candidate').trim().toLowerCase() || 'candidate';
       memberStateCounts[memberStateKey] = (Number(memberStateCounts[memberStateKey] || 0) || 0) + 1;
     }
+    var activeMemberStateFilter = this._projectDetailMemberStateFilterValue();
     var memberStateHtml = Object.keys(memberStateCounts).sort().map(function (stateKey) {
-      return '<span class="selected-filter-chip tag-chip">' + this._escapeHtml(this._projectMemberStateLabel(stateKey)) + ' · ' + this._escapeHtml(String(memberStateCounts[stateKey])) + '</span>';
+      return '<button class="selected-filter-chip tag-chip project-member-filter-btn' + (activeMemberStateFilter === stateKey ? ' active' : '') + '" type="button" data-action="set-project-detail-member-filter" data-member-state="' + this._escapeHtml(stateKey) + '">' + this._escapeHtml(this._projectMemberStateLabel(stateKey)) + ' · ' + this._escapeHtml(String(memberStateCounts[stateKey])) + '</button>';
     }.bind(this)).join('');
+    var allMembersCount = Number(project.curated_model_count || memberRows.length || 0) || 0;
+    var memberStateFilterHtml = '<button class="selected-filter-chip project-member-filter-btn' + (!activeMemberStateFilter ? ' active' : '') + '" type="button" data-action="set-project-detail-member-filter" data-member-state="">All · ' + this._escapeHtml(String(allMembersCount)) + '</button>' + memberStateHtml;
     var description = String(project.description || project.notes || '').trim();
     var metaParts = [];
     if (project.project_type) {
@@ -7391,7 +7425,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="collection-browser-header-title">' + this._escapeHtml(String(project.title || 'Untitled Project')) + '</div>'
       + '    <div class="collection-browser-header-subtitle">' + this._escapeHtml(metaParts.join(' · ') || 'Lifecycle project') + '</div>'
       + '    <div class="collection-meta collection-meta-row">' + this._escapeHtml(description || 'No description yet.') + '</div>'
-      + (memberStateHtml ? '<div class="project-detail-membership-strip">' + memberStateHtml + '</div>' : '')
+      + '<div class="project-detail-membership-strip">' + memberStateFilterHtml + '</div>'
       + '    <div class="project-browser-header-actions">'
       + '      <button class="toolbar-btn ghost" type="button" data-action="close-project-detail">Back To Projects</button>'
       + '      <button class="toolbar-btn" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(project.id || '')) + '">Browse models</button>'
@@ -9595,6 +9629,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.selected-filter-chip:hover,.selected-filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'
       + '.selected-filter-chip.collection-chip{background:rgba(59,130,246,0.16);border-color:rgba(59,130,246,0.30);}'
       + '.selected-filter-chip.tag-chip{background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.30);}'
+      + '.project-member-filter-btn.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.38);color:#dbeafe;}'
       + '.project-member-shell{display:grid;gap:8px;}'
       + '.project-member-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 4px;}'
       + '.project-member-state-chip{cursor:default;}'
