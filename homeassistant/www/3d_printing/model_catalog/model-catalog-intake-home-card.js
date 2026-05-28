@@ -2281,7 +2281,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (action === 'browser-files' || action === 'browser-folder') {
       return;
     }
-    event.preventDefault();
+    if (action !== 'makerworld-instance') {
+      event.preventDefault();
+    }
     if (this._loading) {
       return;
     }

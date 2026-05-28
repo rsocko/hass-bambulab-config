@@ -793,9 +793,10 @@ def _read_indexed_filename_maps(
                 SELECT COALESCE(a.asset_filename, a.storage_path), e.model_name, a.file_size_bytes, a.preview_url,
                        a.asset_type, e.local_model_id, a.asset_id
                 FROM model_catalog_assets a
-                LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
+                                JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE COALESCE(a.asset_filename, a.storage_path) IS NOT NULL
                   AND TRIM(COALESCE(a.asset_filename, a.storage_path)) != ''
+                                    AND e.archived_at IS NULL
                 """
             ).fetchall()
         except sqlite3.OperationalError:
@@ -874,9 +875,10 @@ def _read_indexed_hash_match_contexts(
                                 SELECT a.file_hash, COALESCE(a.asset_filename, a.storage_path), e.model_name, a.file_size_bytes, a.preview_url,
                                              a.asset_type, e.local_model_id, a.asset_id
                 FROM model_catalog_assets a
-                LEFT JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
+                                JOIN model_catalog_entries e ON e.id = a.model_catalog_entry_id
                 WHERE a.file_hash IS NOT NULL
                   AND TRIM(a.file_hash) != ''
+                                    AND e.archived_at IS NULL
                 """
             ).fetchall()
         except sqlite3.OperationalError:

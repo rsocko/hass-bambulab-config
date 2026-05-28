@@ -566,6 +566,75 @@ def test_indexed_duplicate_conflict_includes_preview_url(tmp_path: Path) -> None
         client.__exit__(None, None, None)
 
 
+def test_archived_model_assets_do_not_trigger_indexed_duplicate_candidate(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        baseline_file = source_root / "archived-duplicate.3mf"
+        baseline_file.write_bytes(b"archived-baseline")
+
+        baseline_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(baseline_file)}],
+            },
+        )
+        assert baseline_upload.status_code == 200
+        baseline_upload_id = baseline_upload.json()["upload_id"]
+
+        baseline_publish = client.post(
+            f"/api/intake/uploads/{baseline_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "curated", "title": "Archived Baseline"}]},
+        )
+        assert baseline_publish.status_code == 200
+        local_model_id = str((baseline_publish.json().get("curated_model_ids") or [""])[0]).strip()
+        assert local_model_id
+
+        delete_response = client.delete(f"/api/local/models/{local_model_id}")
+        assert delete_response.status_code == 200
+
+        incoming_file = source_root / "archived-duplicate.3mf"
+        incoming_file.write_bytes(b"incoming-archived-duplicate")
+
+        duplicate_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(incoming_file)}],
+            },
+        )
+        assert duplicate_upload.status_code == 200
+        duplicate_upload_id = duplicate_upload.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{duplicate_upload_id}/validate")
+        assert validate_response.status_code == 200
+        validation_payload = validate_response.json().get("validation") or {}
+
+        indexed_catalog_conflicts: list[dict[str, object]] = []
+        for check in validation_payload.get("checks") or []:
+            findings = check.get("findings") if isinstance(check, dict) else None
+            if not isinstance(findings, list):
+                continue
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                conflicts = finding.get("conflicts_with")
+                if not isinstance(conflicts, list):
+                    continue
+                for conflict in conflicts:
+                    if not isinstance(conflict, dict):
+                        continue
+                    if str(conflict.get("scope") or "").strip().lower() != "indexed":
+                        continue
+                    if str(conflict.get("parent_kind") or "").strip().lower() != "catalog_model":
+                        continue
+                    indexed_catalog_conflicts.append(conflict)
+
+        assert not indexed_catalog_conflicts
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_indexed_queue_filename_conflict_identifies_other_upload(tmp_path: Path) -> None:
     client, source_root = _create_client(tmp_path)
     try:
