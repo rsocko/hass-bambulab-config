@@ -132,6 +132,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       error: "",
       submitting: false,
     };
+    this._bulkProjectDialog = {
+      open: false,
+      projectId: "",
+      search: "",
+      options: [],
+      error: "",
+      submitting: false,
+    };
     this._bulkTagDialog = {
       open: false,
       addTags: "",
@@ -148,6 +156,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._collectionActionFeedbackTimer = null;
     this._focusCollectionActionPrimaryAfterRender = false;
     this._focusProjectActionPrimaryAfterRender = false;
+    this._focusBulkProjectSearchAfterRender = false;
+    this._projectDetail = null;
     this._perfSamples = [];
     this._lastLoadPerf = null;
     this._lastRenderPerf = null;
@@ -467,39 +477,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _requestedCatalogEntityTypes() {
     if (this._browserScope !== "models") {
-      return "";
-    }
-    var requested = [];
-    if (this._typeFilters && this._typeFilters.model) {
-      requested.push("model");
-    }
-    if (this._typeFilters && this._typeFilters.idea) {
-      requested.push("idea");
-    }
-    if (requested.length !== 1) {
-      return "";
-    }
-    return requested[0];
-  }
-
-  _localModelIdForModel(model) {
-    var localModelId = String(model && model.local_model_id || "").trim();
-    if (localModelId) {
-      return localModelId;
-    }
-    var publicId = String(model && model.public_id || "").trim();
-    if (publicId && String(model && model.model_url || "").trim().indexOf("local://") === 0) {
-      return publicId;
-    }
-    return "";
-  }
-
-  _promotionTargets(fromType) {
-    var normalized = this._normalizedEntityType(fromType);
-    if (normalized === "idea") {
       return ["model"];
     }
-    return [];
+    var types = [];
+    if (this._typeFilters && this._typeFilters.model) {
+      types.push("model");
+    }
+    if (this._typeFilters && this._typeFilters.idea) {
+      types.push("idea");
+    }
+    return types.length ? types : ["model"];
   }
 
   _entityTypeBadgeLabel(entityType) {
@@ -2094,6 +2081,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       return;
     }
+    if (target && target.dataset && target.dataset.input === 'bulk-project-search') {
+      if (this._bulkProjectDialog) {
+        this._bulkProjectDialog.search = String(target.value || '');
+        this._bulkProjectDialog.error = '';
+      }
+      return;
+    }
     if (target && target.classList && target.classList.contains("idea-create-input")) {
       var field = String(target.getAttribute("data-idea-field") || "").trim();
       if (field && Object.prototype.hasOwnProperty.call(this._ideaCreateDraft, field)) {
@@ -2222,6 +2216,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
     }
 
+    if (this._bulkProjectDialog && this._bulkProjectDialog.open) {
+      var isBulkProjectSearch = rawTarget instanceof HTMLInputElement && rawTarget.dataset && rawTarget.dataset.input === 'bulk-project-search';
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this._closeBulkProjectDialog();
+        return;
+      }
+      if (event.key === 'Enter' && isBulkProjectSearch) {
+        event.preventDefault();
+        this._submitBulkProjectDialog();
+        return;
+      }
+    }
+
     var cardTarget = rawTarget && rawTarget.closest ? rawTarget.closest(".model-card[data-action='view-model-detail']") : null;
     if (cardTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
@@ -2266,6 +2274,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._closeCollectionActionDialog();
         return;
       }
+      if (this._bulkProjectDialog && this._bulkProjectDialog.open) {
+        event.preventDefault();
+        this._closeBulkProjectDialog();
+        return;
+      }
       var drawerNav = rawTarget && rawTarget.closest ? rawTarget.closest(".left-nav.drawer-open") : null;
       if (drawerNav && this._leftNavDrawerOpen) {
         event.preventDefault();
@@ -2293,6 +2306,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._submitCollectionActionDialog();
       return;
     }
+    if (target && target.classList && target.classList.contains("project-action-input")) {
+      var inputTag = String(target.tagName || '').toUpperCase();
+      if (inputTag !== 'TEXTAREA') {
+        event.preventDefault();
+        this._submitProjectActionDialog();
+      }
+      return;
+    }
     if (!target || !target.classList || !target.classList.contains("control-input")) {
       return;
     }
@@ -2306,8 +2327,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var target = rawTarget && rawTarget.closest ? rawTarget.closest("[data-action]") : null;
     var menuHost = rawTarget && rawTarget.closest ? rawTarget.closest(".advanced-menu-shell") : null;
     var bulkCollectionHost = rawTarget && rawTarget.closest ? rawTarget.closest(".bulk-collection-shell") : null;
+    var bulkProjectHost = rawTarget && rawTarget.closest ? rawTarget.closest(".bulk-project-dialog, .bulk-project-trigger") : null;
     var closeMenu = !!this._activeActionMenu && !menuHost;
     var closeBulkCollectionPicker = this._isBulkCollectionPickerOpen() && !bulkCollectionHost;
+    var closeBulkProjectDialog = !!(this._bulkProjectDialog && this._bulkProjectDialog.open) && !bulkProjectHost;
     if (!target) {
       if (closeMenu) {
         this._activeActionMenu = "";
@@ -2315,6 +2338,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       if (closeBulkCollectionPicker) {
         this._closeCollectionActionDialog();
+      }
+      if (closeBulkProjectDialog) {
+        this._closeBulkProjectDialog();
       }
       return;
     }
@@ -2325,6 +2351,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (closeBulkCollectionPicker && action !== 'bulk-add-to-collection') {
       this._closeCollectionActionDialog();
+    }
+    if (closeBulkProjectDialog && action !== 'bulk-add-to-project' && action !== 'select-bulk-project-option' && action !== 'submit-bulk-project-dialog') {
+      this._closeBulkProjectDialog();
     }
 
     if (action === "clear-filters") {
@@ -2360,6 +2389,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._filters.collection = "";
+      this._syncLeftNavSelectionFromFilters();
+      this._cancelScheduledApply();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === 'clear-project-filter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._filters.project_id = null;
       this._syncLeftNavSelectionFromFilters();
       this._cancelScheduledApply();
       this._requestLoad(1, false);
@@ -2879,6 +2919,59 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return;
       }
       await this._openBulkAddCollectionDialog();
+      return;
+    }
+
+    if (action === 'bulk-add-to-project') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this._bulkProjectDialog && this._bulkProjectDialog.open) {
+        this._closeBulkProjectDialog();
+        return;
+      }
+      await this._openBulkProjectDialog();
+      return;
+    }
+
+    if (action === 'select-bulk-project-option') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this._bulkProjectDialog) {
+        this._bulkProjectDialog.projectId = String(target.getAttribute('data-project-id') || '').trim();
+        this._bulkProjectDialog.error = '';
+        this._render();
+      }
+      return;
+    }
+
+    if (action === 'close-bulk-project-dialog') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target.classList && target.classList.contains('collection-action-backdrop') && rawTarget !== target) {
+        return;
+      }
+      this._closeBulkProjectDialog();
+      return;
+    }
+
+    if (action === 'submit-bulk-project-dialog') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._submitBulkProjectDialog();
+      return;
+    }
+
+    if (action === 'open-project-detail') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openProjectDetail(target.getAttribute('data-project-id'));
+      return;
+    }
+
+    if (action === 'close-project-detail') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeProjectDetail();
       return;
     }
 
@@ -3906,6 +3999,199 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!normalized) {
       return fallback || 'None';
     }
+    return normalized.replace(/_/g, ' ');
+  }
+
+  _selectedProjectId() {
+    return Number(this._filters && this._filters.project_id || 0) || 0;
+  }
+
+  _projectDetailActive() {
+    return this._browserScope === 'projects' && this._selectedProjectId() > 0;
+  }
+
+  _bulkProjectOptions() {
+    var dialog = this._bulkProjectDialog && typeof this._bulkProjectDialog === 'object' ? this._bulkProjectDialog : null;
+    var query = String(dialog && dialog.search || '').trim().toLowerCase();
+    var rows = dialog && Array.isArray(dialog.options) ? dialog.options.slice(0) : [];
+    rows.sort(function (left, right) {
+      return String(left && left.title || '').localeCompare(String(right && right.title || ''), undefined, { sensitivity: 'base' });
+    });
+    if (!query) {
+      return rows;
+    }
+    return rows.filter(function (project) {
+      var haystack = this._projectSearchHaystack(project);
+      return haystack.indexOf(query) !== -1;
+    }.bind(this));
+  }
+
+  async _getModelProjectMemberships(modelRef) {
+    var response = await this._projectApiRequest('/api/models/' + encodeURIComponent(String(modelRef || '').trim()) + '/projects', {
+      method: 'GET',
+    });
+    return response && Array.isArray(response.items) ? response.items : [];
+  }
+
+  async _replaceModelProjectMemberships(modelRef, memberships) {
+    return this._projectApiRequest('/api/models/' + encodeURIComponent(String(modelRef || '').trim()) + '/projects', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_memberships: Array.isArray(memberships) ? memberships : [] }),
+    });
+  }
+
+  async _bulkAddProjectMemberships(projectId) {
+    var targetProjectId = parseInt(String(projectId || '0'), 10);
+    if (!Number.isFinite(targetProjectId) || targetProjectId <= 0) {
+      throw new Error('Project selection is invalid.');
+    }
+    var selectedRefs = this.getSelectedModelRefs();
+    var updatedCount = 0;
+    var skippedCount = 0;
+    var failedCount = 0;
+    for (var index = 0; index < selectedRefs.length; index++) {
+      var modelRef = String(selectedRefs[index] || '').trim();
+      if (!modelRef) {
+        continue;
+      }
+      try {
+        var memberships = await this._getModelProjectMemberships(modelRef);
+        var mergedMemberships = [];
+        var seen = {};
+        for (var membershipIndex = 0; membershipIndex < memberships.length; membershipIndex++) {
+          var membership = memberships[membershipIndex] && typeof memberships[membershipIndex] === 'object' ? memberships[membershipIndex] : {};
+          var membershipProjectId = parseInt(String(membership.project_id || '0'), 10);
+          if (!Number.isFinite(membershipProjectId) || membershipProjectId <= 0 || seen[membershipProjectId]) {
+            continue;
+          }
+          seen[membershipProjectId] = true;
+          mergedMemberships.push({
+            project_id: membershipProjectId,
+            member_state: String(membership.member_state || 'candidate').trim().toLowerCase() || 'candidate',
+          });
+        }
+        if (seen[targetProjectId]) {
+          skippedCount += 1;
+          continue;
+        }
+        mergedMemberships.push({ project_id: targetProjectId, member_state: 'candidate' });
+        await this._replaceModelProjectMemberships(modelRef, mergedMemberships);
+        updatedCount += 1;
+      } catch (_error) {
+        failedCount += 1;
+      }
+    }
+    return {
+      updatedCount: updatedCount,
+      skippedCount: skippedCount,
+      failedCount: failedCount,
+    };
+  }
+
+  async _openBulkProjectDialog() {
+    var selectedCount = this.getSelectedModelRefs().length;
+    if (!selectedCount || this._loading) {
+      return;
+    }
+    var payload = await this._projectApiRequest('/api/projects?limit=500', { method: 'GET' });
+    var projects = payload && Array.isArray(payload.projects) ? payload.projects : [];
+    this._bulkProjectDialog = {
+      open: true,
+      projectId: '',
+      search: '',
+      options: projects,
+      error: projects.length ? '' : 'Create a project first from the Projects view.',
+      submitting: false,
+    };
+    this._focusBulkProjectSearchAfterRender = true;
+    this._render();
+  }
+
+  _closeBulkProjectDialog() {
+    if (this._bulkProjectDialog && this._bulkProjectDialog.submitting) {
+      return;
+    }
+    this._bulkProjectDialog = {
+      open: false,
+      projectId: '',
+      search: '',
+      options: [],
+      error: '',
+      submitting: false,
+    };
+    this._focusBulkProjectSearchAfterRender = false;
+    this._render();
+  }
+
+  async _submitBulkProjectDialog() {
+    var dialog = this._bulkProjectDialog && typeof this._bulkProjectDialog === 'object' ? this._bulkProjectDialog : null;
+    if (!dialog || !dialog.open || dialog.submitting) {
+      return;
+    }
+    var selectedProjectId = parseInt(String(dialog.projectId || '0'), 10);
+    if (!Number.isFinite(selectedProjectId) || selectedProjectId <= 0) {
+      var filteredOptions = this._bulkProjectOptions();
+      if (filteredOptions.length === 1) {
+        selectedProjectId = parseInt(String(filteredOptions[0] && filteredOptions[0].id || '0'), 10);
+        dialog.projectId = String(selectedProjectId || '');
+      }
+    }
+    if (!Number.isFinite(selectedProjectId) || selectedProjectId <= 0) {
+      dialog.error = 'Choose a project for the current selection.';
+      this._render();
+      return;
+    }
+    dialog.submitting = true;
+    dialog.error = '';
+    this._render();
+    try {
+      var targetProject = this._findProjectById(selectedProjectId) || (dialog.options || []).find(function (project) {
+        return Number(project && project.id || 0) === selectedProjectId;
+      }) || {};
+      var result = await this._bulkAddProjectMemberships(selectedProjectId);
+      var targetLabel = String(targetProject.title || 'project').trim() || 'project';
+      var feedbackMessage = '';
+      if (result.failedCount) {
+        feedbackMessage = 'Added ' + targetLabel + ' to ' + String(result.updatedCount) + ' selected records; ' + String(result.failedCount) + ' failed.';
+        this._setCollectionActionFeedback(feedbackMessage, 'error');
+      } else if (result.updatedCount > 0) {
+        feedbackMessage = 'Added ' + targetLabel + ' to ' + String(result.updatedCount) + ' selected records.';
+        if (result.skippedCount > 0) {
+          feedbackMessage += ' ' + String(result.skippedCount) + ' already had it.';
+        }
+        this._setCollectionActionFeedback(feedbackMessage, 'success');
+      } else {
+        feedbackMessage = 'All selected records already belong to ' + targetLabel + '.';
+        this._setCollectionActionFeedback(feedbackMessage, 'success');
+      }
+      this._closeBulkProjectDialog();
+      this._requestLoad(this._currentPage(), true);
+    } catch (error) {
+      dialog.submitting = false;
+      dialog.error = error && error.message ? String(error.message) : 'Project membership update failed.';
+      this._setCollectionActionFeedback(dialog.error, 'error');
+      this._render();
+    }
+  }
+
+  _openProjectDetail(projectId) {
+    var normalizedProjectId = parseInt(String(projectId || '0'), 10);
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+      return;
+    }
+    this._browserScope = 'projects';
+    this._applyLeftNavSelection('project:' + String(normalizedProjectId), { closeDrawer: true, requestLoad: true, render: true });
+  }
+
+  _closeProjectDetail() {
+    this._browserScope = 'projects';
+    this._projectDetail = null;
+    this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: true, render: true });
+  }
+
+  _projectMemberStateLabel(value) {
+    var normalized = String(value || 'candidate').trim().toLowerCase() || 'candidate';
     return normalized.replace(/_/g, ' ');
   }
 
@@ -6598,10 +6884,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '</div>';
     }
     var selectedFilterStrip = this._renderSelectedFilterStrip();
+    var searchPlaceholder = 'Search models';
+    if (this._browserScope === 'projects') {
+      searchPlaceholder = this._projectDetailActive() ? 'Search project members' : 'Search projects';
+    }
     return ''
       + '<div class="filter-bar-stack">'
       + '<div class="filter-row search-only-filter-row">'
-      + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="' + this._escapeHtml(this._browserScope === "projects" ? 'Search projects' : 'Search models') + '" value="' + this._escapeHtml(this._filters.q) + '">'
+      + '  <input id="mc-q" class="control-input filter-search" type="text" placeholder="' + this._escapeHtml(searchPlaceholder) + '" value="' + this._escapeHtml(this._filters.q) + '">'
       + '</div>'
       + selectedFilterStrip
       + '</div>';
@@ -6652,14 +6942,75 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="collection-stat"><div class="collection-stat-label">Updated</div><div class="collection-stat-value">' + this._escapeHtml(updatedAt ? this._formatCollectionDate(updatedAt) : 'n/a') + '</div></div>'
       + '  </div>'
       + '  <div class="collection-list-actions">'
-        + '    <button class="toolbar-btn collection-open" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Browse models</button>'
+        + '    <button class="toolbar-btn collection-open" type="button" data-action="open-project-detail" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Open details</button>'
+        + '    <button class="toolbar-btn ghost" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Browse models</button>'
         + '    <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="edit" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Edit</button>'
         + '    <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="delete" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Delete</button>'
       + '  </div>'
       + '</article>';
   }
 
+  _renderProjectDetailView() {
+    var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
+    var project = detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
+    if (!project) {
+      return '<div class="state-row">Project details are unavailable.</div>';
+    }
+    var items = detail && Array.isArray(detail.items) ? detail.items : [];
+    var pagination = detail && detail.pagination && typeof detail.pagination === 'object' ? detail.pagination : {};
+    var memberRows = Array.isArray(project.model_memberships) ? project.model_memberships : [];
+    var memberStateCounts = {};
+    for (var memberIndex = 0; memberIndex < memberRows.length; memberIndex++) {
+      var memberStateKey = String(memberRows[memberIndex] && memberRows[memberIndex].member_state || 'candidate').trim().toLowerCase() || 'candidate';
+      memberStateCounts[memberStateKey] = (Number(memberStateCounts[memberStateKey] || 0) || 0) + 1;
+    }
+    var memberStateHtml = Object.keys(memberStateCounts).sort().map(function (stateKey) {
+      return '<span class="selected-filter-chip tag-chip">' + this._escapeHtml(this._projectMemberStateLabel(stateKey)) + ' · ' + this._escapeHtml(String(memberStateCounts[stateKey])) + '</span>';
+    }.bind(this)).join('');
+    var description = String(project.description || project.notes || '').trim();
+    var metaParts = [];
+    if (project.project_type) {
+      metaParts.push(this._projectOptionLabel(project.project_type));
+    }
+    if (project.origin) {
+      metaParts.push(this._projectOptionLabel(project.origin));
+    }
+    if (project.created_by) {
+      metaParts.push('Owner ' + String(project.created_by));
+    }
+    var memberCards = items.length
+      ? items.map(function (model) {
+          return this._renderModelCard(model);
+        }.bind(this)).join('')
+      : '<div class="state-row">No project members match the current filters.</div>';
+    return ''
+      + '<section class="collection-browser-header project-browser-header project-detail-header">'
+      + '  <div class="collection-browser-header-copy">'
+      + '    <div class="collection-browser-header-kicker">Project Detail</div>'
+      + '    <div class="collection-browser-header-title">' + this._escapeHtml(String(project.title || 'Untitled Project')) + '</div>'
+      + '    <div class="collection-browser-header-subtitle">' + this._escapeHtml(metaParts.join(' · ') || 'Lifecycle project') + '</div>'
+      + '    <div class="collection-meta collection-meta-row">' + this._escapeHtml(description || 'No description yet.') + '</div>'
+      + (memberStateHtml ? '<div class="project-detail-membership-strip">' + memberStateHtml + '</div>' : '')
+      + '    <div class="project-browser-header-actions">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-project-detail">Back To Projects</button>'
+      + '      <button class="toolbar-btn" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(project.id || '')) + '">Browse models</button>'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="edit" data-project-id="' + this._escapeHtml(String(project.id || '')) + '">Edit</button>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="collection-browser-header-stats">'
+      + this._renderProjectHeaderStat('Status', this._projectOptionLabel(project.status, 'evaluating'))
+      + this._renderProjectHeaderStat('Members', Number(project.curated_model_count || memberRows.length || 0) || 0)
+      + this._renderProjectHeaderStat('Working Groups', Number(project.working_group_count || 0) || 0)
+      + this._renderProjectHeaderStat('Visible', Number(pagination.total || items.length || 0) || 0)
+      + '  </div>'
+      + '</section>'
+      + memberCards;
+  }
+
   _renderProjectCards() {
+    if (this._projectDetailActive()) {
+      return this._renderProjectDetailView();
+    }
     var browse = this._projectBrowse && typeof this._projectBrowse === 'object' ? this._projectBrowse : {};
     var projects = Array.isArray(browse.projects) ? browse.projects : [];
     var total = Math.max(0, Number(this._pagination && this._pagination.total || projects.length) || 0);
@@ -6689,10 +7040,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _renderSelectedFilterStrip() {
     var selectedCollectionKey = this._selectedCollectionKey();
     var selectedTags = this._activeTagFilters();
-    if (!selectedCollectionKey && !selectedTags.length) {
+    var selectedProjectId = this._selectedProjectId();
+    if (!selectedCollectionKey && !selectedTags.length && !selectedProjectId) {
       return '';
     }
     var chips = '';
+    if (selectedProjectId) {
+      var projectChipAction = this._browserScope === 'projects' ? 'close-project-detail' : 'clear-project-filter';
+      var selectedProject = this._findProjectById(selectedProjectId);
+      chips += '<button class="selected-filter-chip project-chip" type="button" data-action="' + this._escapeHtml(projectChipAction) + '">'
+        + '<span class="selected-filter-prefix">Project</span>'
+        + '<span class="selected-filter-value">' + this._escapeHtml(selectedProject ? selectedProject.title : 'Project') + '</span>'
+        + '<span class="selected-filter-remove" aria-hidden="true">\u00d7</span>'
+        + '</button>';
+    }
     if (selectedCollectionKey) {
       chips += '<button class="selected-filter-chip collection-chip" type="button" data-action="clear-collection-filter">'
         + '<span class="selected-filter-prefix">Collection</span>'
@@ -6796,6 +7157,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-edit-tags"><ha-icon icon="mdi:tag-multiple-outline"></ha-icon> Edit Tags</button>'
       + this._renderBulkCollectionPickerTrigger()
+      + '  <button class="bulk-btn bulk-project-trigger" type="button" data-action="bulk-add-to-project"><ha-icon icon="mdi:clipboard-plus-outline"></ha-icon> Add To Project...</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-archive"><ha-icon icon="mdi:archive-arrow-down-outline"></ha-icon> Archive</button>'
@@ -7283,7 +7645,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._browserScope === "collections") {
       return this._collectionBrowse && Array.isArray(this._collectionBrowse.items) ? this._collectionBrowse.items : [];
     }
-    if (this._browserScope === "projects") {
+      if (this._browserScope !== "projects") {
+        this._projectDetail = null;
       return [];
     }
     var visibleResults = this._filteredResultsForScope();
@@ -7927,6 +8290,45 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="collection-action-footer">'
       + '      <button class="toolbar-btn ghost" type="button" data-action="close-project-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
       + '      <button class="toolbar-btn' + (isDelete ? ' collection-action-submit danger' : ' collection-action-submit') + '" type="button" data-action="submit-project-action-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? (isDelete ? 'Deleting...' : 'Saving...') : submitLabel) + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  _renderBulkProjectDialog() {
+    var dialog = this._bulkProjectDialog && typeof this._bulkProjectDialog === 'object' ? this._bulkProjectDialog : null;
+    if (!dialog || !dialog.open) {
+      return '';
+    }
+    var options = this._bulkProjectOptions();
+    var selectedCount = this.getSelectedModelRefs().length;
+    return ''
+      + '<div class="collection-action-backdrop" data-action="close-bulk-project-dialog">'
+      + '  <div class="collection-action-dialog bulk-project-dialog" role="dialog" aria-modal="true" aria-label="Add to Project">'
+      + '    <div class="collection-action-header">'
+      + '      <div><h3>Add To Project</h3><div class="collection-action-subtitle">' + this._escapeHtml(String(selectedCount) + (selectedCount === 1 ? ' selected item' : ' selected items')) + '</div></div>'
+      + '      <button class="modal-close-btn" type="button" data-action="close-bulk-project-dialog" aria-label="Close"' + (dialog.submitting ? ' disabled' : '') + '>✕</button>'
+      + '    </div>'
+      + '    <div class="collection-action-body">'
+      + '      <div class="collection-action-note">Existing project memberships are preserved. New memberships are added as candidate entries.</div>'
+      + '      <input class="control-input bulk-project-search" type="text" data-input="bulk-project-search" placeholder="Search projects" value="' + this._escapeHtml(dialog.search) + '"' + (dialog.submitting ? ' disabled' : '') + ' />'
+      + '      <div class="bulk-collection-picker-list bulk-project-list" role="listbox">'
+      + (options.length
+        ? options.map(function (project) {
+            var projectId = String(project && project.id || '');
+            var isSelected = String(dialog.projectId || '') === projectId;
+            return '<button class="opt' + (isSelected ? ' selected' : '') + '" type="button" data-action="select-bulk-project-option" data-project-id="' + this._escapeHtml(projectId) + '"' + (dialog.submitting ? ' disabled' : '') + '>'
+              + this._escapeHtml(String(project && project.title || 'Untitled Project'))
+              + '<span class="path-meta">' + this._escapeHtml(this._projectOptionLabel(project && project.status || 'evaluating', 'evaluating')) + '</span>'
+              + '</button>';
+          }.bind(this)).join('')
+        : '<div class="bulk-collection-empty">No matching projects.</div>')
+      + '      </div>'
+      + (dialog.error ? '<div class="collection-action-error">' + this._escapeHtml(dialog.error) + '</div>' : '')
+      + '    </div>'
+      + '    <div class="collection-action-footer">'
+      + '      <button class="toolbar-btn ghost" type="button" data-action="close-bulk-project-dialog"' + (dialog.submitting ? ' disabled' : '') + '>Cancel</button>'
+      + '      <button class="toolbar-btn collection-action-submit" type="button" data-action="submit-bulk-project-dialog"' + (dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(dialog.submitting ? 'Adding...' : 'Add To Project') + '</button>'
       + '    </div>'
       + '  </div>'
       + '</div>';
@@ -9202,7 +9604,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._projectActionDialog && this._projectActionDialog.open) || (this._bulkTagDialog && this._bulkTagDialog.open)));
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add') || (this._projectActionDialog && this._projectActionDialog.open) || (this._bulkProjectDialog && this._bulkProjectDialog.open) || (this._bulkTagDialog && this._bulkTagDialog.open)));
 
     // Preserve focus across the innerHTML reset below. Without this, any
     // active input (most visibly the search box "#mc-q") loses focus on every
@@ -9230,6 +9632,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderIdeaCreateDialog()
       + this._renderCollectionActionDialog()
       + this._renderProjectActionDialog()
+      + this._renderBulkProjectDialog()
       + this._renderBulkTagDialog()
       + '  </div>';
 
@@ -9267,6 +9670,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var projectDialogPrimary = this.shadowRoot.querySelector('.project-action-input, .project-action-select, [data-action="submit-project-action-dialog"]');
       if (projectDialogPrimary) {
         requestAnimationFrame(function() { try { projectDialogPrimary.focus(); } catch(_e) {} });
+      }
+    }
+    if (this._focusBulkProjectSearchAfterRender) {
+      this._focusBulkProjectSearchAfterRender = false;
+      var bulkProjectSearch = this.shadowRoot.querySelector('.bulk-project-search');
+      if (bulkProjectSearch) {
+        requestAnimationFrame(function() { try { bulkProjectSearch.focus(); } catch(_e) {} });
       }
     }
     if (this._focusBulkCollectionSearchAfterRender) {
