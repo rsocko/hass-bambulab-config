@@ -350,6 +350,102 @@ def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
     assert "mozilla/5.0" in captured_headers["user-agent"].lower()
 
 
+def test_download_3mf_uses_signed_profile_manifest_when_design_and_profile_known(tmp_path: Path) -> None:
+    payload = _minimal_3mf_payload()
+    requested_urls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        if str(request.url) == "https://api.example.invalid/v1/design-service/design/1295917":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 1295917,
+                    "modelId": "US2bb73b106683e5",
+                    "title": "Big Brick Man",
+                    "designCreator": {"uid": 1, "name": "creator"},
+                    "instances": [{"id": 1309482, "profileId": 1309483, "isDefault": True, "title": "Default", "plates": []}],
+                },
+            )
+        if str(request.url) == "https://api.example.invalid/v1/iot-service/api/user/profile/1309483?model_id=US2bb73b106683e5":
+            return httpx.Response(200, json={"url": "https://makerworld.bblmw.com/downloads/big-brick-man.3mf?sig=abc"})
+        if str(request.url) == "https://makerworld.bblmw.com/downloads/big-brick-man.3mf?sig=abc":
+            return httpx.Response(200, content=payload)
+        return httpx.Response(500, text="unexpected")
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+    result = asyncio.run(
+        adapter.download_3mf(
+            1309482,
+            destination,
+            design_id=1295917,
+            profile_id=1309483,
+        )
+    )
+
+    assert result == destination
+    assert destination.read_bytes() == payload
+    assert requested_urls == [
+        "https://api.example.invalid/v1/design-service/design/1295917",
+        "https://api.example.invalid/v1/iot-service/api/user/profile/1309483?model_id=US2bb73b106683e5",
+        "https://makerworld.bblmw.com/downloads/big-brick-man.3mf?sig=abc",
+    ]
+
+
+def test_download_3mf_falls_back_to_legacy_when_signed_manifest_fails(tmp_path: Path) -> None:
+    payload = _minimal_3mf_payload()
+    requested_urls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        if str(request.url) == "https://api.example.invalid/v1/design-service/design/1295917":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 1295917,
+                    "modelId": "US2bb73b106683e5",
+                    "title": "Big Brick Man",
+                    "designCreator": {"uid": 1, "name": "creator"},
+                    "instances": [{"id": 1309482, "profileId": 1309483, "isDefault": True, "title": "Default", "plates": []}],
+                },
+            )
+        if str(request.url) == "https://api.example.invalid/v1/iot-service/api/user/profile/1309483?model_id=US2bb73b106683e5":
+            return httpx.Response(502, text="broken")
+        if str(request.url) == "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download":
+            return httpx.Response(200, content=payload)
+        return httpx.Response(500, text="unexpected")
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+    result = asyncio.run(
+        adapter.download_3mf(
+            1309482,
+            destination,
+            design_id=1295917,
+            profile_id=1309483,
+        )
+    )
+
+    assert result == destination
+    assert destination.read_bytes() == payload
+    assert requested_urls == [
+        "https://api.example.invalid/v1/design-service/design/1295917",
+        "https://api.example.invalid/v1/iot-service/api/user/profile/1309483?model_id=US2bb73b106683e5",
+        "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download",
+    ]
+
+
 def test_download_3mf_classifies_418_as_access_blocked(tmp_path: Path) -> None:
     adapter = MakerWorldAdapter(
         "token",

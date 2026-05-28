@@ -78,6 +78,7 @@ class _StubMakerWorldAdapter:
     def __init__(self, tmp_path: Path):
         self._tmp_path = tmp_path
         self.downloaded_instance_ids: list[int] = []
+        self.download_requests: list[dict[str, Any]] = []
         self._result = _StubResolveResult(
             design=_StubDesign(
                 design_id=1295917,
@@ -122,8 +123,22 @@ class _StubMakerWorldAdapter:
         suffix = text.split(marker, 1)[1].split("#", 1)[0].split("&", 1)[0].split("?", 1)[0].strip()
         return int(suffix) if suffix.isdigit() else None
 
-    async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+    async def download_3mf(
+        self,
+        instance_id: int,
+        dest_path: Path,
+        *,
+        design_id: int | None = None,
+        profile_id: int | None = None,
+    ) -> Path:
         self.downloaded_instance_ids.append(int(instance_id))
+        self.download_requests.append(
+            {
+                "instance_id": int(instance_id),
+                "design_id": int(design_id) if design_id is not None else None,
+                "profile_id": int(profile_id) if profile_id is not None else None,
+            }
+        )
         destination = Path(dest_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(_minimal_3mf_payload())
@@ -131,8 +146,22 @@ class _StubMakerWorldAdapter:
 
 
 class _StubInvalidDownloadMakerWorldAdapter(_StubMakerWorldAdapter):
-    async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+    async def download_3mf(
+        self,
+        instance_id: int,
+        dest_path: Path,
+        *,
+        design_id: int | None = None,
+        profile_id: int | None = None,
+    ) -> Path:
         self.downloaded_instance_ids.append(int(instance_id))
+        self.download_requests.append(
+            {
+                "instance_id": int(instance_id),
+                "design_id": int(design_id) if design_id is not None else None,
+                "profile_id": int(profile_id) if profile_id is not None else None,
+            }
+        )
         destination = Path(dest_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(b'{"error":"not a 3mf"}')
@@ -144,8 +173,22 @@ class _StubSelectiveInvalidDownloadMakerWorldAdapter(_StubMakerWorldAdapter):
         super().__init__(tmp_path)
         self._invalid_instance_ids = {int(value) for value in invalid_instance_ids}
 
-    async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+    async def download_3mf(
+        self,
+        instance_id: int,
+        dest_path: Path,
+        *,
+        design_id: int | None = None,
+        profile_id: int | None = None,
+    ) -> Path:
         self.downloaded_instance_ids.append(int(instance_id))
+        self.download_requests.append(
+            {
+                "instance_id": int(instance_id),
+                "design_id": int(design_id) if design_id is not None else None,
+                "profile_id": int(profile_id) if profile_id is not None else None,
+            }
+        )
         destination = Path(dest_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         if int(instance_id) in self._invalid_instance_ids:

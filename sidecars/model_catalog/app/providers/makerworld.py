@@ -14,6 +14,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 from urllib.parse import urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import httpx
 
@@ -152,6 +153,7 @@ class MakerWorldAdapter:
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/136.0.0.0 Safari/537.36"
     )
+    MAKERWORLD_CDN_HOSTS = {"makerworld.bblmw.com", "public-cdn.bblmw.com"}
 
     def __init__(
         self,
@@ -228,9 +230,36 @@ class MakerWorldAdapter:
             file_manifest=file_manifest,
         )
 
-    async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+    async def download_3mf(
+        self,
+        instance_id: int,
+        dest_path: Path,
+        *,
+        design_id: int | None = None,
+        profile_id: int | None = None,
+    ) -> Path:
         destination = Path(dest_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if design_id is not None and profile_id is not None:
+            try:
+                signed_url = await self._get_signed_download_url(
+                    design_id=int(design_id),
+                    profile_id=int(profile_id),
+                )
+                await self._download_signed_url_to_path(signed_url, destination)
+            except ProviderUnavailableError:
+                await self._download_legacy_3mf(instance_id, destination)
+        else:
+            await self._download_legacy_3mf(instance_id, destination)
+        if not _is_valid_3mf_package(destination.read_bytes()):
+            try:
+                destination.unlink()
+            except OSError:
+                pass
+            raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
+        return destination
+
+    async def _download_legacy_3mf(self, instance_id: int, destination: Path) -> None:
         url_path = f"/design-service/instance/{int(instance_id)}/f3mf"
         params = {"type": "download"}
         await self._download_to_path(
@@ -241,13 +270,6 @@ class MakerWorldAdapter:
             max_429_retries=3,
             max_5xx_retries=1,
         )
-        if not _is_valid_3mf_package(destination.read_bytes()):
-            try:
-                destination.unlink()
-            except OSError:
-                pass
-            raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
-        return destination
 
     async def download_preview_images(
         self,
@@ -472,6 +494,142 @@ class MakerWorldAdapter:
             if len(parts) >= 3 and len(parts[0]) == 2 and parts[1] == "models":
                 region = parts[0]
         return f"https://makerworld.com/{region}/models/{int(design_id)}"
+
+    async def _get_signed_download_url(self, *, design_id: int, profile_id: int) -> str:
+        design_response = await self._request_json(
+            "GET",
+            f"/design-service/design/{int(design_id)}",
+            timeout=self._metadata_timeout,
+            max_429_retries=3,
+            max_5xx_retries=1,
+        )
+        if design_response is None:
+            raise ProviderUnavailableError("MakerWorld design was not found")
+        design_payload = self._unwrap_design_payload(design_response)
+        model_id = str(design_payload.get("modelId") or "").strip()
+        if not model_id:
+            raise ProviderUnavailableError("MakerWorld design metadata did not include modelId")
+
+        response = await self._send_request(
+            "GET",
+            f"/iot-service/api/user/profile/{int(profile_id)}",
+            timeout=self._metadata_timeout,
+            params={"model_id": model_id},
+            request_label="signed_download_manifest",
+        )
+        if response.status_code in {401, 403}:
+            raise AuthenticationError("MakerWorld authentication failed")
+        if response.status_code == 404:
+            raise ProviderUnavailableError("MakerWorld profile download manifest was not found")
+        if response.status_code == 429:
+            raise ProviderUnavailableError("MakerWorld profile download manifest was rate limited")
+        if 500 <= response.status_code <= 599:
+            raise ProviderUnavailableError(
+                f"MakerWorld profile download manifest failed with status {response.status_code}"
+            )
+        if response.status_code != 200:
+            raise ProviderUnavailableError(
+                f"MakerWorld profile download manifest failed with status {response.status_code}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ProviderUnavailableError("MakerWorld profile download manifest returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise ProviderUnavailableError("MakerWorld profile download manifest returned invalid payload")
+        signed_url = str(payload.get("url") or "").strip()
+        if not signed_url:
+            raise ProviderUnavailableError("MakerWorld profile download manifest did not include a URL")
+        return signed_url
+
+    async def _download_signed_url_to_path(self, signed_url: str, destination: Path) -> None:
+        parsed = urlparse(str(signed_url or "").strip())
+        host = str(parsed.hostname or "").strip().lower()
+        if not host:
+            raise ProviderUnavailableError("MakerWorld signed download URL was invalid")
+        is_known_cdn = host in self.MAKERWORLD_CDN_HOSTS
+        is_s3 = host.endswith(".amazonaws.com")
+        if not is_known_cdn and not is_s3:
+            raise ProviderUnavailableError(f"MakerWorld signed download host was not allowed: {host}")
+        if is_s3:
+            payload = await self._download_signed_url_via_urllib(signed_url)
+            destination.write_bytes(payload)
+            return
+
+        await self._throttle()
+        headers = {
+            "Accept": "application/octet-stream, */*;q=0.9",
+            "User-Agent": self.DEFAULT_USER_AGENT,
+        }
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._download_timeout,
+                transport=self._transport,
+                follow_redirects=False,
+            ) as client:
+                response = await client.get(signed_url, headers=headers)
+                _record_recent_makerworld_request(
+                    method="GET",
+                    request_url=str(response.request.url),
+                    request_label="signed_binary_download",
+                    response=response,
+                )
+        except httpx.HTTPError as exc:
+            _record_recent_makerworld_request(
+                method="GET",
+                request_url=signed_url,
+                request_label="signed_binary_download",
+                error=exc,
+            )
+            raise ProviderUnavailableError("MakerWorld signed download request failed") from exc
+
+        if response.status_code != 200:
+            raise ProviderUnavailableError(
+                f"MakerWorld signed download failed with status {response.status_code}"
+            )
+        destination.write_bytes(response.content)
+
+    async def _download_signed_url_via_urllib(self, signed_url: str) -> bytes:
+        class _NoRedirect(HTTPRedirectHandler):
+            def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
+                return None
+
+        def _blocking_fetch() -> bytes:
+            opener = build_opener(_NoRedirect)
+            request = Request(
+                signed_url,
+                headers={
+                    "Accept": "application/octet-stream, */*;q=0.9",
+                    "User-Agent": self.DEFAULT_USER_AGENT,
+                },
+            )
+            with opener.open(request, timeout=self._download_timeout) as response:
+                status_code = int(getattr(response, "status", 200) or 200)
+                if status_code != 200:
+                    raise ProviderUnavailableError(
+                        f"MakerWorld signed download failed with status {status_code}"
+                    )
+                return response.read()
+
+        try:
+            payload = await asyncio.to_thread(_blocking_fetch)
+        except ProviderUnavailableError:
+            raise
+        except Exception as exc:
+            _record_recent_makerworld_request(
+                method="GET",
+                request_url=signed_url,
+                request_label="signed_binary_download_s3",
+                error=exc,
+            )
+            raise ProviderUnavailableError("MakerWorld signed download request failed") from exc
+
+        _record_recent_makerworld_request(
+            method="GET",
+            request_url=signed_url,
+            request_label="signed_binary_download_s3",
+        )
+        return payload
 
     async def _request_json(
         self,

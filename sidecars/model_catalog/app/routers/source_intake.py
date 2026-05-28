@@ -71,6 +71,13 @@ def _default_instance_candidates(file_manifest: list[dict[str, Any]], preferred_
     return candidates
 
 
+def _manifest_entry_for_instance_id(file_manifest: list[dict[str, Any]], instance_id: int) -> dict[str, Any] | None:
+    for item in file_manifest:
+        if _coerce_positive_int(item.get("instance_id")) == int(instance_id):
+            return item
+    return None
+
+
 def _is_retryable_instance_download_error(exc: ProviderUnavailableError) -> bool:
     message = str(exc or "").lower()
     return "valid 3mf package" in message or "resource was not found" in message
@@ -504,8 +511,15 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
         download_completed = False
         for instance_id in candidate_instance_ids:
             attempted_instance_ids.append(int(instance_id))
+            manifest_entry = _manifest_entry_for_instance_id(file_manifest, int(instance_id)) or {}
+            profile_id = _coerce_positive_int(manifest_entry.get("profile_id"))
             try:
-                await adapter.download_3mf(int(instance_id), download_path)
+                await adapter.download_3mf(
+                    int(instance_id),
+                    download_path,
+                    design_id=_coerce_positive_int(record.get("source_model_id")),
+                    profile_id=profile_id,
+                )
                 if not _is_valid_3mf_package(download_path.read_bytes()):
                     try:
                         download_path.unlink()
