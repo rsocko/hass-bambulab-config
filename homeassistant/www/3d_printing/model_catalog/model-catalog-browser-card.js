@@ -52,6 +52,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._collectionBrowse = null;
     this._projectBrowse = null;
     this._expandedCollectionNodeIds = {};
+    this._expandedProjectNodeIds = {};
     this._projects = [];
     this._projectsLoaded = false;
     this._projectsError = "";
@@ -461,6 +462,139 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     html += '</div>';
     return html;
+  }
+
+  _normalizedProjectParentId(project) {
+    if (!project || typeof project !== 'object') {
+      return '';
+    }
+    var candidateKeys = ['parent_project_id', 'parent_id', 'parentProjectId'];
+    for (var index = 0; index < candidateKeys.length; index++) {
+      var value = project[candidateKeys[index]];
+      if (value === null || value === undefined || value === '') {
+        continue;
+      }
+      var numericValue = parseInt(String(value), 10);
+      if (Number.isFinite(numericValue) && numericValue > 0) {
+        return String(numericValue);
+      }
+    }
+    return '';
+  }
+
+  _projectNodeCount(project) {
+    var item = project && typeof project === 'object' ? project : {};
+    var countCandidates = [item.model_count, item.curated_model_count, item.member_count];
+    for (var index = 0; index < countCandidates.length; index++) {
+      var count = Number(countCandidates[index]);
+      if (Number.isFinite(count) && count >= 0) {
+        return Math.max(0, Math.trunc(count));
+      }
+    }
+    return 0;
+  }
+
+  _buildProjectTree() {
+    var orderedProjects = this._sortProjectsForBrowse(this._projects);
+    var nodeMap = {};
+    for (var index = 0; index < orderedProjects.length; index++) {
+      var project = orderedProjects[index] && typeof orderedProjects[index] === 'object' ? orderedProjects[index] : null;
+      var nodeId = String(project && project.id || '').trim();
+      if (!nodeId) {
+        continue;
+      }
+      nodeMap[nodeId] = { project: project, children: [] };
+    }
+    var roots = [];
+    for (var projectIndex = 0; projectIndex < orderedProjects.length; projectIndex++) {
+      var currentProject = orderedProjects[projectIndex] && typeof orderedProjects[projectIndex] === 'object' ? orderedProjects[projectIndex] : null;
+      var currentNodeId = String(currentProject && currentProject.id || '').trim();
+      if (!currentNodeId || !nodeMap[currentNodeId]) {
+        continue;
+      }
+      var parentNodeId = this._normalizedProjectParentId(currentProject);
+      if (parentNodeId && parentNodeId !== currentNodeId && nodeMap[parentNodeId]) {
+        nodeMap[parentNodeId].children.push(nodeMap[currentNodeId]);
+      } else {
+        roots.push(nodeMap[currentNodeId]);
+      }
+    }
+    return roots;
+  }
+
+  _findProjectTreeNodePathById(projectId) {
+    var targetId = String(projectId || '').trim();
+    if (!targetId) {
+      return [];
+    }
+    var roots = this._buildProjectTree();
+    var visit = function (nodes, path) {
+      for (var index = 0; index < nodes.length; index++) {
+        var node = nodes[index] || {};
+        var nodeId = String(node.project && node.project.id || '').trim();
+        if (!nodeId) {
+          continue;
+        }
+        var nextPath = path.concat(nodeId);
+        if (nodeId === targetId) {
+          return nextPath;
+        }
+        if (Array.isArray(node.children) && node.children.length) {
+          var childPath = visit(node.children, nextPath);
+          if (childPath.length) {
+            return childPath;
+          }
+        }
+      }
+      return [];
+    };
+    return visit(roots, []);
+  }
+
+  _hydrateProjectTreeExpansionState(projectTree) {
+    var roots = Array.isArray(projectTree) ? projectTree : this._buildProjectTree();
+    for (var index = 0; index < roots.length; index++) {
+      var rootNodeId = String(roots[index] && roots[index].project && roots[index].project.id || '').trim();
+      if (rootNodeId && !Object.prototype.hasOwnProperty.call(this._expandedProjectNodeIds, rootNodeId)) {
+        this._expandedProjectNodeIds[rootNodeId] = true;
+      }
+    }
+    var selectedPath = this._findProjectTreeNodePathById(this._selectedProjectId());
+    for (var pathIndex = 0; pathIndex < selectedPath.length; pathIndex++) {
+      this._expandedProjectNodeIds[selectedPath[pathIndex]] = true;
+    }
+  }
+
+  _renderProjectTreeNode(node, depth) {
+    var currentDepth = Math.max(0, Number(depth || 0) || 0);
+    var project = node && typeof node.project === 'object' ? node.project : {};
+    var nodeId = String(project.id || '').trim();
+    var label = String(project.title || project.name || 'Project').trim() || 'Project';
+    var childNodes = Array.isArray(node && node.children) ? node.children : [];
+    var hasChildren = childNodes.length > 0;
+    var isExpanded = !hasChildren || !!this._expandedProjectNodeIds[nodeId];
+    var count = this._projectNodeCount(project);
+    var icon = hasChildren ? 'mdi:clipboard-text-multiple-outline' : 'mdi:clipboard-text-outline';
+    var navKey = 'project:' + nodeId;
+    var isActive = Number(nodeId || 0) > 0 && this._selectedProjectId() === Number(nodeId);
+    var trailingMarkup = isActive
+      ? '<span class="left-nav-item-count dismiss" aria-hidden="true">\u00d7</span>'
+      : '<span class="left-nav-item-count">' + this._escapeHtml(String(count)) + '</span>';
+    var rowHtml = ''
+      + '<div class="left-nav-tree-row' + (hasChildren ? ' has-children' : '') + '" style="--tree-depth:' + this._escapeHtml(String(currentDepth)) + '">'
+      + (hasChildren
+        ? '<button class="left-nav-tree-toggle" type="button" data-action="toggle-project-node" data-node-id="' + this._escapeHtml(nodeId) + '" aria-label="' + this._escapeHtml((isExpanded ? 'Collapse ' : 'Expand ') + label) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '"><ha-icon icon="mdi:chevron-' + (isExpanded ? 'down' : 'right') + '"></ha-icon></button>'
+        : '')
+      + '<button class="left-nav-item left-nav-tree-item' + (isActive ? ' active' : '') + '" type="button" data-action="select-left-nav-item" data-nav-key="' + this._escapeHtml(navKey) + '" aria-label="' + this._escapeHtml(label) + '" title="' + this._escapeHtml(label) + '" aria-pressed="' + (isActive ? 'true' : 'false') + '"><span class="left-nav-item-main"><ha-icon icon="' + this._escapeHtml(icon) + '"></ha-icon><span class="left-nav-item-label">' + this._escapeHtml(label) + '</span></span>' + trailingMarkup + '</button>'
+      + '</div>';
+    if (!hasChildren || !isExpanded) {
+      return '<div class="left-nav-tree-node">' + rowHtml + '</div>';
+    }
+    var childrenHtml = '';
+    for (var index = 0; index < childNodes.length; index++) {
+      childrenHtml += this._renderProjectTreeNode(childNodes[index], currentDepth + 1);
+    }
+    return '<div class="left-nav-tree-node">' + rowHtml + '<div class="left-nav-tree-children">' + childrenHtml + '</div></div>';
   }
 
   _displayTagLabel(tagKey) {
@@ -2466,6 +2600,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var nodeId = String(target.getAttribute("data-node-id") || "").trim();
       if (nodeId) {
         this._expandedCollectionNodeIds[nodeId] = !this._expandedCollectionNodeIds[nodeId];
+        this._render();
+      }
+      return;
+    }
+
+    if (action === "toggle-project-node") {
+      event.preventDefault();
+      event.stopPropagation();
+      var projectNodeId = String(target.getAttribute("data-node-id") || "").trim();
+      if (projectNodeId) {
+        this._expandedProjectNodeIds[projectNodeId] = !this._expandedProjectNodeIds[projectNodeId];
         this._render();
       }
       return;
@@ -6196,6 +6341,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (key.indexOf("collection:") === 0) {
       isFacetFilterItem = true;
       isActive = this._selectedCollectionKey() === String(key.slice("collection:".length) || "").trim().toLowerCase();
+    } else if (key.indexOf("project:") === 0) {
+      isFacetFilterItem = true;
+      isActive = this._selectedProjectId() === (parseInt(String(key.slice("project:".length) || "0"), 10) || 0);
     } else if (key.indexOf("tag:") === 0) {
       isFacetFilterItem = true;
       isActive = this._hasTagFilter(String(key.slice("tag:".length) || "").trim().toLowerCase());
@@ -6509,10 +6657,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _applyLeftNavSelection(navKey, options) {
     var settings = options && typeof options === "object" ? options : {};
     var key = String(navKey || "all-models").trim() || "all-models";
-    this._leftNavSelectedKey = key;
 
     var contextCollection = this._selectedCollectionKey();
     var contextTags = this._activeTagFilters();
+    var contextProjectId = this._selectedProjectId();
     var contextFavorites = false;
     var contextFrequents = false;
     var contextRecentAdded = !!(this._filters && this._filters.recent_added_only);
@@ -6560,25 +6708,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var projectId = parseInt(key.slice("project:".length), 10);
       contextCollection = "";
       contextTags = [];
+      contextFavorites = false;
+      contextFrequents = false;
       contextRecentAdded = false;
       contextRecentPrinted = false;
-      this._filters.project_id = projectId || null;
+      contextProjectId = (Number.isFinite(projectId) && projectId > 0 && contextProjectId !== projectId) ? projectId : null;
+      this._projectDetail = null;
     } else {
       contextCollection = "";
       contextTags = [];
       contextRecentAdded = false;
       contextRecentPrinted = false;
+      contextProjectId = null;
     }
 
-    if (key.indexOf("project:") !== 0) {
-      this._filters.project_id = null;
-    }
+    this._filters.project_id = contextProjectId;
     this._filters.collection = contextCollection;
     this._setActiveTagFilters(contextTags);
     this._filters.favorites_only = contextFavorites;
     this._filters.frequents_only = contextFrequents;
     this._filters.recent_added_only = contextRecentAdded;
     this._filters.recent_printed_only = contextRecentPrinted;
+    this._leftNavSelectedKey = this._deriveLeftNavKeyFromFilters();
 
     if (this._browserScope !== "models" && this._browserScope !== "collections" && this._browserScope !== "projects") {
       this._browserScope = "models";
@@ -6742,13 +6893,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var selectedProjectId = this._filters && this._filters.project_id ? this._filters.project_id : null;
       return this._renderCollapsedFacetSectionTrigger('Projects', 'projects', 'mdi:clipboard-text-multiple-outline', !!selectedProjectId, selectedProjectId ? 1 : 0);
     }
-    var html = '';
-    for (var i = 0; i < this._projects.length; i++) {
-      var p = this._projects[i];
-      var title = String(p.title || p.name || 'Untitled').trim();
-      var modelCount = p.model_count != null ? Number(p.model_count) : null;
-      html += this._renderLeftNavItem(title, 'project:' + p.id, modelCount, 'mdi:clipboard-text-outline');
+    var projectTree = this._buildProjectTree();
+    this._hydrateProjectTreeExpansionState(projectTree);
+    var html = '<div class="left-nav-tree">';
+    for (var i = 0; i < projectTree.length; i++) {
+      html += this._renderProjectTreeNode(projectTree[i], 0);
     }
+    html += '</div>';
     return '<div class="left-nav-section" role="group" aria-label="Projects">'
       + '<div class="left-nav-section-label">Projects</div>'
       + html

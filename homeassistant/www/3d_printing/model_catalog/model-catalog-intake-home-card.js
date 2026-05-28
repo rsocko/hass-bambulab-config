@@ -2381,6 +2381,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '      ' + (this._error && !this._wizardOpen ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
           + '      ' + (this._status && !this._wizardOpen ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
           + '    </div>'
+          + '    ' + busyHtml
           + resultHtml
           + this._queueSummaryHtml()
           + this._renderLaunchPad()
@@ -2392,6 +2393,5 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 }
 
 if (!customElements.get('model-catalog-intake-home-card')) {
-          + '    ' + busyHtml
   customElements.define('model-catalog-intake-home-card', ModelCatalogIntakeHomeCard);
 }
