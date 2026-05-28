@@ -135,6 +135,8 @@ class ModelDetailPopupCard extends HTMLElement {
     this._allTagsFetched = false;
     this._collectionPickerOpen = false;
     this._collectionSearchQuery = '';
+    this._collectionSearchSelectionStart = null;
+    this._collectionSearchSelectionEnd = null;
     this._collectionPickerHighlightIndex = 0;
     this._knownCollections = [];
     this._allCollectionsFetched = false;
@@ -1126,6 +1128,8 @@ class ModelDetailPopupCard extends HTMLElement {
     const target = event.target;
     if (target instanceof HTMLInputElement && target.dataset.input === 'collection-search') {
       this._collectionSearchQuery = String(target.value || '');
+      this._collectionSearchSelectionStart = Number.isFinite(target.selectionStart) ? target.selectionStart : this._collectionSearchQuery.length;
+      this._collectionSearchSelectionEnd = Number.isFinite(target.selectionEnd) ? target.selectionEnd : this._collectionSearchSelectionStart;
       this._collectionPickerHighlightIndex = 0;
       const pickerDd = this.shadowRoot.querySelector('.collection-picker-wrap .picker-dd');
       if (pickerDd) {
@@ -1134,10 +1138,7 @@ class ModelDetailPopupCard extends HTMLElement {
         const nextDd = tmp.firstElementChild;
         if (nextDd) {
           pickerDd.replaceWith(nextDd);
-          const searchBox = nextDd.querySelector('.search-box');
-          if (searchBox) {
-            searchBox.focus();
-          }
+          this._focusCollectionSearchBox(nextDd);
         }
       }
       return;
@@ -1194,6 +1195,31 @@ class ModelDetailPopupCard extends HTMLElement {
           : nextStart;
         searchBox.setSelectionRange(nextStart, nextEnd);
       }
+    });
+  }
+
+  _focusCollectionSearchBox(scopeRoot) {
+    requestAnimationFrame(() => {
+      const root = scopeRoot && typeof scopeRoot.querySelector === 'function'
+        ? scopeRoot
+        : this.shadowRoot;
+      const searchBox = root && typeof root.querySelector === 'function'
+        ? root.querySelector('.search-box')
+        : null;
+      if (!(searchBox instanceof HTMLInputElement)) {
+        return;
+      }
+      searchBox.focus();
+      if (typeof searchBox.setSelectionRange !== 'function') {
+        return;
+      }
+      const nextStart = Number.isFinite(this._collectionSearchSelectionStart)
+        ? Math.max(0, Math.min(this._collectionSearchSelectionStart, searchBox.value.length))
+        : searchBox.value.length;
+      const nextEnd = Number.isFinite(this._collectionSearchSelectionEnd)
+        ? Math.max(nextStart, Math.min(this._collectionSearchSelectionEnd, searchBox.value.length))
+        : nextStart;
+      searchBox.setSelectionRange(nextStart, nextEnd);
     });
   }
 
@@ -7892,6 +7918,8 @@ class ModelDetailPopupCard extends HTMLElement {
         const options = this._buildCollectionPickerState(this._selectedCollectionMemberships()).options;
         if (options.length) {
           event.preventDefault();
+          this._collectionSearchSelectionStart = Number.isFinite(rawTarget.selectionStart) ? rawTarget.selectionStart : this._collectionSearchQuery.length;
+          this._collectionSearchSelectionEnd = Number.isFinite(rawTarget.selectionEnd) ? rawTarget.selectionEnd : this._collectionSearchSelectionStart;
           if (event.key === 'ArrowDown') {
             this._collectionPickerHighlightIndex = Math.min(this._collectionPickerHighlightIndex + 1, options.length - 1);
           } else if (event.key === 'ArrowUp') {
@@ -7902,6 +7930,7 @@ class ModelDetailPopupCard extends HTMLElement {
             this._collectionPickerHighlightIndex = options.length - 1;
           }
           this._render();
+          this._focusCollectionSearchBox();
         }
         return;
       }
@@ -7909,6 +7938,8 @@ class ModelDetailPopupCard extends HTMLElement {
         event.preventDefault();
         this._collectionPickerOpen = false;
         this._collectionSearchQuery = '';
+        this._collectionSearchSelectionStart = null;
+        this._collectionSearchSelectionEnd = null;
         this._collectionPickerHighlightIndex = 0;
         this._render();
         return;

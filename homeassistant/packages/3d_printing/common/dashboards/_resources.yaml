@@ -41,7 +41,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-bulk-import-card.js?v=8
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=165
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=166
   type: module
 - url: /local/3d_printing/model_catalog/slicer-wizard-card.js?v=27
   type: module
