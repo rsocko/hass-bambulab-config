@@ -2259,6 +2259,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var action = String(target.getAttribute('data-action') || '');
     if (action === 'makerworld-url') {
       this._makerworldUrl = String(target.value || '');
+      this._render();
       return;
     }
     if (action === 'browser-group-title') {
