@@ -22,6 +22,14 @@ _CAPTURE_MODES = {"link_only", "metadata_only", "full_import"}
 _REVIEWABLE_STATES = {"pending", "approved", "imported", "rejected"}
 
 
+def _preferred_instance_id_from_record(adapter: MakerWorldAdapter, record: dict[str, Any]) -> int | None:
+    for url_value in (record.get("source_url_original"), record.get("source_url_canonical")):
+        instance_id = adapter.parse_instance_id_from_url(str(url_value or ""))
+        if instance_id is not None:
+            return instance_id
+    return None
+
+
 def _build_makerworld_adapter(settings: Settings) -> MakerWorldAdapter | None:
     token = str(settings.makerworld_auth_token or "").strip()
     if not token:
@@ -417,7 +425,10 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
         file_manifest = record.get("file_manifest_json") or []
         target_instance = str(((payload or {}).get("options") or {}).get("target_instance") or "default").strip().lower() or "default"
         instance_id = None
-        if target_instance == "default":
+        preferred_instance_id = _preferred_instance_id_from_record(adapter, record)
+        if target_instance == "default" and preferred_instance_id is not None:
+            instance_id = preferred_instance_id
+        elif target_instance == "default":
             for item in file_manifest:
                 if item.get("is_default"):
                     instance_id = int(item.get("instance_id") or 0) or None

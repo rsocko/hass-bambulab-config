@@ -77,6 +77,7 @@ class _StubResolveResult:
 class _StubMakerWorldAdapter:
     def __init__(self, tmp_path: Path):
         self._tmp_path = tmp_path
+        self.downloaded_instance_ids: list[int] = []
         self._result = _StubResolveResult(
             design=_StubDesign(
                 design_id=1295917,
@@ -105,7 +106,16 @@ class _StubMakerWorldAdapter:
     async def resolve_design_id(self, design_id: int, *, source_url: str | None = None):
         return self._result
 
+    def parse_instance_id_from_url(self, url: str) -> int | None:
+        text = str(url or "")
+        marker = "profileId-"
+        if marker not in text:
+            return None
+        suffix = text.split(marker, 1)[1].split("#", 1)[0].split("&", 1)[0].split("?", 1)[0].strip()
+        return int(suffix) if suffix.isdigit() else None
+
     async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+        self.downloaded_instance_ids.append(int(instance_id))
         destination = Path(dest_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(_minimal_3mf_payload())
@@ -206,6 +216,35 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
         assert queue_row[1] == "queued"
         assert record_id in str(queue_row[2])
         assert job_row[0] == "completed"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_commit_source_prefers_profile_id_from_source_url(tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "model_catalog.db"
+    stub_adapter = _StubMakerWorldAdapter(tmp_path)
+    monkeypatch.setattr(source_intake_router, "_build_makerworld_adapter", lambda settings: stub_adapter)
+    app = create_app(settings=_make_settings(db_path))
+    client = TestClient(app)
+    client.__enter__()
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/2843338-deadpool-sitting-shelf-figure-ams-single-color#profileId-3170083",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        assert capture_response.status_code == 200
+        record_id = capture_response.json()["record"]["id"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import"},
+        )
+        assert commit_response.status_code == 200, commit_response.text
+        assert stub_adapter.downloaded_instance_ids == [3170083]
     finally:
         client.__exit__(None, None, None)
 

@@ -43,6 +43,16 @@ def test_parse_design_id_from_url_supports_documented_variants() -> None:
     assert adapter.parse_design_id_from_url("https://example.com/en/models/1295917") is None
 
 
+def test_parse_instance_id_from_url_supports_profile_fragment_variants() -> None:
+    adapter = MakerWorldAdapter("token")
+
+    assert adapter.parse_instance_id_from_url("https://makerworld.com/en/models/2843338-deadpool#profileId-3170083") == 3170083
+    assert adapter.parse_instance_id_from_url("https://makerworld.com/en/models/1295917#profileId=1309483") == 1309483
+    assert adapter.parse_instance_id_from_url("https://makerworld.com/en/models/1295917?profileId=1309483") == 1309483
+    assert adapter.parse_instance_id_from_url("https://makerworld.com/en/models/1295917") is None
+    assert adapter.parse_instance_id_from_url("https://example.com/en/models/1295917#profileId-1309483") is None
+
+
 def test_resolve_design_id_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer token"

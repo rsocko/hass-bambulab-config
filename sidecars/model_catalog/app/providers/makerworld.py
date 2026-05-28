@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 import zipfile
 from dataclasses import dataclass
 from io import BytesIO
@@ -225,6 +226,25 @@ class MakerWorldAdapter:
         if not id_text.isdigit():
             return None
         return int(id_text)
+
+    def parse_instance_id_from_url(self, url: str) -> int | None:
+        candidate = str(url or "").strip()
+        if not candidate:
+            return None
+        try:
+            parsed = urlparse(candidate)
+        except ValueError:
+            return None
+        host = (parsed.netloc or "").lower()
+        if host not in {"makerworld.com", "www.makerworld.com"}:
+            return None
+        for candidate_text in (str(parsed.fragment or "").strip(), str(parsed.query or "").strip()):
+            if not candidate_text:
+                continue
+            match = re.search(r"(?:^|[&#?])profileId(?:=|-)(\d+)(?:$|[&#?])", candidate_text, re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return None
 
     def _normalize_design(
         self,
