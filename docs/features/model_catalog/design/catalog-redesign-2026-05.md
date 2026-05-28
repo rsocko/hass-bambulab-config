@@ -43,7 +43,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 | **US-1 Frequents** | Catalog grid, popup with archive link count and `last_printed`, Phase 3 popup shipped | Phase 6 ranking signals (popularity, recency, success-rate); typed query language; saved searches | No "Frequents" / "Favorites" rail, no top-of-page surfacing of repeat prints, no one-click "Open in Slicer" from card |
 | **US-2a Contribution lifecycle** (downloaded models) | Source URL captured on intake | Phase 6 enrichment of remote metadata (creator, license, rating) | No operator-visible "rated?", "boosted?", "photos captured?", "photos shared?" tracking on downloaded models |
 | **US-2b Publication pipeline** (originals/remixes) | Nothing — no concept of "a model I intend to publish" | None | No draft state machine, no prep checklist (cover photo / gallery / description / license / collection / tags), no "submitted"/"published" lifecycle, no link from a remix back to its parent listing |
-| **US-3 Projects / Collections** | Collections data exists; Projects entity in sidecar metadata | `projects-design.md`, multi-collection membership, working-group↔project linkage; #1373 ontology question | No "Create / browse / manage Project" UI; Catalog cannot pivot by Project; ontology (Projects vs Collections vs Tags) not finalized |
+| **US-3 Projects / Collections** | Collections data exists; Projects already have sidecar schema and basic CRUD foundation | `projects.md`, multi-membership design, working-group↔project linkage, lifecycle/status model | No complete Project lifecycle contract, no model membership editor, no Catalog project browse/list parity, no permanent dual-surface IA ship |
 | **US-4 Historical backfill** | Forensics CLI tools (`gcode_forensics_viewer.py`, `folder_3mf_catalog_viewer.py`) | `historical-print-backfill-via-model-catalog.md` end-to-end flow | No popup entry point; no "Recover Print History" action; no candidate review UI surfaced from Catalog |
 | **US-5 Add to Queue** | Quick Add from card; unified queue state machine (`idea→up_next→ready→started→done/blocked`) shipped | Plate-level queue tracking; auto-complete on archive match | No `backlog` semantics; re-add-to-queue behavior unclear ([#1465](https://github.com/rsocko/hass-bambulab-config/issues/1465)); add-to-queue UX inconsistent across card/popup/queue editor ([#1458](https://github.com/rsocko/hass-bambulab-config/issues/1458)) |
 | **US-6 Organization** | Storage tiers, working groups, intake folder hint | Duplicate / inefficiency dashboard; storage-quota dashboard; on-disk reorg automation | No storage/dupes dashboard surfaced; no Project-aware on-disk layout; left-rail navigation tree not deployed ([#1393](https://github.com/rsocko/hass-bambulab-config/issues/1393), [#1390](https://github.com/rsocko/hass-bambulab-config/issues/1390), [#1259](https://github.com/rsocko/hass-bambulab-config/issues/1259)) |
@@ -55,7 +55,7 @@ Issue [#1037](https://github.com/rsocko/hass-bambulab-config/issues/1037) captur
 
 1. **No "Frequents" signal in the UI** — the data exists (archive link count, `last_printed`, Phase 6 popularity), but no rail/sort/filter surfaces it. The first thing an operator wants on Catalog open ("show me the spool holder I print weekly") is not on screen.
 2. **Makerworld lifecycle is invisible** — fields are stored but no operator UI for: did I rate it, did I boost it, did I capture photos from the print, did I share them on Makerworld.
-3. **Projects are designed but not wired** — multi-collection grouping ("future prints", "this build") has no operator surface. The ontology (Projects vs Collections vs Tags) remains an open question per [#1373](https://github.com/rsocko/hass-bambulab-config/issues/1373).
+3. **Projects are only partially wired** — the sidecar already has a Project object and basic endpoints, but lifecycle fields, many-per-model memberships, and the operator-facing browse/edit surfaces are still incomplete.
 4. **No `backlog` Queue state** — the Queue has `idea`/`up_next` but the operator concept of a "super-large backlog" / "I want this eventually" is not validated, and the Catalog cannot send things to that state distinctly.
 5. **Add-to-queue UX is inconsistent** — different patterns across card / popup / queue editor / intake; no single "what happens when I press Print" affordance.
 6. **History backfill is not catalog-discoverable** — operators can't initiate backfill from the model they're looking at. The CLI tools exist; the UI bridge does not.
@@ -132,7 +132,7 @@ All three share the same membership / favorite / archive / popup machinery; the 
 ```
 Left rail (collapsible)        Main content
 ─────────────────────────      ────────────────────────────────
-[★ Favorites]                  Header: search + sort + view toggle
+[★ Favorites]                  Header: scope toggle + search + sort + view mode
 [⚡ Frequents (auto)]           ──────────────────────────────────
 [🆕 Recently added]             ⚡ Frequents rail (horizontal cards, 6-8 items)
 [🔄 Recently printed]           ──────────────────────────────────
@@ -155,6 +155,12 @@ Left rail (collapsible)        Main content
 [+ Add Project]
 [Manage Collections]
 ```
+
+**Permanent navigation decision:** keep both surfaces.
+
+- **Left rail** is the persistent filtering and direct-selection surface for Projects, Collections, Tags, Favorites, and other pivots.
+- **Top scope toggle** is also permanent. It changes the primary result lens (`Model | Collection | Project`) without replacing the left rail.
+- The two surfaces are complementary, not transitional: the toggle answers "what kind of thing am I browsing right now?" while the rail answers "which specific bucket or filter context am I in?"
 
 ---
 

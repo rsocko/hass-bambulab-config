@@ -1,8 +1,9 @@
 # Model Catalog Projects Design
 
-> **Status**: Design proposal for unified project concept across Model Catalog, Working Groups, and Print History linkage.
+> **Status**: Historical project-design proposal retained for background.
 > **Created**: 2026-04-24
 > **Audience**: Architecture review, implementation planning
+> **Superseded by**: [catalog-redesign-2026-05.md](catalog-redesign-2026-05.md) for the active Catalog IA, lifecycle semantics, and implementation sequencing. Use this document for rationale and earlier modeling detail only.
 
 ---
 

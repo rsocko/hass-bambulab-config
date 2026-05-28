@@ -73,6 +73,7 @@ from ..services import (
     create_model_catalog_project_service,
     create_working_group_link_service,
     create_working_group_service,
+    delete_model_catalog_project_service,
     delete_working_group_link_service,
     delete_working_group_service,
     detect_duplicate_files,
@@ -87,6 +88,7 @@ from ..services import (
     publish_working_group_to_local_service,
     remove_working_group_item_service,
     reorganize_working_group_service,
+    update_model_catalog_project_service,
     update_working_group_service,
 )
 from ..services.shared_helpers import (
@@ -2473,10 +2475,10 @@ def create_model_catalog_project(request: Request, payload: dict[str, Any]) -> A
 
 
 @router.get("/api/projects")
-def list_model_catalog_projects(request: Request, limit: int | None = None, offset: int | None = None) -> Any:
+def list_model_catalog_projects(request: Request, limit: int | None = None, offset: int | None = None, show_archived: bool = False) -> Any:
     """List model catalog projects."""
     state: AppState = request.app.state.model_catalog
-    return list_model_catalog_projects_service(settings=state.settings, limit=limit, offset=offset)
+    return list_model_catalog_projects_service(settings=state.settings, limit=limit, offset=offset, show_archived=show_archived)
 
 
 @router.get("/api/projects/{project_id}")
@@ -2484,6 +2486,20 @@ def get_model_catalog_project(request: Request, project_id: int) -> Any:
     """Get a single project with group and model counts."""
     state: AppState = request.app.state.model_catalog
     return get_model_catalog_project_service(settings=state.settings, project_id=project_id)
+
+
+@router.patch("/api/projects/{project_id}")
+def update_model_catalog_project(request: Request, project_id: int, payload: dict[str, Any]) -> Any:
+    """Update mutable project fields, including lifecycle state."""
+    state: AppState = request.app.state.model_catalog
+    return update_model_catalog_project_service(settings=state.settings, project_id=project_id, payload=payload)
+
+
+@router.delete("/api/projects/{project_id}")
+def delete_model_catalog_project(request: Request, project_id: int) -> Any:
+    """Delete an empty project."""
+    state: AppState = request.app.state.model_catalog
+    return delete_model_catalog_project_service(settings=state.settings, project_id=project_id)
 
 
 # ==================== ENDPOINTS: BULK OPERATIONS ====================

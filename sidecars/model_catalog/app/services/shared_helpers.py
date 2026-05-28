@@ -107,9 +107,15 @@ def _serialize_project_row(project_row: Any) -> dict[str, Any]:
         "title": project_row["title"],
         "description": project_row["description"],
         "notes": project_row["notes"],
+        "status": project_row["status"] if "status" in set(project_row.keys()) else "evaluating",
+        "project_type": project_row["project_type"] if "project_type" in set(project_row.keys()) else None,
+        "origin": project_row["origin"] if "origin" in set(project_row.keys()) else None,
+        "origin_url": project_row["origin_url"] if "origin_url" in set(project_row.keys()) else None,
         "bambuddy_project_id": int(project_row["bambuddy_project_id"]) if project_row["bambuddy_project_id"] is not None else None,
+        "created_by": project_row["created_by"] if "created_by" in set(project_row.keys()) else None,
         "created_at": project_row["created_at"],
         "updated_at": project_row["updated_at"],
+        "completed_at": project_row["completed_at"] if "completed_at" in set(project_row.keys()) else None,
         "archived_at": project_row["archived_at"],
     }
 

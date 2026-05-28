@@ -21,6 +21,14 @@ from .._helpers import (
     _model_photo_storage_root,
 )
 from ..db import delete_model_field, read_model_field, read_model_fields, set_model_field
+from ..db_projects import (
+    ensure_model_project_membership,
+    normalize_project_origin,
+    normalize_project_status,
+    normalize_project_type,
+    read_model_project_memberships_bulk,
+    replace_model_project_memberships,
+)
 from ..local_models import (
     create_local_model,
     delete_local_model,
@@ -55,6 +63,21 @@ def _resolve_project_id_value(value: Any) -> int | None:
     except (TypeError, ValueError):
         return None
     return resolved if resolved > 0 else None
+
+
+def _normalize_optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _table_exists(connection: Any, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return row is not None
 
 
 def _existing_working_slugs(connection: Any) -> set[str]:
@@ -210,10 +233,11 @@ def _sync_working_group_projection(*, settings: Settings, group_row: Any) -> Non
     else:
         delete_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_group_notes")
 
-    if project_id is not None:
-        set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="project_id", field_value=project_id)
-    else:
-        delete_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="project_id")
+    replace_model_project_memberships(
+        db_path=settings.db_path,
+        model_ref=local_model_id,
+        memberships=[] if project_id is None else [{"project_id": project_id, "member_state": "candidate"}],
+    )
 
 
 def sync_all_working_group_projections(*, settings: Settings) -> int:
@@ -236,17 +260,39 @@ def _create_project_record(
     title: str,
     description: str | None,
     notes: str | None,
+    status: str,
+    project_type: str | None,
+    origin: str | None,
+    origin_url: str | None,
     bambuddy_project_id: int | None,
+    created_by: str | None,
+    completed_at: str | None,
     now_iso: str,
 ) -> dict[str, Any]:
     slug = _unique_project_slug(connection, title)
     connection.execute(
         """
         INSERT INTO model_catalog_projects (
-            slug, title, description, notes, bambuddy_project_id, created_at, updated_at, archived_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            slug, title, description, notes, status, project_type, origin, origin_url,
+            bambuddy_project_id, created_by, created_at, updated_at, completed_at, archived_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (slug, title, description, notes, bambuddy_project_id, now_iso, now_iso, None),
+        (
+            slug,
+            title,
+            description,
+            notes,
+            status,
+            project_type,
+            origin,
+            origin_url,
+            bambuddy_project_id,
+            created_by,
+            now_iso,
+            now_iso,
+            completed_at,
+            now_iso if status == "archived" else None,
+        ),
     )
     project_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
     project_row = connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
@@ -264,7 +310,13 @@ def _resolve_publish_project(connection: Any, *, payload: dict[str, Any], group_
             title=project_title,
             description=str(create_project_payload.get("description") or "").strip() or None,
             notes=str(create_project_payload.get("notes") or "").strip() or None,
+            status=normalize_project_status(create_project_payload.get("status")),
+            project_type=normalize_project_type(create_project_payload.get("project_type")),
+            origin=normalize_project_origin(create_project_payload.get("origin")),
+            origin_url=_normalize_optional_text(create_project_payload.get("origin_url")),
             bambuddy_project_id=_resolve_project_id_value(create_project_payload.get("bambuddy_project_id")),
+            created_by=_normalize_optional_text(create_project_payload.get("created_by")),
+            completed_at=_normalize_optional_text(create_project_payload.get("completed_at")),
             now_iso=now_iso,
         )
         return int(created_project["id"]), created_project
@@ -302,13 +354,16 @@ def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict
 
 def _lineage_payload_for_model(*, db_path: Path, model_ref: str) -> dict[str, Any]:
     fields = read_model_fields(db_path=db_path, model_ref=model_ref) or {}
+    project_memberships = read_model_project_memberships_bulk(db_path=db_path, model_refs=[model_ref]).get(model_ref, [])
     lineage = fields.get("lineage") if isinstance(fields.get("lineage"), dict) else {}
     publish_history = fields.get("intake_publish_history")
     if not isinstance(publish_history, list):
         publish_history = []
     return {
         "model_ref": model_ref,
-        "project_id": fields.get("project_id"),
+        "project_id": int(project_memberships[0]["project_id"]) if len(project_memberships) == 1 else fields.get("project_id"),
+        "project_ids": [int(item["project_id"]) for item in project_memberships],
+        "project_memberships": project_memberships,
         "published_from_group_id": fields.get("published_from_group_id"),
         "publish_outcome": fields.get("publish_outcome"),
         "lineage": lineage,
@@ -901,7 +956,15 @@ def publish_working_group_to_local_service(*, settings: Settings, group_id: int,
         "target_model_ref": str(payload.get("target_model_ref") or "").strip() or None,
         "reconciliation_notes": str(payload.get("reconciliation_notes") or "").strip() or None,
     }
-    set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="project_id", field_value=resolved_project_id)
+    if resolved_project_id is not None:
+        ensure_model_project_membership(
+            db_path=settings.db_path,
+            model_ref=target_model_ref,
+            project_id=resolved_project_id,
+            member_state="candidate",
+        )
+    else:
+        replace_model_project_memberships(db_path=settings.db_path, model_ref=target_model_ref, memberships=[])
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="published_from_group_id", field_value=group_id)
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="publish_outcome", field_value=publish_outcome)
     set_model_field(db_path=settings.db_path, model_ref=target_model_ref, field_key="lineage", field_value=lineage_payload)
@@ -954,6 +1017,13 @@ def create_model_catalog_project_service(*, settings: Settings, payload: dict[st
     if not title:
         return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title is required"})
 
+    try:
+        status = normalize_project_status(payload.get("status"))
+        project_type = normalize_project_type(payload.get("project_type"))
+        origin = normalize_project_origin(payload.get("origin"))
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": str(exc)})
+
     connection = connect(settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
@@ -962,7 +1032,13 @@ def create_model_catalog_project_service(*, settings: Settings, payload: dict[st
             title=title,
             description=str(payload.get("description") or "").strip() or None,
             notes=str(payload.get("notes") or "").strip() or None,
+            status=status,
+            project_type=project_type,
+            origin=origin,
+            origin_url=_normalize_optional_text(payload.get("origin_url")),
             bambuddy_project_id=_resolve_project_id_value(payload.get("bambuddy_project_id")),
+            created_by=_normalize_optional_text(payload.get("created_by")),
+            completed_at=_normalize_optional_text(payload.get("completed_at")),
             now_iso=_bulk_utc_now_iso(),
         )
         connection.commit()
@@ -971,20 +1047,21 @@ def create_model_catalog_project_service(*, settings: Settings, payload: dict[st
         connection.close()
 
 
-def list_model_catalog_projects_service(*, settings: Settings, limit: int | None = None, offset: int | None = None) -> dict[str, Any]:
+def list_model_catalog_projects_service(*, settings: Settings, limit: int | None = None, offset: int | None = None, show_archived: bool = False) -> dict[str, Any]:
     limit_value = max(1, min(int(limit or 100), 500))
     offset_value = max(0, int(offset or 0))
+    where_sql = "1=1" if show_archived else "archived_at IS NULL AND status <> 'archived'"
 
     connection = connect(settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
         total_row = connection.execute(
-            "SELECT COUNT(*) AS cnt FROM model_catalog_projects WHERE archived_at IS NULL"
+            f"SELECT COUNT(*) AS cnt FROM model_catalog_projects WHERE {where_sql}"
         ).fetchone()
         rows = connection.execute(
-            """
+            f"""
             SELECT * FROM model_catalog_projects
-            WHERE archived_at IS NULL
+            WHERE {where_sql}
             ORDER BY updated_at DESC, id DESC
             LIMIT ? OFFSET ?
             """,
@@ -1001,6 +1078,7 @@ def list_model_catalog_projects_service(*, settings: Settings, limit: int | None
             "offset": offset_value,
             "total": int(total_row["cnt"] if total_row else 0),
         },
+        "visibility": {"show_archived": bool(show_archived)},
         "projects": projects,
     }
 
@@ -1010,28 +1088,183 @@ def get_model_catalog_project_service(*, settings: Settings, project_id: int) ->
     connection.row_factory = sqlite3.Row
     try:
         row = connection.execute(
-            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+            "SELECT * FROM model_catalog_projects WHERE id = ?",
             (project_id,),
         ).fetchone()
         if row is None:
             return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
-        group_count_row = connection.execute(
-            "SELECT COUNT(*) AS cnt FROM working_groups WHERE project_id = ?",
-            (project_id,),
-        ).fetchone()
+        group_count_row = None
+        if _table_exists(connection, "working_groups"):
+            group_count_row = connection.execute(
+                "SELECT COUNT(*) AS cnt FROM working_groups WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()
         model_count_row = connection.execute(
             """
             SELECT COUNT(*) AS cnt
-            FROM model_catalog_custom_fields
-            WHERE entity_type = 'model'
-              AND field_key = 'project_id'
-              AND json_extract(field_value_json, '$') = ?
+            FROM model_catalog_project_memberships
+            WHERE project_id = ?
             """,
             (project_id,),
         ).fetchone()
+        membership_rows = connection.execute(
+            """
+            SELECT model_ref, member_state, created_at, updated_at
+            FROM model_catalog_project_memberships
+            WHERE project_id = ?
+            ORDER BY updated_at DESC, model_ref ASC
+            """,
+            (project_id,),
+        ).fetchall()
         project = _serialize_project_row(row)
         project["working_group_count"] = int(group_count_row["cnt"] if group_count_row else 0)
         project["curated_model_count"] = int(model_count_row["cnt"] if model_count_row else 0)
+        project["model_memberships"] = [
+            {
+                "model_ref": str(item["model_ref"]),
+                "project_id": int(project_id),
+                "member_state": str(item["member_state"] or "candidate"),
+                "created_at": item["created_at"],
+                "updated_at": item["updated_at"],
+            }
+            for item in membership_rows
+        ]
         return {"success": True, "project": project}
+    finally:
+        connection.close()
+
+
+def update_model_catalog_project_service(*, settings: Settings, project_id: int, payload: dict[str, Any]) -> Any:
+    mutable_fields = {
+        "title",
+        "description",
+        "notes",
+        "status",
+        "project_type",
+        "origin",
+        "origin_url",
+        "bambuddy_project_id",
+        "created_by",
+        "completed_at",
+        "archived_at",
+    }
+    if not any(field in payload for field in mutable_fields):
+        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "No mutable fields provided"})
+
+    connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        existing = connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
+        if existing is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+
+        updates: list[str] = []
+        params: list[Any] = []
+        now_iso = _bulk_utc_now_iso()
+        status_value = str(existing["status"] or "evaluating")
+
+        try:
+            if "title" in payload:
+                title = str(payload.get("title") or "").strip()
+                if not title:
+                    return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title cannot be empty"})
+                updates.append("title = ?")
+                params.append(title)
+            if "description" in payload:
+                updates.append("description = ?")
+                params.append(_normalize_optional_text(payload.get("description")))
+            if "notes" in payload:
+                updates.append("notes = ?")
+                params.append(_normalize_optional_text(payload.get("notes")))
+            if "status" in payload:
+                status_value = normalize_project_status(payload.get("status"))
+                updates.append("status = ?")
+                params.append(status_value)
+            if "project_type" in payload:
+                updates.append("project_type = ?")
+                params.append(normalize_project_type(payload.get("project_type")))
+            if "origin" in payload:
+                updates.append("origin = ?")
+                params.append(normalize_project_origin(payload.get("origin")))
+            if "origin_url" in payload:
+                updates.append("origin_url = ?")
+                params.append(_normalize_optional_text(payload.get("origin_url")))
+            if "bambuddy_project_id" in payload:
+                updates.append("bambuddy_project_id = ?")
+                params.append(_resolve_project_id_value(payload.get("bambuddy_project_id")))
+            if "created_by" in payload:
+                updates.append("created_by = ?")
+                params.append(_normalize_optional_text(payload.get("created_by")))
+            if "completed_at" in payload:
+                updates.append("completed_at = ?")
+                params.append(_normalize_optional_text(payload.get("completed_at")))
+            elif status_value == "completed" and existing["completed_at"] is None:
+                updates.append("completed_at = ?")
+                params.append(now_iso)
+            if "archived_at" in payload:
+                archived_at = _normalize_optional_text(payload.get("archived_at"))
+                updates.append("archived_at = ?")
+                params.append(archived_at)
+                if archived_at:
+                    status_value = "archived"
+            elif status_value == "archived":
+                updates.append("archived_at = ?")
+                params.append(existing["archived_at"] or now_iso)
+            elif str(existing["status"] or "") == "archived":
+                updates.append("archived_at = ?")
+                params.append(None)
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": str(exc)})
+
+        updates.append("updated_at = ?")
+        params.append(now_iso)
+        params.append(project_id)
+        connection.execute(
+            f"UPDATE model_catalog_projects SET {', '.join(updates)} WHERE id = ?",
+            params,
+        )
+        row = connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
+        connection.commit()
+        return {"success": True, "project": _serialize_project_row(row)}
+    finally:
+        connection.close()
+
+
+def delete_model_catalog_project_service(*, settings: Settings, project_id: int) -> Any:
+    connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
+        if row is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+        membership_count = int(
+            connection.execute(
+                "SELECT COUNT(*) AS cnt FROM model_catalog_project_memberships WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()["cnt"]
+        )
+        group_count = 0
+        if _table_exists(connection, "working_groups"):
+            group_count = int(
+                connection.execute(
+                    "SELECT COUNT(*) AS cnt FROM working_groups WHERE project_id = ?",
+                    (project_id,),
+                ).fetchone()["cnt"]
+            )
+        if membership_count or group_count:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": "project_not_empty",
+                    "message": "Project still has model or working-group memberships",
+                    "project_id": project_id,
+                    "curated_model_count": membership_count,
+                    "working_group_count": group_count,
+                },
+            )
+        connection.execute("DELETE FROM model_catalog_projects WHERE id = ?", (project_id,))
+        connection.commit()
+        return {"success": True, "deleted": True, "project_id": project_id}
     finally:
         connection.close()

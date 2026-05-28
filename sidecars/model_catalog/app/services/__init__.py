@@ -33,6 +33,7 @@ from .working_catalog_service import (
     create_model_catalog_project_service,
     create_working_group_link_service,
     create_working_group_service,
+    delete_model_catalog_project_service,
     delete_working_group_link_service,
     delete_working_group_service,
     get_model_catalog_project_service,
@@ -44,6 +45,7 @@ from .working_catalog_service import (
     list_working_groups_service,
     publish_working_group_to_local_service,
     remove_working_group_item_service,
+    update_model_catalog_project_service,
     update_working_group_service,
 )
 from .working_groups_service import (
@@ -92,4 +94,6 @@ __all__ = [
     "create_model_catalog_project_service",
     "list_model_catalog_projects_service",
     "get_model_catalog_project_service",
+    "update_model_catalog_project_service",
+    "delete_model_catalog_project_service",
 ]

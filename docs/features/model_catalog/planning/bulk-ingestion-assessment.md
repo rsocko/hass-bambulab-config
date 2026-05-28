@@ -1,8 +1,9 @@
 # Model Catalog — Bulk Ingestion & Project Relationship Assessment
 
-> **Status**: Design assessment and recommendations.
+> **Status**: Historical design assessment and recommendations.
 > **Created**: 2026-04-24
 > **Scope**: Evaluation of bulk-ingestion workflows for large existing 3MF collections and project-relationship patterns across Model Catalog, Print History, and Manyfold.
+> **Superseded by**: [../design/catalog-redesign-2026-05.md](../design/catalog-redesign-2026-05.md) for the active Projects/Collections IA and [../design/projects.md](../design/projects.md) for archived project-specific rationale.
 
 ## Post-Manyfold Status Note
 

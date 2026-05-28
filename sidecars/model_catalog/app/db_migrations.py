@@ -1437,6 +1437,74 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        36,
+        (
+            """
+        ALTER TABLE model_catalog_projects ADD COLUMN status TEXT NOT NULL DEFAULT 'evaluating'
+        """,
+            """
+        ALTER TABLE model_catalog_projects ADD COLUMN project_type TEXT
+        """,
+            """
+        ALTER TABLE model_catalog_projects ADD COLUMN origin TEXT
+        """,
+            """
+        ALTER TABLE model_catalog_projects ADD COLUMN origin_url TEXT
+        """,
+            """
+        ALTER TABLE model_catalog_projects ADD COLUMN completed_at TEXT
+        """,
+            """
+        ALTER TABLE model_catalog_projects ADD COLUMN created_by TEXT
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_projects_status
+        ON model_catalog_projects(status)
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_project_memberships (
+            project_id INTEGER NOT NULL,
+            model_ref TEXT NOT NULL,
+            member_state TEXT NOT NULL DEFAULT 'candidate',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (project_id, model_ref),
+            FOREIGN KEY (project_id) REFERENCES model_catalog_projects(id)
+                ON DELETE CASCADE
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_project_memberships_model_ref
+        ON model_catalog_project_memberships(model_ref)
+        """,
+            """
+        UPDATE model_catalog_projects
+        SET status = CASE
+            WHEN archived_at IS NOT NULL THEN 'archived'
+            ELSE COALESCE(NULLIF(TRIM(status), ''), 'evaluating')
+        END
+        """,
+            """
+        INSERT OR IGNORE INTO model_catalog_project_memberships (
+            project_id, model_ref, member_state, created_at, updated_at
+        )
+        SELECT
+            CAST(json_extract(cf.field_value_json, '$') AS INTEGER),
+            cf.entity_id,
+            'candidate',
+            COALESCE(cf.updated_at, datetime('now')),
+            COALESCE(cf.updated_at, datetime('now'))
+        FROM model_catalog_custom_fields cf
+        JOIN model_catalog_projects p
+            ON p.id = CAST(json_extract(cf.field_value_json, '$') AS INTEGER)
+        WHERE cf.entity_type = 'model'
+          AND cf.field_key = 'project_id'
+          AND json_type(cf.field_value_json, '$') IN ('integer', 'text')
+          AND CAST(json_extract(cf.field_value_json, '$') AS INTEGER) > 0
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
@@ -1516,6 +1584,87 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
             _repair_unified_queue_file_units_foreign_key(connection)
         if version == 35:
             ensure_column(connection, "unified_queue_entries", "estimate_metadata_json", "TEXT NOT NULL DEFAULT '{}' ")
+        if version == 36:
+            ensure_column(connection, "model_catalog_projects", "status", "TEXT NOT NULL DEFAULT 'evaluating'")
+            ensure_column(connection, "model_catalog_projects", "project_type", "TEXT")
+            ensure_column(connection, "model_catalog_projects", "origin", "TEXT")
+            ensure_column(connection, "model_catalog_projects", "origin_url", "TEXT")
+            ensure_column(connection, "model_catalog_projects", "completed_at", "TEXT")
+            ensure_column(connection, "model_catalog_projects", "created_by", "TEXT")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS model_catalog_project_memberships (
+                    project_id INTEGER NOT NULL,
+                    model_ref TEXT NOT NULL,
+                    member_state TEXT NOT NULL DEFAULT 'candidate',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (project_id, model_ref),
+                    FOREIGN KEY (project_id) REFERENCES model_catalog_projects(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_model_catalog_projects_status
+                ON model_catalog_projects(status)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_model_catalog_project_memberships_model_ref
+                ON model_catalog_project_memberships(model_ref)
+                """
+            )
+            connection.execute(
+                """
+                UPDATE model_catalog_projects
+                SET status = CASE
+                    WHEN archived_at IS NOT NULL THEN 'archived'
+                    ELSE COALESCE(NULLIF(TRIM(status), ''), 'evaluating')
+                END
+                """
+            )
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO model_catalog_project_memberships (
+                    project_id, model_ref, member_state, created_at, updated_at
+                )
+                SELECT
+                    CAST(json_extract(cf.field_value_json, '$') AS INTEGER),
+                    cf.entity_id,
+                    'candidate',
+                    COALESCE(cf.updated_at, datetime('now')),
+                    COALESCE(cf.updated_at, datetime('now'))
+                FROM model_catalog_custom_fields cf
+                JOIN model_catalog_projects p
+                    ON p.id = CAST(json_extract(cf.field_value_json, '$') AS INTEGER)
+                WHERE cf.entity_type = 'model'
+                  AND cf.field_key = 'project_id'
+                  AND json_type(cf.field_value_json, '$') IN ('integer', 'text')
+                  AND CAST(json_extract(cf.field_value_json, '$') AS INTEGER) > 0
+                """
+            )
+            working_groups_exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'working_groups'"
+            ).fetchone()
+            if working_groups_exists is not None:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO model_catalog_project_memberships (
+                        project_id, model_ref, member_state, created_at, updated_at
+                    )
+                    SELECT
+                        project_id,
+                        'working-group-' || CAST(id AS TEXT),
+                        'candidate',
+                        COALESCE(updated_at, datetime('now')),
+                        COALESCE(updated_at, datetime('now'))
+                    FROM working_groups
+                    WHERE project_id IS NOT NULL
+                    """
+                )
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),

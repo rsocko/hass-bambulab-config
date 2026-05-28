@@ -9,13 +9,15 @@ Related design docs:
 - ../design/mockups/catalog-redesign-mockups.html
 - ../design/mockups/collections-and-projects-nav.html
 
+> **Current IA decision:** this rollout plan assumes the left nav ships alongside a permanent top scope toggle (`Model | Collection | Project`). The left nav remains the direct-selection/filter surface; the top toggle remains the primary result-lens switch.
+
 ## 1) Intended UX Outcome
 
 Left navigation is the intended direction for the Model Catalog List UI.
 
 Target information architecture:
 - Left nav is the primary browse context (Type, Favorites, Frequents, Recents, Collections, Tags).
-- Top toolbar is for global actions and display controls (search, sort, view mode, create/import, refresh).
+- Top toolbar keeps global actions and display controls, and also hosts the permanent scope toggle (`Model | Collection | Project`).
 - Main content shows frequents rail plus model results for the active left-nav context.
 
 Target interaction model:
@@ -37,6 +39,7 @@ Target interaction model:
 - Tags section (quick shortcuts in Phase 1, expanded in Phase 2)
 
 ### Top toolbar owns
+- Permanent scope toggle: Model | Collection | Project
 - Search
 - Sort
 - View mode

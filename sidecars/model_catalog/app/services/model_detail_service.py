@@ -81,6 +81,10 @@ def build_model_detail_response(
             model_ref=local_model_id,
             settings=state.settings,
         )
+        project_memberships = models_router.read_model_project_memberships_bulk(
+            db_path=state.settings.db_path,
+            model_refs=[local_model_id],
+        ).get(local_model_id, [])
         response: dict[str, Any] = {
             "success": True,
             "model_ref": model_ref,
@@ -110,6 +114,8 @@ def build_model_detail_response(
                 "preview_file_id": preview_file_id,
                 "created_at": entry.created_at,
                 "updated_at": entry.updated_at,
+                "projects": [membership.get("project") for membership in project_memberships if isinstance(membership.get("project"), dict)],
+                "project_ids": [int(membership["project_id"]) for membership in project_memberships if int(membership.get("project_id") or 0) > 0],
             },
             "enrichment": {
                 "custom_fields": {
@@ -126,6 +132,7 @@ def build_model_detail_response(
                 "print_notes": custom_fields.get("print_notes"),
                 "external_reference": custom_fields.get("external_reference"),
                 "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
+                "project_memberships": project_memberships,
             },
             "photos": models_router._serialize_uploaded_photo_rows(
                 request=request,

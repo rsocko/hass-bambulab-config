@@ -119,6 +119,10 @@ from ..db_collections import (
     replace_model_collection_memberships,
     update_collection,
 )
+from ..db_projects import (
+    read_model_project_memberships_bulk,
+    replace_model_project_memberships,
+)
 
 from ..models import CatalogModelSummary, LocalModelEntry
 
@@ -595,6 +599,21 @@ def _overlay_collection_data_on_payload(
         for membership in memberships
         if str(membership.get("collection_id") or "").strip()
     ]
+    return payload
+
+
+def _overlay_project_data_on_payload(
+    payload: dict[str, Any],
+    memberships_by_model_ref: dict[str, list[dict[str, Any]]] | None,
+) -> dict[str, Any]:
+    model_ref = str(payload.get("model_ref") or payload.get("public_id") or payload.get("model_id") or payload.get("model_url") or "").strip()
+    memberships = memberships_by_model_ref.get(model_ref, []) if memberships_by_model_ref else []
+    project_ids = [int(membership.get("project_id") or 0) for membership in memberships if int(membership.get("project_id") or 0) > 0]
+    payload["project_memberships"] = memberships
+    payload["projects"] = [membership.get("project") for membership in memberships if isinstance(membership.get("project"), dict)]
+    payload["project_ids"] = project_ids
+    payload["project_count"] = len(project_ids)
+    payload["project_id"] = project_ids[0] if len(project_ids) == 1 else None
     return payload
 
 
@@ -1366,11 +1385,9 @@ def _search_models_from_projection(
     if project_id is not None:
         base_clauses.append(
             "EXISTS ("
-            "SELECT 1 FROM model_catalog_custom_fields cf "
-            "WHERE cf.entity_type = 'model' "
-            "AND cf.field_key = 'project_id' "
-            "AND cf.entity_id = p.model_ref "
-            "AND json_extract(cf.field_value_json, '$') = ?"
+            "SELECT 1 FROM model_catalog_project_memberships pm "
+            "WHERE pm.model_ref = p.model_ref "
+            "AND pm.project_id = ?"
             ")"
         )
         base_params.append(int(project_id))
@@ -3955,6 +3972,10 @@ def list_models(
         db_path=state.settings.db_path,
         model_refs=[_model_ref_for_summary(summary) for summary in all_summaries],
     )
+    project_memberships_by_model_ref = read_model_project_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=[_model_ref_for_summary(summary) for summary in all_summaries],
+    )
 
     ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
     link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
@@ -3991,7 +4012,12 @@ def list_models(
             request=request,
             settings=state.settings,
         )
-        models.append(_overlay_collection_data_on_payload(model_payload, memberships_by_model_ref, collection_rows_by_id))
+        models.append(
+            _overlay_project_data_on_payload(
+                _overlay_collection_data_on_payload(model_payload, memberships_by_model_ref, collection_rows_by_id),
+                project_memberships_by_model_ref,
+            )
+        )
 
         model_payload = models[-1]
         stats = frequency_stats_by_url.get(summary.model_url)
@@ -4230,6 +4256,10 @@ def search_models(
         db_path=state.settings.db_path,
         model_refs=model_refs_for_fields,
     )
+    project_memberships_by_model_ref = read_model_project_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=model_refs_for_fields,
+    )
     fields_by_model_ref = _read_model_fields_bulk(
         db_path=state.settings.db_path,
         model_refs=model_refs_for_fields,
@@ -4314,7 +4344,10 @@ def search_models(
             request=request,
             settings=state.settings,
         )
-        model_payload = _overlay_collection_data_on_payload(model_payload, memberships_by_model_ref, collection_rows_by_id)
+        model_payload = _overlay_project_data_on_payload(
+            _overlay_collection_data_on_payload(model_payload, memberships_by_model_ref, collection_rows_by_id),
+            project_memberships_by_model_ref,
+        )
 
         # Attach archive context boost signals to the payload when present
         if _archive_picker and archive_context_signals:
@@ -4806,6 +4839,58 @@ async def replace_model_collections_endpoint(request: Request, model_ref: str) -
         "model_ref": str(model_ref or "").strip(),
         "items": memberships,
         "collection_names": list(collection_paths_from_memberships(memberships, collection_rows_by_id)),
+    }
+
+
+@router.get("/api/models/{model_ref:path}/projects")
+def get_model_projects_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    memberships = read_model_project_memberships_bulk(
+        db_path=state.settings.db_path,
+        model_refs=[str(model_ref or "").strip()],
+    ).get(str(model_ref or "").strip(), [])
+    return {
+        "success": True,
+        "contract": "model-projects.v1alpha1",
+        "model_ref": str(model_ref or "").strip(),
+        "items": memberships,
+        "project_ids": [int(item["project_id"]) for item in memberships if int(item.get("project_id") or 0) > 0],
+    }
+
+
+@router.put("/api/models/{model_ref:path}/projects")
+async def replace_model_projects_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    state: AppState = request.app.state.model_catalog
+    payload: dict[str, Any] = {}
+    try:
+        parsed_payload = await request.json()
+        if isinstance(parsed_payload, dict):
+            payload = parsed_payload
+    except Exception:
+        payload = {}
+
+    project_memberships = payload.get("project_memberships")
+    if project_memberships is None:
+        project_ids = payload.get("project_ids")
+        if not isinstance(project_ids, list):
+            return JSONResponse(status_code=400, content={"success": False, "error": "project_ids must be an array"})
+        project_memberships = [{"project_id": value} for value in project_ids]
+    if not isinstance(project_memberships, list):
+        return JSONResponse(status_code=400, content={"success": False, "error": "project_memberships must be an array"})
+    try:
+        memberships = replace_model_project_memberships(
+            db_path=state.settings.db_path,
+            model_ref=str(model_ref or "").strip(),
+            memberships=[dict(item) for item in project_memberships],
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+    return {
+        "success": True,
+        "contract": "model-projects.v1alpha1",
+        "model_ref": str(model_ref or "").strip(),
+        "items": memberships,
+        "project_ids": [int(item["project_id"]) for item in memberships if int(item.get("project_id") or 0) > 0],
     }
 @router.get("/api/collections/browse")
 def browse_collections_endpoint(
@@ -5515,6 +5600,15 @@ def put_model_field(request: Request, model_ref: str, field_key: str, payload: d
                 "success": False,
                 "error": "deprecated_field",
                 "message": "collection_names is no longer writable via model fields; use collection memberships endpoints instead.",
+            },
+        )
+    if field_key == "project_id":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "deprecated_field",
+                "message": "project_id is no longer writable via model fields; use project memberships endpoints instead.",
             },
         )
     if field_key in {"keyword_names", "tags"}:
