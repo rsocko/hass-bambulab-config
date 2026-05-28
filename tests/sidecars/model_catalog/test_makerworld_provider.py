@@ -53,6 +53,62 @@ def test_parse_instance_id_from_url_supports_profile_fragment_variants() -> None
     assert adapter.parse_instance_id_from_url("https://example.com/en/models/1295917#profileId-1309483") is None
 
 
+def test_resolve_design_id_preserves_profile_ids_in_file_manifest() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer token"
+        return httpx.Response(
+            200,
+            json={
+                "id": 2843338,
+                "title": "Deadpool Sitting Shelf Figure",
+                "designCreator": {"uid": 123, "name": "creator", "avatar": "https://example.com/avatar.png"},
+                "profiles": [
+                    {
+                        "instanceId": 3171088,
+                        "profileId": 3170083,
+                        "isDefault": False,
+                        "title": "Single Color",
+                        "plates": [{"index": 1}],
+                    },
+                    {
+                        "instanceId": 3171089,
+                        "profileId": 3170084,
+                        "isDefault": True,
+                        "title": "AMS",
+                        "plates": [{"index": 1}, {"index": 2}],
+                    },
+                ],
+            },
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.resolve_design_id(2843338))
+
+    assert result is not None
+    assert result.design.default_instance_id == 3171089
+    assert result.file_manifest == [
+        {
+            "instance_id": 3171088,
+            "profile_id": 3170083,
+            "title": "Single Color",
+            "is_default": False,
+            "plate_count": 1,
+        },
+        {
+            "instance_id": 3171089,
+            "profile_id": 3170084,
+            "title": "AMS",
+            "is_default": True,
+            "plate_count": 2,
+        },
+    ]
+
+
 def test_resolve_design_id_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer token"

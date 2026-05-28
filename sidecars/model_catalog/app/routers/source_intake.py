@@ -30,6 +30,52 @@ def _preferred_instance_id_from_record(adapter: MakerWorldAdapter, record: dict[
     return None
 
 
+def _coerce_positive_int(value: Any) -> int | None:
+    try:
+        number = int(value or 0)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _match_manifest_instance_id(file_manifest: list[dict[str, Any]], preferred_id: int | None) -> int | None:
+    if preferred_id is None:
+        return None
+    for item in file_manifest:
+        profile_id = _coerce_positive_int(item.get("profile_id"))
+        instance_id = _coerce_positive_int(item.get("instance_id"))
+        if profile_id == preferred_id and instance_id is not None:
+            return instance_id
+    for item in file_manifest:
+        instance_id = _coerce_positive_int(item.get("instance_id"))
+        if instance_id == preferred_id:
+            return instance_id
+    return None
+
+
+def _default_instance_candidates(file_manifest: list[dict[str, Any]], preferred_id: int | None) -> list[int]:
+    candidates: list[int] = []
+    preferred_instance_id = _match_manifest_instance_id(file_manifest, preferred_id)
+    if preferred_instance_id is not None:
+        candidates.append(preferred_instance_id)
+    for item in file_manifest:
+        instance_id = _coerce_positive_int(item.get("instance_id"))
+        if instance_id is None:
+            continue
+        if item.get("is_default") and instance_id not in candidates:
+            candidates.append(instance_id)
+    for item in file_manifest:
+        instance_id = _coerce_positive_int(item.get("instance_id"))
+        if instance_id is not None and instance_id not in candidates:
+            candidates.append(instance_id)
+    return candidates
+
+
+def _is_retryable_instance_download_error(exc: ProviderUnavailableError) -> bool:
+    message = str(exc or "").lower()
+    return "valid 3mf package" in message or "resource was not found" in message
+
+
 def _build_makerworld_adapter(settings: Settings) -> MakerWorldAdapter | None:
     token = str(settings.makerworld_auth_token or "").strip()
     if not token:
@@ -424,41 +470,59 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
     try:
         file_manifest = record.get("file_manifest_json") or []
         target_instance = str(((payload or {}).get("options") or {}).get("target_instance") or "default").strip().lower() or "default"
-        instance_id = None
         preferred_instance_id = _preferred_instance_id_from_record(adapter, record)
-        if target_instance == "default" and preferred_instance_id is not None:
-            instance_id = preferred_instance_id
-        elif target_instance == "default":
-            for item in file_manifest:
-                if item.get("is_default"):
-                    instance_id = int(item.get("instance_id") or 0) or None
-                    break
-        elif str(target_instance).isdigit():
-            instance_id = int(target_instance)
-        if instance_id is None and file_manifest:
-            instance_id = int((file_manifest[0] or {}).get("instance_id") or 0) or None
-        if instance_id is None:
+        candidate_instance_ids = (
+            _default_instance_candidates(file_manifest, preferred_instance_id)
+            if target_instance == "default"
+            else [_coerce_positive_int(target_instance)] if str(target_instance).isdigit() else []
+        )
+        candidate_instance_ids = [instance_id for instance_id in candidate_instance_ids if instance_id is not None]
+        if not candidate_instance_ids:
             source_model_id = str(record.get("source_model_id") or "").strip()
             if not source_model_id:
                 raise ProviderUnavailableError("Source intake record does not include a MakerWorld model id")
             refreshed = await adapter.resolve_design_id(int(source_model_id), source_url=record.get("source_url_canonical"))
             if refreshed is None or not refreshed.file_manifest:
                 raise ProviderUnavailableError("MakerWorld design does not expose a downloadable instance")
-            instance_id = int(refreshed.file_manifest[0].get("instance_id") or 0) or None
-            if instance_id is None:
+            file_manifest = refreshed.file_manifest
+            candidate_instance_ids = (
+                _default_instance_candidates(file_manifest, preferred_instance_id)
+                if target_instance == "default"
+                else [_coerce_positive_int(target_instance)] if str(target_instance).isdigit() else []
+            )
+            candidate_instance_ids = [instance_id for instance_id in candidate_instance_ids if instance_id is not None]
+            if not candidate_instance_ids:
                 raise ProviderUnavailableError("MakerWorld design did not return a usable instance id")
 
         storage_root = _source_intake_storage_root(state.settings) / record_id
         storage_root.mkdir(parents=True, exist_ok=True)
         source_model_id = str(record.get("source_model_id") or record_id).strip() or record_id
         download_path = storage_root / f"makerworld-{source_model_id}.3mf"
-        await adapter.download_3mf(int(instance_id), download_path)
-        if not _is_valid_3mf_package(download_path.read_bytes()):
+        attempted_instance_ids: list[int] = []
+        last_retryable_error: ProviderUnavailableError | None = None
+        download_completed = False
+        for instance_id in candidate_instance_ids:
+            attempted_instance_ids.append(int(instance_id))
             try:
-                download_path.unlink()
-            except OSError:
-                pass
-            raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
+                await adapter.download_3mf(int(instance_id), download_path)
+                if not _is_valid_3mf_package(download_path.read_bytes()):
+                    try:
+                        download_path.unlink()
+                    except OSError:
+                        pass
+                    raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
+                download_completed = True
+                break
+            except ProviderUnavailableError as exc:
+                if target_instance != "default" or not _is_retryable_instance_download_error(exc):
+                    raise
+                last_retryable_error = exc
+                continue
+        if not download_completed:
+            attempts_text = ", ".join(str(item) for item in attempted_instance_ids)
+            if last_retryable_error is not None:
+                raise ProviderUnavailableError(f"{last_retryable_error} (attempted instances: {attempts_text})")
+            raise ProviderUnavailableError(f"MakerWorld design did not return a valid downloadable instance (attempted instances: {attempts_text})")
 
         validated_entries = _validate_intake_source_entries(
             [

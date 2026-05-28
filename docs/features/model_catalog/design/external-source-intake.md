@@ -357,7 +357,7 @@ The full MakerWorld provider adapter specification is in [makerworld-provider-ad
 1. **Confidence is always `high`** for API-resolved models — structured metadata, verified creator identity, complete file manifests, and direct download URLs are all available from a single API call.
 2. **Full import can be immediate** per the confirmed decision that `high` confidence allows immediate full import.
 3. **Two capture channels are supported**: URL paste (operator pastes `makerworld.com/en/models/{id}`) and browser extension (extension extracts design ID from current tab).
-4. **Auth is required** — all MakerWorld API endpoints require a Bambu Cloud Bearer JWT. The sidecar must manage token acquisition and refresh.
+4. **Auth is required** — all MakerWorld API endpoints require a Bambu Cloud Bearer JWT. The sidecar must manage token acquisition, expiry diagnostics, and operator-friendly token rotation. Do not assume the observed refresh-token flow is durable enough to be the only renewal path.
 5. **3MF download is direct** — the API provides binary 3MF download via instance ID, which feeds directly into the existing file-based intake pipeline.
 
 ### MakerWorld Capture → Import Flow

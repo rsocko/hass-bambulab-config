@@ -119,16 +119,21 @@ class MakerWorldAdapter:
         normalized_payload = self._unwrap_design_payload(response)
         design = self._normalize_design(normalized_payload, source_url=source_url)
         warnings: list[str] = []
-        file_manifest = [
-            {
-                "instance_id": int(instance.get("id") or 0),
+        file_manifest = []
+        for instance in design.instances:
+            instance_id = self._extract_instance_id(instance)
+            if instance_id <= 0:
+                continue
+            manifest_entry = {
+                "instance_id": instance_id,
                 "title": str(instance.get("title") or "").strip(),
                 "is_default": bool(instance.get("isDefault")),
                 "plate_count": len(instance.get("plates") or []),
             }
-            for instance in design.instances
-            if int(instance.get("id") or 0) > 0
-        ]
+            profile_id = self._extract_profile_id(instance)
+            if profile_id is not None:
+                manifest_entry["profile_id"] = profile_id
+            file_manifest.append(manifest_entry)
         if not file_manifest:
             warnings.append("makerworld_no_instances")
         return MakerWorldResolveResult(
@@ -279,7 +284,7 @@ class MakerWorldAdapter:
             license=str(payload.get("license") or "").strip() or None,
             tags=tags,
             images=images,
-            default_instance_id=int(default_instance.get("id") or 0),
+            default_instance_id=self._extract_instance_id(default_instance),
             instances=instances,
             like_count=int(payload.get("likeCount") or 0),
             download_count=int(payload.get("downloadCount") or 0),
@@ -313,6 +318,28 @@ class MakerWorldAdapter:
             if isinstance(candidate, list):
                 return [item for item in candidate if isinstance(item, dict)]
         return []
+
+    def _extract_instance_id(self, instance: dict[str, Any]) -> int:
+        for key in ("instanceId", "instance_id", "id"):
+            value = int(instance.get(key) or 0)
+            if value > 0:
+                return value
+        return 0
+
+    def _extract_profile_id(self, instance: dict[str, Any]) -> int | None:
+        nested_profile = instance.get("profile")
+        candidates: list[Any] = [
+            instance.get("profileId"),
+            instance.get("profile_id"),
+            instance.get("designProfileId"),
+        ]
+        if isinstance(nested_profile, dict):
+            candidates.extend((nested_profile.get("id"), nested_profile.get("profileId")))
+        for candidate in candidates:
+            value = int(candidate or 0)
+            if value > 0:
+                return value
+        return None
 
     def _extract_creator(self, payload: dict[str, Any]) -> dict[str, Any]:
         for candidate in (

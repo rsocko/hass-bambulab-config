@@ -40,9 +40,9 @@ Token acquisition options:
 
 1. **Shared from ha-bambulab integration** — if the HA integration already holds a Bambu Cloud token, the sidecar could read it from HA state or a shared credential store
 2. **Dedicated login flow** — `POST /v1/user-service/user/login` with email/password (not recommended for automated use)
-3. **OAuth/token refresh** — the Bambu Handy app uses a refresh token flow; the sidecar could implement the same
+3. **OAuth/token refresh** — community reverse-engineering notes currently describe the refresh endpoint as unreliable for real automation, so this should not be treated as a durable unattended-refresh strategy
 
-**Recommended approach**: Share the existing Bambu Cloud token from the ha-bambulab integration via a sidecar configuration credential, stored as an HA secret (not in YAML). The sidecar manages refresh.
+**Recommended approach**: Share the existing Bambu Cloud token from the ha-bambulab integration or inject a manually acquired token via sidecar configuration, stored as an HA secret (not in YAML). Design the sidecar around token diagnostics and operator rotation rather than assuming silent refresh will always work.
 
 ### Rate Limits
 
@@ -99,6 +99,8 @@ MAKERWORLD_URL_PATTERN = re.compile(
 ```
 
 The captured group `\1` is the `designId`.
+
+If a URL fragment includes `profileId`, retain it as a preferred profile hint, but do not assume it is directly usable as the `instanceId` for `/design-service/instance/{instanceId}/f3mf`. Match it against the resolved manifest first; otherwise fall back to the default instance and remaining known instances.
 
 ## Core API Endpoints
 
@@ -188,7 +190,7 @@ GET /v1/design-user-service/user/{userId}/collections
 Authorization: Bearer <jwt>
 ```
 
-Returns the user's saved collections with design IDs, enabling the collection migration flow defined in the external source intake design.
+This endpoint remains weakly grounded in upstream reverse-engineering notes. Favor the documented `design-service` favorites endpoints for future collection-import work unless live validation confirms this route and response shape.
 
 ## Adapter Module Design
 
@@ -360,6 +362,8 @@ Content-Type: application/json
 On commit with `full_import`:
 
 1. Download 3MF for the target instance via `GET /v1/design-service/instance/{instanceId}/f3mf?type=download`
+  - when a URL `profileId` fragment is present, only use it if it maps to a resolved manifest entry
+  - if the preferred/default candidate returns an invalid package, try the remaining resolved manifest instances before failing the import
 2. Save to intake staging directory
 3. Feed into existing intake pipeline (`POST /api/intake/uploads` with the downloaded file path)
 4. Run 3MF metadata extraction (existing `extract_3mf_source_metadata()`)

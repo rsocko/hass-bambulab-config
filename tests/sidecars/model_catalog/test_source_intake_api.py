@@ -93,9 +93,17 @@ class _StubMakerWorldAdapter:
             file_manifest=[
                 {
                     "instance_id": 1309482,
+                    "profile_id": 1309482,
                     "title": "Default",
                     "is_default": True,
                     "plate_count": 2,
+                },
+                {
+                    "instance_id": 1309483,
+                    "profile_id": 1309483,
+                    "title": "Single Color",
+                    "is_default": False,
+                    "plate_count": 1,
                 }
             ],
         )
@@ -124,9 +132,26 @@ class _StubMakerWorldAdapter:
 
 class _StubInvalidDownloadMakerWorldAdapter(_StubMakerWorldAdapter):
     async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+        self.downloaded_instance_ids.append(int(instance_id))
         destination = Path(dest_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(b'{"error":"not a 3mf"}')
+        return destination
+
+
+class _StubSelectiveInvalidDownloadMakerWorldAdapter(_StubMakerWorldAdapter):
+    def __init__(self, tmp_path: Path, invalid_instance_ids: set[int]):
+        super().__init__(tmp_path)
+        self._invalid_instance_ids = {int(value) for value in invalid_instance_ids}
+
+    async def download_3mf(self, instance_id: int, dest_path: Path) -> Path:
+        self.downloaded_instance_ids.append(int(instance_id))
+        destination = Path(dest_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if int(instance_id) in self._invalid_instance_ids:
+            destination.write_bytes(b'{"error":"not a 3mf"}')
+            return destination
+        destination.write_bytes(_minimal_3mf_payload())
         return destination
 
 
@@ -220,7 +245,52 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
         client.__exit__(None, None, None)
 
 
-def test_commit_source_prefers_profile_id_from_source_url(tmp_path: Path, monkeypatch) -> None:
+def test_commit_source_prefers_profile_id_when_manifest_matches_profile(tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "model_catalog.db"
+    stub_adapter = _StubMakerWorldAdapter(tmp_path)
+    stub_adapter._result.file_manifest = [
+        {
+            "instance_id": 3171089,
+            "profile_id": 3170084,
+            "title": "AMS",
+            "is_default": True,
+            "plate_count": 2,
+        },
+        {
+            "instance_id": 3171088,
+            "profile_id": 3170083,
+            "title": "Single Color",
+            "is_default": False,
+            "plate_count": 1,
+        },
+    ]
+    monkeypatch.setattr(source_intake_router, "_build_makerworld_adapter", lambda settings: stub_adapter)
+    app = create_app(settings=_make_settings(db_path))
+    client = TestClient(app)
+    client.__enter__()
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/2843338-deadpool-sitting-shelf-figure-ams-single-color#profileId-3170083",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        assert capture_response.status_code == 200
+        record_id = capture_response.json()["record"]["id"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import"},
+        )
+        assert commit_response.status_code == 200, commit_response.text
+        assert stub_adapter.downloaded_instance_ids == [3171088]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_commit_source_ignores_unmatched_profile_fragment_and_uses_default_instance(tmp_path: Path, monkeypatch) -> None:
     db_path = tmp_path / "model_catalog.db"
     stub_adapter = _StubMakerWorldAdapter(tmp_path)
     monkeypatch.setattr(source_intake_router, "_build_makerworld_adapter", lambda settings: stub_adapter)
@@ -244,7 +314,36 @@ def test_commit_source_prefers_profile_id_from_source_url(tmp_path: Path, monkey
             json={"mode": "full_import"},
         )
         assert commit_response.status_code == 200, commit_response.text
-        assert stub_adapter.downloaded_instance_ids == [3170083]
+        assert stub_adapter.downloaded_instance_ids == [1309482]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_commit_source_retries_other_manifest_instances_after_invalid_default_download(tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "model_catalog.db"
+    stub_adapter = _StubSelectiveInvalidDownloadMakerWorldAdapter(tmp_path, invalid_instance_ids={1309482})
+    monkeypatch.setattr(source_intake_router, "_build_makerworld_adapter", lambda settings: stub_adapter)
+    app = create_app(settings=_make_settings(db_path))
+    client = TestClient(app)
+    client.__enter__()
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/2843338-deadpool-sitting-shelf-figure-ams-single-color#profileId-3170083",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        assert capture_response.status_code == 200
+        record_id = capture_response.json()["record"]["id"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import"},
+        )
+        assert commit_response.status_code == 200, commit_response.text
+        assert stub_adapter.downloaded_instance_ids == [1309482, 1309483]
     finally:
         client.__exit__(None, None, None)
 
