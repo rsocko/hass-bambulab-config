@@ -168,12 +168,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._lastRenderPerf = null;
     this._pendingNavPerf = null;
     this._lastNavPerf = null;
-    if (action === 'bulk-set-project-member-state') {
-      event.preventDefault();
-      event.stopPropagation();
-      await this._bulkSetProjectMemberState(target.getAttribute('data-member-state'));
-      return;
-    }
   }
 
   async _bulkSetProjectMemberState(memberState) {
@@ -3295,6 +3289,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._setProjectDetailMemberStateFilter(target.getAttribute('data-member-state'));
+      return;
+    }
+
+    if (action === 'bulk-set-project-member-state') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkSetProjectMemberState(target.getAttribute('data-member-state'));
       return;
     }
 
