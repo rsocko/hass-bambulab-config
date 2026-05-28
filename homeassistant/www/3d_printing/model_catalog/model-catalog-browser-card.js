@@ -4828,6 +4828,36 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
   }
 
+  _upsertLocalProject(project) {
+    var item = project && typeof project === 'object' ? project : null;
+    var projectId = Number(item && item.id || 0);
+    if (!item || !Number.isFinite(projectId) || projectId <= 0) {
+      return;
+    }
+
+    var mergedProject = item;
+    var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
+    var detailProject = detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
+    if (detailProject && Number(detailProject.id || 0) === projectId) {
+      mergedProject = Object.assign({}, detailProject, item);
+      detail.project = mergedProject;
+    }
+
+    var replaced = false;
+    for (var index = 0; index < this._projects.length; index++) {
+      if (Number(this._projects[index] && this._projects[index].id || 0) === projectId) {
+        this._projects[index] = Object.assign({}, this._projects[index], mergedProject);
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) {
+      this._projects = [mergedProject].concat(Array.isArray(this._projects) ? this._projects : []);
+    }
+    this._projectsLoaded = true;
+    this._projectsError = '';
+  }
+
   async _setProjectMemberState(projectId, modelRef, memberState) {
     var normalizedProjectId = parseInt(String(projectId || '0'), 10);
     var targetRef = String(modelRef || '').trim();
@@ -5514,6 +5544,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var details = config && typeof config === 'object' ? config : {};
     var projectId = parseInt(String(details.projectId || '').trim(), 10);
     var project = Number.isFinite(projectId) && projectId > 0 ? this._findProjectById(projectId) : null;
+    if (!project && Number.isFinite(projectId) && projectId > 0) {
+      var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
+      var detailProject = detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
+      if (detailProject && Number(detailProject.id || 0) === projectId) {
+        project = detailProject;
+      }
+    }
     this._activeActionMenu = '';
     this._projectActionDialog = this._projectDialogStateFromProject(dialogMode, project);
     if (dialogMode === 'create') {
@@ -5563,19 +5600,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
         created_by: String(dialog.createdBy || '').trim() || null,
       };
       var feedbackMessage = '';
+      var responsePayload = null;
+      var savedProject = null;
       if (mode === 'create') {
-        await this._projectApiRequest('/api/projects', {
+        responsePayload = await this._projectApiRequest('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        savedProject = responsePayload && responsePayload.project && typeof responsePayload.project === 'object' ? responsePayload.project : null;
         feedbackMessage = 'Created project "' + title + '".';
       } else if (mode === 'edit' && Number.isFinite(projectId) && projectId > 0) {
-        await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)), {
+        responsePayload = await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        savedProject = responsePayload && responsePayload.project && typeof responsePayload.project === 'object' ? responsePayload.project : null;
         feedbackMessage = 'Saved project "' + title + '".';
       } else if (mode === 'delete' && Number.isFinite(projectId) && projectId > 0) {
         await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)), {
@@ -5590,9 +5631,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var deletedSelectedProject = mode === 'delete' && Number(this._filters && this._filters.project_id || 0) === projectId;
       this._projectActionDialog.open = false;
       this._projectActionDialog.submitting = false;
-      this._projectsLoaded = false;
-      this._projects = [];
-      this._projectsError = '';
+      if (mode === 'delete') {
+        this._projectsLoaded = false;
+        this._projects = [];
+        this._projectsError = '';
+      } else if (savedProject) {
+        this._upsertLocalProject(savedProject);
+      }
       this._error = '';
       if (deletedSelectedProject) {
         this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: false, render: false });
