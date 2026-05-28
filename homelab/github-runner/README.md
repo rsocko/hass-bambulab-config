@@ -19,6 +19,8 @@ This split lets image builds run in parallel with deploy jobs while keeping the 
 
 The two services intentionally use different runner names, labels, workdirs, and `/runner` data volumes. Do not point both services at the same runner data directory.
 
+For `myoung34/github-runner`, do not set `DISABLE_AUTO_UPDATE` unless you intentionally want to pin the bundled runner version. In practice the presence of that variable can disable self-updates even when the value is `false`.
+
 ## Files
 
 - `compose.yaml` - runner service definition
