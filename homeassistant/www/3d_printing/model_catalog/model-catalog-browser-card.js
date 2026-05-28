@@ -632,6 +632,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return "";
   }
 
+  _promotionTargets(entityType) {
+    var normalized = this._normalizedEntityType(entityType);
+    if (normalized === "idea") {
+      return ["model"];
+    }
+    return [];
+  }
+
   _slugifyName(value) {
     var slug = String(value || "")
       .trim()
@@ -5643,6 +5651,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _modelRef(model) {
     return String((model && (model.public_id || model.model_id || model.model_url)) || "").trim();
+  }
+
+  _localModelIdForModel(model) {
+    var item = model && typeof model === "object" ? model : {};
+    var fields = item.custom_fields && typeof item.custom_fields === "object" ? item.custom_fields : {};
+    return String(item.local_model_id || fields.local_model_id || "").trim();
   }
 
   _modelByRef(modelRef) {
