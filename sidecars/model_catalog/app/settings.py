@@ -82,6 +82,11 @@ class Settings:
     slicer_request_timeout_seconds: int = 300
     slicer_async_poll_interval_seconds: float = 2.0
     slicer_async_max_wait_seconds: int = 1800
+    makerworld_api_base_url: str = "https://api.bambulab.com/v1"
+    makerworld_auth_token: str | None = None
+    makerworld_metadata_timeout_seconds: int = 10
+    makerworld_download_timeout_seconds: int = 60
+    makerworld_rate_limit_qps: float = 2.0
 
     def db_path_for_profile(self, profile: str) -> Path:
         normalized = _normalize_db_profile(profile)
@@ -127,6 +132,19 @@ def load_settings() -> Settings:
     slicer_request_timeout_seconds = int(os.getenv("SLICER_REQUEST_TIMEOUT_SECONDS", "300"))
     slicer_async_poll_interval_seconds = float(os.getenv("SLICER_ASYNC_POLL_INTERVAL_SECONDS", "2.0"))
     slicer_async_max_wait_seconds = int(os.getenv("SLICER_ASYNC_MAX_WAIT_SECONDS", "1800"))
+    makerworld_api_base_url = str(
+        os.getenv("MODEL_CATALOG_MAKERWORLD_API_BASE_URL", "https://api.bambulab.com/v1")
+    ).strip().rstrip("/")
+    makerworld_auth_token = _env_for_profile("MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN", db_profile)
+    makerworld_metadata_timeout_seconds = int(
+        os.getenv("MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS", "10")
+    )
+    makerworld_download_timeout_seconds = int(
+        os.getenv("MODEL_CATALOG_MAKERWORLD_DOWNLOAD_TIMEOUT_SECONDS", "60")
+    )
+    makerworld_rate_limit_qps = float(
+        os.getenv("MODEL_CATALOG_MAKERWORLD_RATE_LIMIT_QPS", "2.0")
+    )
     return Settings(
         catalog_base_url=base_url.rstrip("/"),
         db_path=db_path,
@@ -153,4 +171,9 @@ def load_settings() -> Settings:
         slicer_request_timeout_seconds=slicer_request_timeout_seconds,
         slicer_async_poll_interval_seconds=slicer_async_poll_interval_seconds,
         slicer_async_max_wait_seconds=slicer_async_max_wait_seconds,
+        makerworld_api_base_url=makerworld_api_base_url,
+        makerworld_auth_token=makerworld_auth_token,
+        makerworld_metadata_timeout_seconds=makerworld_metadata_timeout_seconds,
+        makerworld_download_timeout_seconds=makerworld_download_timeout_seconds,
+        makerworld_rate_limit_qps=makerworld_rate_limit_qps,
     )

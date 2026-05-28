@@ -61,6 +61,23 @@ def test_load_settings_uses_profile_specific_roots(monkeypatch) -> None:
     assert settings.working_files_root == Path("/assets/test/working").resolve()
 
 
+def test_load_settings_reads_makerworld_configuration(monkeypatch) -> None:
+    monkeypatch.setenv("MODEL_CATALOG_DB_PROFILE", "test")
+    monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_API_BASE_URL", "https://api.example.invalid/v1/")
+    monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN_TEST", "test-token")
+    monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS", "12")
+    monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_DOWNLOAD_TIMEOUT_SECONDS", "75")
+    monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_RATE_LIMIT_QPS", "3.5")
+
+    settings = load_settings()
+
+    assert settings.makerworld_api_base_url == "https://api.example.invalid/v1"
+    assert settings.makerworld_auth_token == "test-token"
+    assert settings.makerworld_metadata_timeout_seconds == 12
+    assert settings.makerworld_download_timeout_seconds == 75
+    assert settings.makerworld_rate_limit_qps == 3.5
+
+
 def test_app_state_bootstraps_both_profiles(tmp_path: Path) -> None:
     prod_path = tmp_path / "model_catalog_prod.db"
     test_path = tmp_path / "model_catalog_test.db"
@@ -124,3 +141,35 @@ def test_app_state_can_seed_test_db_from_prod(tmp_path: Path) -> None:
         assert int(row[0]) == 1
     finally:
         verify.close()
+
+
+def test_bootstrap_database_creates_external_source_tables(tmp_path: Path) -> None:
+    db_path = tmp_path / "model_catalog.db"
+
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        table_names = {
+            str(row[0])
+            for row in connection.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name IN (
+                    'source_intake_records',
+                    'source_collection_snapshots',
+                    'source_import_jobs'
+                  )
+                """
+            ).fetchall()
+        }
+    finally:
+        connection.close()
+
+    assert table_names == {
+        "source_intake_records",
+        "source_collection_snapshots",
+        "source_import_jobs",
+    }

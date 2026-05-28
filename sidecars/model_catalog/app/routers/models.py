@@ -6009,6 +6009,7 @@ def _model_detail_service_helpers() -> dict[str, Any]:
         "read_model_fields": read_model_fields,
         "read_model_ranking": read_model_ranking,
         "list_model_assets": list_model_assets,
+        "read_model_project_memberships_bulk": read_model_project_memberships_bulk,
         "_select_local_preview_asset_id": _select_local_preview_asset_id,
         "_serialize_local_model_assets": _serialize_local_model_assets,
         "_local_summary_preview_url": _local_summary_preview_url,

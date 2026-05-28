@@ -1505,6 +1505,83 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        37,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS source_intake_records (
+            id TEXT PRIMARY KEY,
+            provider_id TEXT NOT NULL,
+            capture_channel TEXT NOT NULL,
+            capture_mode TEXT NOT NULL,
+            source_url_canonical TEXT NOT NULL,
+            source_url_original TEXT NOT NULL,
+            source_model_id TEXT,
+            source_collection_id TEXT,
+            title TEXT,
+            creator_name TEXT,
+            creator_url TEXT,
+            description_raw TEXT,
+            thumbnail_url TEXT,
+            media_manifest_json TEXT NOT NULL DEFAULT '[]',
+            file_manifest_json TEXT NOT NULL DEFAULT '[]',
+            confidence TEXT NOT NULL DEFAULT 'none',
+            warnings_json TEXT NOT NULL DEFAULT '[]',
+            snapshot_json TEXT NOT NULL DEFAULT '{}',
+            review_state TEXT NOT NULL DEFAULT 'pending',
+            import_job_id TEXT,
+            captured_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_source_intake_records_provider_model
+        ON source_intake_records(provider_id, source_model_id)
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_source_intake_records_review_state
+        ON source_intake_records(review_state, captured_at DESC)
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS source_collection_snapshots (
+            id TEXT PRIMARY KEY,
+            provider_id TEXT NOT NULL,
+            source_collection_id TEXT NOT NULL,
+            source_collection_url TEXT,
+            collection_title TEXT,
+            item_count INTEGER NOT NULL DEFAULT 0,
+            snapshot_json TEXT NOT NULL DEFAULT '{}',
+            sync_cursor TEXT,
+            captured_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_source_collection_snapshots_provider_collection
+        ON source_collection_snapshots(provider_id, source_collection_id)
+        """,
+            """
+        CREATE TABLE IF NOT EXISTS source_import_jobs (
+            id TEXT PRIMARY KEY,
+            intake_record_id TEXT,
+            job_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'queued',
+            result_json TEXT NOT NULL DEFAULT '{}',
+            error_json TEXT NOT NULL DEFAULT '{}',
+            started_at TEXT,
+            completed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (intake_record_id) REFERENCES source_intake_records(id)
+                ON DELETE SET NULL
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_source_import_jobs_status
+        ON source_import_jobs(status, created_at DESC)
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
