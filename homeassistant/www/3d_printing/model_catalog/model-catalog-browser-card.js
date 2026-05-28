@@ -5955,7 +5955,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   async _loadProjects() {
-    if (this._projectsLoaded) {
+    var sidecarUrl = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    var shouldRetryMissingSidecar = this._projectsLoaded && this._projectsError === "No sidecar URL configured" && !!sidecarUrl;
+    if (this._projectsLoaded && !shouldRetryMissingSidecar) {
+      return;
+    }
+    if (!sidecarUrl) {
+      // Left-nav render can happen before hass/config have finished supplying the
+      // sidecar URL. Keep the section in a retryable loading state instead of
+      // latching a permanent error until the page is manually refreshed.
+      this._projectsLoaded = false;
+      this._projectsError = "";
       return;
     }
     try {
