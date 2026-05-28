@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Queue estimate popup mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0d131a;
+    --shell: rgba(18,26,38,0.96);
+    --pane: rgba(255,255,255,0.04);
+    --border: rgba(148,166,189,0.22);
+    --text: #edf4ff;
+    --sub: #a4b7cf;
+    --mint: #6edacb;
+    --amber: #f0be62;
+    --blue: #7db8ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: linear-gradient(180deg, #0b1118, #111924); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+  body { padding: 28px; }
+  .page { max-width: 1120px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+  .header h1 { margin: 0; font-size: 30px; }
+  .header p { margin: 8px 0 0; color: var(--sub); max-width: 760px; line-height: 1.6; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { color: var(--sub); text-decoration: none; padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; }
+  .nav a.active { color: var(--text); border-color: rgba(240,190,98,0.3); background: rgba(240,190,98,0.1); }
+  .popup { border: 1px solid var(--border); border-radius: 24px; background: var(--shell); overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.34); }
+  .head { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .head strong { display: block; font-size: 22px; }
+  .head span { color: var(--sub); font-size: 12px; }
+  .body { padding: 18px; display: grid; gap: 12px; }
+  .card { border: 1px solid var(--border); border-radius: 18px; background: var(--pane); padding: 14px; }
+  .card strong { display: block; font-size: 16px; margin-bottom: 8px; }
+  .card p { margin: 0; color: var(--sub); font-size: 13px; line-height: 1.6; }
+  .badge, .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
+  .badge.mint, .btn.mint { color: var(--mint); border-color: rgba(110,218,203,0.28); background: rgba(110,218,203,0.1); }
+  .badge.amber, .btn.amber { color: var(--amber); border-color: rgba(240,190,98,0.28); background: rgba(240,190,98,0.1); }
+  .badge.blue { color: var(--blue); border-color: rgba(125,184,255,0.28); background: rgba(125,184,255,0.1); }
+  .row { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .action-row { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Model Detail Popup Estimate State</h1>
+      <p>This popup is the secondary inspection surface. It can show estimate state for queued items and launch a recovery action, but it is not the main planning board.</p>
+    </div>
+    <div class="nav">
+      <a href="queue-estimate-planning.html">Storyboard</a>
+      <a href="queue-estimate-queue-board.html">Queue Board</a>
+      <a href="queue-estimate-wizard.html">Wizard</a>
+      <a class="active" href="queue-estimate-popup.html">Popup</a>
+    </div>
+  </div>
+  <div class="popup">
+    <div class="head">
+      <strong>Queued Prints</strong>
+      <span>Popup should mirror queue-board terminology rather than invent different estimate labels</span>
+    </div>
+    <div class="body">
+      <div class="card">
+        <div class="row">
+          <div>
+            <strong>P1S Garage · Ready</strong>
+            <p><code>clip_pack.3mf</code> · Plates A + B</p>
+          </div>
+          <span class="badge mint">Slicer · Fresh · 4h 12m</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <strong>Wall Hook Plate Set</strong>
+            <p>Selection changed after previous estimate</p>
+          </div>
+          <span class="badge amber">Slicer · Stale</span>
+        </div>
+      </div>
+      <div class="card">
+        <strong>Popup action behavior</strong>
+        <p>Add <code>Estimate via Slicer</code> or <code>Re-estimate</code> when a queue entry exists. For non-queued models, steer the operator back to queue creation first.</p>
+        <div class="action-row">
+          <span class="btn mint">Estimate via Slicer</span>
+          <span class="btn amber">Re-estimate</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

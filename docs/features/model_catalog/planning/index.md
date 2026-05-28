@@ -42,9 +42,11 @@
 ### 🧠 Unified Production Queue (Planning + Tracking)
 - **[Unified Queue Design](../design/unified-queue.md)** ← Approved operator-surface design and object model
 - **[Unified Production Queue Implementation Plan](/docs/features/model_catalog/planning/unified-queue-plan.md)** ← End-to-end backend/frontend implementation sequence
+- **[Slicer Estimate UI And Workflow Plan](/docs/features/model_catalog/planning/slicer-estimate-ui-workflow-plan.md)** ← Defines where slicer estimates are created vs only displayed across Queue, popup, and queue-add flows
 - **[Unified Production Queue GitHub Issues](/docs/features/model_catalog/planning/unified-queue-issues.md)** ← Click-to-create issue links with prepopulated title/body
+- **[Slicer Estimate UI GitHub Issues](/docs/features/model_catalog/planning/slicer-estimate-ui-issues.md)** ← Click-to-create issue links for estimate-generation UX delivery slices
 - **Mockups**:
-  - [Production Queue (list view)](../design/mockups/production-queue.html) · [Add-to-queue](../design/mockups/production-queue-add.html) · [Entry detail popup](../design/mockups/production-queue-entry-detail.html)
+  - [Production Queue (list view)](../design/mockups/production-queue.html) · [Add-to-queue](../design/mockups/production-queue-add.html) · [Queue estimate planning](../design/mockups/queue-estimate-planning.html) · [Entry detail popup](../design/mockups/production-queue-entry-detail.html)
   - [Kanban board view](../print_queue/mockups/kanban-board.html) ← NEW · vertical state columns w/ drag-and-drop, per-state color palette, prominent Time Remaining hero (excludes done plates). Lives under [`print_queue/mockups/`](../print_queue/mockups/index.html).
 
 ### 🧩 Upload Transport + Desktop Automation (New)

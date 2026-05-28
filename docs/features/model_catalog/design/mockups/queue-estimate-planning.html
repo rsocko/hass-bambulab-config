@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Queue estimate storyboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #11181e;
+    --panel: rgba(22, 30, 38, 0.94);
+    --panel-soft: rgba(255,255,255,0.04);
+    --border: rgba(148,163,184,0.2);
+    --border-strong: rgba(148,163,184,0.34);
+    --text: #edf3f8;
+    --text-secondary: #a9b4c2;
+    --text-muted: #728090;
+    --mint: #7be3c3;
+    --blue: #87c7ff;
+    --amber: #f2c86b;
+    --shadow: 0 26px 72px rgba(0,0,0,0.34);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(circle at top left, rgba(123,227,195,0.08), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(135,199,255,0.08), transparent 30%),
+      linear-gradient(180deg, #0f1419, #11181e 40%, #0d1217 100%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  body { padding: 30px clamp(16px, 4vw, 44px) 44px; }
+  .page { max-width: 1380px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+  .header h1 { margin: 0; font-size: 34px; letter-spacing: -0.03em; }
+  .header p { margin: 10px 0 0; max-width: 900px; color: var(--text-secondary); font-size: 15px; line-height: 1.6; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a {
+    text-decoration: none; color: var(--text-secondary); font-size: 12px;
+    padding: 7px 10px; border-radius: 999px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+  }
+  .nav a.active { color: var(--text); background: rgba(123,227,195,0.12); border-color: rgba(123,227,195,0.3); }
+  .hero {
+    margin-top: 20px; padding: 18px 20px; border-radius: 22px; border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    box-shadow: var(--shadow);
+  }
+  .hero strong { color: var(--mint); }
+  .hero p { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.7; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  }
+  .badge.mint { color: var(--mint); border-color: rgba(123,227,195,0.28); background: rgba(123,227,195,0.1); }
+  .badge.blue { color: var(--blue); border-color: rgba(135,199,255,0.28); background: rgba(135,199,255,0.1); }
+  .badge.amber { color: var(--amber); border-color: rgba(242,200,107,0.28); background: rgba(242,200,107,0.1); }
+  .flow { margin-top: 24px; display: grid; gap: 14px; }
+  .step {
+    display: grid; grid-template-columns: 86px 1.15fr 0.95fr; gap: 16px; align-items: stretch;
+    padding: 16px; border-radius: 22px; border: 1px solid var(--border); background: var(--panel); box-shadow: var(--shadow);
+  }
+  .step-num {
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
+    font-size: 34px; font-weight: 800; color: var(--text-muted); letter-spacing: -0.04em;
+  }
+  .step-copy h2 { margin: 0; font-size: 20px; }
+  .step-copy p { margin: 8px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+  .step-copy ul { margin: 12px 0 0; padding-left: 18px; color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
+  .surface {
+    border: 1px solid var(--border-strong); border-radius: 18px; background: var(--panel-soft); overflow: hidden;
+  }
+  .surface-head {
+    display: flex; justify-content: space-between; gap: 10px; align-items: center;
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  }
+  .surface-head strong { font-size: 14px; }
+  .surface-head span { font-size: 11px; color: var(--text-secondary); }
+  .surface-body { padding: 14px; }
+  .surface-body p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+  .surface-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 8px 10px; border-radius: 12px;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text); font-size: 12px;
+  }
+  .btn.primary { color: var(--mint); border-color: rgba(123,227,195,0.28); background: rgba(123,227,195,0.1); }
+  .btn.secondary { color: var(--blue); border-color: rgba(135,199,255,0.28); background: rgba(135,199,255,0.1); }
+  .btn.warn { color: var(--amber); border-color: rgba(242,200,107,0.28); background: rgba(242,200,107,0.1); }
+  .arrow {
+    margin: 2px auto; width: 2px; height: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(123,227,195,0.35));
+  }
+  .footer-note {
+    margin-top: 18px; padding: 14px 16px; border-radius: 16px; border: 1px dashed var(--border);
+    color: var(--text-secondary); font-size: 12px; line-height: 1.65;
+  }
+  @media (max-width: 1080px) {
+    .step { grid-template-columns: 64px 1fr; }
+    .surface { grid-column: 1 / -1; }
+  }
+  @media (max-width: 760px) {
+    .step { grid-template-columns: 1fr; }
+    .step-num { justify-content: flex-start; padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Queue Estimate Storyboard</h1>
+      <p>This page is intentionally a <strong>storyboard</strong>, not a single screen. Each step points to the separate mockup for the real surface where that part of the workflow should happen.</p>
+    </div>
+    <div class="nav">
+      <a href="index.html">Index</a>
+      <a href="production-queue.html">Production Queue</a>
+      <a href="production-queue-add.html">Add Flow</a>
+      <a class="active" href="queue-estimate-planning.html">Estimate Storyboard</a>
+    </div>
+  </div>
+
+  <div class="hero">
+    <p><strong>Reading guide:</strong> the operator usually starts by adding something to the queue or opening an existing queue row. The <strong>Unified Queue board</strong> is the main place where estimates are created or refreshed. The <strong>slicer wizard</strong> is the shared execution UI. The <strong>Model Detail popup</strong> can show estimate state and offer a secondary action, but it is not the main planning surface.</p>
+    <div class="legend">
+      <span class="badge mint">Primary surface: Unified Queue</span>
+      <span class="badge blue">Shared execution surface: Slicer wizard</span>
+      <span class="badge amber">Secondary surface: Model Detail popup</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-copy">
+        <h2>Add to Queue stays lightweight</h2>
+        <p>The operator can still add an item to the queue without any hidden slicer work happening in the background.</p>
+        <ul>
+          <li><code>Add to Queue</code> remains the normal default.</li>
+          <li><code>Add and Estimate</code> is optional and explicit.</li>
+          <li>If estimate launch fails, the queue entry should still remain created.</li>
+        </ul>
+      </div>
+      <div class="surface">
+        <div class="surface-head">
+          <strong>Separate mockup: Add dialog</strong>
+          <span>queue-estimate-add-dialog.html</span>
+        </div>
+        <div class="surface-body">
+          <p>This surface exists for queue creation and optional follow-up launch.</p>
+          <div class="surface-actions">
+            <a class="btn" href="queue-estimate-add-dialog.html">Open Add dialog mockup</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-copy">
+        <h2>Queue board owns estimate creation</h2>
+        <p>This is the main planning surface. Queue rows should show whether an estimate is missing, fresh, stale, or failed, and offer the right action from that same row.</p>
+        <ul>
+          <li><code>Estimate</code> when no slicer estimate exists.</li>
+          <li><code>Re-estimate</code> when the slicer estimate is stale.</li>
+          <li>Source and freshness should be visible without opening another screen.</li>
+        </ul>
+      </div>
+      <div class="surface">
+        <div class="surface-head">
+          <strong>Separate mockup: Queue board</strong>
+          <span>queue-estimate-queue-board.html</span>
+        </div>
+        <div class="surface-body">
+          <p>This is the authoritative operator surface for estimate planning.</p>
+          <div class="surface-actions">
+            <a class="btn primary" href="queue-estimate-queue-board.html">Open Queue board mockup</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-copy">
+        <h2>Slicer wizard runs in estimate-only mode</h2>
+        <p>The queue board or popup launches the same wizard component, but with a different intent. This is not archive creation.</p>
+        <ul>
+          <li>Use the existing slicer setup and execution path.</li>
+          <li>Skip archive commit entirely.</li>
+          <li>Success copy should say the estimate was saved to the queue entry.</li>
+        </ul>
+      </div>
+      <div class="surface">
+        <div class="surface-head">
+          <strong>Separate mockup: Slicer wizard</strong>
+          <span>queue-estimate-wizard.html</span>
+        </div>
+        <div class="surface-body">
+          <p>This page shows the dedicated estimate-only execution variant of the wizard.</p>
+          <div class="surface-actions">
+            <a class="btn secondary" href="queue-estimate-wizard.html">Open Wizard mockup</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-copy">
+        <h2>Model Detail popup shows state and a secondary action</h2>
+        <p>The popup can explain estimate state for queued items and offer a recovery path, but it should not replace the queue board as the primary planning view.</p>
+        <ul>
+          <li>Show minutes, source, and freshness in Queued Prints.</li>
+          <li>Allow <code>Estimate via Slicer</code> or <code>Re-estimate</code> when a queue entry exists.</li>
+          <li>Do not imply that queue add already performed slicing.</li>
+        </ul>
+      </div>
+      <div class="surface">
+        <div class="surface-head">
+          <strong>Separate mockup: Model Detail popup</strong>
+          <span>queue-estimate-popup.html</span>
+        </div>
+        <div class="surface-body">
+          <p>This is the explanatory inspection surface, not the main queue-planning workspace.</p>
+          <div class="surface-actions">
+            <a class="btn warn" href="queue-estimate-popup.html">Open Popup mockup</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Delivery order still follows the same implementation sequence: queue-entry trigger contract, explicit estimate-only wizard mode, queue-board actions/state rendering, then optional add-dialog and popup convenience surfaces.
+  </div>
+</div>
+</body>
+</html>

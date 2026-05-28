@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Queue estimate wizard mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #10161d;
+    --panel: rgba(22, 30, 40, 0.96);
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(148,163,184,0.2);
+    --text: #edf3f8;
+    --sub: #a8b4c2;
+    --mint: #7be3c3;
+    --blue: #87c7ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: linear-gradient(180deg, #0c1117, #121922); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+  body { padding: 28px; }
+  .page { max-width: 1020px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+  .header h1 { margin: 0; font-size: 30px; }
+  .header p { margin: 8px 0 0; color: var(--sub); max-width: 720px; line-height: 1.6; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { color: var(--sub); text-decoration: none; padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; }
+  .nav a.active { color: var(--text); border-color: rgba(135,199,255,0.3); background: rgba(135,199,255,0.1); }
+  .wizard { border: 1px solid var(--border); border-radius: 22px; background: var(--panel); overflow: hidden; }
+  .head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .head strong { display: block; font-size: 20px; }
+  .head span { color: var(--sub); font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid rgba(123,227,195,0.28); background: rgba(123,227,195,0.1); color: var(--mint); }
+  .body { padding: 18px; display: grid; gap: 12px; }
+  .steps { display: flex; gap: 8px; flex-wrap: wrap; }
+  .step { padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--sub); }
+  .step.active { color: var(--text); background: rgba(135,199,255,0.1); border-color: rgba(135,199,255,0.28); }
+  .card { border: 1px solid var(--border); border-radius: 18px; background: var(--card); padding: 14px; }
+  .card strong { display: block; margin-bottom: 8px; font-size: 15px; }
+  .card p { margin: 0; color: var(--sub); font-size: 13px; line-height: 1.6; }
+  .footer { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px 18px; border-top: 1px solid var(--border); }
+  .footer-note { color: var(--sub); font-size: 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text); font-size: 12px; }
+  .btn.primary { color: var(--mint); border-color: rgba(123,227,195,0.28); background: rgba(123,227,195,0.1); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Slicer Wizard: Estimate-Only Mode</h1>
+      <p>This is the shared execution UI opened from the queue board or popup. It is intentionally a wizard variant, not a new separate estimate system.</p>
+    </div>
+    <div class="nav">
+      <a href="queue-estimate-planning.html">Storyboard</a>
+      <a href="queue-estimate-queue-board.html">Queue Board</a>
+      <a class="active" href="queue-estimate-wizard.html">Wizard</a>
+      <a href="queue-estimate-popup.html">Popup</a>
+    </div>
+  </div>
+  <div class="wizard">
+    <div class="head">
+      <div>
+        <strong>Estimate print time</strong>
+        <span>Intent: estimate_only · Target: queue entry #184</span>
+      </div>
+      <span class="pill">No archive commit in this mode</span>
+    </div>
+    <div class="body">
+      <div class="steps">
+        <span class="step">Source</span>
+        <span class="step">Profile</span>
+        <span class="step active">Execute</span>
+        <span class="step">Done</span>
+      </div>
+      <div class="card">
+        <strong>Inherited queue selection</strong>
+        <p><code>clip_pack.3mf</code> · Plates A + B · Printer profile <code>P1S 0.20mm Standard</code> · queue-scoped filament substitutions already resolved.</p>
+      </div>
+      <div class="card">
+        <strong>Execution summary</strong>
+        <p>Queued → slicing → metadata extracted → transient output discarded → queue estimate metadata updated.</p>
+      </div>
+      <div class="card">
+        <strong>Success wording</strong>
+        <p>Saved fresh slicer estimate to the queue entry. No archive was created. No sliced output was retained.</p>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="footer-note">The important distinction here is wording and intent, not a second technical pipeline.</span>
+      <span class="btn primary">Return to queue</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
