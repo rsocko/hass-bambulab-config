@@ -68,6 +68,7 @@ class MakerWorldAdapter:
 
     PROVIDER_ID = "makerworld"
     API_BASE = "https://api.bambulab.com/v1"
+    WEB_API_BASE = "https://makerworld.com/api/v1"
     DESIGN_URL_RE = httpx.URL("https://makerworld.com")
     DEFAULT_USER_AGENT = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -452,6 +453,7 @@ class MakerWorldAdapter:
     ) -> None:
         retries_429 = 0
         retries_5xx = 0
+        attempted_web_fallback = False
         while True:
             response = await self._send_request(
                 "GET",
@@ -466,8 +468,29 @@ class MakerWorldAdapter:
             if response.status_code == 404:
                 raise ProviderUnavailableError("MakerWorld resource was not found")
             if response.status_code == 418:
+                if not absolute_url and not attempted_web_fallback:
+                    attempted_web_fallback = True
+                    response = await self._send_request(
+                        "GET",
+                        url_path,
+                        timeout=timeout,
+                        params=params,
+                        accept_header="application/octet-stream, */*;q=0.9",
+                        base_url_override=self.WEB_API_BASE,
+                    )
+                    if response.status_code == 200:
+                        destination.write_bytes(response.content)
+                        return
+                    if response.status_code in {401, 403}:
+                        raise AuthenticationError("MakerWorld authentication failed")
+                    if response.status_code == 404:
+                        raise ProviderUnavailableError("MakerWorld resource was not found")
+                    if response.status_code != 418:
+                        raise ProviderUnavailableError(
+                            f"MakerWorld download failed with status {response.status_code} after 418 fallback"
+                        )
                 raise ProviderUnavailableError(
-                    "MakerWorld download was rejected with status 418; upstream likely blocked the request shape or token"
+                    "MakerWorld download was rejected with status 418 on both api.bambulab.com and makerworld.com/api/v1; upstream likely blocked the request shape or token"
                 )
             if response.status_code == 429:
                 if retries_429 >= max_429_retries:
@@ -499,9 +522,11 @@ class MakerWorldAdapter:
         params: dict[str, Any] | None = None,
         absolute_url: bool = False,
         accept_header: str | None = None,
+        base_url_override: str | None = None,
     ) -> httpx.Response:
         await self._throttle()
-        request_url = url_path if absolute_url else f"{self._api_base}{url_path}"
+        resolved_base = str(base_url_override or self._api_base).strip().rstrip("/")
+        request_url = url_path if absolute_url else f"{resolved_base}{url_path}"
         headers = {
             "Authorization": f"Bearer {self._auth_token}",
             "Accept": accept_header or ("application/json" if not absolute_url else "*/*"),

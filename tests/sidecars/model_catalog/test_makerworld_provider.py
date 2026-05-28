@@ -355,9 +355,38 @@ def test_download_3mf_classifies_418_as_access_blocked(tmp_path: Path) -> None:
         asyncio.run(adapter.download_3mf(1309482, destination))
     except ProviderUnavailableError as exc:
         assert "status 418" in str(exc)
-        assert "blocked" in str(exc)
+        assert "both api.bambulab.com and makerworld.com/api/v1" in str(exc)
     else:
         raise AssertionError("Expected ProviderUnavailableError")
+
+
+def test_download_3mf_falls_back_to_web_api_after_primary_418(tmp_path: Path) -> None:
+    payload = _minimal_3mf_payload()
+    requested_urls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        if str(request.url) == "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download":
+            return httpx.Response(418, text="blocked")
+        if str(request.url) == "https://makerworld.com/api/v1/design-service/instance/1309482/f3mf?type=download":
+            return httpx.Response(200, content=payload)
+        return httpx.Response(500, text="unexpected")
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+    result = asyncio.run(adapter.download_3mf(1309482, destination))
+
+    assert result == destination
+    assert destination.read_bytes() == payload
+    assert requested_urls == [
+        "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download",
+        "https://makerworld.com/api/v1/design-service/instance/1309482/f3mf?type=download",
+    ]
 
 
 def test_download_3mf_rejects_invalid_payload(tmp_path: Path) -> None:
