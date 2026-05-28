@@ -454,6 +454,7 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
                 {
                     "type": "file",
                     "path": str(download_path),
+                    "source_record_id": record_id,
                     "source_type": "makerworld_download",
                     "original_filename": download_path.name,
                     "relative_path": download_path.name,

@@ -247,6 +247,48 @@ def _copy_local_import_source(
         return str(destination).replace("\\", "/")
 
 
+def _write_local_generated_asset(
+    *,
+    settings: Settings,
+    local_model_id: str,
+    relative_path: str,
+    content_bytes: bytes,
+) -> str:
+    catalog_root = _model_photo_storage_root(settings)
+    asset_root = catalog_root / local_model_id
+    asset_root.mkdir(parents=True, exist_ok=True)
+
+    def _unique_destination_path(directory: Path, filename: str) -> Path:
+        candidate = directory / filename
+        if not candidate.exists():
+            return candidate
+        stem = candidate.stem
+        suffix = candidate.suffix
+        counter = 2
+        while True:
+            candidate = directory / f"{stem}-{counter}{suffix}"
+            if not candidate.exists():
+                return candidate
+            counter += 1
+
+    safe_parts = _normalized_relative_parts(relative_path)
+    relative = Path(*safe_parts) if safe_parts else Path("generated.bin")
+    destination_directory = (asset_root / relative.parent).resolve() if str(relative.parent) not in {"", "."} else asset_root
+    destination_filename = _sanitize_storage_segment(relative.name or "generated.bin", fallback="generated.bin")
+    if not destination_directory.is_relative_to(asset_root.resolve()):
+        destination_directory = asset_root
+        destination_filename = "generated.bin"
+
+    destination_directory.mkdir(parents=True, exist_ok=True)
+    destination = _unique_destination_path(destination_directory, destination_filename)
+    destination.write_bytes(content_bytes)
+    try:
+        stored_relative = destination.relative_to(catalog_root.resolve())
+        return str(stored_relative).replace("\\", "/")
+    except ValueError:
+        return str(destination).replace("\\", "/")
+
+
 def _move_file_to_working_directory(
     *,
     settings: Settings,
@@ -775,6 +817,178 @@ def _collect_source_readmes(
     return results
 
 
+def _attach_source_snapshot_assets(
+    *,
+    state: AppState,
+    local_model_id: str,
+    source_entries: list[dict[str, Any]] | None,
+    existing_asset_ids: set[str],
+    existing_hashes: set[str],
+    imported_assets: list[dict[str, Any]],
+    duplicate_skipped: list[dict[str, Any]],
+    failed_files: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    record_ids: list[str] = []
+    seen_record_ids: set[str] = set()
+    for entry in source_entries or []:
+        if not isinstance(entry, dict):
+            continue
+        record_id = str(entry.get("source_record_id") or "").strip()
+        if not record_id or record_id in seen_record_ids:
+            continue
+        seen_record_ids.add(record_id)
+        record_ids.append(record_id)
+
+    if not record_ids:
+        return []
+
+    attached: list[dict[str, Any]] = []
+    connection = connect(state.settings.db_path)
+    try:
+        for record_id in record_ids:
+            row = connection.execute(
+                """
+                SELECT provider_id, source_model_id, source_url_canonical, source_url_original,
+                       title, creator_name, confidence, warnings_json, media_manifest_json,
+                       file_manifest_json, snapshot_json, captured_at
+                FROM source_intake_records
+                WHERE id = ?
+                """,
+                (record_id,),
+            ).fetchone()
+            if row is None:
+                failed_files.append(
+                    {
+                        "source_path": f"source_record:{record_id}",
+                        "filename": f"source-record-{record_id}.json",
+                        "message": "Source intake record was not found for snapshot attachment.",
+                        "local_model_id": local_model_id,
+                    }
+                )
+                continue
+
+            provider_id = str(row[0] or "").strip() or "source"
+            source_model_id = str(row[1] or "").strip()
+            source_url_canonical = str(row[2] or "").strip() or None
+            source_url_original = str(row[3] or "").strip() or None
+            title = str(row[4] or "").strip() or None
+            creator_name = str(row[5] or "").strip() or None
+            confidence = str(row[6] or "").strip() or None
+            try:
+                warnings_json = json.loads(str(row[7] or "[]"))
+            except json.JSONDecodeError:
+                warnings_json = []
+            try:
+                media_manifest_json = json.loads(str(row[8] or "[]"))
+            except json.JSONDecodeError:
+                media_manifest_json = []
+            try:
+                file_manifest_json = json.loads(str(row[9] or "[]"))
+            except json.JSONDecodeError:
+                file_manifest_json = []
+            try:
+                snapshot_json = json.loads(str(row[10] or "{}"))
+            except json.JSONDecodeError:
+                snapshot_json = {}
+            captured_at = str(row[11] or "").strip() or None
+
+            payload = {
+                "$schema": "https://hass-bambulab-config/schemas/source-intake-snapshot.v1.json",
+                "provider_id": provider_id,
+                "source_record_id": record_id,
+                "source_model_id": source_model_id or None,
+                "source_url_canonical": source_url_canonical,
+                "source_url_original": source_url_original,
+                "title": title,
+                "creator_name": creator_name,
+                "confidence": confidence,
+                "captured_at": captured_at,
+                "warnings": warnings_json if isinstance(warnings_json, list) else [],
+                "file_manifest": file_manifest_json if isinstance(file_manifest_json, list) else [],
+                "media_manifest": media_manifest_json if isinstance(media_manifest_json, list) else [],
+                "snapshot": snapshot_json if isinstance(snapshot_json, dict) else snapshot_json,
+            }
+            content_bytes = (json.dumps(payload, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+            file_hash = hashlib.sha256(content_bytes).hexdigest()
+            filename_stem = f"{provider_id}-{source_model_id or record_id}-api-snapshot.json"
+            if file_hash in existing_hashes:
+                duplicate_skipped.append(
+                    {
+                        "source_path": f"source_record:{record_id}",
+                        "filename": filename_stem,
+                        "sha256": file_hash,
+                        "reason": "duplicate_hash",
+                    }
+                )
+                continue
+
+            try:
+                storage_path = _write_local_generated_asset(
+                    settings=state.settings,
+                    local_model_id=local_model_id,
+                    relative_path=f"supporting_files/{filename_stem}",
+                    content_bytes=content_bytes,
+                )
+                asset_id = _unique_asset_id(
+                    filename=filename_stem,
+                    file_hash=file_hash,
+                    existing_ids=existing_asset_ids,
+                )
+                asset = create_model_asset(
+                    db_path=state.settings.db_path,
+                    local_model_id=local_model_id,
+                    asset_id=asset_id,
+                    asset_filename=Path(storage_path).name,
+                    asset_type="json",
+                    storage_path=storage_path,
+                    asset_role="supporting",
+                    file_size_bytes=len(content_bytes),
+                    file_hash=file_hash,
+                    preview_url=None,
+                    geometry_bounds=None,
+                )
+                existing_asset_ids.add(asset.asset_id)
+                existing_hashes.add(file_hash)
+                imported_assets.append(
+                    {
+                        "local_model_id": local_model_id,
+                        "local_asset_id": asset.asset_id,
+                        "local_storage_path": asset.storage_path,
+                        "asset_id": asset.asset_id,
+                        "filename": asset.asset_filename,
+                        "asset_type": asset.asset_type,
+                        "asset_role": asset.asset_role,
+                        "sort_order": asset.sort_order,
+                        "storage_path": asset.storage_path,
+                        "file_hash": asset.file_hash,
+                        "source_path": f"source_record:{record_id}",
+                        "source_entry_type": "source_snapshot",
+                    }
+                )
+                attached.append(
+                    {
+                        "source_record_id": record_id,
+                        "provider_id": provider_id,
+                        "source_model_id": source_model_id or None,
+                        "asset_id": asset.asset_id,
+                        "filename": asset.asset_filename,
+                    }
+                )
+            except Exception as exc:
+                failed_files.append(
+                    {
+                        "source_path": f"source_record:{record_id}",
+                        "filename": filename_stem,
+                        "message": f"Failed to attach source snapshot: {exc}",
+                        "local_model_id": local_model_id,
+                    }
+                )
+    finally:
+        connection.close()
+
+    return attached
+
+
 def _publish_group_to_local_destination(
     *,
     state: AppState,
@@ -1041,6 +1255,17 @@ def _publish_group_to_local_destination(
                     "local_model_id": local_model_id,
                 })
 
+    attached_source_snapshots = _attach_source_snapshot_assets(
+        state=state,
+        local_model_id=local_model_id,
+        source_entries=source_entries,
+        existing_asset_ids=existing_asset_ids,
+        existing_hashes=existing_hashes,
+        imported_assets=imported_assets,
+        duplicate_skipped=duplicate_skipped,
+        failed_files=failed_files,
+    )
+
     _append_intake_publish_history(
         db_path=state.settings.db_path,
         model_ref=local_model_id,
@@ -1089,6 +1314,7 @@ def _publish_group_to_local_destination(
         "duplicate_skipped": duplicate_skipped,
         "failed_files": failed_files,
         "attached_readmes": attached_readmes,
+        "attached_source_snapshots": attached_source_snapshots,
         "source_metadata_extraction": extraction_log,
     }, imported_assets, failed_files
 
@@ -1995,6 +2221,16 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                     "source_entries": source_entries,
                 },
             )
+            _attach_source_snapshot_assets(
+                state=state,
+                local_model_id=local_model_id,
+                source_entries=source_entries,
+                existing_asset_ids=existing_asset_ids,
+                existing_hashes=existing_hashes,
+                imported_assets=group_imported_assets,
+                duplicate_skipped=duplicate_skipped,
+                failed_files=failed_files,
+            )
             set_model_field(
                 db_path=state.settings.db_path,
                 model_ref=local_model_id,
@@ -2338,6 +2574,16 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             "source_entries": source_entries,
         },
     )
+    attached_source_snapshots = _attach_source_snapshot_assets(
+        state=state,
+        local_model_id=local_model_id,
+        source_entries=source_entries,
+        existing_asset_ids=existing_asset_ids,
+        existing_hashes=existing_hashes,
+        imported_assets=imported_assets,
+        duplicate_skipped=duplicate_skipped,
+        failed_files=failed_files,
+    )
     set_model_field(
         db_path=state.settings.db_path,
         model_ref=local_model_id,
@@ -2492,6 +2738,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         "imported_assets": imported_assets,
         "duplicate_skipped": duplicate_skipped,
         "failed_files": failed_files,
+        "attached_source_snapshots": attached_source_snapshots,
         "source_metadata_extraction": extraction_log,
         "warnings": expansion_warnings,
         "cleanup": cleanup_result,

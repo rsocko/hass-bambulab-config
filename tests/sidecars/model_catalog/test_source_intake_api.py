@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import zipfile
 from dataclasses import dataclass
@@ -36,6 +37,8 @@ def _minimal_3mf_payload() -> bytes:
 
 
 def _make_settings(db_path: Path) -> Settings:
+    curated_root = db_path.parent / "curated"
+    curated_root.mkdir(parents=True, exist_ok=True)
     return Settings(
         catalog_base_url="http://catalog.example",
         db_path=db_path,
@@ -48,6 +51,7 @@ def _make_settings(db_path: Path) -> Settings:
         image_created="test",
         makerworld_auth_token="test-token",
         makerworld_api_base_url="https://api.example.invalid/v1",
+        model_catalog_assets_root=curated_root.resolve(),
     )
 
 
@@ -116,18 +120,20 @@ class _StubInvalidDownloadMakerWorldAdapter(_StubMakerWorldAdapter):
         return destination
 
 
-def _create_client(tmp_path: Path, monkeypatch) -> tuple[TestClient, Path]:
+def _create_client(tmp_path: Path, monkeypatch) -> tuple[TestClient, Path, Path]:
     db_path = tmp_path / "model_catalog.db"
+    curated_root = tmp_path / "curated"
+    curated_root.mkdir(parents=True, exist_ok=True)
     stub_adapter = _StubMakerWorldAdapter(tmp_path)
     monkeypatch.setattr(source_intake_router, "_build_makerworld_adapter", lambda settings: stub_adapter)
     app = create_app(settings=_make_settings(db_path))
     client = TestClient(app)
     client.__enter__()
-    return client, db_path
+    return client, db_path, curated_root
 
 
 def test_capture_source_creates_makerworld_record(tmp_path: Path, monkeypatch) -> None:
-    client, db_path = _create_client(tmp_path, monkeypatch)
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
     try:
         response = client.post(
             "/api/intake/source/capture",
@@ -158,7 +164,7 @@ def test_capture_source_creates_makerworld_record(tmp_path: Path, monkeypatch) -
 
 
 def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypatch) -> None:
-    client, db_path = _create_client(tmp_path, monkeypatch)
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
     try:
         capture_response = client.post(
             "/api/intake/source/capture",
@@ -186,7 +192,7 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
                 (record_id,),
             ).fetchone()
             queue_row = connection.execute(
-                "SELECT upload_id, status FROM intake_queue_uploads"
+                "SELECT upload_id, status, source_entries_json FROM intake_queue_uploads"
             ).fetchone()
             job_row = connection.execute(
                 "SELECT status FROM source_import_jobs WHERE id = ?",
@@ -198,7 +204,61 @@ def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypa
         assert record_row[0] == "imported"
         assert queue_row[0] == payload["upload_id"]
         assert queue_row[1] == "queued"
+        assert record_id in str(queue_row[2])
         assert job_row[0] == "completed"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_publish_curated_attaches_makerworld_snapshot_json(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, curated_root = _create_client(tmp_path, monkeypatch)
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import", "options": {"target_instance": "default"}},
+        )
+        assert commit_response.status_code == 200
+        upload_id = commit_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "curated", "model_name": "Big Brick Man"}]},
+        )
+        assert publish_response.status_code == 200, publish_response.text
+        payload = publish_response.json()
+        attached = payload.get("group_results", [{}])[0].get("attached_source_snapshots") or []
+        assert attached
+
+        connection = sqlite3.connect(db_path)
+        try:
+            row = connection.execute(
+                """
+                SELECT asset_filename, asset_type, asset_role, storage_path
+                FROM model_catalog_assets
+                WHERE asset_type = 'json'
+                """
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        assert row[1] == "json"
+        assert row[2] == "supporting"
+        stored_path = curated_root / Path(str(row[3]))
+        snapshot = json.loads(stored_path.read_text(encoding="utf-8"))
+        assert snapshot["provider_id"] == "makerworld"
+        assert snapshot["source_record_id"] == record_id
+        assert snapshot["snapshot"]["id"] == 1295917
     finally:
         client.__exit__(None, None, None)
 

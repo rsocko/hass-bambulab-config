@@ -708,6 +708,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
         }
         for extra_key in (
             "source_type",
+            "source_record_id",
             "original_filename",
             "relative_path",
             "upload_id",
