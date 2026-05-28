@@ -41,10 +41,38 @@ on:
         options:
           - "false"
           - "true"
+      ghcr_repository:
+        description: "Optional GHCR repository override (default: ghcr.io/<owner>/bambu-studio-api)"
+        required: false
+        default: ""
+      push_ghcr_image:
+        description: Also push this image to GHCR
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+      push_ghcr_latest:
+        description: Also tag and push the GHCR image as latest
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-bambu-studio-api-${{ github.event.inputs.registry || 'registry.socko.us/bambu-studio-api' }}
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, docker, homelab, dockhand]
+    runs-on: [self-hosted, linux, docker, build, homelab, dockhand]
     outputs:
       resolved_tag: ${{ steps.version.outputs.resolved_tag }}
       resolved_image: ${{ steps.version.outputs.resolved_image }}
@@ -79,7 +107,9 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
+          GHCR_REPOSITORY="${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}"
           echo "Resolved image: $IMAGE"
+          echo "Resolved GHCR image: $GHCR_REPOSITORY:${{ steps.version.outputs.resolved_tag }}"
           echo "BambuStudio version: ${{ github.event.inputs.bambu_version }}"
           echo "Latest semantic tag in registry: ${{ steps.version.outputs.latest_tag || 'none' }}"
 
@@ -92,6 +122,9 @@ jobs:
           LATEST_TAG='${{ steps.version.outputs.latest_tag }}'
           PUSH_LATEST='${{ github.event.inputs.push_latest }}'
           BAMBU_VERSION='${{ github.event.inputs.bambu_version }}'
+          GHCR_REPOSITORY='${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}'
+          PUSH_GHCR_IMAGE='${{ github.event.inputs.push_ghcr_image }}'
+          PUSH_GHCR_LATEST='${{ github.event.inputs.push_ghcr_latest }}'
           {
             echo '## Bambu Studio API Image Version'
             echo
@@ -108,10 +141,28 @@ jobs:
               echo 'Mutable tag update:'
               echo "\`BAMBU_STUDIO_API_IMAGE_TAG=latest\`"
             fi
+            if [ "$PUSH_GHCR_IMAGE" = 'true' ]; then
+              echo
+              echo 'GHCR publish:'
+              echo "\`$GHCR_REPOSITORY:$RESOLVED_TAG\`"
+              if [ "$PUSH_GHCR_LATEST" = 'true' ]; then
+                echo
+                echo 'GHCR mutable tag update:'
+                echo "\`$GHCR_REPOSITORY:latest\`"
+              fi
+            fi
             echo
             echo "Latest existing semantic tag: \`${LATEST_TAG:-none}\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Resolved bambu-studio-api image::$RESOLVED_IMAGE"
+
+      - name: Login to GHCR
+        if: ${{ github.event.inputs.push_ghcr_image == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clone maziggy fork (profile-resolver branch)
         shell: bash
@@ -126,6 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
+          GHCR_IMAGE="${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}:${{ steps.version.outputs.resolved_tag }}"
           docker build \
             -f _slicer-api-src/Dockerfile.bambu-studio \
             -t "$IMAGE" \
@@ -133,6 +185,12 @@ jobs:
             _slicer-api-src
           if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
             docker tag "$IMAGE" "${{ github.event.inputs.registry }}:latest"
+          fi
+          if [ "${{ github.event.inputs.push_ghcr_image }}" = 'true' ]; then
+            docker tag "$IMAGE" "$GHCR_IMAGE"
+            if [ "${{ github.event.inputs.push_ghcr_latest }}" = 'true' ]; then
+              docker tag "$IMAGE" "${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}:latest"
+            fi
           fi
           echo "Built $IMAGE"
 
@@ -145,4 +203,15 @@ jobs:
           docker push "$IMAGE"
           if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
             docker push "${{ github.event.inputs.registry }}:latest"
+          fi
+
+      - name: Push GHCR image
+        if: ${{ github.event.inputs.push_ghcr_image == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          GHCR_IMAGE="${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}:${{ steps.version.outputs.resolved_tag }}"
+          docker push "$GHCR_IMAGE"
+          if [ "${{ github.event.inputs.push_ghcr_latest }}" = 'true' ]; then
+            docker push "${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}:latest"
           fi

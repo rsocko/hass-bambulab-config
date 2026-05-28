@@ -66,6 +66,10 @@ jobs:
 
           echo "config_file=$CONFIG_FILE" >> "$GITHUB_OUTPUT"
           echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_push_ghcr=false" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_push_ghcr_latest=false" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_model_catalog_ghcr_repository=ghcr.io/${{ github.repository_owner }}/model-catalog" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_bambuddy_runtime_repair_ghcr_repository=ghcr.io/${{ github.repository_owner }}/bambuddy-runtime-repair" >> "$GITHUB_OUTPUT"
 
           if [ ! -f "$CONFIG_FILE" ]; then
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
@@ -85,12 +89,20 @@ jobs:
           AUTO_DEPLOY_DEBUG_DEPLOY_SYNC="$(normalize_bool "${AUTO_DEPLOY_DEBUG_DEPLOY_SYNC:-false}")"
           AUTO_DEPLOY_FAIL_ON_UI_CONFLICT="$(normalize_bool "${AUTO_DEPLOY_FAIL_ON_UI_CONFLICT:-false}")"
           AUTO_DEPLOY_RELOAD_DOMAINS_STRICT="$(normalize_bool "${AUTO_DEPLOY_RELOAD_DOMAINS_STRICT:-false}")"
+          AUTO_DEPLOY_PUSH_GHCR="$(normalize_bool "${AUTO_DEPLOY_PUSH_GHCR:-false}")"
+          AUTO_DEPLOY_PUSH_GHCR_LATEST="$(normalize_bool "${AUTO_DEPLOY_PUSH_GHCR_LATEST:-false}")"
 
           AUTO_DEPLOY_BRANCHES="$(trim "${AUTO_DEPLOY_BRANCHES:-}")"
           AUTO_DEPLOY_PACKAGE_SCOPE="$(trim "${AUTO_DEPLOY_PACKAGE_SCOPE:-selected}")"
           AUTO_DEPLOY_SELECTED_PACKAGES="$(trim "${AUTO_DEPLOY_SELECTED_PACKAGES:-}")"
           AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED="$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")"
+          AUTO_DEPLOY_MODEL_CATALOG_GHCR_REPOSITORY="$(trim "${AUTO_DEPLOY_MODEL_CATALOG_GHCR_REPOSITORY:-ghcr.io/${{ github.repository_owner }}/model-catalog}")"
+          AUTO_DEPLOY_BAMBUDDY_RUNTIME_REPAIR_GHCR_REPOSITORY="$(trim "${AUTO_DEPLOY_BAMBUDDY_RUNTIME_REPAIR_GHCR_REPOSITORY:-ghcr.io/${{ github.repository_owner }}/bambuddy-runtime-repair}")"
           AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED"
+          echo "auto_deploy_push_ghcr=$AUTO_DEPLOY_PUSH_GHCR" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_push_ghcr_latest=$AUTO_DEPLOY_PUSH_GHCR_LATEST" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_model_catalog_ghcr_repository=$AUTO_DEPLOY_MODEL_CATALOG_GHCR_REPOSITORY" >> "$GITHUB_OUTPUT"
+          echo "auto_deploy_bambuddy_runtime_repair_ghcr_repository=$AUTO_DEPLOY_BAMBUDDY_RUNTIME_REPAIR_GHCR_REPOSITORY" >> "$GITHUB_OUTPUT"
           RESTART_REQUIRED_PUSH=false
           RESTART_REQUIRED_REASONS=""
           DEPLOY_RELEVANT_PUSH=false
@@ -229,6 +241,9 @@ jobs:
           echo "  version_mode=next_patch"
           echo "  push_image=true"
           echo "  push_latest=true"
+          echo "  push_ghcr_image=${{ steps.config.outputs.auto_deploy_push_ghcr }}"
+          echo "  push_ghcr_latest=${{ steps.config.outputs.auto_deploy_push_ghcr_latest }}"
+          echo "  ghcr_repository=${{ steps.config.outputs.auto_deploy_model_catalog_ghcr_repository }}"
 
           {
             echo "## Model Catalog Sidecar Auto-Dispatch"
@@ -239,6 +254,9 @@ jobs:
             echo "| Version mode | next_patch |"
             echo "| Push image | true |"
             echo "| Push latest | true |"
+            echo "| Push GHCR image | ${{ steps.config.outputs.auto_deploy_push_ghcr }} |"
+            echo "| Push GHCR latest | ${{ steps.config.outputs.auto_deploy_push_ghcr_latest }} |"
+            echo "| GHCR repository | ${{ steps.config.outputs.auto_deploy_model_catalog_ghcr_repository }} |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -258,7 +276,10 @@ jobs:
             -f ref="$REF_NAME" \
             -f inputs[version_mode]="next_patch" \
             -f inputs[push_image]="true" \
-            -f inputs[push_latest]="true"
+            -f inputs[push_latest]="true" \
+            -f inputs[push_ghcr]="${{ steps.config.outputs.auto_deploy_push_ghcr }}" \
+            -f inputs[push_ghcr_latest]="${{ steps.config.outputs.auto_deploy_push_ghcr_latest }}" \
+            -f inputs[ghcr_repository]="${{ steps.config.outputs.auto_deploy_model_catalog_ghcr_repository }}"
 
           echo "Model catalog sidecar workflow dispatch requested successfully."
 
@@ -269,6 +290,9 @@ jobs:
           echo "  version_mode=next_patch"
           echo "  push_image=true"
           echo "  push_latest=true"
+          echo "  push_ghcr_image=${{ steps.config.outputs.auto_deploy_push_ghcr }}"
+          echo "  push_ghcr_latest=${{ steps.config.outputs.auto_deploy_push_ghcr_latest }}"
+          echo "  ghcr_repository=${{ steps.config.outputs.auto_deploy_bambuddy_runtime_repair_ghcr_repository }}"
 
           {
             echo "## Bambuddy Runtime Repair Sidecar Auto-Dispatch"
@@ -279,6 +303,9 @@ jobs:
             echo "| Version mode | next_patch |"
             echo "| Push image | true |"
             echo "| Push latest | true |"
+            echo "| Push GHCR image | ${{ steps.config.outputs.auto_deploy_push_ghcr }} |"
+            echo "| Push GHCR latest | ${{ steps.config.outputs.auto_deploy_push_ghcr_latest }} |"
+            echo "| GHCR repository | ${{ steps.config.outputs.auto_deploy_bambuddy_runtime_repair_ghcr_repository }} |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -298,7 +325,10 @@ jobs:
             -f ref="$REF_NAME" \
             -f inputs[version_mode]="next_patch" \
             -f inputs[push_image]="true" \
-            -f inputs[push_latest]="true"
+            -f inputs[push_latest]="true" \
+            -f inputs[push_ghcr]="${{ steps.config.outputs.auto_deploy_push_ghcr }}" \
+            -f inputs[push_ghcr_latest]="${{ steps.config.outputs.auto_deploy_push_ghcr_latest }}" \
+            -f inputs[ghcr_repository]="${{ steps.config.outputs.auto_deploy_bambuddy_runtime_repair_ghcr_repository }}"
 
           echo "Bambuddy runtime repair sidecar workflow dispatch requested successfully."
 

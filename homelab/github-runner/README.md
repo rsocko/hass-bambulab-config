@@ -1,12 +1,23 @@
 # GitHub Self-Hosted Runner (Docker / Dockhand)
 
-This stack runs a persistent GitHub Actions self-hosted runner in Docker so you can execute deploy/validation workflows from your homelab network.
+This stack runs persistent GitHub Actions self-hosted runners in Docker so you can execute deploy, validation, and image-build workflows from your homelab network.
 
 ## Why this approach
 
 - Keeps deployment jobs on your LAN close to Home Assistant.
 - Avoids exposing SSH/file sync endpoints publicly.
 - Fits Dockhand-style stack deployment via `compose.yaml`.
+
+## Runner lanes
+
+The stack now defines two runner lanes:
+
+- `ha` runner: handles Home Assistant deploy and validation workflows that need LAN or SSH access to HA.
+- `build` runner: handles container image builds and pushes.
+
+This split lets image builds run in parallel with deploy jobs while keeping the Home Assistant deployment lane serialized.
+
+The two services intentionally use different runner names, labels, workdirs, and `/runner` data volumes. Do not point both services at the same runner data directory.
 
 ## Files
 
@@ -27,6 +38,8 @@ This stack runs a persistent GitHub Actions self-hosted runner in Docker so you 
    - or `./deploy.sh`
 5. Confirm runner status in GitHub:
    - Repository Settings -> Actions -> Runners
+
+If you only want a single runner again, remove or disable the `github-runner-build` service and revert image workflows to the `ha` label set.
 
 ## HAOS (Raspberry Pi 5) deployment notes
 
@@ -184,8 +197,43 @@ Use labels in workflows:
 runs-on: [self-hosted, linux, docker, ha, homelab, dockhand]
 ```
 
+For image builds, use the dedicated build lane:
+
+```yaml
+runs-on: [self-hosted, linux, docker, build, homelab, dockhand]
+```
+
+## Container registry options
+
+The image build workflows now support two publish targets:
+
+- Local registry, for example `registry.socko.us/...`
+- GitHub Container Registry, for example `ghcr.io/<owner>/...`
+
+Recommended usage:
+
+- Keep the local registry as the primary runtime pull source for homelab deployments.
+- Optionally also push to GHCR for offsite retention, provenance, and easier external access.
+
+For manual workflow runs, set:
+
+- `push_image=true` to push to the primary registry
+- `push_ghcr=true` to also push to GHCR
+- `ghcr_repository=ghcr.io/<owner>/<image-name>`
+- `push_latest` and `push_ghcr_latest` only when you intentionally want mutable `latest` tags
+
+For auto-dispatched sidecar builds, `.github/deploy/auto-deploy.env` now supports:
+
+- `AUTO_DEPLOY_PUSH_GHCR`
+- `AUTO_DEPLOY_PUSH_GHCR_LATEST`
+- `AUTO_DEPLOY_MODEL_CATALOG_GHCR_REPOSITORY`
+- `AUTO_DEPLOY_BAMBUDDY_RUNTIME_REPAIR_GHCR_REPOSITORY`
+
+When publishing to GHCR from GitHub Actions, the workflow uses the repository `GITHUB_TOKEN` and requires `packages: write` permission.
+
 ## Notes
 
 - Runner tokens are short-lived; this image uses your PAT to self-register on startup.
 - Keep PAT secret and rotate it periodically.
 - Mounting `/var/run/docker.sock` allows workflows to run Docker commands on the host. Remove it if not needed.
+- Per-image workflow concurrency now serializes only conflicting builds of the same image family. Different image families can run at the same time on separate build runners.
