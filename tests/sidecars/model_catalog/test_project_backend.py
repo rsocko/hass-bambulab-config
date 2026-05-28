@@ -220,3 +220,78 @@ def test_model_search_and_detail_include_project_membership_contract(tmp_path: P
             int(project_one["id"]),
             int(project_two["id"]),
         }
+
+
+def test_project_internal_tasks_crud(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/projects",
+            json={
+                "title": "Garage Reorg",
+                "task_backend": "internal",
+                "status": "planning",
+            },
+        )
+        assert create_response.status_code == 200
+        project = create_response.json()["project"]
+        project_id = int(project["id"])
+        assert project["task_backend"] == "internal"
+
+        task_create = client.post(
+            f"/api/projects/{project_id}/tasks",
+            json={"title": "Buy M3 screws"},
+        )
+        assert task_create.status_code == 200
+        created_task = task_create.json()["task"]
+        task_id = int(created_task["id"])
+        assert created_task["status"] == "open"
+
+        task_toggle = client.patch(
+            f"/api/projects/{project_id}/tasks/{task_id}",
+            json={"status": "done"},
+        )
+        assert task_toggle.status_code == 200
+        assert task_toggle.json()["task"]["status"] == "done"
+
+        detail_response = client.get(f"/api/projects/{project_id}")
+        assert detail_response.status_code == 200
+        detail_project = detail_response.json()["project"]
+        assert detail_project["task_backend"] == "internal"
+        assert detail_project["task_summary"] == {"total": 1, "open": 0, "done": 1}
+        assert len(detail_project["tasks"]) == 1
+        assert detail_project["tasks"][0]["title"] == "Buy M3 screws"
+
+        task_delete = client.delete(f"/api/projects/{project_id}/tasks/{task_id}")
+        assert task_delete.status_code == 200
+
+        tasks_after_delete = client.get(f"/api/projects/{project_id}/tasks")
+        assert tasks_after_delete.status_code == 200
+        assert tasks_after_delete.json()["items"] == []
+
+
+def test_project_tasks_require_internal_backend(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/projects",
+            json={
+                "title": "Small One Off",
+                "task_backend": "none",
+            },
+        )
+        assert create_response.status_code == 200
+        project_id = int(create_response.json()["project"]["id"])
+
+        task_create = client.post(
+            f"/api/projects/{project_id}/tasks",
+            json={"title": "Should fail"},
+        )
+        assert task_create.status_code == 409
+        assert task_create.json()["error"] == "task_backend_not_internal"

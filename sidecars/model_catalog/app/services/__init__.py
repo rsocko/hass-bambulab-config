@@ -30,9 +30,11 @@ from .working_discovery_service import (
 )
 from .working_catalog_service import (
     add_working_group_item_service,
+    create_project_task_service,
     create_model_catalog_project_service,
     create_working_group_link_service,
     create_working_group_service,
+    delete_project_task_service,
     delete_model_catalog_project_service,
     delete_working_group_link_service,
     delete_working_group_service,
@@ -40,11 +42,13 @@ from .working_catalog_service import (
     get_model_lineage_service,
     get_working_group_service,
     list_model_catalog_projects_service,
+    list_project_tasks_service,
     list_working_group_links_service,
     list_working_groups_for_model_service,
     list_working_groups_service,
     publish_working_group_to_local_service,
     remove_working_group_item_service,
+    update_project_task_service,
     update_model_catalog_project_service,
     update_working_group_service,
 )
@@ -96,4 +100,8 @@ __all__ = [
     "get_model_catalog_project_service",
     "update_model_catalog_project_service",
     "delete_model_catalog_project_service",
+    "list_project_tasks_service",
+    "create_project_task_service",
+    "update_project_task_service",
+    "delete_project_task_service",
 ]

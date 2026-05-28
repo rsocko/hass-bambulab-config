@@ -40,6 +40,18 @@ VALID_PROJECT_ORIGINS = {
     "remix",
 }
 
+VALID_PROJECT_TASK_BACKENDS = {
+    "none",
+    "internal",
+    "github",
+    "mstodo",
+}
+
+VALID_PROJECT_TASK_STATUSES = {
+    "open",
+    "done",
+}
+
 
 def normalize_project_status(value: object | None, *, default: str = "evaluating") -> str:
     normalized = str(value or "").strip().lower()
@@ -74,6 +86,24 @@ def normalize_project_origin(value: object | None) -> str | None:
         return None
     if normalized not in VALID_PROJECT_ORIGINS:
         raise ValueError(f"invalid origin: {value}")
+    return normalized
+
+
+def normalize_project_task_backend(value: object | None, *, default: str = "none") -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return default
+    if normalized not in VALID_PROJECT_TASK_BACKENDS:
+        raise ValueError(f"invalid task_backend: {value}")
+    return normalized
+
+
+def normalize_project_task_status(value: object | None, *, default: str = "open") -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return default
+    if normalized not in VALID_PROJECT_TASK_STATUSES:
+        raise ValueError(f"invalid project task status: {value}")
     return normalized
 
 

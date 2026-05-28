@@ -130,10 +130,14 @@ class ModelCatalogBrowserCard extends HTMLElement {
       status: "evaluating",
       projectType: "",
       origin: "",
+      taskBackend: "none",
       createdBy: "",
       error: "",
       submitting: false,
     };
+    this._projectTaskDraftTitle = "";
+    this._projectTaskDraftError = "";
+    this._projectTaskDraftSubmitting = false;
     this._bulkProjectDialog = {
       open: false,
       projectId: "",
@@ -2369,6 +2373,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       return;
     }
+    if (target && target.classList && target.classList.contains("project-task-input")) {
+      var taskField = String(target.getAttribute("data-project-task-field") || "").trim();
+      if (taskField === 'title') {
+        this._projectTaskDraftTitle = String(target.value || '');
+        if (this._projectTaskDraftError) {
+          this._projectTaskDraftError = '';
+        }
+      }
+      return;
+    }
     if (target && target.dataset && target.dataset.input === 'bulk-project-search') {
       if (this._bulkProjectDialog) {
         this._bulkProjectDialog.search = String(target.value || '');
@@ -3289,6 +3303,27 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._setProjectDetailMemberStateFilter(target.getAttribute('data-member-state'));
+      return;
+    }
+
+    if (action === 'create-project-task') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._createProjectTask();
+      return;
+    }
+
+    if (action === 'toggle-project-task-status') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._toggleProjectTaskStatus(target.getAttribute('data-task-id'));
+      return;
+    }
+
+    if (action === 'delete-project-task') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._deleteProjectTask(target.getAttribute('data-task-id'));
       return;
     }
 
@@ -4325,6 +4360,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return ['', 'makerworld', 'printables', 'custom', 'unknown', 'commercial', 'remix'];
   }
 
+  _projectTaskBackendOptions() {
+    return ['none', 'internal'];
+  }
+
   _projectOptionLabel(value, fallback) {
     var normalized = String(value || '').trim();
     if (!normalized) {
@@ -4513,14 +4552,144 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     this._browserScope = 'projects';
     this._projectDetailMemberStateFilter = '';
+    this._projectTaskDraftTitle = '';
+    this._projectTaskDraftError = '';
+    this._projectTaskDraftSubmitting = false;
     this._applyLeftNavSelection('project:' + String(normalizedProjectId), { closeDrawer: true, requestLoad: true, render: true, forceSelection: true });
   }
 
   _closeProjectDetail() {
     this._browserScope = 'projects';
     this._projectDetailMemberStateFilter = '';
+    this._projectTaskDraftTitle = '';
+    this._projectTaskDraftError = '';
+    this._projectTaskDraftSubmitting = false;
     this._projectDetail = null;
     this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: true, render: true });
+  }
+
+  _activeProjectDetailProject() {
+    var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
+    return detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
+  }
+
+  async _createProjectTask() {
+    var project = this._activeProjectDetailProject();
+    var projectId = Number(project && project.id || 0) || 0;
+    var title = String(this._projectTaskDraftTitle || '').trim();
+    if (!projectId || this._projectTaskDraftSubmitting) {
+      return;
+    }
+    if (!title) {
+      this._projectTaskDraftError = 'Task title is required.';
+      this._render();
+      return;
+    }
+    this._projectTaskDraftSubmitting = true;
+    this._projectTaskDraftError = '';
+    this._render();
+    try {
+      await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title }),
+      });
+      this._projectTaskDraftTitle = '';
+      this._setCollectionActionFeedback('Added project task.', 'success');
+      this._requestLoad(this._currentPage(), false);
+    } catch (error) {
+      this._projectTaskDraftError = error && error.message ? String(error.message) : 'Could not create project task.';
+    } finally {
+      this._projectTaskDraftSubmitting = false;
+      this._render();
+    }
+  }
+
+  async _toggleProjectTaskStatus(taskId) {
+    var project = this._activeProjectDetailProject();
+    var projectId = Number(project && project.id || 0) || 0;
+    var normalizedTaskId = parseInt(String(taskId || '0'), 10);
+    if (!projectId || !Number.isFinite(normalizedTaskId) || normalizedTaskId <= 0) {
+      return;
+    }
+    var tasks = Array.isArray(project.tasks) ? project.tasks : [];
+    var task = tasks.find(function (item) {
+      return Number(item && item.id || 0) === normalizedTaskId;
+    }) || null;
+    if (!task) {
+      return;
+    }
+    var nextStatus = String(task.status || 'open').trim().toLowerCase() === 'done' ? 'open' : 'done';
+    try {
+      await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks/' + encodeURIComponent(String(normalizedTaskId)), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      this._setCollectionActionFeedback('Updated project task.', 'success');
+      this._requestLoad(this._currentPage(), false);
+    } catch (error) {
+      this._error = error && error.message ? String(error.message) : 'Could not update project task.';
+      this._render();
+    }
+  }
+
+  async _deleteProjectTask(taskId) {
+    var project = this._activeProjectDetailProject();
+    var projectId = Number(project && project.id || 0) || 0;
+    var normalizedTaskId = parseInt(String(taskId || '0'), 10);
+    if (!projectId || !Number.isFinite(normalizedTaskId) || normalizedTaskId <= 0) {
+      return;
+    }
+    try {
+      await this._projectApiRequest('/api/projects/' + encodeURIComponent(String(projectId)) + '/tasks/' + encodeURIComponent(String(normalizedTaskId)), {
+        method: 'DELETE',
+      });
+      this._setCollectionActionFeedback('Deleted project task.', 'success');
+      this._requestLoad(this._currentPage(), false);
+    } catch (error) {
+      this._error = error && error.message ? String(error.message) : 'Could not delete project task.';
+      this._render();
+    }
+  }
+
+  _renderProjectTasksPanel(project) {
+    var item = project && typeof project === 'object' ? project : {};
+    var taskBackend = String(item.task_backend || 'none').trim().toLowerCase() || 'none';
+    var tasks = Array.isArray(item.tasks) ? item.tasks : [];
+    var summary = item.task_summary && typeof item.task_summary === 'object' ? item.task_summary : { total: tasks.length, open: tasks.length, done: 0 };
+    var listHtml = tasks.length
+      ? tasks.map(function (task) {
+          var status = String(task && task.status || 'open').trim().toLowerCase() || 'open';
+          var taskId = Number(task && task.id || 0) || 0;
+          return ''
+            + '<div class="project-task-row' + (status === 'done' ? ' is-done' : '') + '">'
+            + '  <button class="project-task-toggle" type="button" data-action="toggle-project-task-status" data-task-id="' + this._escapeHtml(String(taskId)) + '">' + this._escapeHtml(status === 'done' ? 'Done' : 'Open') + '</button>'
+            + '  <div class="project-task-copy"><div class="project-task-title">' + this._escapeHtml(String(task && task.title || 'Untitled task')) + '</div></div>'
+            + '  <button class="project-task-delete" type="button" data-action="delete-project-task" data-task-id="' + this._escapeHtml(String(taskId)) + '">Delete</button>'
+            + '</div>';
+        }.bind(this)).join('')
+      : '<div class="state-row project-task-empty">No project tasks yet.</div>';
+    var composerHtml = taskBackend === 'internal'
+      ? ''
+        + '<div class="project-task-composer">'
+        + '  <input class="collection-action-input project-task-input" data-project-task-field="title" type="text" maxlength="255" placeholder="Add a task" value="' + this._escapeHtml(this._projectTaskDraftTitle) + '"' + (this._projectTaskDraftSubmitting ? ' disabled' : '') + '>'
+        + '  <button class="toolbar-btn" type="button" data-action="create-project-task"' + (this._projectTaskDraftSubmitting ? ' disabled' : '') + '>' + this._escapeHtml(this._projectTaskDraftSubmitting ? 'Adding...' : '+ Task') + '</button>'
+        + '</div>'
+        + (this._projectTaskDraftError ? '<div class="collection-action-error">' + this._escapeHtml(this._projectTaskDraftError) + '</div>' : '')
+      : '<div class="collection-browser-header-note">Tasks are disabled for this project. Edit the project and switch task backend to Internal to use inline tasks.</div>';
+    return ''
+      + '<section class="project-task-panel">'
+      + '  <div class="project-task-panel-header">'
+      + '    <div>'
+      + '      <div class="collection-browser-header-kicker">Tasks · ' + this._escapeHtml(this._projectOptionLabel(taskBackend, 'none')) + '</div>'
+      + '      <div class="project-task-panel-subtitle">' + this._escapeHtml(String(summary.open || 0) + ' open · ' + String(summary.done || 0) + ' done') + '</div>'
+      + '    </div>'
+      + '    <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="edit" data-project-id="' + this._escapeHtml(String(item.id || '')) + '">Configure backend</button>'
+      + '  </div>'
+      + composerHtml
+      + '  <div class="project-task-list">' + listHtml + '</div>'
+      + '</section>';
   }
 
   _projectMemberStateLabel(value) {
@@ -5296,6 +5465,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       status: String(item.status || 'evaluating').trim().toLowerCase() || 'evaluating',
       projectType: String(item.project_type || '').trim().toLowerCase(),
       origin: String(item.origin || '').trim().toLowerCase(),
+      taskBackend: String(item.task_backend || 'none').trim().toLowerCase() || 'none',
       createdBy: String(item.created_by || '').trim(),
       error: '',
       submitting: false,
@@ -5312,6 +5482,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (dialogMode === 'create') {
       this._projectActionDialog = this._projectDialogStateFromProject('create', {
         status: 'evaluating',
+        task_backend: 'none',
       });
     }
     this._focusProjectActionPrimaryAfterRender = true;
@@ -5351,6 +5522,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         status: String(dialog.status || 'evaluating').trim() || 'evaluating',
         project_type: String(dialog.projectType || '').trim() || null,
         origin: String(dialog.origin || '').trim() || null,
+        task_backend: String(dialog.taskBackend || 'none').trim() || 'none',
         created_by: String(dialog.createdBy || '').trim() || null,
       };
       var feedbackMessage = '';
@@ -7545,6 +7717,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (project.created_by) {
       metaParts.push('Owner ' + String(project.created_by));
     }
+    var tasksPanel = this._renderProjectTasksPanel(project);
     var groupedMemberCards = '';
     if (items.length && !activeMemberStateFilter) {
       var groupedItems = {};
@@ -7586,9 +7759,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderProjectHeaderStat('Status', this._projectOptionLabel(project.status, 'evaluating'))
       + this._renderProjectHeaderStat('Members', Number(project.curated_model_count || memberRows.length || 0) || 0)
       + this._renderProjectHeaderStat('Working Groups', Number(project.working_group_count || 0) || 0)
+        + this._renderProjectHeaderStat('Open Tasks', Number(project.task_summary && project.task_summary.open || 0) || 0)
       + this._renderProjectHeaderStat('Visible', Number(pagination.total || items.length || 0) || 0)
       + '  </div>'
       + '</section>'
+        + tasksPanel
       + memberCards;
   }
 
@@ -8868,6 +9043,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
             return '<option value="' + this._escapeHtml(option) + '"' + (String(dialog.origin || '') === option ? ' selected' : '') + '>' + this._escapeHtml(this._projectOptionLabel(option, 'None')) + '</option>';
           }.bind(this)).join('')
         + '  </select></label>'
+        + '  <label class="collection-action-field"><span>Task backend</span><select class="collection-action-select project-action-select" data-project-field="taskBackend">'
+        + this._projectTaskBackendOptions().map(function (option) {
+            return '<option value="' + this._escapeHtml(option) + '"' + (String(dialog.taskBackend || 'none') === option ? ' selected' : '') + '>' + this._escapeHtml(this._projectOptionLabel(option, 'none')) + '</option>';
+          }.bind(this)).join('')
+        + '  </select></label>'
         + '  <label class="collection-action-field"><span>Owner</span><input class="collection-action-input project-action-input" data-project-field="createdBy" type="text" maxlength="255" value="' + this._escapeHtml(dialog.createdBy) + '" placeholder="Optional owner"></label>'
         + '</div>';
     }
@@ -9809,6 +9989,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.project-member-state-btn:hover,.project-member-state-btn:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);color:var(--primary-text-color);}'
       + '.project-member-state-btn.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.38);color:#dbeafe;}'
       + '.project-member-state-btn:disabled{opacity:.6;cursor:not-allowed;}'
+      + '.project-task-panel{display:grid;gap:12px;margin:0 0 14px;padding:16px 18px;border-radius:18px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}'
+      + '.project-task-panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
+      + '.project-task-panel-subtitle{font-size:12px;color:var(--secondary-text-color);}'
+      + '.project-task-composer{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}'
+      + '.project-task-composer .project-task-input{flex:1 1 260px;}'
+      + '.project-task-list{display:grid;gap:10px;}'
+      + '.project-task-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.14);}'
+      + '.project-task-row.is-done{opacity:.72;}'
+      + '.project-task-copy{min-width:0;display:grid;gap:4px;}'
+      + '.project-task-title{font-size:13px;font-weight:700;color:var(--primary-text-color);word-break:break-word;}'
+      + '.project-task-toggle,.project-task-delete{min-height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:11px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;}'
+      + '.project-task-toggle:hover,.project-task-delete:hover,.project-task-toggle:focus-visible,.project-task-delete:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);color:var(--primary-text-color);}'
+      + '.project-task-empty{margin:0;}'
       + '.project-detail-group-section{display:grid;gap:10px;}'
       + '.project-detail-group-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 4px 0;}'
       + '.project-detail-group-title{font-size:13px;font-weight:900;color:var(--primary-text-color);text-transform:uppercase;letter-spacing:.04em;}'

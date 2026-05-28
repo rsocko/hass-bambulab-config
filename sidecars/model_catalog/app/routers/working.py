@@ -70,9 +70,11 @@ from ..services import (
     bulk_discover_working_groups_service,
     bulk_import_working_groups_service,
     build_dedup_collision_warning,
+    create_project_task_service,
     create_model_catalog_project_service,
     create_working_group_link_service,
     create_working_group_service,
+    delete_project_task_service,
     delete_model_catalog_project_service,
     delete_working_group_link_service,
     delete_working_group_service,
@@ -82,12 +84,14 @@ from ..services import (
     get_working_group_service,
     get_all_indexed_file_hashes,
     list_model_catalog_projects_service,
+    list_project_tasks_service,
     list_working_group_links_service,
     list_working_groups_for_model_service,
     list_working_groups_service,
     publish_working_group_to_local_service,
     remove_working_group_item_service,
     reorganize_working_group_service,
+    update_project_task_service,
     update_model_catalog_project_service,
     update_working_group_service,
 )
@@ -2500,6 +2504,34 @@ def delete_model_catalog_project(request: Request, project_id: int) -> Any:
     """Delete an empty project."""
     state: AppState = request.app.state.model_catalog
     return delete_model_catalog_project_service(settings=state.settings, project_id=project_id)
+
+
+@router.get("/api/projects/{project_id}/tasks")
+def list_project_tasks(request: Request, project_id: int) -> Any:
+    """List tasks for a single project."""
+    state: AppState = request.app.state.model_catalog
+    return list_project_tasks_service(settings=state.settings, project_id=project_id)
+
+
+@router.post("/api/projects/{project_id}/tasks")
+def create_project_task(request: Request, project_id: int, payload: dict[str, Any]) -> Any:
+    """Create a task for a single project."""
+    state: AppState = request.app.state.model_catalog
+    return create_project_task_service(settings=state.settings, project_id=project_id, payload=payload)
+
+
+@router.patch("/api/projects/{project_id}/tasks/{task_id}")
+def update_project_task(request: Request, project_id: int, task_id: int, payload: dict[str, Any]) -> Any:
+    """Update a single project task."""
+    state: AppState = request.app.state.model_catalog
+    return update_project_task_service(settings=state.settings, project_id=project_id, task_id=task_id, payload=payload)
+
+
+@router.delete("/api/projects/{project_id}/tasks/{task_id}")
+def delete_project_task(request: Request, project_id: int, task_id: int) -> Any:
+    """Delete a single project task."""
+    state: AppState = request.app.state.model_catalog
+    return delete_project_task_service(settings=state.settings, project_id=project_id, task_id=task_id)
 
 
 # ==================== ENDPOINTS: BULK OPERATIONS ====================

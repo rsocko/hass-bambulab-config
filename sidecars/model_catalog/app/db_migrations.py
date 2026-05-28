@@ -1582,6 +1582,29 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         """,
         ),
     ),
+    (
+        37,
+        (
+            """
+        CREATE TABLE IF NOT EXISTS model_catalog_project_tasks (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            due_at TEXT,
+            source_url TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES model_catalog_projects(id)
+                ON DELETE CASCADE
+        )
+        """,
+            """
+        CREATE INDEX IF NOT EXISTS idx_model_catalog_project_tasks_project_id
+        ON model_catalog_project_tasks(project_id, status, updated_at DESC)
+        """,
+        ),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
@@ -1742,10 +1765,41 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
                     WHERE project_id IS NOT NULL
                     """
                 )
+        if version == 37:
+            ensure_column(connection, "model_catalog_projects", "task_backend", "TEXT NOT NULL DEFAULT 'none'")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS model_catalog_project_tasks (
+                    id INTEGER PRIMARY KEY,
+                    project_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    due_at TEXT,
+                    source_url TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (project_id) REFERENCES model_catalog_projects(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_model_catalog_project_tasks_project_id
+                ON model_catalog_project_tasks(project_id, status, updated_at DESC)
+                """
+            )
+            connection.execute(
+                """
+                UPDATE model_catalog_projects
+                SET task_backend = COALESCE(NULLIF(TRIM(task_backend), ''), 'none')
+                """
+            )
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
         )
+        applied.add(version)
 
     # Always run FK drift repair after migration application, even when no
     # migration versions are pending. Some deployed DBs can retain stale

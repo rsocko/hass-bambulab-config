@@ -25,6 +25,8 @@ from ..db_projects import (
     ensure_model_project_membership,
     normalize_project_origin,
     normalize_project_status,
+    normalize_project_task_backend,
+    normalize_project_task_status,
     normalize_project_type,
     read_model_project_memberships_bulk,
     replace_model_project_memberships,
@@ -264,6 +266,7 @@ def _create_project_record(
     project_type: str | None,
     origin: str | None,
     origin_url: str | None,
+    task_backend: str,
     bambuddy_project_id: int | None,
     created_by: str | None,
     completed_at: str | None,
@@ -274,8 +277,8 @@ def _create_project_record(
         """
         INSERT INTO model_catalog_projects (
             slug, title, description, notes, status, project_type, origin, origin_url,
-            bambuddy_project_id, created_by, created_at, updated_at, completed_at, archived_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            task_backend, bambuddy_project_id, created_by, created_at, updated_at, completed_at, archived_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             slug,
@@ -286,6 +289,7 @@ def _create_project_record(
             project_type,
             origin,
             origin_url,
+            task_backend,
             bambuddy_project_id,
             created_by,
             now_iso,
@@ -350,6 +354,62 @@ def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict
     trimmed = history[-20:]
     set_model_field(db_path=db_path, model_ref=model_ref, field_key="intake_publish_history", field_value=trimmed)
     return trimmed
+
+
+def _serialize_project_task_row(task_row: Any) -> dict[str, Any]:
+    return {
+        "id": int(task_row["id"]),
+        "project_id": int(task_row["project_id"]),
+        "title": str(task_row["title"] or "").strip(),
+        "status": str(task_row["status"] or "open").strip().lower() or "open",
+        "due_at": task_row["due_at"] if "due_at" in set(task_row.keys()) else None,
+        "source_url": task_row["source_url"] if "source_url" in set(task_row.keys()) else None,
+        "created_at": task_row["created_at"],
+        "updated_at": task_row["updated_at"],
+    }
+
+
+def _list_project_tasks(connection: Any, *, project_id: int) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM model_catalog_project_tasks
+        WHERE project_id = ?
+        ORDER BY CASE WHEN status = 'open' THEN 0 ELSE 1 END, updated_at DESC, id DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return [_serialize_project_task_row(row) for row in rows]
+
+
+def _project_task_summary(tasks: list[dict[str, Any]]) -> dict[str, int]:
+    open_count = 0
+    done_count = 0
+    for task in tasks:
+        if str(task.get("status") or "open") == "done":
+            done_count += 1
+        else:
+            open_count += 1
+    return {"total": open_count + done_count, "open": open_count, "done": done_count}
+
+
+def _get_project_row(connection: Any, *, project_id: int) -> Any:
+    return connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
+
+
+def _require_internal_task_backend(project_row: Any) -> JSONResponse | None:
+    task_backend = str(project_row["task_backend"] if "task_backend" in set(project_row.keys()) else "none").strip().lower() or "none"
+    if task_backend == "internal":
+        return None
+    return JSONResponse(
+        status_code=409,
+        content={
+            "success": False,
+            "error": "task_backend_not_internal",
+            "message": f"Project task backend is '{task_backend}' and does not accept internal task writes",
+            "task_backend": task_backend,
+        },
+    )
 
 
 def _lineage_payload_for_model(*, db_path: Path, model_ref: str) -> dict[str, Any]:
@@ -1021,6 +1081,7 @@ def create_model_catalog_project_service(*, settings: Settings, payload: dict[st
         status = normalize_project_status(payload.get("status"))
         project_type = normalize_project_type(payload.get("project_type"))
         origin = normalize_project_origin(payload.get("origin"))
+        task_backend = normalize_project_task_backend(payload.get("task_backend"))
     except ValueError as exc:
         return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": str(exc)})
 
@@ -1036,6 +1097,7 @@ def create_model_catalog_project_service(*, settings: Settings, payload: dict[st
             project_type=project_type,
             origin=origin,
             origin_url=_normalize_optional_text(payload.get("origin_url")),
+            task_backend=task_backend,
             bambuddy_project_id=_resolve_project_id_value(payload.get("bambuddy_project_id")),
             created_by=_normalize_optional_text(payload.get("created_by")),
             completed_at=_normalize_optional_text(payload.get("completed_at")),
@@ -1116,6 +1178,7 @@ def get_model_catalog_project_service(*, settings: Settings, project_id: int) ->
             """,
             (project_id,),
         ).fetchall()
+        tasks = _list_project_tasks(connection, project_id=project_id)
         project = _serialize_project_row(row)
         project["working_group_count"] = int(group_count_row["cnt"] if group_count_row else 0)
         project["curated_model_count"] = int(model_count_row["cnt"] if model_count_row else 0)
@@ -1129,6 +1192,9 @@ def get_model_catalog_project_service(*, settings: Settings, project_id: int) ->
             }
             for item in membership_rows
         ]
+        project["tasks"] = tasks
+        project["task_summary"] = _project_task_summary(tasks)
+        project["task_external_url"] = None
         return {"success": True, "project": project}
     finally:
         connection.close()
@@ -1143,6 +1209,7 @@ def update_model_catalog_project_service(*, settings: Settings, project_id: int,
         "project_type",
         "origin",
         "origin_url",
+        "task_backend",
         "bambuddy_project_id",
         "created_by",
         "completed_at",
@@ -1189,6 +1256,9 @@ def update_model_catalog_project_service(*, settings: Settings, project_id: int,
             if "origin_url" in payload:
                 updates.append("origin_url = ?")
                 params.append(_normalize_optional_text(payload.get("origin_url")))
+            if "task_backend" in payload:
+                updates.append("task_backend = ?")
+                params.append(normalize_project_task_backend(payload.get("task_backend")))
             if "bambuddy_project_id" in payload:
                 updates.append("bambuddy_project_id = ?")
                 params.append(_resolve_project_id_value(payload.get("bambuddy_project_id")))
@@ -1266,5 +1336,139 @@ def delete_model_catalog_project_service(*, settings: Settings, project_id: int)
         connection.execute("DELETE FROM model_catalog_projects WHERE id = ?", (project_id,))
         connection.commit()
         return {"success": True, "deleted": True, "project_id": project_id}
+    finally:
+        connection.close()
+
+
+def list_project_tasks_service(*, settings: Settings, project_id: int) -> Any:
+    connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = _get_project_row(connection, project_id=project_id)
+        if row is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+        tasks = _list_project_tasks(connection, project_id=project_id)
+        return {
+            "success": True,
+            "project_id": project_id,
+            "task_backend": str(row["task_backend"] if "task_backend" in set(row.keys()) else "none"),
+            "task_summary": _project_task_summary(tasks),
+            "items": tasks,
+        }
+    finally:
+        connection.close()
+
+
+def create_project_task_service(*, settings: Settings, project_id: int, payload: dict[str, Any]) -> Any:
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title is required"})
+    connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        project_row = _get_project_row(connection, project_id=project_id)
+        if project_row is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+        backend_error = _require_internal_task_backend(project_row)
+        if backend_error is not None:
+            return backend_error
+        now_iso = _bulk_utc_now_iso()
+        status_value = normalize_project_task_status(payload.get("status"))
+        due_at = _normalize_optional_text(payload.get("due_at"))
+        source_url = _normalize_optional_text(payload.get("source_url"))
+        connection.execute(
+            """
+            INSERT INTO model_catalog_project_tasks (
+                project_id, title, status, due_at, source_url, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (project_id, title, status_value, due_at, source_url, now_iso, now_iso),
+        )
+        task_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+        connection.execute("UPDATE model_catalog_projects SET updated_at = ? WHERE id = ?", (now_iso, project_id))
+        task_row = connection.execute("SELECT * FROM model_catalog_project_tasks WHERE id = ?", (task_id,)).fetchone()
+        connection.commit()
+        return {"success": True, "task": _serialize_project_task_row(task_row)}
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": str(exc)})
+    finally:
+        connection.close()
+
+
+def update_project_task_service(*, settings: Settings, project_id: int, task_id: int, payload: dict[str, Any]) -> Any:
+    mutable_fields = {"title", "status", "due_at", "source_url"}
+    if not any(field in payload for field in mutable_fields):
+        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "No mutable fields provided"})
+    connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        project_row = _get_project_row(connection, project_id=project_id)
+        if project_row is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+        backend_error = _require_internal_task_backend(project_row)
+        if backend_error is not None:
+            return backend_error
+        existing = connection.execute(
+            "SELECT * FROM model_catalog_project_tasks WHERE id = ? AND project_id = ?",
+            (task_id, project_id),
+        ).fetchone()
+        if existing is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project task not found"})
+        updates: list[str] = []
+        params: list[Any] = []
+        if "title" in payload:
+            title = str(payload.get("title") or "").strip()
+            if not title:
+                return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title cannot be empty"})
+            updates.append("title = ?")
+            params.append(title)
+        if "status" in payload:
+            updates.append("status = ?")
+            params.append(normalize_project_task_status(payload.get("status")))
+        if "due_at" in payload:
+            updates.append("due_at = ?")
+            params.append(_normalize_optional_text(payload.get("due_at")))
+        if "source_url" in payload:
+            updates.append("source_url = ?")
+            params.append(_normalize_optional_text(payload.get("source_url")))
+        now_iso = _bulk_utc_now_iso()
+        updates.append("updated_at = ?")
+        params.append(now_iso)
+        params.extend([task_id, project_id])
+        connection.execute(
+            f"UPDATE model_catalog_project_tasks SET {', '.join(updates)} WHERE id = ? AND project_id = ?",
+            params,
+        )
+        connection.execute("UPDATE model_catalog_projects SET updated_at = ? WHERE id = ?", (now_iso, project_id))
+        task_row = connection.execute("SELECT * FROM model_catalog_project_tasks WHERE id = ? AND project_id = ?", (task_id, project_id)).fetchone()
+        connection.commit()
+        return {"success": True, "task": _serialize_project_task_row(task_row)}
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": str(exc)})
+    finally:
+        connection.close()
+
+
+def delete_project_task_service(*, settings: Settings, project_id: int, task_id: int) -> Any:
+    connection = connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        project_row = _get_project_row(connection, project_id=project_id)
+        if project_row is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+        backend_error = _require_internal_task_backend(project_row)
+        if backend_error is not None:
+            return backend_error
+        existing = connection.execute(
+            "SELECT id FROM model_catalog_project_tasks WHERE id = ? AND project_id = ?",
+            (task_id, project_id),
+        ).fetchone()
+        if existing is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project task not found"})
+        now_iso = _bulk_utc_now_iso()
+        connection.execute("DELETE FROM model_catalog_project_tasks WHERE id = ? AND project_id = ?", (task_id, project_id))
+        connection.execute("UPDATE model_catalog_projects SET updated_at = ? WHERE id = ?", (now_iso, project_id))
+        connection.commit()
+        return {"success": True, "deleted": True, "task_id": task_id, "project_id": project_id}
     finally:
         connection.close()
