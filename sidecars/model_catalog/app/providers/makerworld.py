@@ -115,7 +115,9 @@ class MakerWorldAdapter:
         )
         if response is None:
             return None
-        design = self._normalize_design(response, source_url=source_url)
+        normalized_payload = self._unwrap_design_payload(response)
+        design = self._normalize_design(normalized_payload, source_url=source_url)
+        warnings: list[str] = []
         file_manifest = [
             {
                 "instance_id": int(instance.get("id") or 0),
@@ -124,11 +126,14 @@ class MakerWorldAdapter:
                 "plate_count": len(instance.get("plates") or []),
             }
             for instance in design.instances
+            if int(instance.get("id") or 0) > 0
         ]
+        if not file_manifest:
+            warnings.append("makerworld_no_instances")
         return MakerWorldResolveResult(
             design=design,
             confidence="high",
-            warnings=[],
+            warnings=warnings,
             file_manifest=file_manifest,
         )
 
@@ -227,11 +232,9 @@ class MakerWorldAdapter:
         *,
         source_url: str | None = None,
     ) -> MakerWorldDesign:
-        instances = [item for item in (payload.get("instances") or []) if isinstance(item, dict)]
-        if not instances:
-            raise ProviderUnavailableError("MakerWorld design response did not include any instances")
-        default_instance = next((item for item in instances if item.get("isDefault")), instances[0])
-        creator = payload.get("designCreator") or {}
+        instances = self._extract_instances(payload)
+        default_instance = next((item for item in instances if item.get("isDefault")), instances[0] if instances else {})
+        creator = self._extract_creator(payload)
         tags: list[str] = []
         for tag in (payload.get("tags") or []):
             if isinstance(tag, dict):
@@ -266,6 +269,41 @@ class MakerWorldAdapter:
             canonical_url=canonical_url,
             raw_response=payload,
         )
+
+    def _unwrap_design_payload(self, payload: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise ProviderUnavailableError("MakerWorld returned invalid design payload")
+        data_payload = payload.get("data")
+        if isinstance(data_payload, dict):
+            has_direct_design_fields = any(key in payload for key in ("id", "title", "instances", "designCreator"))
+            has_nested_design_fields = any(key in data_payload for key in ("id", "title", "instances", "designCreator"))
+            if has_nested_design_fields and not has_direct_design_fields:
+                return data_payload
+        return payload
+
+    def _extract_instances(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        candidates = (
+            payload.get("instances"),
+            payload.get("instanceList"),
+            payload.get("profiles"),
+            payload.get("profileList"),
+            payload.get("printProfiles"),
+        )
+        for candidate in candidates:
+            if isinstance(candidate, list):
+                return [item for item in candidate if isinstance(item, dict)]
+        return []
+
+    def _extract_creator(self, payload: dict[str, Any]) -> dict[str, Any]:
+        for candidate in (
+            payload.get("designCreator"),
+            payload.get("creator"),
+            payload.get("user"),
+            payload.get("author"),
+        ):
+            if isinstance(candidate, dict):
+                return candidate
+        return {}
 
     def _normalize_images(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []

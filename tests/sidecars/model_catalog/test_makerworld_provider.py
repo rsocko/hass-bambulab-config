@@ -162,6 +162,66 @@ def test_resolve_design_id_falls_back_to_cover_and_design_pictures() -> None:
     ]
 
 
+def test_resolve_design_id_unwraps_nested_data_payload() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "id": 87439,
+                    "title": "Espresso Cup Tree",
+                    "designCreator": {"uid": 42, "name": "coffee_fan"},
+                    "instances": [{"id": 93597, "isDefault": True, "title": "Default", "plates": []}],
+                },
+            },
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.resolve_design_id(87439))
+
+    assert result is not None
+    assert result.design.design_id == 87439
+    assert result.design.title == "Espresso Cup Tree"
+    assert result.file_manifest[0]["instance_id"] == 93597
+
+
+def test_resolve_design_id_preserves_metadata_when_instances_missing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 1937453,
+                "title": "Mug Tree",
+                "designCreator": {"uid": 77, "name": "kitchenprints"},
+                "summary": "Countertop mug organizer.",
+                "coverUrl": "https://makerworld.bblmw.com/mug-tree.jpg",
+            },
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.resolve_design_id(1937453))
+
+    assert result is not None
+    assert result.design.design_id == 1937453
+    assert result.design.title == "Mug Tree"
+    assert result.design.creator_name == "kitchenprints"
+    assert result.design.default_instance_id == 0
+    assert result.file_manifest == []
+    assert "makerworld_no_instances" in result.warnings
+
+
 def test_resolve_design_id_returns_none_for_404() -> None:
     adapter = MakerWorldAdapter(
         "token",
