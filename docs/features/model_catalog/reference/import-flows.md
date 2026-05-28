@@ -1,14 +1,14 @@
 # Model Catalog Import Flow Diagrams
 
-> Status: Canonical wizard-first flow with queue demoted from primary UI (May 2026)
+> Status: Canonical intake flow with wizard authoring plus separate Queue Review surface (May 2026)
 > Last reviewed: 2026-05-03
 
-This document explains the import path from Intake wizard planning through validation and commit, with queue retained as a system layer and Job History as the primary visible outcome surface.
+This document explains the import path from Intake Home through wizard planning, Queue Review, and final Job History outcomes.
 
 The short version:
 
-- Intake Wizard is the default operator flow.
-- Queue persists execution/staging state but is demoted from primary UI for now.
+- Intake Wizard is the default new-batch authoring flow.
+- Queue persists execution/staging state and is surfaced through a separate Queue Review workbench.
 - Job History is the visible audit surface for completed jobs regardless of execution path.
 - Working and Curated destinations are chosen during wizard Organize step.
 - Browser Upload and Server Inbox share one consistent wizard layout: left = actions, right = results.
@@ -76,7 +76,7 @@ flowchart TD
 
 This matches the explicit design contract in [intake-state-machine.md](intake-state-machine.md).
 
-Active queue state semantics still exist for backend and compatibility paths, but inbox review is no longer the primary user-facing stage.
+Active queue state semantics remain the operator-facing contract for queued-item review, but they are intentionally handled in Queue Review rather than inside the wizard.
 
 ```mermaid
 stateDiagram-v2
@@ -150,9 +150,9 @@ During Intake, the sidecar:
 
 Intake is **transient staging**, not durable storage.
 
-### Active Queue (Demoted Surface)
+### Active Queue / Queue Review
 
-Active Queue remains a system lifecycle stage and fallback review path, but is demoted from primary UX for now.
+Active Queue remains a system lifecycle stage and a first-class operator review path.
 
 Active Queue contains intake items in non-terminal states:
 
@@ -161,7 +161,7 @@ Active Queue contains intake items in non-terminal states:
 - `validated_warning` — validation found issues, operator review required
 - `deferred` — intentionally parked by operator
 
-Primary operator flow is expected to resolve most decisions in wizard Validate + Commit steps.
+Primary operator flow is expected to resolve many decisions in wizard Validate + Commit steps, but queued items can continue through the dedicated Queue Review surface.
 
 **Active Queue is transient** — items exit when they reach a terminal state (grouped, published, rejected).
 
@@ -282,7 +282,7 @@ The design docs and the current code are close, but not identical.
 
 - Intake items are stored in `intake_queue_uploads`.
 - Inbox review uses `inbox_state` and `decision_note`.
-- Current code still contains inbox-oriented actions and queue endpoints that are being demoted from primary UX.
+- Current code still contains inbox-oriented actions and queue endpoints that now align with the separate Queue Review surface.
 - Grouping hands files into `working_groups` and `working_items`.
 
 ### Important Gaps Between Spec And Current Behavior

@@ -1,6 +1,6 @@
 # Intake Flow States And Transitions
 
-> Status: Canonical state machine with wizard-first UX direction
+> Status: Canonical state machine with Intake Home, Queue Review, and wizard-first authoring direction
 > Issue: #1079
 > Last updated: 2026-05-03
 > Scope: Canonical state machine for Phase 5 intake-to-working workflow.
@@ -33,9 +33,7 @@ Excluded (later phases):
 Intake items progress through two distinct phases:
 
 ### Queue Lifecycle (System Layer)
-Queue states remain part of the system lifecycle and compatibility layer.
-
-Inbox review is demoted from the primary operator path for now.
+Queue states remain part of the system lifecycle and the dedicated queued-item review surface.
 
 - `submitted` — item just arrived, not yet validated
 - `validated_ready` — passed validation cleanly, ready for operator action
@@ -311,9 +309,9 @@ Wizard must provide:
 - Commit step
 - destination-aware issue correction and override handling
 
-### Queue Surface (Demoted)
+### Queue Surface (Queue Review)
 
-Queue/inbox review UI is optional or hidden for routine operation in this phase.
+Queue Review is the dedicated queued-item workbench.
 
 UX requirements for Active Queue:
 
@@ -324,6 +322,8 @@ UX requirements for Active Queue:
 - Show state filter/tab (Submitted | Ready | Warning | Deferred)
 - Show batch action support with eligibility precheck (e.g., "2 of 5 items eligible for group action")
 - Support inline defer/reject with optional operator notes
+- Support publish-to-working and publish-to-catalog actions without reopening the wizard
+- Keep queue transport status (`queued`, `uploading`, `verified`, cleanup states) visually separate from intake decision state (`submitted`, `validated_ready`, `deferred`)
 
 ### Job History Surface (Primary Post-Execution)
 Shows items that have reached terminal states and are no longer active work (`grouped_new`, `grouped_existing`, `published_to_catalog`, `rejected`).

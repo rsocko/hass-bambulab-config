@@ -238,7 +238,7 @@ There is no automated "detect and offer to clean up" workflow in the UI.
 ### [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md)
 
 The design document covers:
-- Wizard as the canonical intake experience (wizard-first, queue demoted to background)
+- Wizard as the canonical new-batch intake experience, with Queue Review as the separate queued-item surface
 - Locking and exit behavior during long-running operations (lines 89–99)
 - Progress phase model for busy states
 - Cancel affordance design: "show `Cancel` only while the operation is still safely abortable"

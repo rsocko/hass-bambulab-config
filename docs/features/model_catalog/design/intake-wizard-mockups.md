@@ -11,8 +11,19 @@ Provide one authoritative wizard layout for intake so future implementation work
 This document complements, but does not replace:
 
 - [intake-inbox-design.md](/docs/features/model_catalog/design/intake-inbox.md)
+- [intake-home-queue-mockups.md](/docs/features/model_catalog/design/intake-home-queue-mockups.md)
 - [import-flow-diagrams.md](/docs/features/model_catalog/reference/import-flows.md)
 - [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](/docs/features/model_catalog/design/intake-grouping.md)
+
+## Surface Boundary
+
+These mockups cover the wizard only.
+
+They do not attempt to represent `Intake Home` or `Queue Review`, which are separate intake surfaces with different responsibilities:
+
+- `Intake Home` launches new work and summarizes queue/history state
+- `Queue Review` advances queued items with validate/defer/reject/publish actions
+- the wizard authors a new batch before queue or direct execution handoff
 
 ## Core UX Rule
 

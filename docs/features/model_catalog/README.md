@@ -57,8 +57,9 @@ Lane navigation:
 - [API Reference](reference/api-reference.md) â€” Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
 - [Implementation Plan](planning/implementation-plan.md) â€” Updated phased implementation plan aligned to the approved architecture and use-case priorities
 - [Phase 1.5 Intake Implementation Breakdown](planning/phase-1.5-breakdown.md) â€” Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
-- [Intake Wizard and Queue Design](design/intake-inbox.md) â€” Canonical wizard-first intake design with queue demoted from primary UI and Job History as the visible outcome surface
+- [Intake Home, Queue Review, and Wizard Design](design/intake-inbox.md) â€” Canonical Intake architecture separating `Intake Home`, `Queue Review`, and the intake wizard while keeping Job History as the completed-work surface
 - [Intake Wizard UX Mockups](design/intake-wizard-mockups.md) â€” Low-fi split-pane wizard wireframes for Browser Upload and Server Inbox, aligned to issues #1282, #1288, and #1292
+- [Intake Home And Queue Review Mockups](design/intake-home-queue-mockups.md) â€” Updated low-fi workbench mockups for reintroducing Active Queue review as a distinct Intake surface separate from the wizard
 - [External Source Intake Design](design/external-source-intake.md) â€” Unified architecture for third-party source capture/import across URL paste, browser extension, Stream Deck quick actions, MakerWorld metadata import, and collection migration (issues #183, #1179, #189, #232, #1266, #1372)
 - [Intake Overlapping Server Selections Issue Drafts](planning/intake-overlapping-selections.md) â€” Issue-ready parent/child overlap tracking for Server browse semantics, warning UX, and deterministic unique-file planning
 - [Phase 6 Search, Ranking, and Discovery Design](design/phase-6-search.md) â€” Authoritative Phase 6 contract for unified query model, ranking signals, archive-initiated picker/search, related items, and HA search surfaces

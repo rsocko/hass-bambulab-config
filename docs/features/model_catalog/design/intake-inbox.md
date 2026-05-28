@@ -1,15 +1,19 @@
-# Model Catalog Intake Wizard and Queue Design
+# Model Catalog Intake Home, Queue Review, and Wizard Design
 
 > **Status**: Canonical design baseline.
 > **Created**: 2026-04-25
-> **Last updated**: 2026-05-09
-> **Scope**: Wizard-first intake flow, queue demoted to background/staging, Job History as the visible intake outcome surface.
+> **Last updated**: 2026-05-27
+> **Scope**: Intake Home launch surface, dedicated Queue Review workbench, wizard-first batch authoring, and Job History as the completed-work surface.
 
 ## Purpose
 
-Define the primary intake workflow as a guided wizard that can complete most imports end-to-end without opening a separate inbox review UI.
+Define the intake workflow as three coordinated surfaces:
 
-This design keeps queue persistence and queue APIs for safety and compatibility, but demotes inbox review from a primary operator surface.
+- `Intake Home` for launching new work and seeing queue/history health
+- `Queue Review` for operator decisions on queued items
+- the intake wizard for authoring a new batch before it becomes a queued item or direct publish
+
+This design keeps queue persistence and queue APIs as first-class system primitives and restores queue review as a distinct operator surface instead of treating it as background-only plumbing.
 
 This document is the canonical UX/design reference for:
 
@@ -25,16 +29,57 @@ For flow and state details, also see:
 
 ## Canonical Design Position
 
-The wizard is the default and canonical intake experience.
+The intake wizard remains the canonical way to author a new batch.
+
+`Intake Home` becomes the canonical landing surface for intake operations.
+
+`Queue Review` becomes the canonical surface for advancing queued items after handoff.
 
 1. Source selection happens in wizard step 1.
 2. Logical model planning happens in wizard step 2 (Organize).
 3. Destination and cleanup-policy decisions happen in wizard step 3 (Choose Destination).
 4. Validation happens in wizard step 4 using one prepared upload snapshot.
 5. Commit happens in wizard step 5 by reusing that prepared upload rather than creating a second queue batch.
-6. Job History is the primary post-commit visibility surface for all completed intake jobs.
+6. Queued items advance through a separate Queue Review surface rather than reopening inside the wizard.
+7. Job History is the primary post-commit visibility surface for all completed intake jobs.
 
-Queue persistence remains in the system as a staging and compatibility layer, but inbox review is demoted for now.
+Queue persistence remains in the system as the durable intake execution layer. Queue Review is a first-class operator surface, but it is intentionally separate from the wizard.
+
+## Intake Surface Model
+
+### Intake Home
+
+`Intake Home` is the visible intake-facing page or child view. It should:
+
+- summarize Active Queue counts, warning load, and recent Job History outcomes
+- launch the Upload or Server Inbox wizard
+- surface external-source capture entry points such as an inline MakerWorld or Printables URL field with automatic provider detection
+- expose short-path actions like `Open Queue Review` and `Open Job History`
+
+`Intake Home` should not try to embed full queued-item triage inline. It is a launch and monitoring surface.
+
+The `Upload` launch card should accept drag-and-drop from the desktop for a file, multiple files, or a folder. Clicking the same card remains a valid way to open the upload wizard when the operator is not dragging content.
+
+When content is dropped onto the `Upload` card, the wizard should open at the Source step with the dropped sources already staged. The operator may then add more files or folders before continuing.
+
+Low-frequency channel and policy settings should not occupy the main Intake Home surface. They belong in a separate settings or admin affordance.
+
+### Queue Review
+
+`Queue Review` is the dedicated queued-item workbench. It should:
+
+- list active queued items with filterable state buckets
+- show item-level warnings, saved review actions, and provenance hints
+- let the operator validate, defer, reject, delete, publish to Catalog, and publish to Working Files
+- surface queue-item details without forcing a return to wizard authoring
+
+### Wizard Boundary
+
+The wizard is for composing a new batch.
+
+Queue Review is for advancing a queued batch.
+
+Queued items should not reopen into the wizard as an in-place editing path. If a future escape hatch is needed, it should be `Clone To Wizard` or `Edit As New Batch`, not silent mutation of the queued item.
 
 ### Upload And Source Modes
 
@@ -460,7 +505,7 @@ Validation response model should separate:
 - review-required warnings (can override)
 - informational notices
 
-## Queue and Inbox Semantics (Demoted)
+## Queue and Inbox Semantics
 
 Queue remains a system primitive for:
 
@@ -468,13 +513,13 @@ Queue remains a system primitive for:
 - transport compatibility (browser/server ingestion)
 - retry and operational diagnostics
 
-Inbox review UI is demoted for now and is not part of the primary operator loop.
+Queue Review is a first-class operator workbench for queued items, but it is intentionally not the same UI as the wizard.
 
 Implications:
 
-- defer/reject are no longer required in primary wizard UX
-- batch triage beyond what wizard already supports is out of current scope
-- queue actions remain available as backend/admin capabilities if needed
+- defer/reject remain Queue Review actions, not required primary wizard actions
+- queue-item advancement belongs in Queue Review, not in wizard step navigation
+- queue transport state and intake decision state should remain visually distinct in Queue Review
 
 ## Post-Upload Source Cleanup (Optional)
 
@@ -503,20 +548,22 @@ That keeps issue #1124 in the same implementation slice as bulk import instead o
 
 The HA/operator surface should support:
 
-- Wizard as the primary intake entry point
+- Intake Home as the visible intake landing surface
+- Queue Review as the dedicated queued-item review surface
+- Wizard as the primary new-batch entry point
 - one shared split-pane wizard design for Browser Upload and Server Inbox
 - explicit Validate step before commit
 - explicit Organize step for logical-model destinations
 - Job History as the visible outcome surface
 - explicit progress, busy-state, disable, and cancel affordances for upload, validation, publish, verification, and cleanup
 
-For now, do not require a primary Inbox review card for routine operation.
+Queue Review should remain a separate hidden child view or popup-capable workbench, not an always-expanded panel inside Intake Home.
 
 ## Non-Goals (Current Direction)
 
-- Reintroducing inbox-first operator workflow as default
-- Requiring defer/reject actions in wizard v1 of this redesign
-- Adding separate queue batch-triage UX outside wizard for this iteration
+- Merging Queue Review back into wizard step flow
+- Treating queued-item review as background/admin-only plumbing
+- In-place mutation of queued items by reopening the wizard over the same record
 
 ## Recommended Phase Assignment
 

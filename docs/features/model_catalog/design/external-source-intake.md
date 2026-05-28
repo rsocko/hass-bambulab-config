@@ -93,6 +93,45 @@ Design adoption in this repo:
 - optionally stages/ingests files into working/inbox flow
 - emits lineage/provenance fields for catalog surfaces
 
+## External Source Metadata Carry-Forward Contract
+
+External-source capture is only useful if the review and publish surfaces can reuse it. The canonical contract is:
+
+- provider adapters resolve and normalize source metadata into `source_intake_records`
+- Queue Review or equivalent publish surfaces treat that metadata as the default destination plan
+- operator edits remain authoritative and always override imported defaults
+
+This carry-forward is especially important for MakerWorld, where title, creator, description, source URL, gallery media, and file-instance metadata are already available at capture time.
+
+### MakerWorld Carry-Forward Defaults
+
+| Source-intake data | Default publish field | Intended target |
+|---|---|---|
+| `title` | `model_name` / group title | Catalog model name or Working Files folder title |
+| `creator_name` | `creator_name` | Local model creator/designer metadata |
+| `description_raw` | `description` | Local model description or working-side `.modelmeta.json` description |
+| `provider_id = makerworld` | `source_origin` | Provenance / publication source |
+| `source_url_canonical` | `source_origin_url` | Provenance primary URL |
+| `thumbnail_url` | `preview_source_path` candidate | Default preview choice when imported media is available |
+| `media_manifest_json` | media candidates | Gallery asset import or preview chooser |
+| `snapshot_json.tags` | `tags` / keywords | Local model tags and keyword fields |
+| `source_model_id` | provenance custom field | Imported-from-id / reconciliation |
+| `snapshot_json.license`, counts, timestamps, creator UID | provenance custom fields | Audit and future enrichment, not primary display fields |
+| `file_manifest_json`, `default_instance_id` | instance selector | Review-time choice of which downloadable 3MF to import |
+
+### Shipped vs Planned
+
+Current shipped behavior:
+
+- MakerWorld capture stores the normalized metadata in `source_intake_records`
+- full import selects a MakerWorld instance, downloads the 3MF, and creates an intake queue upload
+
+Planned behavior from this design:
+
+- Queue Review should display the captured MakerWorld defaults before publish
+- publish actions should use those defaults automatically unless the operator changes them
+- provenance-only MakerWorld fields should land in custom fields even when not promoted to top-level model fields
+
 ## Provider Capability Contract
 
 Each adapter exposes a capability document:

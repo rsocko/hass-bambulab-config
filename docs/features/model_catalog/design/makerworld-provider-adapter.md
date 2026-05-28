@@ -478,23 +478,36 @@ Preset actions map to modes:
 | (constructed) | `source_url_canonical` | `https://makerworld.com/en/models/{id}` |
 | (input) | `source_url_original` | Original URL as pasted by operator |
 
-## Data Mapping: Intake Record → Local Model
+## Data Mapping: Intake Record → Destination Defaults
 
-When the operator commits a full import, the intake record maps to `model_catalog_entries`:
+Current shipped behavior stores MakerWorld metadata on the source-intake record and uses full import to create a queue upload from the selected 3MF.
 
-| Intake record field | `model_catalog_entries` field | Notes |
+The next implementation step should treat the source-intake record as the default destination plan for Queue Review and publish actions.
+
+| Intake record field | Default publish field | Notes |
 |---|---|---|
-| `title` | `name` | |
-| `creator_name` | `designer` | |
-| `description_raw` | `description` | |
-| `source_url_canonical` | `source_download_url` | |
-| `source_model_id` | `source_design_model_id` | |
-| `thumbnail_url` | (downloaded to assets) | Stored as `model_catalog_assets` row |
-| `media_manifest_json` | (downloaded to assets) | Gallery images become asset rows |
-| `file_manifest_json` | (3MF downloaded to assets) | Primary 3MF becomes asset row |
-| `provider_id` | `source_platform` | `"makerworld"` |
-| `confidence` | `provenance_confidence` | Always `"high"` for API-resolved |
-| `snapshot_json` | `source_metadata_raw` | Full API response for audit |
+| `title` | `model_name` / group title | Primary default title |
+| `creator_name` | `creator_name` | Operator may override |
+| `description_raw` | `description` | Long description default |
+| `source_url_canonical` | `source_origin_url` | Provenance primary URL |
+| `provider_id` | `source_origin` | `makerworld` |
+| `snapshot_json.tags` | `tags` / keywords | Source-intake schema does not yet promote tags to a top-level column |
+| `thumbnail_url` | preview/media candidate | Candidate default preview asset |
+| `media_manifest_json` | gallery/media candidates | Optional imported media set |
+| `source_model_id` | provenance custom field | Imported-from-id / reconciliation |
+| `snapshot_json.license` | provenance custom field | Audit field, not top-level display field |
+| `snapshot_json.likeCount`, `downloadCount`, `collectCount` | provenance custom field | Helpful for audit and ranking, not primary metadata |
+| `snapshot_json.createTime`, `updateTime` | provenance custom field | Source timeline |
+| `snapshot_json.designCreator.uid` | provenance custom field | Useful for source identity reconciliation |
+| `file_manifest_json` | instance selector | Chooses which downloadable 3MF enters queue/import |
+
+### Operator Override Rule
+
+Imported MakerWorld defaults are suggestions.
+
+- Queue Review should prefill these values when present
+- operator edits always take precedence
+- values not promoted to top-level publish fields should still be retained in provenance custom fields
 
 ## Import Modes
 
