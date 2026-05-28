@@ -1869,6 +1869,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (target && target.classList && target.classList.contains("collection-action-input")) {
       this._collectionActionDialog.name = String(target.value || "");
+      if (this._collectionActionDialog && this._collectionActionDialog.mode === 'bulk-add') {
+        this._collectionActionDialog.collectionId = '';
+      }
       if (this._collectionActionDialog.error) {
         this._collectionActionDialog.error = "";
       }
@@ -2232,6 +2235,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === 'select-collection-action-option') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._collectionActionDialog.collectionId = this._normalizeCollectionId(target.getAttribute('data-collection-id'));
+      this._collectionActionDialog.name = String(target.getAttribute('data-collection-label') || '').trim();
+      this._collectionActionDialog.error = '';
+      this._render();
+      return;
+    }
+
     if (action === "dismiss-collection-feedback") {
       event.preventDefault();
       event.stopPropagation();
@@ -2509,6 +2522,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       await this._bulkSetVisibility("active");
+      return;
+    }
+
+    if (action === 'bulk-add-to-collection') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._openBulkAddCollectionDialog();
       return;
     }
 
@@ -3469,6 +3489,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _collectionDialogTitle(mode) {
+    if (mode === "bulk-add") return "Add To Collection";
     if (mode === "rename") return "Rename Collection";
     if (mode === "move") return "Move Collection";
     if (mode === "delete") return "Delete Collection";
@@ -3476,10 +3497,85 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _collectionDialogSubmitLabel(mode) {
+    if (mode === "bulk-add") return "Add To Selected";
     if (mode === "rename") return "Save Name";
     if (mode === "move") return "Move Collection";
     if (mode === "delete") return "Delete Collection";
     return "Save";
+  }
+
+  _collectionOptionLabel(row) {
+    var source = row && typeof row === 'object' ? row : {};
+    return String(source.path || source.name || source.collection_id || '').trim();
+  }
+
+  _normalizedCollectionPathText(value) {
+    return String(value || '')
+      .split('/')
+      .map(function (part) { return String(part || '').trim(); })
+      .filter(Boolean)
+      .join(' / ');
+  }
+
+  _findCollectionRowById(rows, collectionId) {
+    var normalizedId = this._normalizeCollectionId(collectionId);
+    if (!normalizedId) {
+      return null;
+    }
+    var source = Array.isArray(rows) ? rows : [];
+    for (var index = 0; index < source.length; index++) {
+      var row = source[index] || {};
+      if (this._normalizeCollectionId(row.collection_id) === normalizedId) {
+        return row;
+      }
+    }
+    return null;
+  }
+
+  _findCollectionRowByQuery(rows, query) {
+    var normalizedQuery = this._normalizedCollectionPathText(query).toLowerCase();
+    if (!normalizedQuery) {
+      return null;
+    }
+    var source = Array.isArray(rows) ? rows : [];
+    for (var index = 0; index < source.length; index++) {
+      var row = source[index] || {};
+      var pathText = this._normalizedCollectionPathText(this._collectionOptionLabel(row)).toLowerCase();
+      if (pathText === normalizedQuery || this._normalizeCollectionId(row.collection_id) === normalizedQuery) {
+        return row;
+      }
+    }
+    return null;
+  }
+
+  _buildBulkCollectionPickerState(dialog) {
+    var source = Array.isArray(dialog && dialog.options) ? dialog.options : [];
+    var query = this._normalizedCollectionPathText(dialog && dialog.name || '');
+    var normalizedQuery = query.toLowerCase();
+    var filtered = [];
+    for (var index = 0; index < source.length; index++) {
+      var row = source[index] || {};
+      var label = this._collectionOptionLabel(row);
+      if (!label) {
+        continue;
+      }
+      if (!normalizedQuery) {
+        filtered.push(row);
+        continue;
+      }
+      var labelLower = label.toLowerCase();
+      var nameLower = String(row.name || '').trim().toLowerCase();
+      var idLower = this._normalizeCollectionId(row.collection_id);
+      if (labelLower.indexOf(normalizedQuery) !== -1 || nameLower.indexOf(normalizedQuery) !== -1 || idLower.indexOf(normalizedQuery) !== -1) {
+        filtered.push(row);
+      }
+    }
+    return {
+      query: query,
+      selectedRow: this._findCollectionRowById(source, dialog && dialog.collectionId),
+      exactMatchRow: this._findCollectionRowByQuery(source, query),
+      options: filtered.slice(0, 8),
+    };
   }
 
   _collectionRowsById(rows) {
@@ -3608,6 +3704,24 @@ class ModelCatalogBrowserCard extends HTMLElement {
     });
   }
 
+  async _openBulkAddCollectionDialog() {
+    var selectedCount = this.getSelectedModelRefs().length;
+    if (!selectedCount || this._loading) {
+      return;
+    }
+    var collectionsPayload = await this._collectionApiRequest('/api/collections', { method: 'GET' });
+    var rows = collectionsPayload && Array.isArray(collectionsPayload.items) ? collectionsPayload.items.slice(0) : [];
+    rows.sort(function (left, right) {
+      return this._collectionOptionLabel(left).localeCompare(this._collectionOptionLabel(right), undefined, { sensitivity: 'base' });
+    }.bind(this));
+    this._openCollectionActionDialog('bulk-add', {
+      label: selectedCount === 1 ? '1 selected record' : String(selectedCount) + ' selected records',
+      path: 'Existing memberships are preserved for every selected model or idea.',
+      name: '',
+      options: rows,
+    });
+  }
+
   async _submitCollectionActionDialog() {
     var dialog = this._collectionActionDialog && typeof this._collectionActionDialog === 'object' ? this._collectionActionDialog : null;
     if (!dialog || !dialog.open || dialog.submitting) {
@@ -3615,7 +3729,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var mode = String(dialog.mode || '').trim().toLowerCase();
     var collectionId = this._normalizeCollectionId(dialog.collectionId);
-    if (!collectionId) {
+    if (mode !== 'bulk-add' && !collectionId) {
       return;
     }
     if (mode === 'rename') {
@@ -3631,7 +3745,24 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._render();
     try {
       var feedbackMessage = '';
-      if (mode === 'rename') {
+      if (mode === 'bulk-add') {
+        var bulkTarget = await this._resolveBulkAddCollectionTarget(dialog);
+        var bulkResult = await this._bulkAddCollectionMemberships(bulkTarget);
+        var targetLabel = this._collectionOptionLabel(bulkTarget) || 'collection';
+        if (bulkResult.failedCount) {
+          feedbackMessage = 'Added ' + targetLabel + ' to ' + String(bulkResult.updatedCount) + ' selected records; ' + String(bulkResult.failedCount) + ' failed.';
+          this._setCollectionActionFeedback(feedbackMessage, 'error');
+        } else if (bulkResult.updatedCount > 0) {
+          feedbackMessage = 'Added ' + targetLabel + ' to ' + String(bulkResult.updatedCount) + ' selected records.';
+          if (bulkResult.skippedCount > 0) {
+            feedbackMessage += ' ' + String(bulkResult.skippedCount) + ' already had it.';
+          }
+          this._setCollectionActionFeedback(feedbackMessage, 'success');
+        } else {
+          feedbackMessage = 'All selected records already belong to ' + targetLabel + '.';
+          this._setCollectionActionFeedback(feedbackMessage, 'success');
+        }
+      } else if (mode === 'rename') {
         var nextName = String(dialog.name || '').trim();
         await this._renameCollection(collectionId, nextName);
         feedbackMessage = 'Renamed collection to "' + nextName + '".';
@@ -3662,7 +3793,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       await this._fetchGlobalFacets();
       this._requestLoad(deletedSelectedCollection ? 1 : this._currentPage(), true);
-      this._setCollectionActionFeedback(feedbackMessage, 'success');
+      if (mode !== 'bulk-add' || !feedbackMessage) {
+        this._setCollectionActionFeedback(feedbackMessage, 'success');
+      }
       this._render();
     } catch (error) {
       dialog.submitting = false;
@@ -3670,6 +3803,130 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._setCollectionActionFeedback(dialog.error, 'error');
       this._render();
     }
+  }
+
+  async _createCollection(parentCollectionId, name) {
+    var payload = {
+      name: String(name || '').trim(),
+      parent_collection_id: this._normalizeCollectionId(parentCollectionId) || null,
+    };
+    var response = await this._collectionApiRequest('/api/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return response && response.item && typeof response.item === 'object' ? response.item : null;
+  }
+
+  async _ensureCollectionPath(query, knownRows) {
+    var segments = String(query || '')
+      .split('/')
+      .map(function (part) { return String(part || '').trim(); })
+      .filter(Boolean);
+    if (!segments.length) {
+      throw new Error('Collection path is required.');
+    }
+    var rows = Array.isArray(knownRows) ? knownRows.slice(0) : [];
+    var parentCollectionId = null;
+    var currentRow = null;
+    var pathPrefix = '';
+    for (var index = 0; index < segments.length; index++) {
+      var segment = segments[index];
+      pathPrefix = pathPrefix ? (pathPrefix + ' / ' + segment) : segment;
+      currentRow = this._findCollectionRowByQuery(rows, pathPrefix);
+      if (!currentRow) {
+        currentRow = await this._createCollection(parentCollectionId, segment);
+        if (!currentRow) {
+          throw new Error('Failed to create collection path.');
+        }
+        rows.push(currentRow);
+      }
+      parentCollectionId = currentRow.collection_id;
+    }
+    return {
+      row: currentRow,
+      rows: rows,
+    };
+  }
+
+  async _resolveBulkAddCollectionTarget(dialog) {
+    var rows = Array.isArray(dialog && dialog.options) ? dialog.options : [];
+    var selectedRow = this._findCollectionRowById(rows, dialog && dialog.collectionId);
+    if (selectedRow) {
+      return selectedRow;
+    }
+    var exactRow = this._findCollectionRowByQuery(rows, dialog && dialog.name);
+    if (exactRow) {
+      return exactRow;
+    }
+    var normalizedQuery = this._normalizedCollectionPathText(dialog && dialog.name);
+    if (!normalizedQuery) {
+      throw new Error('Choose a collection or enter a new collection path.');
+    }
+    var ensured = await this._ensureCollectionPath(normalizedQuery, rows);
+    dialog.options = ensured.rows;
+    dialog.collectionId = this._normalizeCollectionId(ensured.row && ensured.row.collection_id);
+    dialog.name = this._collectionOptionLabel(ensured.row);
+    return ensured.row;
+  }
+
+  async _getModelCollectionMemberships(modelRef) {
+    var response = await this._collectionApiRequest('/api/models/' + encodeURIComponent(String(modelRef || '').trim()) + '/collections', {
+      method: 'GET',
+    });
+    return response && Array.isArray(response.items) ? response.items : [];
+  }
+
+  async _replaceModelCollectionMemberships(modelRef, collectionIds) {
+    return this._collectionApiRequest('/api/models/' + encodeURIComponent(String(modelRef || '').trim()) + '/collections', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection_ids: Array.isArray(collectionIds) ? collectionIds : [] }),
+    });
+  }
+
+  async _bulkAddCollectionMemberships(targetRow) {
+    var targetId = this._normalizeCollectionId(targetRow && targetRow.collection_id);
+    if (!targetId) {
+      throw new Error('Collection selection is invalid.');
+    }
+    var selectedRefs = this.getSelectedModelRefs();
+    var updatedCount = 0;
+    var skippedCount = 0;
+    var failedCount = 0;
+    for (var index = 0; index < selectedRefs.length; index++) {
+      var modelRef = String(selectedRefs[index] || '').trim();
+      if (!modelRef) {
+        continue;
+      }
+      try {
+        var memberships = await this._getModelCollectionMemberships(modelRef);
+        var mergedIds = [];
+        var seen = {};
+        for (var membershipIndex = 0; membershipIndex < memberships.length; membershipIndex++) {
+          var membershipId = this._normalizeCollectionId(memberships[membershipIndex] && memberships[membershipIndex].collection_id);
+          if (!membershipId || seen[membershipId]) {
+            continue;
+          }
+          seen[membershipId] = true;
+          mergedIds.push(membershipId);
+        }
+        if (seen[targetId]) {
+          skippedCount += 1;
+          continue;
+        }
+        mergedIds.push(targetId);
+        await this._replaceModelCollectionMemberships(modelRef, mergedIds);
+        updatedCount += 1;
+      } catch (_error) {
+        failedCount += 1;
+      }
+    }
+    return {
+      updatedCount: updatedCount,
+      skippedCount: skippedCount,
+      failedCount: failedCount,
+    };
   }
 
   _collectionApiBaseUrl() {
@@ -5570,6 +5827,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="page-control-strip multi-select-active' + extraClass + '">'
       + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
+      + '  <button class="bulk-btn" type="button" data-action="bulk-add-to-collection">Add To Collection...</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-archive"><ha-icon icon="mdi:archive-arrow-down-outline"></ha-icon> Archive</button>'
@@ -6541,7 +6799,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var isDelete = mode === 'delete';
     var submitLabel = this._collectionDialogSubmitLabel(mode);
     var bodyHtml = '';
-    if (mode === 'rename') {
+    if (mode === 'bulk-add') {
+      var pickerState = this._buildBulkCollectionPickerState(dialog);
+      var selectedRow = pickerState.selectedRow || pickerState.exactMatchRow;
+      bodyHtml = ''
+        + '<div class="collection-action-note">Pick one existing collection or type a new collection path. The selection is appended to every selected model or idea; existing memberships stay intact.</div>'
+        + '<label class="collection-action-field"><span>Collection path</span><input class="collection-action-input" type="text" maxlength="255" value="' + this._escapeHtml(dialog.name) + '" placeholder="Functional / Gridfinity"></label>'
+        + '<div class="collection-action-picker">'
+        + (pickerState.options.length
+          ? pickerState.options.map(function (option) {
+              var optionId = this._normalizeCollectionId(option && option.collection_id);
+              var optionLabel = this._collectionOptionLabel(option);
+              var isSelected = selectedRow && optionId === this._normalizeCollectionId(selectedRow.collection_id);
+              return '<button class="collection-action-option' + (isSelected ? ' selected' : '') + '" type="button" data-action="select-collection-action-option" data-collection-id="' + this._escapeHtml(optionId) + '" data-collection-label="' + this._escapeHtml(optionLabel) + '"><span>' + this._escapeHtml(optionLabel) + '</span><span class="collection-action-option-meta">existing</span></button>';
+            }.bind(this)).join('')
+          : '<div class="collection-action-empty">No matching collections yet.</div>')
+        + '</div>'
+        + (selectedRow
+          ? '<div class="collection-action-summary"><strong>Selected</strong><span>' + this._escapeHtml(this._collectionOptionLabel(selectedRow)) + '</span></div>'
+          : (pickerState.query && !pickerState.exactMatchRow
+            ? '<div class="collection-action-summary"><strong>Create New</strong><span>' + this._escapeHtml(this._normalizedCollectionPathText(pickerState.query)) + '</span></div>'
+            : ''));
+    } else if (mode === 'rename') {
       bodyHtml = ''
         + '<div class="collection-action-note">Update the display name for this collection. Its hierarchy path will refresh after save.</div>'
         + '<label class="collection-action-field"><span>Name</span><input class="collection-action-input" type="text" maxlength="255" value="' + this._escapeHtml(dialog.name) + '" placeholder="Collection name"></label>';
@@ -7774,6 +8053,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.collection-action-input,.collection-action-select{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}'
       + '.collection-action-input:focus,.collection-action-select:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
       + '.collection-action-select{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:rgba(15,23,42,0.92);}'
+      + '.collection-action-picker{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto;padding-right:4px;}'
+      + '.collection-action-option{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border-radius:12px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.22);color:var(--primary-text-color);padding:10px 12px;font:inherit;text-align:left;cursor:pointer;transition:border-color 160ms ease, background 160ms ease;}'
+      + '.collection-action-option:hover,.collection-action-option.selected{border-color:rgba(96,165,250,0.5);background:rgba(30,41,59,0.62);}'
+      + '.collection-action-option-meta{font-size:11px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:0.06em;}'
+      + '.collection-action-empty{padding:10px 12px;border-radius:12px;border:1px dashed rgba(148,163,184,0.24);color:var(--secondary-text-color);font-size:12px;}'
       + '.collection-action-select option{background-color:rgba(15,23,42,0.98);color:var(--primary-text-color);}'
       + '.collection-action-error{padding:12px 14px;border-radius:14px;border:1px solid rgba(248,113,113,0.32);background:rgba(127,29,29,0.22);color:#fecaca;font-size:13px;}'
       + '.collection-action-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px;border-top:1px solid rgba(148,163,184,0.16);}'
