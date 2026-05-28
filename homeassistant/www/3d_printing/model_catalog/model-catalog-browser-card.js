@@ -1641,6 +1641,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
     return this._normalizeProjectListResponse(data);
   }
 
+  async _fetchProjectDetail(projectId) {
+    var normalizedProjectId = parseInt(String(projectId || '0'), 10);
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+      throw new Error('Project detail requires a valid project id.');
+    }
+    return this._projectApiRequest('/api/projects/' + encodeURIComponent(String(normalizedProjectId)), {
+      method: 'GET',
+    });
+  }
+
   _scheduleProgressiveResultsAppend(remainder, renderEpoch) {
     if (this._progressiveAppendHandle) {
       window.clearTimeout(this._progressiveAppendHandle);
@@ -1853,6 +1863,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
             total_pages: totalProjectPages,
           },
         };
+        this._projectDetail = null;
+        var selectedProjectId = Number(this._filters && this._filters.project_id || 0) || 0;
+        if (selectedProjectId > 0) {
+          var detailResponse = await this._fetchProjectDetail(selectedProjectId);
+          var memberData = await this._searchModelsFast(requestPayload);
+          this._projectDetail = {
+            project: detailResponse && detailResponse.project && typeof detailResponse.project === 'object'
+              ? detailResponse.project
+              : null,
+            items: Array.isArray(memberData && memberData.results) ? memberData.results : [],
+            pagination: memberData && memberData.pagination && typeof memberData.pagination === 'object'
+              ? memberData.pagination
+              : {
+                  page: Math.max(1, Number(requestPayload.page || 1) || 1),
+                  per_page: perPage,
+                  total: 0,
+                  total_pages: 1,
+                },
+          };
+          data = {
+            pagination: this._projectDetail.pagination,
+            filters: memberData && memberData.filters && typeof memberData.filters === 'object' ? memberData.filters : {},
+          };
+        }
         this._projectBrowse = data;
         this._projects = projectIndex.projects;
         this._projectsLoaded = true;
