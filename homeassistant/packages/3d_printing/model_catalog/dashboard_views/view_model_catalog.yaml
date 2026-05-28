@@ -253,7 +253,7 @@ cards:
                     - color: var(--primary-color)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
-            name: Job History
+            name: Queue Review
             icon: mdi:history
             tap_action:
               action: call-service
@@ -466,10 +466,10 @@ cards:
                       - white-space: normal
                       - color: var(--secondary-text-color)
                 - type: custom:button-card
-                  name: Job History
+                  name: Queue Review
                   icon: mdi:history
                   show_label: true
-                  label: Review completed intake outcomes and jump back into Working Files or Catalog from the shared workspace shell.
+                  label: Review active queue items, complete publish decisions, and inspect finished outcomes from the shared workspace shell.
                   tap_action:
                     action: call-service
                     service: input_select.select_option
@@ -540,9 +540,8 @@ cards:
           type: vertical-stack
           cards:
             - type: custom:model-catalog-inbox-review-card
-              title: Job History
-              defaultView: job_history
-              historyOnly: true
+              title: Queue Review
+              defaultView: active_queue
               sectionEntity: input_select.model_catalog_workspace_view
               workingSection: working
               curatedSection: curated
