@@ -84,6 +84,7 @@ class Settings:
     slicer_async_max_wait_seconds: int = 1800
     makerworld_api_base_url: str = "https://api.bambulab.com/v1"
     makerworld_auth_token: str | None = None
+    makerworld_cookie_header: str | None = None
     makerworld_metadata_timeout_seconds: int = 10
     makerworld_download_timeout_seconds: int = 60
     makerworld_rate_limit_qps: float = 2.0
@@ -136,6 +137,7 @@ def load_settings() -> Settings:
         os.getenv("MODEL_CATALOG_MAKERWORLD_API_BASE_URL", "https://api.bambulab.com/v1")
     ).strip().rstrip("/")
     makerworld_auth_token = _env_for_profile("MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN", db_profile)
+    makerworld_cookie_header = _env_for_profile("MODEL_CATALOG_MAKERWORLD_COOKIE_HEADER", db_profile)
     makerworld_metadata_timeout_seconds = int(
         os.getenv("MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS", "10")
     )
@@ -173,6 +175,7 @@ def load_settings() -> Settings:
         slicer_async_max_wait_seconds=slicer_async_max_wait_seconds,
         makerworld_api_base_url=makerworld_api_base_url,
         makerworld_auth_token=makerworld_auth_token,
+        makerworld_cookie_header=makerworld_cookie_header,
         makerworld_metadata_timeout_seconds=makerworld_metadata_timeout_seconds,
         makerworld_download_timeout_seconds=makerworld_download_timeout_seconds,
         makerworld_rate_limit_qps=makerworld_rate_limit_qps,

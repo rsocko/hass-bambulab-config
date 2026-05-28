@@ -83,6 +83,7 @@ def _build_makerworld_adapter(settings: Settings) -> MakerWorldAdapter | None:
     return MakerWorldAdapter(
         token,
         api_base=settings.makerworld_api_base_url,
+        cookie_header=settings.makerworld_cookie_header,
         metadata_timeout=settings.makerworld_metadata_timeout_seconds,
         download_timeout=settings.makerworld_download_timeout_seconds,
         rate_limit_qps=settings.makerworld_rate_limit_qps,

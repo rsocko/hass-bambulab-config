@@ -280,6 +280,7 @@ MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
 MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
 MODEL_CATALOG_MAKERWORLD_API_BASE_URL=https://api.bambulab.com/v1
 MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN=
+MODEL_CATALOG_MAKERWORLD_COOKIE_HEADER=
 MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS=10
 MODEL_CATALOG_MAKERWORLD_DOWNLOAD_TIMEOUT_SECONDS=60
 MODEL_CATALOG_MAKERWORLD_RATE_LIMIT_QPS=2.0
@@ -290,6 +291,7 @@ See `.env.example` for complete template with detailed comments on each option.
 MakerWorld note:
 
 - `MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN` is required for authenticated MakerWorld resolve/download flows.
+- `MODEL_CATALOG_MAKERWORLD_COOKIE_HEADER` is optional. Use it to pass browser-derived MakerWorld / Cloudflare cookies when the binary `f3mf` download is challenged with captcha / anti-bot checks.
 - If it is unset, source capture still succeeds but degrades to `link_only` with `makerworld_auth_unavailable`.
 - Set the real token only in the host stack `.env`, then redeploy `model-catalog` with `docker compose up -d model-catalog`.
 

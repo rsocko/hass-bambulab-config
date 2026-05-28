@@ -19,7 +19,7 @@ def _jwt_with_exp(timestamp: int) -> str:
     return f"{header}.{payload}.signature"
 
 
-def _make_settings(db_path: Path, *, makerworld_auth_token: str | None) -> Settings:
+def _make_settings(db_path: Path, *, makerworld_auth_token: str | None, makerworld_cookie_header: str | None = None) -> Settings:
     return Settings(
         catalog_base_url="http://catalog.example",
         db_path=db_path,
@@ -32,6 +32,7 @@ def _make_settings(db_path: Path, *, makerworld_auth_token: str | None) -> Setti
         image_created="test",
         makerworld_api_base_url="https://api.example.invalid/v1",
         makerworld_auth_token=makerworld_auth_token,
+        makerworld_cookie_header=makerworld_cookie_header,
     )
 
 
@@ -52,7 +53,7 @@ def test_diagnostics_reports_missing_makerworld_auth(tmp_path: Path) -> None:
 
 def test_diagnostics_reports_non_jwt_makerworld_auth(tmp_path: Path) -> None:
     reset_recent_makerworld_request_diagnostics()
-    app = create_app(settings=_make_settings(tmp_path / "model_catalog.db", makerworld_auth_token="single-segment-token"))
+    app = create_app(settings=_make_settings(tmp_path / "model_catalog.db", makerworld_auth_token="single-segment-token", makerworld_cookie_header="cf_clearance=abc; session=xyz"))
     with TestClient(app) as client:
         response = client.get("/diagnostics")
 
@@ -62,6 +63,9 @@ def test_diagnostics_reports_non_jwt_makerworld_auth(tmp_path: Path) -> None:
     assert payload["makerworld_auth"]["status"] == "configured_non_jwt"
     assert payload["makerworld_auth"]["looks_like_jwt"] is False
     assert payload["makerworld_auth"]["token_segment_count"] == 1
+    assert payload["makerworld_cookies"]["configured"] is True
+    assert payload["makerworld_cookies"]["cookie_count"] == 2
+    assert payload["makerworld_cookies"]["cookie_names"] == ["cf_clearance", "session"]
 
 
 def test_config_reports_configured_makerworld_auth_with_expiry(tmp_path: Path) -> None:

@@ -158,6 +158,7 @@ class MakerWorldAdapter:
         auth_token: str,
         *,
         api_base: str = API_BASE,
+        cookie_header: str | None = None,
         metadata_timeout: float = 10.0,
         download_timeout: float = 60.0,
         image_timeout: float = 15.0,
@@ -168,6 +169,7 @@ class MakerWorldAdapter:
         if not token:
             raise ValueError("auth_token is required")
         self._auth_token = token
+        self._cookie_header = str(cookie_header or "").strip() or None
         self._api_base = str(api_base or self.API_BASE).strip().rstrip("/")
         self._metadata_timeout = float(metadata_timeout)
         self._download_timeout = float(download_timeout)
@@ -621,6 +623,8 @@ class MakerWorldAdapter:
                     "User-Agent": self.DEFAULT_USER_AGENT,
                 }
             )
+            if self._cookie_header:
+                headers["Cookie"] = self._cookie_header
         try:
             async with httpx.AsyncClient(
                 timeout=timeout,

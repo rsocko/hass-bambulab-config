@@ -333,6 +333,7 @@ def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
     adapter = MakerWorldAdapter(
         "token",
         api_base="https://api.example.invalid/v1",
+        cookie_header="cf_clearance=abc; session=xyz",
         transport=httpx.MockTransport(handler),
     )
 
@@ -343,6 +344,7 @@ def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
     assert destination.read_bytes() == payload
     assert captured_headers["authorization"] == "Bearer token"
     assert captured_headers["accept"] == "application/octet-stream, */*;q=0.9"
+    assert captured_headers["cookie"] == "cf_clearance=abc; session=xyz"
     assert captured_headers["origin"] == "https://makerworld.com"
     assert captured_headers["referer"] == "https://makerworld.com/"
     assert "mozilla/5.0" in captured_headers["user-agent"].lower()

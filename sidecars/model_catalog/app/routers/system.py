@@ -79,6 +79,29 @@ def _token_sha256_prefix(access_token: str | None) -> str | None:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
 
 
+def _cookie_name_list(cookie_header: str | None) -> list[str]:
+    raw_value = str(cookie_header or "").strip()
+    if not raw_value:
+        return []
+    names: list[str] = []
+    for part in raw_value.split(";"):
+        name = str(part.partition("=")[0] or "").strip()
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def _makerworld_cookie_diagnostics(cookie_header: str | None) -> dict[str, Any]:
+    normalized = str(cookie_header or "").strip()
+    names = _cookie_name_list(normalized)
+    return {
+        "configured": bool(normalized),
+        "cookie_length": len(normalized) if normalized else 0,
+        "cookie_count": len(names),
+        "cookie_names": names,
+    }
+
+
 def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
     normalized_token = str(token or "").strip()
     configured = bool(normalized_token)
@@ -205,6 +228,7 @@ def config(request: Request) -> dict[str, Any]:
     working_roots = _configured_working_files_roots(state.settings)
     makerworld_auth = _makerworld_auth_diagnostics(state.settings.makerworld_auth_token)
     recent_makerworld_requests = get_recent_makerworld_request_diagnostics(limit=10)
+    makerworld_cookies = _makerworld_cookie_diagnostics(state.settings.makerworld_cookie_header)
     return {
         "authority_mode": _normalized_authority_mode(state.settings),
         "intake_source_roots": [str(root) for root in intake_roots],
@@ -225,6 +249,7 @@ def config(request: Request) -> dict[str, Any]:
         "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
         "makerworld_api_base_url": state.settings.makerworld_api_base_url,
         "makerworld_auth": makerworld_auth,
+        "makerworld_cookies": makerworld_cookies,
         "host": state.settings.host,
         "port": state.settings.port,
         **_image_metadata(state.settings),
@@ -237,6 +262,7 @@ def diagnostics(request: Request) -> dict[str, Any]:
     intake_roots = _configured_intake_source_roots(state.settings)
     working_roots = _configured_working_files_roots(state.settings)
     makerworld_auth = _makerworld_auth_diagnostics(state.settings.makerworld_auth_token)
+    makerworld_cookies = _makerworld_cookie_diagnostics(state.settings.makerworld_cookie_header)
     recent_makerworld_requests = get_recent_makerworld_request_diagnostics(limit=10)
 
     # Inspect cached remote catalog collection metadata only.
@@ -357,6 +383,7 @@ def diagnostics(request: Request) -> dict[str, Any]:
         "catalog_base_url": state.settings.catalog_base_url,
         "makerworld_api_base_url": state.settings.makerworld_api_base_url,
         "makerworld_auth": makerworld_auth,
+        "makerworld_cookies": makerworld_cookies,
         "makerworld_request_diagnostics": {
             "recent_request_count": len(recent_makerworld_requests),
             "recent_requests": recent_makerworld_requests,

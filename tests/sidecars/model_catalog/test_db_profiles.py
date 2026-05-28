@@ -65,6 +65,7 @@ def test_load_settings_reads_makerworld_configuration(monkeypatch) -> None:
     monkeypatch.setenv("MODEL_CATALOG_DB_PROFILE", "test")
     monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_API_BASE_URL", "https://api.example.invalid/v1/")
     monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_AUTH_TOKEN_TEST", "test-token")
+    monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_COOKIE_HEADER_TEST", "cf_clearance=abc; session=xyz")
     monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_METADATA_TIMEOUT_SECONDS", "12")
     monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_DOWNLOAD_TIMEOUT_SECONDS", "75")
     monkeypatch.setenv("MODEL_CATALOG_MAKERWORLD_RATE_LIMIT_QPS", "3.5")
@@ -73,6 +74,7 @@ def test_load_settings_reads_makerworld_configuration(monkeypatch) -> None:
 
     assert settings.makerworld_api_base_url == "https://api.example.invalid/v1"
     assert settings.makerworld_auth_token == "test-token"
+    assert settings.makerworld_cookie_header == "cf_clearance=abc; session=xyz"
     assert settings.makerworld_metadata_timeout_seconds == 12
     assert settings.makerworld_download_timeout_seconds == 75
     assert settings.makerworld_rate_limit_qps == 3.5
