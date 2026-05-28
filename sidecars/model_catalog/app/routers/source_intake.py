@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..providers.makerworld import MakerWorldAdapter, AuthenticationError, ProviderUnavailableError
+from ..providers.makerworld import MakerWorldAdapter, AuthenticationError, ProviderUnavailableError, _is_valid_3mf_package
 from ..settings import Settings
 from ..state import AppState
 from .intake_queue import _create_intake_queue_upload_record, _validate_intake_source_entries
@@ -442,6 +442,12 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
         source_model_id = str(record.get("source_model_id") or record_id).strip() or record_id
         download_path = storage_root / f"makerworld-{source_model_id}.3mf"
         await adapter.download_3mf(int(instance_id), download_path)
+        if not _is_valid_3mf_package(download_path.read_bytes()):
+            try:
+                download_path.unlink()
+            except OSError:
+                pass
+            raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
 
         validated_entries = _validate_intake_source_entries(
             [

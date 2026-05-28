@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import zipfile
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+
+from ..geometry_3mf import _resolve_model_part_path
 
 
 @dataclass(frozen=True)
@@ -141,6 +145,12 @@ class MakerWorldAdapter:
             max_429_retries=3,
             max_5xx_retries=1,
         )
+        if not _is_valid_3mf_package(destination.read_bytes()):
+            try:
+                destination.unlink()
+            except OSError:
+                pass
+            raise ProviderUnavailableError("MakerWorld download did not return a valid 3MF package")
         return destination
 
     async def download_preview_images(
@@ -431,3 +441,14 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(65_536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _is_valid_3mf_package(payload: bytes) -> bool:
+    if not payload:
+        return False
+    try:
+        with zipfile.ZipFile(BytesIO(payload)) as package:
+            _resolve_model_part_path(package)
+    except (zipfile.BadZipFile, OSError, RuntimeError, ValueError):
+        return False
+    return True

@@ -1,11 +1,34 @@
 from __future__ import annotations
 
 import asyncio
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 import httpx
 
 from app.providers.makerworld import AuthenticationError, MakerWorldAdapter, ProviderUnavailableError
+
+
+def _minimal_3mf_payload() -> bytes:
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+                archive.writestr(
+                        "_rels/.rels",
+                        """<?xml version='1.0' encoding='UTF-8'?>
+<Relationships xmlns='http://schemas.openxmlformats.org/package/2006/relationships'>
+    <Relationship Id='rel0' Type='http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel' Target='/3D/3dmodel.model'/>
+</Relationships>""",
+                )
+                archive.writestr(
+                        "3D/3dmodel.model",
+                        """<?xml version='1.0' encoding='UTF-8'?>
+<model unit='millimeter' xmlns='http://schemas.microsoft.com/3dmanufacturing/core/2015/02'>
+    <resources />
+    <build />
+</model>""",
+                )
+        return buffer.getvalue()
 
 
 def test_parse_design_id_from_url_supports_documented_variants() -> None:
@@ -167,7 +190,7 @@ def test_resolve_design_id_raises_authentication_error_for_401() -> None:
 
 
 def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
-    payload = b"makerworld-3mf-binary"
+    payload = _minimal_3mf_payload()
     adapter = MakerWorldAdapter(
         "token",
         api_base="https://api.example.invalid/v1",
@@ -179,6 +202,25 @@ def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
 
     assert result == destination
     assert destination.read_bytes() == payload
+
+
+def test_download_3mf_rejects_invalid_payload(tmp_path: Path) -> None:
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b'{"error":"bad download"}')),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+
+    try:
+        asyncio.run(adapter.download_3mf(1309482, destination))
+    except ProviderUnavailableError as exc:
+        assert "valid 3MF package" in str(exc)
+    else:
+        raise AssertionError("Expected ProviderUnavailableError")
+
+    assert not destination.exists()
 
 
 def test_resolve_design_id_raises_provider_unavailable_for_invalid_json() -> None:
