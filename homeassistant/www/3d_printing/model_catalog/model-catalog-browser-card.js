@@ -159,6 +159,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._focusCollectionActionPrimaryAfterRender = false;
     this._focusProjectActionPrimaryAfterRender = false;
     this._focusBulkProjectSearchAfterRender = false;
+    this._projectMemberStatePending = {};
     this._projectDetail = null;
     this._perfSamples = [];
     this._lastLoadPerf = null;
@@ -3182,6 +3183,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === 'set-project-member-state') {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._setProjectMemberState(
+        target.getAttribute('data-project-id'),
+        target.getAttribute('data-model-ref'),
+        target.getAttribute('data-member-state')
+      );
+      return;
+    }
+
     if (action === 'close-project-detail') {
       event.preventDefault();
       event.stopPropagation();
@@ -4407,6 +4419,140 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _projectMemberStateLabel(value) {
     var normalized = String(value || 'candidate').trim().toLowerCase() || 'candidate';
     return normalized.replace(/_/g, ' ');
+  }
+
+  _projectMemberStateOptions() {
+    return ['candidate', 'chosen', 'rejected'];
+  }
+
+  _projectMemberStateKey(projectId, modelRef) {
+    return String(projectId || '').trim() + '::' + String(modelRef || '').trim();
+  }
+
+  _pendingProjectMemberState(projectId, modelRef) {
+    var key = this._projectMemberStateKey(projectId, modelRef);
+    return !!(this._projectMemberStatePending && this._projectMemberStatePending[key]);
+  }
+
+  _projectMemberStateForModel(project, modelRef) {
+    var targetRef = String(modelRef || '').trim();
+    var memberships = Array.isArray(project && project.model_memberships) ? project.model_memberships : [];
+    for (var index = 0; index < memberships.length; index++) {
+      var membership = memberships[index] && typeof memberships[index] === 'object' ? memberships[index] : {};
+      if (String(membership.model_ref || '').trim() === targetRef) {
+        return String(membership.member_state || 'candidate').trim().toLowerCase() || 'candidate';
+      }
+    }
+    return 'candidate';
+  }
+
+  _setLocalProjectMemberState(projectId, modelRef, memberState) {
+    var normalizedProjectId = parseInt(String(projectId || '0'), 10);
+    var targetRef = String(modelRef || '').trim();
+    var normalizedState = String(memberState || 'candidate').trim().toLowerCase() || 'candidate';
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0 || !targetRef) {
+      return;
+    }
+    var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
+    var project = detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
+    if (project && Number(project.id || 0) === normalizedProjectId && Array.isArray(project.model_memberships)) {
+      for (var membershipIndex = 0; membershipIndex < project.model_memberships.length; membershipIndex++) {
+        var membership = project.model_memberships[membershipIndex] && typeof project.model_memberships[membershipIndex] === 'object'
+          ? project.model_memberships[membershipIndex]
+          : null;
+        if (membership && String(membership.model_ref || '').trim() === targetRef) {
+          membership.member_state = normalizedState;
+          break;
+        }
+      }
+    }
+
+    var updateMembershipRows = function (model) {
+      var item = model && typeof model === 'object' ? model : null;
+      if (!item || !Array.isArray(item.project_memberships)) {
+        return;
+      }
+      for (var itemIndex = 0; itemIndex < item.project_memberships.length; itemIndex++) {
+        var row = item.project_memberships[itemIndex] && typeof item.project_memberships[itemIndex] === 'object'
+          ? item.project_memberships[itemIndex]
+          : null;
+        if (row && Number(row.project_id || 0) === normalizedProjectId) {
+          row.member_state = normalizedState;
+        }
+      }
+    };
+
+    if (detail && Array.isArray(detail.items)) {
+      for (var detailIndex = 0; detailIndex < detail.items.length; detailIndex++) {
+        var detailItem = detail.items[detailIndex] && typeof detail.items[detailIndex] === 'object' ? detail.items[detailIndex] : null;
+        if (detailItem && this._modelRef(detailItem) === targetRef) {
+          updateMembershipRows(detailItem);
+          break;
+        }
+      }
+    }
+
+    var rootModel = this._modelByRef(targetRef);
+    if (rootModel) {
+      updateMembershipRows(rootModel);
+    }
+  }
+
+  async _setProjectMemberState(projectId, modelRef, memberState) {
+    var normalizedProjectId = parseInt(String(projectId || '0'), 10);
+    var targetRef = String(modelRef || '').trim();
+    var nextState = String(memberState || '').trim().toLowerCase();
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0 || !targetRef || !nextState) {
+      return;
+    }
+    var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
+    var project = detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
+    if (!project || String(project.status || '').trim().toLowerCase() !== 'evaluating') {
+      return;
+    }
+    if (this._pendingProjectMemberState(normalizedProjectId, targetRef)) {
+      return;
+    }
+
+    var currentState = this._projectMemberStateForModel(project, targetRef);
+    if (currentState === nextState) {
+      return;
+    }
+
+    var pendingKey = this._projectMemberStateKey(normalizedProjectId, targetRef);
+    this._projectMemberStatePending[pendingKey] = true;
+    this._error = '';
+    this._render();
+    try {
+      var memberships = await this._getModelProjectMemberships(targetRef);
+      var found = false;
+      var nextMemberships = memberships.map(function (membership) {
+        var item = membership && typeof membership === 'object' ? membership : {};
+        var membershipProjectId = parseInt(String(item.project_id || '0'), 10);
+        if (membershipProjectId === normalizedProjectId) {
+          found = true;
+          return {
+            project_id: membershipProjectId,
+            member_state: nextState,
+          };
+        }
+        return {
+          project_id: membershipProjectId,
+          member_state: String(item.member_state || 'candidate').trim().toLowerCase() || 'candidate',
+        };
+      });
+      if (!found) {
+        throw new Error('Project membership not found for this model.');
+      }
+      await this._replaceModelProjectMemberships(targetRef, nextMemberships);
+      this._setLocalProjectMemberState(normalizedProjectId, targetRef, nextState);
+      this._setCollectionActionFeedback('Updated project member state to ' + this._projectMemberStateLabel(nextState) + '.', 'success');
+    } catch (error) {
+      this._error = error && error.message ? String(error.message) : 'Could not update project member state.';
+    } finally {
+      delete this._projectMemberStatePending[pendingKey];
+      this._render();
+    }
   }
 
   _normalizedCollectionPathText(value) {
@@ -7178,6 +7324,33 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '</article>';
   }
 
+  _renderProjectDetailMemberCard(project, model) {
+    var item = model && typeof model === 'object' ? model : {};
+    var projectId = Number(project && project.id || 0) || 0;
+    var modelRef = this._modelRef(item);
+    var memberState = this._projectMemberStateForModel(project, modelRef);
+    var projectStatus = String(project && project.status || 'evaluating').trim().toLowerCase() || 'evaluating';
+    var interactive = projectStatus === 'evaluating' && !!modelRef && projectId > 0;
+    var pending = interactive && this._pendingProjectMemberState(projectId, modelRef);
+    var stateControls = interactive
+      ? '<div class="project-member-state-group" role="group" aria-label="Project member state">'
+        + this._projectMemberStateOptions().map(function (stateKey) {
+            var active = stateKey === memberState;
+            return '<button class="project-member-state-btn' + (active ? ' active' : '') + '" type="button" data-action="set-project-member-state" data-project-id="' + this._escapeHtml(String(projectId)) + '" data-model-ref="' + this._escapeHtml(modelRef) + '" data-member-state="' + this._escapeHtml(stateKey) + '" ' + (pending ? 'disabled' : '') + '>' + this._escapeHtml(this._projectMemberStateLabel(stateKey)) + '</button>';
+          }.bind(this)).join('')
+        + '</div>'
+      : '';
+    return ''
+      + '<div class="project-member-shell">'
+      + '  <div class="project-member-toolbar">'
+      + '    <span class="selected-filter-chip tag-chip project-member-state-chip">' + this._escapeHtml(this._projectMemberStateLabel(memberState)) + '</span>'
+      + (pending ? '<span class="project-member-pending">Saving…</span>' : '')
+      + stateControls
+      + '  </div>'
+      + this._renderModelCard(item)
+      + '</div>';
+  }
+
   _renderProjectDetailView() {
     var detail = this._projectDetail && typeof this._projectDetail === 'object' ? this._projectDetail : null;
     var project = detail && detail.project && typeof detail.project === 'object' ? detail.project : null;
@@ -7208,7 +7381,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     var memberCards = items.length
       ? items.map(function (model) {
-          return this._renderModelCard(model);
+          return this._renderProjectDetailMemberCard(project, model);
         }.bind(this)).join('')
       : '<div class="state-row">No project members match the current filters.</div>';
     return ''
@@ -9422,6 +9595,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.selected-filter-chip:hover,.selected-filter-chip:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);}'
       + '.selected-filter-chip.collection-chip{background:rgba(59,130,246,0.16);border-color:rgba(59,130,246,0.30);}'
       + '.selected-filter-chip.tag-chip{background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.30);}'
+      + '.project-member-shell{display:grid;gap:8px;}'
+      + '.project-member-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 4px;}'
+      + '.project-member-state-chip{cursor:default;}'
+      + '.project-member-pending{font-size:11px;font-weight:800;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.03em;}'
+      + '.project-member-state-group{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;}'
+      + '.project-member-state-btn{min-height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--chip-line);background:rgba(15,23,42,0.08);color:var(--secondary-text-color);font-size:11px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;}'
+      + '.project-member-state-btn:hover,.project-member-state-btn:focus-visible{background:rgba(148,163,184,0.18);outline:none;border-color:rgba(148,163,184,0.42);color:var(--primary-text-color);}'
+      + '.project-member-state-btn.active{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.38);color:#dbeafe;}'
+      + '.project-member-state-btn:disabled{opacity:.6;cursor:not-allowed;}'
       + '.selected-filter-prefix{font-size:10px;font-weight:900;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;}'
       + '.selected-filter-value{font-size:12px;font-weight:800;color:var(--primary-text-color);}'
       + '.selected-filter-remove{font-size:16px;line-height:1;color:var(--secondary-text-color);}'
