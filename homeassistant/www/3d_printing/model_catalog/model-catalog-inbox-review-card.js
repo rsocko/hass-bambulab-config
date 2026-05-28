@@ -36,6 +36,17 @@ function suggestedGroupTitle(sourceEntry) {
   return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Untitled';
 }
 
+function sourceOriginLabel(sourceEntry) {
+  var sourceType = String(sourceEntry && sourceEntry.source_type || '').trim().toLowerCase();
+  if (sourceType === 'makerworld_download') {
+    return 'MakerWorld API';
+  }
+  if (sourceType === 'browser_upload') {
+    return 'Browser Upload';
+  }
+  return '';
+}
+
 function validationActionSummary(actions) {
   if (!Array.isArray(actions) || !actions.length) {
     return '';
@@ -851,6 +862,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       + '    ' + (visibleItems.length ? '<div class="items">' + visibleItems.map(function (item) {
           var sourceEntry = item.source_entry || {};
           var proposedTitle = suggestedGroupTitle(sourceEntry);
+          var sourceOrigin = sourceOriginLabel(sourceEntry);
           var warnings = parseDecisionWarnings(item);
           var validationActions = parseValidationActions(item);
           var warningsText = warningMessages(warnings).join('; ');
@@ -867,7 +879,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
             : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
           return ''
             + '<article class="entry-row' + (isSelected ? ' selected' : '') + '">'
-            + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode && canSelect ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel((isTerminal ? terminalDisplayAction(item) : (item.terminal_action || item.state || item.status)) || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
+            + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div>' + (sourceOrigin ? '<div class="muted">Source: ' + escapeHtml(sourceOrigin) + '</div>' : '') + '</div><div class="button-row">' + (this._selectMode && canSelect ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + (sourceOrigin ? '<span class="chip">' + escapeHtml(sourceOrigin) + '</span>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel((isTerminal ? terminalDisplayAction(item) : (item.terminal_action || item.state || item.status)) || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
             + '  ' + (isTerminal ? this._terminalSummaryMarkup(item, proposedTitle) : '<div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Suggested Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>')
             + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
             + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')

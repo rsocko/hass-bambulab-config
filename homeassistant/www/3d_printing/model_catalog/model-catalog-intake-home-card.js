@@ -85,6 +85,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._commitMode = "queue"; // "queue" or "execute_now"
     this._destinationChoice = "curated"; // "curated" or "working"
     this._previewData = null;
+    this._makerworldUrl = "";
+    this._makerworldResult = null;
   }
 
   setConfig(config) {
@@ -1339,6 +1341,127 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'No preview\';}"></div>';
   }
 
+  _sourceIntakeEndpoint(path) {
+    var sidecarBaseUrl = this._resolveSidecarUrl();
+    if (!sidecarBaseUrl) {
+      throw new Error('Model Catalog sidecar URL is not configured.');
+    }
+    return sidecarBaseUrl.replace(/\/$/, '') + path;
+  }
+
+  _makerworldResultFromRecord(record, uploadId, validationState) {
+    var sourceUrl = String(record && (record.source_url_canonical || record.source_url_original) || '').trim();
+    var title = String(record && record.title || '').trim();
+    var creatorName = String(record && record.creator_name || '').trim();
+    var sourceModelId = String(record && record.source_model_id || '').trim();
+    var thumbnailUrl = String(record && record.thumbnail_url || '').trim();
+    var warnings = Array.isArray(record && record.warnings_json) ? record.warnings_json : [];
+    return {
+      title: title || sourceUrl || 'MakerWorld import',
+      creator_name: creatorName,
+      source_model_id: sourceModelId,
+      thumbnail_url: thumbnailUrl,
+      source_url: sourceUrl,
+      upload_id: uploadId || '',
+      validation_state: validationState || '',
+      warnings: warnings,
+      review_state: String(record && record.review_state || '').trim(),
+    };
+  }
+
+  _renderMakerWorldLaunchCard() {
+    var trimmedUrl = String(this._makerworldUrl || '').trim();
+    var importDisabled = (!trimmedUrl || this._loading) ? ' disabled' : '';
+    var result = this._makerworldResult;
+    var validationState = String(result && result.validation_state || '').trim();
+    var validationChipClass = validationState === 'ready'
+      ? ' ok'
+      : (validationState && validationState !== 'unknown' ? ' warn' : '');
+    var warningMessages = result && Array.isArray(result.warnings)
+      ? result.warnings.map(function (warning) {
+          return warning && (warning.message || warning.code) ? String(warning.message || warning.code) : '';
+        }).filter(Boolean)
+      : [];
+    return ''
+      + '    <article class="launch-card launch-card-makerworld">'
+      + '      <div class="launch-kicker">Path 1</div><div class="launch-title">MakerWorld URL</div><div class="muted">Paste a MakerWorld design URL. Intake captures metadata, downloads the default 3MF, validates it, and hands it off to Active Queue for normal review.</div>'
+      + '      <div class="field"><label>Source URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
+      + '      <div class="button-row"><button class="button primary" data-action="import-makerworld-url"' + importDisabled + '>Import To Active Queue</button><button class="button" data-action="goto-inbox">Open Active Queue</button></div>'
+      + (result
+        ? '<article class="entry-row makerworld-result">'
+          + '<div class="entry-top">'
+          + (result.thumbnail_url
+            ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(result.thumbnail_url) + '" alt="Preview for ' + escapeHtml(result.title) + '" loading="lazy" decoding="async" onerror="this.onerror=null;var host=this.closest(\'.entry-thumb\');if(host){host.classList.add(\'placeholder\');host.textContent=\'MakerWorld\';}"></div>'
+            : '<div class="entry-thumb placeholder">MakerWorld</div>')
+          + '<div class="entry-main"><div class="entry-name">' + escapeHtml(result.title) + '</div><div class="entry-path">' + escapeHtml(result.source_url || trimmedUrl) + '</div>' + (result.creator_name ? '<div class="muted">Creator: ' + escapeHtml(result.creator_name) + '</div>' : '') + '</div>'
+          + '<div class="button-row"><span class="chip">MakerWorld</span>' + (result.upload_id ? '<span class="chip">Upload ' + escapeHtml(result.upload_id) + '</span>' : '') + (validationState ? '<span class="chip' + validationChipClass + '">' + escapeHtml(formatLabel(validationState)) + '</span>' : '') + '</div>'
+          + '</div>'
+          + (result.source_model_id ? '<div class="muted">Design ID: ' + escapeHtml(result.source_model_id) + '</div>' : '')
+          + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
+          + '</article>'
+        : '')
+      + '    </article>';
+  }
+
+  async _importMakerWorldUrl() {
+    if (!this._hass) {
+      return;
+    }
+    var url = String(this._makerworldUrl || '').trim();
+    if (!url) {
+      this._error = 'Paste a MakerWorld URL first.';
+      this._render();
+      return;
+    }
+    this._loading = true;
+    this._error = '';
+    this._status = '';
+    this._setBusyPhase('Capturing MakerWorld metadata', 'Resolving the MakerWorld URL and preparing import metadata');
+    try {
+      var captureResponse = await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/capture'), {
+        url: url,
+        channel: 'intake_home',
+        mode: 'metadata_only',
+      });
+      var record = captureResponse && captureResponse.record ? captureResponse.record : null;
+      var recordId = String(record && record.id || '').trim();
+      if (!recordId) {
+        throw new Error('MakerWorld capture did not return a source intake record id.');
+      }
+      this._setBusyPhase('Importing MakerWorld files', 'Downloading the default 3MF and creating the intake queue upload');
+      var commitResponse = await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/' + encodeURIComponent(recordId) + '/commit'), {
+        mode: 'full_import',
+      });
+      if (!commitResponse || !commitResponse.upload_id) {
+        throw new Error('MakerWorld import did not return an intake upload id.');
+      }
+      this._setBusyPhase('Validating Active Queue item', 'Running the same validation pass used by the existing intake wizard');
+      var validationResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_validate_intake_item', {
+        item_id: commitResponse.upload_id,
+      });
+      var validationState = validationResponse && validationResponse.validation
+        ? String(validationResponse.validation.validation_state || '').trim()
+        : 'unknown';
+      this._makerworldResult = this._makerworldResultFromRecord(record, commitResponse.upload_id, validationState);
+      this._makerworldUrl = '';
+      this._status = validationState === 'ready'
+        ? 'MakerWorld import queued and validated. Review it in Active Queue before publishing.'
+        : 'MakerWorld import queued. Validation reported ' + formatLabel(validationState || 'follow_up_required') + '; review it in Active Queue.';
+      this._loading = false;
+      this._clearBusyState();
+      await this._refreshAll();
+    } catch (error) {
+      var fallbackRecord = error && error.payload && error.payload.record ? error.payload.record : null;
+      if (fallbackRecord) {
+        this._makerworldResult = this._makerworldResultFromRecord(fallbackRecord, '', '');
+      }
+      this._error = error && error.message ? String(error.message) : 'Could not import MakerWorld URL.';
+      this._loading = false;
+      this._clearBusyState();
+      this._render();
+    }
+  }
+
   async _submitServerSelections() {
     if (!this._hass) {
       return;
@@ -1722,13 +1845,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var cleanupCandidateCount = this._activeQueueCleanupCandidates().length;
     return ''
       + '<section class="section">'
-      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, review the batch, then commit it into the shared intake queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button>' + (cleanupCandidateCount > 0 ? '<button class="button warn" data-action="cleanup-active-queue">Clean Active Queue (' + String(cleanupCandidateCount) + ')</button>' : '') + '<button class="button primary" data-action="goto-inbox">Open Job History</button></div></div>'
+      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, validate the handoff, then continue in Active Queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button>' + (cleanupCandidateCount > 0 ? '<button class="button warn" data-action="cleanup-active-queue">Clean Active Queue (' + String(cleanupCandidateCount) + ')</button>' : '') + '<button class="button primary" data-action="goto-inbox">Open Active Queue</button></div></div>'
       + '  <div class="wizard-launch-grid">'
+      + this._renderMakerWorldLaunchCard()
       + '    <article class="launch-card">'
-      + '      <div class="launch-kicker">Path 1</div><div class="launch-title">Upload Files / Folder</div><div class="muted">Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
+      + '      <div class="launch-kicker">Path 2</div><div class="launch-title">Upload</div><div class="muted">Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
       + '    </article>'
       + '    <article class="launch-card">'
-      + '      <div class="launch-kicker">Path 2</div><div class="launch-title">Sync / Import From Server Inbox</div><div class="muted">Browse allowlisted server roots' + (rootNames.length ? ' such as ' + escapeHtml(rootNames.join(', ')) : '') + ', select files or folders, configure recurse/grouping, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-server-wizard">Start Server Wizard</button></div>'
+      + '      <div class="launch-kicker">Path 3</div><div class="launch-title">Sync / Import From Server Inbox</div><div class="muted">Browse allowlisted server roots' + (rootNames.length ? ' such as ' + escapeHtml(rootNames.join(', ')) : '') + ', select files or folders, configure recurse/grouping, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-server-wizard">Start Server Wizard</button></div>'
       + '    </article>'
       + '  </div>'
       + '</section>';
@@ -1919,6 +2043,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'open-browser-wizard') {
       this._openWizard('browser');
+      return;
+    }
+    if (action === 'import-makerworld-url') {
+      this._importMakerWorldUrl();
       return;
     }
     if (action === 'open-server-wizard') {
@@ -2129,6 +2257,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     var action = String(target.getAttribute('data-action') || '');
+    if (action === 'makerworld-url') {
+      this._makerworldUrl = String(target.value || '');
+      return;
+    }
     if (action === 'browser-group-title') {
       this._updateBrowserBatchMeta({
         group_title_source: 'custom',
@@ -2170,6 +2302,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var resultHtml = this._result
       ? '<section class="banner"><div class="title">Latest Result</div><div class="status">Upload ' + escapeHtml(this._result.upload_status) + ' / Validation ' + escapeHtml(this._result.validation_state) + ' / Cleanup ' + escapeHtml(this._result.cleanup_policy === 'keep' ? 'deferred (keep)' : 'pending policy') + (this._result.publish_status ? ' / Publish ' + escapeHtml(this._result.publish_status) : '') + '</div><div class="muted">Selection count ' + String(this._result.selection_count || 0) + ', expanded files ' + String(this._result.expanded_file_count || 0) + ', upload ' + escapeHtml(this._result.upload_id || '') + (this._result.local_model_id ? ', local model ' + escapeHtml(this._result.local_model_id) : '') + '</div>' + ((this._result.warnings || []).length ? '<div class="muted">Warnings: ' + escapeHtml((this._result.warnings || []).map(function (warning) { return warning.message || warning.code; }).join('; ')) + '</div>' : '') + '</section>'
       : '';
+    var busyHtml = !this._wizardOpen ? this._renderBusyState() : '';
     var extraStyles = ''
       + 'ha-card{border-radius:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;}'
       + '.wizard-launch-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}'
@@ -2259,5 +2392,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 }
 
 if (!customElements.get('model-catalog-intake-home-card')) {
+          + '    ' + busyHtml
   customElements.define('model-catalog-intake-home-card', ModelCatalogIntakeHomeCard);
 }
