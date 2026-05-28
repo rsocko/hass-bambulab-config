@@ -2797,6 +2797,22 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._render();
   }
 
+  _isQueueDialogEligibleFile(file) {
+    if (!file || typeof file !== "object") {
+      return false;
+    }
+    var role = String(file.asset_role || "").trim().toLowerCase();
+    if (role === "preview") {
+      return false;
+    }
+    var rawName = String(file.filename || file.asset_filename || file.name || file.id || "").trim().toLowerCase();
+    var extIndex = rawName.lastIndexOf(".");
+    var extension = extIndex >= 0 ? rawName.slice(extIndex + 1) : "";
+    var typeHint = String(file.asset_type || file.file_type || file.content_type || "").trim().toLowerCase();
+    var modelTypes = ["3mf", "stl", "obj", "step", "stp", "gcode", "zip"];
+    return modelTypes.indexOf(extension) >= 0 || modelTypes.indexOf(typeHint) >= 0;
+  }
+
   async _openQueueDialog(modelRef, modelName, entries, options) {
     var normalizedEntries = Array.isArray(entries) ? entries : [];
     var dialogOptions = options && typeof options === "object" ? options : {};
@@ -2834,7 +2850,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var payload = await response.json();
     var model = payload && payload.model && typeof payload.model === "object" ? payload.model : {};
     this._queueDialogEntityType = String(model.entity_type || "model").trim().toLowerCase() || "model";
-    var files = Array.isArray(model.files) ? model.files : [];
+    var files = Array.isArray(model.files) ? model.files.filter(this._isQueueDialogEligibleFile.bind(this)) : [];
     if (!files.length) {
       // Idea entities and file-less models are still queueable: fall through with
       // an empty files array so the dialog can submit an idea-style entry. See

@@ -1704,6 +1704,22 @@ class ModelDetailPopupCard extends HTMLElement {
     return typeHint.includes('3mf');
   }
 
+  _isQueueDialogEligibleFile(file) {
+    if (!file || typeof file !== 'object') {
+      return false;
+    }
+    const role = String(file.asset_role || '').trim().toLowerCase();
+    if (role === 'preview') {
+      return false;
+    }
+    const rawName = String(file.filename || file.asset_filename || file.name || file.id || '').trim().toLowerCase();
+    const extIdx = rawName.lastIndexOf('.');
+    const ext = extIdx >= 0 ? rawName.slice(extIdx + 1) : '';
+    const typeHint = String(file.asset_type || file.file_type || file.content_type || '').trim().toLowerCase();
+    const modelTypes = new Set(['3mf', 'stl', 'obj', 'step', 'stp', 'gcode', 'zip']);
+    return modelTypes.has(ext) || modelTypes.has(typeHint);
+  }
+
   _getModelFilePlateCount(file) {
     const inlineCount = Number(file && file.plate_count);
     if (Number.isFinite(inlineCount) && inlineCount >= 0) {
@@ -8444,7 +8460,7 @@ class ModelDetailPopupCard extends HTMLElement {
     var payload = await response.json();
     var model = payload && payload.model && typeof payload.model === "object" ? payload.model : {};
     this._queueDialogEntityType = String(model.entity_type || "model").trim().toLowerCase() || "model";
-    var files = Array.isArray(model.files) ? model.files : [];
+    var files = Array.isArray(model.files) ? model.files.filter(file => this._isQueueDialogEligibleFile(file)) : [];
     if (!files.length) {
       // Idea entities and file-less models are still queueable: return an empty
       // file list so the dialog can submit an idea-style entry.
