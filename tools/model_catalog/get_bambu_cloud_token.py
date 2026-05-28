@@ -201,11 +201,15 @@ def main(argv: list[str]) -> int:
     print(f"Login type: {login_type}")
     if refresh_token:
         print(f"Refresh token matches access token: {refresh_token == access_token}")
+    print(f"Access token length: {len(access_token)}")
+    print(f"JWT-like token format: {access_token.count('.') == 2}")
 
     jwt_expiry = _decode_jwt_expiry(access_token)
     expiry_text = _format_expiry(expires_in=expires_in, jwt_expiry=jwt_expiry)
     if expiry_text:
         print(expiry_text)
+    else:
+        print("Token does not expose a JWT exp claim. That can still be valid if the verification call succeeds.")
 
     if not args.skip_verify:
         print("\nVerifying token with /design-user-service/my/preference...")

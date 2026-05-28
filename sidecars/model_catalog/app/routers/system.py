@@ -106,9 +106,10 @@ def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
         }
 
     if expiry is None:
+        status = "configured_non_jwt" if token_segment_count != 3 else "configured_without_expiry"
         return {
             "configured": True,
-            "status": "configured_unparseable",
+            "status": status,
             "token_exp_utc": None,
             "seconds_until_expiry": None,
             "expires_within_7_days": None,

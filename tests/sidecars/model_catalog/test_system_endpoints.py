@@ -50,6 +50,20 @@ def test_diagnostics_reports_missing_makerworld_auth(tmp_path: Path) -> None:
     assert payload["makerworld_request_diagnostics"]["recent_request_count"] == 0
 
 
+def test_diagnostics_reports_non_jwt_makerworld_auth(tmp_path: Path) -> None:
+    reset_recent_makerworld_request_diagnostics()
+    app = create_app(settings=_make_settings(tmp_path / "model_catalog.db", makerworld_auth_token="single-segment-token"))
+    with TestClient(app) as client:
+        response = client.get("/diagnostics")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["makerworld_auth"]["configured"] is True
+    assert payload["makerworld_auth"]["status"] == "configured_non_jwt"
+    assert payload["makerworld_auth"]["looks_like_jwt"] is False
+    assert payload["makerworld_auth"]["token_segment_count"] == 1
+
+
 def test_config_reports_configured_makerworld_auth_with_expiry(tmp_path: Path) -> None:
     reset_recent_makerworld_request_diagnostics()
     token = _jwt_with_exp(4102444800)  # 2100-01-01T00:00:00Z
