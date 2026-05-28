@@ -566,6 +566,72 @@ def test_indexed_duplicate_conflict_includes_preview_url(tmp_path: Path) -> None
         client.__exit__(None, None, None)
 
 
+def test_indexed_queue_filename_conflict_identifies_other_upload(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        baseline_file = source_root / "queued-duplicate.3mf"
+        baseline_file.write_bytes(b"baseline-queued")
+
+        baseline_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(baseline_file)}],
+            },
+        )
+        assert baseline_upload.status_code == 200
+        baseline_upload_id = baseline_upload.json()["upload_id"]
+
+        incoming_file = source_root / "queued-duplicate.3mf"
+        incoming_file.write_bytes(b"incoming-queued")
+
+        duplicate_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(incoming_file)}],
+            },
+        )
+        assert duplicate_upload.status_code == 200
+        duplicate_upload_id = duplicate_upload.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{duplicate_upload_id}/validate")
+        assert validate_response.status_code == 200
+        validation_payload = validate_response.json().get("validation") or {}
+
+        queue_conflicts: list[dict[str, object]] = []
+        for check in validation_payload.get("checks") or []:
+            findings = check.get("findings") if isinstance(check, dict) else None
+            if not isinstance(findings, list):
+                continue
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                conflicts = finding.get("conflicts_with")
+                if not isinstance(conflicts, list):
+                    continue
+                for conflict in conflicts:
+                    if not isinstance(conflict, dict):
+                        continue
+                    if str(conflict.get("scope") or "").strip().lower() != "indexed":
+                        continue
+                    if str(conflict.get("parent_kind") or "").strip().lower() != "queue":
+                        continue
+                    queue_conflicts.append(conflict)
+
+        assert queue_conflicts, "Expected at least one indexed queue conflict"
+        assert any(
+            str(conflict.get("parent_name") or "") == f"Queued intake ({baseline_upload_id[:8]})"
+            for conflict in queue_conflicts
+        )
+        assert all(
+            str(conflict.get("parent_name") or "") != f"Queued intake ({duplicate_upload_id[:8]})"
+            for conflict in queue_conflicts
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_indexed_image_conflict_falls_back_to_model_asset_download_url(tmp_path: Path) -> None:
     client, source_root = _create_client(tmp_path)
     db_path = tmp_path / "model_catalog.db"

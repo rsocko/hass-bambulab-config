@@ -737,7 +737,7 @@ def _read_indexed_filename_maps(
         if exclude_upload_id:
             queue_rows = connection.execute(
                 f"""
-                SELECT source_entries_json
+                                SELECT upload_id, source_entries_json
                 FROM intake_queue_uploads
                 WHERE source_entries_json IS NOT NULL
                   AND upload_id != ?
@@ -748,7 +748,7 @@ def _read_indexed_filename_maps(
         else:
             queue_rows = connection.execute(
                 f"""
-                SELECT source_entries_json
+                                SELECT upload_id, source_entries_json
                 FROM intake_queue_uploads
                 WHERE source_entries_json IS NOT NULL
                   AND COALESCE(inbox_state, 'submitted') NOT IN ({', '.join('?' for _ in _TERMINAL_INBOX_STATES)})
@@ -757,7 +757,8 @@ def _read_indexed_filename_maps(
             ).fetchall()
 
         for row in queue_rows:
-            payload = str(row[0] or "").strip()
+            upload_id = str(row[0] or "").strip()
+            payload = str(row[1] or "").strip()
             if not payload:
                 continue
             try:
@@ -775,13 +776,14 @@ def _read_indexed_filename_maps(
                 queued_name = entry.get("filename") or entry.get("relative_path") or entry.get("path")
                 base_name = Path(str(queued_name or "")).name or str(queued_name or "").strip()
                 queued_path = str(queued_name or "").strip().replace("\\", "/")
+                queue_label = f"Queued intake ({upload_id[:8]})" if upload_id else "Queued intake"
                 queued_context: dict[str, Any] = {
                     "scope": "indexed",
                     "parent_kind": "queue",
-                    "parent_name": "Queued intake",
+                    "parent_name": queue_label,
                     "path": queued_path,
                     "filename": base_name,
-                    "label": f"Queued intake -> {queued_path or base_name}",
+                    "label": f"{queue_label} -> {queued_path or base_name}",
                 }
                 _add_filename(queued_name, queued_context)
 
