@@ -554,19 +554,35 @@ def _normalized_duplicate_name_tokens(filename: str) -> tuple[str, ...]:
     return tokens
 
 
+def _parse_makerworld_download_filename(filename: str) -> tuple[str, str] | None:
+    match = re.match(r"^makerworld-(\d+)-(\d+)(?:-|\.)", Path(str(filename or "")).name, re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1), match.group(2)
+
+
 def _batch_duplicate_name_similarity(
     current_filename: str,
-    seen_names: list[tuple[str, tuple[str, ...]]],
+    seen_names: list[tuple[str, str, tuple[str, ...]]],
 ) -> tuple[str, float] | None:
     current_name = _normalized_duplicate_name(current_filename)
     current_tokens = set(_normalized_duplicate_name_tokens(current_filename))
+    current_makerworld = _parse_makerworld_download_filename(current_filename)
     if not current_name or not current_tokens:
         return None
 
     best_match_name = ""
     best_score = 0.0
-    for prior_name, prior_tokens_tuple in seen_names:
+    for prior_filename, prior_name, prior_tokens_tuple in seen_names:
         if not prior_name:
+            continue
+        prior_makerworld = _parse_makerworld_download_filename(prior_filename)
+        if (
+            current_makerworld is not None
+            and prior_makerworld is not None
+            and current_makerworld[0] == prior_makerworld[0]
+            and current_makerworld[1] != prior_makerworld[1]
+        ):
             continue
         prior_tokens = set(prior_tokens_tuple)
         if not prior_tokens:
@@ -1167,7 +1183,7 @@ def _scan_batch_duplicate_warnings(
                 },
             )
         if normalized_name:
-            seen_normalized_names.append((normalized_name, normalized_tokens))
+            seen_normalized_names.append((filename, normalized_name, normalized_tokens))
             seen_normalized_primary_names.setdefault(
                 normalized_name,
                 {
@@ -2377,7 +2393,7 @@ def intake_submit(request: Request, payload: dict[str, Any]) -> Any:
                 if filename_key:
                     batch_seen_exact_names.add(filename_key)
                 if normalized_name:
-                    batch_seen_normalized_names.append((normalized_name, normalized_tokens))
+                    batch_seen_normalized_names.append((filename, normalized_name, normalized_tokens))
 
             upload_id = str(uuid.uuid4())
             source_entries_json = json.dumps(

@@ -701,6 +701,48 @@ def test_indexed_queue_filename_conflict_identifies_other_upload(tmp_path: Path)
         client.__exit__(None, None, None)
 
 
+def test_makerworld_multi_profile_batch_does_not_trigger_soft_duplicate_warning(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    try:
+        first_file = source_root / "makerworld-2838834-3176670-pool-noodle-version.3mf"
+        first_file.write_bytes(b"makerworld-profile-one")
+
+        second_file = source_root / "makerworld-2838834-3176772-pool-noodle-version-a1-mini.3mf"
+        second_file.write_bytes(b"makerworld-profile-two")
+
+        upload_response = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [
+                    {"type": "file", "path": str(first_file)},
+                    {"type": "file", "path": str(second_file)},
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_id = upload_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{upload_id}/validate")
+        assert validate_response.status_code == 200
+        validation_payload = validate_response.json().get("validation") or {}
+
+        assert validation_payload.get("validation_state") == "ready"
+        checks = validation_payload.get("checks") or []
+        duplicate_check = next(
+            (check for check in checks if isinstance(check, dict) and check.get("key") == "duplicate_scan"),
+            {},
+        )
+        findings = duplicate_check.get("findings") if isinstance(duplicate_check, dict) else []
+        assert not any(
+            isinstance(finding, dict)
+            and str(finding.get("violation_code") or "") == "batch_duplicate_name_soft_match"
+            for finding in (findings or [])
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_indexed_image_conflict_falls_back_to_model_asset_download_url(tmp_path: Path) -> None:
     client, source_root = _create_client(tmp_path)
     db_path = tmp_path / "model_catalog.db"
