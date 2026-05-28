@@ -7818,9 +7818,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._browserScope === "collections") {
       return this._collectionBrowse && Array.isArray(this._collectionBrowse.items) ? this._collectionBrowse.items : [];
     }
-      if (this._browserScope !== "projects") {
-        this._projectDetail = null;
-      return [];
+    if (this._browserScope !== "projects") {
+      this._projectDetail = null;
     }
     var visibleResults = this._filteredResultsForScope();
     var includeWorkingInModels = this._browserScope === "models" && !!(this._typeFilters && this._typeFilters.working);
