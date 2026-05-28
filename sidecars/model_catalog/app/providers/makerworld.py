@@ -6,15 +6,67 @@ import asyncio
 import hashlib
 import re
 import zipfile
+from collections import deque
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
+from threading import Lock
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
 from ..geometry_3mf import _resolve_model_part_path
+
+
+_RECENT_MAKERWORLD_REQUESTS: deque[dict[str, Any]] = deque(maxlen=25)
+_RECENT_MAKERWORLD_REQUESTS_LOCK = Lock()
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(tz=UTC).isoformat()
+
+
+def _record_recent_makerworld_request(
+    *,
+    method: str,
+    request_url: str,
+    request_label: str | None,
+    response: httpx.Response | None = None,
+    error: Exception | None = None,
+) -> None:
+    parsed = urlparse(str(request_url or "").strip())
+    entry = {
+        "timestamp": _utc_now_iso(),
+        "method": str(method or "").upper(),
+        "request_label": str(request_label or "").strip() or None,
+        "host": str(parsed.netloc or "").strip() or None,
+        "path": str(parsed.path or "").strip() or None,
+        "query": str(parsed.query or "").strip() or None,
+        "status_code": int(response.status_code) if response is not None else None,
+        "content_type": str(response.headers.get("content-type") or "").strip() or None if response is not None else None,
+        "content_length": str(response.headers.get("content-length") or "").strip() or None if response is not None else None,
+        "server": str(response.headers.get("server") or "").strip() or None if response is not None else None,
+        "cf_ray": str(response.headers.get("cf-ray") or "").strip() or None if response is not None else None,
+        "error_type": type(error).__name__ if error is not None else None,
+        "error": str(error) if error is not None else None,
+    }
+    with _RECENT_MAKERWORLD_REQUESTS_LOCK:
+        _RECENT_MAKERWORLD_REQUESTS.append(entry)
+
+
+def get_recent_makerworld_request_diagnostics(*, limit: int = 10) -> list[dict[str, Any]]:
+    bounded_limit = max(int(limit), 0)
+    with _RECENT_MAKERWORLD_REQUESTS_LOCK:
+        if bounded_limit == 0:
+            return []
+        return list(_RECENT_MAKERWORLD_REQUESTS)[-bounded_limit:]
+
+
+def reset_recent_makerworld_request_diagnostics() -> None:
+    with _RECENT_MAKERWORLD_REQUESTS_LOCK:
+        _RECENT_MAKERWORLD_REQUESTS.clear()
 
 
 @dataclass(frozen=True)
@@ -412,6 +464,7 @@ class MakerWorldAdapter:
                 url_path,
                 timeout=timeout,
                 params=params,
+                request_label="json",
             )
             if response.status_code == 404:
                 return None
@@ -462,6 +515,7 @@ class MakerWorldAdapter:
                 params=params,
                 absolute_url=absolute_url,
                 accept_header="application/octet-stream, */*;q=0.9" if not absolute_url else "*/*",
+                request_label="binary_download" if not absolute_url else "absolute_binary_download",
             )
             if response.status_code in {401, 403}:
                 raise AuthenticationError("MakerWorld authentication failed")
@@ -477,6 +531,7 @@ class MakerWorldAdapter:
                         params=params,
                         accept_header="application/octet-stream, */*;q=0.9",
                         base_url_override=self.WEB_API_BASE,
+                        request_label="binary_download_web_fallback",
                     )
                     if response.status_code == 200:
                         destination.write_bytes(response.content)
@@ -523,6 +578,7 @@ class MakerWorldAdapter:
         absolute_url: bool = False,
         accept_header: str | None = None,
         base_url_override: str | None = None,
+        request_label: str | None = None,
     ) -> httpx.Response:
         await self._throttle()
         resolved_base = str(base_url_override or self._api_base).strip().rstrip("/")
@@ -546,8 +602,21 @@ class MakerWorldAdapter:
                 transport=self._transport,
                 follow_redirects=True,
             ) as client:
-                return await client.request(method, request_url, params=params, headers=headers)
+                response = await client.request(method, request_url, params=params, headers=headers)
+                _record_recent_makerworld_request(
+                    method=method,
+                    request_url=str(response.request.url),
+                    request_label=request_label,
+                    response=response,
+                )
+                return response
         except httpx.HTTPError as exc:
+            _record_recent_makerworld_request(
+                method=method,
+                request_url=request_url,
+                request_label=request_label,
+                error=exc,
+            )
             raise ProviderUnavailableError("MakerWorld request failed") from exc
 
     async def _throttle(self) -> None:

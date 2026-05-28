@@ -7,7 +7,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.providers.makerworld import MakerWorldAdapter, reset_recent_makerworld_request_diagnostics
 from app.settings import Settings
+import asyncio
+import httpx
 
 
 def _jwt_with_exp(timestamp: int) -> str:
@@ -33,6 +36,7 @@ def _make_settings(db_path: Path, *, makerworld_auth_token: str | None) -> Setti
 
 
 def test_diagnostics_reports_missing_makerworld_auth(tmp_path: Path) -> None:
+    reset_recent_makerworld_request_diagnostics()
     app = create_app(settings=_make_settings(tmp_path / "model_catalog.db", makerworld_auth_token=None))
     with TestClient(app) as client:
         response = client.get("/diagnostics")
@@ -42,9 +46,12 @@ def test_diagnostics_reports_missing_makerworld_auth(tmp_path: Path) -> None:
     assert payload["makerworld_api_base_url"] == "https://api.example.invalid/v1"
     assert payload["makerworld_auth"]["configured"] is False
     assert payload["makerworld_auth"]["status"] == "missing"
+    assert payload["makerworld_auth"]["looks_like_jwt"] is False
+    assert payload["makerworld_request_diagnostics"]["recent_request_count"] == 0
 
 
 def test_config_reports_configured_makerworld_auth_with_expiry(tmp_path: Path) -> None:
+    reset_recent_makerworld_request_diagnostics()
     token = _jwt_with_exp(4102444800)  # 2100-01-01T00:00:00Z
     app = create_app(settings=_make_settings(tmp_path / "model_catalog.db", makerworld_auth_token=token))
     with TestClient(app) as client:
@@ -57,3 +64,31 @@ def test_config_reports_configured_makerworld_auth_with_expiry(tmp_path: Path) -
     assert payload["makerworld_auth"]["token_exp_utc"] == "2100-01-01T00:00:00+00:00"
     assert isinstance(payload["makerworld_auth"]["seconds_until_expiry"], int)
     assert payload["makerworld_auth"]["seconds_until_expiry"] > 0
+    assert payload["makerworld_auth"]["looks_like_jwt"] is True
+    assert payload["makerworld_auth"]["token_segment_count"] == 3
+    assert payload["makerworld_auth"]["token_sha256_prefix"]
+    assert payload["makerworld_auth"]["jwt_claim_keys"] == ["exp"]
+
+
+def test_diagnostics_reports_recent_makerworld_requests(tmp_path: Path) -> None:
+    reset_recent_makerworld_request_diagnostics()
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(lambda request: httpx.Response(404, json={"error": "not_found"})),
+    )
+    asyncio.run(adapter.resolve_design_id(1295917))
+
+    app = create_app(settings=_make_settings(tmp_path / "model_catalog.db", makerworld_auth_token=None))
+    with TestClient(app) as client:
+        response = client.get("/diagnostics")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["makerworld_request_diagnostics"]["recent_request_count"] >= 1
+    latest = payload["makerworld_request_diagnostics"]["recent_requests"][-1]
+    assert latest["request_label"] == "json"
+    assert latest["status_code"] == 404
+    assert latest["host"] == "api.example.invalid"
+    assert latest["path"] == "/v1/design-service/design/1295917"

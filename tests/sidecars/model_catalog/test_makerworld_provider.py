@@ -7,7 +7,13 @@ from pathlib import Path
 
 import httpx
 
-from app.providers.makerworld import AuthenticationError, MakerWorldAdapter, ProviderUnavailableError
+from app.providers.makerworld import (
+    AuthenticationError,
+    MakerWorldAdapter,
+    ProviderUnavailableError,
+    get_recent_makerworld_request_diagnostics,
+    reset_recent_makerworld_request_diagnostics,
+)
 
 
 def _minimal_3mf_payload() -> bytes:
@@ -361,6 +367,7 @@ def test_download_3mf_classifies_418_as_access_blocked(tmp_path: Path) -> None:
 
 
 def test_download_3mf_falls_back_to_web_api_after_primary_418(tmp_path: Path) -> None:
+    reset_recent_makerworld_request_diagnostics()
     payload = _minimal_3mf_payload()
     requested_urls: list[str] = []
 
@@ -387,6 +394,21 @@ def test_download_3mf_falls_back_to_web_api_after_primary_418(tmp_path: Path) ->
         "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download",
         "https://makerworld.com/api/v1/design-service/instance/1309482/f3mf?type=download",
     ]
+    recent_requests = get_recent_makerworld_request_diagnostics(limit=2)
+    assert len(recent_requests) == 2
+    assert recent_requests[0]["request_label"] == "binary_download"
+    assert recent_requests[0]["host"] == "api.example.invalid"
+    assert recent_requests[0]["path"] == "/v1/design-service/instance/1309482/f3mf"
+    assert recent_requests[0]["query"] == "type=download"
+    assert recent_requests[0]["status_code"] == 418
+    assert recent_requests[0]["content_type"] == "text/plain; charset=utf-8"
+    assert recent_requests[0]["error"] is None
+    assert recent_requests[1]["request_label"] == "binary_download_web_fallback"
+    assert recent_requests[1]["host"] == "makerworld.com"
+    assert recent_requests[1]["path"] == "/api/v1/design-service/instance/1309482/f3mf"
+    assert recent_requests[1]["query"] == "type=download"
+    assert recent_requests[1]["status_code"] == 200
+    assert recent_requests[1]["error"] is None
 
 
 def test_download_3mf_rejects_invalid_payload(tmp_path: Path) -> None:

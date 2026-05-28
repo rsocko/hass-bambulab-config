@@ -6,6 +6,7 @@ refresh endpoints.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 from datetime import UTC, datetime
@@ -15,6 +16,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
+from ..providers.makerworld import get_recent_makerworld_request_diagnostics
 from ..state import AppState
 from ..settings import load_settings
 from .._helpers import (
@@ -52,9 +54,47 @@ def _decode_jwt_expiry(access_token: str | None) -> datetime | None:
     return datetime.fromtimestamp(float(exp), tz=UTC)
 
 
+def _decode_jwt_payload(access_token: str | None) -> dict[str, Any] | None:
+    token = str(access_token or "").strip()
+    if not token:
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+
+    payload_segment = parts[1]
+    padding = "=" * (-len(payload_segment) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(payload_segment + padding)
+        payload = json.loads(decoded.decode("utf-8"))
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _token_sha256_prefix(access_token: str | None) -> str | None:
+    token = str(access_token or "").strip()
+    if not token:
+        return None
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
+
+
 def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
-    configured = bool(str(token or "").strip())
+    normalized_token = str(token or "").strip()
+    configured = bool(normalized_token)
+    payload = _decode_jwt_payload(normalized_token)
     expiry = _decode_jwt_expiry(token)
+    token_segment_count = len(normalized_token.split(".")) if normalized_token else 0
+    token_summary = {
+        "token_length": len(normalized_token) if normalized_token else 0,
+        "token_segment_count": token_segment_count,
+        "looks_like_jwt": token_segment_count == 3,
+        "token_sha256_prefix": _token_sha256_prefix(normalized_token),
+        "jwt_claim_keys": sorted(str(key) for key in payload.keys()) if payload is not None else [],
+        "jwt_issuer": str(payload.get("iss") or "").strip() or None if payload is not None else None,
+        "jwt_audience": payload.get("aud") if payload is not None else None,
+        "jwt_subject": str(payload.get("sub") or "").strip() or None if payload is not None else None,
+    }
     if not configured:
         return {
             "configured": False,
@@ -62,6 +102,7 @@ def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
             "token_exp_utc": None,
             "seconds_until_expiry": None,
             "expires_within_7_days": None,
+            **token_summary,
         }
 
     if expiry is None:
@@ -71,6 +112,7 @@ def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
             "token_exp_utc": None,
             "seconds_until_expiry": None,
             "expires_within_7_days": None,
+            **token_summary,
         }
 
     seconds_until_expiry = int((expiry - datetime.now(tz=UTC)).total_seconds())
@@ -87,6 +129,7 @@ def _makerworld_auth_diagnostics(token: str | None) -> dict[str, Any]:
         "token_exp_utc": expiry.isoformat(),
         "seconds_until_expiry": seconds_until_expiry,
         "expires_within_7_days": seconds_until_expiry <= 7 * 24 * 60 * 60,
+        **token_summary,
     }
 
 
@@ -160,6 +203,7 @@ def config(request: Request) -> dict[str, Any]:
     intake_roots = _configured_intake_source_roots(state.settings)
     working_roots = _configured_working_files_roots(state.settings)
     makerworld_auth = _makerworld_auth_diagnostics(state.settings.makerworld_auth_token)
+    recent_makerworld_requests = get_recent_makerworld_request_diagnostics(limit=10)
     return {
         "authority_mode": _normalized_authority_mode(state.settings),
         "intake_source_roots": [str(root) for root in intake_roots],
@@ -192,6 +236,7 @@ def diagnostics(request: Request) -> dict[str, Any]:
     intake_roots = _configured_intake_source_roots(state.settings)
     working_roots = _configured_working_files_roots(state.settings)
     makerworld_auth = _makerworld_auth_diagnostics(state.settings.makerworld_auth_token)
+    recent_makerworld_requests = get_recent_makerworld_request_diagnostics(limit=10)
 
     # Inspect cached remote catalog collection metadata only.
     connection = connect(state.settings.db_path)
@@ -311,6 +356,10 @@ def diagnostics(request: Request) -> dict[str, Any]:
         "catalog_base_url": state.settings.catalog_base_url,
         "makerworld_api_base_url": state.settings.makerworld_api_base_url,
         "makerworld_auth": makerworld_auth,
+        "makerworld_request_diagnostics": {
+            "recent_request_count": len(recent_makerworld_requests),
+            "recent_requests": recent_makerworld_requests,
+        },
         "cache_collection_stats": {
             "total_cached_models": collection_stats[1] if collection_stats else 0,
             "distinct_cached_collection_payloads": collection_stats[0] if collection_stats else 0,
