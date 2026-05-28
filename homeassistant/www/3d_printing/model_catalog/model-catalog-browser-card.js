@@ -285,6 +285,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       has_other_files: false,
       show_archived: false,
       project_id: null,
+      project_member_state: "",
     };
   }
 
@@ -1912,6 +1913,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       if (this._filters.project_id) {
         requestPayload.project_id = this._filters.project_id;
       }
+      if (this._filters.project_member_state) {
+        requestPayload.project_member_state = this._filters.project_member_state;
+      }
       if (this._browserScope === 'projects' && this._projectDetailActive() && this._projectDetailMemberStateFilterValue()) {
         requestPayload.project_member_state = this._projectDetailMemberStateFilterValue();
       }
@@ -2774,7 +2778,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._filters.project_id = null;
+      this._filters.project_member_state = "";
       this._syncLeftNavSelectionFromFilters();
+      this._cancelScheduledApply();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
+    if (action === 'clear-project-member-state-filter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._filters.project_member_state = "";
       this._cancelScheduledApply();
       this._requestLoad(1, false);
       this._render();
@@ -2829,7 +2844,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       var projectId = parseInt(String(target.getAttribute("data-project-id") || "0"), 10);
+      var projectMemberState = String(target.getAttribute("data-project-member-state") || "").trim().toLowerCase();
+      if (this._projectMemberStateOptions().indexOf(projectMemberState) === -1) {
+        projectMemberState = "";
+      }
       this._browserScope = "models";
+      this._filters.project_member_state = projectMemberState;
       this._applyLeftNavSelection(projectId > 0 ? ("project:" + String(projectId)) : "all-models", { closeDrawer: true, requestLoad: true, render: true, forceSelection: true });
       return;
     }
@@ -8035,6 +8055,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return '<button class="selected-filter-chip tag-chip project-member-filter-btn' + (activeMemberStateFilter === stateKey ? ' active' : '') + '" type="button" data-action="set-project-detail-member-filter" data-member-state="' + this._escapeHtml(stateKey) + '">' + this._escapeHtml(this._projectMemberStateLabel(stateKey)) + ' · ' + this._escapeHtml(String(memberStateCounts[stateKey])) + '</button>';
     }.bind(this)).join('');
     var allMembersCount = Number(project.curated_model_count || memberRows.length || 0) || 0;
+    var chosenCount = Number(memberStateCounts.chosen || 0) || 0;
+    var candidateCount = Number(memberStateCounts.candidate || 0) || 0;
+    var rejectedCount = Number(memberStateCounts.rejected || 0) || 0;
+    var decisionedCount = chosenCount + rejectedCount;
+    var decisionedPercent = allMembersCount > 0 ? Math.round((decisionedCount / allMembersCount) * 100) : 0;
     var memberStateFilterHtml = '<button class="selected-filter-chip project-member-filter-btn' + (!activeMemberStateFilter ? ' active' : '') + '" type="button" data-action="set-project-detail-member-filter" data-member-state="">All · ' + this._escapeHtml(String(allMembersCount)) + '</button>' + memberStateHtml;
     var description = String(project.description || project.notes || '').trim();
     var metaParts = [];
@@ -8078,9 +8103,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="collection-browser-header-title">' + this._escapeHtml(String(project.title || 'Untitled Project')) + '</div>'
       + '    <div class="collection-browser-header-subtitle">' + this._escapeHtml(metaParts.join(' · ') || 'Lifecycle project') + '</div>'
       + '    <div class="collection-meta collection-meta-row">' + this._escapeHtml(description || 'No description yet.') + '</div>'
+      + '    <div class="collection-meta collection-meta-row">' + this._escapeHtml('Decision progress: ' + String(decisionedCount) + ' of ' + String(allMembersCount) + ' reviewed (' + String(decisionedPercent) + '%).') + '</div>'
       + '<div class="project-detail-membership-strip">' + memberStateFilterHtml + '</div>'
       + '    <div class="project-browser-header-actions">'
       + '      <button class="toolbar-btn ghost" type="button" data-action="close-project-detail">Back To Projects</button>'
+      + '      <button class="toolbar-btn" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(project.id || '')) + '" data-project-member-state="candidate">Browse Needs Review</button>'
       + '      <button class="toolbar-btn" type="button" data-action="browse-project-models" data-project-id="' + this._escapeHtml(String(project.id || '')) + '">Browse models</button>'
       + '      <button class="toolbar-btn ghost" type="button" data-action="open-project-action-dialog" data-mode="edit" data-project-id="' + this._escapeHtml(String(project.id || '')) + '">Edit</button>'
       + '    </div>'
@@ -8088,6 +8115,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="collection-browser-header-stats">'
       + this._renderProjectHeaderStat('Status', this._projectOptionLabel(project.status, 'evaluating'))
       + this._renderProjectHeaderStat('Members', Number(project.curated_model_count || memberRows.length || 0) || 0)
+      + this._renderProjectHeaderStat('Chosen', chosenCount)
+      + this._renderProjectHeaderStat('Candidates', candidateCount)
+      + this._renderProjectHeaderStat('Rejected', rejectedCount)
+      + this._renderProjectHeaderStat('Reviewed', String(decisionedPercent) + '%')
       + this._renderProjectHeaderStat('Working Groups', Number(project.working_group_count || 0) || 0)
         + this._renderProjectHeaderStat('Open Tasks', Number(project.task_summary && project.task_summary.open || 0) || 0)
       + this._renderProjectHeaderStat('Visible', Number(pagination.total || items.length || 0) || 0)
@@ -8131,7 +8162,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var selectedCollectionKey = this._selectedCollectionKey();
     var selectedTags = this._activeTagFilters();
     var selectedProjectId = this._selectedProjectId();
-    if (!selectedCollectionKey && !selectedTags.length && !selectedProjectId) {
+    var selectedProjectMemberState = String(this._filters.project_member_state || '').trim().toLowerCase();
+    if (!selectedCollectionKey && !selectedTags.length && !selectedProjectId && !selectedProjectMemberState) {
       return '';
     }
     var chips = '';
@@ -8141,6 +8173,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       chips += '<button class="selected-filter-chip project-chip" type="button" data-action="' + this._escapeHtml(projectChipAction) + '">'
         + '<span class="selected-filter-prefix">Project</span>'
         + '<span class="selected-filter-value">' + this._escapeHtml(selectedProject ? selectedProject.title : 'Project') + '</span>'
+        + '<span class="selected-filter-remove" aria-hidden="true">\u00d7</span>'
+        + '</button>';
+    }
+    if (selectedProjectMemberState) {
+      chips += '<button class="selected-filter-chip tag-chip" type="button" data-action="clear-project-member-state-filter">'
+        + '<span class="selected-filter-prefix">State</span>'
+        + '<span class="selected-filter-value">' + this._escapeHtml(this._projectMemberStateLabel(selectedProjectMemberState)) + '</span>'
         + '<span class="selected-filter-remove" aria-hidden="true">\u00d7</span>'
         + '</button>';
     }
