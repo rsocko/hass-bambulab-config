@@ -277,7 +277,7 @@ jobs:
             -f inputs[version_mode]="next_patch" \
             -f inputs[push_image]="true" \
             -f inputs[push_latest]="true" \
-            -f inputs[push_ghcr]="${{ steps.config.outputs.auto_deploy_push_ghcr }}" \
+            -f inputs[push_ghcr_image]="${{ steps.config.outputs.auto_deploy_push_ghcr }}" \
             -f inputs[push_ghcr_latest]="${{ steps.config.outputs.auto_deploy_push_ghcr_latest }}" \
             -f inputs[ghcr_repository]="${{ steps.config.outputs.auto_deploy_model_catalog_ghcr_repository }}"
 
@@ -326,7 +326,7 @@ jobs:
             -f inputs[version_mode]="next_patch" \
             -f inputs[push_image]="true" \
             -f inputs[push_latest]="true" \
-            -f inputs[push_ghcr]="${{ steps.config.outputs.auto_deploy_push_ghcr }}" \
+            -f inputs[push_ghcr_image]="${{ steps.config.outputs.auto_deploy_push_ghcr }}" \
             -f inputs[push_ghcr_latest]="${{ steps.config.outputs.auto_deploy_push_ghcr_latest }}" \
             -f inputs[ghcr_repository]="${{ steps.config.outputs.auto_deploy_bambuddy_runtime_repair_ghcr_repository }}"
 
