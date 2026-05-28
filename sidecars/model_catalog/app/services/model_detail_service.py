@@ -72,6 +72,11 @@ def build_model_detail_response(
         else:
             hidden_media_ids = []
         structured_metadata = models_router._structured_detail_metadata(custom_fields)
+        detail_custom_fields = {
+            key: value
+            for key, value in custom_fields.items()
+            if key not in {models_router.MODEL_UPLOAD_PHOTOS_FIELD, models_router.MODEL_PREVIEW_PHOTO_FIELD}
+        }
         ranking = models_router.read_model_ranking(db_path=state.settings.db_path, model_url=summary.model_url)
         assets = models_router.list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
         preview_file_id = models_router._select_local_preview_asset_id(assets=assets)
@@ -109,6 +114,7 @@ def build_model_detail_response(
                 "source_origin": entry.source_origin,
                 "source_origin_url": entry.source_origin_url,
                 "revision_hash": entry.revision_hash,
+                "custom_fields": detail_custom_fields,
                 "structured_metadata": structured_metadata,
                 "files": serialized_assets,
                 "preview_file_id": preview_file_id,
@@ -118,11 +124,7 @@ def build_model_detail_response(
                 "project_ids": [int(membership["project_id"]) for membership in project_memberships if int(membership.get("project_id") or 0) > 0],
             },
             "enrichment": {
-                "custom_fields": {
-                    key: value
-                    for key, value in custom_fields.items()
-                    if key not in {models_router.MODEL_UPLOAD_PHOTOS_FIELD, models_router.MODEL_PREVIEW_PHOTO_FIELD}
-                },
+                "custom_fields": detail_custom_fields,
                 "structured_metadata": structured_metadata,
                 "color_scheme": custom_fields.get("color_scheme", []),
                 "print_time_estimate": custom_fields.get("print_time_estimate"),

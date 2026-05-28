@@ -104,6 +104,9 @@ def test_build_model_detail_response_local_success(monkeypatch) -> None:
     assert payload["authority"] == "local"
     assert payload["model"]["name"] == "Local Model"
     assert payload["model"]["files"][0]["id"] == "asset-1"
+    assert payload["model"]["custom_fields"]["custom_key"] == "custom-value"
+    assert "preview_photo_id" not in payload["model"]["custom_fields"]
+    assert "uploaded_photos" not in payload["model"]["custom_fields"]
     assert payload["enrichment"]["difficulty_level"] == "beginner"
     assert payload["enrichment"]["custom_fields"]["custom_key"] == "custom-value"
     assert "preview_photo_id" not in payload["enrichment"]["custom_fields"]

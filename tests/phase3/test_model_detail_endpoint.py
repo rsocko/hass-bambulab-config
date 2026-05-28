@@ -221,6 +221,7 @@ class TestModelDetailEndpoint:
             assert data["enrichment"]["print_time_estimate"] == 7200
             assert data["enrichment"]["support_type_hint"] == "linear"
             assert data["enrichment"]["custom_fields"] == enrichment_data
+            assert data["model"]["custom_fields"] == enrichment_data
             assert data["enrichment"]["structured_metadata"]["provenance"]["origin_type"] == "remix"
             assert data["enrichment"]["structured_metadata"]["provenance"]["source_platform"] == "makerworld"
             assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld", "printables"]
