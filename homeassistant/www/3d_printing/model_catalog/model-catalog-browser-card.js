@@ -83,6 +83,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._boundWheel = this._handleWheel.bind(this);
     this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
     this._boundDetailChanged = this._handleDetailChanged.bind(this);
+    this._boundProjectFocus = this._handleProjectFocus.bind(this);
     this._didInitialRender = false;
     this._hasAttemptedLoad = false;
     this._lastAppliedScopeStamp = 0;
@@ -964,6 +965,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     window.addEventListener("model-catalog-detail-changed", this._boundDetailChanged);
+    window.addEventListener("model-catalog-project-focus", this._boundProjectFocus);
     addShimmerAnimation();
     if (this._hass && this._hasAttemptedLoad && !this._loading) {
       if (this._isScopeStale()) {
@@ -1023,6 +1025,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     window.removeEventListener("model-catalog-detail-changed", this._boundDetailChanged);
+    window.removeEventListener("model-catalog-project-focus", this._boundProjectFocus);
     this._cancelScheduledApply();
     if (this._renderRAFId) {
       cancelAnimationFrame(this._renderRAFId);
@@ -1689,6 +1692,23 @@ class ModelCatalogBrowserCard extends HTMLElement {
     window.setTimeout(function () {
       this._retryFailedCardThumb(modelRef);
     }.bind(this), 3000);
+  }
+
+  _handleProjectFocus(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
+    var projectId = parseInt(String(detail.projectId || detail.project_id || "0"), 10);
+    if (!Number.isFinite(projectId) || projectId <= 0) {
+      return;
+    }
+    var scope = String(detail.scope || "projects").trim().toLowerCase();
+    this._browserScope = scope === "models" ? "models" : "projects";
+    this._projectDetail = null;
+    this._applyLeftNavSelection("project:" + String(projectId), {
+      closeDrawer: true,
+      requestLoad: true,
+      render: true,
+      forceSelection: true,
+    });
   }
 
   _handleCatalogDataChanged(event) {
@@ -2590,7 +2610,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.stopPropagation();
       var projectId = parseInt(String(target.getAttribute("data-project-id") || "0"), 10);
       this._browserScope = "models";
-      this._applyLeftNavSelection(projectId > 0 ? ("project:" + String(projectId)) : "all-models", { closeDrawer: true, requestLoad: true, render: true });
+      this._applyLeftNavSelection(projectId > 0 ? ("project:" + String(projectId)) : "all-models", { closeDrawer: true, requestLoad: true, render: true, forceSelection: true });
       return;
     }
 
@@ -4326,7 +4346,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     this._browserScope = 'projects';
-    this._applyLeftNavSelection('project:' + String(normalizedProjectId), { closeDrawer: true, requestLoad: true, render: true });
+    this._applyLeftNavSelection('project:' + String(normalizedProjectId), { closeDrawer: true, requestLoad: true, render: true, forceSelection: true });
   }
 
   _closeProjectDetail() {
@@ -6712,7 +6732,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       contextFrequents = false;
       contextRecentAdded = false;
       contextRecentPrinted = false;
-      contextProjectId = (Number.isFinite(projectId) && projectId > 0 && contextProjectId !== projectId) ? projectId : null;
+      contextProjectId = settings.forceSelection
+        ? ((Number.isFinite(projectId) && projectId > 0) ? projectId : null)
+        : ((Number.isFinite(projectId) && projectId > 0 && contextProjectId !== projectId) ? projectId : null);
       this._projectDetail = null;
     } else {
       contextCollection = "";

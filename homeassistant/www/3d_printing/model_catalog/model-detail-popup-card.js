@@ -580,6 +580,16 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const projectFocusBtn = target.closest('[data-action="focus-project"]');
+    if (projectFocusBtn) {
+      event.preventDefault();
+      const projectId = projectFocusBtn.dataset.projectId;
+      if (projectId) {
+        this._focusProjectInBrowser(projectId);
+      }
+      return;
+    }
+
     // Tag picker toggle
     if (target.closest('[data-action="toggle-tag-picker"]')) {
       event.preventDefault();
@@ -3169,6 +3179,20 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
           background: rgba(110,218,203,0.10); color: var(--accent-color, #6edacb); border: 1px solid rgba(110,218,203,0.28);
         }
+        .tag-chip-button {
+          appearance: none;
+          -webkit-appearance: none;
+          cursor: pointer;
+          font: inherit;
+          line-height: inherit;
+        }
+        .tag-chip-button:hover,
+        .tag-chip-button:focus-visible {
+          background: rgba(110,218,203,0.16);
+          border-color: rgba(110,218,203,0.42);
+          color: var(--text);
+          outline: none;
+        }
         .tag-chip.stale {
           background: rgba(239, 68, 68, 0.12);
           border-color: rgba(239, 68, 68, 0.28);
@@ -4871,7 +4895,11 @@ class ModelDetailPopupCard extends HTMLElement {
                   ? projectRows.map((membership) => {
                       const projectId = String(membership && membership.project_id || '').trim();
                       const isStaleMembership = this._modelMetaEditOpen && staleProjectSet.has(projectId);
-                      return `<span class="tag-chip${isStaleMembership ? ' stale' : ''}">${this._escapeHtml(this._projectMembershipLabel(membership))}${isStaleMembership ? ' <span class="stale-note">Missing</span>' : ''}${this._modelMetaEditOpen ? ` <span class="x" data-action="remove-project" data-project-id="${this._escapeHtml(projectId)}" title="Remove project">✕</span>` : ''}</span>`;
+                      const chipLabel = this._escapeHtml(this._projectMembershipLabel(membership));
+                      if (!this._modelMetaEditOpen && !isStaleMembership && projectId) {
+                        return `<button class="tag-chip tag-chip-button" type="button" data-action="focus-project" data-project-id="${this._escapeHtml(projectId)}" title="Open project">${chipLabel}</button>`;
+                      }
+                      return `<span class="tag-chip${isStaleMembership ? ' stale' : ''}">${chipLabel}${isStaleMembership ? ' <span class="stale-note">Missing</span>' : ''}${this._modelMetaEditOpen ? ` <span class="x" data-action="remove-project" data-project-id="${this._escapeHtml(projectId)}" title="Remove project">✕</span>` : ''}</span>`;
                     }).join('')
                   : '<span class="summary-empty">No Project</span>'}
                 ${this._modelMetaEditOpen ? `<div class="project-picker-wrap picker-wrap">
@@ -9337,6 +9365,19 @@ class ModelDetailPopupCard extends HTMLElement {
         detail: { modelRef: modelRef },
       }));
     } catch (_e) { /* ignore */ }
+  }
+
+  _focusProjectInBrowser(projectId) {
+    const normalizedProjectId = parseInt(String(projectId || '').trim(), 10);
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+      return;
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('model-catalog-project-focus', {
+        detail: { projectId: normalizedProjectId, scope: 'projects' },
+      }));
+    } catch (_e) { /* ignore */ }
+    this._fireBrowserModEvent('browser_mod.close_popup', {});
   }
 
   _fireBrowserModEvent(service, data) {
