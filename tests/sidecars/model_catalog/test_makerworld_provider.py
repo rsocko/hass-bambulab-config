@@ -317,10 +317,17 @@ def test_resolve_design_id_raises_authentication_error_for_401() -> None:
 
 def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
     payload = _minimal_3mf_payload()
+    captured_headers: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_headers.update({key: value for key, value in request.headers.items()})
+        assert str(request.url) == "https://api.example.invalid/v1/design-service/instance/1309482/f3mf?type=download"
+        return httpx.Response(200, content=payload)
+
     adapter = MakerWorldAdapter(
         "token",
         api_base="https://api.example.invalid/v1",
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=payload)),
+        transport=httpx.MockTransport(handler),
     )
 
     destination = tmp_path / "downloaded.3mf"
@@ -328,6 +335,29 @@ def test_download_3mf_writes_binary_file(tmp_path: Path) -> None:
 
     assert result == destination
     assert destination.read_bytes() == payload
+    assert captured_headers["authorization"] == "Bearer token"
+    assert captured_headers["accept"] == "application/octet-stream, */*;q=0.9"
+    assert captured_headers["origin"] == "https://makerworld.com"
+    assert captured_headers["referer"] == "https://makerworld.com/"
+    assert "mozilla/5.0" in captured_headers["user-agent"].lower()
+
+
+def test_download_3mf_classifies_418_as_access_blocked(tmp_path: Path) -> None:
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(lambda request: httpx.Response(418, text="blocked")),
+    )
+
+    destination = tmp_path / "downloaded.3mf"
+
+    try:
+        asyncio.run(adapter.download_3mf(1309482, destination))
+    except ProviderUnavailableError as exc:
+        assert "status 418" in str(exc)
+        assert "blocked" in str(exc)
+    else:
+        raise AssertionError("Expected ProviderUnavailableError")
 
 
 def test_download_3mf_rejects_invalid_payload(tmp_path: Path) -> None:

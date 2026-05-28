@@ -69,6 +69,11 @@ class MakerWorldAdapter:
     PROVIDER_ID = "makerworld"
     API_BASE = "https://api.bambulab.com/v1"
     DESIGN_URL_RE = httpx.URL("https://makerworld.com")
+    DEFAULT_USER_AGENT = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/136.0.0.0 Safari/537.36"
+    )
 
     def __init__(
         self,
@@ -454,11 +459,16 @@ class MakerWorldAdapter:
                 timeout=timeout,
                 params=params,
                 absolute_url=absolute_url,
+                accept_header="application/octet-stream, */*;q=0.9" if not absolute_url else "*/*",
             )
             if response.status_code in {401, 403}:
                 raise AuthenticationError("MakerWorld authentication failed")
             if response.status_code == 404:
                 raise ProviderUnavailableError("MakerWorld resource was not found")
+            if response.status_code == 418:
+                raise ProviderUnavailableError(
+                    "MakerWorld download was rejected with status 418; upstream likely blocked the request shape or token"
+                )
             if response.status_code == 429:
                 if retries_429 >= max_429_retries:
                     raise ProviderUnavailableError("MakerWorld rate limit retries exhausted")
@@ -488,13 +498,23 @@ class MakerWorldAdapter:
         timeout: float,
         params: dict[str, Any] | None = None,
         absolute_url: bool = False,
+        accept_header: str | None = None,
     ) -> httpx.Response:
         await self._throttle()
         request_url = url_path if absolute_url else f"{self._api_base}{url_path}"
         headers = {
             "Authorization": f"Bearer {self._auth_token}",
-            "Accept": "application/json" if not absolute_url else "*/*",
+            "Accept": accept_header or ("application/json" if not absolute_url else "*/*"),
         }
+        if not absolute_url:
+            headers.update(
+                {
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Origin": str(self.DESIGN_URL_RE),
+                    "Referer": f"{self.DESIGN_URL_RE}/",
+                    "User-Agent": self.DEFAULT_USER_AGENT,
+                }
+            )
         try:
             async with httpx.AsyncClient(
                 timeout=timeout,
