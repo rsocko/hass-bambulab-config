@@ -117,6 +117,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
       error: "",
       submitting: false,
     };
+    this._bulkCollectionSearchQuery = "";
+    this._bulkCollectionSearchSelectionStart = null;
+    this._bulkCollectionSearchSelectionEnd = null;
+    this._bulkCollectionPickerHighlightIndex = 0;
+    this._focusBulkCollectionSearchAfterRender = false;
     this._collectionActionFeedback = null;
     this._collectionActionFeedbackTimer = null;
     this._focusCollectionActionPrimaryAfterRender = false;
@@ -1867,6 +1872,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._queueDialogNotes = String(target.value || "");
       return;
     }
+    if (target && target.classList && target.classList.contains("bulk-collection-search")) {
+      this._bulkCollectionSearchQuery = String(target.value || "");
+      this._bulkCollectionSearchSelectionStart = Number.isFinite(target.selectionStart) ? target.selectionStart : this._bulkCollectionSearchQuery.length;
+      this._bulkCollectionSearchSelectionEnd = Number.isFinite(target.selectionEnd) ? target.selectionEnd : this._bulkCollectionSearchSelectionStart;
+      this._bulkCollectionPickerHighlightIndex = 0;
+      if (this._collectionActionDialog && this._collectionActionDialog.error) {
+        this._collectionActionDialog.error = "";
+      }
+      this._focusBulkCollectionSearchAfterRender = true;
+      this._render();
+      return;
+    }
     if (target && target.classList && target.classList.contains("collection-action-input")) {
       this._collectionActionDialog.name = String(target.value || "");
       if (this._collectionActionDialog && this._collectionActionDialog.mode === 'bulk-add') {
@@ -1957,6 +1974,44 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     var rawTarget = event.target;
+
+    if (this._isBulkCollectionPickerOpen()) {
+      var isBulkCollectionSearch = rawTarget instanceof HTMLInputElement && rawTarget.dataset && rawTarget.dataset.input === 'bulk-collection-search';
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') && isBulkCollectionSearch) {
+        var bulkPickerOptions = this._buildBulkCollectionPickerState(this._collectionActionDialog).options;
+        if (bulkPickerOptions.length) {
+          event.preventDefault();
+          this._bulkCollectionSearchSelectionStart = Number.isFinite(rawTarget.selectionStart) ? rawTarget.selectionStart : this._bulkCollectionSearchQuery.length;
+          this._bulkCollectionSearchSelectionEnd = Number.isFinite(rawTarget.selectionEnd) ? rawTarget.selectionEnd : this._bulkCollectionSearchSelectionStart;
+          if (event.key === 'ArrowDown') {
+            this._bulkCollectionPickerHighlightIndex = Math.min(this._bulkCollectionPickerHighlightIndex + 1, bulkPickerOptions.length - 1);
+          } else if (event.key === 'ArrowUp') {
+            this._bulkCollectionPickerHighlightIndex = Math.max(this._bulkCollectionPickerHighlightIndex - 1, 0);
+          } else if (event.key === 'Home') {
+            this._bulkCollectionPickerHighlightIndex = 0;
+          } else if (event.key === 'End') {
+            this._bulkCollectionPickerHighlightIndex = bulkPickerOptions.length - 1;
+          }
+          this._focusBulkCollectionSearchAfterRender = true;
+          this._render();
+        }
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this._closeCollectionActionDialog();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && isBulkCollectionSearch) {
+        var committedBulkSelection = this._commitBulkCollectionPickerSelection();
+        if (!committedBulkSelection && event.key === 'Tab') {
+          return;
+        }
+        event.preventDefault();
+        return;
+      }
+    }
+
     var cardTarget = rawTarget && rawTarget.closest ? rawTarget.closest(".model-card[data-action='view-model-detail']") : null;
     if (cardTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
@@ -2040,11 +2095,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var rawTarget = event && event.target;
     var target = rawTarget && rawTarget.closest ? rawTarget.closest("[data-action]") : null;
     var menuHost = rawTarget && rawTarget.closest ? rawTarget.closest(".advanced-menu-shell") : null;
+    var bulkCollectionHost = rawTarget && rawTarget.closest ? rawTarget.closest(".bulk-collection-shell") : null;
     var closeMenu = !!this._activeActionMenu && !menuHost;
+    var closeBulkCollectionPicker = this._isBulkCollectionPickerOpen() && !bulkCollectionHost;
     if (!target) {
       if (closeMenu) {
         this._activeActionMenu = "";
         this._updateActionMenus();
+      }
+      if (closeBulkCollectionPicker) {
+        this._closeCollectionActionDialog();
       }
       return;
     }
@@ -2052,6 +2112,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (closeMenu && action !== "toggle-actions") {
       this._activeActionMenu = "";
+    }
+    if (closeBulkCollectionPicker && action !== 'bulk-add-to-collection') {
+      this._closeCollectionActionDialog();
     }
 
     if (action === "clear-filters") {
@@ -2242,6 +2305,32 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._collectionActionDialog.name = String(target.getAttribute('data-collection-label') || '').trim();
       this._collectionActionDialog.error = '';
       this._render();
+      return;
+    }
+
+    if (action === 'select-bulk-collection-option') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this._collectionActionDialog || this._collectionActionDialog.submitting) {
+        return;
+      }
+      this._collectionActionDialog.collectionId = this._normalizeCollectionId(target.getAttribute('data-collection-id'));
+      this._collectionActionDialog.name = String(target.getAttribute('data-collection-label') || '').trim();
+      this._collectionActionDialog.error = '';
+      await this._submitCollectionActionDialog();
+      return;
+    }
+
+    if (action === 'create-bulk-collection') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this._collectionActionDialog || this._collectionActionDialog.submitting) {
+        return;
+      }
+      this._collectionActionDialog.collectionId = '';
+      this._collectionActionDialog.name = String(target.getAttribute('data-collection-query') || this._bulkCollectionSearchQuery || '').trim();
+      this._collectionActionDialog.error = '';
+      await this._submitCollectionActionDialog();
       return;
     }
 
@@ -2528,6 +2617,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (action === 'bulk-add-to-collection') {
       event.preventDefault();
       event.stopPropagation();
+      if (this._isBulkCollectionPickerOpen()) {
+        this._closeCollectionActionDialog();
+        return;
+      }
       await this._openBulkAddCollectionDialog();
       return;
     }
@@ -3550,7 +3643,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   _buildBulkCollectionPickerState(dialog) {
     var source = Array.isArray(dialog && dialog.options) ? dialog.options : [];
-    var query = this._normalizedCollectionPathText(dialog && dialog.name || '');
+    var query = this._normalizedCollectionPathText(this._bulkCollectionSearchQuery || dialog && dialog.name || '');
     var normalizedQuery = query.toLowerCase();
     var filtered = [];
     for (var index = 0; index < source.length; index++) {
@@ -3570,12 +3663,99 @@ class ModelCatalogBrowserCard extends HTMLElement {
         filtered.push(row);
       }
     }
+    var exactMatchRow = this._findCollectionRowByQuery(source, query);
+    var options = filtered.slice(0, 8).map(function (row) {
+      return {
+        type: 'collection',
+        row: row,
+      };
+    });
+    if (query && !exactMatchRow) {
+      options.push({
+        type: 'create',
+        value: query,
+      });
+    }
     return {
       query: query,
       selectedRow: this._findCollectionRowById(source, dialog && dialog.collectionId),
-      exactMatchRow: this._findCollectionRowByQuery(source, query),
-      options: filtered.slice(0, 8),
+      exactMatchRow: exactMatchRow,
+      options: options,
     };
+  }
+
+  _isBulkCollectionPickerOpen() {
+    return !!(this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode === 'bulk-add');
+  }
+
+  _renderBulkCollectionPickerTrigger() {
+    var dialog = this._collectionActionDialog && typeof this._collectionActionDialog === 'object' ? this._collectionActionDialog : null;
+    var isOpen = this._isBulkCollectionPickerOpen();
+    var pickerState = this._buildBulkCollectionPickerState(dialog);
+    var options = pickerState.options;
+    if (this._bulkCollectionPickerHighlightIndex < 0 || this._bulkCollectionPickerHighlightIndex >= options.length) {
+      this._bulkCollectionPickerHighlightIndex = options.length ? 0 : -1;
+    }
+    return ''
+      + '<div class="bulk-collection-shell">'
+      + '  <button class="bulk-btn bulk-collection-trigger' + (isOpen ? ' active' : '') + '" type="button" data-action="bulk-add-to-collection" aria-haspopup="listbox" aria-expanded="' + (isOpen ? 'true' : 'false') + '"' + (dialog && dialog.submitting ? ' disabled' : '') + '>Add To Collection...</button>'
+      + (isOpen ? this._renderBulkCollectionPicker(dialog, pickerState) : '')
+      + '</div>';
+  }
+
+  _renderBulkCollectionPicker(dialog, pickerState) {
+    var options = pickerState && Array.isArray(pickerState.options) ? pickerState.options : [];
+    return ''
+      + '<div class="bulk-collection-picker" role="dialog" aria-label="Add selected records to collection">'
+      + '  <div class="bulk-collection-picker-note">Select an existing collection or create a new path for the current selection.</div>'
+      + '  <input class="bulk-collection-search search-box" type="text" placeholder="Search or create collection path…" data-input="bulk-collection-search" value="' + this._escapeHtml(this._bulkCollectionSearchQuery) + '"' + (dialog && dialog.submitting ? ' disabled' : '') + ' />'
+      + '  <div class="bulk-collection-picker-list" role="listbox">'
+      + (options.length
+        ? options.map(function (option, index) {
+            var selectedClass = index === this._bulkCollectionPickerHighlightIndex ? ' selected' : '';
+            if (option.type === 'create') {
+              return '<button class="create-new' + selectedClass + '" type="button" data-action="create-bulk-collection" data-collection-query="' + this._escapeHtml(option.value) + '"' + (dialog && dialog.submitting ? ' disabled' : '') + '>+ Create "' + this._escapeHtml(option.value) + '"</button>';
+            }
+            var row = option.row || {};
+            var optionId = this._normalizeCollectionId(row.collection_id);
+            var optionLabel = this._collectionOptionLabel(row);
+            return '<button class="opt' + selectedClass + '" type="button" data-action="select-bulk-collection-option" data-collection-id="' + this._escapeHtml(optionId) + '" data-collection-label="' + this._escapeHtml(optionLabel) + '"' + (dialog && dialog.submitting ? ' disabled' : '') + '>' + this._escapeHtml(optionLabel) + '<span class="path-meta">existing</span></button>';
+          }.bind(this)).join('')
+        : '<div class="bulk-collection-empty">No matching collections yet.</div>')
+      + '  </div>'
+      + (dialog && dialog.submitting ? '<div class="bulk-collection-status">Applying collection to selected records...</div>' : '')
+      + (dialog && dialog.error ? '<div class="collection-action-error bulk-collection-error">' + this._escapeHtml(dialog.error) + '</div>' : '')
+      + '</div>';
+  }
+
+  _commitBulkCollectionPickerSelection() {
+    if (!this._isBulkCollectionPickerOpen() || !this._collectionActionDialog || this._collectionActionDialog.submitting) {
+      return false;
+    }
+    var options = this._buildBulkCollectionPickerState(this._collectionActionDialog).options;
+    var selected = options[this._bulkCollectionPickerHighlightIndex] || null;
+    if (selected && selected.type === 'collection' && selected.row) {
+      this._collectionActionDialog.collectionId = this._normalizeCollectionId(selected.row.collection_id);
+      this._collectionActionDialog.name = this._collectionOptionLabel(selected.row);
+      this._collectionActionDialog.error = '';
+      this._submitCollectionActionDialog();
+      return true;
+    }
+    if (selected && selected.type === 'create') {
+      this._collectionActionDialog.collectionId = '';
+      this._collectionActionDialog.name = String(selected.value || '').trim();
+      this._collectionActionDialog.error = '';
+      this._submitCollectionActionDialog();
+      return true;
+    }
+    if (String(this._bulkCollectionSearchQuery || '').trim()) {
+      this._collectionActionDialog.collectionId = '';
+      this._collectionActionDialog.name = String(this._bulkCollectionSearchQuery || '').trim();
+      this._collectionActionDialog.error = '';
+      this._submitCollectionActionDialog();
+      return true;
+    }
+    return false;
   }
 
   _collectionRowsById(rows) {
@@ -3674,6 +3854,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._collectionActionDialog && this._collectionActionDialog.submitting) {
       return;
     }
+    this._bulkCollectionSearchQuery = '';
+    this._bulkCollectionSearchSelectionStart = null;
+    this._bulkCollectionSearchSelectionEnd = null;
+    this._bulkCollectionPickerHighlightIndex = 0;
+    this._focusBulkCollectionSearchAfterRender = false;
     this._collectionActionDialog = {
       open: false,
       mode: "",
@@ -3714,12 +3899,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
     rows.sort(function (left, right) {
       return this._collectionOptionLabel(left).localeCompare(this._collectionOptionLabel(right), undefined, { sensitivity: 'base' });
     }.bind(this));
-    this._openCollectionActionDialog('bulk-add', {
+    this._activeActionMenu = '';
+    this._bulkCollectionSearchQuery = '';
+    this._bulkCollectionSearchSelectionStart = null;
+    this._bulkCollectionSearchSelectionEnd = null;
+    this._bulkCollectionPickerHighlightIndex = 0;
+    this._collectionActionDialog = {
+      open: true,
+      mode: 'bulk-add',
+      collectionId: '',
       label: selectedCount === 1 ? '1 selected record' : String(selectedCount) + ' selected records',
       path: 'Existing memberships are preserved for every selected model or idea.',
       name: '',
+      selectedParentId: '',
       options: rows,
-    });
+      error: '',
+      submitting: false,
+    };
+    this._focusBulkCollectionSearchAfterRender = true;
+    this._render();
   }
 
   async _submitCollectionActionDialog() {
@@ -3788,6 +3986,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._collectionActionDialog.submitting = false;
       this._error = '';
       this._activeActionMenu = '';
+      if (mode === 'bulk-add') {
+        this._bulkCollectionSearchQuery = '';
+        this._bulkCollectionSearchSelectionStart = null;
+        this._bulkCollectionSearchSelectionEnd = null;
+        this._bulkCollectionPickerHighlightIndex = 0;
+      }
       if (deletedSelectedCollection) {
         this._applyLeftNavSelection('all-models', { closeDrawer: false, requestLoad: false, render: false });
       }
@@ -5827,7 +6031,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '<div class="page-control-strip multi-select-active' + extraClass + '">'
       + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
       + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
-      + '  <button class="bulk-btn" type="button" data-action="bulk-add-to-collection">Add To Collection...</button>'
+      + this._renderBulkCollectionPickerTrigger()
       + '  <button class="bulk-btn" type="button" data-action="bulk-pin-favorites">Pin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-archive"><ha-icon icon="mdi:archive-arrow-down-outline"></ha-icon> Archive</button>'
@@ -6796,31 +7000,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return '';
     }
     var mode = String(dialog.mode || '').trim().toLowerCase();
+    if (mode === 'bulk-add') {
+      return '';
+    }
     var isDelete = mode === 'delete';
     var submitLabel = this._collectionDialogSubmitLabel(mode);
     var bodyHtml = '';
-    if (mode === 'bulk-add') {
-      var pickerState = this._buildBulkCollectionPickerState(dialog);
-      var selectedRow = pickerState.selectedRow || pickerState.exactMatchRow;
-      bodyHtml = ''
-        + '<div class="collection-action-note">Pick one existing collection or type a new collection path. The selection is appended to every selected model or idea; existing memberships stay intact.</div>'
-        + '<label class="collection-action-field"><span>Collection path</span><input class="collection-action-input" type="text" maxlength="255" value="' + this._escapeHtml(dialog.name) + '" placeholder="Functional / Gridfinity"></label>'
-        + '<div class="collection-action-picker">'
-        + (pickerState.options.length
-          ? pickerState.options.map(function (option) {
-              var optionId = this._normalizeCollectionId(option && option.collection_id);
-              var optionLabel = this._collectionOptionLabel(option);
-              var isSelected = selectedRow && optionId === this._normalizeCollectionId(selectedRow.collection_id);
-              return '<button class="collection-action-option' + (isSelected ? ' selected' : '') + '" type="button" data-action="select-collection-action-option" data-collection-id="' + this._escapeHtml(optionId) + '" data-collection-label="' + this._escapeHtml(optionLabel) + '"><span>' + this._escapeHtml(optionLabel) + '</span><span class="collection-action-option-meta">existing</span></button>';
-            }.bind(this)).join('')
-          : '<div class="collection-action-empty">No matching collections yet.</div>')
-        + '</div>'
-        + (selectedRow
-          ? '<div class="collection-action-summary"><strong>Selected</strong><span>' + this._escapeHtml(this._collectionOptionLabel(selectedRow)) + '</span></div>'
-          : (pickerState.query && !pickerState.exactMatchRow
-            ? '<div class="collection-action-summary"><strong>Create New</strong><span>' + this._escapeHtml(this._normalizedCollectionPathText(pickerState.query)) + '</span></div>'
-            : ''));
-    } else if (mode === 'rename') {
+    if (mode === 'rename') {
       bodyHtml = ''
         + '<div class="collection-action-note">Update the display name for this collection. Its hierarchy path will refresh after save.</div>'
         + '<label class="collection-action-field"><span>Name</span><input class="collection-action-input" type="text" maxlength="255" value="' + this._escapeHtml(dialog.name) + '" placeholder="Collection name"></label>';
@@ -8092,6 +8278,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-source-select{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;appearance:auto;-webkit-appearance:auto;color-scheme:dark;}'
       + '.page-control-strip.multi-select-active .bulk-source-select:hover{background:var(--surface-3);border-color:var(--accent);}'
       + '.page-control-strip.multi-select-active .bulk-source-select:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
+      + '.bulk-collection-shell{position:relative;display:flex;align-items:center;}'
+      + '.bulk-collection-trigger.active{background:var(--accent);border-color:var(--accent-strong);color:#fff;}'
+      + '.bulk-collection-picker{position:absolute;top:calc(100% + 8px);left:0;z-index:8;display:grid;gap:10px;width:min(360px,calc(100vw - 48px));padding:12px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.97);box-shadow:0 18px 34px rgba(15,23,42,0.28);}'
+      + '.bulk-collection-picker-note,.bulk-collection-status{font-size:12px;line-height:1.45;color:var(--secondary-text-color);}'
+      + '.bulk-collection-picker .search-box{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.16);color:var(--primary-text-color);padding:10px 12px;font:inherit;}'
+      + '.bulk-collection-picker .search-box:focus{outline:none;border-color:rgba(96,165,250,0.46);box-shadow:0 0 0 1px rgba(96,165,250,0.26);}'
+      + '.bulk-collection-picker-list{display:grid;gap:8px;max-height:280px;overflow:auto;padding-right:2px;}'
+      + '.bulk-collection-picker .opt,.bulk-collection-picker .create-new{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.22);color:var(--primary-text-color);font:inherit;text-align:left;cursor:pointer;transition:border-color 160ms ease, background 160ms ease;}'
+      + '.bulk-collection-picker .opt:hover,.bulk-collection-picker .opt.selected,.bulk-collection-picker .create-new:hover,.bulk-collection-picker .create-new.selected{border-color:rgba(96,165,250,0.5);background:rgba(30,41,59,0.62);}'
+      + '.bulk-collection-picker .path-meta{font-size:11px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:0.06em;}'
+      + '.bulk-collection-empty{padding:10px 12px;border-radius:12px;border:1px dashed rgba(148,163,184,0.24);color:var(--secondary-text-color);font-size:12px;}'
+      + '.bulk-collection-error{margin-top:2px;}'
       + '@media (max-width: 900px){.catalog-layout{grid-template-columns:minmax(0,1fr);}.toolbar-icon-btn.left-nav-toggle{display:inline-flex;}.nav-context-chip{display:inline-flex;}.left-nav{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);max-height:none;border-radius:0 16px 16px 0;z-index:20;transform:translateX(-110%);transition:transform 180ms ease;box-shadow:0 18px 44px rgba(2,6,23,0.46);background:var(--card-background-color, #1e293b);gap:6px;padding:14px 12px;border-left:none;align-content:start;}.left-nav .left-nav-section{gap:4px;}.left-nav .left-nav-section + .left-nav-section{padding-top:8px;}.left-nav .left-nav-item{min-height:32px;}.left-nav .left-nav-collapse{display:none;}.left-nav.drawer-open{transform:translateX(0);}.left-nav.collapsed{width:min(320px,84vw);padding:12px;}.left-nav.collapsed .left-nav-title-wrap{display:flex;}.left-nav.collapsed .left-nav-title-text,.left-nav.collapsed .left-nav-section-label,.left-nav.collapsed .left-nav-item-label,.left-nav.collapsed .left-nav-item-count{display:initial;}.left-nav.collapsed .left-nav-item{justify-content:space-between;padding:0 8px;}.left-nav.collapsed .left-nav-collapse{display:none;position:static;opacity:1;pointer-events:none;}.left-nav-backdrop{display:block;position:fixed;inset:0;z-index:19;border:0;background:rgba(2,6,23,0.55);opacity:0;pointer-events:none;transition:opacity 180ms ease;}.left-nav-backdrop.open{opacity:1;pointer-events:auto;}}'
       + '@media (max-width: 560px){.shell{padding:6px 10px 10px;}.card-title{display:none;}.nav-context-chip{max-width:min(180px,40vw);}.filter-row{grid-template-columns:1fr;}.title-left,.title-right{width:100%;}.sort-group{width:100%;justify-content:space-between;}.import-menu-items{right:auto;left:0;}.toolbar-group{width:100%;justify-content:flex-start;}.page-status{padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}.collection-browser-header-title{font-size:18px;}.collection-browser-header-subtitle{white-space:normal;}.collection-card-top{align-items:center;}.collection-stats{grid-template-columns:1fr 1fr;}}';
       this._contentRoot = document.createElement('ha-card');
@@ -8100,7 +8298,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.appendChild(this._contentRoot);
     }
 
-    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open)));
+    this._contentRoot.classList.toggle('queue-dialog-host-open', !!(this._queueDialogOpen || this._ideaCreateDialogOpen || (this._collectionActionDialog && this._collectionActionDialog.open && this._collectionActionDialog.mode !== 'bulk-add')));
 
     // Preserve focus across the innerHTML reset below. Without this, any
     // active input (most visibly the search box "#mc-q") loses focus on every
@@ -8154,6 +8352,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var dialogPrimary = this.shadowRoot.querySelector('.collection-action-input, .collection-action-select, .collection-action-submit');
       if (dialogPrimary) {
         requestAnimationFrame(function() { try { dialogPrimary.focus(); } catch(_e) {} });
+      }
+    }
+    if (this._focusBulkCollectionSearchAfterRender) {
+      this._focusBulkCollectionSearchAfterRender = false;
+      var bulkCollectionSearch = this.shadowRoot.querySelector('.bulk-collection-search');
+      if (bulkCollectionSearch) {
+        var bulkSearchStart = Number.isFinite(this._bulkCollectionSearchSelectionStart)
+          ? Math.max(0, Math.min(this._bulkCollectionSearchSelectionStart, bulkCollectionSearch.value.length))
+          : bulkCollectionSearch.value.length;
+        var bulkSearchEnd = Number.isFinite(this._bulkCollectionSearchSelectionEnd)
+          ? Math.max(bulkSearchStart, Math.min(this._bulkCollectionSearchSelectionEnd, bulkCollectionSearch.value.length))
+          : bulkSearchStart;
+        requestAnimationFrame(function() {
+          try {
+            bulkCollectionSearch.focus();
+            if (typeof bulkCollectionSearch.setSelectionRange === 'function') {
+              bulkCollectionSearch.setSelectionRange(bulkSearchStart, bulkSearchEnd);
+            }
+          } catch (_e) {}
+        });
       }
     }
 
