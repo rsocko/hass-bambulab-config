@@ -19,6 +19,7 @@ Use this mockup set with:
 - [intake-inbox.md](./intake-inbox.md)
 - [intake-wizard-mockups.md](./intake-wizard-mockups.md)
 - [external-source-intake.md](./external-source-intake.md)
+- [issue-1496-various-sources-plan.md](../planning/issue-1496-various-sources-plan.md)
 
 ## Design Position
 
@@ -94,14 +95,19 @@ Resulting direction:
 │ │ [Start Server Wizard]                     │ │ - lithophanes folder                 deferred │
 │ └───────────────────────────────────────────┘ │ [Open Queue Review]                         │
 │ ┌───────────────────────────────────────────┐ │                                            │
-│ │ External Source Capture                   │ └────────────────────────────────────────────┘
+│ │ Capture From Source                        │ └────────────────────────────────────────────┘
 │ │ [ https://makerworld.com/...           ]  │ Recent Job History                            │
-│ │ provider detected automatically           │ - Published to catalog: Modular bin          │
-│ │ [Capture] [Recent captures]               │ - Published to working: TPU feet              │
-│ └───────────────────────────────────────────┘ │ Capture Ops                                   │
-│                                               │ - Browser Extension: healthy                  │
-│                                               │ - Stream Deck Webhook: last seen 2m          │
-│                                               │ - Capture failures today: 1                  │
+│ │ provider/source detected automatically     │ - Published to catalog: Modular bin          │
+│ │ [MakerWorld] [Karakeep] [MSFT Todo]        │ - Published to working: TPU feet              │
+│ │ [Instagram] [Facebook] [Collection URL]    │ Capture Ops                                   │
+│ │ [Capture] [Recent captures] [Sync now]     │ - Browser Extension: healthy                  │
+│ └───────────────────────────────────────────┘ │ - Stream Deck Webhook: last seen 2m          │
+│ Pending capture routes                        │ - MSFT Todo sync: 14 new / 2 warnings        │
+│ - MakerWorld lamp shade -> Model             │ - Capture failures today: 1                  │
+│ - Instagram reel save -> Idea                │                                            │
+│ - Todo: drawer insert -> Project             │                                            │
+│ - Karakeep collection -> Collection          │                                            │
+│ [Open Queue Review]                           │                                            │
 └───────────────────────────────────────────────┴────────────────────────────────────────────┘
 ```
 
@@ -118,6 +124,8 @@ Resulting direction:
 - Quick-capture presets may exist, but they should not dominate the main launchpad.
 - Collection migration belongs here as an Intake-adjacent batch flow, but its exceptions should still feed the same Queue Review surface.
 - Channel Health is useful, but it fits better as recent operational context than as a primary launch control.
+- The source lane should support both provider pages and non-provider captures such as Todo links or social saves.
+- Intake Home may show suggested destination previews, but final destination selection still belongs in review unless an explicit fast-path preset is used.
 
 ## Surface B: Queue Review
 
@@ -134,24 +142,34 @@ Resulting direction:
 │ > Big Brick Man                       │ Big Brick Man                                      │
 │   MakerWorld                          │ makerworld.com/en/models/1295917                   │
 │   validated_warning • duplicate       │ Status: validated_warning                          │
-│                                       │ Queue transport: queued                            │
+│   suggested target: Model             │ Queue transport: queued                            │
 │   Gridfinity label set                │ Cleanup: keep                                      │
 │   Server Inbox                        │                                                    │
 │   validated_ready                     │ Warnings                                           │
-│                                       │ - duplicate candidate                              │
-│   Lithophane archive batch            │ - title collision                                  │
-│   Browser Upload                      │                                                    │
-│   deferred                            │ Prepopulated publish defaults                      │
-│                                       │ - Title: Big Brick Man                             │
-│ [Batch Validate] [Batch Publish]      │ - Creator: pippo_the_printer                       │
-│ [Batch Defer] [Batch Reject]          │ - Description: Large display figurine              │
-│                                       │ - Source origin: makerworld                        │
-│                                       │ - Source URL: canonical MakerWorld URL             │
-│                                       │ - Preview candidate: cover image                   │
+│   suggested target: Working Files     │ - duplicate candidate                              │
+│                                       │ - title collision                                  │
+│   Instagram lamp idea                 │ - title collision                                  │
+│   Instagram save                      │                                                    │
+│   pending_review                      │ Prepopulated publish defaults                      │
+│   suggested target: Idea              │ - Title: Big Brick Man                             │
+│                                       │ - Creator: pippo_the_printer                       │
+│   Todo: drawer insert                 │ - Description: Large display figurine              │
+│   MSFT Todo sync                      │ - Source origin: makerworld                        │
+│   pending_review                      │ - Source URL: canonical MakerWorld URL             │
+│   suggested target: Project           │ - Preview candidate: cover image                   │
 │                                       │ - Tags: brick, figure                              │
+│ [Batch Validate] [Batch Publish]      │                                                    │
+│ [Batch Defer] [Batch Reject]          │ Suggested destination                              │
+│                                       │ [Model] [Working Files] [Idea] [Project]           │
+│                                       │ [Collection] [Link Only]                           │
+│                                       │                                                    │
+│                                       │ Review required because                            │
+│                                       │ - external source                                  │
+│                                       │ - non-file-backed capture                          │
+│                                       │ - destination not yet confirmed                    │
 │                                       │                                                    │
 │                                       │ Actions                                            │
-│                                       │ [Validate] [Publish Catalog] [Publish Working]     │
+│                                       │ [Validate] [Commit Selected Target]                │
 │                                       │ [Defer] [Reject] [Delete]                          │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
@@ -162,6 +180,8 @@ Resulting direction:
 - Queue Review should surface default publish metadata before the operator commits.
 - `Publish Working` belongs here alongside `Publish Catalog`.
 - Validation-action persistence for duplicate findings should eventually live here too.
+- Queue Review should support destination classes beyond Catalog and Working Files, including `Idea`, `Project`, and `Collection`.
+- Mixed-source items should use the same queue list and detail schema, with source-profile and review-reason labels rather than source-specific UI shells.
 
 ## Surface C: Job History
 

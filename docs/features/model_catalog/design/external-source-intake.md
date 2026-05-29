@@ -1,8 +1,8 @@
 # External Source Intake Design
 
-> **Status**: Proposed design package for issues #183, #1179, #189, #232, #1266, #1372
-> **Last updated**: 2026-05-26 (MakerWorld API research update)
-> **Scope**: Unified capture/import architecture for online model sources (MakerWorld, Printables, others), collection migration, browser extension capture, and Stream Deck quick actions.
+> **Status**: Proposed design package for issues #1496, #1615, #1616, #1617, #1618, #1619, #183, #1179, #189, #232, #1266, #1372
+> **Last updated**: 2026-05-28
+> **Scope**: Unified capture, routing, review, and commit architecture for online model sources, task-system links, social saves, collection migration, browser extension capture, and quick actions.
 
 ## Why This Exists
 
@@ -16,6 +16,8 @@ These issues all describe one product need from different angles:
 
 This document provides one architecture and UX contract that satisfies all six issues without splitting into competing one-off flows.
 
+The newer issue cluster under #1496 extends that need further: not every captured item should become a Catalog model immediately, and not every source behaves like a downloadable model page. Some sources should land first as an Idea, Project seed, Collection snapshot, or Working-file handoff. This update turns the earlier provider-centric design into a generalized intake-routing contract.
+
 ## Issue Coverage Matrix
 
 | Issue | Requirement summary | Covered by |
@@ -26,12 +28,20 @@ This document provides one architecture and UX contract that satisfies all six i
 | #232 | Browser extension for pulling model context from open page | Browser extension capture contract + signed handoff endpoint |
 | #1266 | Schema/options for third-party service intake | Intake schema, source records, import mode selection, confidence model |
 | #1372 | Stream Deck quick import actions from source sites | Stream Deck action endpoint, preset actions, deferred review workflow |
+| #1496 | Import from various sources | Generalized ingress routing, destination targeting, and unified review queue |
+| #1615 | Link to or sync from MSFT Todo with `3dprint` tag | Task-system adapter, background sync policy, Idea/Project defaults |
+| #1616 | Links to Karakeep | Read-only capture bridge, batch snapshot import, review-first routing |
+| #1617 | Link to MakerWorld | Explicit provider routing within the generalized intake contract |
+| #1618 | Instagram saved/starred import -> Model/Link/Idea | Social-save capture profile with review-required defaults |
+| #1619 | Facebook saved -> Idea/Model/Project | Social-save capture profile with destination chooser beyond Catalog |
 
 ## Constraints And Existing Repo Context
 
 - Sidecar-owned catalog authority remains the active baseline; do not reintroduce Manyfold as the authority layer.
 - Existing MakerWorld provenance work already defines an offline-first extraction boundary for `.3mf` metadata. This design extends that boundary for online-source capture.
 - External import should remain review-first. Operator intent and confidence must be explicit before creating durable catalog records.
+- The intake system already has canonical surfaces: `Intake Home`, `Queue Review`, the intake wizard, and `Job History`. New source types should plug into those surfaces rather than creating a parallel product.
+- Destination choice is broader than Catalog vs Working. The routing contract must support `Model`, `Working Files`, `Idea`, `Project`, and `Collection` without source-specific redesign each time.
 
 ## Confirmed Decisions (Current)
 
@@ -41,6 +51,128 @@ The following decisions are now confirmed:
 2. Immediate full import is allowed when confidence is `high`.
 3. Implementation uses a provider-aware two-phase strategy, with explicit notes on when to prioritize full import for non-API providers and when API-capable providers can defer file import.
 4. Collection migration approach is currently undecided by the operator; this document now includes a recommended default plus alternatives.
+5. Review remains the canonical default for externally sourced items, even when auto-import is technically possible.
+6. The system should distinguish `capture source` from `destination entity`; they are separate axes.
+
+## 2026-05-28 Routing Update (#1496)
+
+Issue #1496 and its child issues shift this design from "external model import" to "generalized intake from heterogeneous sources".
+
+The architecture now needs to answer three routing questions for every capture:
+
+1. **How did this item arrive?**
+2. **What should it become first?**
+3. **Does it require queue review before commit?**
+
+### Canonical Position
+
+- All new external-source paths land in the same intake system used by file and folder ingestion.
+- `Queue Review` is the canonical review surface for mixed-source items.
+- The default policy is `review_required = true`.
+- Auto-commit is an explicit fast path, not the baseline path.
+- Destination selection is normalized into a small shared set of entity types rather than per-source custom logic.
+
+### Trigger Classes
+
+| Trigger class | Examples | Initiator | Default review policy | Notes |
+|---|---|---|---|---|
+| `user_direct` | URL paste, browser extension on current tab, manual `Capture` click | operator | required | Operator intent is known, but destination and metadata still need confirmation |
+| `user_quick_action` | Stream Deck preset, mobile shortcut, bookmarklet | operator | required unless explicit fast-path preset | Useful for speed, but should still create a durable intake record |
+| `service_push` | n8n webhook, Karakeep outbound hook, browser companion | service on behalf of operator | required | Trust transport, not payload semantics |
+| `background_sync` | MSFT Todo sync, Karakeep poll, social-save poller | service | required | Creates or refreshes pending items without interrupting the operator |
+| `batch_materialization` | collection expansion, saved-list expansion | service after operator or scheduled trigger | required | May produce many review items; batch controls matter |
+
+### Destination Entity Types
+
+| Destination type | Use when | Typical examples |
+|---|---|---|
+| `model` | A curated, reusable printable asset should be created or matched | MakerWorld model, Printables page, direct downloadable model |
+| `working_file_group` | Files should land in active working storage without full curation yet | draft remix bundle, in-progress model pack, manual file handoff |
+| `idea` | The source is inspirational or incomplete and may not be printable yet | Instagram save, Facebook save, note/Todo item with weak metadata |
+| `project` | The source should seed or attach to an active project context | task-linked model request, design brief, project-specific collection item |
+| `collection` | The source is a bundle/list/container that should stay grouped first | Karakeep list, provider collection URL, social saved board |
+| `link_only` | Store provenance/reference without creating a durable local asset yet | low-confidence social link, unsupported provider, auth-blocked page |
+
+### Source Profiles
+
+| Source profile | Current/future issues | Characteristics | Common target suggestions |
+|---|---|---|---|
+| `provider_model_page` | #183, #1179, #1617 | canonical model page, rich metadata, possible file manifest | `model`, `working_file_group`, `link_only` |
+| `task_item` | #1615 | lightweight task/URL/note, often project-contextual | `idea`, `project`, sometimes `model` |
+| `social_saved_link` | #1618, #1619 | weak metadata, noisy provenance, often inspirational | `idea`, `project`, `link_only` |
+| `collection_container` | #189, #1616 | many child items, may need chunking and preflight | `collection`, then per-item `model`/`idea`/`project` |
+| `manual_generic_url` | unsupported or future providers | unknown capability at capture time | `link_only`, `idea` |
+
+### Canonical Intake Path
+
+```mermaid
+flowchart LR
+  A[Capture Channel] --> B[Source Profile Classification]
+  B --> C[Adapter Resolve or Snapshot]
+  C --> D[Intake Record]
+  D --> E{Review Required?}
+  E -- Yes --> F[Queue Review]
+  E -- Explicit fast path --> G[Commit Adapter]
+  F --> G
+  G --> H[Model]
+  G --> I[Working File Group]
+  G --> J[Idea]
+  G --> K[Project Attachment]
+  G --> L[Collection Snapshot]
+  G --> M[Job History]
+```
+
+### Review Policy
+
+Review is the canonical default for the #1496 scope.
+
+#### Always review
+
+- any `background_sync` or `service_push` capture
+- any `social_saved_link` source profile
+- any item targeting `idea`, `project`, or `collection`
+- any item with confidence below `high`
+- any item with duplicate warnings, ambiguous destination suggestions, or missing auth/file evidence
+- any batch materialization flow that expands into multiple child items
+
+#### Fast-path review bypass is allowed only when all conditions hold
+
+- the trigger is operator-initiated (`user_direct` or explicit `user_quick_action` fast preset)
+- confidence is `high`
+- the source profile is `provider_model_page`
+- the chosen target is `model` or `working_file_group`
+- no duplicate or collision warnings are present
+
+Even in the bypass case, the system should still write the same intake record and queue/job audit fields so the action is visible in `Job History` and can be retried or reversed.
+
+### Destination Suggestion Rules
+
+The UI should present **suggested targets**, not a single hardcoded destination.
+
+Suggested defaults by source profile:
+
+- `provider_model_page` -> suggest `Model`; secondary choices `Working Files`, `Link Only`
+- `task_item` -> suggest `Idea` or `Project`; allow promote-to-Model during review if a real model URL is present
+- `social_saved_link` -> suggest `Idea`; secondary choices `Project`, `Link Only`
+- `collection_container` -> suggest `Collection`; later materialize child items into `Model`, `Idea`, or `Project`
+- `manual_generic_url` -> suggest `Link Only` or `Idea` until stronger provider resolution exists
+
+### n8n Role
+
+`n8n` can be useful as an orchestration layer, but it should not become the intake authority.
+
+Recommended role for `n8n`:
+
+- receive or poll upstream sources that are awkward to integrate directly
+- normalize secrets, schedules, and webhook fan-in
+- call the sidecar capture endpoint with a signed service identity
+- optionally enrich payloads with tags like `project_hint`, `source_folder`, or `capture_preset`
+
+Not recommended for `n8n`:
+
+- owning review state
+- being the system of record for captured items
+- deciding final destination commits without the sidecar queue/audit model
 
 ## Manyfold Patterns We Reuse (And What We Do Not)
 
@@ -92,6 +224,31 @@ Design adoption in this repo:
 - writes sidecar-owned source records
 - optionally stages/ingests files into working/inbox flow
 - emits lineage/provenance fields for catalog surfaces
+
+5. **Routing Layer**
+- suggests allowed destination entity types
+- records whether review is required and why
+- maps heterogeneous sources into shared commit handlers
+
+## Generalized Intake Record Contract
+
+The previous design focused mainly on provider metadata. #1496 requires a broader routing contract so the same intake record can support Model, Working Files, Idea, Project, or Collection outcomes.
+
+Recommended additions to the normalized intake record:
+
+- `source_profile` (`provider_model_page`, `task_item`, `social_saved_link`, `collection_container`, `manual_generic_url`)
+- `trigger_class` (`user_direct`, `user_quick_action`, `service_push`, `background_sync`, `batch_materialization`)
+- `review_required` (bool)
+- `review_reason_codes` (array)
+- `suggested_targets_json`
+- `selected_target_type` (nullable until review/commit)
+- `selected_target_id` (nullable)
+- `capture_batch_id` (nullable; links child items to a collection or sync run)
+- `origin_service` (nullable; e.g. `n8n`, `karakeep`, `mstodo`)
+- `origin_external_id` (nullable)
+- `sync_cursor` (nullable for refreshable sources)
+
+These fields let one queue/review surface handle both classic provider imports and non-provider captures without adding a new table per source.
 
 ## External Source Metadata Carry-Forward Contract
 
@@ -182,10 +339,20 @@ Suggested fields:
 - `provider_id` (`makerworld`, `printables`, `thingiverse`, `cults3d`, `karakeep`, `other`)
 - `capture_channel` (`url_paste`, `browser_extension`, `streamdeck`, `karakeep_sync`)
 - `capture_mode` (`link_only`, `metadata_only`, `full_import`)
+- `source_profile`
+- `trigger_class`
 - `source_url_canonical`
 - `source_url_original`
 - `source_model_id`
 - `source_collection_id` (nullable)
+- `review_required`
+- `review_reason_codes`
+- `suggested_targets_json`
+- `selected_target_type` (nullable)
+- `selected_target_id` (nullable)
+- `capture_batch_id` (nullable)
+- `origin_service` (nullable)
+- `origin_external_id` (nullable)
 - `title`
 - `creator_name`
 - `creator_url`
@@ -394,22 +561,43 @@ Both should agree. If they diverge, the online API snapshot takes precedence for
 
 ## UX Surfaces
 
-## New Surface: External Intake Workbench
+## Intake Home Integration
 
-Core panes:
+Do not create a separate full-screen `External Intake Workbench` as the primary path.
 
-- capture lane (URL, extension, Stream Deck, Karakeep)
-- pending records table with confidence + warnings
-- preview/detail inspector for selected intake record
-- commit panel with import mode and destination
+External and mixed-source capture should plug into the existing intake surfaces:
 
-## New Surface: Quick Capture Inbox
+- `Intake Home` remains the launch and monitoring surface
+- `Queue Review` remains the canonical review and decision surface
+- the intake wizard remains for file/folder batch authoring
+- `Job History` remains the completed-work surface
 
-Lightweight queue for rapid captures from browser/Stream Deck:
+`Intake Home` should add:
 
-- shows pending captures awaiting review
-- supports batch approve/reject
-- supports dedupe merge into existing intake record
+- a generalized `Capture From Source` lane with URL paste plus source shortcuts
+- recent capture/sync health for background channels such as Karakeep, MSFT Todo, and social-save connectors
+- collection import and batch expansion entry points
+
+## Queue Review Integration
+
+`Queue Review` should be the single review surface for queued items regardless of whether they came from browser upload, server browse, MakerWorld, Karakeep, MSFT Todo, Instagram, Facebook, or a future connector.
+
+Queue Review detail should show:
+
+- source profile and trigger class
+- suggested target chips (`Model`, `Working Files`, `Idea`, `Project`, `Collection`, `Link Only`)
+- imported/default metadata
+- review-required reasons
+- duplicate/provenance warnings
+- available commit actions based on the chosen target
+
+## Quick Capture Inbox
+
+The earlier `Quick Capture Inbox` concept remains useful, but it should be implemented as one of these patterns rather than a separate product:
+
+- a filtered `Queue Review` preset (`Quick captures`)
+- a compact recent-captures panel on `Intake Home`
+- or a popup child view that still uses the same queue APIs and detail schema
 
 ## HTML Mockups
 
@@ -419,11 +607,17 @@ High-fidelity mockups for this design package:
 - `design/mockups/external-intake-workbench-b.html`
 - `design/mockups/external-intake-quick-capture.html`
 
+Low-fi canonical intake-surface mockups that this package should now align to:
+
+- `design/intake-home-queue-mockups.md`
+- `design/intake-inbox.md`
+
 ## API Contracts (Draft)
 
 `POST /api/intake/source/capture`
 
 - creates pending intake from URL or channel payload
+- accepts `trigger_class`, `origin_service`, `capture_channel`, and optional target hints
 
 `POST /api/intake/source/resolve`
 
@@ -432,6 +626,15 @@ High-fidelity mockups for this design package:
 `POST /api/intake/source/{id}/commit`
 
 - commits reviewed intake using selected mode (`link_only`, `metadata_only`, `full_import`)
+- also accepts `selected_target_type`, optional `selected_target_id`, and target-specific options
+
+`POST /api/intake/source/{id}/route`
+
+- updates target selection, review flags, and queue routing without committing the item
+
+`POST /api/intake/source/{id}/materialize_children`
+
+- expands a collection/container record into child intake items using shared chunking rules
 
 `POST /api/intake/source/collections/capture`
 
@@ -517,6 +720,8 @@ Decision guidance:
 - store scraper evidence in `snapshot_json` plus warnings so later reparses are auditable
 
 ## Phased Delivery
+
+Implementation sequencing for the generalized #1496 scope is maintained in [issue-1496-various-sources-plan.md](../planning/issue-1496-various-sources-plan.md).
 
 ## Phase 1: Unified Capture Foundation
 

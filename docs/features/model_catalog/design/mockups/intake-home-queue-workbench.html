@@ -219,12 +219,13 @@
 <div class="header">
   <div>
     <h1>Intake Home and Queue Review</h1>
-    <p>Updated Intake workbench direction: `Intake Home` launches Upload, Server Inbox, and external-source capture, while `Queue Review` advances queued items through validate, publish, defer, reject, and delete. The wizard remains separate and focused on batch authoring.</p>
+    <p>Updated Intake workbench direction: `Intake Home` launches Upload, Server Inbox, and generalized source capture, while `Queue Review` advances mixed-source items through target-aware validate, commit, defer, reject, and delete. The wizard remains separate and focused on batch authoring.</p>
   </div>
   <div class="nav">
     <a href="index.html">← Mockup index</a>
     <a href="../intake-inbox.md">Design doc</a>
     <a href="../intake-home-queue-mockups.md">Low-fi mockups</a>
+    <a href="../../reference/intake-source-routing-contract.md">Routing contract</a>
   </div>
 </div>
 
@@ -239,7 +240,7 @@
         <div class="card"><div class="muted">Active Queue</div><div class="metric">7</div><div class="row"><span class="pill ok">2 ready</span><span class="pill warn">3 warnings</span></div></div>
         <div class="card"><div class="muted">Review Required</div><div class="metric">3</div><div class="row"><span class="pill warn">duplicates</span><span class="pill warn">naming</span></div></div>
         <div class="card"><div class="muted">Completed Today</div><div class="metric">5</div><div class="row"><span class="pill ok">3 catalog</span><span class="pill ok">2 working</span></div></div>
-        <div class="card"><div class="muted">Sources</div><div class="metric">4</div><div class="row"><span class="pill">browser</span><span class="pill">server</span><span class="pill">makerworld</span></div></div>
+        <div class="card"><div class="muted">Sources</div><div class="metric">7</div><div class="row"><span class="pill">browser</span><span class="pill">server</span><span class="pill">makerworld</span><span class="pill">mstodo</span><span class="pill">social</span></div></div>
       </div>
       <div class="grid-2">
         <div class="card">
@@ -263,52 +264,56 @@
               <div class="actions mt10"><button class="btn primary">Start Server Wizard</button></div>
             </div>
             <div class="launch-card">
-              <div class="kicker">External Source</div>
-              <div class="title">Paste Source URL</div>
-              <p>Paste a MakerWorld, Printables, or other supported source URL directly on the dashboard. Provider detection happens automatically.</p>
+              <div class="kicker">Generalized Source Capture</div>
+              <div class="title">Capture From Source</div>
+              <p>Paste a source URL or launch a channel shortcut for MakerWorld, Karakeep, MSFT Todo, Instagram, Facebook, or collection-style intake. Detection and initial routing happen automatically.</p>
               <div class="field-row">
                 <label class="sr-only" for="source-url-input">Source URL</label>
                 <input id="source-url-input" class="input" title="Source URL" placeholder="Paste a source URL" value="https://makerworld.com/en/models/1295917-big-brick-man" />
                 <button class="btn primary">Capture</button>
               </div>
-              <div class="actions mt10"><button class="btn">Recent Captures</button></div>
+              <div class="actions mt10"><button class="btn">MakerWorld</button><button class="btn">Karakeep</button><button class="btn">MSFT Todo</button></div>
+              <div class="actions mt10"><button class="btn">Instagram</button><button class="btn">Facebook</button><button class="btn">Collection URL</button><button class="btn">Recent Captures</button></div>
             </div>
           </div>
           <div class="launch-grid-2 mt14">
             <div class="launch-card">
               <div class="kicker">Capture Status</div>
-              <div class="title">Recent Captures</div>
-              <p>Keep recent external-source activity visible on the dashboard without turning Intake Home into a policy/settings page.</p>
+              <div class="title">Pending Source Routes</div>
+              <p>Keep recent capture outcomes visible as target suggestions instead of assuming every source becomes a catalog model.</p>
               <div class="mini-list">
-                <div class="mini-row"><span>Big Brick Man</span><span class="pill ok">captured</span></div>
-                <div class="mini-row"><span>Gridfinity rack remix</span><span class="pill warn">needs review</span></div>
-                <div class="mini-row"><span>Unknown catalog page</span><span class="pill bad">low confidence</span></div>
+                <div class="mini-row"><span>MakerWorld lamp shade</span><span class="pill ok">Model</span></div>
+                <div class="mini-row"><span>Instagram reel save</span><span class="pill warn">Idea</span></div>
+                <div class="mini-row"><span>Todo: drawer insert</span><span class="pill">Project</span></div>
+                <div class="mini-row"><span>Karakeep bathroom favorites</span><span class="pill">Collection</span></div>
               </div>
             </div>
             <div class="launch-card">
-              <div class="kicker">Batch Intake</div>
-              <div class="title">Collection Migration</div>
-              <p>Migration runs stay Intake-adjacent on the home surface, while their exceptions still funnel into Queue Review.</p>
+              <div class="kicker">Background Channels</div>
+              <div class="title">Sync And Batch Health</div>
+              <p>Batch and sync runs stay Intake-adjacent on the home surface, while their exceptions still funnel into Queue Review.</p>
               <div class="mini-list">
-                <div class="mini-row"><span>MakerWorld Favorites</span><span class="pill warn">42 items running</span></div>
-                <div class="mini-row"><span>Karakeep To Print</span><span class="pill ok">ready</span></div>
+                <div class="mini-row"><span>MSFT Todo `3dprint` sync</span><span class="pill warn">14 new / 2 warnings</span></div>
+                <div class="mini-row"><span>Karakeep bathroom board</span><span class="pill ok">ready for preflight</span></div>
+                <div class="mini-row"><span>Instagram saved poll</span><span class="pill bad">auth refresh needed</span></div>
               </div>
-              <div class="actions mt10"><button class="btn">Open Exceptions</button><button class="btn">Start Migration</button></div>
+              <div class="actions mt10"><button class="btn">Open Exceptions</button><button class="btn">Sync Now</button><button class="btn">Start Collection Preflight</button></div>
             </div>
           </div>
         </div>
         <div class="card">
           <div class="toolbar"><h3>Queue and History Snapshot</h3><div class="actions"><button class="btn primary">Open Queue Review</button><button class="btn">Open Job History</button><button class="btn">Intake Settings</button></div></div>
           <div class="list">
-            <div class="item"><div class="name">Big Brick Man</div><div class="path">MakerWorld · validated_warning · queued</div></div>
-            <div class="item"><div class="name">Gridfinity label batch</div><div class="path">Server Inbox · validated_ready</div></div>
-            <div class="item"><div class="name">Lithophane archive batch</div><div class="path">Browser Upload · deferred</div></div>
+            <div class="item"><div class="name">Big Brick Man</div><div class="path">MakerWorld · validated_warning · target Model</div></div>
+            <div class="item"><div class="name">Instagram lamp idea</div><div class="path">Social saved link · pending_review · target Idea</div></div>
+            <div class="item"><div class="name">Todo: drawer insert</div><div class="path">MSFT Todo sync · pending_review · target Project</div></div>
+            <div class="item"><div class="name">Bathroom favorites</div><div class="path">Karakeep collection · submitted · target Collection</div></div>
           </div>
           <div class="detail-grid">
             <div class="detail-box"><div class="label">Recent catalog result</div><div class="value">Modular bin set published</div></div>
             <div class="detail-box"><div class="label">Recent working result</div><div class="value">TPU feet imported to Working Files</div></div>
-            <div class="detail-box"><div class="label">Capture Ops</div><div class="value">Extension healthy · webhook last seen 2m · 1 failure today</div></div>
-            <div class="detail-box"><div class="label">Policy Location</div><div class="value">Managed in Intake Settings, not inline on the dashboard</div></div>
+            <div class="detail-box"><div class="label">Suggested route mix</div><div class="value">2 Model · 3 Idea · 1 Project · 1 Collection</div></div>
+            <div class="detail-box"><div class="label">Capture Ops</div><div class="value">Extension healthy · Todo sync 4m · 1 auth failure today</div></div>
           </div>
         </div>
       </div>
@@ -321,54 +326,109 @@
       <span class="badge amber">separate from wizard</span>
     </div>
     <div class="content">
-      <div class="toolbar"><div class="actions"><span class="pill">Submitted</span><span class="pill ok">Ready</span><span class="pill warn">Warnings</span><span class="pill">Deferred</span><span class="pill">MakerWorld only</span></div><div class="actions"><button class="btn">Select</button><button class="btn primary">Batch Validate</button><button class="btn warn">Batch Defer</button></div></div>
+      <div class="toolbar"><div class="actions"><span class="pill">Submitted</span><span class="pill ok">Ready</span><span class="pill warn">Warnings</span><span class="pill">Quick captures</span><span class="pill">Background sync</span><span class="pill">Collections</span></div><div class="actions"><button class="btn">Select</button><button class="btn primary">Batch Validate</button><button class="btn warn">Batch Defer</button></div></div>
       <div class="queue-shell">
         <div class="card">
           <h3>Active items</h3>
           <div class="list">
-            <div class="item active">
+            <div class="item">
               <div class="row row-between"><div class="name">Big Brick Man</div><span class="pill warn">validated_warning</span></div>
               <div class="path">makerworld.com/en/models/1295917</div>
-              <div class="row mt10"><span class="pill">makerworld</span><span class="pill bad">duplicate candidate</span></div>
+              <div class="row mt10"><span class="pill">provider_model_page</span><span class="pill ok">target Model</span><span class="pill bad">duplicate candidate</span></div>
+            </div>
+            <div class="item active">
+              <div class="row row-between"><div class="name">Instagram lamp idea</div><span class="pill warn">pending_review</span></div>
+              <div class="path">instagram.com/reel/C9example</div>
+              <div class="row mt10"><span class="pill">social_saved_link</span><span class="pill warn">target Idea</span><span class="pill">user_quick_action</span></div>
             </div>
             <div class="item">
-              <div class="row row-between"><div class="name">Gridfinity label set</div><span class="pill ok">validated_ready</span></div>
-              <div class="path">/assets/Model Inbox/gridfinity-labels</div>
+              <div class="row row-between"><div class="name">Todo: drawer insert</div><span class="pill">submitted</span></div>
+              <div class="path">MSFT Todo sync · external id td_4412</div>
+              <div class="row mt10"><span class="pill">task_item</span><span class="pill">target Project</span><span class="pill">background_sync</span></div>
             </div>
             <div class="item">
-              <div class="row row-between"><div class="name">Lithophane archive batch</div><span class="pill">deferred</span></div>
-              <div class="path">Browser Upload session</div>
+              <div class="row row-between"><div class="name">Bathroom favorites</div><span class="pill">submitted</span></div>
+              <div class="path">Karakeep board · 28 saved links</div>
+              <div class="row mt10"><span class="pill">collection_container</span><span class="pill">target Collection</span><span class="pill">service_push</span></div>
             </div>
           </div>
         </div>
         <div class="card">
-          <div class="toolbar"><h3>Item detail</h3><div class="actions"><span class="pill warn">decision state: warning</span><span class="pill">transport: queued</span></div></div>
-          <p>Queue Review shows the queued item as it exists now, not as a wizard draft. The operator can validate, publish, defer, reject, or delete without reopening the authoring flow.</p>
+          <div class="toolbar"><h3>Item detail</h3><div class="actions"><span class="pill warn">decision state: review required</span><span class="pill">transport: queued</span></div></div>
+          <p>Queue Review shows the queued item as it exists now, not as a wizard draft. The operator confirms the target class first, then validates and commits using the same queue item.</p>
           <div class="detail-grid">
-            <div class="detail-box"><div class="label">Cleanup</div><div class="value">keep</div></div>
-            <div class="detail-box"><div class="label">Chosen instance</div><div class="value">Default instance · 3 plates</div></div>
-            <div class="detail-box"><div class="label">Warnings</div><div class="value">duplicate candidate, title collision</div></div>
-            <div class="detail-box"><div class="label">Media</div><div class="value">5 gallery items, cover image selected</div></div>
+            <div class="detail-box"><div class="label">Source profile</div><div class="value">social_saved_link</div></div>
+            <div class="detail-box"><div class="label">Trigger class</div><div class="value">user_quick_action</div></div>
+            <div class="detail-box"><div class="label">Review reasons</div><div class="value">external source default, social source, target not confirmed</div></div>
+            <div class="detail-box"><div class="label">Media</div><div class="value">1 saved thumbnail, caption text, canonical post URL</div></div>
           </div>
-          <h3 class="mt14">MakerWorld prepopulated publish defaults</h3>
+          <h3 class="mt14">Imported defaults</h3>
           <div class="prepop">
-            <div class="k">Title</div><div class="v">Big Brick Man</div>
-            <div class="k">Creator</div><div class="v">pippo_the_printer</div>
-            <div class="k">Description</div><div class="v">Large display figurine.</div>
-            <div class="k">Source origin</div><div class="v">makerworld</div>
-            <div class="k">Source URL</div><div class="v">https://makerworld.com/en/models/1295917</div>
-            <div class="k">Preview candidate</div><div class="v">cover image from MakerWorld gallery</div>
-            <div class="k">Tags</div><div class="v">brick, figure</div>
-            <div class="k">Provenance only</div><div class="v">license, creator UID, counts, timestamps, source model id</div>
+            <div class="k">Title</div><div class="v">Minimal brass lamp idea</div>
+            <div class="k">Creator handle</div><div class="v">@studio.north</div>
+            <div class="k">Caption extract</div><div class="v">Saved because the shade geometry may adapt well to a printable diffuser remix.</div>
+            <div class="k">Source origin</div><div class="v">instagram</div>
+            <div class="k">Source URL</div><div class="v">https://instagram.com/reel/C9example</div>
+            <div class="k">Preview candidate</div><div class="v">saved cover image</div>
+            <div class="k">Suggested route</div><div class="v">Idea (secondary: Project, Link Only)</div>
+            <div class="k">Origin service</div><div class="v">manual quick capture</div>
+          </div>
+          <h3 class="mt14">Suggested target choices</h3>
+          <div class="actions"><button class="btn primary">Idea</button><button class="btn">Project</button><button class="btn">Link Only</button></div>
+          <div class="mini-list">
+            <div class="mini-row"><span>Idea</span><span class="pill ok">default · lightweight metadata + preview</span></div>
+            <div class="mini-row"><span>Project</span><span class="pill">seed or attach to active project</span></div>
+            <div class="mini-row"><span>Link Only</span><span class="pill warn">store provenance without local entity</span></div>
           </div>
           <div class="actions mt14">
             <button class="btn">Validate</button>
-            <button class="btn primary">Publish Catalog</button>
-            <button class="btn primary">Publish Working</button>
+            <button class="btn primary">Commit Selected Target</button>
+            <button class="btn">Open Target Picker</button>
             <button class="btn warn">Defer</button>
             <button class="btn warn">Reject</button>
             <button class="btn">Delete</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="surface">
+    <div class="surface-head">
+      <h2>C. Route Detail Variants</h2>
+      <span class="badge">mixed-target examples</span>
+    </div>
+    <div class="content">
+      <div class="grid-4">
+        <div class="card">
+          <h3>Task Item → Project</h3>
+          <p>Use when the captured source is more like a build brief, reminder, or to-do than a ready printable model.</p>
+          <div class="mini-list">
+            <div class="mini-row"><span>Source profile</span><span class="pill">task_item</span></div>
+            <div class="mini-row"><span>Suggested target</span><span class="pill ok">Project</span></div>
+            <div class="mini-row"><span>Commit behavior</span><span class="pill">attach existing or create seed</span></div>
+          </div>
+          <div class="actions mt10"><button class="btn primary">Create Seed Project</button><button class="btn">Attach Existing</button></div>
+        </div>
+        <div class="card">
+          <h3>Collection Container → Collection</h3>
+          <p>Use when the source is a board, favorites list, or remote collection that needs preflight before child items are materialized.</p>
+          <div class="mini-list">
+            <div class="mini-row"><span>Source profile</span><span class="pill">collection_container</span></div>
+            <div class="mini-row"><span>Suggested target</span><span class="pill ok">Collection</span></div>
+            <div class="mini-row"><span>Commit behavior</span><span class="pill warn">preflight + chunked expansion</span></div>
+          </div>
+          <div class="actions mt10"><button class="btn primary">Run Preflight</button><button class="btn">Expand Children</button></div>
+        </div>
+        <div class="card">
+          <h3>Provider Model Page → Model / Working</h3>
+          <p>High-confidence provider pages remain the only common fast-path candidates, but they still reuse the same routing contract and queue audit trail.</p>
+          <div class="mini-list">
+            <div class="mini-row"><span>Source profile</span><span class="pill">provider_model_page</span></div>
+            <div class="mini-row"><span>Suggested targets</span><span class="pill ok">Model</span></div>
+            <div class="mini-row"><span>Secondary route</span><span class="pill">Working Files</span></div>
+          </div>
+          <div class="actions mt10"><button class="btn primary">Commit to Model</button><button class="btn">Commit to Working</button></div>
         </div>
       </div>
     </div>
