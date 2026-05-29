@@ -3446,6 +3446,11 @@ class ModelDetailPopupCard extends HTMLElement {
           position: relative;
           overflow: hidden;
         }
+        .file-plate-card.has-image {
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+        }
         .file-plate-card::after {
           content: '';
           position: absolute;
@@ -3453,6 +3458,12 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 999px;
           border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
           background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+        }
+        .file-plate-card.has-image::after {
+          inset: 0;
+          border-radius: inherit;
+          border: 1px solid color-mix(in srgb, rgba(255,255,255,0.5) 45%, transparent);
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.06) 55%, transparent 100%);
         }
         .plate-color-strip {
           position: absolute;
@@ -5270,6 +5281,22 @@ class ModelDetailPopupCard extends HTMLElement {
     }).join('')}</div>`;
   }
 
+  _plateThumbnailUrl(file, plate, index) {
+    if (!this._modelRef || !this._modelSidecarUrl || !this._is3mfModelFile(file)) {
+      return '';
+    }
+    const fileId = String(file && (file.id || file.file_id) || '').trim();
+    if (!fileId) {
+      return '';
+    }
+    const plateIndex = Number(index) + 1;
+    if (!Number.isFinite(plateIndex) || plateIndex <= 0) {
+      return '';
+    }
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    return `${base}/api/models/${encodeURIComponent(this._modelRef)}/files/${encodeURIComponent(fileId)}/plates/${encodeURIComponent(String(plateIndex))}/thumbnail`;
+  }
+
   _renderPlateDetailRows(file, estimate) {
     const plates = this._getModelFilePlateDetails(file);
     if (!Array.isArray(plates)) {
@@ -5285,10 +5312,11 @@ class ModelDetailPopupCard extends HTMLElement {
       const title = String(plate && (plate.name || plate.plate_name || plate.plate_key) || `Plate ${index + 1}`).trim();
       const timeLabel = matchedEstimate ? this._formatPrintEstimate(matchedEstimate.estimated_print_time_seconds) : 'Unknown';
       const objectCount = Array.isArray(plate && plate.object_ids) ? plate.object_ids.length : 0;
+      const thumbnailUrl = this._plateThumbnailUrl(file, plate, index);
       return `
         <div class="file-plate-row">
           <div class="file-plate-visual">
-            <div class="file-plate-card">${this._plateColorsHtml(plate)}</div>
+            <div class="file-plate-card${thumbnailUrl ? ' has-image' : ''}"${thumbnailUrl ? ` style="background-image:url('${this._escapeHtml(thumbnailUrl)}');"` : ''}>${this._plateColorsHtml(plate)}</div>
           </div>
           <div class="file-plate-main">
             <div class="file-plate-name">${this._escapeHtml(title)}</div>

@@ -37,12 +37,26 @@ class TestThumbnailEndpoint:
         assert get_model_file_thumbnail_endpoint is not None
         assert callable(get_model_file_thumbnail_endpoint)
 
+    def test_plate_thumbnail_endpoint_import(self):
+        """Should be able to import plate thumbnail endpoint."""
+        from app.routers.models_media import get_model_file_plate_thumbnail_endpoint
+
+        assert get_model_file_plate_thumbnail_endpoint is not None
+        assert callable(get_model_file_plate_thumbnail_endpoint)
+
     def test_thumbnail_service_import(self):
         """Verify thumbnail service can be imported."""
         from app.services.model_media_service import get_model_file_thumbnail_service
         
         assert get_model_file_thumbnail_service is not None
         assert callable(get_model_file_thumbnail_service)
+
+    def test_plate_thumbnail_service_import(self):
+        """Verify plate thumbnail service can be imported."""
+        from app.services.model_media_service import get_model_file_plate_thumbnail_service
+
+        assert get_model_file_plate_thumbnail_service is not None
+        assert callable(get_model_file_plate_thumbnail_service)
 
     def test_thumbnail_endpoint_signature(self):
         """Verify endpoint has correct signature."""

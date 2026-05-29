@@ -10,6 +10,7 @@ from ..services.model_media_service import (
     delete_uploaded_model_photo_service,
     download_model_file_service,
     get_3mf_plates_service,
+    get_model_file_plate_thumbnail_service,
     get_geometry_service,
     get_model_file_thumbnail_service,
     get_uploaded_model_photo_service,
@@ -93,3 +94,14 @@ def get_3mf_plates_endpoint(request: Request, model_ref: str, file_id: str):
 def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id: str):
     """Extract and return embedded thumbnail from a 3MF model file."""
     return get_model_file_thumbnail_service(request, model_ref=model_ref, file_id=file_id)
+
+
+@router.get("/api/models/{model_ref:path}/files/{file_id}/plates/{plate_index}/thumbnail")
+def get_model_file_plate_thumbnail_endpoint(request: Request, model_ref: str, file_id: str, plate_index: int):
+    """Extract and return an embedded thumbnail for a specific 3MF plate."""
+    return get_model_file_plate_thumbnail_service(
+        request,
+        model_ref=model_ref,
+        file_id=file_id,
+        plate_index=plate_index,
+    )

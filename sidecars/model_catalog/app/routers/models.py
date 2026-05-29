@@ -7465,6 +7465,57 @@ def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id:
         content={"error": "Catalog-sourced models do not have embedded thumbnails; use preview_url"},
     )
 
+
+def get_model_file_plate_thumbnail_endpoint(request: Request, model_ref: str, file_id: str, plate_index: int) -> Response:
+    """Extract and return an embedded screenshot/thumbnail for a specific 3MF plate."""
+    from ..geometry_3mf import extract_3mf_plate_thumbnail
+
+    state: AppState = request.app.state.model_catalog
+
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+    if str(summary.model_url or "").startswith("local://"):
+        local_model_id = str(summary.public_id or model_ref).strip()
+        asset = read_model_asset(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            asset_id=file_id,
+        )
+        if asset is None:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+
+        storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+        if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+            return JSONResponse(status_code=404, content={"error": "Local model file source not found"})
+
+        if not str(storage_path).lower().endswith(".3mf"):
+            return JSONResponse(status_code=404, content={"error": "Plate thumbnail not available for this file type"})
+
+        try:
+            thumbnail_bytes = extract_3mf_plate_thumbnail(storage_path.read_bytes(), plate_index)
+        except Exception as exc:
+            return JSONResponse(status_code=500, content={"error": f"Failed to extract plate thumbnail: {exc}"})
+
+        if thumbnail_bytes is None:
+            return JSONResponse(status_code=404, content={"error": "No embedded plate thumbnail found in 3MF file"})
+
+        mime_type = "image/png"
+        if b"\xff\xd8\xff\xe0" in thumbnail_bytes[:4]:
+            mime_type = "image/jpeg"
+
+        headers = {
+            "Cache-Control": "public, max-age=300",
+            "Content-Disposition": f'inline; filename="plate-{int(plate_index)}.png"',
+        }
+        return Response(content=thumbnail_bytes, media_type=mime_type, headers=headers)
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": "Catalog-sourced models do not have embedded plate thumbnails"},
+    )
+
 # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
 
 def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:

@@ -13,7 +13,7 @@ from pathlib import Path as PathlibPath
 SIDECAR_APP_PATH = PathlibPath(__file__).parent.parent.parent.parent / "sidecars" / "model_catalog"
 sys.path.insert(0, str(SIDECAR_APP_PATH))
 
-from app.geometry_3mf import extract_3mf_thumbnail
+from app.geometry_3mf import extract_3mf_plate_thumbnail, extract_3mf_thumbnail
 
 
 # One-pixel PNG for testing
@@ -131,6 +131,30 @@ class TestThumbnailExtraction:
         )
         result = extract_3mf_thumbnail(package)
         assert result == thumbnail_png
+
+    def test_plate_thumbnail_extracts_requested_plate_index(self) -> None:
+        """Should return the requested embedded plate image, not the generic thumbnail."""
+        package = _create_3mf_zip(
+            {
+                "3D/3dmodel.model": b"<xml/>",
+                "Metadata/thumbnail.png": b"thumbnail_data",
+                "Metadata/plate_1.png": b"plate1_data",
+                "Metadata/plate_2.png": b"plate2_data",
+            }
+        )
+        assert extract_3mf_plate_thumbnail(package, 2) == b"plate2_data"
+
+    def test_plate_thumbnail_falls_back_to_top_and_pick_candidates(self) -> None:
+        """Should use top/pick images when plate_N is not embedded."""
+        package = _create_3mf_zip(
+            {
+                "3D/3dmodel.model": b"<xml/>",
+                "Metadata/top_1.png": b"top_data",
+                "Metadata/pick_2.png": b"pick_data",
+            }
+        )
+        assert extract_3mf_plate_thumbnail(package, 1) == b"top_data"
+        assert extract_3mf_plate_thumbnail(package, 2) == b"pick_data"
 
     def test_jpeg_thumbnail_accepted(self) -> None:
         """Should accept JPEG thumbnails."""

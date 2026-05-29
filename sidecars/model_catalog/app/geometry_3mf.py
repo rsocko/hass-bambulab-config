@@ -1296,6 +1296,24 @@ _THUMBNAIL_KNOWN_PATHS_PREFIXES = [
 ]
 
 
+def _extract_known_package_image(
+    package: zipfile.ZipFile,
+    part_name_map: dict[str, str],
+    prefixes: list[str],
+) -> bytes | None:
+    for prefix in prefixes:
+        normalized_prefix = _normalize_part_path(prefix)
+        for normalized, original_name in sorted(part_name_map.items()):
+            if not normalized.startswith(normalized_prefix):
+                continue
+            mime_type = _get_mime_type_for_filename(original_name)
+            if mime_type and mime_type in _THUMBNAIL_ALLOWED_TYPES:
+                image_data = _safely_read_package_member(package, original_name)
+                if image_data:
+                    return image_data
+    return None
+
+
 def _get_mime_type_for_filename(filename: str) -> str | None:
     """Infer MIME type from filename extension."""
     normalized = str(filename or "").strip().lower()
@@ -1509,15 +1527,9 @@ def extract_3mf_thumbnail(package_bytes: bytes) -> bytes | None:
 
             # Try known path prefixes first (order matters).
             # thumbnail* is preferred over everything else, then plate_* (including plate_*_small).
-            for prefix in _THUMBNAIL_KNOWN_PATHS_PREFIXES:
-                normalized_prefix = _normalize_part_path(prefix)
-                for normalized, original_name in sorted(part_name_map.items()):
-                    if normalized.startswith(normalized_prefix):
-                        mime_type = _get_mime_type_for_filename(original_name)
-                        if mime_type and mime_type in _THUMBNAIL_ALLOWED_TYPES:
-                            image_data = _safely_read_package_member(package, original_name)
-                            if image_data:
-                                return image_data
+            image_data = _extract_known_package_image(package, part_name_map, _THUMBNAIL_KNOWN_PATHS_PREFIXES)
+            if image_data:
+                return image_data
 
             # Fall back to any image in Auxiliaries/Model Pictures
             auxiliaries_prefix = _normalize_part_path("Auxiliaries/Model Pictures/")
@@ -1533,6 +1545,40 @@ def extract_3mf_thumbnail(package_bytes: bytes) -> bytes | None:
             # No thumbnail found
             return None
 
+    except (zipfile.BadZipFile, OSError, RuntimeError):
+        return None
+
+
+def extract_3mf_plate_thumbnail(package_bytes: bytes, plate_index: int | str) -> bytes | None:
+    """Extract a plate-specific screenshot/thumbnail image from a 3MF package.
+
+    Preference order matches Bambu-style artifacts for a specific plate index:
+    ``Metadata/plate_N.*`` then ``Metadata/top_N.*`` then ``Metadata/pick_N.*``.
+    Returns ``None`` when the requested plate image is not embedded.
+    """
+    if not package_bytes:
+        return None
+
+    try:
+        normalized_index = int(str(plate_index or "").strip())
+    except (TypeError, ValueError):
+        return None
+    if normalized_index <= 0:
+        return None
+
+    try:
+        with zipfile.ZipFile(BytesIO(package_bytes)) as package:
+            part_name_map = {_normalize_part_path(name): name for name in package.namelist()}
+            return _extract_known_package_image(
+                package,
+                part_name_map,
+                [
+                    f"Metadata/plate_{normalized_index}",
+                    f"Metadata/top_{normalized_index}",
+                    f"Metadata/pick_{normalized_index}",
+                    f"Auxiliaries/Model Pictures/plate_{normalized_index}",
+                ],
+            )
     except (zipfile.BadZipFile, OSError, RuntimeError):
         return None
 
