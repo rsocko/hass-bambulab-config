@@ -551,6 +551,58 @@ def _merge_plate_metadata(
     return enriched
 
 
+def _parse_slice_info_weights(slice_info_text: str | None) -> dict[str, Any]:
+    if not slice_info_text:
+        return {"total_weight_grams": None, "plate_weights": {}}
+
+    try:
+        root = ET.fromstring(slice_info_text)
+    except ET.ParseError:
+        return {"total_weight_grams": None, "plate_weights": {}}
+
+    def _used_g_sum(nodes: list[ET.Element]) -> float | None:
+        total = 0.0
+        found = False
+        for node in nodes:
+            try:
+                used_g = float(str(node.get("used_g") or "").strip())
+            except (TypeError, ValueError):
+                continue
+            if used_g < 0:
+                continue
+            total += used_g
+            found = True
+        if not found:
+            return None
+        return round(total, 1)
+
+    plate_weights: dict[str, float] = {}
+    direct_plate_children = [child for child in list(root) if _local_name(child.tag) == "plate"]
+    for plate_index, plate_node in enumerate(direct_plate_children, start=1):
+        plate_id = str(plate_index)
+        for meta in list(plate_node):
+            if _local_name(meta.tag) != "metadata":
+                continue
+            if str(meta.attrib.get("key") or "").strip() == "index":
+                candidate = str(meta.attrib.get("value") or "").strip()
+                if candidate:
+                    plate_id = candidate
+                    break
+        weight = _used_g_sum([child for child in list(plate_node) if _local_name(child.tag) == "filament"])
+        if weight is not None:
+            plate_weights[plate_id] = weight
+
+    top_level_filaments = [child for child in list(root) if _local_name(child.tag) == "filament"]
+    total_weight = _used_g_sum(top_level_filaments)
+    if total_weight is None and plate_weights:
+        total_weight = round(sum(plate_weights.values()), 1)
+
+    return {
+        "total_weight_grams": total_weight,
+        "plate_weights": plate_weights,
+    }
+
+
 def _resolve_model_part_path(package: zipfile.ZipFile) -> str:
     namelist = {_normalize_part_path(name): name for name in package.namelist()}
     rels_name = "_rels/.rels"
@@ -918,6 +970,9 @@ def extract_3mf_plates_metadata(package_bytes: bytes) -> dict[str, Any]:
         model_settings_text = _read_package_text(
             package, part_name_map, "Metadata/model_settings.config"
         )
+        slice_info_text = _read_package_text(
+            package, part_name_map, "Metadata/slice_info.config"
+        )
         project_settings = _read_package_json(
             package, part_name_map, "Metadata/project_settings.config"
         )
@@ -946,10 +1001,21 @@ def extract_3mf_plates_metadata(package_bytes: bytes) -> dict[str, Any]:
             object_extruders=object_extruders,
             object_part_ids=object_part_ids,
         )
+        weight_summary = _parse_slice_info_weights(slice_info_text)
+        plate_weights = weight_summary.get("plate_weights") if isinstance(weight_summary, dict) else {}
+        if isinstance(plate_weights, dict):
+            for plate_index, plate in enumerate(plates, start=1):
+                plate_id = str(plate.get("id") or "").strip() or str(plate_index)
+                weight_value = plate_weights.get(plate_id)
+                if weight_value is None:
+                    weight_value = plate_weights.get(str(plate_index))
+                if isinstance(weight_value, (int, float)):
+                    plate["weight_grams"] = round(float(weight_value), 1)
 
     return {
         "plates": plates,
         "palette": palette,
+        "total_weight_grams": weight_summary.get("total_weight_grams") if isinstance(weight_summary, dict) else None,
     }
 
 

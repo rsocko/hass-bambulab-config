@@ -3399,6 +3399,10 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 14px;
           color: var(--text);
         }
+        .file-total-subtle {
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
         .file-chevron {
           width: 24px;
           text-align: center;
@@ -5214,6 +5218,15 @@ class ModelDetailPopupCard extends HTMLElement {
     return `${hours}h ${remainder}m`;
   }
 
+  _formatWeightGrams(value) {
+    const grams = Number(value);
+    if (!Number.isFinite(grams) || grams <= 0) {
+      return '';
+    }
+    const rounded = Math.round(grams * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}g`;
+  }
+
   _renderPrintEstimateLine(estimate) {
     const title = String(estimate.title || estimate.profile_id || estimate.instance_id || 'Profile').trim();
     const plateEstimates = Array.isArray(estimate.plate_estimates) ? estimate.plate_estimates : [];
@@ -5321,6 +5334,7 @@ class ModelDetailPopupCard extends HTMLElement {
       const matchedEstimate = estimateByPlate[key] || estimateByPlate[String(index + 1)] || null;
       const title = String(plate && (plate.name || plate.plate_name || plate.plate_key) || `Plate ${index + 1}`).trim();
       const timeLabel = matchedEstimate ? this._formatPrintEstimate(matchedEstimate.estimated_print_time_seconds) : 'Unknown';
+      const weightLabel = this._formatWeightGrams(plate && plate.weight_grams);
       const objectCount = Array.isArray(plate && plate.object_ids) ? plate.object_ids.length : 0;
       const thumbnailUrl = this._plateThumbnailUrl(file, plate, index);
       return `
@@ -5332,6 +5346,7 @@ class ModelDetailPopupCard extends HTMLElement {
             <div class="file-plate-name">${this._escapeHtml(title)}</div>
             <div class="file-plate-meta">
               <span>${this._escapeHtml(timeLabel)}</span>
+              ${weightLabel ? `<span>${this._escapeHtml(weightLabel)}</span>` : ''}
               ${objectCount ? `<span>${this._escapeHtml(String(objectCount))} objects</span>` : ''}
               ${this._plateColorsMetaHtml(plate)}
             </div>
@@ -5363,6 +5378,11 @@ class ModelDetailPopupCard extends HTMLElement {
       const plateCount = this._getModelFilePlateCount(file);
       const fileEstimate = this._estimateForModelFile(file, printEstimates);
       const totalEstimate = fileEstimate ? this._formatPrintEstimate(fileEstimate.estimated_print_time_seconds) : '';
+      const filePlateDetails = this._getModelFilePlateDetails(file);
+      const totalWeight = Array.isArray(filePlateDetails)
+        ? filePlateDetails.reduce((sum, plate) => sum + (Number(plate && plate.weight_grams) || 0), 0)
+        : 0;
+      const totalWeightLabel = this._formatWeightGrams(totalWeight);
       const sectionId = `file-${String(file.id || filename)}`;
       const isCollapsed = Object.prototype.hasOwnProperty.call(this._collapsedSections, sectionId)
         ? !!this._collapsedSections[sectionId]
@@ -5380,7 +5400,7 @@ class ModelDetailPopupCard extends HTMLElement {
           <button class="collapse-toggle file-row-toggle" data-collapse-toggle="${this._escapeHtml(sectionId)}">
             <div class="file-row-main">${previewHtml}<div><strong>${filename}</strong><div class="detail">${this._escapeHtml(meta || 'Model file')}</div></div></div>
             <div class="file-row-side">
-              ${totalEstimate ? `<div class="file-total-estimate"><span class="file-total-label">Total</span><strong>${this._escapeHtml(totalEstimate)}</strong></div>` : ''}
+              ${(totalEstimate || totalWeightLabel) ? `<div class="file-total-estimate"><span class="file-total-label">Total</span>${totalEstimate ? `<strong>${this._escapeHtml(totalEstimate)}</strong>` : ''}${totalWeightLabel ? `<span class="file-total-subtle">${this._escapeHtml(totalWeightLabel)}</span>` : ''}</div>` : ''}
               <div class="file-chevron">${isCollapsed ? '▸' : '▾'}</div>
             </div>
           </button>
