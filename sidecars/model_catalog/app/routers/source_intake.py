@@ -12,9 +12,19 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from .._helpers import _bulk_utc_now_iso
+from ..db import set_model_field
+from ..local_models import create_local_model, list_model_assets, read_local_model, update_local_model
 from ..providers.makerworld import MakerWorldAdapter, AuthenticationError, ProviderUnavailableError, _is_valid_3mf_package
 from ..settings import Settings
 from ..state import AppState
+from ..services.shared_helpers import _slugify_title
+from .intake import (
+    _attach_source_snapshot_assets,
+    _ensure_unique_local_model_id,
+    _persist_source_publish_context,
+    _source_intake_publish_context,
+)
 from .intake_queue import _create_intake_queue_upload_record, _validate_intake_source_entries
 
 router = APIRouter(tags=["intake"])
@@ -369,6 +379,18 @@ def _build_link_only_record(
         "captured_at": now_iso,
         "updated_at": now_iso,
     }
+
+
+def _metadata_only_source_entries(record_id: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "source_record",
+            "source_type": "metadata_only",
+            "source_record_id": record_id,
+            "path": f"source_record:{record_id}",
+            "relative_path": f"source-record-{record_id}.json",
+        }
+    ]
 
 
 @router.post("/api/intake/source/capture")
@@ -744,3 +766,230 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
             now_iso=_utc_now_iso(),
         )
         return JSONResponse(status_code=502, content={"success": False, "error": "provider_unavailable", "message": str(exc), "job_id": job_id})
+
+
+@router.post("/api/intake/source/{record_id}/publish-to-local")
+async def publish_source_metadata_to_local(record_id: str, request: Request, payload: dict[str, Any] | None = None) -> Any:
+    state: AppState = request.app.state.model_catalog
+    record = _read_record(db_path=state.settings.db_path, record_id=record_id)
+    if record is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "record_not_found", "message": "Source intake record was not found."})
+    if str(record.get("provider_id") or "") != "makerworld":
+        return JSONResponse(status_code=400, content={"success": False, "error": "unsupported_provider", "message": "Only MakerWorld source intake is currently supported."})
+    if str(record.get("review_state") or "pending") not in _REVIEWABLE_STATES:
+        return JSONResponse(status_code=409, content={"success": False, "error": "invalid_review_state", "message": "Record is not in a publishable review state."})
+
+    payload = payload or {}
+    requested_mode = str(payload.get("mode") or "metadata_only").strip().lower() or "metadata_only"
+    if requested_mode not in {"link_only", "metadata_only"}:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_mode",
+                "message": "mode must be one of ['link_only', 'metadata_only']",
+            },
+        )
+
+    now_iso = _utc_now_iso()
+    job_id = _create_import_job(
+        db_path=state.settings.db_path,
+        intake_record_id=record_id,
+        job_type="metadata_only_publish_to_local",
+        now_iso=now_iso,
+    )
+    _update_record(
+        db_path=state.settings.db_path,
+        record_id=record_id,
+        updates={"import_job_id": job_id, "updated_at": now_iso},
+    )
+
+    try:
+        source_entries = _metadata_only_source_entries(record_id)
+        destination_defaults, source_publish_context = _source_intake_publish_context(
+            db_path=state.settings.db_path,
+            source_entries=source_entries,
+            destination_plan={
+                "model_ref": str(payload.get("model_ref") or payload.get("local_model_id") or "").strip(),
+                "model_name": str(payload.get("model_name") or "").strip(),
+                "description": str(payload.get("description") or "").strip(),
+                "tags": payload.get("tags") if isinstance(payload.get("tags"), list) else None,
+                "collection_names": payload.get("collection_names") if isinstance(payload.get("collection_names"), list) else None,
+                "creator_name": str(payload.get("creator_name") or "").strip() or None,
+                "created_by": str(payload.get("created_by") or "source_intake").strip() or "source_intake",
+                "source_origin": str(payload.get("source_origin") or "makerworld").strip() or "makerworld",
+                "source_origin_url": str(payload.get("source_origin_url") or "").strip(),
+                "preview_image_url": str(payload.get("preview_image_url") or "").strip(),
+            },
+        )
+        requested_model_ref = str(destination_defaults.get("model_ref") or destination_defaults.get("local_model_id") or "").strip()
+        requested_model_name = str(destination_defaults.get("model_name") or "").strip()
+        requested_description = str(destination_defaults.get("description") or "").strip()
+        requested_tags = destination_defaults.get("tags") if isinstance(destination_defaults.get("tags"), list) else None
+        requested_collection_names = destination_defaults.get("collection_names") if isinstance(destination_defaults.get("collection_names"), list) else None
+        requested_creator_name = str(destination_defaults.get("creator_name") or "").strip() or None
+        requested_created_by = str(destination_defaults.get("created_by") or "source_intake").strip() or "source_intake"
+        requested_source_origin = str(destination_defaults.get("source_origin") or "makerworld").strip() or "makerworld"
+        requested_source_origin_url = str(destination_defaults.get("source_origin_url") or "").strip()
+        requested_preview_image_url = str(destination_defaults.get("preview_image_url") or "").strip() or None
+        if requested_preview_image_url is None and isinstance(source_publish_context, dict):
+            requested_preview_image_url = str(source_publish_context.get("thumbnail_url") or "").strip() or None
+
+        default_model_title = (
+            requested_model_name
+            or str(record.get("title") or "").strip()
+            or str(record.get("source_model_id") or "").strip()
+            or f"{str(record.get('provider_id') or 'source').strip().title()} metadata capture"
+        )
+
+        local_model_id = requested_model_ref
+        target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id) if local_model_id else None
+        created_model = False
+        if target_entry is None:
+            preferred_model_id = local_model_id or _slugify_title(default_model_title) or record_id
+            local_model_id = _ensure_unique_local_model_id(db_path=state.settings.db_path, preferred=preferred_model_id)
+            create_local_model(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                model_name=default_model_title,
+                model_description=requested_description or None,
+                creator_name=requested_creator_name,
+                created_by=requested_created_by,
+                collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
+                tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                source_origin=requested_source_origin,
+                preview_image_url=requested_preview_image_url,
+                source_origin_url=requested_source_origin_url or None,
+            )
+            created_model = True
+        else:
+            update_local_model(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                model_name=None,
+                model_description=requested_description or None,
+                creator_name=requested_creator_name,
+                created_by=requested_created_by,
+                collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
+                tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                source_origin=requested_source_origin,
+                preview_image_url=requested_preview_image_url,
+                source_origin_url=requested_source_origin_url or None,
+            )
+
+        existing_assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+        existing_asset_ids = {
+            str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+            for asset in existing_assets
+            if str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+        }
+        existing_hashes = {
+            str(getattr(asset, "file_hash", "") or "").strip().lower()
+            for asset in existing_assets
+            if str(getattr(asset, "file_hash", "") or "").strip()
+        }
+        imported_assets: list[dict[str, Any]] = []
+        duplicate_skipped: list[dict[str, Any]] = []
+        failed_files: list[dict[str, Any]] = []
+        attached_source_snapshots = _attach_source_snapshot_assets(
+            state=state,
+            local_model_id=local_model_id,
+            source_entries=source_entries,
+            existing_asset_ids=existing_asset_ids,
+            existing_hashes=existing_hashes,
+            imported_assets=imported_assets,
+            duplicate_skipped=duplicate_skipped,
+            failed_files=failed_files,
+        )
+
+        _persist_source_publish_context(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            source_publish_context=source_publish_context,
+        )
+        source_page_urls: list[str] = []
+        seen_page_urls: set[str] = set()
+        if isinstance(source_publish_context, dict):
+            for url_value in (source_publish_context.get("canonical_url"), source_publish_context.get("original_url")):
+                normalized_url = str(url_value or "").strip()
+                if not normalized_url or normalized_url in seen_page_urls:
+                    continue
+                seen_page_urls.add(normalized_url)
+                source_page_urls.append(normalized_url)
+        if source_page_urls:
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=local_model_id,
+                field_key="source_urls",
+                field_value=source_page_urls,
+            )
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_entries", field_value=source_entries)
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_imported_at", field_value=_bulk_utc_now_iso())
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=local_model_id,
+            field_key="internal_notes",
+            field_value=f"Imported metadata from source intake record {record_id}",
+        )
+
+        completed_at = _utc_now_iso()
+        updated = _update_record(
+            db_path=state.settings.db_path,
+            record_id=record_id,
+            updates={
+                "review_state": "imported",
+                "updated_at": completed_at,
+                "snapshot_json": _snapshot_with_provenance(
+                    record.get("snapshot_json"),
+                    {
+                        "import_job_id": job_id,
+                        "metadata_only_local_model_id": local_model_id,
+                        "metadata_only_attached_source_snapshots": len(attached_source_snapshots),
+                        "metadata_only_mode": requested_mode,
+                    },
+                ),
+            },
+        )
+        _finish_import_job(
+            db_path=state.settings.db_path,
+            job_id=job_id,
+            status="completed",
+            result={
+                "local_model_id": local_model_id,
+                "created_model": created_model,
+                "attached_source_snapshot_count": len(attached_source_snapshots),
+            },
+            error=None,
+            now_iso=completed_at,
+        )
+        return {
+            "success": True,
+            "record": updated,
+            "job_id": job_id,
+            "local_model_id": local_model_id,
+            "model_ref": local_model_id,
+            "created_model": created_model,
+            "attached_source_snapshots": attached_source_snapshots,
+            "duplicate_skipped": duplicate_skipped,
+            "failed_files": failed_files,
+        }
+    except Exception as exc:
+        _finish_import_job(
+            db_path=state.settings.db_path,
+            job_id=job_id,
+            status="failed",
+            result=None,
+            error={"error": "metadata_publish_failed", "message": str(exc)},
+            now_iso=_utc_now_iso(),
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "metadata_publish_failed",
+                "message": str(exc),
+                "job_id": job_id,
+            },
+        )

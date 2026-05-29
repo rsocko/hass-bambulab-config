@@ -100,19 +100,53 @@ class _StubMakerWorldAdapter:
                             "id": 1309482,
                             "profileId": 1309482,
                             "title": "Default",
+                            "needAms": True,
+                            "materialCnt": 2,
+                            "printCount": 37,
                             "prediction": {"printTimeMinutes": 92},
                             "plates": [
                                 {
                                     "plateId": 1,
                                     "prediction": {"printTimeMinutes": 54},
+                                    "filamentColor": ["#FF6B6B", "#4ECDC4"],
+                                },
+                                {
+                                    "plateId": 2,
+                                    "prediction": {"printTimeMinutes": 38},
+                                    "filament_colors": ["#FFD166"],
                                 }
                             ],
+                            "extention": {
+                                "modelInfo": {
+                                    "plates": [
+                                        {
+                                            "plateId": 1,
+                                            "prediction": {"printTimeMinutes": 54},
+                                            "filamentColor": ["#FF6B6B", "#4ECDC4"],
+                                        },
+                                        {
+                                            "plateId": 2,
+                                            "prediction": {"printTimeMinutes": 38},
+                                            "filament_colors": ["#FFD166"],
+                                        },
+                                    ]
+                                }
+                            },
                         },
                         {
                             "id": 1309483,
                             "profileId": 1309483,
                             "title": "Single Color",
+                            "needAms": False,
+                            "materialCnt": 1,
                             "prediction": {"printTimeMinutes": 61},
+                            "plates": [
+                                {
+                                    "plateId": 1,
+                                    "prediction": {"printTimeMinutes": 61},
+                                    "filamentColor": ["#00A8E8"],
+                                }
+                            ],
                         },
                     ],
                 },
@@ -582,6 +616,7 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
                   AND field_namespace = 'model_catalog'
                   AND field_key IN (
                     'source_capture_image_urls',
+                                        'source_capture_profiles',
                     'source_capture_provider',
                     'source_capture_record_id',
                                         'print_estimates',
@@ -611,12 +646,120 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
         assert fields["source_capture_provider"] == "makerworld"
         assert fields["source_capture_record_id"] == record_id
         assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_capture_profiles"][0]["need_ams"] is True
+        assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
+        assert fields["source_capture_profiles"][0]["plate_details"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
         assert fields["source_description_raw"] == "Large display figurine."
         assert fields["source_prediction_summary"][0]["prediction"] == {"printTimeMinutes": 92}
         assert fields["source_prediction_summary"][0]["plate_predictions"][0]["prediction"] == {"printTimeMinutes": 54}
         assert fields["print_estimates"][0]["source"] == "makerworld"
         assert fields["print_estimates"][0]["estimated_print_time_seconds"] == {"printTimeMinutes": 92}
         assert fields["print_estimates"][0]["plate_estimates"][0]["estimated_print_time_seconds"] == {"printTimeMinutes": 54}
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_publish_source_metadata_only_creates_local_model_with_rich_source_fields(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        review_response = client.post(
+            f"/api/intake/source/{record_id}/review",
+            json={"tags": ["Desk Toy", "Gift"]},
+        )
+        assert review_response.status_code == 200, review_response.text
+
+        publish_response = client.post(
+            f"/api/intake/source/{record_id}/publish-to-local",
+            json={},
+        )
+        assert publish_response.status_code == 200, publish_response.text
+        publish_payload = publish_response.json()
+        assert publish_payload["success"] is True
+        assert publish_payload["local_model_id"]
+        assert publish_payload["attached_source_snapshots"]
+
+        local_model_id = str(publish_payload["local_model_id"])
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            record_row = connection.execute(
+                "SELECT review_state, import_job_id, snapshot_json FROM source_intake_records WHERE id = ?",
+                (record_id,),
+            ).fetchone()
+            job_row = connection.execute(
+                "SELECT status, result_json FROM source_import_jobs WHERE id = ?",
+                (record_row["import_job_id"],),
+            ).fetchone()
+            entry_row = connection.execute(
+                """
+                SELECT model_name, model_description, creator_name, preview_image_url,
+                       source_origin, source_origin_url, tags_json, keyword_names_json
+                FROM model_catalog_entries
+                WHERE local_model_id = ?
+                """,
+                (local_model_id,),
+            ).fetchone()
+            field_rows = connection.execute(
+                """
+                SELECT field_key, field_value_json
+                FROM model_catalog_custom_fields
+                WHERE entity_type = 'catalog_model'
+                  AND entity_id = ?
+                  AND field_namespace = 'model_catalog'
+                  AND field_key IN (
+                    'source_capture_image_urls',
+                    'source_capture_profiles',
+                    'source_capture_provider',
+                    'source_capture_record_id',
+                    'source_description_raw',
+                    'source_prediction_summary',
+                    'print_estimates',
+                    'source_urls'
+                  )
+                """,
+                (local_model_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        assert record_row["review_state"] == "imported"
+        provenance = json.loads(str(record_row["snapshot_json"] or "{}")).get("_model_catalog_source_capture") or {}
+        assert provenance["metadata_only_local_model_id"] == local_model_id
+        assert json.loads(str(job_row["result_json"] or "{}"))["local_model_id"] == local_model_id
+        assert job_row["status"] == "completed"
+        assert entry_row is not None
+        assert entry_row["model_name"] == "Big Brick Man"
+        assert entry_row["model_description"] == "Large display figurine."
+        assert entry_row["creator_name"] == "pippo_the_printer"
+        assert entry_row["preview_image_url"] == "https://makerworld.bblmw.com/example.jpg"
+        assert entry_row["source_origin"] == "makerworld"
+        assert entry_row["source_origin_url"] == "https://makerworld.com/en/models/1295917"
+        assert json.loads(str(entry_row["tags_json"] or "[]")) == ["Desk Toy", "Gift"]
+        assert json.loads(str(entry_row["keyword_names_json"] or "[]")) == ["Desk Toy", "Gift"]
+
+        fields = {
+            str(row["field_key"]): json.loads(str(row["field_value_json"] or "null"))
+            for row in field_rows
+        }
+        assert fields["source_capture_provider"] == "makerworld"
+        assert fields["source_capture_record_id"] == record_id
+        assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
+        assert fields["source_capture_profiles"][0]["plate_details"][1]["filament_colors"] == ["#FFD166"]
+        assert fields["source_description_raw"] == "Large display figurine."
+        assert fields["source_prediction_summary"][0]["plate_predictions"][0]["prediction"] == {"printTimeMinutes": 54}
+        assert fields["print_estimates"][0]["plate_estimates"][0]["estimated_print_time_seconds"] == {"printTimeMinutes": 54}
+        assert "https://makerworld.com/en/models/1295917" in fields["source_urls"]
     finally:
         client.__exit__(None, None, None)
 

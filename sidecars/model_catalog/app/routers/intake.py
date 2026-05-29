@@ -1115,6 +1115,87 @@ def _makerworld_prediction_summary(source_record: dict[str, Any]) -> list[dict[s
     return summaries
 
 
+def _makerworld_normalize_color_values(*sources: Any) -> list[str]:
+    colors: list[str] = []
+    seen_colors: set[str] = set()
+    candidate_keys = (
+        "filamentColor",
+        "filamentColors",
+        "filament_color",
+        "filament_colors",
+        "colors",
+    )
+    for source in sources:
+        if isinstance(source, dict):
+            values: list[Any] = []
+            for key in candidate_keys:
+                raw_value = source.get(key)
+                if isinstance(raw_value, list):
+                    values.extend(raw_value)
+                elif raw_value not in (None, ""):
+                    values.append(raw_value)
+        elif isinstance(source, list):
+            values = list(source)
+        elif source not in (None, ""):
+            values = [source]
+        else:
+            values = []
+        for raw_value in values:
+            color_value = str(raw_value or "").strip()
+            color_key = color_value.lower()
+            if not color_value or color_key in seen_colors:
+                continue
+            seen_colors.add(color_key)
+            colors.append(color_value)
+    return colors
+
+
+def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str, Any]]:
+    snapshot = source_record.get("snapshot_json") if isinstance(source_record, dict) else {}
+    if not isinstance(snapshot, dict):
+        return []
+    instances = snapshot.get("instances") if isinstance(snapshot.get("instances"), list) else []
+    summaries: list[dict[str, Any]] = []
+    for instance in instances:
+        if not isinstance(instance, dict):
+            continue
+        extention = instance.get("extention") if isinstance(instance.get("extention"), dict) else {}
+        model_info = extention.get("modelInfo") if isinstance(extention.get("modelInfo"), dict) else {}
+        plates = instance.get("plates") if isinstance(instance.get("plates"), list) else []
+        if not plates and isinstance(model_info.get("plates"), list):
+            plates = model_info.get("plates")
+        plate_details: list[dict[str, Any]] = []
+        for plate in plates:
+            if not isinstance(plate, dict):
+                continue
+            plate_summary = {
+                "plate_id": plate.get("plateId") or plate.get("id"),
+                "prediction": plate.get("prediction") if plate.get("prediction") not in ({}, [], None, "") else None,
+                "filament_colors": _makerworld_normalize_color_values(plate),
+            }
+            if not plate_summary["plate_id"] and not plate_summary["prediction"] and not plate_summary["filament_colors"]:
+                continue
+            plate_details.append(plate_summary)
+        instance_colors = _makerworld_normalize_color_values(instance, model_info)
+        if not instance_colors and plate_details:
+            instance_colors = _makerworld_normalize_color_values(plate_details[0].get("filament_colors"))
+        summaries.append(
+            {
+                "instance_id": instance.get("id"),
+                "profile_id": instance.get("profileId"),
+                "title": instance.get("title"),
+                "is_default": bool(instance.get("isDefault")),
+                "need_ams": instance.get("needAms") if instance.get("needAms") in (True, False) else None,
+                "material_count": instance.get("materialCnt"),
+                "print_count": instance.get("printCount"),
+                "prediction": instance.get("prediction") if instance.get("prediction") not in ({}, [], None, "") else None,
+                "filament_colors": instance_colors,
+                "plate_details": plate_details,
+            }
+        )
+    return summaries
+
+
 def _source_intake_publish_context(
     *,
     db_path: Path,
@@ -1187,6 +1268,7 @@ def _source_intake_publish_context(
         "description_raw": makerworld_record.get("description_raw"),
         "description_text": _sanitize_source_description(makerworld_record.get("description_raw")),
         "prediction_summary": _makerworld_prediction_summary(makerworld_record),
+        "profiles": _makerworld_profile_summary(makerworld_record),
     }
     return enriched_plan, source_context
 
@@ -1255,6 +1337,12 @@ def _persist_source_publish_context(*, db_path: Path, model_ref: str, source_pub
         model_ref=model_ref,
         field_key="source_prediction_summary",
         field_value=source_publish_context.get("prediction_summary") or [],
+    )
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key="source_capture_profiles",
+        field_value=source_publish_context.get("profiles") or [],
     )
     set_model_field(
         db_path=db_path,
