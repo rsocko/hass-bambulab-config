@@ -772,6 +772,61 @@ def test_publish_source_metadata_only_creates_local_model_with_rich_source_field
         client.__exit__(None, None, None)
 
 
+def test_publish_source_metadata_only_filters_profiles_to_selected_instances(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        publish_response = client.post(
+            f"/api/intake/source/{record_id}/publish-to-local",
+            json={"options": {"target_instances": [1309483]}},
+        )
+        assert publish_response.status_code == 200, publish_response.text
+        local_model_id = str(publish_response.json()["local_model_id"])
+
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            field_rows = connection.execute(
+                """
+                SELECT field_key, field_value_json
+                FROM model_catalog_custom_fields
+                WHERE entity_type = 'catalog_model'
+                  AND entity_id = ?
+                  AND field_namespace = 'model_catalog'
+                  AND field_key IN (
+                    'source_capture_profiles',
+                    'source_prediction_summary',
+                    'print_estimates'
+                  )
+                """,
+                (local_model_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        fields = {
+            str(row["field_key"]): json.loads(str(row["field_value_json"] or "null"))
+            for row in field_rows
+        }
+        assert len(fields["source_capture_profiles"]) == 1
+        assert fields["source_capture_profiles"][0]["instance_id"] == 1309483
+        assert len(fields["source_prediction_summary"]) == 1
+        assert fields["source_prediction_summary"][0]["instance_id"] == 1309483
+        assert len(fields["print_estimates"]) == 1
+        assert fields["print_estimates"][0]["instance_id"] == 1309483
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_publish_to_local_uses_reviewed_makerworld_tags(tmp_path: Path, monkeypatch) -> None:
     client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
     try:

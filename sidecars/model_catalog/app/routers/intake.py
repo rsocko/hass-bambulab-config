@@ -1201,6 +1201,7 @@ def _source_intake_publish_context(
     db_path: Path,
     source_entries: list[dict[str, Any]] | None,
     destination_plan: dict[str, Any],
+    selected_instance_ids: list[int] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     source_records = _read_source_intake_records(
         db_path=db_path,
@@ -1252,6 +1253,21 @@ def _source_intake_publish_context(
         if next_tags:
             enriched_plan["tags"] = next_tags
 
+    selected_ids = [int(value) for value in (selected_instance_ids or []) if int(value) > 0]
+    selected_id_set = {int(value) for value in selected_ids}
+
+    prediction_summary = _makerworld_prediction_summary(makerworld_record)
+    profiles = _makerworld_profile_summary(makerworld_record)
+    if selected_id_set:
+        prediction_summary = [
+            item for item in prediction_summary
+            if int(item.get("instance_id") or 0) in selected_id_set
+        ]
+        profiles = [
+            item for item in profiles
+            if int(item.get("instance_id") or 0) in selected_id_set
+        ]
+
     source_context = {
         "provider_id": "makerworld",
         "source_record_id": makerworld_record.get("id"),
@@ -1267,8 +1283,9 @@ def _source_intake_publish_context(
         ],
         "description_raw": makerworld_record.get("description_raw"),
         "description_text": _sanitize_source_description(makerworld_record.get("description_raw")),
-        "prediction_summary": _makerworld_prediction_summary(makerworld_record),
-        "profiles": _makerworld_profile_summary(makerworld_record),
+        "prediction_summary": prediction_summary,
+        "profiles": profiles,
+        "selected_instance_ids": selected_ids if selected_ids else None,
     }
     return enriched_plan, source_context
 

@@ -111,6 +111,19 @@ def _resolve_manifest_instance_id(file_manifest: list[dict[str, Any]], candidate
     return _match_manifest_instance_id(file_manifest, preferred_id) or preferred_id
 
 
+def _resolve_manifest_instance_ids(file_manifest: list[dict[str, Any]], values: Any) -> list[int]:
+    raw_values = values if isinstance(values, list) else []
+    resolved: list[int] = []
+    seen_ids: set[int] = set()
+    for value in raw_values:
+        instance_id = _resolve_manifest_instance_id(file_manifest, value)
+        if instance_id is None or instance_id in seen_ids:
+            continue
+        seen_ids.add(instance_id)
+        resolved.append(instance_id)
+    return resolved
+
+
 def _sanitize_manifest_title(value: Any) -> str:
     title = str(value or "").strip().lower()
     if not title:
@@ -804,6 +817,13 @@ async def publish_source_metadata_to_local(record_id: str, request: Request, pay
         updates={"import_job_id": job_id, "updated_at": now_iso},
     )
 
+    options = payload.get("options") if isinstance(payload.get("options"), dict) else {}
+    file_manifest = record.get("file_manifest_json") if isinstance(record.get("file_manifest_json"), list) else []
+    selected_instance_ids = _resolve_manifest_instance_ids(
+        file_manifest,
+        options.get("target_instances") if isinstance(options, dict) else [],
+    )
+
     try:
         source_entries = _metadata_only_source_entries(record_id)
         destination_defaults, source_publish_context = _source_intake_publish_context(
@@ -821,6 +841,7 @@ async def publish_source_metadata_to_local(record_id: str, request: Request, pay
                 "source_origin_url": str(payload.get("source_origin_url") or "").strip(),
                 "preview_image_url": str(payload.get("preview_image_url") or "").strip(),
             },
+            selected_instance_ids=selected_instance_ids,
         )
         requested_model_ref = str(destination_defaults.get("model_ref") or destination_defaults.get("local_model_id") or "").strip()
         requested_model_name = str(destination_defaults.get("model_name") or "").strip()

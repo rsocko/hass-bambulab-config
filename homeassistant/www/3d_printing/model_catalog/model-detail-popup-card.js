@@ -4545,6 +4545,7 @@ class ModelDetailPopupCard extends HTMLElement {
     const source_platform_label = publishing.source_platform_label || '';
     // Merge source_urls (user-managed list) with legacy published_urls values and source_download_url
     const explicitUrls = Array.isArray(provenance.source_urls) ? provenance.source_urls : [];
+    const sourceImageUrls = Array.isArray(provenance.source_image_urls) ? provenance.source_image_urls : [];
     const published_urls = publishing.published_urls || {};
     const legacyUrls = Object.values(published_urls).filter(u => typeof u === 'string' && u.startsWith('http'));
     const downloadUrl = typeof provenance.source_download_url === 'string' && provenance.source_download_url.startsWith('http') ? provenance.source_download_url : null;
@@ -4552,6 +4553,7 @@ class ModelDetailPopupCard extends HTMLElement {
     const seenUrls = new Set(explicitUrls);
     const mergedUrls = [...explicitUrls];
     if (downloadUrl && !seenUrls.has(downloadUrl)) { mergedUrls.push(downloadUrl); seenUrls.add(downloadUrl); }
+    for (const u of sourceImageUrls) { if (!seenUrls.has(u)) { mergedUrls.push(u); seenUrls.add(u); } }
     for (const u of legacyUrls) { if (!seenUrls.has(u)) { mergedUrls.push(u); seenUrls.add(u); } }
     const source_urls = mergedUrls;
     const isLocal = !publication_source || publication_source === 'local' || publication_source === 'original';

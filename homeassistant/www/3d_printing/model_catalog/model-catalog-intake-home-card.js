@@ -1745,6 +1745,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var prediction = details.prediction != null ? details.prediction : null;
       var plates = Array.isArray(details.plates) ? details.plates : (Array.isArray(modelInfo.plates) ? modelInfo.plates : []);
       var detailBits = [];
+      var creatorName = String(record && record.creator_name || '').trim();
+      var profileOwnerName = String(details.profileUserName || details.profile_user_name || details.userName || details.username || '').trim();
+      var profileOwnerId = Number(details.profileUserId || details.profile_user_id || details.userId || details.user_id || 0);
+      var creatorUid = Number(snapshot.designCreator && snapshot.designCreator.uid || 0);
+      if (profileOwnerName) {
+        var isDesignerByName = creatorName && profileOwnerName.toLowerCase() === creatorName.toLowerCase();
+        detailBits.push(isDesignerByName ? 'Designer profile' : ('Profile by ' + profileOwnerName));
+      } else if (profileOwnerId > 0 && creatorUid > 0) {
+        detailBits.push(profileOwnerId === creatorUid ? 'Designer profile' : ('Profile user #' + String(profileOwnerId)));
+      }
       if (details.needAms === true) {
         detailBits.push('AMS');
       } else if (details.needAms === false) {
@@ -1772,8 +1782,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return ''
         + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + '">'
         + '  <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
-        + '  <div class="summary-label">' + escapeHtml(String(entry.title || details.title || ('Instance ' + String(instanceId)))) + '</div>'
-        + '  <div class="summary-value">Instance ' + escapeHtml(String(instanceId)) + '</div>'
+        + '  <div class="summary-label">' + escapeHtml(String(entry.title || details.title || (entry.profile_id ? ('Profile ' + String(entry.profile_id)) : ('Instance ' + String(instanceId))))) + '</div>'
+        + '  <div class="summary-value">' + (entry.profile_id ? ('Profile ' + escapeHtml(String(entry.profile_id)) + ' · ') : '') + 'Instance ' + escapeHtml(String(instanceId)) + '</div>'
         + (entry.profile_id ? '<div class="muted">Profile ' + escapeHtml(String(entry.profile_id)) + '</div>' : '')
         + (detailBits.length ? '<div class="muted">' + escapeHtml(detailBits.join(' | ')) + '</div>' : '')
         + predictionText
@@ -1781,9 +1791,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }).join('');
     return ''
       + '    <article class="launch-card launch-card-makerworld">'
-      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Paste Source URL</div><div class="muted">Paste a supported source URL directly here. Capture the rich source metadata first, then choose whether to import metadata only or queue the full 3MF file(s). MakerWorld is wired end-to-end today.</div>'
+      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Paste Source URL</div><div class="muted">Capture loads and stores the source record (images, profiles, tags, provenance) for preview/review. Import Metadata Only creates/updates a local model from that source record without downloading 3MF files. Queue Selected 3MF downloads only the checked profile file(s) into Active Queue.</div>'
       + '      <div class="field"><label>Source URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
-      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture</button><button class="button" data-action="import-makerworld-metadata"' + metadataImportDisabled + '>Import Metadata Only</button><button class="button primary" data-action="import-makerworld-url"' + (canImportSelection ? '' : ' disabled') + '>' + importLabel + '</button><button class="button" data-action="goto-inbox">Open Queue Review</button>' + ((record || result) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
+      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture Metadata</button><button class="button" data-action="import-makerworld-metadata"' + metadataImportDisabled + '>Import Metadata Only</button><button class="button primary" data-action="import-makerworld-url"' + (canImportSelection ? '' : ' disabled') + '>' + importLabel + '</button><button class="button" data-action="goto-inbox">Open Queue Review</button>' + ((record || result) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
       + (record
         ? '<article class="entry-row makerworld-result">'
           + '<div class="entry-top">'
@@ -1829,7 +1839,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._loading = true;
     this._error = '';
     this._status = '';
-    this._setBusyPhase('Capturing MakerWorld metadata', 'Resolving the MakerWorld URL and preparing the metadata-only import');
+      this._setBusyPhase('Capturing MakerWorld metadata', 'Resolving the MakerWorld URL and preparing the metadata-only import');
     try {
       var record = this._makerworldRecord;
       if (!this._makerworldRecordMatchesUrl(record, url)) {
@@ -1837,6 +1847,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       }
       var recordId = String(record && record.id || '').trim();
       this._setMakerWorldRecord(record, { preserveSelection: true, preserveTags: true });
+        var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
       var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
       await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/' + encodeURIComponent(recordId) + '/review'), {
         tags: reviewedTags,
@@ -1844,6 +1855,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._setBusyPhase('Importing metadata only', 'Creating a local model entry from the source record without downloading 3MF files');
       var publishResponse = await postJsonWithAuth(this._hass, this._sourceIntakeEndpoint('/api/intake/source/' + encodeURIComponent(recordId) + '/publish-to-local'), {
         mode: 'metadata_only',
+          options: {
+            target_instances: selectedInstanceIds,
+          },
       });
       if (!publishResponse || !publishResponse.local_model_id) {
         throw new Error('MakerWorld metadata import did not return a local model id.');

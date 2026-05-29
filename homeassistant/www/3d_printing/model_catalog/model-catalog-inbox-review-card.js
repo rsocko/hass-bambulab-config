@@ -30,6 +30,9 @@ function suggestedGroupTitle(sourceEntry) {
   if (hintedTitle) {
     return hintedTitle;
   }
+  if (String(sourceEntry && sourceEntry.type || '').toLowerCase() === 'source_intake_record') {
+    return String(sourceEntry && sourceEntry.title || '').trim() || basename(sourceEntry && sourceEntry.path || '') || 'Untitled';
+  }
   if (String(sourceEntry && sourceEntry.type || '').toLowerCase() === 'folder') {
     return basename(sourceEntry && sourceEntry.path || '') || 'Untitled';
   }
@@ -39,6 +42,9 @@ function suggestedGroupTitle(sourceEntry) {
 function sourceOriginLabel(sourceEntry) {
   var sourceType = String(sourceEntry && sourceEntry.source_type || '').trim().toLowerCase();
   if (sourceType === 'makerworld_download') {
+    return 'MakerWorld API';
+  }
+  if (sourceType === 'metadata_only' || sourceType === 'link_only' || sourceType === 'metadata_only_publish_to_local') {
     return 'MakerWorld API';
   }
   if (sourceType === 'browser_upload') {
@@ -387,6 +393,9 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
   }
 
   _canDeleteItem(item) {
+    if (item && item.item_type === 'source_import_job') {
+      return false;
+    }
     return this._canDeleteStatus(item && item.status);
   }
 

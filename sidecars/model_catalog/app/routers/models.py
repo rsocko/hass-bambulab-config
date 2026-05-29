@@ -2988,6 +2988,17 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
         cleaned_source_url = _normalize_source_url_text(raw_source_urls)
         source_urls = [cleaned_source_url] if cleaned_source_url else []
 
+    raw_source_image_urls = fields.get("source_capture_image_urls")
+    source_image_urls: list[str] = []
+    if isinstance(raw_source_image_urls, list):
+        for u in raw_source_image_urls:
+            url_str = _normalize_source_url_text(u)
+            if url_str:
+                source_image_urls.append(url_str)
+    elif isinstance(raw_source_image_urls, str) and raw_source_image_urls.strip():
+        cleaned_image_url = _normalize_source_url_text(raw_source_image_urls)
+        source_image_urls = [cleaned_image_url] if cleaned_image_url else []
+
     # source_platform_label: custom label when publication_source is 'other' or 'online'
     source_platform_label = str(fields.get("source_platform_label") or "").strip() or None
 
@@ -2998,6 +3009,7 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
             "source_platform": source_platform,
             "source_download_url": _normalize_source_url_text(fields.get("source_download_url")) or None,
             "source_urls": source_urls if source_urls else None,
+            "source_image_urls": source_image_urls if source_image_urls else None,
             "internal_notes": str(fields.get("internal_notes") or "").strip() or None,
         },
         "publishing": {

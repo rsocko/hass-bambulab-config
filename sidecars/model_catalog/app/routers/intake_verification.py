@@ -2479,9 +2479,11 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
     limit_value = max(1, min(int(limit or 100), 1000))
     offset_value = max(0, int(offset or 0))
 
+    filtered_by_state = bool(state_filter and state_filter.strip())
+
     where_clauses = ["1=1"]
     params: list[Any] = []
-    if state_filter and state_filter.strip():
+    if filtered_by_state:
         where_clauses.append("inbox_state = ?")
         params.append(state_filter.strip())
     where_sql = " AND ".join(where_clauses)
@@ -2489,34 +2491,51 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
     connection = connect(state.settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
-        total_row = connection.execute(
-            f"SELECT COUNT(*) AS cnt FROM intake_queue_uploads WHERE {where_sql}",
-            params,
-        ).fetchone()
-        rows = connection.execute(
+        queue_rows = connection.execute(
             f"""
             SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
                    source_entries_json, file_hashes_json, error_json,
-                 created_at, updated_at, uploaded_at, verified_at, cleanup_done_at, decision_note,
-                  terminal_action, terminal_result_id, terminal_at, terminal_actor
+                   created_at, updated_at, uploaded_at, verified_at, cleanup_done_at, decision_note,
+                   terminal_action, terminal_result_id, terminal_at, terminal_actor
             FROM intake_queue_uploads
             WHERE {where_sql}
             ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
             """,
-            [*params, limit_value, offset_value],
+            params,
         ).fetchall()
+
+        # When not filtering by state, also include source_import_jobs that never create a queue
+        # row (metadata_only, link_only, metadata_only_publish_to_local).  full_import jobs
+        # always produce an intake_queue_uploads row and are already covered above.
+        source_job_rows: list[Any] = []
+        if not filtered_by_state:
+            source_job_rows = connection.execute(
+                """
+                SELECT sij.id AS job_id, sij.job_type, sij.status,
+                       sij.result_json, sij.error_json, sij.started_at,
+                       sij.completed_at, sij.created_at, sij.updated_at,
+                       sir.id AS record_id,
+                       sir.source_url_canonical, sir.source_url_original,
+                       sir.source_model_id, sir.title, sir.provider_id,
+                       sir.thumbnail_url, sir.creator_name
+                FROM source_import_jobs sij
+                LEFT JOIN source_intake_records sir ON sij.intake_record_id = sir.id
+                WHERE sij.job_type != 'full_import'
+                ORDER BY sij.created_at DESC
+                """,
+            ).fetchall()
     finally:
         connection.close()
 
-    items: list[dict[str, Any]] = []
-    for row in rows:
+    # Build queue-based items
+    queue_items: list[dict[str, Any]] = []
+    for row in queue_rows:
         source_entries = json.loads(str(row["source_entries_json"] or "[]"))
         source_entry = source_entries[0] if isinstance(source_entries, list) and source_entries else {}
         normalized_state = str(row["inbox_state"] or "").strip() or _intake_item_state_from_upload_status(str(row["status"] or ""))
         terminal_action = row["terminal_action"]
         terminal_result_id = row["terminal_result_id"]
-        items.append(
+        queue_items.append(
             {
                 "item_id": row["upload_id"],
                 "status": row["status"],
@@ -2538,17 +2557,102 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
                 "uploaded_at": row["uploaded_at"],
                 "verified_at": row["verified_at"],
                 "cleanup_done_at": row["cleanup_done_at"],
+                "_sort_key": str(row["created_at"] or ""),
             }
         )
+
+    # Build source-import-job items (metadata_only / link_only / metadata_only_publish_to_local)
+    source_job_items: list[dict[str, Any]] = []
+    for row in source_job_rows:
+        job_type = str(row["job_type"] or "").strip()
+        job_status = str(row["status"] or "").strip()
+
+        if job_status == "completed":
+            terminal_action = "published_to_catalog"
+            item_state = "published_to_catalog"
+        elif job_status == "failed":
+            terminal_action = "failed"
+            item_state = "rejected"
+        else:
+            terminal_action = None
+            item_state = "submitted"
+
+        # Extract local_model_id from result_json for the terminal_result_id
+        try:
+            result_data = json.loads(str(row["result_json"] or "{}"))
+        except (json.JSONDecodeError, TypeError):
+            result_data = {}
+        local_model_id = str(result_data.get("local_model_id") or "").strip() or None
+        terminal_result_id = local_model_id  # feeds into _normalize_terminal_result "published_to_catalog" branch
+
+        try:
+            error_data = json.loads(str(row["error_json"] or "null"))
+        except (json.JSONDecodeError, TypeError):
+            error_data = None
+
+        item_title = str(row["title"] or "").strip() or None
+        source_entry = {
+            "type": "source_intake_record",
+            "source_type": job_type,
+            "source_record_id": str(row["record_id"] or "").strip() or None,
+            "path": str(row["source_url_canonical"] or row["source_url_original"] or row["source_model_id"] or "").strip() or None,
+            "title": item_title,
+            "group_title": item_title,
+            "provider_id": str(row["provider_id"] or "").strip() or None,
+            "thumbnail_url": str(row["thumbnail_url"] or "").strip() or None,
+            "creator_name": str(row["creator_name"] or "").strip() or None,
+        }
+
+        source_job_items.append(
+            {
+                "item_id": str(row["job_id"]),
+                "item_type": "source_import_job",
+                "status": job_status,
+                "state": item_state,
+                "verification_status": None,
+                "cleanup_policy": None,
+                "source_entry": source_entry,
+                "file_hashes": [],
+                "error": error_data,
+                "decision_note": None,
+                "terminal_action": terminal_action,
+                "terminal_display_action": _derive_terminal_display_action(terminal_action, terminal_result_id),
+                "terminal_result_id": terminal_result_id,
+                "terminal_result": _normalize_terminal_result(terminal_action, terminal_result_id),
+                "terminal_at": row["completed_at"],
+                "terminal_actor": "source_intake",
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "uploaded_at": row["started_at"],
+                "verified_at": None,
+                "cleanup_done_at": None,
+                "_sort_key": str(row["created_at"] or ""),
+            }
+        )
+
+    # Merge both lists (or use queue-only when state_filter is active), sort, then paginate
+    if filtered_by_state:
+        all_items = queue_items
+    else:
+        all_items = sorted(
+            queue_items + source_job_items,
+            key=lambda x: x["_sort_key"],
+            reverse=True,
+        )
+
+    total_count = len(all_items)
+    paginated_items = all_items[offset_value : offset_value + limit_value]
+    for item in paginated_items:
+        item.pop("_sort_key", None)
 
     return {
         "success": True,
         "pagination": {
             "limit": limit_value,
             "offset": offset_value,
-            "total": int(total_row["cnt"] if total_row else 0),
+            "total": total_count,
         },
-        "items": items,
+        "items": paginated_items,
     }
 
 
