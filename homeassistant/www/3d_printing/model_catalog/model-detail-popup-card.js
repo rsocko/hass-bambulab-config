@@ -3526,7 +3526,7 @@ class ModelDetailPopupCard extends HTMLElement {
           font-size: 11px;
           color: var(--text-secondary);
         }
-        .file-plate-meta span {
+        .file-plate-meta > span {
           display: inline-flex;
           align-items: center;
           gap: 4px;
