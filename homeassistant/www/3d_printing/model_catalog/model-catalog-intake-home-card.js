@@ -1737,6 +1737,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var instanceDetailsById = this._makerworldInstanceDetailsById(record);
     var sourceStats = this._makerworldSourceStats(record);
     var profileCards = fileManifest.map(function (entry) {
+      var normalizeIdentity = function (value) {
+        return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+      };
       var instanceId = Number(entry && entry.instance_id || 0);
       var checked = selectedInstanceIds.indexOf(instanceId) !== -1;
       var details = instanceDetailsById[String(instanceId)] || {};
@@ -1746,14 +1749,38 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var plates = Array.isArray(details.plates) ? details.plates : (Array.isArray(modelInfo.plates) ? modelInfo.plates : []);
       var detailBits = [];
       var creatorName = String(record && record.creator_name || '').trim();
+      var creatorDisplayName = String(snapshot.designCreator && snapshot.designCreator.name || creatorName).trim();
+      var creatorKey = normalizeIdentity(creatorName || creatorDisplayName);
       var profileOwnerName = String(details.profileUserName || details.profile_user_name || details.userName || details.username || '').trim();
-      var profileOwnerId = Number(details.profileUserId || details.profile_user_id || details.userId || details.user_id || 0);
-      var creatorUid = Number(snapshot.designCreator && snapshot.designCreator.uid || 0);
+      var profileOwnerKey = normalizeIdentity(profileOwnerName);
+      var profileOwnerId = Number(
+        details.profileUserId
+          || details.profile_user_id
+          || details.profileUid
+          || details.profile_uid
+          || details.userId
+          || details.user_id
+          || details.uid
+          || 0
+      );
+      var creatorUid = Number(
+        snapshot.designCreator && (
+          snapshot.designCreator.uid
+          || snapshot.designCreator.userId
+          || snapshot.designCreator.user_id
+          || snapshot.designCreator.id
+        )
+        || 0
+      );
+      var isDesignerByName = !!(creatorKey && profileOwnerKey && creatorKey === profileOwnerKey);
+      var isDesignerById = !!(profileOwnerId > 0 && creatorUid > 0 && profileOwnerId === creatorUid);
+      var isDesignerProfile = isDesignerByName || isDesignerById;
       if (profileOwnerName) {
-        var isDesignerByName = creatorName && profileOwnerName.toLowerCase() === creatorName.toLowerCase();
         detailBits.push(isDesignerByName ? 'Designer profile' : ('Profile by ' + profileOwnerName));
       } else if (profileOwnerId > 0 && creatorUid > 0) {
         detailBits.push(profileOwnerId === creatorUid ? 'Designer profile' : ('Profile user #' + String(profileOwnerId)));
+      } else if (isDesignerProfile && creatorDisplayName) {
+        detailBits.push('Designer profile' + (creatorDisplayName ? (' · ' + creatorDisplayName) : ''));
       }
       if (details.needAms === true) {
         detailBits.push('AMS');
@@ -1781,7 +1808,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       }
       return ''
         + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + '">'
-        + '  <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
+        + '  <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok">Designer</span>' : '') + '<input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
         + '  <div class="summary-label">' + escapeHtml(String(entry.title || details.title || (entry.profile_id ? ('Profile ' + String(entry.profile_id)) : ('Instance ' + String(instanceId))))) + '</div>'
         + '  <div class="summary-value">' + (entry.profile_id ? ('Profile ' + escapeHtml(String(entry.profile_id)) + ' · ') : '') + 'Instance ' + escapeHtml(String(instanceId)) + '</div>'
         + (entry.profile_id ? '<div class="muted">Profile ' + escapeHtml(String(entry.profile_id)) + '</div>' : '')

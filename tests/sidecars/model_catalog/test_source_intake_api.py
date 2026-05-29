@@ -90,6 +90,10 @@ class _StubMakerWorldAdapter:
                 raw_response={
                     "id": 1295917,
                     "title": "Big Brick Man",
+                    "designCreator": {
+                        "uid": 1234567890,
+                        "name": "pippo_the_printer",
+                    },
                     "summary": "<p>Large display figurine.</p>",
                     "tags": [
                         {"name": "brick"},
@@ -100,6 +104,8 @@ class _StubMakerWorldAdapter:
                             "id": 1309482,
                             "profileId": 1309482,
                             "title": "Default",
+                            "profileUserName": "pippo_the_printer",
+                            "profileUserId": 1234567890,
                             "needAms": True,
                             "materialCnt": 2,
                             "printCount": 37,
@@ -137,6 +143,8 @@ class _StubMakerWorldAdapter:
                             "id": 1309483,
                             "profileId": 1309483,
                             "title": "Single Color",
+                            "profileUserName": "guest_profile_author",
+                            "profileUserId": 998877,
                             "needAms": False,
                             "materialCnt": 1,
                             "prediction": {"printTimeMinutes": 61},
@@ -647,6 +655,7 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
         assert fields["source_capture_record_id"] == record_id
         assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
         assert fields["source_capture_profiles"][0]["need_ams"] is True
+        assert fields["source_capture_profiles"][0]["is_designer_profile"] is True
         assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
         assert fields["source_capture_profiles"][0]["plate_details"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
         assert fields["source_description_raw"] == "Large display figurine."
@@ -762,7 +771,9 @@ def test_publish_source_metadata_only_creates_local_model_with_rich_source_field
         assert fields["source_download_url"] == "https://makerworld.com/en/models/1295917"
         assert fields["source_image_preview_url"] == "https://makerworld.bblmw.com/example.jpg"
         assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_capture_profiles"][0]["is_designer_profile"] is True
         assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
+        assert fields["source_capture_profiles"][1]["is_designer_profile"] is False
         assert fields["source_capture_profiles"][0]["plate_details"][1]["filament_colors"] == ["#FFD166"]
         assert fields["source_description_raw"] == "Large display figurine."
         assert fields["source_prediction_summary"][0]["plate_predictions"][0]["prediction"] == {"printTimeMinutes": 54}

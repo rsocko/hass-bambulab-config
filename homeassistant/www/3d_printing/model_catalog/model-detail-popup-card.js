@@ -5398,8 +5398,10 @@ class ModelDetailPopupCard extends HTMLElement {
       const plateDetails = Array.isArray(profile.plate_details) ? profile.plate_details : [];
       const plateCount = plateDetails.length;
       const totalEstimate = profile.prediction ? this._formatPrintEstimate(profile.prediction) : '';
+      const isDesignerProfile = profile.is_designer_profile === true;
       const meta = [
         'Online source profile',
+        isDesignerProfile ? 'Designer profile' : '',
         plateCount ? `${plateCount} ${plateCount === 1 ? 'plate' : 'plates'}` : '',
         profile.need_ams === true ? 'AMS' : (profile.need_ams === false ? 'No AMS' : ''),
         Number(profile.material_count || 0) > 0 ? `${Number(profile.material_count || 0)} ${Number(profile.material_count || 0) === 1 ? 'material' : 'materials'}` : '',
@@ -5429,7 +5431,7 @@ class ModelDetailPopupCard extends HTMLElement {
       return `
         <article class="collapsible-group">
           <button class="collapse-toggle file-row-toggle" data-collapse-toggle="${this._escapeHtml(sectionId)}">
-            <div class="file-row-main"><span class="file-ext-badge x-online">WEB</span><div><strong>${title}</strong><div class="detail">${this._escapeHtml(meta || 'Online source profile')}</div></div></div>
+            <div class="file-row-main"><span class="file-ext-badge x-online">WEB</span><div><strong>${title}</strong>${isDesignerProfile ? '<span class="chip ok">Designer</span>' : ''}<div class="detail">${this._escapeHtml(meta || 'Online source profile')}</div></div></div>
             <div class="file-row-side">
               ${totalEstimate && totalEstimate !== 'Unknown' ? `<div class="file-total-estimate"><span class="file-total-label">Total</span><strong>${this._escapeHtml(totalEstimate)}</strong></div>` : ''}
               <div class="file-chevron">${isCollapsed ? '▸' : '▾'}</div>

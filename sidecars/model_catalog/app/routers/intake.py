@@ -1154,6 +1154,20 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
     snapshot = source_record.get("snapshot_json") if isinstance(source_record, dict) else {}
     if not isinstance(snapshot, dict):
         return []
+    design_creator = snapshot.get("designCreator") if isinstance(snapshot.get("designCreator"), dict) else {}
+
+    def _normalize_identity(value: Any) -> str:
+        return "".join(ch for ch in str(value or "").strip().lower() if ch.isalnum())
+
+    creator_name = str(source_record.get("creator_name") or design_creator.get("name") or "").strip()
+    creator_uid = int(
+        design_creator.get("uid")
+        or design_creator.get("userId")
+        or design_creator.get("user_id")
+        or design_creator.get("id")
+        or 0
+    )
+    creator_key = _normalize_identity(creator_name)
     instances = snapshot.get("instances") if isinstance(snapshot.get("instances"), list) else []
     summaries: list[dict[str, Any]] = []
     for instance in instances:
@@ -1179,11 +1193,36 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
         instance_colors = _makerworld_normalize_color_values(instance, model_info)
         if not instance_colors and plate_details:
             instance_colors = _makerworld_normalize_color_values(plate_details[0].get("filament_colors"))
+        profile_owner_name = str(
+            instance.get("profileUserName")
+            or instance.get("profile_user_name")
+            or instance.get("userName")
+            or instance.get("username")
+            or ""
+        ).strip() or None
+        profile_owner_id = int(
+            instance.get("profileUserId")
+            or instance.get("profile_user_id")
+            or instance.get("profileUid")
+            or instance.get("profile_uid")
+            or instance.get("userId")
+            or instance.get("user_id")
+            or instance.get("uid")
+            or 0
+        )
+        profile_owner_key = _normalize_identity(profile_owner_name)
+        is_designer_profile = bool(
+            (creator_key and profile_owner_key and creator_key == profile_owner_key)
+            or (creator_uid > 0 and profile_owner_id > 0 and creator_uid == profile_owner_id)
+        )
         summaries.append(
             {
                 "instance_id": instance.get("id"),
                 "profile_id": instance.get("profileId"),
                 "title": instance.get("title"),
+                "profile_owner_name": profile_owner_name,
+                "profile_owner_id": profile_owner_id or None,
+                "is_designer_profile": is_designer_profile,
                 "is_default": bool(instance.get("isDefault")),
                 "need_ams": instance.get("needAms") if instance.get("needAms") in (True, False) else None,
                 "material_count": instance.get("materialCnt"),
