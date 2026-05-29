@@ -98,6 +98,7 @@ Lane navigation:
 - [Intake Flow States And Transitions](reference/intake-state-machine.md) â€” Canonical intake state machine and transition contract for issue #1079
 - [Import Flow Diagrams](reference/import-flows.md) â€” Canonical Source -> Organize -> Validate -> Commit flow and Job History-centric outcome model
 - [Intake Validation Contract](reference/intake-validation.md) â€” Concrete checks, warning codes, state mapping, and UI checklist contract for the Validate step
+- [MakerWorld API And Schema Mapping](reference/makerworld-api-schema-mapping.md) â€” Endpoint inventory (used vs available), retrieved data coverage, and exact persistence mapping into intake tables, queue records, and model/custom-field schema
 
 ### Home Assistant And UX
 
