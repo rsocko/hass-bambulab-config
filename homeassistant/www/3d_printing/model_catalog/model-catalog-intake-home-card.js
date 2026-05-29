@@ -1736,6 +1736,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var detailsOpen = record && !fullImportQueued && !metadataImported ? ' open' : '';
     var instanceDetailsById = this._makerworldInstanceDetailsById(record);
     var sourceStats = this._makerworldSourceStats(record);
+    var snapshot = this._makerworldSnapshot(record);
     var profileCards = fileManifest.map(function (entry) {
       var normalizeIdentity = function (value) {
         return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
