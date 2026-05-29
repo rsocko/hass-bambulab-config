@@ -3473,12 +3473,17 @@ class ModelDetailPopupCard extends HTMLElement {
           background: linear-gradient(to top, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.06) 55%, transparent 100%);
         }
         .plate-color-swatch {
+          display: inline-block;
           width: 10px;
           height: 10px;
+          min-width: 10px;
+          min-height: 10px;
+          aspect-ratio: 1 / 1;
           border-radius: 50%;
           border: 1px solid rgba(255,255,255,0.35);
           box-shadow: 0 1px 2px rgba(0,0,0,0.25);
           flex: 0 0 auto;
+          box-sizing: border-box;
         }
         .file-plate-color-chip {
           display: inline-flex;
@@ -3487,8 +3492,11 @@ class ModelDetailPopupCard extends HTMLElement {
           padding-right: 6px;
         }
         .file-plate-color-chip .plate-color-swatch {
+          display: inline-block;
           width: 9px;
           height: 9px;
+          min-width: 9px;
+          min-height: 9px;
         }
         .file-plate-color-chip .color-count-label {
           font-size: 11px;
@@ -5333,8 +5341,16 @@ class ModelDetailPopupCard extends HTMLElement {
     return `<div class="file-plate-list">${plates.map((plate, index) => {
       const key = this._normalizePlateKey(plate && plate.id, index);
       const matchedEstimate = estimateByPlate[key] || estimateByPlate[String(index + 1)] || null;
-      const title = String(plate && (plate.name || plate.plate_name || plate.plate_key) || `Plate ${index + 1}`).trim();
-      const timeLabel = matchedEstimate ? this._formatPrintEstimate(matchedEstimate.estimated_print_time_seconds) : 'Unknown';
+      const baseTitle = String(plate && (plate.name || plate.plate_name || plate.plate_key) || `Plate ${index + 1}`).trim();
+      const detailTitle = String(
+        plate && (plate.title || plate.plate_title)
+        || matchedEstimate && matchedEstimate.title
+        || ''
+      ).trim();
+      const title = detailTitle && detailTitle.toLowerCase() !== baseTitle.toLowerCase()
+        ? `${baseTitle} - ${detailTitle}`
+        : baseTitle;
+      const timeLabel = matchedEstimate ? this._formatPrintEstimate(matchedEstimate.estimated_print_time_seconds) : '';
       const weightLabel = this._formatWeightGrams(plate && plate.weight_grams);
       const objectCount = Array.isArray(plate && plate.object_ids) ? plate.object_ids.length : 0;
       const thumbnailUrl = this._plateThumbnailUrl(file, plate, index);
@@ -5346,7 +5362,7 @@ class ModelDetailPopupCard extends HTMLElement {
           <div class="file-plate-main">
             <div class="file-plate-name">${this._escapeHtml(title)}</div>
             <div class="file-plate-meta">
-              <span>${this._escapeHtml(timeLabel)}</span>
+              ${timeLabel ? `<span>${this._escapeHtml(timeLabel)}</span>` : ''}
               ${weightLabel ? `<span>${this._escapeHtml(weightLabel)}</span>` : ''}
               ${objectCount ? `<span>${this._escapeHtml(String(objectCount))} ${objectCount === 1 ? 'object' : 'objects'}</span>` : ''}
               ${this._plateColorsMetaHtml(plate)}
