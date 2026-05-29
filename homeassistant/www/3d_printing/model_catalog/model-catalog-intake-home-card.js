@@ -1709,6 +1709,100 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     };
   }
 
+  _makerworldProfileCardsMarkup(fileManifest, selectedInstanceIds, instanceDetailsById, record, snapshot) {
+    try {
+      var markup = (Array.isArray(fileManifest) ? fileManifest : []).map(function (entry) {
+        var normalizeIdentity = function (value) {
+          return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+        };
+        var instanceId = Number(entry && entry.instance_id || 0);
+        var checked = selectedInstanceIds.indexOf(instanceId) !== -1;
+        var details = instanceDetailsById[String(instanceId)] || {};
+        var extention = details.extention && typeof details.extention === 'object' ? details.extention : {};
+        var modelInfo = extention.modelInfo && typeof extention.modelInfo === 'object' ? extention.modelInfo : {};
+        var prediction = details.prediction != null ? details.prediction : null;
+        var plates = Array.isArray(details.plates) ? details.plates : (Array.isArray(modelInfo.plates) ? modelInfo.plates : []);
+        var detailBits = [];
+        var creatorName = String(record && record.creator_name || '').trim();
+        var creatorDisplayName = String(snapshot.designCreator && snapshot.designCreator.name || creatorName).trim();
+        var creatorKey = normalizeIdentity(creatorName || creatorDisplayName);
+        var profileOwnerName = String(details.profileUserName || details.profile_user_name || details.userName || details.username || '').trim();
+        var profileOwnerKey = normalizeIdentity(profileOwnerName);
+        var profileOwnerId = Number(
+          details.profileUserId
+            || details.profile_user_id
+            || details.profileUid
+            || details.profile_uid
+            || details.userId
+            || details.user_id
+            || details.uid
+            || 0
+        );
+        var creatorUid = Number(
+          snapshot.designCreator && (
+            snapshot.designCreator.uid
+            || snapshot.designCreator.userId
+            || snapshot.designCreator.user_id
+            || snapshot.designCreator.id
+          )
+          || 0
+        );
+        var isDesignerByName = !!(creatorKey && profileOwnerKey && creatorKey === profileOwnerKey);
+        var isDesignerById = !!(profileOwnerId > 0 && creatorUid > 0 && profileOwnerId === creatorUid);
+        var isDesignerProfile = isDesignerByName || isDesignerById;
+        if (profileOwnerName) {
+          detailBits.push(isDesignerByName ? 'Designer profile' : ('Profile by ' + profileOwnerName));
+        } else if (profileOwnerId > 0 && creatorUid > 0) {
+          detailBits.push(profileOwnerId === creatorUid ? 'Designer profile' : ('Profile user #' + String(profileOwnerId)));
+        } else if (isDesignerProfile && creatorDisplayName) {
+          detailBits.push('Designer profile' + (creatorDisplayName ? (' · ' + creatorDisplayName) : ''));
+        }
+        if (details.needAms === true) {
+          detailBits.push('AMS');
+        } else if (details.needAms === false) {
+          detailBits.push('No AMS');
+        }
+        if (Number(details.materialCnt || 0) > 0) {
+          detailBits.push(String(Number(details.materialCnt || 0)) + ' material' + (Number(details.materialCnt || 0) === 1 ? '' : 's'));
+        }
+        if (Number(entry.plate_count || plates.length || 0) > 0) {
+          detailBits.push(String(Number(entry.plate_count || plates.length || 0)) + ' plate' + (Number(entry.plate_count || plates.length || 0) === 1 ? '' : 's'));
+        }
+        if (Number(details.printCount || 0) > 0) {
+          detailBits.push(String(Number(details.printCount || 0)) + ' prints');
+        }
+        var predictionText = '';
+        if (prediction != null && prediction !== '') {
+          predictionText = '<div class="muted">Prediction: ' + escapeHtml(String(prediction)) + ' sec</div>';
+        }
+        var platePredictionCount = plates.filter(function (plate) {
+          return plate && plate.prediction != null && plate.prediction !== '';
+        }).length;
+        if (platePredictionCount) {
+          predictionText += '<div class="muted">Plate predictions: ' + String(platePredictionCount) + '</div>';
+        }
+        return ''
+          + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + '">'
+          + '  <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok">Designer</span>' : '') + '<input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
+          + '  <div class="summary-label">' + escapeHtml(String(entry.title || details.title || (entry.profile_id ? ('Profile ' + String(entry.profile_id)) : ('Instance ' + String(instanceId))))) + '</div>'
+          + '  <div class="summary-value">' + (entry.profile_id ? ('Profile ' + escapeHtml(String(entry.profile_id)) + ' · ') : '') + 'Instance ' + escapeHtml(String(instanceId)) + '</div>'
+          + (entry.profile_id ? '<div class="muted">Profile ' + escapeHtml(String(entry.profile_id)) + '</div>' : '')
+          + (detailBits.length ? '<div class="muted">' + escapeHtml(detailBits.join(' | ')) + '</div>' : '')
+          + predictionText
+          + '</label>';
+      }).join('');
+      return { markup: markup, error: '' };
+    } catch (error) {
+      if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
+        console.warn('[ModelCatalogIntakeHomeCard] MakerWorld profile render failed', error);
+      }
+      return {
+        markup: '',
+        error: 'Some MakerWorld profile details could not be rendered from this capture. You can continue with metadata import, or capture metadata again.',
+      };
+    }
+  }
+
   _renderMakerWorldLaunchCard() {
     var trimmedUrl = String(this._makerworldUrl || '').trim();
     var record = this._makerworldRecord;
@@ -1737,86 +1831,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var instanceDetailsById = this._makerworldInstanceDetailsById(record);
     var sourceStats = this._makerworldSourceStats(record);
     var snapshot = this._makerworldSnapshot(record);
-    var profileCards = fileManifest.map(function (entry) {
-      var normalizeIdentity = function (value) {
-        return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
-      };
-      var instanceId = Number(entry && entry.instance_id || 0);
-      var checked = selectedInstanceIds.indexOf(instanceId) !== -1;
-      var details = instanceDetailsById[String(instanceId)] || {};
-      var extention = details.extention && typeof details.extention === 'object' ? details.extention : {};
-      var modelInfo = extention.modelInfo && typeof extention.modelInfo === 'object' ? extention.modelInfo : {};
-      var prediction = details.prediction != null ? details.prediction : null;
-      var plates = Array.isArray(details.plates) ? details.plates : (Array.isArray(modelInfo.plates) ? modelInfo.plates : []);
-      var detailBits = [];
-      var creatorName = String(record && record.creator_name || '').trim();
-      var creatorDisplayName = String(snapshot.designCreator && snapshot.designCreator.name || creatorName).trim();
-      var creatorKey = normalizeIdentity(creatorName || creatorDisplayName);
-      var profileOwnerName = String(details.profileUserName || details.profile_user_name || details.userName || details.username || '').trim();
-      var profileOwnerKey = normalizeIdentity(profileOwnerName);
-      var profileOwnerId = Number(
-        details.profileUserId
-          || details.profile_user_id
-          || details.profileUid
-          || details.profile_uid
-          || details.userId
-          || details.user_id
-          || details.uid
-          || 0
-      );
-      var creatorUid = Number(
-        snapshot.designCreator && (
-          snapshot.designCreator.uid
-          || snapshot.designCreator.userId
-          || snapshot.designCreator.user_id
-          || snapshot.designCreator.id
-        )
-        || 0
-      );
-      var isDesignerByName = !!(creatorKey && profileOwnerKey && creatorKey === profileOwnerKey);
-      var isDesignerById = !!(profileOwnerId > 0 && creatorUid > 0 && profileOwnerId === creatorUid);
-      var isDesignerProfile = isDesignerByName || isDesignerById;
-      if (profileOwnerName) {
-        detailBits.push(isDesignerByName ? 'Designer profile' : ('Profile by ' + profileOwnerName));
-      } else if (profileOwnerId > 0 && creatorUid > 0) {
-        detailBits.push(profileOwnerId === creatorUid ? 'Designer profile' : ('Profile user #' + String(profileOwnerId)));
-      } else if (isDesignerProfile && creatorDisplayName) {
-        detailBits.push('Designer profile' + (creatorDisplayName ? (' · ' + creatorDisplayName) : ''));
-      }
-      if (details.needAms === true) {
-        detailBits.push('AMS');
-      } else if (details.needAms === false) {
-        detailBits.push('No AMS');
-      }
-      if (Number(details.materialCnt || 0) > 0) {
-        detailBits.push(String(Number(details.materialCnt || 0)) + ' material' + (Number(details.materialCnt || 0) === 1 ? '' : 's'));
-      }
-      if (Number(entry.plate_count || plates.length || 0) > 0) {
-        detailBits.push(String(Number(entry.plate_count || plates.length || 0)) + ' plate' + (Number(entry.plate_count || plates.length || 0) === 1 ? '' : 's'));
-      }
-      if (Number(details.printCount || 0) > 0) {
-        detailBits.push(String(Number(details.printCount || 0)) + ' prints');
-      }
-      var predictionText = '';
-      if (prediction != null && prediction !== '') {
-        predictionText = '<div class="muted">Prediction: ' + escapeHtml(String(prediction)) + ' sec</div>';
-      }
-      var platePredictionCount = plates.filter(function (plate) {
-        return plate && plate.prediction != null && plate.prediction !== '';
-      }).length;
-      if (platePredictionCount) {
-        predictionText += '<div class="muted">Plate predictions: ' + String(platePredictionCount) + '</div>';
-      }
-      return ''
-        + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + '">'
-        + '  <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok">Designer</span>' : '') + '<input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
-        + '  <div class="summary-label">' + escapeHtml(String(entry.title || details.title || (entry.profile_id ? ('Profile ' + String(entry.profile_id)) : ('Instance ' + String(instanceId))))) + '</div>'
-        + '  <div class="summary-value">' + (entry.profile_id ? ('Profile ' + escapeHtml(String(entry.profile_id)) + ' · ') : '') + 'Instance ' + escapeHtml(String(instanceId)) + '</div>'
-        + (entry.profile_id ? '<div class="muted">Profile ' + escapeHtml(String(entry.profile_id)) + '</div>' : '')
-        + (detailBits.length ? '<div class="muted">' + escapeHtml(detailBits.join(' | ')) + '</div>' : '')
-        + predictionText
-        + '</label>';
-    }).join('');
+    var profileCardsResult = this._makerworldProfileCardsMarkup(fileManifest, selectedInstanceIds, instanceDetailsById, record, snapshot);
+    var profileCards = profileCardsResult.markup;
+    var profileRenderError = profileCardsResult.error;
     return ''
       + '    <article class="launch-card launch-card-makerworld">'
       + '      <div class="launch-kicker">External Source</div><div class="launch-title">Paste Source URL</div><div class="muted">Capture loads and stores the source record (images, profiles, tags, provenance) for preview/review. Import Metadata Only creates/updates a local model from that source record without downloading 3MF files. Queue Selected 3MF downloads only the checked profile file(s) into Active Queue.</div>'
@@ -1840,6 +1857,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '</div>'
           + '<details class="makerworld-detail-panel"' + detailsOpen + '><summary>Source details and profile selection</summary><div class="makerworld-detail-body">'
           + '<div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"><div class="muted">These tags are saved onto the source record now and applied later when you publish from Queue Review. Clear the field to publish without MakerWorld tags.</div></div>'
+          + (profileRenderError ? '<div class="status error">' + escapeHtml(profileRenderError) + '</div>' : '')
           + (profileCards ? '<div class="field"><label>Profiles To Queue</label><div class="makerworld-profile-grid">' + profileCards + '</div><div class="muted">Select one or many MakerWorld profiles. Multiple selections will queue multiple 3MF files into the same intake upload.</div></div>' : '')
           + '<div class="muted">Provenance fields such as source model id, counts, timestamps, and snapshot metadata stay linked for Queue Review and later publish hydration.</div>'
           + '</div></details>'
