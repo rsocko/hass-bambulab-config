@@ -810,7 +810,10 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       const sectionId = String(collapseToggle.dataset.collapseToggle || '').trim();
       if (sectionId) {
-        this._collapsedSections[sectionId] = !this._collapsedSections[sectionId];
+        const isCollapsed = Object.prototype.hasOwnProperty.call(this._collapsedSections, sectionId)
+          ? !!this._collapsedSections[sectionId]
+          : true;
+        this._collapsedSections[sectionId] = !isCollapsed;
         this._render();
       }
       return;
@@ -3465,19 +3468,26 @@ class ModelDetailPopupCard extends HTMLElement {
           border: 1px solid color-mix(in srgb, rgba(255,255,255,0.5) 45%, transparent);
           background: linear-gradient(to top, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.06) 55%, transparent 100%);
         }
-        .plate-color-strip {
-          position: absolute;
-          inset: auto 6px 5px 6px;
-          display: flex;
-          gap: 3px;
-          z-index: 1;
-        }
         .plate-color-swatch {
           width: 10px;
           height: 10px;
           border-radius: 999px;
           border: 1px solid rgba(255,255,255,0.35);
           box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+        }
+        .file-plate-color-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding-right: 6px;
+        }
+        .file-plate-color-chip .plate-color-swatch {
+          width: 9px;
+          height: 9px;
+        }
+        .file-plate-color-chip .color-count-label {
+          font-size: 11px;
+          color: inherit;
         }
         .file-plate-main {
           min-width: 0;
@@ -5270,15 +5280,15 @@ class ModelDetailPopupCard extends HTMLElement {
     return map;
   }
 
-  _plateColorsHtml(plate) {
+  _plateColorsMetaHtml(plate) {
     const colors = Array.isArray(plate && plate.filament_colors) ? plate.filament_colors.filter(Boolean) : [];
     if (!colors.length) {
       return '';
     }
-    return `<div class="plate-color-strip">${colors.map((color) => {
+    return `<span class="file-plate-color-chip">${colors.map((color) => {
       const safeColor = this._escapeHtml(String(color));
       return `<span class="plate-color-swatch" style="background:${safeColor};" title="${safeColor}"></span>`;
-    }).join('')}</div>`;
+    }).join('')}<span class="color-count-label">${this._escapeHtml(String(colors.length))} ${colors.length === 1 ? 'color' : 'colors'}</span></span>`;
   }
 
   _plateThumbnailUrl(file, plate, index) {
@@ -5316,14 +5326,14 @@ class ModelDetailPopupCard extends HTMLElement {
       return `
         <div class="file-plate-row">
           <div class="file-plate-visual">
-            <div class="file-plate-card${thumbnailUrl ? ' has-image' : ''}"${thumbnailUrl ? ` style="background-image:url('${this._escapeHtml(thumbnailUrl)}');"` : ''}>${this._plateColorsHtml(plate)}</div>
+            <div class="file-plate-card${thumbnailUrl ? ' has-image' : ''}"${thumbnailUrl ? ` style="background-image:url('${this._escapeHtml(thumbnailUrl)}');"` : ''}></div>
           </div>
           <div class="file-plate-main">
             <div class="file-plate-name">${this._escapeHtml(title)}</div>
             <div class="file-plate-meta">
               <span>${this._escapeHtml(timeLabel)}</span>
               ${objectCount ? `<span>${this._escapeHtml(String(objectCount))} objects</span>` : ''}
-              ${Array.isArray(plate && plate.filament_colors) && plate.filament_colors.length ? `<span>${this._escapeHtml(String(plate.filament_colors.length))} colors</span>` : ''}
+              ${this._plateColorsMetaHtml(plate)}
             </div>
           </div>
         </div>
