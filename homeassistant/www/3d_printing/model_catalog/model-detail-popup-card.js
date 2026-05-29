@@ -3428,10 +3428,10 @@ class ModelDetailPopupCard extends HTMLElement {
         }
         .file-plate-row {
           display: grid;
-          grid-template-columns: 78px minmax(0, 1fr);
+          grid-template-columns: 96px minmax(0, 1fr);
           gap: 12px;
           align-items: center;
-          padding: 8px 0;
+          padding: 10px 0;
         }
         .file-plate-row + .file-plate-row {
           border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
@@ -3442,8 +3442,8 @@ class ModelDetailPopupCard extends HTMLElement {
           justify-content: center;
         }
         .file-plate-card {
-          width: 58px;
-          height: 36px;
+          width: 78px;
+          height: 78px;
           border-radius: 10px;
           border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
           background:
@@ -3461,8 +3461,8 @@ class ModelDetailPopupCard extends HTMLElement {
         .file-plate-card::after {
           content: '';
           position: absolute;
-          inset: 6px 10px;
-          border-radius: 999px;
+          inset: 10px;
+          border-radius: 12px;
           border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
           background: color-mix(in srgb, var(--bg-card) 84%, transparent);
         }
@@ -3475,9 +3475,10 @@ class ModelDetailPopupCard extends HTMLElement {
         .plate-color-swatch {
           width: 10px;
           height: 10px;
-          border-radius: 999px;
+          border-radius: 50%;
           border: 1px solid rgba(255,255,255,0.35);
           box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+          flex: 0 0 auto;
         }
         .file-plate-color-chip {
           display: inline-flex;
@@ -5347,7 +5348,7 @@ class ModelDetailPopupCard extends HTMLElement {
             <div class="file-plate-meta">
               <span>${this._escapeHtml(timeLabel)}</span>
               ${weightLabel ? `<span>${this._escapeHtml(weightLabel)}</span>` : ''}
-              ${objectCount ? `<span>${this._escapeHtml(String(objectCount))} objects</span>` : ''}
+              ${objectCount ? `<span>${this._escapeHtml(String(objectCount))} ${objectCount === 1 ? 'object' : 'objects'}</span>` : ''}
               ${this._plateColorsMetaHtml(plate)}
             </div>
           </div>
