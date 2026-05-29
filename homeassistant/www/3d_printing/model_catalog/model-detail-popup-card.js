@@ -3491,6 +3491,12 @@ class ModelDetailPopupCard extends HTMLElement {
           gap: 5px;
           padding-right: 6px;
         }
+        .file-plate-meta .file-plate-color-chip {
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+        }
         .file-plate-color-chip .plate-color-swatch {
           display: inline-block;
           width: 9px;
