@@ -2554,33 +2554,35 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const stats = this._getStats();
     const eta = this._getEtaStats();
     const remainStr = this._formatDuration(eta.remainingMinutes);
-    const subtitle = `${eta.activeJobs} active job${eta.activeJobs === 1 ? '' : 's'}`;
-    const skippedStr = eta.skippedPlates > 0 ? `${eta.skippedPlates} done copies skipped` : 'No completed copies yet';
+    const readyCount = this._entries.filter(entry => entry.state === 'ready').length;
+    const blockedCount = this._entries.filter(entry => entry.state === 'blocked' || String(entry.block_reason || '').trim()).length;
+    const suggestionCount = Array.isArray(this._suggestions) ? this._suggestions.length : 0;
+    const reviewCount = blockedCount + suggestionCount;
+    const activeCount = this._entries.filter(entry => entry.state !== 'done').length;
+    const completedCount = this._entries.filter(entry => entry.state === 'done').length;
 
     return `
       <div class="top-widget">
-        <div class="eta-hero" aria-label="Estimated time remaining">
-          <span class="eta-kicker">Time remaining · excludes done plates</span>
-          <span class="eta-value">${this._escapeHtml(remainStr)} <small>across ${this._escapeHtml(subtitle)}</small></span>
-          <div class="eta-meta">
-            <span>${this._escapeHtml(skippedStr)}</span>
-          </div>
+        <div class="stat-card stat-card-primary" aria-label="Active queue summary">
+          <div class="stat-label">Active Queue</div>
+          <div class="stat-value">${activeCount}</div>
+          <div class="stat-sub">${stats.total} total entries · ${stats.inProgress} printing now</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ready Now</div>
+          <div class="stat-value">${readyCount}</div>
+          <div class="stat-sub">${stats.amsReady} AMS-ready · ${stats.overnightFit} overnight-fit</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Review Required</div>
+          <div class="stat-value">${reviewCount}</div>
+          <div class="stat-sub">${suggestionCount} completion suggestion${suggestionCount === 1 ? '' : 's'} · ${blockedCount} blocked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Time Remaining</div>
+          <div class="stat-value stat-value-duration">${this._escapeHtml(remainStr)}</div>
+          <div class="stat-sub">${eta.activeJobs} active job${eta.activeJobs === 1 ? '' : 's'} · ${eta.skippedPlates} done copies skipped</div>
           <div class="eta-bar"><span style="width: ${eta.pctComplete}%"></span></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Overnight Fit</div>
-          <div class="stat-value">${stats.overnightFit}</div>
-          <div class="stat-sub">Jobs that fit before 7am</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">AMS Ready</div>
-          <div class="stat-value">${stats.amsReady}</div>
-          <div class="stat-sub">Filaments loaded match</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Queue</div>
-          <div class="stat-value">${stats.total}</div>
-          <div class="stat-sub">${stats.inProgress} active · ${stats.overnightFit} overnight</div>
         </div>
       </div>
     `;
@@ -2825,15 +2827,18 @@ class UnifiedQueueBoardCard extends HTMLElement {
     const remainingMinutes = copiesRequested > 0
       ? Math.round(durationMinutes * remainingCopies / copiesRequested)
       : durationMinutes;
+    const hasDuration = durationMinutes > 0;
     const remainStr = this._formatDuration(remainingMinutes);
     const totalStr = this._formatDuration(durationMinutes);
+    const timeSummary = hasDuration
+      ? `<span><span class="qcard-meta-key">Time</span> <span class="qcard-remain">${this._escapeHtml(remainStr)}</span> <span class="qcard-total">/ ${this._escapeHtml(totalStr)}</span></span>`
+      : '';
     const segs = Array.from({ length: Math.max(1, copiesRequested) }).map((_, i) => {
       const done = i < copiesCompleted;
       return `<div class="qcard-seg ${done ? 'done' : ''}"></div>`;
     }).join('');
     const blockReason = String(entry.block_reason || '').trim();
 
-    const hasDuration = durationMinutes > 0;
     const fullInfo = [
       `Title: ${displayTitle}`,
       `Source: ${sourceMeta.fullLabel}`,
@@ -2855,25 +2860,27 @@ class UnifiedQueueBoardCard extends HTMLElement {
           ${draggable ? '<span class="qcard-drag" aria-hidden="true">⋮⋮</span>' : ''}
           <span class="qcard-rank">${Number.isFinite(entry.rank) ? entry.rank : '—'}</span>
           <span class="qcard-title">${this._escapeHtml(displayTitle)}</span>
+          <span class="qcard-source-badge ${sourceClass}">${this._escapeHtml(sourceLabel)}</span>
           ${showStatePill ? `<span class="qcard-state-pill">${this._escapeHtml(stateLabel)}</span>` : ''}
         </div>
-        <div class="qcard-meta">
-          <span class="qcard-source-badge ${sourceClass}">${this._escapeHtml(sourceLabel)}</span>
-          <span><span class="qcard-meta-key">Copies</span> ${copiesCompleted}/${copiesRequested}</span>
-          ${entry.ams_ready_score !== undefined ? `<span><span class="qcard-meta-key">AMS</span> ${entry.ams_ready_score}%</span>` : ''}
-          ${entry.overnight_fit_score !== undefined ? `<span><span class="qcard-meta-key">Overnight</span> ${entry.overnight_fit_score}%</span>` : ''}
-          ${blockReason ? `<span class="qcard-block-reason">⚠ ${this._escapeHtml(blockReason)}</span>` : ''}
+        <div class="qcard-row2">
+          <div class="qcard-meta">
+            <span><span class="qcard-meta-key">Copies</span> ${copiesCompleted}/${copiesRequested}</span>
+            ${timeSummary}
+            ${entry.ams_ready_score !== undefined ? `<span><span class="qcard-meta-key">AMS</span> ${entry.ams_ready_score}%</span>` : ''}
+            ${entry.overnight_fit_score !== undefined ? `<span><span class="qcard-meta-key">Overnight</span> ${entry.overnight_fit_score}%</span>` : ''}
+            ${blockReason ? `<span class="qcard-block-reason">⚠ ${this._escapeHtml(blockReason)}</span>` : ''}
+          </div>
         </div>
-        <div class="qcard-plate-bar" title="${copiesCompleted} of ${copiesRequested} copies done">${segs}</div>
-        ${hasDuration ? `
-        <div class="qcard-time-line">
-          <span><span class="qcard-remain">${this._escapeHtml(remainStr)} left</span> <span class="qcard-total">of ${this._escapeHtml(totalStr)}</span></span>
-          ${copiesCompleted > 0 ? `<span class="qcard-total">\u2212${this._escapeHtml(this._formatDuration(durationMinutes - remainingMinutes))} skipped</span>` : ''}
-        </div>` : ''}
-        <div class="qcard-actions" role="group" aria-label="Queue entry actions">
-          <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="View &amp; edit details">Details</button>
-          <span class="qcard-actions-spacer" aria-hidden="true"></span>
-          <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
+        <div class="qcard-row3">
+          <div class="qcard-progress" title="${copiesCompleted} of ${copiesRequested} copies done">
+            <div class="qcard-plate-bar">${segs}</div>
+            ${copiesCompleted > 0 ? `<span class="qcard-total">${this._escapeHtml(this._formatDuration(durationMinutes - remainingMinutes))} already done</span>` : '<span class="qcard-total">No completed copies yet</span>'}
+          </div>
+          <div class="qcard-actions" role="group" aria-label="Queue entry actions">
+            <button class="entry-action-btn" data-action="entry-detail" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="View &amp; edit details">Details</button>
+            <button class="entry-action-btn danger" data-action="entry-delete" data-entry-id="${this._escapeHtml(entry.queue_entry_id)}" title="Delete">Delete</button>
+          </div>
         </div>
       </article>
     `;
@@ -2952,6 +2959,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       return '';
     }
 
+    const suggestionCount = this._suggestions.length;
     const cards = this._suggestions.map(suggestion => {
       const suggestionId = String(suggestion.suggestion_id || '').trim();
       const entryId = String(suggestion.queue_entry_id || '').trim();
@@ -2969,7 +2977,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       return `
         <article class="suggestion-card" data-suggestion-id="${this._escapeHtml(suggestionId)}" data-entry-id="${this._escapeHtml(entryId)}">
           <div class="suggestion-copy">
-            <div class="suggestion-title">Did you mean to mark ${this._escapeHtml(title)} as done?</div>
+            <div class="suggestion-title">${this._escapeHtml(title)}</div>
             <div class="suggestion-meta">Archive ${this._escapeHtml(archiveId || 'unknown')} · ${this._escapeHtml(reasonLabel)}</div>
           </div>
           <div class="suggestion-actions">
@@ -2980,7 +2988,18 @@ class UnifiedQueueBoardCard extends HTMLElement {
       `;
     }).join('');
 
-    return cards ? `<section class="suggestions-block">${cards}</section>` : '';
+    return cards ? `
+      <section class="suggestions-block">
+        <div class="suggestions-head">
+          <div>
+            <div class="suggestions-kicker">Review Required</div>
+            <div class="suggestions-title-row">${suggestionCount} completion suggestion${suggestionCount === 1 ? '' : 's'}</div>
+          </div>
+          <div class="suggestions-summary">Medium-confidence archive matches waiting for operator confirmation</div>
+        </div>
+        ${cards}
+      </section>
+    ` : '';
   }
 
   _renderAddModal() {
@@ -3755,14 +3774,46 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .suggestions-block {
         display: grid;
         gap: 8px;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
+        padding: 10px 12px;
+        border: 1px solid rgba(242, 195, 91, 0.24);
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(242, 195, 91, 0.08), rgba(242, 195, 91, 0.03));
+      }
+
+      .suggestions-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .suggestions-kicker {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .suggestions-title-row {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+
+      .suggestions-summary {
+        color: var(--text-secondary);
+        font-size: 11px;
       }
 
       .suggestion-card {
-        border: 1px solid rgba(242, 195, 91, 0.35);
-        border-radius: 12px;
-        background: rgba(242, 195, 91, 0.1);
-        padding: 10px 12px;
+        border: 1px solid rgba(242, 195, 91, 0.24);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.02);
+        padding: 8px 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -3978,16 +4029,23 @@ class UnifiedQueueBoardCard extends HTMLElement {
 
       .top-widget {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
       }
 
       .stat-card {
         background: var(--bg-card-alt);
         border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 14px;
-        text-align: center;
+        border-radius: 14px;
+        padding: 12px 14px;
+        display: grid;
+        gap: 4px;
+        text-align: left;
+      }
+
+      .stat-card-primary {
+        border-color: rgba(124,199,255,0.3);
+        background: linear-gradient(135deg, rgba(124,199,255,0.14), rgba(110,231,200,0.08));
       }
 
       .stat-label {
@@ -4000,10 +4058,21 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
 
       .stat-value {
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 800;
         letter-spacing: -0.04em;
         color: var(--text);
+      }
+
+      .stat-value-duration {
+        font-size: 22px;
+        letter-spacing: -0.02em;
+      }
+
+      .stat-sub {
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.4;
       }
 
       .queue-list {
@@ -5552,44 +5621,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
       /* ---------- ETA Hero KPI ---------- */
       .top-widget {
         display: grid;
-        grid-template-columns: minmax(280px, 1.4fr) repeat(3, minmax(140px, 1fr));
-        gap: 12px;
-      }
-      .eta-hero {
-        background: linear-gradient(135deg, rgba(124,199,255,0.18), rgba(110,231,200,0.10));
-        border: 1px solid rgba(124,199,255,0.35);
-        border-radius: 16px;
-        padding: 14px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      .eta-kicker {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-      .eta-value {
-        font-size: 30px;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        color: var(--text);
-        line-height: 1.1;
-      }
-      .eta-value small {
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--text-secondary);
-        letter-spacing: 0;
-      }
-      .eta-meta {
-        display: flex;
-        gap: 14px;
-        flex-wrap: wrap;
-        font-size: 11px;
-        color: var(--text-secondary);
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
       }
       .eta-bar {
         position: relative;
@@ -5597,7 +5630,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         border-radius: 999px;
         background: rgba(255,255,255,0.08);
         overflow: hidden;
-        margin-top: 4px;
+        margin-top: 2px;
       }
       .eta-bar > span {
         display: block;
@@ -5605,13 +5638,6 @@ class UnifiedQueueBoardCard extends HTMLElement {
         background: linear-gradient(90deg, var(--accent-blue), var(--accent));
         border-radius: 999px;
         transition: width 0.4s ease;
-      }
-      .stat-card .stat-sub {
-        font-size: 10px;
-        color: var(--text-muted);
-        margin-top: 4px;
-        text-transform: none;
-        letter-spacing: 0;
       }
 
       /* ---------- Per-state palette + new card ---------- */
@@ -5671,7 +5697,8 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .qcard-row1 {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        flex-wrap: wrap;
       }
       .qcard-drag {
         color: var(--text-muted);
@@ -5713,10 +5740,16 @@ class UnifiedQueueBoardCard extends HTMLElement {
         border-radius: 999px;
         letter-spacing: 0.05em;
       }
+      .qcard-row2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
       .qcard-meta {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px 10px;
+        gap: 4px 10px;
         font-size: 11px;
         color: color-mix(in srgb, var(--text) 72%, var(--text-secondary));
       }
@@ -5734,6 +5767,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
         padding: 2px 7px;
         border-radius: 6px;
         text-transform: uppercase;
+        flex: 0 0 auto;
       }
       .qcard-source-badge.catalog { background: rgba(124,199,255,0.18); color: #7cc7ff; }
       .qcard-source-badge.working { background: rgba(110,231,200,0.18); color: #6ee7c8; }
@@ -5744,7 +5778,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .qcard-plate-bar {
         display: flex;
         gap: 3px;
-        margin-top: 2px;
+        flex: 1 1 auto;
       }
       .qcard-seg {
         flex: 1;
@@ -5755,12 +5789,12 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .qcard-seg.done {
         background: var(--state, #9eacba);
       }
-      .qcard-time-line {
+      .qcard-progress {
         display: flex;
-        justify-content: space-between;
+        flex: 1 1 auto;
+        align-items: center;
         gap: 8px;
-        font-size: 11px;
-        color: color-mix(in srgb, var(--text) 72%, var(--text-secondary));
+        min-width: 0;
       }
       .qcard-remain {
         color: var(--text);
@@ -5768,15 +5802,21 @@ class UnifiedQueueBoardCard extends HTMLElement {
       }
       .qcard-total {
         color: color-mix(in srgb, var(--text) 46%, var(--text-muted));
+        font-size: 11px;
+      }
+      .qcard-row3 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: space-between;
+        flex-wrap: wrap;
       }
       .qcard-actions {
         display: flex;
         gap: 6px;
-        margin-top: 4px;
         align-items: center;
-      }
-      .qcard-actions-spacer {
-        flex: 1 1 auto;
+        margin-left: auto;
+        flex: 0 0 auto;
       }
       .qcard-actions .entry-action-btn {
         flex: 0 0 auto;
@@ -5817,7 +5857,7 @@ class UnifiedQueueBoardCard extends HTMLElement {
       .flat-list-body {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
       }
 
       /* ---------- Kanban view ---------- */

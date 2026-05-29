@@ -54,6 +54,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._boundHandleChange = this._handleChange.bind(this);
     this._boundHandleInput = this._handleInput.bind(this);
     this._boundHandleIntakeLaunchEvent = this._handleIntakeLaunchEvent.bind(this);
+    this._boundHandleDragOver = this._handleDragOver.bind(this);
+    this._boundHandleDragLeave = this._handleDragLeave.bind(this);
+    this._boundHandleDrop = this._handleDrop.bind(this);
     this._hass = null;
     this._config = null;
     this._loading = false;
@@ -90,6 +93,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._makerworldResult = null;
     this._makerworldSelectedInstanceIds = [];
     this._makerworldSelectedTags = [];
+    this._uploadDropActive = false;
   }
 
   setConfig(config) {
@@ -129,6 +133,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.addEventListener("click", this._boundHandleClick);
       this.shadowRoot.addEventListener("change", this._boundHandleChange);
       this.shadowRoot.addEventListener("input", this._boundHandleInput);
+      this.shadowRoot.addEventListener("dragover", this._boundHandleDragOver);
+      this.shadowRoot.addEventListener("dragleave", this._boundHandleDragLeave);
+      this.shadowRoot.addEventListener("drop", this._boundHandleDrop);
     }
     try {
       window.addEventListener('model-catalog-intake-launch', this._boundHandleIntakeLaunchEvent);
@@ -142,6 +149,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.removeEventListener("click", this._boundHandleClick);
       this.shadowRoot.removeEventListener("change", this._boundHandleChange);
       this.shadowRoot.removeEventListener("input", this._boundHandleInput);
+      this.shadowRoot.removeEventListener("dragover", this._boundHandleDragOver);
+      this.shadowRoot.removeEventListener("dragleave", this._boundHandleDragLeave);
+      this.shadowRoot.removeEventListener("drop", this._boundHandleDrop);
     }
     try {
       window.removeEventListener('model-catalog-intake-launch', this._boundHandleIntakeLaunchEvent);
@@ -1276,6 +1286,105 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._render();
   }
 
+  _uploadDropTargetFromEvent(event) {
+    var target = event && event.target instanceof Element ? event.target : null;
+    return target ? target.closest('[data-drop-target="browser-upload"]') : null;
+  }
+
+  _handleDragOver(event) {
+    var dropTarget = this._uploadDropTargetFromEvent(event);
+    if (!dropTarget || this._loading) {
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+    if (!this._uploadDropActive) {
+      this._uploadDropActive = true;
+      this._render();
+    }
+  }
+
+  _handleDragLeave(event) {
+    var dropTarget = this._uploadDropTargetFromEvent(event);
+    if (!dropTarget || !this._uploadDropActive) {
+      return;
+    }
+    var relatedTarget = event.relatedTarget instanceof Element ? event.relatedTarget : null;
+    if (relatedTarget && dropTarget.contains(relatedTarget)) {
+      return;
+    }
+    this._uploadDropActive = false;
+    this._render();
+  }
+
+  async _handleDrop(event) {
+    var dropTarget = this._uploadDropTargetFromEvent(event);
+    if (!dropTarget || this._loading) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this._uploadDropActive = false;
+    var files = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files : null;
+    if (!files || !files.length) {
+      this._render();
+      return;
+    }
+    this._error = '';
+    this._status = '';
+    this._render();
+    try {
+      await this._openWizard('browser');
+      await this._appendBrowserFiles(files);
+      this._status = 'Upload wizard opened with dropped files preloaded.';
+      this._render();
+    } catch (error) {
+      this._error = error && error.message ? String(error.message) : 'Could not stage dropped files.';
+      this._render();
+    }
+  }
+
+  _intakeStateCounts() {
+    return summarizeStates(this._intakeItems, 'state');
+  }
+
+  _intakeUploadCounts() {
+    return summarizeStates(this._queueUploads, 'status');
+  }
+
+  _isCompletedIntakeItem(item) {
+    var state = String(item && (item.state || item.status) || '').trim().toLowerCase();
+    return state.indexOf('published') === 0 || state.indexOf('grouped_') === 0 || state === 'completed';
+  }
+
+  _isActiveIntakeItem(item) {
+    return !this._isCompletedIntakeItem(item);
+  }
+
+  _displayTitleForIntakeItem(item) {
+    var sourceEntry = item && item.source_entry ? item.source_entry : {};
+    var sourcePath = String(sourceEntry.path || item && item.source_url || '').trim();
+    return displayTitleFromPath(sourcePath || item && item.item_id || '') || basename(sourcePath || item && item.item_id || '') || String(item && item.item_id || 'Intake item');
+  }
+
+  _displayPathForIntakeItem(item) {
+    var sourceEntry = item && item.source_entry ? item.source_entry : {};
+    return String(sourceEntry.path || item && item.source_url || item && item.item_id || '').trim();
+  }
+
+  _displaySourceLabelForIntakeItem(item) {
+    var pathValue = this._displayPathForIntakeItem(item).toLowerCase();
+    if (pathValue.indexOf('makerworld.com') >= 0) {
+      return 'MakerWorld';
+    }
+    if (pathValue.indexOf('http://') === 0 || pathValue.indexOf('https://') === 0) {
+      return 'External Source';
+    }
+    return String(this._displayPathForIntakeItem(item) || '').trim() ? 'Server Inbox' : 'Queue';
+  }
+
   _removeBrowserFile(key) {
     var nextFiles = [];
     this._browserFiles.forEach(function (entry) {
@@ -1616,6 +1725,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
     var canImportSelection = !!(record && selectedInstanceIds.length && !this._loading);
     var importLabel = selectedInstanceIds.length > 1 ? 'Queue Selected 3MFs' : 'Queue Selected 3MF';
+    var detailsOpen = record && !(result && result.upload_id) ? ' open' : '';
     var instanceDetailsById = this._makerworldInstanceDetailsById(record);
     var sourceStats = this._makerworldSourceStats(record);
     var profileCards = fileManifest.map(function (entry) {
@@ -1663,9 +1773,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }).join('');
     return ''
       + '    <article class="launch-card launch-card-makerworld">'
-      + '      <div class="launch-kicker">Path 1</div><div class="launch-title">MakerWorld URL</div><div class="muted">Paste a MakerWorld design URL, capture the source record and provenance first, then queue the default 3MF into Active Queue for the normal review flow.</div>'
+      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Paste Source URL</div><div class="muted">Paste a supported source URL directly here. Provider detection is automatic, and the captured metadata flows into Queue Review before publish. MakerWorld is wired end-to-end today.</div>'
       + '      <div class="field"><label>Source URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
-      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture Preview</button><button class="button primary" data-action="import-makerworld-url"' + (canImportSelection ? '' : ' disabled') + '>' + importLabel + '</button><button class="button" data-action="goto-inbox">Open Active Queue</button>' + ((record || result) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
+      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture</button><button class="button primary" data-action="import-makerworld-url"' + (canImportSelection ? '' : ' disabled') + '>' + importLabel + '</button><button class="button" data-action="goto-inbox">Open Queue Review</button>' + ((record || result) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
       + (record
         ? '<article class="entry-row makerworld-result">'
           + '<div class="entry-top">'
@@ -1681,11 +1791,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '<div class="summary-card"><div class="summary-label">Available Files</div><div class="summary-value">' + String(fileManifestCount) + '</div><div class="muted">Captured into the source record for later review.</div></div>'
           + '<div class="summary-card"><div class="summary-label">Images / Tags</div><div class="summary-value">' + String(sourceStats.imageCount) + ' / ' + String(reviewedTags.length) + '</div><div class="muted">Source tags: ' + String(sourceStats.tagCount) + '. Edit before queueing if you want different publish tags.</div></div>'
           + '<div class="summary-card"><div class="summary-label">Likes / Downloads</div><div class="summary-value">' + String(sourceStats.likeCount) + ' / ' + String(sourceStats.downloadCount) + '</div><div class="muted">Comments ' + String(sourceStats.commentCount) + (sourceStats.canBoost ? ', boosts available ' + String(sourceStats.availableBoosts) : '') + '</div></div>'
-          + '<div class="summary-card"><div class="summary-label">User State</div><div class="summary-value">' + escapeHtml((sourceStats.hasLike ? 'Liked' : 'Not liked') + ' / ' + (sourceStats.hasCollect ? 'Collected' : 'Not collected')) + '</div><div class="muted">Boosted: ' + escapeHtml(sourceStats.hasBacked ? 'yes' : 'no') + ', total boosts ' + String(sourceStats.boostTotal) + '</div></div>'
-          + '<div class="summary-card"><div class="summary-label">Provenance</div><div class="summary-value">Snapshot Ready</div><div class="muted">Publish attaches the MakerWorld snapshot JSON as a supporting file.</div></div>'
           + '</div>'
-          + '<div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"><div class="muted">These tags are saved onto the source record now and applied later when you publish from Active Queue. Clear the field to publish without MakerWorld tags.</div></div>'
+          + '<details class="makerworld-detail-panel"' + detailsOpen + '><summary>Source details and profile selection</summary><div class="makerworld-detail-body">'
+          + '<div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"><div class="muted">These tags are saved onto the source record now and applied later when you publish from Queue Review. Clear the field to publish without MakerWorld tags.</div></div>'
           + (profileCards ? '<div class="field"><label>Profiles To Queue</label><div class="makerworld-profile-grid">' + profileCards + '</div><div class="muted">Select one or many MakerWorld profiles. Multiple selections will queue multiple 3MF files into the same intake upload.</div></div>' : '')
+          + '<div class="muted">Provenance fields such as source model id, counts, timestamps, and snapshot metadata stay linked for Queue Review and later publish hydration.</div>'
+          + '</div></details>'
           + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
           + ((result && result.upload_id) ? '<div class="muted">Active Queue now holds the selected MakerWorld 3MF file(s) while the original source record stays linked for later snapshot attachment and metadata hydration.</div>' : '<div class="muted">This preview is only metadata. Queue the selected 3MF file(s) to create the Active Queue item.</div>')
           + '</article>'
@@ -1923,14 +2034,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _queueSummaryHtml() {
-    var uploadCounts = summarizeStates(this._queueUploads, "status");
-    var itemCounts = summarizeStates(this._intakeItems, "state");
+    var uploadCounts = this._intakeUploadCounts();
+    var itemCounts = this._intakeStateCounts();
+    var activeCount = this._intakeItems.filter(this._isActiveIntakeItem.bind(this)).length;
+    var reviewCount = Number(itemCounts.validated_warning || 0) + Number(uploadCounts.failed || 0);
+    var completedCount = this._intakeItems.filter(this._isCompletedIntakeItem.bind(this)).length;
     return ""
       + '<div class="grid">'
-      + '  <div class="summary-card"><div class="summary-label">Queue Health</div><div class="summary-value">Queued ' + String(uploadCounts.queued || 0) + ' / Verified ' + String(uploadCounts.verified || 0) + '</div><div class="muted">Failed ' + String(uploadCounts.failed || 0) + ' / Cleanup pending ' + String(uploadCounts.cleanup_pending || 0) + '</div></div>'
-      + '  <div class="summary-card"><div class="summary-label">Queue Snapshot</div><div class="summary-value">Ready ' + String(itemCounts.validated_ready || 0) + ' / Warning ' + String(itemCounts.validated_warning || 0) + '</div><div class="muted">Deferred ' + String(itemCounts.deferred || 0) + ' / Completed ' + String((itemCounts.grouped_new || 0) + (itemCounts.grouped_existing || 0) + (itemCounts.published_to_catalog || 0)) + '</div></div>'
-      + '  <div class="summary-card"><div class="summary-label">Intake Roots</div><div class="summary-value">' + String(this._roots.length) + ' configured</div><div class="muted">Server browse is constrained to allowlisted sidecar roots.</div></div>'
-      + '  <div class="summary-card"><div class="summary-label">Batch Policy</div><div class="summary-value">' + escapeHtml(this._cleanupPolicy()) + '</div><div class="muted">Applied when the wizard commits a new intake batch.</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Active Queue</div><div class="summary-value">' + String(activeCount) + '</div><div class="muted">' + String(itemCounts.validated_ready || 0) + ' ready · ' + String(itemCounts.deferred || 0) + ' deferred</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Review Required</div><div class="summary-value">' + String(reviewCount) + '</div><div class="muted">' + String(itemCounts.validated_warning || 0) + ' warning items · ' + String(uploadCounts.failed || 0) + ' failed uploads</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Completed</div><div class="summary-value">' + String(completedCount) + '</div><div class="muted">Published and grouped work completed from Intake</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Sources</div><div class="summary-value">3</div><div class="muted">Browser · Server Inbox · MakerWorld</div></div>'
       + '</div>';
   }
 
@@ -2141,32 +2255,64 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return basename(root.path || root.name || '/');
     }).filter(Boolean).slice(0, 3);
     var cleanupCandidateCount = this._activeQueueCleanupCandidates().length;
+    var activeItems = this._intakeItems.filter(this._isActiveIntakeItem.bind(this)).slice(0, 3);
+    var completedItems = this._intakeItems.filter(this._isCompletedIntakeItem.bind(this)).slice(0, 2);
+    var uploadCounts = this._intakeUploadCounts();
     return ''
       + '<section class="section">'
-      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, validate the handoff, then continue in Active Queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button>' + (cleanupCandidateCount > 0 ? '<button class="button warn" data-action="cleanup-active-queue">Clean Active Queue (' + String(cleanupCandidateCount) + ')</button>' : '') + '<button class="button primary" data-action="goto-inbox">Open Active Queue</button></div></div>'
-      + '  <div class="wizard-launch-grid">'
+      + '  <div class="home-workbench-grid">'
+      + '    <div class="home-launchpad">'
+      + '      <div class="title-row"><div><div class="title">Start New Intake</div><div class="subtitle">Launch a new batch here, then continue follow-up work in Active Queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button>' + (cleanupCandidateCount > 0 ? '<button class="button warn" data-action="cleanup-active-queue">Clean Active Queue (' + String(cleanupCandidateCount) + ')</button>' : '') + '<button class="button primary" data-action="goto-inbox">Open Active Queue</button></div></div>'
+      + '      <div class="wizard-launch-grid workbench-launch-grid">'
+      + '        <article class="launch-card launch-card-drop' + (this._uploadDropActive ? ' drag-active' : '') + '" data-drop-target="browser-upload">'
+      + '          <div class="launch-kicker">Upload</div><div class="launch-title">Upload Files Or Folder</div><div class="muted">Drop files here to open the upload wizard with them already staged, or open the wizard normally and keep adding more before commit.</div>'
+      + '          <div class="launch-drop-note">' + (this._uploadDropActive ? 'Release to open the wizard with these files preloaded.' : 'Drop files here or use the button below.') + '</div>'
+      + '          <div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
+      + '        </article>'
+      + '        <article class="launch-card">'
+      + '          <div class="launch-kicker">Server Inbox</div><div class="launch-title">Browse Allowlisted Roots</div><div class="muted">Review server-side folders and files' + (rootNames.length ? ' such as ' + escapeHtml(rootNames.join(', ')) : '') + ', configure recurse/grouping, and queue them for the same review flow.</div><div class="button-row"><button class="button primary" data-action="open-server-wizard">Start Server Wizard</button></div>'
+      + '        </article>'
       + this._renderMakerWorldLaunchCard()
-      + '    <article class="launch-card">'
-      + '      <div class="launch-kicker">Path 2</div><div class="launch-title">Upload</div><div class="muted">Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
-      + '    </article>'
-      + '    <article class="launch-card">'
-      + '      <div class="launch-kicker">Path 3</div><div class="launch-title">Sync / Import From Server Inbox</div><div class="muted">Browse allowlisted server roots' + (rootNames.length ? ' such as ' + escapeHtml(rootNames.join(', ')) : '') + ', select files or folders, configure recurse/grouping, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-server-wizard">Start Server Wizard</button></div>'
-      + '    </article>'
+      + '      </div>'
+      + '    </div>'
+      + '    <aside class="home-snapshot-panel">'
+      + '      <div class="title-row"><div><div class="title">Queue And History Snapshot</div><div class="subtitle">Active work stays visible here without turning the home view into a full review queue.</div></div><div class="button-row"><button class="button primary" data-action="goto-inbox">Open Queue Review</button></div></div>'
+      + '      <div class="home-snapshot-list">'
+      + (activeItems.length
+          ? activeItems.map(function (item) {
+              var stateValue = formatLabel(item.state || item.status || 'pending');
+              return '<article class="entry-row compact"><div class="entry-top"><div><div class="entry-name">' + escapeHtml(this._displayTitleForIntakeItem(item)) + '</div><div class="entry-path">' + escapeHtml(this._displaySourceLabelForIntakeItem(item) + ' · ' + stateValue) + '</div></div><span class="chip">' + escapeHtml(stateValue) + '</span></div></article>';
+            }, this).join('')
+          : '<div class="state-row">No active queue items yet.</div>')
+      + '      </div>'
+      + '      <div class="home-mini-grid">'
+      + '        <div class="summary-card"><div class="summary-label">Recent Result</div><div class="summary-value">' + escapeHtml(completedItems.length ? this._displayTitleForIntakeItem(completedItems[0]) : 'None yet') + '</div><div class="muted">' + escapeHtml(completedItems.length ? formatLabel(completedItems[0].state || completedItems[0].status || 'completed') : 'Published results will appear here.') + '</div></div>'
+      + '        <div class="summary-card"><div class="summary-label">Capture Ops</div><div class="summary-value">' + String(this._roots.length) + ' roots</div><div class="muted">' + String(uploadCounts.failed || 0) + ' failed uploads · policy ' + escapeHtml(this._cleanupPolicy()) + '</div></div>'
+      + '      </div>'
+      + '    </aside>'
       + '  </div>'
       + '</section>';
   }
 
   _renderRecentActivity() {
     var recentItems = this._intakeItems.slice(0, 5);
+    var uploadCounts = this._intakeUploadCounts();
     return ''
       + '<section class="section">'
-      + '  <div class="title-row"><div><div class="title">Recent Intake Activity</div><div class="subtitle">Latest queue handoffs and validation state from the shared intake contract.</div></div></div>'
+      + '  <div class="title-row"><div><div class="title">Recent Captures And Ops</div><div class="subtitle">Capture and queue context that supports the launchpad without replacing Queue Review.</div></div></div>'
+      + '  <div class="home-mini-grid">'
+      + '    <div class="summary-card">'
+      + '      <div class="summary-label">Recent Items</div>'
       + (recentItems.length
-        ? '<div class="entries">' + recentItems.map(function (item) {
-            var sourceEntry = item.source_entry || {};
-            return '<article class="entry-row"><div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><span class="chip">' + escapeHtml(formatLabel(item.state || item.status)) + '</span></div></article>';
-          }).join('') + '</div>'
-        : '<div class="state-row">No intake items have been created yet.</div>')
+          ? '<div class="entries compact-list">' + recentItems.slice(0, 3).map(function (item) {
+              return '<article class="entry-row compact"><div class="entry-top"><div><div class="entry-name">' + escapeHtml(this._displayTitleForIntakeItem(item)) + '</div><div class="entry-path">' + escapeHtml(this._displayPathForIntakeItem(item) || this._displaySourceLabelForIntakeItem(item)) + '</div></div><span class="chip">' + escapeHtml(formatLabel(item.state || item.status)) + '</span></div></article>';
+            }, this).join('') + '</div>'
+          : '<div class="state-row">No intake items have been created yet.</div>')
+      + '    </div>'
+      + '    <div class="summary-card">'
+      + '      <div class="summary-label">Queue Ops</div><div class="summary-value">Queued ' + String(uploadCounts.queued || 0) + ' / Verified ' + String(uploadCounts.verified || 0) + '</div><div class="muted">Failed ' + String(uploadCounts.failed || 0) + ' / Cleanup pending ' + String(uploadCounts.cleanup_pending || 0) + '</div>'
+      + '    </div>'
+      + '  </div>'
       + '</section>';
   }
 
@@ -2640,11 +2786,24 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var busyHtml = !this._wizardOpen ? this._renderBusyState() : '';
     var extraStyles = ''
       + 'ha-card{border-radius:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;}'
+      + '.home-workbench-grid{display:grid;gap:16px;grid-template-columns:minmax(0,1.35fr) minmax(280px,0.95fr);align-items:start;}'
+      + '.home-launchpad,.home-snapshot-panel{display:grid;gap:14px;align-content:start;}'
+      + '.home-snapshot-panel{padding:18px;border-radius:20px;border:1px solid rgba(148,163,184,0.2);background:linear-gradient(180deg,rgba(30,41,59,0.18),rgba(15,23,42,0.1));}'
+      + '.home-snapshot-list{display:grid;gap:10px;}'
+      + '.home-mini-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));}'
       + '.wizard-launch-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}'
+      + '.workbench-launch-grid{align-items:start;}'
       + '.launch-card{display:grid;gap:10px;padding:18px;border-radius:20px;border:1px solid rgba(148,163,184,0.2);background:linear-gradient(180deg,rgba(30,41,59,0.18),rgba(15,23,42,0.1));}'
+      + '.launch-card-drop{border-style:dashed;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;}'
+      + '.launch-card-drop.drag-active{border-color:rgba(56,189,248,0.72);background:linear-gradient(180deg,rgba(8,145,178,0.22),rgba(15,23,42,0.12));box-shadow:0 0 0 1px rgba(56,189,248,0.24) inset;}'
+      + '.launch-drop-note{font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
       + '.launch-card-makerworld{align-content:start;}'
       + '.makerworld-preview-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
       + '.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}'
+      + '.makerworld-detail-panel{border:1px solid rgba(148,163,184,0.18);border-radius:14px;background:rgba(15,23,42,0.16);padding:0;overflow:hidden;}'
+      + '.makerworld-detail-panel summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:800;color:var(--primary-text-color);}'
+      + '.makerworld-detail-panel summary::-webkit-details-marker{display:none;}'
+      + '.makerworld-detail-body{display:grid;gap:12px;padding:0 14px 14px;}'
       + '.makerworld-profile-card{cursor:pointer;align-content:start;}'
       + '.makerworld-profile-card.selected{border-color:rgba(56,189,248,0.65);box-shadow:0 0 0 1px rgba(56,189,248,0.35) inset;}'
       + '.launch-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary-text-color);}'
@@ -2706,6 +2865,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.intake-path-row .intake-path-text{font-size:14px;font-weight:600;color:var(--primary-text-color);overflow-wrap:anywhere;}'
       + '.button.icon-only{min-width:38px;width:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;}'
       + '.button.icon-only ha-icon{--mdc-icon-size:18px;width:18px;height:18px;}'
+      + '@media (max-width: 960px){.home-workbench-grid,.home-mini-grid{grid-template-columns:1fr;}}'
       + '@media (max-width: 860px){.wizard-body{grid-template-columns:1fr;}.wizard-dialog{padding:14px;max-height:94vh;}.wizard-modal{padding:12px;}}';
 
     this.shadowRoot.innerHTML = ''
