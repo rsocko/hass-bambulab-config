@@ -1302,11 +1302,30 @@ def _normalize_print_estimates(prediction_summary: Any) -> list[dict[str, Any]]:
 def _persist_source_publish_context(*, db_path: Path, model_ref: str, source_publish_context: dict[str, Any] | None) -> None:
     if not isinstance(source_publish_context, dict):
         return
+    provider_id = str(source_publish_context.get("provider_id") or "").strip() or None
+    canonical_url = str(source_publish_context.get("canonical_url") or "").strip() or None
+    original_url = str(source_publish_context.get("original_url") or "").strip() or None
+    primary_source_url = canonical_url or original_url
+    source_urls: list[str] = []
+    seen_source_urls: set[str] = set()
+    for candidate in (canonical_url, original_url):
+        normalized = str(candidate or "").strip()
+        if not normalized or normalized in seen_source_urls:
+            continue
+        seen_source_urls.add(normalized)
+        source_urls.append(normalized)
+    preview_image_url = str(source_publish_context.get("thumbnail_url") or "").strip() or None
+    if not preview_image_url:
+        for image_url in (source_publish_context.get("image_urls") or []):
+            normalized = str(image_url or "").strip()
+            if normalized:
+                preview_image_url = normalized
+                break
     set_model_field(
         db_path=db_path,
         model_ref=model_ref,
         field_key="source_capture_provider",
-        field_value=source_publish_context.get("provider_id"),
+        field_value=provider_id,
     )
     set_model_field(
         db_path=db_path,
@@ -1350,6 +1369,40 @@ def _persist_source_publish_context(*, db_path: Path, model_ref: str, source_pub
         field_key="print_estimates",
         field_value=_normalize_print_estimates(source_publish_context.get("prediction_summary") or []),
     )
+    if provider_id:
+        set_model_field(
+            db_path=db_path,
+            model_ref=model_ref,
+            field_key="publication_source",
+            field_value=provider_id,
+        )
+        set_model_field(
+            db_path=db_path,
+            model_ref=model_ref,
+            field_key="source_platform",
+            field_value=provider_id,
+        )
+    if primary_source_url:
+        set_model_field(
+            db_path=db_path,
+            model_ref=model_ref,
+            field_key="source_download_url",
+            field_value=primary_source_url,
+        )
+    if source_urls:
+        set_model_field(
+            db_path=db_path,
+            model_ref=model_ref,
+            field_key="source_urls",
+            field_value=source_urls,
+        )
+    if preview_image_url:
+        set_model_field(
+            db_path=db_path,
+            model_ref=model_ref,
+            field_key="source_image_preview_url",
+            field_value=preview_image_url,
+        )
 
 
 def _publish_group_to_local_destination(

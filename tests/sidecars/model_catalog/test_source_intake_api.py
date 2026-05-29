@@ -721,6 +721,10 @@ def test_publish_source_metadata_only_creates_local_model_with_rich_source_field
                     'source_capture_profiles',
                     'source_capture_provider',
                     'source_capture_record_id',
+                                        'publication_source',
+                                        'source_platform',
+                                        'source_download_url',
+                                        'source_image_preview_url',
                     'source_description_raw',
                     'source_prediction_summary',
                     'print_estimates',
@@ -753,6 +757,10 @@ def test_publish_source_metadata_only_creates_local_model_with_rich_source_field
         }
         assert fields["source_capture_provider"] == "makerworld"
         assert fields["source_capture_record_id"] == record_id
+        assert fields["publication_source"] == "makerworld"
+        assert fields["source_platform"] == "makerworld"
+        assert fields["source_download_url"] == "https://makerworld.com/en/models/1295917"
+        assert fields["source_image_preview_url"] == "https://makerworld.bblmw.com/example.jpg"
         assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
         assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
         assert fields["source_capture_profiles"][0]["plate_details"][1]["filament_colors"] == ["#FFD166"]

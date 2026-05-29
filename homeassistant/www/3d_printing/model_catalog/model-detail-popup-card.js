@@ -5387,9 +5387,58 @@ class ModelDetailPopupCard extends HTMLElement {
       const type = String(f.asset_type || '').toLowerCase();
       return MODEL_ROLES.has(role) || MODEL_TYPES.has(type);
     });
+    const sourceProfiles = this._getSourceCaptureProfiles(model);
     this._ensureModelFilePlateCounts(files);
     this._ensureModelFilePlateDetails(files);
     const printEstimates = this._getModelPrintEstimates(model);
+    const onlineRows = sourceProfiles.length ? sourceProfiles.map((profile, index) => {
+      const title = this._escapeHtml(String(profile.title || profile.profile_id || profile.instance_id || `Online Profile ${index + 1}`));
+      const plateDetails = Array.isArray(profile.plate_details) ? profile.plate_details : [];
+      const plateCount = plateDetails.length;
+      const totalEstimate = profile.prediction ? this._formatPrintEstimate(profile.prediction) : '';
+      const meta = [
+        'Online source profile',
+        plateCount ? `${plateCount} ${plateCount === 1 ? 'plate' : 'plates'}` : '',
+        profile.need_ams === true ? 'AMS' : (profile.need_ams === false ? 'No AMS' : ''),
+        Number(profile.material_count || 0) > 0 ? `${Number(profile.material_count || 0)} ${Number(profile.material_count || 0) === 1 ? 'material' : 'materials'}` : '',
+      ].filter(Boolean).join(' | ');
+      const sectionId = `source-profile-${String(profile.profile_id || profile.instance_id || index + 1)}`;
+      const isCollapsed = Object.prototype.hasOwnProperty.call(this._collapsedSections, sectionId)
+        ? !!this._collapsedSections[sectionId]
+        : true;
+      const plateRows = plateDetails.length ? `<div class="file-plate-list">${plateDetails.map((plate, plateIndex) => {
+        const plateTitle = String(plate && plate.plate_id || `Plate ${plateIndex + 1}`).trim();
+        const plateEstimate = this._formatPrintEstimate(plate && plate.prediction);
+        return `
+          <div class="file-plate-row">
+            <div class="file-plate-visual">
+              <div class="file-plate-card"></div>
+            </div>
+            <div class="file-plate-main">
+              <div class="file-plate-name">${this._escapeHtml(plateTitle)}</div>
+              <div class="file-plate-meta">
+                ${plateEstimate && plateEstimate !== 'Unknown' ? `<span>${this._escapeHtml(plateEstimate)}</span>` : ''}
+                ${this._plateColorsMetaHtml(plate)}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}</div>` : '<div class="file-plate-empty">No plate details available from source metadata.</div>';
+      return `
+        <article class="collapsible-group">
+          <button class="collapse-toggle file-row-toggle" data-collapse-toggle="${this._escapeHtml(sectionId)}">
+            <div class="file-row-main"><span class="file-ext-badge x-online">WEB</span><div><strong>${title}</strong><div class="detail">${this._escapeHtml(meta || 'Online source profile')}</div></div></div>
+            <div class="file-row-side">
+              ${totalEstimate && totalEstimate !== 'Unknown' ? `<div class="file-total-estimate"><span class="file-total-label">Total</span><strong>${this._escapeHtml(totalEstimate)}</strong></div>` : ''}
+              <div class="file-chevron">${isCollapsed ? '▸' : '▾'}</div>
+            </div>
+          </button>
+          <div class="collapse-body file-collapse-body ${isCollapsed ? 'hidden' : ''}">
+            ${plateRows}
+          </div>
+        </article>
+      `;
+    }).join('') : '';
     const rows = files.length ? files.map(file => {
       const filename = this._escapeHtml(String(file.filename || file.asset_filename || file.id || 'file'));
       const rawName = String(file.filename || file.asset_filename || file.id || '');
@@ -5432,13 +5481,14 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </article>
       `;
-    }).join('') : '<article class="queue-row"><strong>No files found</strong><div class="detail">Model file inventory is empty.</div></article>';
+    }).join('') : (onlineRows || '<article class="queue-row"><strong>No files found</strong><div class="detail">Model file inventory is empty.</div></article>');
+    const displayCount = files.length || sourceProfiles.length;
 
     return `
       <section class="card" data-slot="panel:files-core">
         <div class="h">
           <span>Model Files</span>
-          <span>${files.length}</span>
+          <span>${displayCount}</span>
         </div>
         <div class="files">${rows}</div>
       </section>
@@ -6201,6 +6251,7 @@ class ModelDetailPopupCard extends HTMLElement {
       ? this._modelDetail.model.files
       : [];
     const sourceUrls = this._getSourceUrls();
+    const sourceImageUrls = this._getSourceCaptureImageUrls(model);
     const hasNonSourcePreview = photos.some(photo => Boolean(photo && photo.is_preview))
       || files.some(file => Boolean(file && (file.is_preview || file.asset_role === 'preview')));
 
@@ -6300,6 +6351,26 @@ class ModelDetailPopupCard extends HTMLElement {
         filename: `Source URL ${idx + 1}`,
         type: 'asset',
         type_label: 'Source URL',
+        can_set_preview: true,
+        can_hide: true,
+        can_delete: false,
+        is_preview: Boolean(!hasNonSourcePreview && sourcePreviewUrl && sourcePreviewUrl === normalizedUrl),
+      });
+    });
+
+    sourceImageUrls.forEach((normalizedUrl, idx) => {
+      const mediaId = this._sourceUrlMediaId(normalizedUrl);
+      if (!normalizedUrl || !mediaId) {
+        return;
+      }
+      addItem({
+        media_id: mediaId,
+        id: normalizedUrl,
+        url: normalizedUrl,
+        thumbnail_url: normalizedUrl,
+        filename: `Source Image ${idx + 1}`,
+        type: 'asset',
+        type_label: 'Source Image',
         can_set_preview: true,
         can_hide: true,
         can_delete: false,
@@ -10064,6 +10135,40 @@ class ModelDetailPopupCard extends HTMLElement {
     if (downloadUrl && !seen.has(downloadUrl)) { merged.push(downloadUrl); seen.add(downloadUrl); }
     for (const u of legacyUrls) { if (!seen.has(u)) { merged.push(u); seen.add(u); } }
     return merged;
+  }
+
+  _getSourceCaptureImageUrls(model) {
+    const detailModel = this._modelDetail && this._modelDetail.model && typeof this._modelDetail.model === 'object'
+      ? this._modelDetail.model
+      : {};
+    const detailFields = detailModel.custom_fields && typeof detailModel.custom_fields === 'object'
+      ? detailModel.custom_fields
+      : {};
+    const modelFields = model && model.custom_fields && typeof model.custom_fields === 'object'
+      ? model.custom_fields
+      : {};
+    const rawImages = Array.isArray(detailFields.source_capture_image_urls)
+      ? detailFields.source_capture_image_urls
+      : (Array.isArray(modelFields.source_capture_image_urls) ? modelFields.source_capture_image_urls : []);
+    return rawImages
+      .map((value) => this._normalizeComparableUrl(value))
+      .filter(Boolean);
+  }
+
+  _getSourceCaptureProfiles(model) {
+    const detailModel = this._modelDetail && this._modelDetail.model && typeof this._modelDetail.model === 'object'
+      ? this._modelDetail.model
+      : {};
+    const detailFields = detailModel.custom_fields && typeof detailModel.custom_fields === 'object'
+      ? detailModel.custom_fields
+      : {};
+    const modelFields = model && model.custom_fields && typeof model.custom_fields === 'object'
+      ? model.custom_fields
+      : {};
+    const rawProfiles = Array.isArray(detailFields.source_capture_profiles)
+      ? detailFields.source_capture_profiles
+      : (Array.isArray(modelFields.source_capture_profiles) ? modelFields.source_capture_profiles : []);
+    return rawProfiles.filter((item) => item && typeof item === 'object');
   }
 
   async _addSourceUrl() {
