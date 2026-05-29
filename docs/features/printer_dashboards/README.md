@@ -76,6 +76,7 @@ Each feature contributes dashboard cards — see feature-specific docs:
 | [Card Templates Readme](/docs/features/printer_dashboards/reference/card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
 | [Animation Design Notes](/docs/features/printer_dashboards/design/animation-design-notes.md) | CSS animation design notes and patterns |
 | [Multicolor Spool Testing](/docs/features/printer_dashboards/reference/multicolor-spool-testing.md) | Testing guide for multi-color spool display |
+| [Dashboard View Strategy Modularization Guide](/docs/features/printer_dashboards/planning/dashboard-view-strategy-modularization-guide.md) | Phased plan and effort estimates for dashboard/view strategy adoption |
 | [Yaml Conversion Status](/docs/features/printer_dashboards/planning/yaml-conversion-status.md) | YAML conversion status and known issues |
 
 ## Custom Cards Required (HACS)
