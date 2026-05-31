@@ -170,14 +170,16 @@ Notes:
 
 These are documented in existing design docs and reverse-engineering references.
 
-- `design-service`
-- `design-user-service`
-- `design-recommend-service`
-- `search-service`
-- `comment-service`
-- `operation-service`
-- `point-service`
-- `report-service`
+| Service | What it provides | What it is used for | Likely leverage in this repo? |
+|---|---|---|---|
+| `design-service` | Core design/model records, creator linkage, instances/profiles, and binary download routes | Resolve a MakerWorld URL into normalized model metadata and download the selected 3MF | Yes. This is the primary MakerWorld dependency for capture/import flows and is already on the critical path. |
+| `design-user-service` | User-centric data such as creator profiles, follows, and collections | Potential creator enrichment and collection/favorites migration flows | Maybe. It is relevant if we add collection import or deeper creator views, but current intake does not require it and the collections route is still weakly validated. |
+| `design-recommend-service` | Recommendation, trending, and discovery-style feeds | Candidate input for suggested models, related browsing, or popularity-driven discovery surfaces | Maybe later. Useful only if the product adds recommendation-driven browse UX; not needed for direct URL intake or deterministic import. |
+| `search-service` | Search and browse navigation endpoints, including category navigation and related-design discovery | Search-backed browse, category pages, and related-model exploration | Maybe. It matters for browse/discovery features, but not for the current import path that starts from a specific MakerWorld URL. |
+| `comment-service` | Comments, reviews, and ratings-style community content | Surfacing community discussion or review metadata alongside a model | Unlikely. It adds community context, but there is no current intake or catalog requirement that depends on comments. |
+| `operation-service` | Operational or event-oriented backend actions referenced in reverse-engineering notes | Unknown from current grounded docs beyond general operational/event support | Probably not. There is no current documented flow in this repo that points to it, and its contract is not well established in our references. |
+| `point-service` | Points/rewards mechanics | Reward, incentive, or points-account views | No current reason. This repo does not model MakerWorld reward workflows. |
+| `report-service` | Reporting and abuse/moderation actions | Reporting content or moderation-related submission flows | No current reason. The catalog/intake scope is read/import oriented, not moderation oriented. |
 
 Current implementation primarily depends on `design-service` plus the `iot-service` profile manifest endpoint.
 
@@ -206,8 +208,8 @@ From the design payload `instances` array and nested extension content:
 - AMS requirement
 - material count
 - print count
-- instance prediction
-- plate list and plate predictions
+- instance prediction (print time estimate)
+- plate list and plate predictions (print time estimate)  
 - filament colors (normalized from variant keys)
 - profile owner identity fields (when available), then derived `is_designer_profile`
 
