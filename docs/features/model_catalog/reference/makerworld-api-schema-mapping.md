@@ -23,13 +23,16 @@ flowchart TD
 		C --> E[(source_import_jobs)]
 
 		D --> F{Commit Mode}
-		F -->|full_import| G[Download 3MF]
+		F -->|full_import| G[Stage 3MF For Validate]
 		G --> G1[Signed Manifest<br/>GET /v1/iot-service/api/user/profile/profileId?model_id=modelId]
 		G1 --> G2[Signed Binary URL]
 		G --> G3[Fallback Binary<br/>GET /v1/design-service/instance/instanceId/f3mf?type=download]
-		G2 --> H[Create Intake Queue Upload]
+		G2 --> H[Temporary Staging + Duplicate Analysis]
 		G3 --> H
-		H --> I[(intake_queue_uploads)]
+		H --> H1{Commit?}
+		H1 -->|yes| H2[Create Intake Queue Upload / Final Output]
+		H1 -->|no| H3[Cleanup Temporary Staging]
+		H2 --> I[(intake_queue_uploads)]
 
 		F -->|metadata_only or publish_to_local| J[Publish Context Enrichment]
 		J --> K[(model_catalog_entries)]
@@ -90,8 +93,8 @@ sequenceDiagram
 	API->>DB: insert source record
 	API-->>OP: record_id + preview
 
-	OP->>API: commit(record_id, full_import)
-	API->>DB: job running
+	OP->>API: validate(record_id, full_import)
+	API->>DB: staging job running
 	API->>MW: design(designId)
 	API->>MW: signed-manifest(profileId, modelId)
 	MW-->>API: signed URL
@@ -100,9 +103,14 @@ sequenceDiagram
 		API->>MW: fallback binary(instanceId)
 		Note over API,MW: may use makerworld.com/api/v1
 	end
-	API->>Q: create upload from source entries
+	API->>DB: write temporary staged file + hash metadata
+	API-->>OP: validation result + duplicate signals
+
+	OP->>API: commit(record_id, full_import)
+	API->>DB: commit job running
+	API->>Q: create upload or final output from staged source entries
 	Q->>DB: insert intake_queue_uploads
-	API->>DB: job completed
+	API->>DB: commit job completed
 	API->>DB: update source snapshot provenance
 	API-->>OP: upload_id
 ```
@@ -218,6 +226,8 @@ From the design payload `instances` array and nested extension content:
 From selected instance download:
 
 - downloaded 3MF filename/path
+- staged 3MF filename/path used for validation when `full_import` is selected
+- computed hash / duplicate-comparison inputs derived from the staged file
 - source entry metadata used to enqueue intake upload
 - selected/attempted instance IDs and selected profile IDs in provenance
 
@@ -260,11 +270,45 @@ Table: `source_import_jobs`
 | `error_json` | failure details |
 | `started_at`, `completed_at`, `created_at`, `updated_at` | sidecar timestamps |
 
+Suggested additional lifecycle support for `full_import` flows:
+
+- a staging/validation job phase that records temporary download state before commit
+- `result_json.staged_file_path`
+- `result_json.staged_sha256`
+- `result_json.staged_filename`
+- `result_json.duplicate_analysis_json`
+- `result_json.staging_cleanup_state`
+
+These values represent temporary validation artifacts, not final committed outputs.
+
+## Stage A2: Staged download for validation
+
+When the operator selected `full_import`, the sidecar may download the chosen 3MF into temporary staging before Commit so Validate can inspect the real file.
+
+Purpose:
+
+- compare file hash against existing intake/catalog/working-file candidates
+- compare upstream filename against existing file-backed entries
+- run the same style of duplicate heuristics that Browser Upload can run only after a file has reached the sidecar
+
+Important boundary:
+
+- this staged file is not yet a committed intake upload
+- this staged file is not yet a Catalog asset or Working Files asset
+- `Next` navigation in the UI still does not mean commit occurred
+
+When the operator selected `metadata_only`:
+
+- no temporary 3MF download is created for Validate
+- file-backed duplicate analysis such as hash comparison is not run
+- Validate returns those file-backed checks as `not_run` / `unavailable_metadata_only`
+- metadata-backed duplicate heuristics still run from `source_intake_records` content and provider metadata
+
 ## Stage B: Full import to intake queue
 
 Table: `intake_queue_uploads`
 
-When `full_import` succeeds, downloaded files are written as source entries and queued through intake.
+When `full_import` succeeds, staged downloaded files are promoted into source entries and queued through intake.
 
 | Stored column | Source |
 |---|---|
@@ -276,8 +320,20 @@ When `full_import` succeeds, downloaded files are written as source entries and 
 
 - `import_job_id`
 - target/attempted/selected instance and profile IDs
-- downloaded filename(s)
+- staged and/or downloaded filename(s)
+- staged hash metadata when available
 - resulting `upload_id`
+
+## Stage B1: Staging cleanup on cancel/close
+
+If Commit never happens, temporary staged downloads must be cleaned up.
+
+Recommended cleanup contract:
+
+- wizard `Cancel` before Commit: delete staged file and derived temporary inspection artifacts immediately
+- popup close before Commit: delete staged file immediately or mark it for short-TTL cleanup
+- abandoned sessions: periodic sidecar sweep removes stale staged downloads and orphaned hash metadata
+- successful Commit: reuse or promote the staged file instead of discarding and re-downloading it
 
 ## Stage C: Publish to local model (metadata-only and post-queue publish)
 
@@ -317,6 +373,53 @@ Additional intake linkage keys set on metadata publish path:
 - `intake_imported_at`
 - `internal_notes`
 
+## Stage C2: Commit to Working Files
+
+When the selected target is `working_file_group`, the MakerWorld capture still persists through the same intake/audit tables before filesystem materialization.
+
+Filesystem outcome under `Model Working Files/{folder}/`:
+
+- downloaded `.3mf` and any intentionally selected companion files
+- `.modelmeta.json` with lightweight carry-forward fields
+- optional `README.md` source note when enabled by the operator
+
+Recommended `.modelmeta.json` carry-forward fields for MakerWorld-backed Working Files:
+
+- `display_title`
+- `origin_url`
+- `tags`
+- `primary_file`
+- `thumbnail`
+- `source_capture_record_id`
+
+Important persistence boundary:
+
+- the authoritative MakerWorld payload remains in `source_intake_records.snapshot_json`
+- commit execution/result data remains in `source_import_jobs`
+- the Working Files folder stores only the lookup field `source_capture_record_id`, not a copy of the raw snapshot JSON as a user-facing supporting file
+
+Suggested `source_import_jobs.result_json` additions for `working_file_group` targets:
+
+- `working_folder_path`
+- `working_primary_file_path`
+- `working_metadata_written` (bool)
+- `working_readme_written` (bool)
+
+## Stage D: Working Files -> Catalog rehydrate
+
+If a Working Files folder created from MakerWorld intake is later published into the Catalog, the publish flow should check `.modelmeta.json.source_capture_record_id`.
+
+If the linked `source_intake_records` row exists:
+
+- rehydrate `snapshot_json`, `media_manifest_json`, `file_manifest_json`, and linked job provenance
+- persist the same Catalog-side source context used by direct MakerWorld Catalog import
+- write the Catalog-only supporting-file/custom-field representation there
+
+If the linkage field is absent or cannot be resolved:
+
+- publish proceeds as a normal filesystem-origin Working Files publish
+- no MakerWorld snapshot rehydrate occurs
+
 ## Derived profile fields persisted in `source_capture_profiles`
 
 Each profile summary currently persists:
@@ -351,6 +454,7 @@ This supports both:
 | Instances/profile manifest | Yes | Yes (`file_manifest_json`, `source_capture_profiles`) |
 | Plate predictions/colors | Yes | Yes (`source_prediction_summary`, `source_capture_profiles`, `print_estimates`) |
 | Binary 3MF | Yes (full import mode) | Yes (staged file path -> queued source entry -> asset attach/publish flow) |
+| Working Files linkage | Yes | Yes (`.modelmeta.json.source_capture_record_id` -> `source_intake_records.id`) |
 | Collections API payload | Adapter supports endpoint | Not currently persisted by active routes |
 
 ## Non-goals in current implementation

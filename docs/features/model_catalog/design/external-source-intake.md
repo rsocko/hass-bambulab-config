@@ -599,6 +599,25 @@ The earlier `Quick Capture Inbox` concept remains useful, but it should be imple
 - a compact recent-captures panel on `Intake Home`
 - or a popup child view that still uses the same queue APIs and detail schema
 
+### MakerWorld URL Popup Child Flow (#1630, #1627)
+
+Issue #1630 adds a presentation constraint specific to the MakerWorld URL path: the resolved details should not expand inline inside the Intake page body. The recommended implementation is a **popup child wizard** that still uses the same intake records, queue routing, commit handlers, and job audit model described in this document.
+
+Recommended popup rules:
+
+- reuse the shared intake popup shell, stepper, validation cards, footer action row, and completion summary patterns
+- use a MakerWorld-specific `Source` + `Review` experience rather than reusing the file-tree source step
+- keep `Queue Review` as the canonical deferred-review surface
+- allow an explicit fast path to `Complete` when the existing high-confidence rules already permit direct commit
+
+Issue #1627 also broadens the destination stance for MakerWorld provider pages:
+
+- `Model` remains the default suggested target for curated imports
+- `Working Files` becomes a first-class target, not a follow-up workaround
+- `Link Only` remains the lightweight fallback when the operator wants provenance without local file import yet
+
+When the chosen destination is `Working Files`, the popup should carry forward only the metadata that fits the existing working-files sidecar contract (`display_title`, `origin_url`, `tags`, `primary_file`, `thumbnail`) and keep richer provider metadata in the source-intake snapshot and job audit records.
+
 ## HTML Mockups
 
 High-fidelity mockups for this design package:
@@ -606,11 +625,13 @@ High-fidelity mockups for this design package:
 - `design/mockups/external-intake-workbench-a.html`
 - `design/mockups/external-intake-workbench-b.html`
 - `design/mockups/external-intake-quick-capture.html`
+- `design/mockups/makerworld-url-import-popup.html`
 
 Low-fi canonical intake-surface mockups that this package should now align to:
 
 - `design/intake-home-queue-mockups.md`
 - `design/intake-inbox.md`
+- `design/makerworld-url-import-popup.md`
 
 ## API Contracts (Draft)
 

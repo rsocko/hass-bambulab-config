@@ -452,13 +452,13 @@ POST /api/intake/source/capture
 }
 ```
 
-Preset actions map to modes:
+Preset actions map to capture/commit behavior:
 
 | Button | Mode | Behavior |
 |---|---|---|
-| "Capture" | `metadata_only` | Resolve + store for later review |
+| "Capture" | `metadata_only` | Default path. Resolve + store for later review |
 | "Quick Import" | `full_import` | Resolve + auto-commit + download 3MF (confidence must be `high`) |
-| "Link Only" | `link_only` | Store URL reference without API resolution |
+| Fallback only | `link_only` | Store URL reference without API resolution when auth/config/provider resolution is unavailable, or when the operator explicitly chooses to continue after a capture failure |
 
 ## Data Mapping: API Response → Intake Record
 
@@ -517,7 +517,7 @@ Imported MakerWorld defaults are suggestions.
 
 ### Link Only
 
-Stores URL reference and basic metadata without API resolution. Useful for bookmarking.
+Stores URL reference and basic metadata without API resolution. In the streamlined URL wizard this remains a degraded fallback path, not a primary first-choice import mode.
 
 - No API call needed
 - Confidence: `low` (URL only, no verification)
@@ -607,9 +607,9 @@ BAMBU_CLOUD_TOKEN_ENTITY: "sensor.bambu_cloud_token"
 
 If no Bambu Cloud token is configured:
 
-- URL paste capture falls back to `link_only` mode (URL stored, no API resolution)
+- URL paste capture should try `metadata_only` first, then fall back to `link_only` mode (URL stored, no API resolution)
 - Browser extension capture stores page-scraped context as `medium` confidence
-- A clear warning is shown: "MakerWorld API integration requires a Bambu Lab account token. Configure in sidecar settings."
+- A clear warning is shown before the operator commits further work: "MakerWorld API integration requires a Bambu Lab account token. Retry metadata capture after fixing auth, continue as Link Only, or cancel."
 
 ## Integration with Existing Pipeline
 

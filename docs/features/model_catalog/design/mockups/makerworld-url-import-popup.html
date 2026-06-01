@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MakerWorld URL Import Popup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1119;
+    --paper: rgba(15, 22, 34, 0.96);
+    --panel: rgba(255, 255, 255, 0.03);
+    --panel-strong: rgba(255, 255, 255, 0.06);
+    --ink: #edf4ff;
+    --muted: #9fb3ce;
+    --line: rgba(148, 166, 189, 0.24);
+    --line-strong: rgba(148, 166, 189, 0.42);
+    --accent: #6edacb;
+    --accent-soft: rgba(110, 218, 203, 0.18);
+    --teal: #7cd9aa;
+    --teal-soft: rgba(124, 217, 170, 0.14);
+    --amber: #f0be62;
+    --amber-soft: rgba(240, 190, 98, 0.14);
+    --rose: #f18b8b;
+    --rose-soft: rgba(241, 139, 139, 0.14);
+    --shadow: 0 26px 60px rgba(0, 0, 0, 0.56);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 12% 14%, rgba(110, 218, 203, 0.18), transparent 38%),
+      radial-gradient(circle at 86% 10%, rgba(139, 174, 255, 0.16), transparent 36%),
+      var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+  }
+  body { padding: 24px; }
+  a.back {
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--panel);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .page {
+    max-width: 1380px;
+    margin: 0 auto;
+  }
+  .hero {
+    margin-bottom: 20px;
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.05;
+    font-weight: 700;
+  }
+  .hero p {
+    margin: 10px 0 0;
+    max-width: 880px;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .modal {
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    overflow: hidden;
+    background: var(--paper);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    min-height: 820px;
+  }
+  .modal-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .title-row h2 {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.1;
+  }
+  .title-row .close {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .subtitle {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,0.02);
+  }
+  .step {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(255,255,255,0.04);
+    text-align: center;
+  }
+  .step.active {
+    color: var(--ink);
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: var(--accent-soft);
+  }
+  .step.done {
+    color: var(--teal);
+    border-color: color-mix(in srgb, var(--teal) 46%, transparent);
+    background: var(--teal-soft);
+  }
+  .shell {
+    display: grid;
+    grid-template-columns: 0.94fr 1.06fr;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+  }
+  .pane {
+    padding: 18px;
+    min-height: 0;
+  }
+  .pane.left {
+    border-right: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .pane.right {
+    background: rgba(255, 255, 255, 0.01);
+  }
+  .section-title {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .block {
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--panel);
+  }
+  .block h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+  }
+  .block p,
+  .block li,
+  .meta,
+  .small {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .url {
+    width: 100%;
+    margin-top: 8px;
+    padding: 11px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--ink);
+    font-size: 13px;
+  }
+  .button-row,
+  .chips,
+  .stat-row,
+  .tile-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .button {
+    padding: 9px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .button.primary {
+    border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+    background: var(--accent-soft);
+  }
+  .button.teal {
+    border-color: color-mix(in srgb, var(--teal) 54%, transparent);
+    background: var(--teal-soft);
+  }
+  .button.ghost {
+    color: var(--muted);
+    background: rgba(255,255,255,0.03);
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.04);
+  }
+  .pill.ok { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 44%, transparent); background: var(--teal-soft); }
+  .pill.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 44%, transparent); background: var(--amber-soft); }
+  .pill.alert { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 44%, transparent); background: var(--rose-soft); }
+  .hero-card {
+    display: grid;
+    grid-template-columns: 128px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+  }
+  .poster {
+    height: 144px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(160deg, rgba(110,218,203,0.12), rgba(139,174,255,0.10)),
+      radial-gradient(circle at 30% 30%, rgba(110,218,203,0.20), transparent 30%),
+      linear-gradient(180deg, #182334, #111927);
+    position: relative;
+    overflow: hidden;
+  }
+  .poster:before,
+  .poster:after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.40);
+  }
+  .poster:before { width: 72px; height: 72px; top: 18px; left: 18px; }
+  .poster:after { width: 116px; height: 116px; right: -14px; bottom: -18px; }
+  .hero-card h3 { margin: 0 0 6px; font-size: 22px; line-height: 1.1; }
+  .list {
+    margin: 8px 0 0;
+    padding-left: 18px;
+  }
+  .card-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .mini-card {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+  }
+  .mini-card strong { display: block; font-size: 14px; margin-bottom: 4px; }
+  .option {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+  }
+  .option.selected {
+    border-color: color-mix(in srgb, var(--accent) 56%, transparent);
+    background: var(--accent-soft);
+  }
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px 18px;
+    border-top: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+  }
+  .note {
+    padding: 12px 14px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  @media (max-width: 1200px) {
+    .modal { min-height: auto; }
+  }
+  @media (max-width: 760px) {
+    body { padding: 12px; }
+    .shell, .card-row, .hero-card { grid-template-columns: 1fr; }
+    .pane.left { border-right: 0; border-bottom: 1px solid var(--line); }
+    .steps { grid-template-columns: repeat(2, 1fr); }
+    .footer { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">Back to Mockup Index</a>
+
+  <main class="page">
+    <section class="hero">
+      <h1>MakerWorld URL Import Popup</h1>
+      <p>Popup-based child wizard aligned to issue #1630. The mockup keeps the primary Intake wizard's shell, stepper, validation language, and commit semantics, but swaps the file-picker Source step for a MakerWorld-specific URL resolve and review flow. It also treats Working Files as a first-class destination per issue #1627.</p>
+      <p>The refined flow is metadata-first: supported MakerWorld URLs attempt authenticated metadata capture automatically, then let the operator continue with metadata-only publish or full download. Link Only remains in the data model, but only appears as a degraded fallback when auth or API resolution fails.</p>
+    </section>
+
+    <section class="board">
+      <article class="modal">
+        <div class="modal-header">
+          <p class="eyebrow">Step 1 of 5</p>
+          <div class="title-row">
+            <div>
+              <h2>Intake Wizard: Source</h2>
+              <p class="subtitle">Step 1 is URL capture only. The operator identifies the MakerWorld source, then the popup attempts metadata capture before any later download or publish decisions.</p>
+            </div>
+            <div class="close">Close</div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step active">1 Source</div>
+          <div class="step">2 Review</div>
+          <div class="step">3 Choose Destination</div>
+          <div class="step">4 Validate</div>
+          <div class="step">5 Commit</div>
+        </div>
+        <div class="shell">
+          <div class="pane left">
+            <p class="section-title">Actions</p>
+            <div class="block">
+              <h3>Capture From Source</h3>
+              <p>Paste or confirm the source page, then resolve the provider record through the authenticated adapter.</p>
+              <input class="url" value="https://makerworld.com/en/models/672311-gridfinity-hex-tray-remix" />
+              <div class="button-row" style="margin-top:10px;">
+                <div class="button">Paste from Clipboard</div>
+                <div class="button primary">Resolve</div>
+              </div>
+            </div>
+            <div class="note">
+              If MakerWorld auth or API resolution fails here, the popup should show a warning immediately and offer three next actions only: <strong>Retry Capture</strong>, <strong>Continue as Link Only</strong>, or <strong>Cancel</strong>. If capture succeeds, <strong>Next</strong> only advances to Review. It does not download files or execute commit work.
+            </div>
+          </div>
+          <div class="pane right">
+            <p class="section-title">Results</p>
+            <div class="hero-card">
+              <div class="poster"></div>
+              <div>
+                <div class="chips">
+                  <span class="pill ok">High confidence</span>
+                  <span class="pill ok">API resolved</span>
+                  <span class="pill">MakerWorld</span>
+                </div>
+                <h3>Gridfinity Hex Tray Remix</h3>
+                <div class="meta">by R. Socko Remix Lab</div>
+                <p class="small">The source step confirms the page identity and whether the provider can resolve it cleanly before any instance/profile review begins.</p>
+              </div>
+            </div>
+            <div class="block" style="margin-top:12px;">
+              <h3>Selected Source</h3>
+              <ul class="list">
+                <li>Canonical URL captured for dedupe and audit</li>
+                <li>Creator, title, and description available from the adapter</li>
+                <li>No auth or provider-resolution warning at this stage</li>
+                <li>`Next` only advances to Review after capture succeeds</li>
+              </ul>
+            </div>
+            <div class="block" style="margin-top:12px;">
+              <h3>Fallback state example</h3>
+              <div class="chips">
+                <span class="pill alert">Auth unavailable</span>
+                <span class="pill warn">Link-only fallback</span>
+              </div>
+              <p class="small">If capture fails, this same panel flips into a degraded state: no profile manifest, no gallery preview, and a warning that the URL can be kept as provenance-only or retried after auth is fixed.</p>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="button-row">
+            <div class="button ghost">Cancel</div>
+          </div>
+          <div class="button-row">
+            <div class="button primary">Next</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="modal">
+        <div class="modal-header">
+          <p class="eyebrow">Step 2 of 5</p>
+          <div class="title-row">
+            <div>
+              <h2>Intake Wizard: Review</h2>
+              <p class="subtitle">Step 2 is provider-specific review. This is where instance/profile selection and the normal post-capture import decisions live.</p>
+            </div>
+            <div class="close">Close</div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step done">1 Source</div>
+          <div class="step active">2 Review</div>
+          <div class="step">3 Choose Destination</div>
+          <div class="step">4 Validate</div>
+          <div class="step">5 Commit</div>
+        </div>
+        <div class="shell">
+          <div class="pane left">
+            <p class="section-title">Actions</p>
+            <div class="block">
+              <h3>Selected Instance</h3>
+              <div class="option selected">
+                <strong>Default profile · Plate set A</strong>
+                <div class="small">1 x 3MF download, 4 plates, designer-owned profile, default upstream choice.</div>
+              </div>
+              <div class="option">
+                <strong>Remix-ready profile · Plate set B</strong>
+                <div class="small">Alternative profile with more support files and slicer settings retained.</div>
+              </div>
+            </div>
+            <div class="block">
+              <h3>Post-Capture Path</h3>
+              <div class="option selected">
+                <strong>Full download</strong>
+                <div class="small">Selected 3MF may be staged before Validate for hash and duplicate checks, but it is only finalized if the operator commits on Step 5.</div>
+              </div>
+              <div class="option">
+                <strong>Metadata only</strong>
+                <div class="small">Keep source context without pulling the file yet.</div>
+              </div>
+            </div>
+            <div class="note">
+              `Link Only` is intentionally not shown here as a normal choice. If metadata capture failed earlier, this section is replaced by a warning card with <strong>Retry Capture</strong>, <strong>Continue as Link Only</strong>, and <strong>Cancel</strong>.
+            </div>
+          </div>
+          <div class="pane right">
+            <p class="section-title">Results</p>
+            <div class="hero-card">
+              <div class="poster"></div>
+              <div>
+                <div class="chips">
+                  <span class="pill ok">Profile selected</span>
+                  <span class="pill ok">4 plates</span>
+                  <span class="pill">Designer profile</span>
+                </div>
+                <h3>Gridfinity Hex Tray Remix</h3>
+                <div class="meta">Reviewing the exact file/instance source before destination choice</div>
+                <div class="card-row">
+                  <div class="mini-card">
+                    <strong>Selected import</strong>
+                    1 downloadable 3MF, 4 plates, default designer profile
+                  </div>
+                  <div class="mini-card">
+                    <strong>Immediate path</strong>
+                      Still eligible for direct commit later if later validation remains clean
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="block" style="margin-top:12px;">
+              <h3>Resolved metadata preview</h3>
+              <div class="chips">
+                <span class="pill">tray</span>
+                <span class="pill">gridfinity</span>
+                <span class="pill">remix</span>
+                <span class="pill">hex bins</span>
+              </div>
+              <ul class="list">
+                <li>Instance/profile choice recorded in audit state</li>
+                <li>Gallery images available for preview and thumbnail carry-forward</li>
+                <li>No duplicate or auth warnings in this review state</li>
+                <li>Fast-path eligibility is informational here; execution still waits for Commit</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="button-row">
+            <div class="button ghost">Cancel</div>
+            <div class="button">Back</div>
+          </div>
+          <div class="button-row">
+            <div class="button primary">Next</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="modal">
+        <div class="modal-header">
+          <p class="eyebrow">Step 3 of 5</p>
+          <div class="title-row">
+            <div>
+              <h2>Intake Wizard: Choose Destination</h2>
+              <p class="subtitle">Step 3 returns to shared intake grammar: target choice, Working Files carry-forward, and destination implications for successful metadata capture paths.</p>
+            </div>
+            <div class="close">Close</div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step done">1 Source</div>
+          <div class="step done">2 Review</div>
+          <div class="step active">3 Choose Destination</div>
+          <div class="step">4 Validate</div>
+          <div class="step">5 Commit</div>
+        </div>
+        <div class="shell">
+          <div class="pane left">
+            <p class="section-title">Actions</p>
+            <div class="block">
+              <h3>Destination</h3>
+              <div class="option selected">
+                <strong>Model</strong>
+                <div class="small">Create or match a curated catalog model. Best when the import is ready for long-term library use.</div>
+              </div>
+              <div class="option">
+                <strong>Working Files</strong>
+                <div class="small">Send the downloaded 3MF into the working root for remixing, slicer edits, or not-yet-curated staging.</div>
+              </div>
+            </div>
+            <div class="note">
+              `Link Only` is not a normal destination chip for the MakerWorld happy path. If the operator chose <strong>Continue as Link Only</strong> after a capture failure, the popup follows a shortened provenance-only branch instead of entering the full destination comparison flow.
+            </div>
+            <div class="block">
+              <h3>Working Files carry-forward</h3>
+              <div class="option selected">
+                <strong>Create .modelmeta.json</strong>
+                <div class="small">display_title, origin_url, tags, primary_file, thumbnail, source_capture_record_id</div>
+              </div>
+              <div class="option selected">
+                <strong>Create README.md source note</strong>
+                <div class="small">Creator, source URL, selected profile, captured description excerpt</div>
+              </div>
+            </div>
+          </div>
+          <div class="pane right">
+            <p class="section-title">Results</p>
+            <div class="block">
+              <h3>Destination comparison</h3>
+              <div class="card-row">
+                <div class="mini-card">
+                  <strong>Model path</strong>
+                  Create curated local model with MakerWorld title, creator, source URL, tags, and imported 3MF as the primary asset.
+                </div>
+                <div class="mini-card">
+                  <strong>Working Files path</strong>
+                  Create a working folder named from the title, preserve the downloaded file, and carry forward only metadata that fits the working-files sidecar contract.
+                </div>
+              </div>
+            </div>
+            <div class="note">
+              This is a true standalone destination step. Validation and final execution are intentionally deferred to the next screens rather than shown here as a merged hybrid state.
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="button-row">
+            <div class="button ghost">Cancel</div>
+            <div class="button">Back</div>
+          </div>
+          <div class="button-row">
+            <div class="button primary">Next</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="modal">
+        <div class="modal-header">
+          <p class="eyebrow">Step 4 of 5</p>
+          <div class="title-row">
+            <div>
+              <h2>Intake Wizard: Validate</h2>
+              <p class="subtitle">Step 4 is the shared pre-commit checkpoint. It should read like the existing intake wizard validate step, not like a destination subpanel.</p>
+            </div>
+            <div class="close">Close</div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step done">1 Source</div>
+          <div class="step done">2 Review</div>
+          <div class="step done">3 Choose Destination</div>
+          <div class="step active">4 Validate</div>
+          <div class="step">5 Commit</div>
+        </div>
+        <div class="shell">
+          <div class="pane left">
+            <p class="section-title">Checks</p>
+            <div class="block">
+              <h3>Validation summary</h3>
+              <div class="chips">
+                <span class="pill ok">Download ready</span>
+                <span class="pill ok">Staged hash available</span>
+                <span class="pill ok">No duplicate match</span>
+                <span class="pill warn">Model default suggested</span>
+              </div>
+              <ul class="list">
+                <li>MakerWorld auth token is valid</li>
+                <li>Selected profile still downloadable</li>
+                <li>Temporary staged 3MF available for filename and hash comparison</li>
+                <li>No collision detected for the chosen destination</li>
+              </ul>
+            </div>
+            <div class="block">
+              <h3>Metadata-only variant</h3>
+              <div class="chips">
+                <span class="pill">Metadata-only mode</span>
+                <span class="pill warn">Hash compare not run</span>
+                <span class="pill warn">Filename compare not run</span>
+              </div>
+              <ul class="list">
+                <li>No 3MF is staged in metadata-only mode</li>
+                <li>URL, title, creator, and source-record duplicate heuristics still run</li>
+                <li>File-backed duplicate checks are shown as not run, not hidden</li>
+              </ul>
+            </div>
+            <div class="block">
+              <h3>Degraded fallback variant</h3>
+              <div class="chips">
+                <span class="pill alert">Capture failed earlier</span>
+                <span class="pill warn">No download path</span>
+              </div>
+              <ul class="list">
+                <li>Repeat the auth/API warning here for confirmation</li>
+                <li>Do not show download-readiness or profile-download checks</li>
+                <li>Only allow `Continue as Link Only` or `Cancel` on the fallback branch</li>
+              </ul>
+            </div>
+            <div class="block">
+              <h3>Execution path</h3>
+              <div class="option selected">
+                <strong>Queue review required</strong>
+                <div class="small">Standard path writes the intake record and routes to Queue Review.</div>
+              </div>
+              <div class="option">
+                <strong>Fast path allowed</strong>
+                <div class="small">A direct-commit CTA will be available on Step 5 because the current validation set is clean and the staged file already passed duplicate checks.</div>
+              </div>
+            </div>
+          </div>
+          <div class="pane right">
+            <p class="section-title">Results</p>
+            <div class="block">
+              <h3>What will happen</h3>
+              <ul class="list">
+                <li>Pressing `Next` here only advances to Commit.</li>
+                <li>The selected 3MF may already be present in temporary staging for validation, but it is not finalized yet.</li>
+                <li>If deferred, Queue Review remains the next authoritative decision point.</li>
+                <li>If destination is Working Files, only linkage metadata is written into `.modelmeta.json`; the full MakerWorld snapshot remains in intake audit storage.</li>
+                <li>If the operator continued as Link Only after capture failure, this screen becomes a provenance-only confirmation instead of a download-or-publish checkpoint.</li>
+              </ul>
+            </div>
+            <div class="note">
+              This screen is intentionally separated from Step 3 so the five-step flow remains honest: target choice first, validation second, commit third. Temporary staging for duplicate analysis may exist here, but final outputs are not created until the Commit-step action is pressed.
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="button-row">
+            <div class="button ghost">Cancel</div>
+            <div class="button">Back</div>
+          </div>
+          <div class="button-row">
+            <div class="button primary">Next</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="modal">
+        <div class="modal-header">
+          <p class="eyebrow">Step 5 of 5</p>
+          <div class="title-row">
+            <div>
+              <h2>Intake Wizard: Commit</h2>
+              <p class="subtitle">This is the last navigable step. After a commit action runs, the popup should leave wizard-editing mode and switch into a terminal summary state rather than behaving like there is a sixth step.</p>
+            </div>
+            <div class="close">Close</div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step done">1 Source</div>
+          <div class="step done">2 Review</div>
+          <div class="step done">3 Choose Destination</div>
+          <div class="step done">4 Validate</div>
+          <div class="step active">5 Commit</div>
+        </div>
+        <div class="shell">
+          <div class="pane left">
+            <p class="section-title">Actions</p>
+            <div class="block">
+              <h3>Commit action</h3>
+              <div class="option selected">
+                <strong>Commit and download now</strong>
+                <div class="small">Reuses the staged 3MF when present, or downloads it if needed, then writes the intake/job audit state and creates the final destination output immediately.</div>
+              </div>
+              <div class="option">
+                <strong>Commit intake job for Queue Review</strong>
+                <div class="small">Creates or updates the intake record and routes the item into Queue Review without downloading the file yet.</div>
+              </div>
+            </div>
+            <div class="block">
+              <h3>Final checks</h3>
+              <ul class="list">
+                <li>Validation already passed on Step 4</li>
+                <li>`Back` returns to Validate without side effects</li>
+                <li>No final destination write has happened yet; any staged validation download is still temporary</li>
+              </ul>
+            </div>
+            <p class="section-title">Terminal Summary Example</p>
+            <div class="block">
+              <h3>Commit result</h3>
+              <div class="chips">
+                <span class="pill ok">Download complete</span>
+                <span class="pill ok">Job recorded</span>
+                <span class="pill ok">Ready in Working Files</span>
+              </div>
+              <ul class="list">
+                <li>Downloaded selected MakerWorld 3MF</li>
+                <li>Created working folder `gridfinity-hex-tray-remix`</li>
+                <li>Wrote `.modelmeta.json` and README source note</li>
+                <li>Stored full source snapshot and job audit trail</li>
+              </ul>
+            </div>
+            <div class="block">
+              <h3>Deferred commit variant</h3>
+              <div class="chips">
+                <span class="pill warn">Pending Queue Review</span>
+                <span class="pill">Target: Model</span>
+              </div>
+              <p class="small">If the operator chose review-first, the same popup layout shows a pending summary instead of an executed import summary and includes a shortcut into Queue Review.</p>
+            </div>
+            <div class="block">
+              <h3>Fallback Link Only variant</h3>
+              <div class="chips">
+                <span class="pill warn">Provenance only</span>
+                <span class="pill">No local file import</span>
+              </div>
+              <p class="small">If metadata capture never succeeded and the operator still chose to continue, the commit summary records the saved source URL, warning reason, and audit trail without pretending a downloadable MakerWorld import occurred.</p>
+            </div>
+            <div class="note">
+              If the operator cancels or closes the wizard before Commit, any staged validation download should be deleted or reclaimed by a short-TTL cleanup sweep.
+            </div>
+          </div>
+          <div class="pane right">
+            <p class="section-title">Summary</p>
+            <div class="hero-card">
+              <div class="poster"></div>
+              <div>
+                <div class="chips">
+                  <span class="pill ok">MakerWorld source saved</span>
+                  <span class="pill ok">Commit visible in Job History</span>
+                </div>
+                <h3>Gridfinity Hex Tray Remix</h3>
+                <div class="meta">Committed from MakerWorld URL import popup</div>
+                <p class="small">This screen is the key behavioral change from the inline approach. Commit is the execution point, and then the popup transitions into a contained terminal summary state instead of expanding the Intake page body, opening a fake sixth step, or disappearing after a toast.</p>
+              </div>
+            </div>
+            <div class="block" style="margin-top:12px;">
+              <h3>Next actions</h3>
+              <div class="button-row">
+                <div class="button">Open Working Files Folder</div>
+                <div class="button">Open Queue Review</div>
+                <div class="button">View Job History</div>
+              </div>
+            </div>
+            <div class="note">
+              Recommended implementation rule: once Commit has executed, this popup is no longer a wizard editor. Back-navigation should be removed, and the remaining actions should be forward-only handoffs into Working Files, Catalog, Queue Review, or Job History.
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="button-row">
+            <div class="button ghost">Close</div>
+          </div>
+          <div class="button-row">
+            <div class="button">Open Destination</div>
+            <div class="button primary">View Job History</div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -178,6 +178,22 @@ If the working folder was forked from model A but the operator selects model B a
 
 `republish_as_new_version` is available for any Intake source (browser upload, server inbox, working files). When the source is not a working folder, no lineage row exists; the wizard records `model_catalog_revisions.source` accordingly and notes that no follow-up edit folder is registered.
 
+### 4.7 External-source rehydrate from Working Files
+
+Some Working Files folders originate from external-source capture rather than from a catalog fork. For those folders, `.modelmeta.json` may include a lightweight linkage field:
+
+- `source_capture_record_id` -> the authoritative row in `source_intake_records`
+
+Publish behavior:
+
+1. If `source_capture_record_id` is present, the wizard loads the linked intake record before final publish.
+2. If the intake record resolves successfully, the wizard rehydrates the source snapshot and applies the same Catalog-side persistence rules used by direct external-source import.
+3. This includes Catalog custom fields and any Catalog-only supporting-file persistence derived from the external-source snapshot.
+4. The raw snapshot JSON is **not** copied into the Working Files folder as a user-facing supporting file.
+5. If the linkage field is missing or stale, the publish continues as a normal Working Files -> Catalog publish and simply omits external-source rehydration.
+
+This gives Working Files a durable handoff path without turning the working folder into a second audit store.
+
 ---
 
 ## 5. In-place edit of catalog files (Advanced, off by default)

@@ -26,6 +26,17 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
             self.card_content,
         )
 
+    def test_link_only_fallback_is_presented_as_retryable_degraded_state(self):
+        self.assertIn("var linkOnlyFallback = captureMode === 'link_only';", self.card_content)
+        self.assertIn(
+            "Metadata capture was unavailable, so this URL was saved as a link-only fallback. Retry Capture Metadata after fixing MakerWorld auth or API availability.",
+            self.card_content,
+        )
+        self.assertIn(
+            "No MakerWorld metadata or downloadable profile manifest is attached yet. Keep this saved URL as provenance-only, or retry metadata capture later.",
+            self.card_content,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

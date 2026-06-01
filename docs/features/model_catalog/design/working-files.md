@@ -138,6 +138,7 @@ All fields optional. Unknown fields ignored (forward-compatible).
 | `tags` | string[] | Flat cross-cutting labels. Surfaced in the group header and used by future search (§9). Not hierarchical. |
 | `origin_url` | string | Source URL (Makerworld, Printables, etc.). Rendered as a link. |
 | `thumbnail` | string (relative path) | Poster image for the group tile. If absent, the card infers from `.3mf` embedded thumbnail of `primary_file`. |
+| `source_capture_record_id` | string | Optional sidecar linkage back to an external-source capture row. Used for rehydrate-on-publish flows; not operator-facing. |
 
 **Not in sidecar (by design):**
 
@@ -145,6 +146,8 @@ All fields optional. Unknown fields ignored (forward-compatible).
 - `id` / `slug` — folder path is the identity. Renames update the identity.
 - Any Manyfold reference — Manyfold is deprecated.
 - Membership in projects/collections — those links live on the Project/Collection side.
+
+`source_capture_record_id` is intentionally narrow: it links the folder back to sidecar-owned intake audit state, but it does not embed or duplicate the raw provider snapshot in Working Files.
 
 ### 3.2 `README.md`
 
