@@ -2137,88 +2137,85 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '    <div class="summary-card"><div class="summary-label">Mode</div><div class="summary-value">' + escapeHtml(formatLabel(terminal.mode || 'unknown')) + '</div><div class="muted">MakerWorld URL import</div></div>'
       + '    <div class="summary-card"><div class="summary-label">Destination</div><div class="summary-value">' + escapeHtml(terminal.destination || 'Catalog') + '</div><div class="muted">Final commit target</div></div>'
       + '    <div class="summary-card"><div class="summary-label">Result</div><div class="summary-value">' + escapeHtml(terminal.resultLabel || 'Completed') + '</div><div class="muted">' + escapeHtml(terminal.resultDetail || '') + '</div></div>'
-        return this._renderMakerWorldWizardColumns(
-          ''
-          + '<div class="wizard-panel">'
+      + '    <div class="summary-card"><div class="summary-label">Source</div><div class="summary-value">' + escapeHtml(String((this._makerworldRecord && this._makerworldRecord.title) || 'MakerWorld')) + '</div><div class="muted">' + escapeHtml(String((this._makerworldRecord && this._makerworldSourceUrl(this._makerworldRecord)) || this._makerworldUrl || '')) + '</div></div>'
+      + '  </div>'
       + '</div>';
   }
 
   _renderMakerWorldWizardBody() {
-          + '</div>',
-          this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback)
-        );
+    var record = this._makerworldRecord;
+    var trimmedUrl = String(this._makerworldUrl || '').trim();
     var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
     var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
-        return this._renderMakerWorldWizardColumns(
-          ''
-          + '<div class="wizard-panel">'
+    var fileManifest = this._makerworldManifestEntries(record);
+    var instanceDetailsById = this._makerworldInstanceDetailsById(record);
     var snapshot = this._makerworldSnapshot(record);
     var sourceStats = this._makerworldSourceStats(record);
     var warningMessages = this._makerworldWarningMessages(record && record.warnings_json);
     var profileCardsResult = this._makerworldProfileCardsMarkup(fileManifest, selectedInstanceIds, instanceDetailsById, record, snapshot);
     var linkOnlyFallback = this._makerworldLinkOnlyFallback(record);
     if (this._makerworldWizardTerminal) {
-          + '</div>',
-          ''
-          + '<div class="wizard-panel">'
+      return this._renderMakerWorldTerminalSummary();
+    }
     if (this._makerworldWizardStep === 1) {
-      return ''
+      return this._renderMakerWorldWizardColumns(
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL. Blur or press Enter to capture metadata into the source-intake record.</div></div><div class="button-row"><button class="button primary" data-action="capture-makerworld-preview"' + (!trimmedUrl || this._loading ? ' disabled' : '') + '>Capture Metadata</button></div></div>'
         + '  <div class="field"><label>MakerWorld URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
         + '  <div class="muted">This step behaves like the main intake wizard: the left side is the input surface and the right side is the result surface.</div>'
         + (linkOnlyFallback ? '<div class="status warn">This capture resolved only as a link-only fallback. Retry capture after fixing MakerWorld access.</div>' : '<div class="state-row">Capture stores the source snapshot, profile manifest, tags, and provenance for later validation and commit.</div>')
-          + '</div>'
-        );
-        + this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback);
+        + '</div>',
+        this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback)
+      );
     }
-        return this._renderMakerWorldWizardColumns(
-          ''
-          + '<div class="wizard-panel">'
+    if (this._makerworldWizardStep === 2) {
+      return this._renderMakerWorldWizardColumns(
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Review Source Capture</div><div class="subtitle">Choose which profiles to use and whether this import should stay metadata-only or download 3MF files.</div></div></div>'
         + (linkOnlyFallback ? '<div class="status warn">This capture is link-only fallback because MakerWorld metadata capture was unavailable. Retry Step 1 after fixing auth or provider availability.</div>' : '')
         + '  <div class="field"><label>Import Mode</label><div class="button-row"><label><input type="radio" name="makerworld-import-mode" value="full_import" data-action="makerworld-import-mode"' + (this._makerworldImportMode === 'full_import' ? ' checked' : '') + (linkOnlyFallback ? ' disabled' : '') + '> Full Download</label><label><input type="radio" name="makerworld-import-mode" value="metadata_only" data-action="makerworld-import-mode"' + (this._makerworldImportMode === 'metadata_only' ? ' checked' : '') + (linkOnlyFallback ? ' disabled' : '') + '> Metadata Only</label></div><div class="muted">Full Download stages 3MF files for validation and supports Catalog or Working Files. Metadata Only keeps the source snapshot rich but does not stage a 3MF.</div></div>'
-          + '</div>',
-          ''
-          + '<div class="wizard-panel">'
+        + '  <div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"></div>'
+        + (profileCardsResult.error ? '<div class="status error">' + escapeHtml(profileCardsResult.error) + '</div>' : '')
         + (profileCardsResult.markup ? '<div class="field"><label>Profiles</label><div class="makerworld-profile-grid">' + profileCardsResult.markup + '</div></div>' : '<div class="state-row">No downloadable profiles were captured for this MakerWorld source.</div>')
-        + '</div>'
+        + '</div>',
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Review Summary</div><div class="subtitle">The shared source record stays authoritative even when you later publish into Working Files.</div></div></div>'
         + '  <div class="makerworld-preview-grid">'
         + '    <div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">Chosen for validation and commit</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Publish Tags</div><div class="summary-value">' + String(reviewedTags.length) + '</div><div class="muted">Saved to the source record before validate or commit</div></div>'
-          + '</div>'
-        );
+        + '    <div class="summary-card"><div class="summary-label">Mode</div><div class="summary-value">' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'Metadata Only' : 'Full Download') + '</div><div class="muted">' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'No 3MF download will occur.' : 'Selected 3MF file(s) will be staged for validation.') + '</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Source Stats</div><div class="summary-value">' + String(sourceStats.likeCount) + ' / ' + String(sourceStats.downloadCount) + '</div><div class="muted">Likes / downloads on MakerWorld</div></div>'
         + '  </div>'
-        return this._renderMakerWorldWizardColumns(
-          ''
-          + '<div class="wizard-panel">'
+        + '</div>'
+      );
+    }
     if (this._makerworldWizardStep === 3) {
-      return ''
+      return this._renderMakerWorldWizardColumns(
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Destination</div><div class="subtitle">Pick where the final commit should land.</div></div></div>'
-          + '</div>',
-          ''
-          + '<div class="wizard-panel">'
+        + '  <div class="field"><label><input type="radio" name="makerworld-destination" value="curated" data-action="makerworld-destination"' + (this._makerworldDestinationChoice === 'curated' ? ' checked' : '') + '> <strong>Catalog</strong> - create or update a local catalog model</label></div>'
+        + '  <div class="field"><label><input type="radio" name="makerworld-destination" value="working" data-action="makerworld-destination"' + (this._makerworldDestinationChoice === 'working' ? ' checked' : '') + (this._makerworldImportMode === 'metadata_only' ? ' disabled' : '') + '> <strong>Working Files</strong> - materialize a folder-first working group</label></div>'
         + (this._makerworldImportMode === 'metadata_only' ? '<div class="status warn">Metadata-only import is currently limited to Catalog because no 3MF file is staged for Working Files.</div>' : '<div class="muted">Working Files commit will preserve the source-intake linkage so a later publish to Catalog can rehydrate the original source metadata.</div>')
-        + '</div>'
+        + '</div>',
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Destination Summary</div><div class="subtitle">This step sets the final target only. Next still performs no side effects.</div></div></div>'
         + '  <div class="makerworld-preview-grid">'
         + '    <div class="summary-card"><div class="summary-label">Destination</div><div class="summary-value">' + escapeHtml(this._makerworldDestinationChoice === 'working' ? 'Working Files' : 'Catalog') + '</div><div class="muted">Chosen final commit target</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Mode</div><div class="summary-value">' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'Metadata Only' : 'Full Download') + '</div><div class="muted">Determines what Validate can check</div></div>'
-          + '</div>'
-        );
+        + '    <div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">Passed forward into Validate</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Queue Review</div><div class="summary-value">Available</div><div class="muted">Fallback surface if validation requires follow-up</div></div>'
-      return this._renderMakerWorldWizardColumns(
-        ''
-        + '<div class="wizard-panel">'
+        + '  </div>'
+        + '</div>'
+      );
     }
     if (this._makerworldWizardStep === 4) {
-      return ''
+      return this._renderMakerWorldWizardColumns(
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Validate</div><div class="subtitle">Run the last non-terminal checks before Commit.</div></div>'
         + (this._makerworldImportMode === 'full_import' ? '<div class="button-row"><button class="button" data-action="run-makerworld-validation"' + (this._loading ? ' disabled' : '') + '>' + (this._makerworldValidatedUploadId ? 'Re-Validate' : 'Run Validate') + '</button></div>' : '')
@@ -2234,10 +2231,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '    <div class="summary-card"><div class="summary-label">Upload</div><div class="summary-value">' + escapeHtml(this._makerworldValidatedUploadId || 'Not staged') + '</div><div class="muted">Created only for Full Download</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Next</div><div class="summary-value">Commit</div><div class="muted">Next only advances after validation is ready.</div></div>'
         + '  </div>'
-        + '</div>';
         + '</div>'
       );
-    return ''
+    }
+    return this._renderMakerWorldWizardColumns(
+      ''
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Commit</div><div class="subtitle">This is the first step that performs the final commit action.</div></div></div>'
       + ((this._makerworldImportMode === 'full_import' && !this._makerworldCanCommit()) ? '<div class="status warn">Direct commit is unavailable because validation requires follow-up. Open Queue Review to continue from the staged upload.</div>' : '<div class="state-row">Commit will ' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'publish metadata into the Catalog.' : ('publish the staged upload to ' + (this._makerworldDestinationChoice === 'working' ? 'Working Files.' : 'the Catalog.'))) + '</div>')
@@ -2247,7 +2245,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '    <div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">Reused from Review</div></div>'
       + '    <div class="summary-card"><div class="summary-label">Validation</div><div class="summary-value">' + escapeHtml(formatLabel(this._makerworldValidationState() || (this._makerworldImportMode === 'metadata_only' ? 'ready' : 'not_run'))) + '</div><div class="muted">Final pre-commit status</div></div>'
       + '  </div>'
-      + '</div>'
+      + '</div>',
+      ''
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the already-reviewed tags, selected profiles, and validated upload.</div></div></div>'
       + '<div class="entries compact-list">'
@@ -2257,7 +2256,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         ? '<article class="entry-row compact"><div class="entry-top"><div><div class="entry-name">Staged Upload</div><div class="entry-path">' + escapeHtml(this._makerworldValidatedUploadId || 'Not staged') + '</div></div><span class="chip">' + escapeHtml(formatLabel(this._makerworldValidationState() || 'not_run')) + '</span></div></article>'
         : '<article class="entry-row compact"><div class="entry-top"><div><div class="entry-name">Metadata-only Commit</div><div class="entry-path">No 3MF will be downloaded or published.</div></div><span class="chip ok">Catalog</span></div></article>')
       + '</div>'
-      + '</div>';
+      + '</div>'
+    );
   }
 
   _renderMakerWorldWizardFooter() {
