@@ -1478,6 +1478,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return String(record && (record.source_url_canonical || record.source_url_original) || '').trim();
   }
 
+  _isMakerWorldUrl(url) {
+    return /(^https?:\/\/)?([^\/]+\.)?makerworld\.com(\/|$)/i.test(String(url || '').trim());
+  }
+
   _makerworldRecordMatchesUrl(record, url) {
     var trimmedUrl = String(url || '').trim();
     if (!trimmedUrl || !record) {
@@ -1656,7 +1660,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _makerworldLinkOnlyFallback(record) {
-    return String(record && record.capture_mode || '').trim() === 'link_only';
+    var captureMode = String(record && record.capture_mode || '').trim();
+    var linkOnlyFallback = captureMode === 'link_only';
+    return linkOnlyFallback;
   }
 
   _discardMakerWorldValidatedUpload(uploadId) {
@@ -1683,12 +1689,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _openMakerWorldWizard() {
+    var url = String(this._makerworldUrl || '').trim();
+    var shouldCaptureOnOpen = !!url && (!this._makerworldRecord || !this._makerworldRecordMatchesUrl(this._makerworldRecord, url));
     this._makerworldWizardOpen = true;
     this._makerworldWizardStep = Math.max(1, Math.min(5, Number(this._makerworldWizardStep || 1)));
     this._makerworldWizardTerminal = null;
     this._error = '';
     this._status = '';
     this._render();
+    if (shouldCaptureOnOpen) {
+      this._captureMakerWorldPreview();
+    }
   }
 
   _commitMakerWorldUrlEntry(options) {
@@ -2020,7 +2031,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return ''
       + '    <article class="launch-card launch-card-makerworld">'
-      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Import From MakerWorld</div><div class="muted">Paste a MakerWorld URL and press Enter or tab out to open the import wizard. You can also start the popup first and paste inside the Source step.</div>'
+      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Import From MakerWorld</div><div class="muted">Paste a MakerWorld URL and press Enter or tab out to launch the import wizard. If the URL is new, the wizard opens on Step 1 and captures metadata automatically.</div>'
       + '      <div class="field"><label>Source URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
       + '      <div class="button-row"><button class="button primary" data-action="open-makerworld-wizard"' + (this._loading ? ' disabled' : '') + '>' + escapeHtml(launchLabel) + '</button>' + ((record || result || trimmedUrl) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
       + (linkOnlyFallback ? '<div class="status warn">This source is currently only a link-only fallback. Retry capture before continuing through the wizard.</div>' : '')
@@ -2086,6 +2097,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var resultMode = String(result && result.result_mode || '').trim();
     var metadataImported = resultMode === 'metadata_only' && String(result && result.local_model_id || '').trim();
     var fullImportQueued = !!(result && result.upload_id);
+    var showMakerWorldBrand = this._isMakerWorldUrl(this._makerworldSourceUrl(record) || trimmedUrl);
     var rightSideBusy = this._loading && this._busyState && this._makerworldWizardOpen && this._makerworldWizardStep === 1
       ? this._renderBusyState()
       : '';
@@ -2105,7 +2117,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + (String(record.thumbnail_url || '').trim()
         ? '<div class="entry-thumb makerworld-step-result-thumb"><img class="entry-thumb-image" src="' + escapeHtml(record.thumbnail_url) + '" alt="Preview for ' + escapeHtml(record.title || 'MakerWorld capture') + '" loading="lazy" decoding="async"></div>'
         : '<div class="entry-thumb placeholder makerworld-step-result-thumb">MakerWorld</div>')
-      + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
+      + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark">MW</span><span class="makerworld-brand-text">MakerWorld</span></div>' : '') + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
       + '<div class="button-row"><span class="chip">Captured</span>'
       + (linkOnlyFallback ? '<span class="chip warn">Link Only Fallback</span>' : '')
       + (metadataImported ? '<span class="chip ok">Metadata Imported</span>' : '')
@@ -2118,6 +2130,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="summary-card"><div class="summary-label">Tags</div><div class="summary-value">' + String(sourceStats.tagCount) + '</div><div class="muted">MakerWorld tags available for review</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Next</div><div class="summary-value">Review</div><div class="muted">After capture, continue into profile and destination review.</div></div>'
       + '</div>'
+        + (linkOnlyFallback ? '<div class="status warn">No MakerWorld metadata or downloadable profile manifest is attached yet. Keep this saved URL as provenance-only, or retry metadata capture later.</div>' : '')
       + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
       + '</div>';
   }
@@ -2145,6 +2158,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _renderMakerWorldWizardBody() {
     var record = this._makerworldRecord;
     var trimmedUrl = String(this._makerworldUrl || '').trim();
+    var hasCurrentCapture = this._makerworldRecordMatchesUrl(record, trimmedUrl);
+    var captureLabel = hasCurrentCapture ? 'Recapture Metadata' : 'Capture Metadata';
+    var captureIcon = hasCurrentCapture ? 'mdi:refresh' : 'mdi:cloud-download-outline';
     var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
     var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
     var fileManifest = this._makerworldManifestEntries(record);
@@ -2153,6 +2169,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var sourceStats = this._makerworldSourceStats(record);
     var warningMessages = this._makerworldWarningMessages(record && record.warnings_json);
     var profileCardsResult = this._makerworldProfileCardsMarkup(fileManifest, selectedInstanceIds, instanceDetailsById, record, snapshot);
+    var profileRenderError = profileCardsResult.error;
     var linkOnlyFallback = this._makerworldLinkOnlyFallback(record);
     if (this._makerworldWizardTerminal) {
       return this._renderMakerWorldTerminalSummary();
@@ -2161,10 +2178,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return this._renderMakerWorldWizardColumns(
         ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL. Blur or press Enter to capture metadata into the source-intake record.</div></div><div class="button-row"><button class="button primary" data-action="capture-makerworld-preview"' + (!trimmedUrl || this._loading ? ' disabled' : '') + '>Capture Metadata</button></div></div>'
+        + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL. Blur or press Enter to capture metadata into the source-intake record.</div></div></div>'
         + '  <div class="field"><label>MakerWorld URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
+        + '  <div class="button-row makerworld-source-actions"><button class="button primary with-icon" data-action="capture-makerworld-preview"' + (!trimmedUrl || this._loading ? ' disabled' : '') + '><ha-icon icon="' + captureIcon + '" aria-hidden="true"></ha-icon><span>' + captureLabel + '</span></button></div>'
         + '  <div class="muted">This step behaves like the main intake wizard: the left side is the input surface and the right side is the result surface.</div>'
-        + (linkOnlyFallback ? '<div class="status warn">This capture resolved only as a link-only fallback. Retry capture after fixing MakerWorld access.</div>' : '<div class="state-row">Capture stores the source snapshot, profile manifest, tags, and provenance for later validation and commit.</div>')
+        + (linkOnlyFallback ? '<div class="status warn">Metadata capture was unavailable, so this URL was saved as a link-only fallback. Retry Capture Metadata after fixing MakerWorld auth or API availability.</div>' : '<div class="state-row">Capture stores the source snapshot, profile manifest, tags, and provenance for later validation and commit.</div>')
         + '</div>',
         this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback)
       );
@@ -2177,7 +2195,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + (linkOnlyFallback ? '<div class="status warn">This capture is link-only fallback because MakerWorld metadata capture was unavailable. Retry Step 1 after fixing auth or provider availability.</div>' : '')
         + '  <div class="field"><label>Import Mode</label><div class="button-row"><label><input type="radio" name="makerworld-import-mode" value="full_import" data-action="makerworld-import-mode"' + (this._makerworldImportMode === 'full_import' ? ' checked' : '') + (linkOnlyFallback ? ' disabled' : '') + '> Full Download</label><label><input type="radio" name="makerworld-import-mode" value="metadata_only" data-action="makerworld-import-mode"' + (this._makerworldImportMode === 'metadata_only' ? ' checked' : '') + (linkOnlyFallback ? ' disabled' : '') + '> Metadata Only</label></div><div class="muted">Full Download stages 3MF files for validation and supports Catalog or Working Files. Metadata Only keeps the source snapshot rich but does not stage a 3MF.</div></div>'
         + '  <div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"></div>'
-        + (profileCardsResult.error ? '<div class="status error">' + escapeHtml(profileCardsResult.error) + '</div>' : '')
+        + (profileRenderError ? '<div class="status error">' + escapeHtml(profileRenderError) + '</div>' : '')
         + (profileCardsResult.markup ? '<div class="field"><label>Profiles</label><div class="makerworld-profile-grid">' + profileCardsResult.markup + '</div></div>' : '<div class="state-row">No downloadable profiles were captured for this MakerWorld source.</div>')
         + '</div>',
         ''
@@ -3597,7 +3615,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.makerworld-inline-summary{display:grid;gap:8px;padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.2);}'
       + '.makerworld-preview-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
       + '.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}'
-      + '.makerworld-step-result-thumb{width:88px;height:88px;flex-basis:88px;border-radius:16px;}'
+      + '.makerworld-step-result-thumb{width:128px;height:128px;flex-basis:128px;border-radius:18px;}'
+      + '.makerworld-brand-badge{display:inline-flex;align-items:center;gap:8px;width:max-content;margin-top:6px;padding:6px 10px;border-radius:999px;border:1px solid rgba(161,161,170,0.28);background:rgba(63,63,70,0.42);color:var(--primary-text-color);font-size:12px;font-weight:800;letter-spacing:.02em;}'
+      + '.makerworld-brand-mark{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:linear-gradient(135deg,rgba(229,231,235,0.94),rgba(161,161,170,0.92));color:rgba(24,24,27,0.96);font-size:11px;font-weight:900;letter-spacing:.04em;}'
+      + '.makerworld-brand-text{line-height:1;}'
       + '.makerworld-detail-panel{border:1px solid rgba(148,163,184,0.18);border-radius:14px;background:rgba(15,23,42,0.16);padding:0;overflow:hidden;}'
       + '.makerworld-detail-panel summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:800;color:var(--primary-text-color);}'
       + '.makerworld-detail-panel summary::-webkit-details-marker{display:none;}'
@@ -3609,7 +3630,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
       + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
       + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
-      + '.makerworld-wizard-dialog{width:min(1080px,100%);}'
+      + '.makerworld-wizard-dialog{width:min(1080px,100%);border-color:rgba(161,161,170,0.28);background:linear-gradient(180deg,rgba(39,39,42,0.98),rgba(24,24,27,0.95));box-shadow:0 28px 80px rgba(9,9,11,0.5);}'
+      + '.makerworld-wizard-dialog .wizard-step{border-color:rgba(161,161,170,0.22);background:rgba(63,63,70,0.34);}'
+      + '.makerworld-wizard-dialog .wizard-step.current{border-color:rgba(212,212,216,0.34);background:rgba(82,82,91,0.5);}'
+      + '.makerworld-wizard-dialog .wizard-step.complete{border-color:rgba(161,161,170,0.24);background:rgba(63,63,70,0.48);}'
+      + '.makerworld-wizard-dialog .wizard-panel{border-color:rgba(161,161,170,0.2);background:rgba(39,39,42,0.44);}'
       + '.makerworld-wizard-column{min-height:0;display:grid;gap:14px;align-content:start;}'
       + '.wizard-modal.launch-direct{position:relative;inset:auto;z-index:auto;display:block;padding:0;}'
       + '.wizard-modal.launch-direct .wizard-backdrop{display:none;}'
@@ -3657,6 +3682,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.entry-row .entry-top > .button-row,.entry-row .entry-top > .entry-type-icon{margin-left:auto;}'
       + '.entry-row .entry-actions{margin-left:auto;justify-content:flex-end;}'
       + '.title-row > .button-row{margin-left:auto;}'
+      + '.makerworld-source-actions{justify-content:flex-start;}'
       + '.entry-type-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;color:var(--secondary-text-color);background:rgba(15,23,42,0.18);border:1px solid rgba(148,163,184,0.18);flex:0 0 32px;}'
       + '.entry-type-icon ha-icon{--mdc-icon-size:20px;width:20px;height:20px;}'
       + '.wizard-panel .result-line{font-size:14px;}'
@@ -3666,6 +3692,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.intake-path-row .intake-path-text{font-size:14px;font-weight:600;color:var(--primary-text-color);overflow-wrap:anywhere;}'
       + '.button.icon-only{min-width:38px;width:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;}'
       + '.button.icon-only ha-icon{--mdc-icon-size:18px;width:18px;height:18px;}'
+      + '.button.with-icon{display:inline-flex;align-items:center;justify-content:center;gap:8px;}'
+      + '.button.with-icon ha-icon{--mdc-icon-size:18px;width:18px;height:18px;}'
       + '@media (max-width: 960px){.home-workbench-grid,.home-mini-grid{grid-template-columns:1fr;}}'
       + '@media (max-width: 860px){.wizard-body{grid-template-columns:1fr;}.wizard-dialog{padding:14px;max-height:94vh;}.wizard-modal{padding:12px;}}';
 
