@@ -53,6 +53,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._boundHandleClick = this._handleClick.bind(this);
     this._boundHandleChange = this._handleChange.bind(this);
     this._boundHandleInput = this._handleInput.bind(this);
+    this._boundHandleKeydown = this._handleKeydown.bind(this);
+    this._boundHandleFocusOut = this._handleFocusOut.bind(this);
     this._boundHandleIntakeLaunchEvent = this._handleIntakeLaunchEvent.bind(this);
     this._boundHandleDragOver = this._handleDragOver.bind(this);
     this._boundHandleDragLeave = this._handleDragLeave.bind(this);
@@ -140,6 +142,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.addEventListener("click", this._boundHandleClick);
       this.shadowRoot.addEventListener("change", this._boundHandleChange);
       this.shadowRoot.addEventListener("input", this._boundHandleInput);
+      this.shadowRoot.addEventListener("keydown", this._boundHandleKeydown);
+      this.shadowRoot.addEventListener("focusout", this._boundHandleFocusOut);
       this.shadowRoot.addEventListener("dragover", this._boundHandleDragOver);
       this.shadowRoot.addEventListener("dragleave", this._boundHandleDragLeave);
       this.shadowRoot.addEventListener("drop", this._boundHandleDrop);
@@ -156,6 +160,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.removeEventListener("click", this._boundHandleClick);
       this.shadowRoot.removeEventListener("change", this._boundHandleChange);
       this.shadowRoot.removeEventListener("input", this._boundHandleInput);
+      this.shadowRoot.removeEventListener("keydown", this._boundHandleKeydown);
+      this.shadowRoot.removeEventListener("focusout", this._boundHandleFocusOut);
       this.shadowRoot.removeEventListener("dragover", this._boundHandleDragOver);
       this.shadowRoot.removeEventListener("dragleave", this._boundHandleDragLeave);
       this.shadowRoot.removeEventListener("drop", this._boundHandleDrop);
@@ -1685,6 +1691,27 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._render();
   }
 
+  _commitMakerWorldUrlEntry(options) {
+    var nextOptions = options || {};
+    var url = String(this._makerworldUrl || '').trim();
+    if (!url || this._loading) {
+      return false;
+    }
+    if (this._makerworldWizardOpen && this._makerworldWizardStep === 1) {
+      var shouldCapture = !this._makerworldRecordMatchesUrl(this._makerworldRecord, url) || !this._makerworldRecord;
+      if (shouldCapture) {
+        this._captureMakerWorldPreview();
+      }
+      return shouldCapture;
+    }
+    if (nextOptions.resetWizardStep !== false) {
+      this._makerworldWizardStep = 1;
+      this._makerworldWizardTerminal = null;
+    }
+    this._openMakerWorldWizard();
+    return true;
+  }
+
   _closeMakerWorldWizard() {
     if (!this._makerworldWizardTerminal) {
       this._invalidateMakerWorldValidation();
@@ -1971,7 +1998,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var metadataImported = resultMode === 'metadata_only' && String(result && result.local_model_id || '').trim();
     var fullImportQueued = !!(result && result.upload_id);
     var selectedSourceUrl = this._makerworldSourceUrl(record) || trimmedUrl;
-    var launchLabel = record ? 'Resume MakerWorld Wizard' : 'Open URL Wizard';
+    var launchLabel = record ? 'Resume Import Wizard' : 'Start Import Wizard';
     var summaryBits = [];
     if (record && record.title) {
       summaryBits.push(String(record.title));
@@ -1993,9 +2020,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return ''
       + '    <article class="launch-card launch-card-makerworld">'
-      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Import From MakerWorld</div><div class="muted">Open the popup intake wizard to capture MakerWorld metadata, review profile selection, choose Catalog or Working Files, validate, and commit from one guided flow.</div>'
+      + '      <div class="launch-kicker">External Source</div><div class="launch-title">Import From MakerWorld</div><div class="muted">Paste a MakerWorld URL and press Enter or tab out to open the import wizard. You can also start the popup first and paste inside the Source step.</div>'
       + '      <div class="field"><label>Source URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
-      + '      <div class="button-row"><button class="button" data-action="capture-makerworld-preview"' + captureDisabled + '>Capture Metadata</button><button class="button primary" data-action="open-makerworld-wizard"' + ((!trimmedUrl && !record) || this._loading ? ' disabled' : '') + '>' + escapeHtml(launchLabel) + '</button><button class="button" data-action="goto-inbox">Open Queue Review</button>' + ((record || result || trimmedUrl) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
+      + '      <div class="button-row"><button class="button primary" data-action="open-makerworld-wizard"' + (this._loading ? ' disabled' : '') + '>' + escapeHtml(launchLabel) + '</button>' + ((record || result || trimmedUrl) ? '<button class="button warn" data-action="clear-makerworld-state">Clear</button>' : '') + '</div>'
       + (linkOnlyFallback ? '<div class="status warn">This source is currently only a link-only fallback. Retry capture before continuing through the wizard.</div>' : '')
       + ((record || result)
         ? '<div class="makerworld-inline-summary"><div class="button-row"><span class="chip">MakerWorld</span>'
@@ -2053,6 +2080,54 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         : '<div class="state-row">Validation is ready. Commit will reuse the staged upload without re-downloading the selected 3MF.</div>');
   }
 
+  _renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback) {
+    var result = this._makerworldResult;
+    var validationState = String(result && result.validation_state || '').trim();
+    var resultMode = String(result && result.result_mode || '').trim();
+    var metadataImported = resultMode === 'metadata_only' && String(result && result.local_model_id || '').trim();
+    var fullImportQueued = !!(result && result.upload_id);
+    var rightSideBusy = this._loading && this._busyState && this._makerworldWizardOpen && this._makerworldWizardStep === 1
+      ? this._renderBusyState()
+      : '';
+    if (!record) {
+      return ''
+        + '<div class="wizard-panel">'
+        + '  <div class="title-row"><div><div class="title">Captured Data</div><div class="subtitle">The resolved MakerWorld record will appear here after capture.</div></div></div>'
+        + rightSideBusy
+        + '<div class="state-row">No captured source yet. Paste a URL, then press Enter or tab away to start metadata capture.</div>'
+        + '</div>';
+    }
+    return ''
+      + '<div class="wizard-panel">'
+      + '  <div class="title-row"><div><div class="title">Captured Data</div><div class="subtitle">This pane reflects the current source resolution result for Step 1.</div></div></div>'
+      + rightSideBusy
+      + '<article class="entry-row makerworld-result"><div class="entry-top">'
+      + (String(record.thumbnail_url || '').trim()
+        ? '<div class="entry-thumb makerworld-step-result-thumb"><img class="entry-thumb-image" src="' + escapeHtml(record.thumbnail_url) + '" alt="Preview for ' + escapeHtml(record.title || 'MakerWorld capture') + '" loading="lazy" decoding="async"></div>'
+        : '<div class="entry-thumb placeholder makerworld-step-result-thumb">MakerWorld</div>')
+      + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
+      + '<div class="button-row"><span class="chip">Captured</span>'
+      + (linkOnlyFallback ? '<span class="chip warn">Link Only Fallback</span>' : '')
+      + (metadataImported ? '<span class="chip ok">Metadata Imported</span>' : '')
+      + (fullImportQueued ? '<span class="chip">Upload ' + escapeHtml(String(result.upload_id || '')) + '</span>' : '')
+      + (validationState ? '<span class="chip' + (validationState === 'ready' ? ' ok' : ' warn') + '">' + escapeHtml(formatLabel(validationState)) + '</span>' : '')
+      + '</div></div></article>'
+      + '<div class="makerworld-preview-grid">'
+      + '  <div class="summary-card"><div class="summary-label">Profiles</div><div class="summary-value">' + String(fileManifest.length) + '</div><div class="muted">Downloadable 3MF profiles discovered</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Images</div><div class="summary-value">' + String(sourceStats.imageCount) + '</div><div class="muted">Media cached on the source record</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Tags</div><div class="summary-value">' + String(sourceStats.tagCount) + '</div><div class="muted">MakerWorld tags available for review</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Next</div><div class="summary-value">Review</div><div class="muted">After capture, continue into profile and destination review.</div></div>'
+      + '</div>'
+      + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
+      + '</div>';
+  }
+
+  _renderMakerWorldWizardColumns(leftMarkup, rightMarkup) {
+    return ''
+      + '<div class="wizard-scroll-region makerworld-wizard-column">' + leftMarkup + '</div>'
+      + '<div class="wizard-selection-scroll makerworld-wizard-column">' + rightMarkup + '</div>';
+  }
+
   _renderMakerWorldTerminalSummary() {
     var terminal = this._makerworldWizardTerminal || {};
     return ''
@@ -2062,59 +2137,51 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '    <div class="summary-card"><div class="summary-label">Mode</div><div class="summary-value">' + escapeHtml(formatLabel(terminal.mode || 'unknown')) + '</div><div class="muted">MakerWorld URL import</div></div>'
       + '    <div class="summary-card"><div class="summary-label">Destination</div><div class="summary-value">' + escapeHtml(terminal.destination || 'Catalog') + '</div><div class="muted">Final commit target</div></div>'
       + '    <div class="summary-card"><div class="summary-label">Result</div><div class="summary-value">' + escapeHtml(terminal.resultLabel || 'Completed') + '</div><div class="muted">' + escapeHtml(terminal.resultDetail || '') + '</div></div>'
-      + '    <div class="summary-card"><div class="summary-label">Source</div><div class="summary-value">' + escapeHtml(String((this._makerworldRecord && this._makerworldRecord.title) || 'MakerWorld')) + '</div><div class="muted">' + escapeHtml(String((this._makerworldRecord && this._makerworldSourceUrl(this._makerworldRecord)) || this._makerworldUrl || '')) + '</div></div>'
-      + '  </div>'
+        return this._renderMakerWorldWizardColumns(
+          ''
+          + '<div class="wizard-panel">'
       + '</div>';
   }
 
   _renderMakerWorldWizardBody() {
-    var record = this._makerworldRecord;
-    var trimmedUrl = String(this._makerworldUrl || '').trim();
+          + '</div>',
+          this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback)
+        );
     var selectedInstanceIds = this._makerworldNormalizedSelection(record, this._makerworldSelectedInstanceIds);
     var reviewedTags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
-    var fileManifest = this._makerworldManifestEntries(record);
-    var instanceDetailsById = this._makerworldInstanceDetailsById(record);
+        return this._renderMakerWorldWizardColumns(
+          ''
+          + '<div class="wizard-panel">'
     var snapshot = this._makerworldSnapshot(record);
     var sourceStats = this._makerworldSourceStats(record);
     var warningMessages = this._makerworldWarningMessages(record && record.warnings_json);
     var profileCardsResult = this._makerworldProfileCardsMarkup(fileManifest, selectedInstanceIds, instanceDetailsById, record, snapshot);
     var linkOnlyFallback = this._makerworldLinkOnlyFallback(record);
     if (this._makerworldWizardTerminal) {
-      return this._renderMakerWorldTerminalSummary();
-    }
+          + '</div>',
+          ''
+          + '<div class="wizard-panel">'
     if (this._makerworldWizardStep === 1) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL and capture metadata into the source-intake record before moving on.</div></div><div class="button-row"><button class="button primary" data-action="capture-makerworld-preview"' + (!trimmedUrl || this._loading ? ' disabled' : '') + '>Capture Metadata</button></div></div>'
+        + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL. Blur or press Enter to capture metadata into the source-intake record.</div></div><div class="button-row"><button class="button primary" data-action="capture-makerworld-preview"' + (!trimmedUrl || this._loading ? ' disabled' : '') + '>Capture Metadata</button></div></div>'
         + '  <div class="field"><label>MakerWorld URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
-        + (record
-          ? '<article class="entry-row makerworld-result"><div class="entry-top">'
-            + (String(record.thumbnail_url || '').trim()
-              ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(record.thumbnail_url) + '" alt="Preview for ' + escapeHtml(record.title || 'MakerWorld capture') + '" loading="lazy" decoding="async"></div>'
-              : '<div class="entry-thumb placeholder">MakerWorld</div>')
-            + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
-            + '<div class="button-row"><span class="chip">Captured</span>' + (linkOnlyFallback ? '<span class="chip warn">Link Only Fallback</span>' : '') + '</div></div></article>'
-          : '<div class="state-row">No source record yet. Capture metadata to continue.</div>')
-        + '</div>'
-        + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Capture Summary</div><div class="subtitle">Capture stores the source snapshot, profile manifest, tags, and provenance for later validation and commit.</div></div></div>'
-        + '  <div class="makerworld-preview-grid">'
-        + '    <div class="summary-card"><div class="summary-label">Profiles</div><div class="summary-value">' + String(fileManifest.length) + '</div><div class="muted">Downloadable 3MF profiles discovered</div></div>'
-        + '    <div class="summary-card"><div class="summary-label">Images</div><div class="summary-value">' + String(sourceStats.imageCount) + '</div><div class="muted">Media cached on the source record</div></div>'
-        + '    <div class="summary-card"><div class="summary-label">Tags</div><div class="summary-value">' + String(sourceStats.tagCount) + '</div><div class="muted">MakerWorld tags available for review</div></div>'
-        + '    <div class="summary-card"><div class="summary-label">Next</div><div class="summary-value">Review</div><div class="muted">Next only advances the wizard. It does not download or publish anything.</div></div>'
-        + '  </div>'
-        + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
-        + '</div>';
+        + '  <div class="muted">This step behaves like the main intake wizard: the left side is the input surface and the right side is the result surface.</div>'
+        + (linkOnlyFallback ? '<div class="status warn">This capture resolved only as a link-only fallback. Retry capture after fixing MakerWorld access.</div>' : '<div class="state-row">Capture stores the source snapshot, profile manifest, tags, and provenance for later validation and commit.</div>')
+          + '</div>'
+        );
+        + this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback);
     }
-    if (this._makerworldWizardStep === 2) {
-      return ''
+        return this._renderMakerWorldWizardColumns(
+          ''
+          + '<div class="wizard-panel">'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Review Source Capture</div><div class="subtitle">Choose which profiles to use and whether this import should stay metadata-only or download 3MF files.</div></div></div>'
         + (linkOnlyFallback ? '<div class="status warn">This capture is link-only fallback because MakerWorld metadata capture was unavailable. Retry Step 1 after fixing auth or provider availability.</div>' : '')
         + '  <div class="field"><label>Import Mode</label><div class="button-row"><label><input type="radio" name="makerworld-import-mode" value="full_import" data-action="makerworld-import-mode"' + (this._makerworldImportMode === 'full_import' ? ' checked' : '') + (linkOnlyFallback ? ' disabled' : '') + '> Full Download</label><label><input type="radio" name="makerworld-import-mode" value="metadata_only" data-action="makerworld-import-mode"' + (this._makerworldImportMode === 'metadata_only' ? ' checked' : '') + (linkOnlyFallback ? ' disabled' : '') + '> Metadata Only</label></div><div class="muted">Full Download stages 3MF files for validation and supports Catalog or Working Files. Metadata Only keeps the source snapshot rich but does not stage a 3MF.</div></div>'
-        + '  <div class="field"><label>Tags For Publish</label><input class="input" type="text" value="' + escapeHtml(reviewedTags.join(', ')) + '" placeholder="comma-separated tags" data-action="makerworld-tags"></div>'
-        + (profileCardsResult.error ? '<div class="status error">' + escapeHtml(profileCardsResult.error) + '</div>' : '')
+          + '</div>',
+          ''
+          + '<div class="wizard-panel">'
         + (profileCardsResult.markup ? '<div class="field"><label>Profiles</label><div class="makerworld-profile-grid">' + profileCardsResult.markup + '</div></div>' : '<div class="state-row">No downloadable profiles were captured for this MakerWorld source.</div>')
         + '</div>'
         + '<div class="wizard-panel">'
@@ -2122,17 +2189,20 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="makerworld-preview-grid">'
         + '    <div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">Chosen for validation and commit</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Publish Tags</div><div class="summary-value">' + String(reviewedTags.length) + '</div><div class="muted">Saved to the source record before validate or commit</div></div>'
-        + '    <div class="summary-card"><div class="summary-label">Mode</div><div class="summary-value">' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'Metadata Only' : 'Full Download') + '</div><div class="muted">' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'No 3MF download will occur.' : 'Selected 3MF file(s) will be staged for validation.') + '</div></div>'
+          + '</div>'
+        );
         + '    <div class="summary-card"><div class="summary-label">Source Stats</div><div class="summary-value">' + String(sourceStats.likeCount) + ' / ' + String(sourceStats.downloadCount) + '</div><div class="muted">Likes / downloads on MakerWorld</div></div>'
         + '  </div>'
-        + '</div>';
-    }
+        return this._renderMakerWorldWizardColumns(
+          ''
+          + '<div class="wizard-panel">'
     if (this._makerworldWizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Destination</div><div class="subtitle">Pick where the final commit should land.</div></div></div>'
-        + '  <div class="field"><label><input type="radio" name="makerworld-destination" value="curated" data-action="makerworld-destination"' + (this._makerworldDestinationChoice === 'curated' ? ' checked' : '') + '> <strong>Catalog</strong> - create or update a local catalog model</label></div>'
-        + '  <div class="field"><label><input type="radio" name="makerworld-destination" value="working" data-action="makerworld-destination"' + (this._makerworldDestinationChoice === 'working' ? ' checked' : '') + (this._makerworldImportMode === 'metadata_only' ? ' disabled' : '') + '> <strong>Working Files</strong> - materialize a folder-first working group</label></div>'
+          + '</div>',
+          ''
+          + '<div class="wizard-panel">'
         + (this._makerworldImportMode === 'metadata_only' ? '<div class="status warn">Metadata-only import is currently limited to Catalog because no 3MF file is staged for Working Files.</div>' : '<div class="muted">Working Files commit will preserve the source-intake linkage so a later publish to Catalog can rehydrate the original source metadata.</div>')
         + '</div>'
         + '<div class="wizard-panel">'
@@ -2140,10 +2210,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="makerworld-preview-grid">'
         + '    <div class="summary-card"><div class="summary-label">Destination</div><div class="summary-value">' + escapeHtml(this._makerworldDestinationChoice === 'working' ? 'Working Files' : 'Catalog') + '</div><div class="muted">Chosen final commit target</div></div>'
         + '    <div class="summary-card"><div class="summary-label">Mode</div><div class="summary-value">' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'Metadata Only' : 'Full Download') + '</div><div class="muted">Determines what Validate can check</div></div>'
-        + '    <div class="summary-card"><div class="summary-label">Selected Profiles</div><div class="summary-value">' + String(selectedInstanceIds.length) + '</div><div class="muted">Passed forward into Validate</div></div>'
+          + '</div>'
+        );
         + '    <div class="summary-card"><div class="summary-label">Queue Review</div><div class="summary-value">Available</div><div class="muted">Fallback surface if validation requires follow-up</div></div>'
-        + '  </div>'
-        + '</div>';
+      return this._renderMakerWorldWizardColumns(
+        ''
+        + '<div class="wizard-panel">'
     }
     if (this._makerworldWizardStep === 4) {
       return ''
@@ -2152,7 +2224,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + (this._makerworldImportMode === 'full_import' ? '<div class="button-row"><button class="button" data-action="run-makerworld-validation"' + (this._loading ? ' disabled' : '') + '>' + (this._makerworldValidatedUploadId ? 'Re-Validate' : 'Run Validate') + '</button></div>' : '')
         + '</div>'
         + this._renderMakerWorldValidationResults()
-        + '</div>'
+        + '</div>',
+        ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Validate Summary</div><div class="subtitle">Full Download stages a reusable intake upload. Metadata Only explicitly marks file-backed checks as not run.</div></div></div>'
         + '  <div class="makerworld-preview-grid">'
@@ -2162,7 +2235,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '    <div class="summary-card"><div class="summary-label">Next</div><div class="summary-value">Commit</div><div class="muted">Next only advances after validation is ready.</div></div>'
         + '  </div>'
         + '</div>';
-    }
+        + '</div>'
+      );
     return ''
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Commit</div><div class="subtitle">This is the first step that performs the final commit action.</div></div></div>'
@@ -2214,6 +2288,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _renderMakerWorldWizard() {
+    var showGlobalBusy = !(this._makerworldWizardOpen && this._makerworldWizardStep === 1);
     return ''
       + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="Intake Wizard: MakerWorld URL Import">'
       + '  <div class="wizard-backdrop" data-action="close-makerworld-wizard"></div>'
@@ -2222,7 +2297,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + (this._makerworldWizardTerminal ? '' : this._renderMakerWorldWizardProgress())
       + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
-      + this._renderBusyState()
+      + (showGlobalBusy ? this._renderBusyState() : '')
       + '    <div class="wizard-body">' + this._renderMakerWorldWizardBody() + '</div>'
       + this._renderMakerWorldWizardFooter()
       + '  </div>'
@@ -3324,6 +3399,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._render();
       return;
     }
+    if (action === 'makerworld-url') {
+      this._commitMakerWorldUrlEntry();
+      return;
+    }
     if (action === 'makerworld-import-mode') {
       var nextMode = String(target.value || 'full_import').trim() === 'metadata_only' ? 'metadata_only' : 'full_import';
       if (this._makerworldImportMode !== nextMode) {
@@ -3462,6 +3541,31 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
   }
 
+  _handleKeydown(event) {
+    var target = event.target instanceof Element ? event.target : null;
+    if (!target || this._loading) {
+      return;
+    }
+    var action = String(target.getAttribute('data-action') || '');
+    if (action !== 'makerworld-url' || event.key !== 'Enter') {
+      return;
+    }
+    event.preventDefault();
+    this._commitMakerWorldUrlEntry();
+  }
+
+  _handleFocusOut(event) {
+    var target = event.target instanceof Element ? event.target : null;
+    if (!target || this._loading) {
+      return;
+    }
+    var action = String(target.getAttribute('data-action') || '');
+    if (action !== 'makerworld-url') {
+      return;
+    }
+    this._commitMakerWorldUrlEntry();
+  }
+
   render() {
     this._render();
   }
@@ -3493,6 +3597,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.makerworld-inline-summary{display:grid;gap:8px;padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.2);}'
       + '.makerworld-preview-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
       + '.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}'
+      + '.makerworld-step-result-thumb{width:88px;height:88px;flex-basis:88px;border-radius:16px;}'
       + '.makerworld-detail-panel{border:1px solid rgba(148,163,184,0.18);border-radius:14px;background:rgba(15,23,42,0.16);padding:0;overflow:hidden;}'
       + '.makerworld-detail-panel summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:800;color:var(--primary-text-color);}'
       + '.makerworld-detail-panel summary::-webkit-details-marker{display:none;}'
@@ -3504,7 +3609,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
       + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
       + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
-      + '.makerworld-wizard-dialog{width:min(1120px,100%);}'
+      + '.makerworld-wizard-dialog{width:min(1080px,100%);}'
+      + '.makerworld-wizard-column{min-height:0;display:grid;gap:14px;align-content:start;}'
       + '.wizard-modal.launch-direct{position:relative;inset:auto;z-index:auto;display:block;padding:0;}'
       + '.wizard-modal.launch-direct .wizard-backdrop{display:none;}'
       + '.wizard-modal.launch-direct .wizard-dialog{width:100%;max-width:100%;max-height:none;border-radius:0;border:0;box-shadow:none;padding:16px;}'
