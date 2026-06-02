@@ -16,6 +16,15 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         self.assertIn("var profileCardsResult = this._makerworldProfileCardsMarkup(", self.card_content)
         self.assertIn("var profileRenderError = profileCardsResult.error;", self.card_content)
 
+    def test_profile_preview_does_not_fallback_to_design_thumbnail(self):
+        self.assertIn("_makerworldProfilePreviewUrl(entry, details, modelInfo)", self.card_content)
+        self.assertNotIn("record && record.thumbnail_url", self.card_content)
+        self.assertIn("makerworld-profile-head' + (previewUrl ? '' : ' no-preview')", self.card_content)
+
+    def test_tag_draft_input_does_not_rerender_on_each_keystroke(self):
+        self.assertIn("if (action === 'makerworld-tag-draft') {\n      this._makerworldTagDraft = String(target.value || '');\n      return;", self.card_content)
+        self.assertIn("<button class=\"add-chip\" type=\"button\" data-action=\"add-makerworld-tag\">+ Tag</button>", self.card_content)
+
     def test_profile_render_failures_show_inline_status_error(self):
         self.assertIn(
             "Some MakerWorld profile details could not be rendered from this capture. You can continue with metadata import, or capture metadata again.",

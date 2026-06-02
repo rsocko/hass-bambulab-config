@@ -2020,12 +2020,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return colors.slice(0, 6);
   }
 
-  _makerworldProfilePreviewUrl(entry, details, modelInfo, record) {
+  _makerworldProfilePreviewUrl(entry, details, modelInfo) {
     var candidateValues = [
       entry && (entry.thumbnail_url || entry.thumbnailUrl || entry.cover_url || entry.coverUrl || entry.image_url || entry.imageUrl || entry.url),
       details && (details.thumbnail_url || details.thumbnailUrl || details.cover_url || details.coverUrl || details.image_url || details.imageUrl || details.preview_url || details.previewUrl),
       modelInfo && (modelInfo.thumbnail_url || modelInfo.thumbnailUrl || modelInfo.cover_url || modelInfo.coverUrl || modelInfo.image_url || modelInfo.imageUrl),
-      record && record.thumbnail_url,
     ];
     for (var index = 0; index < candidateValues.length; index += 1) {
       var candidate = String(candidateValues[index] || '').trim();
@@ -2047,7 +2046,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         }).join('') : '<span class="summary-empty">No tags selected</span>')
       + '    <div class="makerworld-tag-adder">'
       + '      <input class="input makerworld-tag-input" type="text" value="' + escapeHtml(this._makerworldTagDraft || '') + '" placeholder="Add tag" data-action="makerworld-tag-draft">'
-      + '      <button class="add-chip" data-action="add-makerworld-tag"' + (!String(this._makerworldTagDraft || '').trim() ? ' disabled' : '') + '>+ Tag</button>'
+      + '      <button class="add-chip" type="button" data-action="add-makerworld-tag">+ Tag</button>'
       + '    </div>'
       + '  </div>'
       + '</div>';
@@ -2076,7 +2075,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var extention = details.extention && typeof details.extention === 'object' ? details.extention : {};
       var modelInfo = extention.modelInfo && typeof extention.modelInfo === 'object' ? extention.modelInfo : {};
       var title = String(entry && entry.title || details.title || modelInfo.title || 'Profile').trim();
-      var previewUrl = this._makerworldProfilePreviewUrl(entry, details, modelInfo, record);
+      var previewUrl = this._makerworldProfilePreviewUrl(entry, details, modelInfo);
       var prediction = this._formatMakerWorldDuration(details.prediction);
       return ''
         + '<article class="entry-row compact">'
@@ -2102,7 +2101,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         var modelInfo = extention.modelInfo && typeof extention.modelInfo === 'object' ? extention.modelInfo : {};
         var prediction = details.prediction != null ? details.prediction : null;
         var plates = Array.isArray(details.plates) ? details.plates : (Array.isArray(modelInfo.plates) ? modelInfo.plates : []);
-        var previewUrl = this._makerworldProfilePreviewUrl(entry, details, modelInfo, record);
+        var previewUrl = this._makerworldProfilePreviewUrl(entry, details, modelInfo);
         var colors = this._makerworldProfileColors(entry, details, modelInfo);
         var detailBits = [];
         var creatorName = String(record && record.creator_name || '').trim();
@@ -2161,9 +2160,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         }
         subtitleParts = subtitleParts.concat(detailBits);
         return ''
-          + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + '">'
-          + '  <div class="makerworld-profile-head">'
-          + (previewUrl ? '<div class="entry-thumb makerworld-profile-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(title) + '" loading="lazy" decoding="async"></div>' : '<div class="entry-thumb placeholder makerworld-profile-thumb">Profile</div>')
+          + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + (previewUrl ? '' : ' no-preview') + '">'
+          + '  <div class="makerworld-profile-head' + (previewUrl ? '' : ' no-preview') + '">'
+          + (previewUrl ? '<div class="entry-thumb makerworld-profile-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(title) + '" loading="lazy" decoding="async"></div>' : '')
           + '    <div class="makerworld-profile-copy">'
           + '      <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok">Designer</span>' : '') + '<input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
           + '      <div class="summary-label">' + escapeHtml(title) + '</div>'
@@ -3740,7 +3739,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'makerworld-tag-draft') {
       this._makerworldTagDraft = String(target.value || '');
-      this._render();
       return;
     }
     if (action === 'browser-group-title') {
@@ -3846,6 +3844,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.makerworld-profile-card{cursor:pointer;align-content:start;gap:10px;}'
       + '.makerworld-profile-card.selected{border-color:rgba(56,189,248,0.65);box-shadow:0 0 0 1px rgba(56,189,248,0.35) inset;}'
       + '.makerworld-profile-head{display:grid;gap:10px;grid-template-columns:72px minmax(0,1fr);align-items:start;}'
+      + '.makerworld-profile-head.no-preview{grid-template-columns:minmax(0,1fr);}'
       + '.makerworld-profile-thumb{width:72px;height:72px;flex-basis:72px;border-radius:14px;}'
       + '.makerworld-profile-copy{display:grid;gap:6px;min-width:0;}'
       + '.makerworld-color-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}'
