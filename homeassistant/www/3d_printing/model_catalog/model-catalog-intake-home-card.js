@@ -2035,6 +2035,59 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return '';
   }
 
+  _makerworldIdentityKey(value) {
+    return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  _makerworldUserIdentity() {
+    var nestedKeys = ['profile', 'user', 'userInfo', 'user_info', 'creator', 'author', 'owner', 'designer', 'account'];
+    var nameKeys = ['profileUserName', 'profile_user_name', 'displayName', 'display_name', 'userName', 'username', 'name', 'nickName', 'nickname', 'creator_name', 'authorName', 'ownerName'];
+    var idKeys = ['profileUserId', 'profile_user_id', 'profileUid', 'profile_uid', 'userId', 'user_id', 'uid', 'id', 'creator_id', 'owner_id'];
+    var queue = Array.prototype.slice.call(arguments);
+    var seenObjects = [];
+    var resolvedName = '';
+    var resolvedId = 0;
+    while (queue.length) {
+      var source = queue.shift();
+      if (!source || typeof source !== 'object') {
+        continue;
+      }
+      if (seenObjects.indexOf(source) !== -1) {
+        continue;
+      }
+      seenObjects.push(source);
+      if (!resolvedName) {
+        for (var nameIndex = 0; nameIndex < nameKeys.length; nameIndex += 1) {
+          var candidateName = String(source[nameKeys[nameIndex]] || '').trim();
+          if (candidateName) {
+            resolvedName = candidateName;
+            break;
+          }
+        }
+      }
+      if (!resolvedId) {
+        for (var idIndex = 0; idIndex < idKeys.length; idIndex += 1) {
+          var candidateId = Number(source[idKeys[idIndex]] || 0);
+          if (candidateId > 0) {
+            resolvedId = candidateId;
+            break;
+          }
+        }
+      }
+      for (var nestedIndex = 0; nestedIndex < nestedKeys.length; nestedIndex += 1) {
+        var nestedSource = source[nestedKeys[nestedIndex]];
+        if (nestedSource && typeof nestedSource === 'object') {
+          queue.push(nestedSource);
+        }
+      }
+    }
+    return {
+      name: resolvedName,
+      id: resolvedId,
+      key: this._makerworldIdentityKey(resolvedName),
+    };
+  }
+
   _renderMakerWorldTagEditor() {
     var tags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
     return ''
@@ -2091,9 +2144,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _makerworldProfileCardsMarkup(fileManifest, selectedInstanceIds, instanceDetailsById, record, snapshot) {
     try {
       var markup = (Array.isArray(fileManifest) ? fileManifest : []).map(function (entry) {
-        var normalizeIdentity = function (value) {
-          return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
-        };
         var instanceId = Number(entry && entry.instance_id || 0);
         var checked = selectedInstanceIds.indexOf(instanceId) !== -1;
         var details = instanceDetailsById[String(instanceId)] || {};
@@ -2104,37 +2154,33 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         var previewUrl = this._makerworldProfilePreviewUrl(entry, details, modelInfo);
         var colors = this._makerworldProfileColors(entry, details, modelInfo);
         var detailBits = [];
-        var creatorName = String(record && record.creator_name || '').trim();
-        var creatorDisplayName = String(snapshot.designCreator && snapshot.designCreator.name || creatorName).trim();
-        var creatorKey = normalizeIdentity(creatorName || creatorDisplayName);
-        var profileOwnerName = String(details.profileUserName || details.profile_user_name || details.userName || details.username || '').trim();
-        var profileOwnerKey = normalizeIdentity(profileOwnerName);
-        var profileOwnerId = Number(
-          details.profileUserId
-            || details.profile_user_id
-            || details.profileUid
-            || details.profile_uid
-            || details.userId
-            || details.user_id
-            || details.uid
-            || 0
+        var creatorIdentity = this._makerworldUserIdentity(
+          snapshot.designCreator,
+          snapshot.creator,
+          snapshot.user,
+          snapshot.author,
+          { creator_name: record && record.creator_name }
         );
-        var creatorUid = Number(
-          snapshot.designCreator && (
-            snapshot.designCreator.uid
-            || snapshot.designCreator.userId
-            || snapshot.designCreator.user_id
-            || snapshot.designCreator.id
-          )
-          || 0
+        var profileOwnerIdentity = this._makerworldUserIdentity(
+          details,
+          entry,
+          extention,
+          extention.userInfo,
+          extention.profile,
+          modelInfo,
+          modelInfo.user,
+          modelInfo.creator,
+          modelInfo.owner
         );
-        var isDesignerByName = !!(creatorKey && profileOwnerKey && creatorKey === profileOwnerKey);
-        var isDesignerById = !!(profileOwnerId > 0 && creatorUid > 0 && profileOwnerId === creatorUid);
+        var creatorDisplayName = creatorIdentity.name;
+        var profileOwnerName = profileOwnerIdentity.name;
+        var isDesignerByName = !!(creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key);
+        var isDesignerById = !!(profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id);
         var isDesignerProfile = isDesignerByName || isDesignerById;
         if (profileOwnerName) {
           detailBits.push(isDesignerByName ? 'Designer profile' : ('Profile by ' + profileOwnerName));
-        } else if (profileOwnerId > 0 && creatorUid > 0) {
-          detailBits.push(profileOwnerId === creatorUid ? 'Designer profile' : ('Profile user #' + String(profileOwnerId)));
+        } else if (profileOwnerIdentity.id > 0 && creatorIdentity.id > 0) {
+          detailBits.push(profileOwnerIdentity.id === creatorIdentity.id ? 'Designer profile' : ('Profile user #' + String(profileOwnerIdentity.id)));
         } else if (isDesignerProfile && creatorDisplayName) {
           detailBits.push('Designer profile' + (creatorDisplayName ? (' · ' + creatorDisplayName) : ''));
         }
@@ -2164,7 +2210,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '  <div class="makerworld-profile-head' + (previewUrl ? '' : ' no-preview') + '">'
           + (previewUrl ? '<div class="entry-thumb makerworld-profile-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(title) + '" loading="lazy" decoding="async"></div>' : '')
           + '    <div class="makerworld-profile-copy">'
-          + '      <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok">Designer</span>' : '') + '<input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
+          + '      <div class="button-row"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok">Original Designer</span>' : '') + '<input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
           + '      <div class="summary-label">' + escapeHtml(title) + '</div>'
           + (subtitleParts.length ? '<div class="muted">' + escapeHtml(subtitleParts.join(' | ')) + '</div>' : '')
           + (predictionLabel ? '<div class="summary-value">Prediction ' + escapeHtml(predictionLabel) + '</div>' : '')

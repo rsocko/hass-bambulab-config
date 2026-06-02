@@ -18,8 +18,17 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
 
     def test_profile_preview_does_not_fallback_to_design_thumbnail(self):
         self.assertIn("_makerworldProfilePreviewUrl(entry, details, modelInfo)", self.card_content)
-        self.assertNotIn("record && record.thumbnail_url", self.card_content)
+        helper_start = self.card_content.index("_makerworldProfilePreviewUrl(entry, details, modelInfo) {")
+        helper_end = self.card_content.index("_renderMakerWorldTagEditor()", helper_start)
+        helper_body = self.card_content[helper_start:helper_end]
+        self.assertNotIn("record && record.thumbnail_url", helper_body)
         self.assertIn("makerworld-profile-head' + (previewUrl ? '' : ' no-preview')", self.card_content)
+
+    def test_designer_chip_uses_broader_identity_resolution(self):
+        self.assertIn("_makerworldUserIdentity(", self.card_content)
+        self.assertIn("snapshot.designCreator,", self.card_content)
+        self.assertIn("modelInfo.creator,", self.card_content)
+        self.assertIn('<span class=\"chip ok\">Original Designer</span>', self.card_content)
 
     def test_tag_draft_input_does_not_rerender_on_each_keystroke(self):
         self.assertIn("if (action === 'makerworld-tag-draft') {\n      this._makerworldTagDraft = String(target.value || '');\n      return;", self.card_content)
