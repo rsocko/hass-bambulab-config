@@ -102,6 +102,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._makerworldDestinationChoice = 'curated';
     this._makerworldValidatedUploadId = '';
     this._makerworldValidation = null;
+    this._makerworldPageScrollLocked = false;
+    this._makerworldPrevBodyOverflow = '';
+    this._makerworldPrevDocOverflow = '';
     this._uploadDropActive = false;
   }
 
@@ -169,6 +172,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     try {
       window.removeEventListener('model-catalog-intake-launch', this._boundHandleIntakeLaunchEvent);
     } catch (_err) { /* noop */ }
+    this._setMakerWorldPageScrollLock(false);
     this._revokeBrowserPreviewUrls(this._browserFiles);
   }
 
@@ -1702,6 +1706,31 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
   }
 
+  _setMakerWorldPageScrollLock(locked) {
+    var shouldLock = locked === true;
+    if (this._makerworldPageScrollLocked === shouldLock) {
+      return;
+    }
+    var body = typeof document !== 'undefined' ? document.body : null;
+    var docEl = typeof document !== 'undefined' ? document.documentElement : null;
+    if (!body || !docEl) {
+      this._makerworldPageScrollLocked = shouldLock;
+      return;
+    }
+    if (shouldLock) {
+      this._makerworldPrevBodyOverflow = body.style.overflow || '';
+      this._makerworldPrevDocOverflow = docEl.style.overflow || '';
+      body.style.overflow = 'hidden';
+      docEl.style.overflow = 'hidden';
+    } else {
+      body.style.overflow = this._makerworldPrevBodyOverflow || '';
+      docEl.style.overflow = this._makerworldPrevDocOverflow || '';
+      this._makerworldPrevBodyOverflow = '';
+      this._makerworldPrevDocOverflow = '';
+    }
+    this._makerworldPageScrollLocked = shouldLock;
+  }
+
   _commitMakerWorldUrlEntry(options) {
     var nextOptions = options || {};
     var url = String(this._makerworldUrl || '').trim();
@@ -2104,33 +2133,32 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!record) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Captured Data</div><div class="subtitle">The resolved MakerWorld record will appear here after capture.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Captured Data</div></div></div>'
         + rightSideBusy
         + '<div class="state-row">No captured source yet. Paste a URL, then press Enter or tab away to start metadata capture.</div>'
         + '</div>';
     }
     return ''
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Captured Data</div><div class="subtitle">This pane reflects the current source resolution result for Step 1.</div></div></div>'
+      + '  <div class="title-row"><div><div class="title">Captured Data</div></div></div>'
       + rightSideBusy
       + '<article class="entry-row makerworld-result"><div class="entry-top">'
       + (String(record.thumbnail_url || '').trim()
         ? '<div class="entry-thumb makerworld-step-result-thumb"><img class="entry-thumb-image" src="' + escapeHtml(record.thumbnail_url) + '" alt="Preview for ' + escapeHtml(record.title || 'MakerWorld capture') + '" loading="lazy" decoding="async"></div>'
         : '<div class="entry-thumb placeholder makerworld-step-result-thumb">MakerWorld</div>')
-      + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark">MW</span><span class="makerworld-brand-text">MakerWorld</span></div>' : '') + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
+      + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark"><svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M24 9 36 16 24 23 12 16 24 9Zm24 0 12 7-12 7-12-7 12-7ZM24 27 36 34 24 41 12 34 24 27Zm24 0 12 7-12 7-12-7 12-7ZM36 45 48 52 36 59 24 52l12-7Z" fill="currentColor"/></svg></span><span class="makerworld-brand-text">MakerWorld</span></div>' : '') + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
       + '<div class="button-row"><span class="chip">Captured</span>'
       + (linkOnlyFallback ? '<span class="chip warn">Link Only Fallback</span>' : '')
       + (metadataImported ? '<span class="chip ok">Metadata Imported</span>' : '')
       + (fullImportQueued ? '<span class="chip">Upload ' + escapeHtml(String(result.upload_id || '')) + '</span>' : '')
       + (validationState ? '<span class="chip' + (validationState === 'ready' ? ' ok' : ' warn') + '">' + escapeHtml(formatLabel(validationState)) + '</span>' : '')
       + '</div></div></article>'
-      + '<div class="makerworld-preview-grid">'
+      + '<div class="makerworld-preview-grid makerworld-step-stats">'
       + '  <div class="summary-card"><div class="summary-label">Profiles</div><div class="summary-value">' + String(fileManifest.length) + '</div><div class="muted">Downloadable 3MF profiles discovered</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Images</div><div class="summary-value">' + String(sourceStats.imageCount) + '</div><div class="muted">Media cached on the source record</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Tags</div><div class="summary-value">' + String(sourceStats.tagCount) + '</div><div class="muted">MakerWorld tags available for review</div></div>'
-      + '  <div class="summary-card"><div class="summary-label">Next</div><div class="summary-value">Review</div><div class="muted">After capture, continue into profile and destination review.</div></div>'
       + '</div>'
-        + (linkOnlyFallback ? '<div class="status warn">No MakerWorld metadata or downloadable profile manifest is attached yet. Keep this saved URL as provenance-only, or retry metadata capture later.</div>' : '')
+      + (linkOnlyFallback ? '<div class="status warn">No MakerWorld metadata or downloadable profile manifest is attached yet. Keep this saved URL as provenance-only, or retry metadata capture later.</div>' : '')
       + (warningMessages.length ? '<div class="muted">Warnings: ' + escapeHtml(warningMessages.join('; ')) + '</div>' : '')
       + '</div>';
   }
@@ -2178,10 +2206,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return this._renderMakerWorldWizardColumns(
         ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL. Blur or press Enter to capture metadata into the source-intake record.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Source URL</div><div class="subtitle">Paste a MakerWorld model URL.</div></div></div>'
         + '  <div class="field"><label>MakerWorld URL</label><input class="input" type="text" value="' + escapeHtml(this._makerworldUrl) + '" placeholder="https://makerworld.com/..." data-action="makerworld-url"></div>'
         + '  <div class="button-row makerworld-source-actions"><button class="button primary with-icon" data-action="capture-makerworld-preview"' + (!trimmedUrl || this._loading ? ' disabled' : '') + '><ha-icon icon="' + captureIcon + '" aria-hidden="true"></ha-icon><span>' + captureLabel + '</span></button></div>'
-        + '  <div class="muted">This step behaves like the main intake wizard: the left side is the input surface and the right side is the result surface.</div>'
         + (linkOnlyFallback ? '<div class="status warn">Metadata capture was unavailable, so this URL was saved as a link-only fallback. Retry Capture Metadata after fixing MakerWorld auth or API availability.</div>' : '<div class="state-row">Capture stores the source snapshot, profile manifest, tags, and provenance for later validation and commit.</div>')
         + '</div>',
         this._renderMakerWorldStepOneResultPane(record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback)
@@ -3592,6 +3619,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!this.shadowRoot || !this._config) {
       return;
     }
+    this._setMakerWorldPageScrollLock(!!this._makerworldWizardOpen);
     var directLaunchMode = !!this._normalizeLaunchWizardMode(this._launchWizardMode);
     var hideBaseSurface = directLaunchMode;
     var resultHtml = this._result
@@ -3614,10 +3642,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.launch-card-makerworld{align-content:start;}'
       + '.makerworld-inline-summary{display:grid;gap:8px;padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.2);}'
       + '.makerworld-preview-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
+      + '.makerworld-step-stats{grid-template-columns:repeat(3,minmax(0,1fr));}'
       + '.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}'
-      + '.makerworld-step-result-thumb{width:128px;height:128px;flex-basis:128px;border-radius:18px;}'
-      + '.makerworld-brand-badge{display:inline-flex;align-items:center;gap:8px;width:max-content;margin-top:6px;padding:6px 10px;border-radius:999px;border:1px solid rgba(161,161,170,0.28);background:rgba(63,63,70,0.42);color:var(--primary-text-color);font-size:12px;font-weight:800;letter-spacing:.02em;}'
-      + '.makerworld-brand-mark{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:linear-gradient(135deg,rgba(229,231,235,0.94),rgba(161,161,170,0.92));color:rgba(24,24,27,0.96);font-size:11px;font-weight:900;letter-spacing:.04em;}'
+      + '.makerworld-step-result-thumb{width:176px;height:176px;flex-basis:176px;border-radius:22px;}'
+      + '.makerworld-brand-badge{display:inline-flex;align-items:center;gap:10px;width:max-content;margin-top:8px;padding:6px 2px 6px 0;color:var(--primary-text-color);font-size:13px;font-weight:800;letter-spacing:.02em;}'
+      + '.makerworld-brand-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:rgba(52,52,54,0.96);color:rgba(255,255,255,0.98);box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset;}'
+      + '.makerworld-brand-mark svg{width:22px;height:22px;display:block;}'
       + '.makerworld-brand-text{line-height:1;}'
       + '.makerworld-detail-panel{border:1px solid rgba(148,163,184,0.18);border-radius:14px;background:rgba(15,23,42,0.16);padding:0;overflow:hidden;}'
       + '.makerworld-detail-panel summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:800;color:var(--primary-text-color);}'
@@ -3630,11 +3660,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
       + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
       + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
-      + '.makerworld-wizard-dialog{width:min(1080px,100%);border-color:rgba(161,161,170,0.28);background:linear-gradient(180deg,rgba(39,39,42,0.98),rgba(24,24,27,0.95));box-shadow:0 28px 80px rgba(9,9,11,0.5);}'
-      + '.makerworld-wizard-dialog .wizard-step{border-color:rgba(161,161,170,0.22);background:rgba(63,63,70,0.34);}'
-      + '.makerworld-wizard-dialog .wizard-step.current{border-color:rgba(212,212,216,0.34);background:rgba(82,82,91,0.5);}'
-      + '.makerworld-wizard-dialog .wizard-step.complete{border-color:rgba(161,161,170,0.24);background:rgba(63,63,70,0.48);}'
-      + '.makerworld-wizard-dialog .wizard-panel{border-color:rgba(161,161,170,0.2);background:rgba(39,39,42,0.44);}'
+      + '.makerworld-wizard-dialog{width:min(1080px,100%);}'
       + '.makerworld-wizard-column{min-height:0;display:grid;gap:14px;align-content:start;}'
       + '.wizard-modal.launch-direct{position:relative;inset:auto;z-index:auto;display:block;padding:0;}'
       + '.wizard-modal.launch-direct .wizard-backdrop{display:none;}'
@@ -3682,7 +3708,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.entry-row .entry-top > .button-row,.entry-row .entry-top > .entry-type-icon{margin-left:auto;}'
       + '.entry-row .entry-actions{margin-left:auto;justify-content:flex-end;}'
       + '.title-row > .button-row{margin-left:auto;}'
-      + '.makerworld-source-actions{justify-content:flex-start;}'
+      + '.makerworld-source-actions{justify-content:flex-end;}'
       + '.entry-type-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;color:var(--secondary-text-color);background:rgba(15,23,42,0.18);border:1px solid rgba(148,163,184,0.18);flex:0 0 32px;}'
       + '.entry-type-icon ha-icon{--mdc-icon-size:20px;width:20px;height:20px;}'
       + '.wizard-panel .result-line{font-size:14px;}'
@@ -3694,7 +3720,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.button.icon-only ha-icon{--mdc-icon-size:18px;width:18px;height:18px;}'
       + '.button.with-icon{display:inline-flex;align-items:center;justify-content:center;gap:8px;}'
       + '.button.with-icon ha-icon{--mdc-icon-size:18px;width:18px;height:18px;}'
-      + '@media (max-width: 960px){.home-workbench-grid,.home-mini-grid{grid-template-columns:1fr;}}'
+      + '@media (max-width: 960px){.home-workbench-grid,.home-mini-grid,.makerworld-step-stats{grid-template-columns:1fr;}}'
       + '@media (max-width: 860px){.wizard-body{grid-template-columns:1fr;}.wizard-dialog{padding:14px;max-height:94vh;}.wizard-modal{padding:12px;}}';
 
     this.shadowRoot.innerHTML = ''
