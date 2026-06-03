@@ -1288,12 +1288,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
         + '</div></div>'
       : (variant === 'List'
         ? (listImageUrl
-          ? '<div class="thumb-wrap has-archive-pill"><div class="media-gallery-surface"><img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' + thumbArchivePill + '</div>'
+          ? '<div class="thumb-wrap has-archive-pill"><div class="media-gallery-surface"><img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '" loading="lazy" decoding="async"></div>' + thumbArchivePill + '</div>'
           : (showImages
             ? '<div class="thumb-wrap has-archive-pill"><div class="media-gallery-surface"><div class="list-thumb-empty">No preview image available</div></div>' + thumbArchivePill + '</div>'
             : ''))
         : (hasImage
-        ? '<div class="thumb-wrap has-archive-pill">' + thumbArchivePill + '<img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
+        ? '<div class="thumb-wrap has-archive-pill">' + thumbArchivePill + '<img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '" loading="lazy" decoding="async"></div>'
         : ''));
 
     return "" +
