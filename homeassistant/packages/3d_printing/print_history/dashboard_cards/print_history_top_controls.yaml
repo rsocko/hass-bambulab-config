@@ -55,8 +55,23 @@ card:
       const compareTooltip = compareTooMany
         ? `Compare supports up to ${compareLimit} prints. Deselect ${selectedCount - compareLimit} to continue.`
         : `Select 2 to ${compareLimit} prints to compare.`;
-      const currentPage = Math.max(1, Number(pageInfoAttrs.current_page || 1) || 1);
-      const totalPages = Math.max(1, Number(pageInfoAttrs.total_pages || 1) || 1);
+      const filteredAttrs = states['sensor.bambuddy_print_history_browser_filtered']?.attributes || {};
+      const pageHelperValue = Number(states['input_number.history_current_page']?.state || 1);
+      const currentPageFromInfo = Number(pageInfoAttrs.current_page);
+      const totalPagesFromInfo = Number(pageInfoAttrs.total_pages);
+      const totalPagesFromFiltered = Number(filteredAttrs.total_pages || filteredAttrs.page_count || 1);
+      const currentPage = Math.max(
+        1,
+        Number.isFinite(currentPageFromInfo)
+          ? currentPageFromInfo
+          : (Number.isFinite(pageHelperValue) ? pageHelperValue : 1)
+      );
+      const totalPages = Math.max(
+        1,
+        Number.isFinite(totalPagesFromInfo)
+          ? totalPagesFromInfo
+          : (Number.isFinite(totalPagesFromFiltered) ? totalPagesFromFiltered : 1)
+      );
       const atFirstPage = currentPage <= 1;
       const atLastPage = currentPage >= totalPages;
       const firstSelector = byIcon('mdi:page-first');
