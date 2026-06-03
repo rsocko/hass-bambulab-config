@@ -1,5 +1,6 @@
 type: custom:config-template-card
 entities:
+  - input_number.history_current_page
   - input_number.print_history_page_size
   - input_select.print_history_card_variant
   - input_boolean.print_history_show_images
@@ -7,7 +8,6 @@ entities:
   - input_number.print_history_multi_select_count
   - input_boolean.print_history_multi_select_all_favorites
   - input_text.print_history_multi_select_request
-  - sensor.bambuddy_print_history_browser_status
   - sensor.bambuddy_print_history_browser_page_info
   - sensor.bambuddy_print_history_browser_filtered
 card_mod:
@@ -44,7 +44,10 @@ card:
       const pageInfoAttrs = states['sensor.bambuddy_print_history_browser_page_info']?.attributes || {};
       const activeVariant = states['input_select.print_history_card_variant']?.state || '';
       const isMediaVariant = activeVariant === 'Media';
-      const browserRefreshing = states['sensor.bambuddy_print_history_browser_status']?.state === 'refreshing';
+      // Keep this toolbar template subscribed to low-churn paging/filter helpers only.
+      // Refresh-state animation is intentionally disabled here to avoid frequent
+      // re-evaluation while backend status attributes update during page loads.
+      const browserRefreshing = false;
       const multiSelectMode = states['input_boolean.print_history_multi_select_mode']?.state === 'on';
       const selectedCount = Math.max(0, Number(states['input_number.print_history_multi_select_count']?.state || 0) || 0);
       const hasSelection = selectedCount > 0;

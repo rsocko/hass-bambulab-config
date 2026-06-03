@@ -957,7 +957,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var _perf = typeof performance !== "undefined" && typeof performance.now === "function" ? performance : null;
     var htmlStart = _perf ? _perf.now() : 0;
 
-    var BATCH_SIZE = 5;
+    var BATCH_SIZE = 3;
     if (archives.length <= BATCH_SIZE) {
       // Small batch — render in a single shot.
       var html = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
