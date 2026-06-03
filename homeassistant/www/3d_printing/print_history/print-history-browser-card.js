@@ -3258,7 +3258,24 @@ class PrintHistoryBrowserCard extends HTMLElement {
             "Close",
             "mdi:close",
             "rgba(255,255,255,0.04)",
-            { action: "fire-dom-event", browser_mod: { service: "browser_mod.close_popup" } }
+            {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.sequence",
+                data: {
+                  sequence: [
+                    { service: "browser_mod.close_popup" },
+                    {
+                      service: "input_text.set_value",
+                      data: {
+                        entity_id: "input_text.print_history_popup_archive_id",
+                        value: "",
+                      },
+                    },
+                  ],
+                },
+              },
+            }
           ),
         ],
       },

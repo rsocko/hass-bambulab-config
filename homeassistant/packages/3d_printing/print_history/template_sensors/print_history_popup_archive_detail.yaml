@@ -1,16 +1,11 @@
 # Popup-scoped archive detail cache for gallery/photo fallback.
 # Fetches the selected archive detail when the popup archive id changes so
 # popup-only UI can access fields omitted by the list endpoint, such as photos.
-# Also refresh when the Bambuddy browser store finishes syncing so the popup
-# does not keep stale archive detail after re-enrich or other repair actions.
+# The detail fetch is intentionally scoped to popup archive selection changes
+# to avoid high-frequency background recomputation while browsing the main list.
 - trigger:
     - trigger: state
       entity_id: input_text.print_history_popup_archive_id
-    - trigger: state
-      entity_id: input_boolean.print_history_popup_is_favorite
-    - trigger: state
-      entity_id: sensor.bambuddy_print_history_browser_status
-      attribute: browser_revision
     - trigger: homeassistant
       event: start
   action:
@@ -166,4 +161,3 @@
           {{ overlay is mapping and overlay | count > 0 }}
         source_status: >-
           {{ result.get('status', 'idle') if result is defined and result is mapping else 'idle' }}
-        last_fetch: "{{ now().isoformat() }}"
