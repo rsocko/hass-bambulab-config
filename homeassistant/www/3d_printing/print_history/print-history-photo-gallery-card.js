@@ -20,6 +20,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._operationType = null;
     this._preloadedSources = {};
     this._preloadTimer = null;
+    this._lastPreloadSignature = "";
     this._lastRenderSignature = "";
     this._overlayRoot = null;
     this._previousBodyOverflow = null;
@@ -51,12 +52,13 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._localHasPrimaryPhotoOverride = null;
     this._activeIndex = 0;
     this._expanded = false;
+    this._lastPreloadSignature = "";
     this._render();
   }
 
   set hass(hass) {
-    var nextSignature = this._computeRenderSignature(hass);
     this._hass = hass;
+    var nextSignature = this._computeRenderSignature(hass);
     if (nextSignature === this._lastRenderSignature) {
       return;
     }
@@ -84,6 +86,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       clearTimeout(this._preloadTimer);
       this._preloadTimer = null;
     }
+    this._lastPreloadSignature = "";
     this._destroyOverlayRoot();
   }
 
@@ -1261,10 +1264,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         : JSON.stringify(this._config.archive_json || {}),
     ];
 
-    var detailEntityId = this._config.detail_entity || "";
-    var detailState = detailEntityId ? hass.states[detailEntityId] : null;
-    parts.push(detailState ? String(detailState.last_updated || detailState.last_changed || "") : "");
-    parts.push(detailState ? String(detailState.state || "") : "");
+    var archive = this._resolveArchive();
+    parts.push(this._archiveKey(archive));
+    parts.push(archive && archive.has_primary_photo_override ? "1" : "0");
 
     var baseEntityId = this._config.api_base_entity || "input_text.bambuddy_api_base_url";
     var baseState = hass.states[baseEntityId];
@@ -1470,7 +1472,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var activeIndex = Math.max(0, Math.min(Number(this._activeIndex) || 0, list.length - 1));
     var preloadOrder = [];
     var seen = {};
-    var maxPreload = Math.min(12, list.length);
+    var maxPreload = Math.min(6, list.length);
 
     for (var step = 0; preloadOrder.length < maxPreload && step < list.length; step += 1) {
       var left = activeIndex - step;
@@ -1834,7 +1836,18 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
-    this._preloadImages(images);
+    var preloadSignature = [
+      this._archiveKey(archive),
+      String(this._activeIndex),
+      String(this._config.include_thumbnail !== false),
+      images.map(function (image) {
+        return image && image.src ? image.src : "";
+      }).join("|")
+    ].join("|");
+    if (preloadSignature !== this._lastPreloadSignature) {
+      this._lastPreloadSignature = preloadSignature;
+      this._preloadImages(images);
+    }
 
     this.shadowRoot.innerHTML =
       "<style>" +
