@@ -17,8 +17,9 @@ Primary package files:
 - [bambuddy_integration_loader.yaml](../../../homeassistant/packages/3d_printing/bambuddy_integration/bambuddy_integration_loader.yaml)
 - [bambuddy_upload_snapshot.yaml](../../../homeassistant/packages/3d_printing/bambuddy_integration/automations/bambuddy_upload_snapshot.yaml)
 - [input_text_bambuddy_base_url.yaml](../../../homeassistant/packages/3d_printing/bambuddy_integration/helpers/input_text/input_text_bambuddy_base_url.yaml)
-- [input_text_bambuddy_api_key.yaml](../../../homeassistant/packages/3d_printing/bambuddy_integration/helpers/input_text/input_text_bambuddy_api_key.yaml)
 - [input_boolean_bambuddy_integration_enabled.yaml](../../../homeassistant/packages/3d_printing/bambuddy_integration/helpers/input_boolean/input_boolean_bambuddy_integration_enabled.yaml)
+
+> **Secrets**: The active Bambuddy package split stores the API key in `secrets.yaml` as `bambuddy_api_key` and references it with `!secret bambuddy_api_key`. The old helper-backed API-key entity is legacy prototype material.
 
 Related feature docs:
 
@@ -45,8 +46,8 @@ Related feature docs:
 
 - Set the Bambuddy base URL helper to the reachable API root for your
   Bambuddy instance.
-- Store the API key in Home Assistant secrets and expose it through the helper
-  and REST command package files used by this repo.
+- Store the API key in Home Assistant secrets as `bambuddy_api_key`; the
+  active package files read it directly with `!secret bambuddy_api_key`.
 - Keep webhook consumers pointed at the normalized Home Assistant event path,
   not at raw Bambuddy payload assumptions.
 

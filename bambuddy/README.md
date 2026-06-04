@@ -143,7 +143,7 @@ The print-history REST sensor family documented below is historical prototype ma
 | Entity | Description |
 |--------|-------------|
 | `input_text.bambuddy_api_base_url` | Bambuddy server URL (e.g., `http://localhost:8000`) |
-| `input_text.bambuddy_api_key` | Bambuddy API key |
+| `input_text.bambuddy_api_key` | Legacy prototype API key helper; current package split uses `secrets.yaml` with `!secret bambuddy_api_key` |
 | `input_text.bambuddy_printer_id` | Bambuddy printer ID |
 | `input_text.bambuddy_current_archive_id` | Current print's archive ID (managed by automation) |
 | `input_boolean.bambuddy_integration_enabled` | Master on/off switch |
@@ -225,7 +225,7 @@ Maintenance tracking card with:
 
 ## Security Notes
 
-- **Never hard-code API keys** in YAML files. Use `input_text.bambuddy_api_key` (stored in HA state) or `secrets.yaml`
+- **Never hard-code API keys** in YAML files. Use `secrets.yaml` with `!secret bambuddy_api_key` for the active package split; the helper-backed key is legacy prototype material.
 - **Restrict API key scopes** to the minimum required permissions
 - **Use HTTPS** for the Bambuddy webhook URL if your HA instance is internet-accessible
 - Consider using a **read-only API key** for sensors and a separate key with write permissions for automations
@@ -234,7 +234,7 @@ Maintenance tracking card with:
 
 ### Sensors show `unavailable`
 1. Verify Bambuddy is running: `curl http://your-bambuddy-server:8000/api/v1/printers`
-2. Check API key is set correctly in `input_text.bambuddy_api_key`
+2. Check API key is set correctly in `secrets.yaml` as `bambuddy_api_key` for the active package split
 3. Check HA logs for REST sensor errors: **Settings → System → Logs**
 
 ### Archive entries not being created

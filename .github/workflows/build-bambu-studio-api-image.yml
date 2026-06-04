@@ -6,7 +6,7 @@ on:
       bambu_version:
         description: BambuStudio version to embed in the image
         required: true
-        default: "02.06.00.51"
+        default: "02.07.01.57"
       version_mode:
         description: How to determine the image tag
         required: true

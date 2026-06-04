@@ -199,7 +199,7 @@ services:
       - model-catalog
 
   bambu-studio-api:
-    image: registry.socko.us/bambu-studio-api:${BAMBU_STUDIO_API_IMAGE_TAG:-bambu02.06.00.51}
+    image: registry.socko.us/bambu-studio-api:${BAMBU_STUDIO_API_IMAGE_TAG:-bambu02.07.01.57}
     container_name: bambu-studio-api
     restart: unless-stopped
 

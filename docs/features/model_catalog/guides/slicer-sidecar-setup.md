@@ -117,7 +117,7 @@ The maziggy fork has no pre-built images. Use the GitHub Actions workflow to bui
 
 1. Go to **Actions → Build Bambu Studio API Image** in GitHub
 2. Set inputs:
-   - `bambu_version`: `02.06.00.51` (or latest)
+  - `bambu_version`: `02.07.01.57` (or latest)
    - `version_mode`: `explicit` (default tag derives from the BambuStudio version)
    - `push_image`: `true`
    - `push_latest`: `true` (recommended for first build)
@@ -133,7 +133,7 @@ Add the `bambu-studio-api` service to `sidecars/model_catalog/docker-compose.yml
 
 ```yaml
   bambu-studio-api:
-    image: registry.socko.us/bambu-studio-api:${BAMBU_STUDIO_API_IMAGE_TAG:-bambu02.06.00.51}
+    image: registry.socko.us/bambu-studio-api:${BAMBU_STUDIO_API_IMAGE_TAG:-bambu02.07.01.57}
     container_name: bambu-studio-api
     restart: unless-stopped
 
@@ -161,7 +161,7 @@ Add these variables to your `.env` file:
 ```env
 # Slicer sidecar — image tag from the build workflow.
 # Update after running Build Bambu Studio API Image workflow.
-BAMBU_STUDIO_API_IMAGE_TAG=bambu02.06.00.51
+BAMBU_STUDIO_API_IMAGE_TAG=bambu02.07.01.57
 ```
 
 > **Security**: The sidecar has no authentication. It is exposed only on the internal Docker network. No host port is published. All operator-facing actions go through Model Catalog's authenticated routes.
