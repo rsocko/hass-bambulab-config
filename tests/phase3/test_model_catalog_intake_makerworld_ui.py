@@ -65,6 +65,10 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
             self.card_content,
         )
 
+    def test_step_one_result_preview_is_doubled_and_stacked_for_right_pane(self):
+        self.assertIn('.makerworld-step-result-thumb{width:min(100%,512px);', self.card_content)
+        self.assertIn(".makerworld-result .entry-top{display:grid;gap:16px;}", self.card_content)
+
 
 if __name__ == "__main__":
     unittest.main()
