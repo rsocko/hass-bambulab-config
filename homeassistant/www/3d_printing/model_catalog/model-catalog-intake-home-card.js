@@ -2313,6 +2313,61 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     };
   }
 
+  _makerworldExplicitDesignerProfileFlag() {
+    var queue = Array.prototype.slice.call(arguments);
+    var seenObjects = [];
+    var nestedKeys = ['profile', 'user', 'userInfo', 'user_info', 'creator', 'author', 'owner', 'account', 'designCreator', 'extention', 'modelInfo'];
+    var explicitKeys = ['isDesignerProfile', 'is_designer_profile', 'designerProfile', 'isCreatorProfile', 'is_creator_profile', 'creatorProfile', 'isModelCreator', 'is_model_creator', 'isDesignCreator', 'is_design_creator', 'fromDesigner', 'from_designer'];
+    var badgeKeys = ['badges', 'labels', 'tags', 'tagList', 'markers'];
+    function normalizeText(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+    function explicitBadgeValue(value) {
+      var normalized = normalizeText(value);
+      return normalized === 'designer' || normalized === 'design creator' || normalized === 'creator';
+    }
+    while (queue.length) {
+      var source = queue.shift();
+      if (!source || typeof source !== 'object') {
+        continue;
+      }
+      if (seenObjects.indexOf(source) !== -1) {
+        continue;
+      }
+      seenObjects.push(source);
+      for (var explicitIndex = 0; explicitIndex < explicitKeys.length; explicitIndex += 1) {
+        var explicitValue = source[explicitKeys[explicitIndex]];
+        if (explicitValue === true || explicitValue === 1 || explicitValue === '1') {
+          return true;
+        }
+      }
+      for (var badgeIndex = 0; badgeIndex < badgeKeys.length; badgeIndex += 1) {
+        var badgeList = source[badgeKeys[badgeIndex]];
+        if (!Array.isArray(badgeList)) {
+          continue;
+        }
+        for (var itemIndex = 0; itemIndex < badgeList.length; itemIndex += 1) {
+          var badge = badgeList[itemIndex];
+          if (explicitBadgeValue(badge)) {
+            return true;
+          }
+          if (badge && typeof badge === 'object') {
+            if (explicitBadgeValue(badge.label) || explicitBadgeValue(badge.name) || explicitBadgeValue(badge.text) || explicitBadgeValue(badge.type)) {
+              return true;
+            }
+          }
+        }
+      }
+      for (var nestedIndex = 0; nestedIndex < nestedKeys.length; nestedIndex += 1) {
+        var nestedSource = source[nestedKeys[nestedIndex]];
+        if (nestedSource && typeof nestedSource === 'object') {
+          queue.push(nestedSource);
+        }
+      }
+    }
+    return false;
+  }
+
   _renderMakerWorldTagEditor() {
     var tags = this._makerworldNormalizedTags(this._makerworldSelectedTags);
     return ''
@@ -2376,10 +2431,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         { profile_owner_name: details.profile_owner_name, profile_owner_id: details.profile_owner_id },
         { profile_owner_name: entry && entry.profile_owner_name, profile_owner_id: entry && entry.profile_owner_id }
       );
-      var isDesignerProfile = entry && entry.is_designer_profile === true ? true : !!(
+      var explicitDesignerProfile = this._makerworldExplicitDesignerProfileFlag(entry, details, extention, extention.profile, extention.userInfo, modelInfo, modelInfo.user, modelInfo.creator, modelInfo.owner);
+      var isDesignerProfile = explicitDesignerProfile || (entry && entry.is_designer_profile === true ? true : !!(
         (creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key)
         || (profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id)
-      );
+      ));
       var ownerLabel = isDesignerProfile
         ? 'Designer'
         : String(profileOwnerIdentity.name || '').trim();
@@ -2432,7 +2488,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         var profileOwnerName = profileOwnerIdentity.name;
         var isDesignerByName = !!(creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key);
         var isDesignerById = !!(profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id);
-        var isDesignerProfile = entry && entry.is_designer_profile === true ? true : (isDesignerByName || isDesignerById);
+        var explicitDesignerProfile = this._makerworldExplicitDesignerProfileFlag(entry, details, extention, extention.profile, extention.userInfo, modelInfo, modelInfo.user, modelInfo.creator, modelInfo.owner);
+        var isDesignerProfile = explicitDesignerProfile || (entry && entry.is_designer_profile === true ? true : (isDesignerByName || isDesignerById));
         if (profileOwnerName && !isDesignerProfile) {
           detailBits.push('By ' + profileOwnerName);
         } else if (!profileOwnerName && isDesignerProfile && creatorDisplayName) {

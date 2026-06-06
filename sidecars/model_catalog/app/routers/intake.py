@@ -1170,6 +1170,65 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
     creator_key = _normalize_identity(creator_name)
     instances = snapshot.get("instances") if isinstance(snapshot.get("instances"), list) else []
 
+    def _explicit_designer_profile_flag(*sources: Any) -> bool:
+        nested_keys = ("profile", "user", "userInfo", "user_info", "creator", "author", "owner", "account", "designCreator", "extention", "modelInfo")
+        explicit_keys = (
+            "isDesignerProfile",
+            "is_designer_profile",
+            "designerProfile",
+            "isCreatorProfile",
+            "is_creator_profile",
+            "creatorProfile",
+            "isModelCreator",
+            "is_model_creator",
+            "isDesignCreator",
+            "is_design_creator",
+            "fromDesigner",
+            "from_designer",
+        )
+        badge_keys = ("badges", "labels", "tags", "tagList", "markers")
+        queue = list(sources)
+        seen: set[int] = set()
+
+        def _normalize_text(value: Any) -> str:
+            return str(value or "").strip().lower()
+
+        def _is_designer_label(value: Any) -> bool:
+            normalized = _normalize_text(value)
+            return normalized in {"designer", "design creator", "creator"}
+
+        while queue:
+            source = queue.pop(0)
+            if not isinstance(source, dict):
+                continue
+            source_id = id(source)
+            if source_id in seen:
+                continue
+            seen.add(source_id)
+            for key in explicit_keys:
+                explicit_value = source.get(key)
+                if explicit_value in (True, 1, "1"):
+                    return True
+            for key in badge_keys:
+                badge_list = source.get(key)
+                if not isinstance(badge_list, list):
+                    continue
+                for badge in badge_list:
+                    if _is_designer_label(badge):
+                        return True
+                    if isinstance(badge, dict) and (
+                        _is_designer_label(badge.get("label"))
+                        or _is_designer_label(badge.get("name"))
+                        or _is_designer_label(badge.get("text"))
+                        or _is_designer_label(badge.get("type"))
+                    ):
+                        return True
+            for key in nested_keys:
+                nested_source = source.get(key)
+                if isinstance(nested_source, dict):
+                    queue.append(nested_source)
+        return False
+
     def _profile_image_urls(*sources: Any) -> list[str]:
         urls: list[str] = []
         seen_urls: set[str] = set()
@@ -1236,7 +1295,8 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
             or 0
         )
         profile_owner_key = _normalize_identity(profile_owner_name)
-        is_designer_profile = bool(
+        explicit_designer_profile = _explicit_designer_profile_flag(instance, nested_profile, extention, model_info)
+        is_designer_profile = explicit_designer_profile or bool(
             (creator_key and profile_owner_key and creator_key == profile_owner_key)
             or (creator_uid > 0 and profile_owner_id > 0 and creator_uid == profile_owner_id)
         )

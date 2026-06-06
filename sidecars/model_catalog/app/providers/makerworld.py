@@ -225,7 +225,8 @@ class MakerWorldAdapter:
             image_urls = self._extract_instance_image_urls(instance)
             cover_url = str(instance.get("cover") or (image_urls[0] if image_urls else "")).strip() or None
             profile_owner_identity = self._extract_identity(instance)
-            is_designer_profile = bool(
+            explicit_designer_profile = self._extract_designer_profile_flag(instance)
+            is_designer_profile = explicit_designer_profile or bool(
                 (creator_identity.get("key") and profile_owner_identity.get("key") and creator_identity.get("key") == profile_owner_identity.get("key"))
                 or (
                     int(creator_identity.get("id") or 0) > 0
@@ -586,6 +587,65 @@ class MakerWorldAdapter:
             "id": resolved_id,
             "key": "".join(ch for ch in resolved_name.strip().lower() if ch.isalnum()),
         }
+
+    def _extract_designer_profile_flag(self, *sources: Any) -> bool:
+        nested_keys = ("profile", "user", "userInfo", "user_info", "creator", "author", "owner", "account", "designCreator", "extention", "modelInfo")
+        explicit_keys = (
+            "isDesignerProfile",
+            "is_designer_profile",
+            "designerProfile",
+            "isCreatorProfile",
+            "is_creator_profile",
+            "creatorProfile",
+            "isModelCreator",
+            "is_model_creator",
+            "isDesignCreator",
+            "is_design_creator",
+            "fromDesigner",
+            "from_designer",
+        )
+        badge_keys = ("badges", "labels", "tags", "tagList", "markers")
+        queue = list(sources)
+        seen: set[int] = set()
+
+        def _normalize_text(value: Any) -> str:
+            return str(value or "").strip().lower()
+
+        def _is_designer_label(value: Any) -> bool:
+            normalized = _normalize_text(value)
+            return normalized in {"designer", "design creator", "creator"}
+
+        while queue:
+            source = queue.pop(0)
+            if not isinstance(source, dict):
+                continue
+            source_id = id(source)
+            if source_id in seen:
+                continue
+            seen.add(source_id)
+            for key in explicit_keys:
+                explicit_value = source.get(key)
+                if explicit_value in (True, 1, "1"):
+                    return True
+            for key in badge_keys:
+                badge_list = source.get(key)
+                if not isinstance(badge_list, list):
+                    continue
+                for badge in badge_list:
+                    if _is_designer_label(badge):
+                        return True
+                    if isinstance(badge, dict) and (
+                        _is_designer_label(badge.get("label"))
+                        or _is_designer_label(badge.get("name"))
+                        or _is_designer_label(badge.get("text"))
+                        or _is_designer_label(badge.get("type"))
+                    ):
+                        return True
+            for key in nested_keys:
+                nested_source = source.get(key)
+                if isinstance(nested_source, dict):
+                    queue.append(nested_source)
+        return False
 
     def _extract_creator(self, payload: dict[str, Any]) -> dict[str, Any]:
         for candidate in (

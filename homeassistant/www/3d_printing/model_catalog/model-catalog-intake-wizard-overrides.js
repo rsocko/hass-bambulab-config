@@ -1788,7 +1788,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var profileOwnerName = profileOwnerIdentity.name;
         var isDesignerByName = !!(creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key);
         var isDesignerById = !!(profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id);
-        var isDesignerProfile = entry && entry.is_designer_profile === true ? true : (isDesignerByName || isDesignerById);
+        var explicitDesignerProfile = this._makerworldExplicitDesignerProfileFlag(entry, details, extention, extention.profile, extention.userInfo, modelInfo, modelInfo.user, modelInfo.creator, modelInfo.owner);
+        var isDesignerProfile = explicitDesignerProfile || (entry && entry.is_designer_profile === true ? true : (isDesignerByName || isDesignerById));
         if (profileOwnerName && !isDesignerProfile) {
           detailBits.push('By ' + profileOwnerName);
         } else if (!profileOwnerName && isDesignerProfile && creatorDisplayName) {

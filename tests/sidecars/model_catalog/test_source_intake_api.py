@@ -329,6 +329,44 @@ def test_capture_source_creates_makerworld_record(tmp_path: Path, monkeypatch) -
         client.__exit__(None, None, None)
 
 
+def test_makerworld_profile_summary_marks_designer_profile_from_explicit_flag() -> None:
+    profiles = source_intake_router._makerworld_profile_summary(
+        {
+            "creator_name": "Schlingen",
+            "snapshot_json": {
+                "designCreator": {"uid": 98765, "name": "Schlingen"},
+                "instances": [
+                    {
+                        "id": 5001,
+                        "profileId": 5001,
+                        "title": "0.2MM LAYER, 2 WALLS, 15% INFILL",
+                        "isDesignerProfile": True,
+                        "plates": [{"plateId": 1}],
+                    }
+                ],
+            },
+        }
+    )
+
+    assert profiles == [
+        {
+            "instance_id": 5001,
+            "profile_id": 5001,
+            "title": "0.2MM LAYER, 2 WALLS, 15% INFILL",
+            "profile_owner_name": None,
+            "profile_owner_id": None,
+            "is_designer_profile": True,
+            "is_default": False,
+            "need_ams": None,
+            "material_count": None,
+            "print_count": None,
+            "prediction": None,
+            "filament_colors": [],
+            "plate_details": [{"plate_id": 1, "prediction": None, "filament_colors": []}],
+        }
+    ]
+
+
 def test_commit_source_full_import_creates_queue_upload(tmp_path: Path, monkeypatch) -> None:
     client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
     try:

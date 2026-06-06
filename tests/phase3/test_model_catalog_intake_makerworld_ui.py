@@ -33,8 +33,10 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
 
     def test_designer_chip_uses_broader_identity_resolution(self):
         self.assertIn("_makerworldUserIdentity(", self.card_content)
+        self.assertIn("_makerworldExplicitDesignerProfileFlag()", self.card_content)
         self.assertIn("snapshot.designCreator,", self.card_content)
         self.assertIn("modelInfo.creator,", self.card_content)
+        self.assertIn("var explicitDesignerProfile = this._makerworldExplicitDesignerProfileFlag(", self.card_content)
         self.assertIn('makerworld-profile-designer-text', self.card_content)
         self.assertIn('makerworld-selected-profile-designer', self.card_content)
 
