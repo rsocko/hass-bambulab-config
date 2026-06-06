@@ -284,6 +284,48 @@ def test_resolve_design_id_marks_designer_profile_from_explicit_flag() -> None:
     ]
 
 
+def test_resolve_design_id_marks_designer_profile_from_instance_creator_match() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 2853882,
+                "title": "Flexi Toothless",
+                "designCreator": {"uid": 2552079526, "name": "Schlingen"},
+                "instances": [
+                    {
+                        "id": 5001,
+                        "profileId": 786570319,
+                        "title": "0.2mm layer, 2 walls, 15% infill",
+                        "instanceCreator": {"uid": 2552079526, "name": "Schlingen", "handle": "Schlingen"},
+                        "plates": [{"index": 1}],
+                    }
+                ],
+            },
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.resolve_design_id(2853882))
+
+    assert result is not None
+    assert result.file_manifest == [
+        {
+            "instance_id": 5001,
+            "profile_id": 786570319,
+            "title": "0.2mm layer, 2 walls, 15% infill",
+            "profile_owner_name": "Schlingen",
+            "profile_owner_id": 2552079526,
+            "plate_count": 1,
+            "is_designer_profile": True,
+        }
+    ]
+
+
 def test_resolve_design_id_falls_back_to_cover_and_design_pictures() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

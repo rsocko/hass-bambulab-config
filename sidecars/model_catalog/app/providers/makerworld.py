@@ -512,7 +512,7 @@ class MakerWorldAdapter:
         return urls
 
     def _extract_identity(self, *sources: Any) -> dict[str, Any]:
-        nested_keys = ("profile", "user", "userInfo", "user_info", "creator", "author", "owner", "account", "designCreator")
+        nested_keys = ("profile", "user", "userInfo", "user_info", "creator", "author", "owner", "account", "designCreator", "instanceCreator")
         name_keys = (
             "profile_owner_name",
             "profileUserName",

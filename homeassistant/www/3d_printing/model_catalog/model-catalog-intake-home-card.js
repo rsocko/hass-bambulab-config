@@ -2262,7 +2262,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _makerworldUserIdentity() {
-    var nestedKeys = ['profile', 'user', 'userInfo', 'user_info', 'creator', 'author', 'owner', 'designer', 'account'];
+    var nestedKeys = ['profile', 'user', 'userInfo', 'user_info', 'creator', 'author', 'owner', 'designer', 'account', 'instanceCreator'];
     var nameKeys = ['profile_owner_name', 'profileUserName', 'profile_user_name', 'displayName', 'display_name', 'userName', 'username', 'name', 'nickName', 'nickname', 'creator_name', 'creatorName', 'authorName', 'ownerName', 'owner_name', 'designer_name', 'designer', 'handle', 'fullName', 'full_name'];
     var idKeys = ['profile_owner_id', 'profileUserId', 'profile_user_id', 'profileUid', 'profile_uid', 'userId', 'user_id', 'uid', 'creatorUid', 'creator_uid', 'creator_id', 'authorId', 'author_id', 'ownerId', 'owner_id', 'accountId', 'account_id'];
     var queue = Array.prototype.slice.call(arguments);

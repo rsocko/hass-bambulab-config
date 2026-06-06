@@ -1280,6 +1280,8 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
         profile_owner_name = str(
             instance.get("profileUserName")
             or instance.get("profile_user_name")
+            or ((instance.get("instanceCreator") or {}).get("name") if isinstance(instance.get("instanceCreator"), dict) else "")
+            or ((instance.get("instanceCreator") or {}).get("handle") if isinstance(instance.get("instanceCreator"), dict) else "")
             or instance.get("userName")
             or instance.get("username")
             or ""
@@ -1287,6 +1289,7 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
         profile_owner_id = int(
             instance.get("profileUserId")
             or instance.get("profile_user_id")
+            or ((instance.get("instanceCreator") or {}).get("uid") if isinstance(instance.get("instanceCreator"), dict) else 0)
             or instance.get("profileUid")
             or instance.get("profile_uid")
             or instance.get("userId")
