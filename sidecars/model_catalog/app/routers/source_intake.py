@@ -726,7 +726,7 @@ async def commit_source_intake(record_id: str, request: Request, payload: dict[s
         upload_id, _created_at = _create_intake_queue_upload_record(
             db_path=state.settings.db_path,
             validated_entries=validated_entries,
-            cleanup_policy="keep",
+            cleanup_policy="delete_on_verified",
             telemetry={"transport_mode": "makerworld_api", "warnings_count": len(record.get("warnings_json") or [])},
         )
         snapshot_json = _snapshot_with_provenance(

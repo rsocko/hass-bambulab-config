@@ -80,6 +80,7 @@ from .intake_cleanup import router as intake_cleanup_router
 from .intake_queue import (
     _browser_intake_upload_storage_root,
     _browser_upload_stage_directories,
+    _makerworld_stage_directories,
     _normalize_terminal_actor,
     _expand_source_entries_to_files,
     _record_queue_event,
@@ -1939,7 +1940,8 @@ def _publish_group_to_working_destination(
     if not working_root:
         raise ValueError("No working files root configured")
 
-    group_title = str(destination_plan.get("title") or group.get("title") or "Working Folder").strip() or "Working Folder"
+    explicit_group_title = str(destination_plan.get("title") or "").strip()
+    group_title = explicit_group_title or str(group.get("title") or "Working Folder").strip() or "Working Folder"
     requested_notes = str(destination_plan.get("notes") or "").strip()
     requested_tags_raw = destination_plan.get("tags") or []
     requested_origin = str(destination_plan.get("origin_url") or "").strip()
@@ -1952,6 +1954,28 @@ def _publish_group_to_working_destination(
         requested_tags = [str(tag).strip() for tag in requested_tags_raw if str(tag).strip()]
     else:
         requested_tags = []
+
+    source_defaults, source_publish_context = _source_intake_publish_context(
+        db_path=state.settings.db_path,
+        source_entries=source_entries,
+        destination_plan={
+            "model_name": explicit_group_title,
+            "description": requested_notes,
+            "tags": requested_tags or None,
+            "source_origin_url": requested_origin,
+        },
+    )
+    if not explicit_group_title:
+        source_title = str(source_defaults.get("model_name") or "").strip()
+        if source_title:
+            group_title = source_title
+    if not requested_tags and isinstance(source_defaults.get("tags"), list):
+        requested_tags = [str(tag).strip() for tag in source_defaults.get("tags") or [] if str(tag).strip()]
+    if not requested_origin:
+        requested_origin = str(source_defaults.get("source_origin_url") or "").strip()
+    source_capture_record_id = None
+    if isinstance(source_publish_context, dict):
+        source_capture_record_id = str(source_publish_context.get("source_record_id") or "").strip() or None
 
     # Append-mode: caller has selected an existing folder under the working root.
     target_folder_slug = str(destination_plan.get("target_folder_slug") or "").strip()
@@ -2098,6 +2122,8 @@ def _publish_group_to_working_destination(
         # origin_url: only set if missing.
         if requested_origin and not modelmeta_payload.get("origin_url"):
             modelmeta_payload["origin_url"] = requested_origin
+        if source_capture_record_id and not modelmeta_payload.get("source_capture_record_id"):
+            modelmeta_payload["source_capture_record_id"] = source_capture_record_id
     else:
         # Write fresh .modelmeta.json sidecar for the new folder.
         modelmeta_payload = {
@@ -2114,6 +2140,8 @@ def _publish_group_to_working_destination(
             modelmeta_payload["tags"] = requested_tags
         if requested_origin:
             modelmeta_payload["origin_url"] = requested_origin
+        if source_capture_record_id:
+            modelmeta_payload["source_capture_record_id"] = source_capture_record_id
 
     modelmeta_path: Path | None = group_dir / ".modelmeta.json"
     try:
@@ -3550,7 +3578,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
             group_title = str(group.get("title") or "").strip() or default_title
             destination_plan = {
                 "destination": "working",
-                "title": group_title,
+                "title": requested_title,
                 "notes": requested_notes,
             }
             if requested_target_folder_slug:
@@ -3682,6 +3710,8 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     # Browser uploads stage files under a GUID folder; once files are moved
     # into working storage this staging folder can be removed.
     _remove_browser_upload_staging(state.settings, source_entries)
+    for stage_dir in _makerworld_stage_directories(state.settings, source_entries):
+        shutil.rmtree(stage_dir, ignore_errors=True)
 
     created_groups: list[dict[str, Any]] = list(created_groups_meta)
     primary_group_slug = working_folder_slugs[0] if working_folder_slugs else None

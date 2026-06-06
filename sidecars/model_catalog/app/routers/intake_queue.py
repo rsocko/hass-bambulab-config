@@ -20,6 +20,7 @@ import os
 import re
 import shutil
 import sqlite3
+import tempfile
 import time
 import uuid
 import zipfile
@@ -265,6 +266,43 @@ def _browser_upload_stage_directories(settings: Settings, source_entries: list[d
         upload_id = str(entry.get("upload_id") or "").strip()
         if upload_id:
             directories.add((storage_root / upload_id).resolve())
+            continue
+
+        entry_path_raw = str(entry.get("path") or "").strip()
+        if not entry_path_raw:
+            continue
+        entry_path = Path(entry_path_raw).expanduser().resolve()
+        if not entry_path.is_relative_to(storage_root):
+            continue
+        relative_path = entry_path.relative_to(storage_root)
+        if relative_path.parts:
+            directories.add((storage_root / relative_path.parts[0]).resolve())
+
+    return sorted(directories)
+
+
+def _source_intake_storage_root(settings: Settings) -> Path:
+    db_path_text = str(settings.db_path)
+    if db_path_text == ":memory:":
+        return Path(tempfile.gettempdir()) / "model_catalog_source_intake"
+    return Path(settings.db_path).resolve().parent / ".source_intake"
+
+
+def _makerworld_stage_directories(settings: Settings, source_entries: list[dict[str, Any]]) -> list[Path]:
+    storage_root = _source_intake_storage_root(settings).resolve()
+    directories: set[Path] = set()
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        source_type = str(entry.get("source_type") or "").strip().lower()
+        if source_type != "makerworld_download":
+            continue
+
+        record_id = str(entry.get("source_record_id") or "").strip()
+        if record_id:
+            candidate = (storage_root / record_id).resolve()
+            if candidate.is_relative_to(storage_root):
+                directories.add(candidate)
             continue
 
         entry_path_raw = str(entry.get("path") or "").strip()
@@ -1825,6 +1863,8 @@ def intake_queue_delete_upload(request: Request, upload_id: str) -> Any:
     if not isinstance(source_entries, list):
         source_entries = []
     for stage_dir in _browser_upload_stage_directories(state.settings, source_entries):
+        shutil.rmtree(stage_dir, ignore_errors=True)
+    for stage_dir in _makerworld_stage_directories(state.settings, source_entries):
         shutil.rmtree(stage_dir, ignore_errors=True)
     
     return {
