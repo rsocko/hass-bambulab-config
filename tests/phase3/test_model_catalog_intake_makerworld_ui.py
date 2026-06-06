@@ -23,8 +23,9 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         helper_body = self.card_content[helper_start:helper_end]
         self.assertNotIn("record && record.thumbnail_url", helper_body)
         self.assertIn("makerworld-profile-head' + (previewUrl ? '' : ' no-preview')", self.card_content)
-        self.assertIn("This profile does not expose a distinct preview image.", self.card_content)
-        self.assertIn("makerworld-profile-thumb-placeholder", self.card_content)
+        self.assertNotIn("This profile does not expose a distinct preview image.", self.card_content)
+        self.assertNotIn("makerworld-profile-thumb-placeholder", self.card_content)
+        self.assertIn(".makerworld-profile-head.no-preview{grid-template-columns:minmax(0,1fr);}", self.card_content)
 
     def test_designer_chip_uses_broader_identity_resolution(self):
         self.assertIn("_makerworldUserIdentity(", self.card_content)
@@ -66,8 +67,8 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         )
 
     def test_step_one_result_preview_is_doubled_and_stacked_for_right_pane(self):
-        self.assertIn('.makerworld-step-result-thumb{width:min(100%,512px);', self.card_content)
-        self.assertIn(".makerworld-result .entry-top{display:grid;gap:16px;}", self.card_content)
+        self.assertIn('.entry-thumb.makerworld-step-result-thumb{width:112px;height:112px;flex:0 0 112px;', self.card_content)
+        self.assertIn(".makerworld-result .entry-top{display:flex;align-items:flex-start;gap:16px;}", self.card_content)
 
 
 if __name__ == "__main__":
