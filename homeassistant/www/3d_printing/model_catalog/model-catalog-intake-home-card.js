@@ -2263,8 +2263,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   _makerworldUserIdentity() {
     var nestedKeys = ['profile', 'user', 'userInfo', 'user_info', 'creator', 'author', 'owner', 'designer', 'account'];
-    var nameKeys = ['profileUserName', 'profile_user_name', 'displayName', 'display_name', 'userName', 'username', 'name', 'nickName', 'nickname', 'creator_name', 'authorName', 'ownerName'];
-    var idKeys = ['profileUserId', 'profile_user_id', 'profileUid', 'profile_uid', 'userId', 'user_id', 'uid', 'id', 'creator_id', 'owner_id'];
+    var nameKeys = ['profile_owner_name', 'profileUserName', 'profile_user_name', 'displayName', 'display_name', 'userName', 'username', 'name', 'nickName', 'nickname', 'creator_name', 'creatorName', 'authorName', 'ownerName', 'owner_name', 'designer_name', 'designer', 'handle', 'fullName', 'full_name'];
+    var idKeys = ['profile_owner_id', 'profileUserId', 'profile_user_id', 'profileUid', 'profile_uid', 'userId', 'user_id', 'uid', 'creatorUid', 'creator_uid', 'creator_id', 'authorId', 'author_id', 'ownerId', 'owner_id', 'accountId', 'account_id'];
     var queue = Array.prototype.slice.call(arguments);
     var seenObjects = [];
     var resolvedName = '';
@@ -2301,6 +2301,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         if (nestedSource && typeof nestedSource === 'object') {
           queue.push(nestedSource);
         }
+      }
+      if (source.designCreator && typeof source.designCreator === 'object') {
+        queue.push(source.designCreator);
       }
     }
     return {
@@ -2369,9 +2372,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         modelInfo,
         modelInfo.user,
         modelInfo.creator,
-        modelInfo.owner
+        modelInfo.owner,
+        { profile_owner_name: details.profile_owner_name, profile_owner_id: details.profile_owner_id },
+        { profile_owner_name: entry && entry.profile_owner_name, profile_owner_id: entry && entry.profile_owner_id }
       );
-      var isDesignerProfile = !!(
+      var isDesignerProfile = entry && entry.is_designer_profile === true ? true : !!(
         (creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key)
         || (profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id)
       );
@@ -2419,13 +2424,15 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           modelInfo,
           modelInfo.user,
           modelInfo.creator,
-          modelInfo.owner
+          modelInfo.owner,
+          { profile_owner_name: details.profile_owner_name, profile_owner_id: details.profile_owner_id },
+          { profile_owner_name: entry && entry.profile_owner_name, profile_owner_id: entry && entry.profile_owner_id }
         );
         var creatorDisplayName = creatorIdentity.name;
         var profileOwnerName = profileOwnerIdentity.name;
         var isDesignerByName = !!(creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key);
         var isDesignerById = !!(profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id);
-        var isDesignerProfile = isDesignerByName || isDesignerById;
+        var isDesignerProfile = entry && entry.is_designer_profile === true ? true : (isDesignerByName || isDesignerById);
         if (profileOwnerName && !isDesignerProfile) {
           detailBits.push('By ' + profileOwnerName);
         } else if (!profileOwnerName && isDesignerProfile && creatorDisplayName) {
@@ -2602,16 +2609,19 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         ? '<div class="entry-thumb makerworld-step-result-thumb"><img class="entry-thumb-image" src="' + escapeHtml(record.thumbnail_url) + '" alt="Preview for ' + escapeHtml(record.title || 'MakerWorld capture') + '" loading="lazy" decoding="async"></div>'
         : '<div class="entry-thumb placeholder makerworld-step-result-thumb">MakerWorld</div>')
       + '<div class="entry-main makerworld-result-main">'
-      + '  <div class="makerworld-result-headline"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="button-row"><span class="chip">Captured</span>'
+      + '  <div class="makerworld-result-copy">'
+      + '    <div class="makerworld-result-headline"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div></div>'
+      + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark"><svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M24 9 36 16 24 23 12 16 24 9Zm24 0 12 7-12 7-12-7 12-7ZM24 27 36 34 24 41 12 34 24 27Zm24 0 12 7-12 7-12-7 12-7ZM36 45 48 52 36 59 24 52l12-7Z" fill="currentColor"/></svg></span><span class="makerworld-brand-text">MakerWorld</span></div>' : '')
+      + '    <div class="makerworld-result-meta">'
+      + '      <div class="makerworld-result-meta-line"><span class="makerworld-result-meta-label">URL</span><span class="makerworld-result-meta-value">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</span></div>'
+      + (record.creator_name ? '<div class="makerworld-result-meta-line"><span class="makerworld-result-meta-label">Creator</span><span class="makerworld-result-meta-value">' + escapeHtml(record.creator_name) + '</span></div>' : '')
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="button-row makerworld-result-status"><span class="chip">Captured</span>'
       + (linkOnlyFallback ? '<span class="chip warn">Link Only Fallback</span>' : '')
       + (metadataImported ? '<span class="chip ok">Metadata Imported</span>' : '')
       + (fullImportQueued ? '<span class="chip">Upload ' + escapeHtml(String(result.upload_id || '')) + '</span>' : '')
       + (validationState ? '<span class="chip' + (validationState === 'ready' ? ' ok' : ' warn') + '">' + escapeHtml(formatLabel(validationState)) + '</span>' : '')
-      + '  </div></div>'
-      + '  <div class="makerworld-result-meta">'
-      + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark"><svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M24 9 36 16 24 23 12 16 24 9Zm24 0 12 7-12 7-12-7 12-7ZM24 27 36 34 24 41 12 34 24 27Zm24 0 12 7-12 7-12-7 12-7ZM36 45 48 52 36 59 24 52l12-7Z" fill="currentColor"/></svg></span><span class="makerworld-brand-text">MakerWorld</span></div>' : '')
-      + '    <div class="makerworld-result-meta-line"><span class="makerworld-result-meta-label">URL</span><span class="makerworld-result-meta-value">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</span></div>'
-      + (record.creator_name ? '<div class="makerworld-result-meta-line"><span class="makerworld-result-meta-label">Creator</span><span class="makerworld-result-meta-value">' + escapeHtml(record.creator_name) + '</span></div>' : '')
       + '  </div>'
       + '</div></article>'
       + '<div class="makerworld-preview-grid makerworld-step-stats">'
@@ -4222,6 +4232,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.makerworld-preview-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}'
       + '.makerworld-step-stats{grid-template-columns:repeat(3,minmax(0,1fr));}'
       + '.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:minmax(0,1fr);}'
+      + '.makerworld-result-top{display:grid;gap:18px;grid-template-columns:168px minmax(0,1fr);align-items:start;}'
+      + '.makerworld-result-main{display:grid;gap:12px;align-content:start;min-width:0;}'
+      + '.makerworld-result-copy{display:grid;gap:10px;align-content:start;min-width:0;}'
+      + '.makerworld-result-headline{display:block;min-width:0;}'
+      + '.makerworld-result-status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}'
       + '.entry-thumb.makerworld-step-result-thumb{width:168px;height:168px;flex:0 0 168px;border-radius:24px;}'
       + '.makerworld-brand-badge{display:inline-flex;align-items:center;gap:10px;width:max-content;margin-top:8px;padding:6px 2px 6px 0;color:var(--primary-text-color);font-size:13px;font-weight:800;letter-spacing:.02em;}'
       + '.makerworld-brand-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:rgba(52,52,54,0.96);color:rgba(255,255,255,0.98);box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset;}'

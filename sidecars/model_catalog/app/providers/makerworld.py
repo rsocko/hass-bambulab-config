@@ -211,6 +211,11 @@ class MakerWorldAdapter:
             return None
         normalized_payload = self._unwrap_design_payload(response)
         design = self._normalize_design(normalized_payload, source_url=source_url)
+        creator_identity = self._extract_identity(
+            design.raw_response,
+            self._extract_creator(design.raw_response),
+            {"creator_name": design.creator_name, "creator_uid": design.creator_uid},
+        )
         warnings: list[str] = []
         file_manifest = []
         for instance in design.instances:
@@ -219,12 +224,27 @@ class MakerWorldAdapter:
                 continue
             image_urls = self._extract_instance_image_urls(instance)
             cover_url = str(instance.get("cover") or (image_urls[0] if image_urls else "")).strip() or None
+            profile_owner_identity = self._extract_identity(instance)
+            is_designer_profile = bool(
+                (creator_identity.get("key") and profile_owner_identity.get("key") and creator_identity.get("key") == profile_owner_identity.get("key"))
+                or (
+                    int(creator_identity.get("id") or 0) > 0
+                    and int(profile_owner_identity.get("id") or 0) > 0
+                    and int(creator_identity.get("id") or 0) == int(profile_owner_identity.get("id") or 0)
+                )
+            )
             manifest_entry = {
                 "instance_id": instance_id,
                 "title": str(instance.get("title") or "").strip(),
                 "is_default": bool(instance.get("isDefault")),
                 "plate_count": len(instance.get("plates") or []),
             }
+            if str(profile_owner_identity.get("name") or "").strip():
+                manifest_entry["profile_owner_name"] = str(profile_owner_identity.get("name") or "").strip()
+            if int(profile_owner_identity.get("id") or 0) > 0:
+                manifest_entry["profile_owner_id"] = int(profile_owner_identity.get("id") or 0)
+            if is_designer_profile:
+                manifest_entry["is_designer_profile"] = True
             if cover_url:
                 manifest_entry["cover_url"] = cover_url
             if image_urls:
@@ -489,6 +509,83 @@ class MakerWorldAdapter:
                 add_url(picture)
 
         return urls
+
+    def _extract_identity(self, *sources: Any) -> dict[str, Any]:
+        nested_keys = ("profile", "user", "userInfo", "user_info", "creator", "author", "owner", "account", "designCreator")
+        name_keys = (
+            "profile_owner_name",
+            "profileUserName",
+            "profile_user_name",
+            "displayName",
+            "display_name",
+            "userName",
+            "username",
+            "name",
+            "nickName",
+            "nickname",
+            "creator_name",
+            "creatorName",
+            "authorName",
+            "ownerName",
+            "owner_name",
+            "designer_name",
+            "designer",
+            "handle",
+            "fullName",
+            "full_name",
+        )
+        id_keys = (
+            "profile_owner_id",
+            "profileUserId",
+            "profile_user_id",
+            "profileUid",
+            "profile_uid",
+            "userId",
+            "user_id",
+            "uid",
+            "creatorUid",
+            "creator_uid",
+            "creator_id",
+            "authorId",
+            "author_id",
+            "ownerId",
+            "owner_id",
+            "accountId",
+            "account_id",
+        )
+        queue = list(sources)
+        seen: set[int] = set()
+        resolved_name = ""
+        resolved_id = 0
+        while queue:
+            source = queue.pop(0)
+            if not isinstance(source, dict):
+                continue
+            source_id = id(source)
+            if source_id in seen:
+                continue
+            seen.add(source_id)
+            if not resolved_name:
+                for key in name_keys:
+                    candidate_name = str(source.get(key) or "").strip()
+                    if candidate_name:
+                        resolved_name = candidate_name
+                        break
+            if not resolved_id:
+                for key in id_keys:
+                    candidate_id = int(source.get(key) or 0)
+                    if candidate_id > 0:
+                        resolved_id = candidate_id
+                        break
+            for key in nested_keys:
+                nested_source = source.get(key)
+                if isinstance(nested_source, dict):
+                    queue.append(nested_source)
+        return {
+            "name": resolved_name,
+            "id": resolved_id,
+            "key": "".join(ch for ch in resolved_name.strip().lower() if ch.isalnum()),
+        }
 
     def _extract_creator(self, payload: dict[str, Any]) -> dict[str, Any]:
         for candidate in (
