@@ -28,7 +28,14 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         self.assertIn("_makerworldUserIdentity(", self.card_content)
         self.assertIn("snapshot.designCreator,", self.card_content)
         self.assertIn("modelInfo.creator,", self.card_content)
-        self.assertIn('<span class=\"chip ok\">Original Designer</span>', self.card_content)
+        self.assertIn('makerworld-designer-badge', self.card_content)
+
+    def test_profile_cards_use_metric_row_icons_and_hide_profile_owner_ids(self):
+        self.assertIn("_makerworldProfileMetricMarkup('time', 'Print time', predictionLabel)", self.card_content)
+        self.assertIn("_makerworldProfileMetricMarkup('plates', 'Plates'", self.card_content)
+        self.assertIn("_makerworldProfileMetricMarkup('prints', 'Prints'", self.card_content)
+        self.assertIn('makerworld-metric-row', self.card_content)
+        self.assertNotIn('Profile user #', self.card_content)
 
     def test_tag_draft_input_does_not_rerender_on_each_keystroke(self):
         self.assertIn("if (action === 'makerworld-tag-draft') {\n      this._makerworldTagDraft = String(target.value || '');\n      return;", self.card_content)
