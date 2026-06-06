@@ -1576,8 +1576,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.summary-card.makerworld-profile-card > .summary-label{display:none !important;}';
   }
 
-  proto._resetMakerWorldDestinationPlan = function () {
-    this._makerworldDestinationPlanState = {
+  proto._makerworldDefaultDestinationPlan = function () {
+    return {
       match_mode: 'new',
       lookup_query: '',
       lookup_results: [],
@@ -1587,11 +1587,15 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       model_ref: '',
       target_folder_slug: '',
     };
+  };
+
+  proto._resetMakerWorldDestinationPlan = function () {
+    this._makerworldDestinationPlanState = this._makerworldDefaultDestinationPlan();
     return this._makerworldDestinationPlanState;
   };
 
   proto._makerworldDestinationPlan = function () {
-    return Object.assign({}, this._resetMakerWorldDestinationPlan(), this._makerworldDestinationPlanState || {});
+    return Object.assign({}, this._makerworldDefaultDestinationPlan(), this._makerworldDestinationPlanState || {});
   };
 
   proto._updateMakerWorldDestinationPlan = function (updates) {

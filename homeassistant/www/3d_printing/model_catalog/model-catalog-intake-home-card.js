@@ -1640,8 +1640,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return this._makerworldNormalizedTags(nextTags);
   }
 
-  _resetMakerWorldDestinationPlan() {
-    this._makerworldDestinationPlanState = {
+  _makerworldDefaultDestinationPlan() {
+    return {
       match_mode: 'new',
       lookup_query: '',
       lookup_results: [],
@@ -1651,11 +1651,15 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       model_ref: '',
       target_folder_slug: '',
     };
+  }
+
+  _resetMakerWorldDestinationPlan() {
+    this._makerworldDestinationPlanState = this._makerworldDefaultDestinationPlan();
     return this._makerworldDestinationPlanState;
   }
 
   _makerworldDestinationPlan() {
-    return Object.assign({}, this._resetMakerWorldDestinationPlan(), this._makerworldDestinationPlanState || {});
+    return Object.assign({}, this._makerworldDefaultDestinationPlan(), this._makerworldDestinationPlanState || {});
   }
 
   _updateMakerWorldDestinationPlan(updates) {
@@ -2795,16 +2799,21 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Destination</div><div class="subtitle">Pick where the final commit should land.</div></div></div>'
-        + '  <div class="field"><label><input type="radio" name="makerworld-destination" value="curated" data-action="makerworld-destination"' + (this._makerworldDestinationChoice === 'curated' ? ' checked' : '') + '> <strong>Catalog</strong> - create or update a local catalog model</label></div>'
-        + '  <div class="field"><label><input type="radio" name="makerworld-destination" value="working" data-action="makerworld-destination"' + (this._makerworldDestinationChoice === 'working' ? ' checked' : '') + (this._makerworldImportMode === 'metadata_only' ? ' disabled' : '') + '> <strong>Working Files</strong> - materialize a folder-first working group</label></div>'
-        + '  <div class="field"><label>Mode</label><select class="select" data-action="makerworld-match-mode"><option value="new"' + (existingDestination ? '' : ' selected') + '>New</option><option value="existing"' + (existingDestination ? ' selected' : '') + '>Add To Existing</option></select></div>'
+        + '  <article class="entry-row">'
+        + '    <div class="entry-top"><div><div class="entry-name">MakerWorld Import</div><div class="entry-path">' + String(selectedInstanceIds.length) + ' selected profile' + (selectedInstanceIds.length === 1 ? '' : 's') + ' - ' + escapeHtml(this._makerworldImportMode === 'metadata_only' ? 'Metadata Only' : 'Full Download') + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(this._makerworldDestinationChoice === 'working' ? 'Working Files' : 'Catalog') + '</span></div></div>'
+        + '    <div class="item-grid">'
+        + '      <div class="field"><label>Destination</label><select class="select" data-action="makerworld-destination"><option value="curated"' + (this._makerworldDestinationChoice === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (this._makerworldDestinationChoice === 'working' ? ' selected' : '') + (this._makerworldImportMode === 'metadata_only' ? ' disabled' : '') + '>Working Files</option></select></div>'
+        + '      <div class="field"><label>Mode</label><select class="select" data-action="makerworld-match-mode"><option value="new"' + (existingDestination ? '' : ' selected') + '>New</option><option value="existing"' + (existingDestination ? ' selected' : '') + '>Add To Existing</option></select></div>'
+        + '      <div class="field"><label>Selection</label><div class="muted">' + escapeHtml(this._makerworldDestinationSelectionSummary(destinationPlan)) + '</div></div>'
+        + '    </div>'
         + (existingDestination
-          ? '  <div class="item-grid">'
-            + '    <div class="field"><label>' + escapeHtml(workingDestination ? 'Find Working Folder' : 'Find Catalog Model') + '</label><input class="input" type="text" value="' + escapeHtml(destinationPlan.lookup_query || '') + '" data-action="makerworld-lookup-query" placeholder="Search by name or id"></div>'
-            + '    <div class="field"><label>&nbsp;</label><button class="button" data-action="run-makerworld-destination-search"' + (destinationPlan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
-            + '  </div>'
+          ? '    <div class="item-grid">'
+            + '      <div class="field"><label>' + escapeHtml(workingDestination ? 'Find Working Folder' : 'Find Catalog Model') + '</label><input class="input" type="text" value="' + escapeHtml(destinationPlan.lookup_query || '') + '" data-action="makerworld-lookup-query" placeholder="Search by name or id"></div>'
+            + '      <div class="field"><label>&nbsp;</label><button class="button" data-action="run-makerworld-destination-search"' + (destinationPlan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
+            + '    </div>'
             + destinationResults
-          : '<div class="state-row">This import will create a new ' + escapeHtml(workingDestination ? 'Working Files folder.' : 'Catalog model.') + '</div>')
+          : '<div class="muted">This import will create a new ' + escapeHtml(workingDestination ? 'Working Files folder.' : 'Catalog model.') + '</div>')
+        + '  </article>'
         + (this._makerworldImportMode === 'metadata_only' ? '<div class="status warn">Metadata-only import is limited to Catalog because no 3MF file is staged for Working Files.</div>' : '<div class="muted">Working Files commit preserves the source-intake linkage so a later publish to Catalog can rehydrate the original source metadata.</div>')
         + '</div>',
         ''

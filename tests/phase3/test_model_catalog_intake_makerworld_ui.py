@@ -85,8 +85,12 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         self.assertIn("<span class=\"makerworld-profile-designer-text\">Designer</span>", self.card_content)
 
     def test_step_three_supports_existing_destination_lookup(self):
+        self.assertIn("_makerworldDefaultDestinationPlan()", self.card_content)
         self.assertIn("_makerworldDestinationPlan()", self.card_content)
+        self.assertNotIn("return Object.assign({}, this._resetMakerWorldDestinationPlan(), this._makerworldDestinationPlanState || {});", self.card_content)
+        self.assertIn('data-action="makerworld-destination"><option value="curated"', self.card_content)
         self.assertIn('data-action="makerworld-match-mode"', self.card_content)
+        self.assertIn('<div class="field"><label>Selection</label><div class="muted">', self.card_content)
         self.assertIn('data-action="run-makerworld-destination-search"', self.card_content)
         self.assertIn('data-action="select-makerworld-destination-result"', self.card_content)
         self.assertIn("publishPayload.target_folder_slug = String(destinationPlan.target_folder_slug || '').trim();", self.card_content)
