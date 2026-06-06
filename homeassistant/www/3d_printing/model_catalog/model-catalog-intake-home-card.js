@@ -4433,7 +4433,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '  <div class="shell">'
           + '    <div class="header">'
           + '      <div class="title-row">'
-          + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Run intake as a true stepwise flow: pick one path, review the staged batch, then commit it into Inbox.</div></div>'
+          + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Run intake as a stepwise flow: pick one path, review the staged batch, choose Catalog or Working Files, then commit.</div></div>'
           + '      </div>'
           + '      ' + (this._error && !this._wizardOpen ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
           + '      ' + (this._status && !this._wizardOpen ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')

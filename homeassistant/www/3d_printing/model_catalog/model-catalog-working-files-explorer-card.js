@@ -1187,7 +1187,7 @@
         : '';
       return ''
         + '<div class="overflow-menu" aria-label="Group actions">'
-        + '<button data-action="run-intake-wizard" data-folder-path="' + escapeHtml(folderPath) + '"><span>🪄</span> Run Intake Wizard from this folder…</button>'
+        + '<button data-action="run-intake-wizard" data-folder-path="' + escapeHtml(folderPath) + '"><span>🪄</span> Publish via Intake...</button>'
         + '<button data-action="add-to-project" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>📁</span> Add to Project…</button>'
         + '<button data-action="add-to-collection" data-folder-path="' + escapeHtml(folderPath) + '" disabled title="Wired in a follow-up PR"><span>🗂️</span> Add to Collection…</button>'
         + '</div>';

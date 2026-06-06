@@ -136,6 +136,31 @@ def _ensure_unique_local_model_id(*, db_path: Path, preferred: str) -> str:
     return candidate
 
 
+def _normalized_destination_match_mode(destination_plan: dict[str, Any]) -> str:
+    raw_mode = str(
+        destination_plan.get("publish_mode")
+        or destination_plan.get("match_mode")
+        or "new"
+    ).strip().lower()
+    if raw_mode in {"attach_existing", "existing"}:
+        return "existing"
+    if raw_mode in {"republish_as_new_version", "new_revision"}:
+        return "republish_as_new_version"
+    return "new"
+
+
+def _next_catalog_revision_number(*, db_path: Path, parent_model_ref: str) -> int:
+    parent_fields = read_model_fields(db_path=db_path, model_ref=parent_model_ref) or {}
+    parent_revision = parent_fields.get("revision_number")
+    if parent_revision is None:
+        lineage = parent_fields.get("lineage") if isinstance(parent_fields.get("lineage"), dict) else {}
+        parent_revision = lineage.get("revision_number")
+    try:
+        return max(1, int(parent_revision)) + 1
+    except (TypeError, ValueError):
+        return 2
+
+
 def _normalize_local_asset_type(path: Path) -> str:
     suffix = path.suffix.lower()
     if suffix in LOCAL_IMPORT_IMAGE_EXTENSIONS:
@@ -1639,6 +1664,10 @@ def _publish_group_to_local_destination(
     requested_source_origin_url = str(destination_plan.get("source_origin_url") or f"intake://uploads/{upload_id}").strip()
     requested_preview_source_path = str(destination_plan.get("preview_source_path") or "").strip()
     requested_preview_image_url = str(destination_plan.get("preview_image_url") or "").strip() or None
+    requested_match_mode = _normalized_destination_match_mode(destination_plan)
+    requested_conflict_policy = str(destination_plan.get("conflict_policy") or "new_revision").strip().lower() or "new_revision"
+    if requested_match_mode == "republish_as_new_version" and requested_conflict_policy != "new_revision":
+        raise ValueError("republish_as_new_version currently supports conflict_policy='new_revision' only.")
     if requested_preview_image_url is None and isinstance(source_publish_context, dict):
         requested_preview_image_url = str(source_publish_context.get("thumbnail_url") or "").strip() or None
     group_title = str(group.get("title") or requested_model_name or "Working Group").strip() or "Working Group"
@@ -1646,8 +1675,23 @@ def _publish_group_to_local_destination(
     grouping_strategy = str(group.get("strategy") or "none").strip() or "none"
     source_timestamp_summary = _source_timestamp_summary(group_files)
 
-    local_model_id = requested_model_ref
-    target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id) if local_model_id else None
+    parent_model_ref: str | None = None
+    revision_number: int | None = None
+    parent_entry = None
+    if requested_match_mode == "republish_as_new_version":
+        if not requested_model_ref:
+            raise LookupError("republish_as_new_version requires model_ref for the parent Catalog model.")
+        parent_entry = read_local_model(db_path=state.settings.db_path, local_model_id=requested_model_ref)
+        if parent_entry is None:
+            raise LookupError(f"Catalog model '{requested_model_ref}' was not found for new revision publish.")
+        parent_model_ref = requested_model_ref
+        revision_number = _next_catalog_revision_number(db_path=state.settings.db_path, parent_model_ref=parent_model_ref)
+        requested_model_name = requested_model_name or parent_entry.model_name
+        local_model_id = ""
+        target_entry = None
+    else:
+        local_model_id = requested_model_ref
+        target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id) if local_model_id else None
     created_model = False
 
     if target_entry is None:
@@ -1912,6 +1956,10 @@ def _publish_group_to_local_destination(
             "duplicate_skipped_count": len(duplicate_skipped),
             "failed_file_count": len(failed_files),
             "source_entries": source_context_entries,
+            "match_mode": requested_match_mode,
+            "parent_model_id": parent_model_ref,
+            "revision_number": revision_number,
+            "conflict_policy": requested_conflict_policy if requested_match_mode == "republish_as_new_version" else None,
         },
     )
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_queue_upload_id", field_value=upload_id)
@@ -1925,6 +1973,25 @@ def _publish_group_to_local_destination(
         source_publish_context=source_publish_context,
     )
 
+    if requested_match_mode == "republish_as_new_version" and parent_model_ref:
+        now_iso = _bulk_utc_now_iso()
+        lineage_payload = {
+            "source": "wizard_new_revision",
+            "publish_mode": "republish_as_new_version",
+            "conflict_policy": requested_conflict_policy,
+            "parent_model_id": parent_model_ref,
+            "republish_target_model_id": local_model_id,
+            "revision_number": revision_number,
+            "published_at": now_iso,
+            "upload_id": upload_id,
+        }
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="lineage", field_value=lineage_payload)
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="publish_outcome", field_value="republished")
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="parent_model_id", field_value=parent_model_ref)
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="revision_number", field_value=revision_number)
+        set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="republish_conflict_policy", field_value=requested_conflict_policy)
+        set_model_field(db_path=state.settings.db_path, model_ref=parent_model_ref, field_key="superseded_by_model_id", field_value=local_model_id)
+
     # --- Auto-extract 3MF source metadata (best-effort) ---
     extraction_log = _auto_extract_3mf_metadata(
         state=state,
@@ -1937,7 +2004,10 @@ def _publish_group_to_local_destination(
 
     return {
         "destination": "curated",
-        "match_mode": "existing" if requested_model_ref else "new",
+        "match_mode": requested_match_mode,
+        "parent_model_id": parent_model_ref,
+        "revision_number": revision_number,
+        "conflict_policy": requested_conflict_policy if requested_match_mode == "republish_as_new_version" else None,
         "group_title": group_title,
         "grouping_strategy": grouping_strategy,
         "preserve_folder_structure": preserve_folder_structure,

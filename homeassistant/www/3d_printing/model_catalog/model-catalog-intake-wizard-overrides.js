@@ -667,7 +667,8 @@ function renderPlanSummary(card, options) {
     var destinationMarkup = '';
     var files = renderFileTreeBlock(model.files || [], { flatten: model.preserve_folder_structure === false });
     if (destinationPlan) {
-      var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
+      var rawDestinationMode = String(destinationPlan.match_mode || 'new');
+      var matchLabel = rawDestinationMode === 'republish_as_new_version' ? 'New Revision' : (rawDestinationMode === 'existing' ? 'Add To Existing' : 'Keep Separate');
       destinationMarkup = ''
         + '<div class="button-row"><span class="chip">Catalog</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
         + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
@@ -2394,8 +2395,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       if (destination !== 'curated' && destination !== 'working') {
         return false;
       }
-      if (matchMode === 'existing') {
+      if (matchMode === 'existing' || matchMode === 'republish_as_new_version') {
         if (destination === 'working') {
+          if (matchMode === 'republish_as_new_version') {
+            return false;
+          }
           if (!String(plan.target_folder_slug || '').trim()) {
             return false;
           }
@@ -2414,11 +2418,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         destination: String(plan.destination || 'curated').trim().toLowerCase(),
         match_mode: String(plan.match_mode || 'new').trim().toLowerCase(),
       };
-      if (payload.match_mode === 'existing') {
+      if (payload.match_mode === 'existing' || payload.match_mode === 'republish_as_new_version') {
         if (payload.destination === 'working') {
           payload.target_folder_slug = String(plan.target_folder_slug || '').trim();
         } else {
           payload.model_ref = String(plan.model_ref || '').trim();
+          if (payload.match_mode === 'republish_as_new_version') {
+            payload.conflict_policy = 'new_revision';
+          }
         }
       }
       if (payload.destination === 'curated' && plan.attach_source_readme) {
@@ -2432,6 +2439,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var destination = String(plan && plan.destination ? plan.destination : 'curated').trim().toLowerCase();
     var matchMode = String(plan && plan.match_mode ? plan.match_mode : 'new').trim().toLowerCase();
     var selected = plan && plan.selected_summary ? plan.selected_summary : null;
+    if (matchMode === 'republish_as_new_version') {
+      if (selected) {
+        return String(selected.primary || '')
+          + (selected.secondary ? ' - ' + String(selected.secondary) : '')
+          + ' - publish as a new revision';
+      }
+      return 'Select an existing Catalog model to use as the parent revision.';
+    }
     if (matchMode !== 'existing') {
       return destination === 'working'
         ? 'Create a new Working Files folder.'
@@ -2663,8 +2678,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         readmeSourceFolder = firstReadme ? String(firstReadme.folder || firstReadme.folder_path || '') : '';
       }
       var attachReadmeChecked = !!plan.attach_source_readme;
+      var modeOptions = '<option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>Keep Separate</option>'
+        + '<option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option>';
+      if (!isWorking) {
+        modeOptions += '<option value="republish_as_new_version"' + (matchMode === 'republish_as_new_version' ? ' selected' : '') + '>New Revision</option>';
+      }
       var resultRows = '';
-      if (matchMode === 'existing') {
+      if (matchMode === 'existing' || matchMode === 'republish_as_new_version') {
         if (plan.lookup_loading) {
           resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files folders' : 'Catalog models') + '...</div>';
         } else if (plan.lookup_error) {
@@ -2689,12 +2709,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.archive_file_count || 0) + ' archive, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
         + '  <div class="item-grid">'
         + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
-        + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '"><option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>New</option><option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option></select></div>'
+        + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '">' + modeOptions + '</select></div>'
         + '    <div class="field"><label>Selection</label><div class="muted">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div>'
         + '  </div>'
-        + (matchMode === 'existing'
+        + (matchMode === 'existing' || matchMode === 'republish_as_new_version'
           ? '  <div class="item-grid">'
-            + '    <div class="field"><label>' + escapeHtml(isWorking ? 'Find Working Folder' : 'Find Catalog Model') + '</label><input class="input" type="text" value="' + escapeHtml(plan.lookup_query || '') + '" data-action="group-lookup-query" data-group-index="' + String(index) + '" placeholder="Search by name or id"></div>'
+            + '    <div class="field"><label>' + escapeHtml(isWorking ? 'Find Working Folder' : (matchMode === 'republish_as_new_version' ? 'Find Parent Model' : 'Find Catalog Model')) + '</label><input class="input" type="text" value="' + escapeHtml(plan.lookup_query || '') + '" data-action="group-lookup-query" data-group-index="' + String(index) + '" placeholder="Search by name or id"></div>'
             + '    <div class="field"><label>&nbsp;</label><button class="button" data-action="run-destination-search" data-group-index="' + String(index) + '"' + (plan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
             + '  </div>'
             + resultRows
@@ -2719,7 +2739,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
       var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
-      var matchMode = String(plan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
+      var rawMatchMode = String(plan.match_mode || 'new');
+      var matchMode = rawMatchMode === 'republish_as_new_version' ? 'New Revision' : (rawMatchMode === 'existing' ? 'Add To Existing' : 'Keep Separate');
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(destination) + '</span><span class="chip">' + escapeHtml(matchMode) + '</span></div></div>'
@@ -5210,8 +5231,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     if (action === 'group-destination') {
       var destinationIndex = Number(target.getAttribute('data-group-index') || -1);
+      var nextDestination = String(target.value || 'curated').trim().toLowerCase();
       this._updateGroupDestinationState(destinationIndex, {
-        destination: String(target.value || 'curated').trim().toLowerCase(),
+        destination: nextDestination,
+        match_mode: nextDestination === 'working' ? 'new' : undefined,
         model_ref: '',
         target_folder_slug: '',
         lookup_query: '',

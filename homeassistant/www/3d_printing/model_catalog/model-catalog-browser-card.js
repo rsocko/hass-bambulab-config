@@ -8119,7 +8119,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderProjectHeaderStat('Candidates', candidateCount)
       + this._renderProjectHeaderStat('Rejected', rejectedCount)
       + this._renderProjectHeaderStat('Reviewed', String(decisionedPercent) + '%')
-      + this._renderProjectHeaderStat('Working Groups', Number(project.working_group_count || 0) || 0)
+      + this._renderProjectHeaderStat('Working Files', Number(project.working_group_count || 0) || 0)
         + this._renderProjectHeaderStat('Open Tasks', Number(project.task_summary && project.task_summary.open || 0) || 0)
       + this._renderProjectHeaderStat('Visible', Number(pagination.total || items.length || 0) || 0)
       + '  </div>'
@@ -8617,7 +8617,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '      </div>'
         + '      <div class="media-actions">'
         + '        <button class="toolbar-btn" type="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '">Open Working Files</button>'
-        + (loose || !folderPath ? '' : '<button class="toolbar-btn ghost" type="button" data-action="open-working-intake" data-folder-path="' + this._escapeHtml(folderPath) + '">Run Intake</button>')
+        + (loose || !folderPath ? '' : '<button class="toolbar-btn ghost" type="button" data-action="open-working-intake" data-folder-path="' + this._escapeHtml(folderPath) + '">Publish via Intake</button>')
         + '      </div>'
         + '    </div>'
         + '  </div>'
@@ -8682,7 +8682,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '      </div>'
       + '      <div class="compact-file-kinds list-file-kinds">'
       + '        <button class="toolbar-btn" type="button" data-action="open-working-folder" data-folder-slug="' + this._escapeHtml(slug) + '">Open Working Files</button>'
-      + (loose || !folderPath ? '' : '<button class="toolbar-btn ghost" type="button" data-action="open-working-intake" data-folder-path="' + this._escapeHtml(folderPath) + '">Run Intake</button>')
+      + (loose || !folderPath ? '' : '<button class="toolbar-btn ghost" type="button" data-action="open-working-intake" data-folder-path="' + this._escapeHtml(folderPath) + '">Publish via Intake</button>')
       + '      </div>'
       + '    </div>'
       + '  </div>'

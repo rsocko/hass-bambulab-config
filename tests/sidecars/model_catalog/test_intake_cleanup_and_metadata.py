@@ -1008,6 +1008,100 @@ def test_working_files_folders_endpoint_lists_and_filters_folders(tmp_path: Path
         client.__exit__(None, None, None)
 
 
+def test_publish_by_destination_can_create_new_catalog_revision(tmp_path: Path) -> None:
+    client, source_root = _create_client(tmp_path)
+    db_path = tmp_path / "model_catalog.db"
+    try:
+        baseline_file = source_root / "revision-baseline.3mf"
+        baseline_file.write_bytes(b"baseline")
+        baseline_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(baseline_file)}],
+            },
+        )
+        assert baseline_upload.status_code == 200, baseline_upload.text
+        baseline_upload_id = baseline_upload.json()["upload_id"]
+
+        baseline_publish = client.post(
+            f"/api/intake/uploads/{baseline_upload_id}/publish-by-destination",
+            json={"group_destinations": [{"destination": "curated", "title": "Revision Target"}]},
+        )
+        assert baseline_publish.status_code == 200, baseline_publish.text
+        parent_result = baseline_publish.json()["group_results"][0]
+        parent_model_id = parent_result["local_model_id"]
+
+        revision_file = source_root / "revision-update.3mf"
+        revision_file.write_bytes(b"updated")
+        revision_upload = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "file", "path": str(revision_file)}],
+            },
+        )
+        assert revision_upload.status_code == 200, revision_upload.text
+        revision_upload_id = revision_upload.json()["upload_id"]
+
+        revision_publish = client.post(
+            f"/api/intake/uploads/{revision_upload_id}/publish-by-destination",
+            json={
+                "group_destinations": [
+                    {
+                        "destination": "curated",
+                        "match_mode": "republish_as_new_version",
+                        "model_ref": parent_model_id,
+                        "title": "Revision Target v2",
+                    }
+                ]
+            },
+        )
+        assert revision_publish.status_code == 200, revision_publish.text
+        revision_result = revision_publish.json()["group_results"][0]
+        revision_model_id = revision_result["local_model_id"]
+
+        assert revision_result["match_mode"] == "republish_as_new_version"
+        assert revision_result["parent_model_id"] == parent_model_id
+        assert revision_result["revision_number"] == 2
+        assert revision_result["created_model"] is True
+        assert revision_model_id != parent_model_id
+
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            model_rows = connection.execute(
+                "SELECT local_model_id, model_name FROM model_catalog_entries ORDER BY created_at ASC"
+            ).fetchall()
+            field_rows = connection.execute(
+                """
+                SELECT entity_id, field_key, field_value_json
+                FROM model_catalog_custom_fields
+                WHERE entity_type = 'catalog_model'
+                  AND field_namespace = 'model_catalog'
+                  AND field_key IN ('lineage', 'parent_model_id', 'revision_number', 'superseded_by_model_id')
+                """
+            ).fetchall()
+        finally:
+            connection.close()
+
+        assert {row["local_model_id"] for row in model_rows} == {parent_model_id, revision_model_id}
+        fields: dict[tuple[str, str], object] = {
+            (str(row["entity_id"]), str(row["field_key"])): json.loads(str(row["field_value_json"] or "null"))
+            for row in field_rows
+        }
+        assert fields[(revision_model_id, "parent_model_id")] == parent_model_id
+        assert fields[(revision_model_id, "revision_number")] == 2
+        lineage = fields[(revision_model_id, "lineage")]
+        assert isinstance(lineage, dict)
+        assert lineage["source"] == "wizard_new_revision"
+        assert lineage["parent_model_id"] == parent_model_id
+        assert lineage["republish_target_model_id"] == revision_model_id
+        assert fields[(parent_model_id, "superseded_by_model_id")] == revision_model_id
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_publish_to_existing_working_folder_rejects_unknown_slug(tmp_path: Path) -> None:
     client, source_root = _create_client(tmp_path)
     try:
