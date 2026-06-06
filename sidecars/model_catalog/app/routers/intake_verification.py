@@ -1728,6 +1728,8 @@ def _discover_source_metadata(group: dict[str, Any]) -> dict[str, Any] | None:
     titles: list[str] = []
     origins: list[str] = []
     primary_files: list[str] = []
+    source_catalog_model_ids: list[str] = []
+    source_catalog_revision_ats: list[str] = []
     tag_seen: set[str] = set()
     tag_union: list[str] = []
     readmes: list[tuple[str, str]] = []
@@ -1762,6 +1764,14 @@ def _discover_source_metadata(group: dict[str, Any]) -> dict[str, Any] | None:
             display_title = str(modelmeta.get("display_title") or "").strip()
             if display_title:
                 titles.append(display_title)
+            source_catalog_model_id = str(modelmeta.get("source_catalog_model_id") or "").strip()
+            if source_catalog_model_id:
+                source_catalog_model_ids.append(source_catalog_model_id)
+                sources_payload[-1]["source_catalog_model_id"] = source_catalog_model_id
+            source_catalog_revision_at = str(modelmeta.get("source_catalog_revision_at") or "").strip()
+            if source_catalog_revision_at:
+                source_catalog_revision_ats.append(source_catalog_revision_at)
+                sources_payload[-1]["source_catalog_revision_at"] = source_catalog_revision_at
             origin_url = str(modelmeta.get("origin_url") or "").strip()
             if origin_url:
                 origins.append(origin_url)
@@ -1820,6 +1830,10 @@ def _discover_source_metadata(group: dict[str, Any]) -> dict[str, Any] | None:
             if primary_file in selected_relpaths or primary_basename in selected_filenames:
                 merged["primary_file"] = primary_file
                 break
+    if source_catalog_model_ids:
+        merged["source_catalog_model_id"] = source_catalog_model_ids[0]
+    if source_catalog_revision_ats:
+        merged["source_catalog_revision_at"] = source_catalog_revision_ats[0]
     if combined_readme:
         readme_route = (
             "attached" if len(combined_readme) > _README_INLINE_THRESHOLD_CHARS else "inline"

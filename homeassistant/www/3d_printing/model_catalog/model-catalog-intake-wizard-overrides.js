@@ -2354,16 +2354,24 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           break;
         }
       }
+      var detected = model && model.detected_metadata ? model.detected_metadata : null;
+      var detectedMerged = detected && detected.merged ? detected.merged : null;
+      var sourceCatalogModelId = String((detectedMerged && detectedMerged.source_catalog_model_id) || '').trim();
+      var sourceCatalogTitle = String((detectedMerged && detectedMerged.display_title) || model.title || sourceCatalogModelId || '').trim();
       nextPlans.push(Object.assign({
         _group_key: groupKey,
         destination: 'curated',
-        match_mode: 'new',
-        model_ref: '',
+        match_mode: sourceCatalogModelId ? 'republish_as_new_version' : 'new',
+        model_ref: sourceCatalogModelId,
         lookup_query: '',
         lookup_results: [],
         lookup_loading: false,
         lookup_error: '',
-        selected_summary: null,
+        selected_summary: sourceCatalogModelId ? {
+          id: sourceCatalogModelId,
+          primary: sourceCatalogTitle || sourceCatalogModelId,
+          secondary: sourceCatalogModelId,
+        } : null,
       }, previous || {}, {
         _group_key: groupKey,
       }));

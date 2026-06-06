@@ -22,6 +22,7 @@ import secrets
 import shutil
 import sqlite3
 import time
+from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from sqlite3 import connect
 from typing import Any
@@ -1849,6 +1850,190 @@ def _disambiguate_folder_slug(root: Path, base_slug: str) -> str:
         if counter > 1000:  # pragma: no cover - defensive
             raise RuntimeError("Unable to allocate unique working-files folder name")
     return candidate
+
+
+def _select_catalog_assets_for_working_fork(*, assets: list[Any], payload: dict[str, Any]) -> list[Any]:
+    requested_files = str(payload.get("files") or "all").strip().lower() or "all"
+    requested_asset_ids = payload.get("asset_ids") if isinstance(payload.get("asset_ids"), list) else []
+    requested_asset_id_set = {str(item).strip() for item in requested_asset_ids if str(item).strip()}
+    if requested_asset_id_set:
+        return [asset for asset in assets if str(getattr(asset, "asset_id", "") or "").strip() in requested_asset_id_set]
+    if requested_files == "primary_only":
+        primary_assets = [asset for asset in assets if str(getattr(asset, "asset_role", "") or "").strip().lower() == "primary"]
+        return primary_assets or assets[:1]
+    return list(assets)
+
+
+def _unique_child_path(directory: Path, filename: str) -> Path:
+    safe_name = Path(str(filename or "file")).name or "file"
+    candidate = directory / safe_name
+    if not candidate.exists():
+        return candidate
+    stem = candidate.stem or "file"
+    suffix = candidate.suffix
+    counter = 2
+    while True:
+        candidate = directory / f"{stem}-{counter}{suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+@router.post("/api/local/models/{local_model_id}/fork-to-working-files")
+@router.post("/api/models/{local_model_id}/fork-to-working")
+def fork_catalog_model_to_working_files(
+    request: Request,
+    local_model_id: str,
+    payload: dict[str, Any] | None = None,
+) -> Any:
+    """Copy a Catalog model into a new Working Files folder for editing.
+
+    Unlike the Idea move endpoint, this is copy-only: the Catalog row and asset
+    files remain the prior published revision. The Working Files folder receives
+    a lightweight sidecar link so a later Intake publish can default to
+    ``republish_as_new_version`` against this source model.
+    """
+    state: AppState = request.app.state.model_catalog
+    settings = state.settings
+    payload = payload or {}
+
+    entry = read_local_model(db_path=settings.db_path, local_model_id=local_model_id)
+    if entry is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "not_found", "message": f"Local model '{local_model_id}' not found."},
+        )
+    if entry.entity_type != "model":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "not_catalog_model",
+                "message": f"Only Catalog model entries can be forked to Working Files (entity_type={entry.entity_type}).",
+            },
+        )
+
+    root = _primary_working_root(settings)
+    if root is None:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "no_root", "message": "MODEL_CATALOG_WORKING_FILES_ROOT is not configured."},
+        )
+
+    assets = list_model_assets(db_path=settings.db_path, local_model_id=local_model_id)
+    selected_assets = _select_catalog_assets_for_working_fork(assets=assets, payload=payload)
+    if not selected_assets:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "no_assets", "message": "No Catalog assets matched the requested fork selection."},
+        )
+
+    requested_slug = _sanitize_folder_slug_candidate(str(payload.get("working_folder_name") or payload.get("slug") or ""))
+    date_suffix = datetime.now(timezone.utc).strftime("%Y%m%d")
+    base_slug = requested_slug or f"{_slugify_title(entry.model_name)}-edit-{date_suffix}"
+    if not base_slug:
+        base_slug = f"catalog-edit-{date_suffix}"
+    try:
+        folder_slug = _disambiguate_folder_slug(root, base_slug)
+    except RuntimeError as exc:
+        return JSONResponse(status_code=500, content={"success": False, "error": "slug_exhausted", "message": str(exc)})
+
+    raw_fields = read_model_fields(db_path=settings.db_path, model_ref=local_model_id) or {}
+    source_revision_at = _bulk_utc_now_iso()
+    folder_path = root / folder_slug
+    copied_files: list[dict[str, Any]] = []
+    primary_file_name: str | None = None
+
+    try:
+        folder_path.mkdir(parents=True, exist_ok=False)
+        for asset in selected_assets:
+            source_path = _resolve_local_asset_storage_path(settings=settings, asset=asset)
+            if source_path is None or not source_path.is_file():
+                copied_files.append({
+                    "asset_id": str(getattr(asset, "asset_id", "") or ""),
+                    "filename": str(getattr(asset, "asset_filename", "") or ""),
+                    "copied": False,
+                    "reason": "missing_source_file",
+                })
+                continue
+            destination = _unique_child_path(folder_path, str(getattr(asset, "asset_filename", "") or source_path.name))
+            shutil.copy2(source_path, destination)
+            file_hash = str(getattr(asset, "file_hash", "") or "").strip() or _sha256_file(destination)
+            copied = {
+                "asset_id": str(getattr(asset, "asset_id", "") or ""),
+                "filename": destination.name,
+                "source_filename": str(getattr(asset, "asset_filename", "") or source_path.name),
+                "asset_type": str(getattr(asset, "asset_type", "") or ""),
+                "asset_role": str(getattr(asset, "asset_role", "") or ""),
+                "sha256": file_hash,
+                "copied": True,
+            }
+            copied_files.append(copied)
+            if primary_file_name is None and str(getattr(asset, "asset_role", "") or "").strip().lower() == "primary":
+                primary_file_name = destination.name
+        successful_files = [item for item in copied_files if item.get("copied")]
+        if not successful_files:
+            raise FileNotFoundError("No selected Catalog asset files could be copied into Working Files.")
+        if primary_file_name is None:
+            primary_file_name = str(successful_files[0].get("filename") or "").strip() or None
+
+        modelmeta: dict[str, Any] = {
+            "$schema": "https://hass-bambulab-config/schemas/modelmeta.v1.json",
+            "display_title": entry.model_name,
+            "source_catalog_model_id": local_model_id,
+            "source_catalog_revision_at": source_revision_at,
+            "source_catalog_model_name": entry.model_name,
+            "forked_from_catalog_at": source_revision_at,
+            "files": [{"path": str(item.get("filename") or ""), "sha256": item.get("sha256")} for item in successful_files],
+        }
+        tag_list = [str(tag).strip() for tag in (entry.tags or ()) if str(tag).strip()]
+        if tag_list:
+            modelmeta["tags"] = tag_list
+        if entry.source_origin_url:
+            modelmeta["origin_url"] = entry.source_origin_url
+        if primary_file_name:
+            modelmeta["primary_file"] = primary_file_name
+
+        meta_path = folder_path / ".modelmeta.json"
+        meta_path.write_text(json.dumps(modelmeta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+        readme_path = folder_path / "README.md"
+        readme_path.write_text(
+            f"Forked from catalog model {entry.model_name} ({local_model_id}) on {source_revision_at}.\n",
+            encoding="utf-8",
+        )
+    except (OSError, FileNotFoundError) as exc:
+        try:
+            if folder_path.exists():
+                shutil.rmtree(folder_path, ignore_errors=True)
+        except OSError:
+            pass
+        return JSONResponse(status_code=500, content={"success": False, "error": "fs_error", "message": str(exc)})
+
+    if _coerce_bool(payload.get("mark_catalog_edit_in_progress")):
+        set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="edit_in_progress_at", field_value=source_revision_at)
+    forks_raw = raw_fields.get("working_file_forks")
+    forks = [item for item in forks_raw if isinstance(item, dict)] if isinstance(forks_raw, list) else []
+    forks.append({"folder_slug": folder_slug, "folder_path": str(folder_path), "forked_at": source_revision_at})
+    set_model_field(db_path=settings.db_path, model_ref=local_model_id, field_key="working_file_forks", field_value=forks[-20:])
+
+    try:
+        _refresh_working_file_inventory(db_path=Path(settings.db_path), roots=[root], compute_hashes=True)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "folder_slug": folder_slug,
+        "folder_path": str(folder_path),
+        "working_folder_path": str(folder_path),
+        "files_copied": len([item for item in copied_files if item.get("copied")]),
+        "files_skipped": len([item for item in copied_files if not item.get("copied")]),
+        "copied_files": copied_files,
+        "source_catalog_model_id": local_model_id,
+        "source_catalog_revision_at": source_revision_at,
+        "modelmeta": modelmeta,
+    }
 
 
 @router.post("/api/local/models/{local_model_id}/move-to-working-files")

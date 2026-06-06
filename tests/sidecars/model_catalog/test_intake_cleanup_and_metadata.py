@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.local_models import create_local_model, create_model_asset
 from app.main import create_app
 from app.settings import Settings
 from sidecars.model_catalog.app.routers.intake_verification import _normalize_indexed_conflicts
@@ -1195,6 +1196,62 @@ def test_move_idea_to_working_files_creates_folder_and_deletes_idea(tmp_path: Pa
         # Idea row is hard-deleted
         detail = client.get("/api/local/models/idea-move-1")
         assert detail.status_code == 404
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_fork_catalog_model_to_working_files_copies_assets_and_writes_source_link(tmp_path: Path) -> None:
+    client, _source_root = _create_client(tmp_path)
+    db_path = tmp_path / "model_catalog.db"
+    working_root = tmp_path / "working"
+    curated_root = tmp_path / "curated"
+    try:
+        create_local_model(
+            db_path=db_path,
+            local_model_id="catalog-bracket-1",
+            model_name="Catalog Bracket",
+            tags=["bracket", "revision"],
+            source_origin_url="https://example.com/catalog-bracket",
+        )
+        asset_folder = curated_root / "catalog-bracket-1"
+        asset_folder.mkdir(parents=True, exist_ok=True)
+        asset_path = asset_folder / "bracket.3mf"
+        asset_path.write_bytes(b"catalog-bracket-v1")
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="catalog-bracket-1",
+            asset_id="primary-3mf",
+            asset_filename="bracket.3mf",
+            asset_type="3mf",
+            asset_role="primary",
+            storage_path=str(asset_path),
+            file_size_bytes=asset_path.stat().st_size,
+            file_hash="hash-v1",
+        )
+
+        response = client.post("/api/local/models/catalog-bracket-1/fork-to-working-files")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["success"] is True
+        assert body["source_catalog_model_id"] == "catalog-bracket-1"
+        assert body["files_copied"] == 1
+
+        folder = working_root / body["folder_slug"]
+        assert folder.is_dir()
+        copied_asset = folder / "bracket.3mf"
+        assert copied_asset.read_bytes() == b"catalog-bracket-v1"
+
+        meta = json.loads((folder / ".modelmeta.json").read_text(encoding="utf-8"))
+        assert meta["display_title"] == "Catalog Bracket"
+        assert meta["source_catalog_model_id"] == "catalog-bracket-1"
+        assert meta["source_catalog_model_name"] == "Catalog Bracket"
+        assert meta["primary_file"] == "bracket.3mf"
+        assert meta["tags"] == ["bracket", "revision"]
+        assert meta["origin_url"] == "https://example.com/catalog-bracket"
+
+        # Catalog model remains intact; this is a fork/copy, not a move.
+        detail = client.get("/api/local/models/catalog-bracket-1")
+        assert detail.status_code == 200
     finally:
         client.__exit__(None, None, None)
 

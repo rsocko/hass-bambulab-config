@@ -770,6 +770,13 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    const forkWorkingBtn = target.closest('[data-action="model-fork-to-working-files"]');
+    if (forkWorkingBtn) {
+      event.preventDefault();
+      this._forkModelToWorkingFiles();
+      return;
+    }
+
     const ideaEditBtn = target.closest('[data-action="idea-edit-start"]');
     if (ideaEditBtn) {
       event.preventDefault();
@@ -3649,6 +3656,7 @@ class ModelDetailPopupCard extends HTMLElement {
             ${this._renderExtensionSlot('actions:top-bar', '')}
             ${isIdea ? `<button class="action-button" data-action="idea-promote-catalog" ${this._ideaPromoteBusy ? 'disabled' : ''}>⬆ Promote to Catalog</button>` : ''}
             ${isIdea ? `<button class="action-button ghost" data-action="idea-move-to-working-files" ${this._ideaPromoteBusy ? 'disabled' : ''}>➡ Move to Working Files</button>` : ''}
+            ${isIdea ? '' : `<button class="action-button ghost" data-action="model-fork-to-working-files" ${this._forkWorkingBusy ? 'disabled' : ''}>Send to Working Files</button>`}
             ${isIdea ? '' : `<button class="action-button ghost ${isFrequent ? frequentButtonClass : ''}" id="btn-toggle-frequent" title="${frequentButtonTitle}">${frequentButtonLabel}</button>`}
             <button class="action-button ghost ${isArchived ? 'toggle-active-warn' : ''}" id="btn-toggle-archive" title="${isArchived ? 'This model is archived — hidden from default Catalog views. Click to un-archive.' : 'Archive this model — hides from default Catalog views while preserving all data.'}">${isArchived ? '📦 Archived' : '📦 Archive'}</button>
             ${isIdea ? '' : '<button class="action-button ghost" id="btn-viewer">3D View</button>'}
@@ -7600,6 +7608,46 @@ class ModelDetailPopupCard extends HTMLElement {
     } catch (error) {
       this._ideaPromoteBusy = false;
       this._error = `Failed to move idea to Working Files: ${error}`;
+      this._render();
+    }
+  }
+
+  async _forkModelToWorkingFiles() {
+    if (this._forkWorkingBusy) {
+      return;
+    }
+    const localModelId = String((this._modelDetail && this._modelDetail.local_model_id) || this._modelRef || '').trim();
+    const model = this._modelDetail && this._modelDetail.model ? this._modelDetail.model : {};
+    const fromEntityType = this._getEntityType(model);
+    if (!localModelId || fromEntityType === 'idea') {
+      return;
+    }
+    const displayName = String(model.name || localModelId);
+    if (!window.confirm(`Send "${displayName}" to Working Files?\n\nThis copies the catalog files into a new editable folder. The Catalog model stays unchanged.`)) {
+      return;
+    }
+
+    this._forkWorkingBusy = true;
+    this._render();
+    try {
+      const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+      const response = await fetch(`${base}/api/local/models/${encodeURIComponent(localModelId)}/fork-to-working-files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: 'all' }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.success === false) {
+        throw new Error(String(body.message || body.error || `Fork failed (HTTP ${response.status})`));
+      }
+      this._forkWorkingBusy = false;
+      this._notifyBrowserDetailChanged();
+      this.dispatchEvent(new CustomEvent('model-working-forked', { detail: { modelRef: this._modelRef, folderSlug: body.folder_slug, folderPath: body.folder_path } }));
+      window.alert(`Copied to Working Files: ${body.folder_slug || body.folder_path || 'new folder'}`);
+      this._render();
+    } catch (error) {
+      this._forkWorkingBusy = false;
+      this._error = `Failed to send model to Working Files: ${error}`;
       this._render();
     }
   }

@@ -177,6 +177,32 @@ def test_large_readme_routes_to_attached_and_truncates(tmp_path: Path) -> None:
         client.__exit__(None, None, None)
 
 
+def test_modelmeta_source_catalog_link_surfaces_for_revision_targeting(tmp_path: Path) -> None:
+    client, intake_root = _build_client(tmp_path)
+    try:
+        folder = intake_root / "Bracket Edit"
+        folder.mkdir(parents=True, exist_ok=True)
+        _write_stl(folder, "bracket-v2.stl")
+        _write_modelmeta(
+            folder,
+            {
+                "display_title": "Catalog Bracket",
+                "source_catalog_model_id": "catalog-bracket--abc12345",
+                "source_catalog_revision_at": "2026-06-06T12:00:00Z",
+                "primary_file": "bracket-v2.stl",
+            },
+        )
+
+        body = _post_plan(client, [{"type": "folder", "path": str(folder), "recurse": True}])
+        detected = body["planned_models"][0]["detected_metadata"]
+        assert detected["sources"][0]["source_catalog_model_id"] == "catalog-bracket--abc12345"
+        assert detected["sources"][0]["source_catalog_revision_at"] == "2026-06-06T12:00:00Z"
+        assert detected["merged"]["source_catalog_model_id"] == "catalog-bracket--abc12345"
+        assert detected["merged"]["source_catalog_revision_at"] == "2026-06-06T12:00:00Z"
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_multiple_folders_yield_low_confidence_and_merged_tags(tmp_path: Path) -> None:
     client, intake_root = _build_client(tmp_path)
     try:
