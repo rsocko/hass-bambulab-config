@@ -17,6 +17,9 @@ model_catalog_publish_to_working:
     {% if title is defined and (title | string | trim) != '' %}
       {% set ns.body = dict(ns.body, title=(title | string)) %}
     {% endif %}
+    {% if target_folder_slug is defined and (target_folder_slug | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, target_folder_slug=(target_folder_slug | string)) %}
+    {% endif %}
     {% if stage is defined and (stage | string | trim) != '' %}
       {% set ns.body = dict(ns.body, stage=(stage | string)) %}
     {% endif %}

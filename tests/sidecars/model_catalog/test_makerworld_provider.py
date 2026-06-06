@@ -192,6 +192,56 @@ def test_resolve_design_id_normalizes_response() -> None:
     ]
 
 
+def test_resolve_design_id_promotes_profile_image_fields_in_file_manifest() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 1295917,
+                "title": "Big Brick Man",
+                "designCreator": {"uid": 1234567890, "name": "pippo_the_printer"},
+                "instances": [
+                    {
+                        "id": 1309482,
+                        "profileId": 1309482,
+                        "isDefault": True,
+                        "title": "Default",
+                        "cover": "https://makerworld.bblmw.com/profile-default-cover.jpg",
+                        "pictures": [
+                            {"url": "https://makerworld.bblmw.com/profile-default-cover.jpg", "isRealLifePhoto": 0},
+                            {"url": "https://makerworld.bblmw.com/profile-default-alt.jpg", "isRealLifePhoto": 1},
+                        ],
+                        "plates": [{"index": 1}, {"index": 2}],
+                    }
+                ],
+            },
+        )
+
+    adapter = MakerWorldAdapter(
+        "token",
+        api_base="https://api.example.invalid/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.resolve_design_id(1295917))
+
+    assert result is not None
+    assert result.file_manifest == [
+        {
+            "instance_id": 1309482,
+            "profile_id": 1309482,
+            "title": "Default",
+            "is_default": True,
+            "plate_count": 2,
+            "cover_url": "https://makerworld.bblmw.com/profile-default-cover.jpg",
+            "image_urls": [
+                "https://makerworld.bblmw.com/profile-default-cover.jpg",
+                "https://makerworld.bblmw.com/profile-default-alt.jpg",
+            ],
+        }
+    ]
+
+
 def test_resolve_design_id_falls_back_to_cover_and_design_pictures() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

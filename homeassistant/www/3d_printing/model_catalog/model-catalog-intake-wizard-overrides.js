@@ -1547,19 +1547,173 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       card.shadowRoot.appendChild(styleNode);
     }
     styleNode.textContent = ''
-      + '.entry-thumb.makerworld-step-result-thumb{width:112px !important;height:112px !important;flex:0 0 112px !important;border-radius:22px !important;}'
-      + '.makerworld-result .entry-top{display:flex !important;align-items:flex-start !important;gap:16px !important;}'
+      + '.entry-thumb.makerworld-step-result-thumb{width:168px !important;height:168px !important;flex:0 0 168px !important;border-radius:24px !important;}'
+      + '.makerworld-result .entry-top{display:flex !important;align-items:flex-start !important;gap:18px !important;}'
       + '.makerworld-result .entry-main{width:100% !important;}'
-      + '.makerworld-profile-card{display:grid !important;gap:10px !important;}'
+      + '.makerworld-result-main{display:grid !important;gap:12px !important;align-content:start !important;}'
+      + '.makerworld-result-headline{display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:12px !important;}'
+      + '.makerworld-result-meta{display:grid !important;gap:8px !important;min-width:0 !important;}'
+      + '.makerworld-result-meta-line{display:grid !important;gap:4px !important;}'
+      + '.makerworld-result-meta-label{font-size:11px !important;font-weight:800 !important;letter-spacing:.06em !important;text-transform:uppercase !important;color:var(--secondary-text-color) !important;}'
+      + '.makerworld-result-meta-value{font-size:13px !important;line-height:1.45 !important;overflow-wrap:anywhere !important;}'
+      + '.makerworld-profile-card{display:grid !important;gap:10px !important;padding:12px 14px !important;}'
       + '.makerworld-profile-head.no-preview{grid-template-columns:minmax(0,1fr) !important;}'
       + '.makerworld-profile-thumb-placeholder,.makerworld-profile-preview-note{display:none !important;}'
       + '.makerworld-profile-topline{display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:12px !important;}'
+      + '.makerworld-profile-actions{display:inline-flex !important;align-items:center !important;gap:10px !important;justify-content:flex-end !important;flex:0 0 auto !important;}'
       + '.makerworld-profile-toggle{display:inline-flex !important;align-items:flex-start !important;justify-content:center !important;flex:0 0 auto !important;}'
       + '.makerworld-profile-badges{min-height:0 !important;}'
+      + '.makerworld-profile-grid{grid-template-columns:minmax(0,1fr) !important;}'
+      + '.makerworld-profile-head{grid-template-columns:72px minmax(0,1fr) !important;}'
+      + '.makerworld-profile-thumb{width:72px !important;height:72px !important;flex-basis:72px !important;border-radius:16px !important;}'
+      + '.makerworld-profile-copy{gap:8px !important;}'
+      + '.makerworld-profile-title{font-size:17px !important;}'
+      + '.makerworld-profile-designer-text,.makerworld-selected-profile-designer{color:#4ade80 !important;font-size:12px !important;font-weight:800 !important;letter-spacing:.03em !important;text-transform:uppercase !important;}'
       + '.summary-card.makerworld-profile-card{padding:14px !important;border-radius:18px !important;border:1px solid rgba(148,163,184,0.22) !important;background:linear-gradient(180deg,rgba(30,41,59,0.34),rgba(15,23,42,0.22)) !important;box-shadow:0 10px 26px rgba(2,6,23,0.16) !important;}'
       + '.summary-card.makerworld-profile-card.selected{border-color:rgba(56,189,248,0.68) !important;box-shadow:0 0 0 1px rgba(56,189,248,0.34) inset,0 14px 32px rgba(8,145,178,0.16) !important;background:linear-gradient(180deg,rgba(8,145,178,0.20),rgba(15,23,42,0.26)) !important;}'
       + '.summary-card.makerworld-profile-card > .summary-label{display:none !important;}';
   }
+
+  proto._resetMakerWorldDestinationPlan = function () {
+    this._makerworldDestinationPlanState = {
+      match_mode: 'new',
+      lookup_query: '',
+      lookup_results: [],
+      lookup_loading: false,
+      lookup_error: '',
+      selected_summary: null,
+      model_ref: '',
+      target_folder_slug: '',
+    };
+    return this._makerworldDestinationPlanState;
+  };
+
+  proto._makerworldDestinationPlan = function () {
+    return Object.assign({}, this._resetMakerWorldDestinationPlan(), this._makerworldDestinationPlanState || {});
+  };
+
+  proto._updateMakerWorldDestinationPlan = function (updates) {
+    this._makerworldDestinationPlanState = Object.assign({}, this._makerworldDestinationPlan(), updates || {});
+    return this._makerworldDestinationPlanState;
+  };
+
+  proto._makerworldCuratedLookupResultMeta = function (result) {
+    return this._curatedLookupResultMeta ? this._curatedLookupResultMeta(result) : {
+      id: String((result && (result.public_id || result.model_id || result.model_ref || result.id)) || '').trim(),
+      primary: String((result && (result.name || result.title || result.public_id || result.model_ref)) || 'Catalog Model').trim(),
+      secondary: String((result && (result.model_ref || result.public_id || result.id)) || '').trim(),
+    };
+  };
+
+  proto._makerworldWorkingLookupResultMeta = function (result) {
+    return this._workingLookupResultMeta ? this._workingLookupResultMeta(result) : {
+      id: String((result && result.slug) || '').trim(),
+      primary: String((result && (result.display_title || result.name)) || 'Folder').trim(),
+      secondary: String((result && result.slug) || '').trim(),
+    };
+  };
+
+  proto._makerworldDestinationSelectionSummary = function (plan) {
+    var resolvedPlan = plan || this._makerworldDestinationPlan();
+    var matchMode = String(resolvedPlan.match_mode || 'new').trim().toLowerCase();
+    var selected = resolvedPlan && resolvedPlan.selected_summary ? resolvedPlan.selected_summary : null;
+    if (matchMode !== 'existing') {
+      return this._makerworldDestinationChoice === 'working'
+        ? 'Create a new Working Files folder.'
+        : 'Create a new Catalog model.';
+    }
+    if (selected) {
+      return String(selected.primary || '')
+        + (selected.secondary ? ' - ' + String(selected.secondary) : '')
+        + (this._makerworldDestinationChoice === 'working'
+          ? ' - existing folder title preserved'
+          : ' - existing model name preserved');
+    }
+    return this._makerworldDestinationChoice === 'working'
+      ? 'Select an existing Working Files folder. Existing folder title is preserved.'
+      : 'Select an existing Catalog model. Existing model name is preserved.';
+  };
+
+  proto._runMakerWorldDestinationLookup = async function () {
+    if (!this._hass) {
+      return;
+    }
+    var plan = this._makerworldDestinationPlan();
+    var query = String(plan.lookup_query || '').trim();
+    if (!query) {
+      this._updateMakerWorldDestinationPlan({
+        lookup_results: [],
+        lookup_error: '',
+        lookup_loading: false,
+      });
+      this._render();
+      return;
+    }
+    this._updateMakerWorldDestinationPlan({
+      lookup_loading: true,
+      lookup_error: '',
+      lookup_results: [],
+    });
+    this._render();
+    try {
+      var response;
+      if (this._makerworldDestinationChoice === 'working') {
+        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_working_folders', {
+          q: query,
+          limit: 8,
+          offset: 0,
+        });
+        this._updateMakerWorldDestinationPlan({
+          lookup_loading: false,
+          lookup_error: '',
+          lookup_results: Array.isArray(response && response.folders) ? response.folders : [],
+        });
+      } else {
+        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_search_models', {
+          q: query,
+          page: 1,
+          per_page: 8,
+        });
+        this._updateMakerWorldDestinationPlan({
+          lookup_loading: false,
+          lookup_error: '',
+          lookup_results: Array.isArray(response && response.results) ? response.results : [],
+        });
+      }
+    } catch (error) {
+      this._updateMakerWorldDestinationPlan({
+        lookup_loading: false,
+        lookup_error: error && error.message ? String(error.message) : 'Could not search existing destinations.',
+        lookup_results: [],
+      });
+    }
+    this._render();
+  };
+
+  proto._selectMakerWorldDestinationResult = function (resultIndex) {
+    var plan = this._makerworldDestinationPlan();
+    var results = Array.isArray(plan.lookup_results) ? plan.lookup_results : [];
+    if (resultIndex < 0 || resultIndex >= results.length) {
+      return;
+    }
+    var result = results[resultIndex];
+    if (this._makerworldDestinationChoice === 'working') {
+      var workingMeta = this._makerworldWorkingLookupResultMeta(result);
+      this._updateMakerWorldDestinationPlan({
+        target_folder_slug: String(workingMeta.id || '').trim(),
+        model_ref: '',
+        selected_summary: workingMeta,
+      });
+    } else {
+      var curatedMeta = this._makerworldCuratedLookupResultMeta(result);
+      this._updateMakerWorldDestinationPlan({
+        model_ref: curatedMeta.id,
+        target_folder_slug: '',
+        selected_summary: curatedMeta,
+      });
+    }
+    this._render();
+  };
 
   proto._renderMakerWorldStepOneResultPane = function (record, trimmedUrl, fileManifest, sourceStats, warningMessages, linkOnlyFallback) {
     var result = this._makerworldResult;
@@ -1583,17 +1737,23 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Captured Data</div></div></div>'
       + rightSideBusy
-      + '<article class="entry-row makerworld-result"><div class="entry-top">'
+      + '<article class="entry-row makerworld-result"><div class="entry-top makerworld-result-top">'
       + (String(record.thumbnail_url || '').trim()
         ? '<div class="entry-thumb makerworld-step-result-thumb"><img class="entry-thumb-image" src="' + escapeHtml(record.thumbnail_url) + '" alt="Preview for ' + escapeHtml(record.title || 'MakerWorld capture') + '" loading="lazy" decoding="async"></div>'
         : '<div class="entry-thumb placeholder makerworld-step-result-thumb">MakerWorld</div>')
-      + '<div class="entry-main"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="entry-path">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</div>' + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark"><svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M24 9 36 16 24 23 12 16 24 9Zm24 0 12 7-12 7-12-7 12-7ZM24 27 36 34 24 41 12 34 24 27Zm24 0 12 7-12 7-12-7 12-7ZM36 45 48 52 36 59 24 52l12-7Z" fill="currentColor"/></svg></span><span class="makerworld-brand-text">MakerWorld</span></div>' : '') + (record.creator_name ? '<div class="muted">Creator: ' + escapeHtml(record.creator_name) + '</div>' : '') + '</div>'
-      + '<div class="button-row"><span class="chip">Captured</span>'
+      + '<div class="entry-main makerworld-result-main">'
+      + '  <div class="makerworld-result-headline"><div class="entry-name">' + escapeHtml(String(record.title || 'MakerWorld capture')) + '</div><div class="button-row"><span class="chip">Captured</span>'
       + (linkOnlyFallback ? '<span class="chip warn">Link Only Fallback</span>' : '')
       + (metadataImported ? '<span class="chip ok">Metadata Imported</span>' : '')
       + (fullImportQueued ? '<span class="chip">Upload ' + escapeHtml(String(result.upload_id || '')) + '</span>' : '')
       + (validationState ? '<span class="chip' + (validationState === 'ready' ? ' ok' : ' warn') + '">' + escapeHtml(formatLabel(validationState)) + '</span>' : '')
-      + '</div></div></article>'
+      + '  </div></div>'
+      + '  <div class="makerworld-result-meta">'
+      + (showMakerWorldBrand ? '<div class="makerworld-brand-badge" aria-label="MakerWorld source"><span class="makerworld-brand-mark"><svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M24 9 36 16 24 23 12 16 24 9Zm24 0 12 7-12 7-12-7 12-7ZM24 27 36 34 24 41 12 34 24 27Zm24 0 12 7-12 7-12-7 12-7ZM36 45 48 52 36 59 24 52l12-7Z" fill="currentColor"/></svg></span><span class="makerworld-brand-text">MakerWorld</span></div>' : '')
+      + '    <div class="makerworld-result-meta-line"><span class="makerworld-result-meta-label">URL</span><span class="makerworld-result-meta-value">' + escapeHtml(this._makerworldSourceUrl(record) || trimmedUrl) + '</span></div>'
+      + (record.creator_name ? '<div class="makerworld-result-meta-line"><span class="makerworld-result-meta-label">Creator</span><span class="makerworld-result-meta-value">' + escapeHtml(record.creator_name) + '</span></div>' : '')
+      + '  </div>'
+      + '</div></article>'
       + '<div class="makerworld-preview-grid makerworld-step-stats">'
       + '  <div class="summary-card"><div class="summary-label">Profiles</div><div class="summary-value">' + String(fileManifest.length) + '</div><div class="muted">Downloadable 3MF profiles discovered</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Images</div><div class="summary-value">' + String(sourceStats.imageCount) + '</div><div class="muted">Media cached on the source record</div></div>'
@@ -1624,10 +1784,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var isDesignerByName = !!(creatorIdentity.key && profileOwnerIdentity.key && creatorIdentity.key === profileOwnerIdentity.key);
         var isDesignerById = !!(profileOwnerIdentity.id > 0 && creatorIdentity.id > 0 && profileOwnerIdentity.id === creatorIdentity.id);
         var isDesignerProfile = isDesignerByName || isDesignerById;
-        if (profileOwnerName) {
-          detailBits.push(isDesignerByName ? 'Designer profile' : ('Profile by ' + profileOwnerName));
-        } else if (isDesignerProfile && creatorDisplayName) {
-          detailBits.push('Designer profile' + (creatorDisplayName ? (' | ' + creatorDisplayName) : ''));
+        if (profileOwnerName && !isDesignerProfile) {
+          detailBits.push('By ' + profileOwnerName);
+        } else if (!profileOwnerName && isDesignerProfile && creatorDisplayName) {
+          detailBits.push('By ' + creatorDisplayName);
         }
         if (details.needAms === true) {
           detailBits.push('AMS');
@@ -1645,14 +1805,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         if (entry.is_default) {
           badgeMarkup.push('<span class="chip">Default</span>');
         }
-        if (isDesignerProfile) {
-          badgeMarkup.push('<span class="chip ok makerworld-designer-badge">Original Designer</span>');
-        }
-        var subtitleParts = [];
-        if (profileOwnerName && !isDesignerProfile) {
-          subtitleParts.push('By ' + profileOwnerName);
-        }
-        subtitleParts = subtitleParts.concat(detailBits);
+        var subtitleParts = detailBits.slice();
         var metricMarkup = [
           this._makerworldProfileMetricMarkup('time', 'Print time', predictionLabel),
           this._makerworldProfileMetricMarkup('plates', 'Plates', plateCount > 0 ? (String(plateCount) + ' plate' + (plateCount === 1 ? '' : 's')) : ''),
@@ -1663,7 +1816,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="makerworld-profile-head' + (previewUrl ? '' : ' no-preview') + '">'
           + (previewUrl ? '<div class="entry-thumb makerworld-profile-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(title) + '" loading="lazy" decoding="async"></div>' : '')
           + '    <div class="makerworld-profile-copy">'
-          + '      <div class="makerworld-profile-topline"><div class="makerworld-profile-title">' + escapeHtml(title) + '</div><span class="makerworld-profile-toggle"><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></span></div>'
+          + '      <div class="makerworld-profile-topline"><div class="makerworld-profile-title">' + escapeHtml(title) + '</div><div class="makerworld-profile-actions">' + (isDesignerProfile ? '<span class="makerworld-profile-designer-text">Designer</span>' : '') + '<span class="makerworld-profile-toggle"><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></span></div></div>'
           + (badgeMarkup.length ? '<div class="button-row makerworld-profile-badges">' + badgeMarkup.join('') + '</div>' : '')
           + (subtitleParts.length ? '<div class="muted makerworld-profile-subtitle">' + escapeHtml(subtitleParts.join(' | ')) + '</div>' : '')
           + (metricMarkup ? '<div class="makerworld-metric-row">' + metricMarkup + '</div>' : '')

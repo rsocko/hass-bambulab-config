@@ -22,6 +22,10 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         helper_end = self.card_content.index("_renderMakerWorldTagEditor()", helper_start)
         helper_body = self.card_content[helper_start:helper_end]
         self.assertNotIn("record && record.thumbnail_url", helper_body)
+        self.assertIn("details && (details.cover", helper_body)
+        self.assertIn("details && pictureUrlFrom(details)", helper_body)
+        self.assertIn("details && details.profile && pictureUrlFrom(details.profile)", helper_body)
+        self.assertIn("source.pictures", helper_body)
         self.assertIn("makerworld-profile-head' + (previewUrl ? '' : ' no-preview')", self.card_content)
         self.assertNotIn("This profile does not expose a distinct preview image.", self.card_content)
         self.assertNotIn("makerworld-profile-thumb-placeholder", self.card_content)
@@ -31,7 +35,8 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         self.assertIn("_makerworldUserIdentity(", self.card_content)
         self.assertIn("snapshot.designCreator,", self.card_content)
         self.assertIn("modelInfo.creator,", self.card_content)
-        self.assertIn('makerworld-designer-badge', self.card_content)
+        self.assertIn('makerworld-profile-designer-text', self.card_content)
+        self.assertIn('makerworld-selected-profile-designer', self.card_content)
 
     def test_profile_cards_use_metric_row_icons_and_hide_profile_owner_ids(self):
         self.assertIn("_makerworldProfileMetricMarkup('time', 'Print time', predictionLabel)", self.card_content)
@@ -67,8 +72,21 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         )
 
     def test_step_one_result_preview_is_doubled_and_stacked_for_right_pane(self):
-        self.assertIn('.entry-thumb.makerworld-step-result-thumb{width:112px;height:112px;flex:0 0 112px;', self.card_content)
-        self.assertIn(".makerworld-result .entry-top{display:flex;align-items:flex-start;gap:16px;}", self.card_content)
+        self.assertIn('.entry-thumb.makerworld-step-result-thumb{width:168px;height:168px;flex:0 0 168px;', self.card_content)
+        self.assertIn('.makerworld-result-main{display:grid;gap:12px;align-content:start;}', self.card_content)
+        self.assertIn('.makerworld-result-meta-line{display:grid;gap:4px;}', self.card_content)
+
+    def test_step_two_profiles_render_as_full_width_rows_with_designer_text(self):
+        self.assertIn('.makerworld-profile-grid{display:grid;gap:10px;grid-template-columns:minmax(0,1fr);}', self.card_content)
+        self.assertIn('makerworld-profile-actions', self.card_content)
+        self.assertIn("<span class=\"makerworld-profile-designer-text\">Designer</span>", self.card_content)
+
+    def test_step_three_supports_existing_destination_lookup(self):
+        self.assertIn("_makerworldDestinationPlan()", self.card_content)
+        self.assertIn('data-action="makerworld-match-mode"', self.card_content)
+        self.assertIn('data-action="run-makerworld-destination-search"', self.card_content)
+        self.assertIn('data-action="select-makerworld-destination-result"', self.card_content)
+        self.assertIn("publishPayload.target_folder_slug = String(destinationPlan.target_folder_slug || '').trim();", self.card_content)
 
 
 if __name__ == "__main__":

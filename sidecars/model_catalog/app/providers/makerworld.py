@@ -217,12 +217,18 @@ class MakerWorldAdapter:
             instance_id = self._extract_instance_id(instance)
             if instance_id <= 0:
                 continue
+            image_urls = self._extract_instance_image_urls(instance)
+            cover_url = str(instance.get("cover") or (image_urls[0] if image_urls else "")).strip() or None
             manifest_entry = {
                 "instance_id": instance_id,
                 "title": str(instance.get("title") or "").strip(),
                 "is_default": bool(instance.get("isDefault")),
                 "plate_count": len(instance.get("plates") or []),
             }
+            if cover_url:
+                manifest_entry["cover_url"] = cover_url
+            if image_urls:
+                manifest_entry["image_urls"] = image_urls
             profile_id = self._extract_profile_id(instance)
             if profile_id is not None:
                 manifest_entry["profile_id"] = profile_id
@@ -453,6 +459,36 @@ class MakerWorldAdapter:
             if value > 0:
                 return value
         return None
+
+    def _extract_instance_image_urls(self, instance: dict[str, Any]) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
+
+        def add_url(value: Any) -> None:
+            url = str(value or "").strip()
+            if not url or url in seen:
+                return
+            seen.add(url)
+            urls.append(url)
+
+        add_url(instance.get("cover"))
+        for picture in instance.get("pictures") or []:
+            if isinstance(picture, dict):
+                add_url(picture.get("url"))
+                add_url(picture.get("image_url"))
+            else:
+                add_url(picture)
+
+        nested_profile = instance.get("profile") if isinstance(instance.get("profile"), dict) else {}
+        add_url(nested_profile.get("cover"))
+        for picture in nested_profile.get("pictures") or []:
+            if isinstance(picture, dict):
+                add_url(picture.get("url"))
+                add_url(picture.get("image_url"))
+            else:
+                add_url(picture)
+
+        return urls
 
     def _extract_creator(self, payload: dict[str, Any]) -> dict[str, Any]:
         for candidate in (

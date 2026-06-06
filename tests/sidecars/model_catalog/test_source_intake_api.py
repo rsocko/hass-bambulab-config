@@ -104,6 +104,11 @@ class _StubMakerWorldAdapter:
                             "id": 1309482,
                             "profileId": 1309482,
                             "title": "Default",
+                            "cover": "https://makerworld.bblmw.com/profile-default-cover.jpg",
+                            "pictures": [
+                                {"url": "https://makerworld.bblmw.com/profile-default-cover.jpg", "isRealLifePhoto": 0},
+                                {"url": "https://makerworld.bblmw.com/profile-default-alt.jpg", "isRealLifePhoto": 1},
+                            ],
                             "profileUserName": "pippo_the_printer",
                             "profileUserId": 1234567890,
                             "needAms": True,
@@ -143,6 +148,10 @@ class _StubMakerWorldAdapter:
                             "id": 1309483,
                             "profileId": 1309483,
                             "title": "Single Color",
+                            "cover": "https://makerworld.bblmw.com/profile-single-cover.jpg",
+                            "pictures": [
+                                {"url": "https://makerworld.bblmw.com/profile-single-cover.jpg", "isRealLifePhoto": 0},
+                            ],
                             "profileUserName": "guest_profile_author",
                             "profileUserId": 998877,
                             "needAms": False,
@@ -168,6 +177,11 @@ class _StubMakerWorldAdapter:
                     "title": "Default",
                     "is_default": True,
                     "plate_count": 2,
+                    "cover_url": "https://makerworld.bblmw.com/profile-default-cover.jpg",
+                    "image_urls": [
+                        "https://makerworld.bblmw.com/profile-default-cover.jpg",
+                        "https://makerworld.bblmw.com/profile-default-alt.jpg",
+                    ],
                 },
                 {
                     "instance_id": 1309483,
@@ -175,6 +189,8 @@ class _StubMakerWorldAdapter:
                     "title": "Single Color",
                     "is_default": False,
                     "plate_count": 1,
+                    "cover_url": "https://makerworld.bblmw.com/profile-single-cover.jpg",
+                    "image_urls": ["https://makerworld.bblmw.com/profile-single-cover.jpg"],
                 }
             ],
         )
@@ -297,6 +313,8 @@ def test_capture_source_creates_makerworld_record(tmp_path: Path, monkeypatch) -
         assert payload["record"]["provider_id"] == "makerworld"
         assert payload["record"]["source_model_id"] == "1295917"
         assert payload["record"]["title"] == "Big Brick Man"
+        assert payload["record"]["file_manifest_json"][0]["cover_url"] == "https://makerworld.bblmw.com/profile-default-cover.jpg"
+        assert payload["record"]["file_manifest_json"][0]["image_urls"][1] == "https://makerworld.bblmw.com/profile-default-alt.jpg"
 
         connection = sqlite3.connect(db_path)
         try:
@@ -654,6 +672,8 @@ def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkey
         assert fields["source_capture_provider"] == "makerworld"
         assert fields["source_capture_record_id"] == record_id
         assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_capture_profiles"][0]["cover_url"] == "https://makerworld.bblmw.com/profile-default-cover.jpg"
+        assert fields["source_capture_profiles"][0]["image_urls"][1] == "https://makerworld.bblmw.com/profile-default-alt.jpg"
         assert fields["source_capture_profiles"][0]["need_ams"] is True
         assert fields["source_capture_profiles"][0]["is_designer_profile"] is True
         assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
@@ -771,6 +791,9 @@ def test_publish_source_metadata_only_creates_local_model_with_rich_source_field
         assert fields["source_download_url"] == "https://makerworld.com/en/models/1295917"
         assert fields["source_image_preview_url"] == "https://makerworld.bblmw.com/example.jpg"
         assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_capture_profiles"][0]["cover_url"] == "https://makerworld.bblmw.com/profile-default-cover.jpg"
+        assert fields["source_capture_profiles"][0]["image_urls"][0] == "https://makerworld.bblmw.com/profile-default-cover.jpg"
+        assert fields["source_capture_profiles"][1]["cover_url"] == "https://makerworld.bblmw.com/profile-single-cover.jpg"
         assert fields["source_capture_profiles"][0]["is_designer_profile"] is True
         assert fields["source_capture_profiles"][0]["filament_colors"] == ["#FF6B6B", "#4ECDC4"]
         assert fields["source_capture_profiles"][1]["is_designer_profile"] is False

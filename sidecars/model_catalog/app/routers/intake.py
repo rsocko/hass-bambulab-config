@@ -1169,12 +1169,37 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
     )
     creator_key = _normalize_identity(creator_name)
     instances = snapshot.get("instances") if isinstance(snapshot.get("instances"), list) else []
+
+    def _profile_image_urls(*sources: Any) -> list[str]:
+        urls: list[str] = []
+        seen_urls: set[str] = set()
+
+        def add_url(value: Any) -> None:
+            url = str(value or "").strip()
+            if not url or url in seen_urls:
+                return
+            seen_urls.add(url)
+            urls.append(url)
+
+        for source in sources:
+            if not isinstance(source, dict):
+                continue
+            add_url(source.get("cover"))
+            for picture in source.get("pictures") or []:
+                if isinstance(picture, dict):
+                    add_url(picture.get("url"))
+                    add_url(picture.get("image_url"))
+                else:
+                    add_url(picture)
+        return urls
+
     summaries: list[dict[str, Any]] = []
     for instance in instances:
         if not isinstance(instance, dict):
             continue
         extention = instance.get("extention") if isinstance(instance.get("extention"), dict) else {}
         model_info = extention.get("modelInfo") if isinstance(extention.get("modelInfo"), dict) else {}
+        nested_profile = instance.get("profile") if isinstance(instance.get("profile"), dict) else {}
         plates = instance.get("plates") if isinstance(instance.get("plates"), list) else []
         if not plates and isinstance(model_info.get("plates"), list):
             plates = model_info.get("plates")
@@ -1215,23 +1240,28 @@ def _makerworld_profile_summary(source_record: dict[str, Any]) -> list[dict[str,
             (creator_key and profile_owner_key and creator_key == profile_owner_key)
             or (creator_uid > 0 and profile_owner_id > 0 and creator_uid == profile_owner_id)
         )
-        summaries.append(
-            {
-                "instance_id": instance.get("id"),
-                "profile_id": instance.get("profileId"),
-                "title": instance.get("title"),
-                "profile_owner_name": profile_owner_name,
-                "profile_owner_id": profile_owner_id or None,
-                "is_designer_profile": is_designer_profile,
-                "is_default": bool(instance.get("isDefault")),
-                "need_ams": instance.get("needAms") if instance.get("needAms") in (True, False) else None,
-                "material_count": instance.get("materialCnt"),
-                "print_count": instance.get("printCount"),
-                "prediction": instance.get("prediction") if instance.get("prediction") not in ({}, [], None, "") else None,
-                "filament_colors": instance_colors,
-                "plate_details": plate_details,
-            }
-        )
+        image_urls = _profile_image_urls(instance, nested_profile)
+        cover_url = str(instance.get("cover") or nested_profile.get("cover") or (image_urls[0] if image_urls else "")).strip() or None
+        profile_summary = {
+            "instance_id": instance.get("id"),
+            "profile_id": instance.get("profileId"),
+            "title": instance.get("title"),
+            "profile_owner_name": profile_owner_name,
+            "profile_owner_id": profile_owner_id or None,
+            "is_designer_profile": is_designer_profile,
+            "is_default": bool(instance.get("isDefault")),
+            "need_ams": instance.get("needAms") if instance.get("needAms") in (True, False) else None,
+            "material_count": instance.get("materialCnt"),
+            "print_count": instance.get("printCount"),
+            "prediction": instance.get("prediction") if instance.get("prediction") not in ({}, [], None, "") else None,
+            "filament_colors": instance_colors,
+            "plate_details": plate_details,
+        }
+        if cover_url:
+            profile_summary["cover_url"] = cover_url
+        if image_urls:
+            profile_summary["image_urls"] = image_urls
+        summaries.append(profile_summary)
     return summaries
 
 
