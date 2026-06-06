@@ -318,6 +318,7 @@ def test_resolve_design_id_marks_designer_profile_from_instance_creator_match() 
             "instance_id": 5001,
             "profile_id": 786570319,
             "title": "0.2mm layer, 2 walls, 15% infill",
+            "is_default": False,
             "profile_owner_name": "Schlingen",
             "profile_owner_id": 2552079526,
             "plate_count": 1,
