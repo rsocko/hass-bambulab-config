@@ -88,7 +88,6 @@ from ..services import (
     list_working_group_links_service,
     list_working_groups_for_model_service,
     list_working_groups_service,
-    publish_working_group_to_local_service,
     remove_working_group_item_service,
     reorganize_working_group_service,
     update_project_task_service,
@@ -1199,69 +1198,6 @@ def _file_membership_map(connection: Any, *, path_keys: set[str] | None = None) 
 
 
 # ==================== HELPER FUNCTIONS: SERIALIZATION ====================
-
-
-def _create_project_record(
-    connection: Any,
-    *,
-    title: str,
-    description: str | None,
-    notes: str | None,
-    bambuddy_project_id: int | None,
-    now_iso: str,
-) -> dict[str, Any]:
-    """Create a new project record."""
-    slug = _unique_project_slug(connection, title)
-    connection.execute(
-        """
-        INSERT INTO model_catalog_projects (
-            slug, title, description, notes, bambuddy_project_id, created_at, updated_at, archived_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (slug, title, description, notes, bambuddy_project_id, now_iso, now_iso, None),
-    )
-    project_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
-    project_row = connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
-    return _serialize_project_row(project_row)
-
-
-def _resolve_publish_project(connection: Any, *, payload: dict[str, Any], group_row: Any, now_iso: str) -> tuple[int | None, dict[str, Any] | None]:
-    """Resolve project for publishing, creating if needed."""
-    create_project_payload = payload.get("create_project") if isinstance(payload.get("create_project"), dict) else None
-    if create_project_payload:
-        project_title = str(create_project_payload.get("title") or "").strip()
-        if not project_title:
-            raise ValueError("create_project.title is required")
-        created_project = _create_project_record(
-            connection,
-            title=project_title,
-            description=str(create_project_payload.get("description") or "").strip() or None,
-            notes=str(create_project_payload.get("notes") or "").strip() or None,
-            bambuddy_project_id=_resolve_project_id_value(create_project_payload.get("bambuddy_project_id")),
-            now_iso=now_iso,
-        )
-        return int(created_project["id"]), created_project
-
-    explicit_project_id = _resolve_project_id_value(payload.get("project_id"))
-    if explicit_project_id is not None:
-        project_row = connection.execute(
-            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
-            (explicit_project_id,),
-        ).fetchone()
-        if project_row is None:
-            raise LookupError(f"Project not found: {explicit_project_id}")
-        return explicit_project_id, _serialize_project_row(project_row)
-
-    group_project_id = group_row["project_id"] if "project_id" in set(group_row.keys()) else None
-    if group_project_id is not None:
-        project_row = connection.execute(
-            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
-            (group_project_id,),
-        ).fetchone()
-        if project_row is not None:
-            return int(group_project_id), _serialize_project_row(project_row)
-
-    return None, None
 
 
 def _lineage_payload_for_model(*, db_path: Path, model_ref: str) -> dict[str, Any]:
@@ -2449,15 +2385,6 @@ def delete_working_group_link(request: Request, group_id: int, link_id: int) -> 
 @router.get("/api/models/{model_ref:path}/working-groups")
 def list_working_groups_for_model(request: Request, model_ref: str) -> Any:
     """DEPRECATED: returns HTTP 410. Working groups are gone; model links move to the new layer."""
-    return _working_files_gone_response()
-
-
-# ==================== ENDPOINTS: PUBLISHING ====================
-
-
-@router.post("/api/working-groups/{group_id}/publish-to-local")
-def publish_working_group_to_local(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
-    """DEPRECATED: returns HTTP 410. Publishing flow will be reintroduced on the new layer."""
     return _working_files_gone_response()
 
 

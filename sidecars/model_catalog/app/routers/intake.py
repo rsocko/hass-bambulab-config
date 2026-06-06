@@ -1005,6 +1005,59 @@ def _source_record_ids_from_entries(source_entries: list[dict[str, Any]] | None)
     return record_ids
 
 
+def _source_entries_with_working_modelmeta_records(
+    *,
+    source_entries: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    enriched_entries = [dict(entry) for entry in (source_entries or []) if isinstance(entry, dict)]
+    seen_record_ids = set(_source_record_ids_from_entries(enriched_entries))
+
+    candidate_folders: list[Path] = []
+    for entry in enriched_entries:
+        entry_type = str(entry.get("type") or "").strip().lower()
+        raw_path = str(entry.get("path") or "").strip()
+        if not raw_path:
+            continue
+        try:
+            entry_path = Path(raw_path).expanduser().resolve()
+        except (OSError, RuntimeError):
+            continue
+        if entry_type == "folder":
+            candidate_folders.append(entry_path)
+        elif entry_type == "file":
+            candidate_folders.append(entry_path.parent)
+
+    seen_folders: set[str] = set()
+    for folder in candidate_folders:
+        folder_key = str(folder)
+        if folder_key in seen_folders:
+            continue
+        seen_folders.add(folder_key)
+        modelmeta_path = folder / ".modelmeta.json"
+        try:
+            if not modelmeta_path.is_file():
+                continue
+            modelmeta = json.loads(modelmeta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(modelmeta, dict):
+            continue
+        record_id = str(modelmeta.get("source_capture_record_id") or "").strip()
+        if not record_id or record_id in seen_record_ids:
+            continue
+        seen_record_ids.add(record_id)
+        enriched_entries.append(
+            {
+                "type": "source_record",
+                "source_type": "working_files_modelmeta",
+                "source_record_id": record_id,
+                "path": str(modelmeta_path),
+            }
+        )
+
+    return enriched_entries
+
+
 def _read_source_intake_records(*, db_path: Path, record_ids: list[str]) -> list[dict[str, Any]]:
     if not record_ids:
         return []
@@ -1567,9 +1620,11 @@ def _publish_group_to_local_destination(
     if not group_files:
         return None, [], []
 
+    source_context_entries = _source_entries_with_working_modelmeta_records(source_entries=source_entries)
+
     destination_plan, source_publish_context = _source_intake_publish_context(
         db_path=state.settings.db_path,
-        source_entries=source_entries,
+        source_entries=source_context_entries,
         destination_plan=destination_plan,
     )
 
@@ -1835,7 +1890,7 @@ def _publish_group_to_local_destination(
     attached_source_snapshots = _attach_source_snapshot_assets(
         state=state,
         local_model_id=local_model_id,
-        source_entries=source_entries,
+        source_entries=source_context_entries,
         existing_asset_ids=existing_asset_ids,
         existing_hashes=existing_hashes,
         imported_assets=imported_assets,
@@ -1856,11 +1911,11 @@ def _publish_group_to_local_destination(
             "imported_asset_count": len(imported_assets),
             "duplicate_skipped_count": len(duplicate_skipped),
             "failed_file_count": len(failed_files),
-            "source_entries": source_entries,
+            "source_entries": source_context_entries,
         },
     )
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_queue_upload_id", field_value=upload_id)
-    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_entries", field_value=source_entries)
+    set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_entries", field_value=source_context_entries)
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_source_timestamp_summary", field_value=source_timestamp_summary)
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="intake_imported_at", field_value=_bulk_utc_now_iso())
     set_model_field(db_path=state.settings.db_path, model_ref=local_model_id, field_key="internal_notes", field_value=f"Imported from intake upload {upload_id}")
@@ -2601,6 +2656,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 "upload_id": upload_id,
             },
         )
+    source_context_entries = _source_entries_with_working_modelmeta_records(source_entries=source_entries)
 
     expanded_files, expansion_warnings = _expand_intake_source_entries(source_entries=source_entries)
     if not expanded_files:
@@ -2655,7 +2711,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     requested_preview_source_path = str(payload.get("preview_source_path") or "").strip()
     destination_defaults, source_publish_context = _source_intake_publish_context(
         db_path=state.settings.db_path,
-        source_entries=source_entries,
+        source_entries=source_context_entries,
         destination_plan={
             "model_ref": requested_model_ref,
             "model_name": requested_model_name,
@@ -2857,13 +2913,13 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                     "imported_asset_count": group_imported_count,
                     "duplicate_skipped_count": len(duplicate_skipped),
                     "failed_file_count": len(failed_files),
-                    "source_entries": source_entries,
+                    "source_entries": source_context_entries,
                 },
             )
             _attach_source_snapshot_assets(
                 state=state,
                 local_model_id=local_model_id,
-                source_entries=source_entries,
+                source_entries=source_context_entries,
                 existing_asset_ids=existing_asset_ids,
                 existing_hashes=existing_hashes,
                 imported_assets=group_imported_assets,
@@ -2880,7 +2936,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 db_path=state.settings.db_path,
                 model_ref=local_model_id,
                 field_key="intake_source_entries",
-                field_value=source_entries,
+                field_value=source_context_entries,
             )
             set_model_field(
                 db_path=state.settings.db_path,
@@ -3217,13 +3273,13 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             "imported_asset_count": len(imported_assets),
             "duplicate_skipped_count": len(duplicate_skipped),
             "failed_file_count": len(failed_files),
-            "source_entries": source_entries,
+            "source_entries": source_context_entries,
         },
     )
     attached_source_snapshots = _attach_source_snapshot_assets(
         state=state,
         local_model_id=local_model_id,
-        source_entries=source_entries,
+        source_entries=source_context_entries,
         existing_asset_ids=existing_asset_ids,
         existing_hashes=existing_hashes,
         imported_assets=imported_assets,
@@ -3240,7 +3296,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         db_path=state.settings.db_path,
         model_ref=local_model_id,
         field_key="intake_source_entries",
-        field_value=source_entries,
+        field_value=source_context_entries,
     )
     set_model_field(
         db_path=state.settings.db_path,

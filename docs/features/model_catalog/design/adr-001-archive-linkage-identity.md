@@ -154,7 +154,7 @@ Candidate discovery SHOULD search both catalog models and working groups when sc
 
 ### Graduation Migration (Mandatory)
 
-When a working group is published to the local catalog (via `publish_working_group_to_local_service`), the graduation logic MUST:
+When a Working Files folder is published to the local catalog through the Intake publish flow, the graduation logic MUST:
 
 1. **Query** `model_catalog_links` for rows where `manyfold_model_url = 'local://working-group/{group_id}'`
 2. **Rewrite** those rows' model URL to `local://model/{new_local_model_id}`
@@ -166,7 +166,7 @@ The graduation function already records `source_origin_url=f"working-group://{gr
 
 | Guarantee | Mechanism |
 |-----------|-----------|
-| Links survive Working → Catalog graduation | URL rewrite during `publish_working_group_to_local_service` |
+| Links survive Working → Catalog graduation | URL rewrite during the Intake-backed Working Files publish flow |
 | Links survive model rename | URL is UUID-based, not name-based — no change needed |
 | Links survive asset rename within model | `asset_id` is UUID-based, not filename-based — no change needed |
 | Links survive model re-categorization (tags/collections) | Identity is not derived from metadata — no change needed |
@@ -211,7 +211,7 @@ When a link's model URL is `local://working-group/{id}`, UIs SHOULD:
 
 - [x] Update `candidate-discovery-strategy.md` to note that asset-level resolution is preferred when a hash match is found against `model_catalog_assets.file_hash`
 - [x] Add `migrate_links_for_graduation(group_id, new_local_model_id)` to `db_archive_links.py`
-- [x] Wire the migration call into `publish_working_group_to_local_service` (after model creation, before response)
+- [x] Wire the migration call into the local catalog publish flow (after model creation, before response)
 - [x] Extend candidate discovery to search `working_groups` + `working_items` in addition to `model_catalog_entries` + `model_catalog_assets`
 - [x] Ensure candidate refresh scorer populates the asset ID column when `file_hash_exact` or `content_hash_exact` is the match method
 - [x] Normalize `relationship_type` values in new link creation to use `model_printed_in_archive` / `model_file_printed_in_archive`

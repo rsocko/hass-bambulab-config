@@ -438,7 +438,6 @@ LEGACY_GONE_ENDPOINTS: list[tuple[str, str, dict | None]] = [
     ("GET", "/api/working-groups/1/links", None),
     ("DELETE", "/api/working-groups/1/links/2", None),
     ("GET", "/api/models/some-ref/working-groups", None),
-    ("POST", "/api/working-groups/1/publish-to-local", {}),
     ("POST", "/api/working-groups/bulk-discover", {}),
     ("POST", "/working-groups/bulk-discover", {}),
     ("POST", "/api/working-groups/bulk-import", {}),

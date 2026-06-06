@@ -760,6 +760,122 @@ def test_publish_makerworld_full_import_to_working_writes_source_capture_link(tm
         client.__exit__(None, None, None)
 
 
+def test_publish_working_files_to_local_rehydrates_makerworld_source_context(tmp_path: Path, monkeypatch) -> None:
+    client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
+    working_root = db_path.parent / "working"
+    try:
+        capture_response = client.post(
+            "/api/intake/source/capture",
+            json={
+                "url": "https://makerworld.com/en/models/1295917-big-brick-man",
+                "channel": "url_paste",
+                "mode": "metadata_only",
+            },
+        )
+        record_id = capture_response.json()["record"]["id"]
+
+        review_response = client.post(
+            f"/api/intake/source/{record_id}/review",
+            json={"tags": ["Reviewed", "Useful"]},
+        )
+        assert review_response.status_code == 200, review_response.text
+
+        commit_response = client.post(
+            f"/api/intake/source/{record_id}/commit",
+            json={"mode": "full_import", "options": {"target_instance": "default"}},
+        )
+        assert commit_response.status_code == 200, commit_response.text
+        staged_upload_id = commit_response.json()["upload_id"]
+
+        working_response = client.post(f"/api/intake/uploads/{staged_upload_id}/publish-to-working", json={})
+        assert working_response.status_code == 200, working_response.text
+        folder_slug = working_response.json()["working_folder_slug"]
+        working_folder = working_root / folder_slug
+        assert working_folder.is_dir()
+
+        enqueue_response = client.post(
+            "/api/intake/uploads",
+            json={
+                "cleanup_policy": "keep",
+                "source_entries": [{"type": "folder", "path": str(working_folder), "recurse": True}],
+            },
+        )
+        assert enqueue_response.status_code == 200, enqueue_response.text
+        working_upload_id = enqueue_response.json()["upload_id"]
+
+        publish_response = client.post(f"/api/intake/uploads/{working_upload_id}/publish-to-local", json={})
+        assert publish_response.status_code == 200, publish_response.text
+        publish_payload = publish_response.json()
+        local_model_id = str(publish_payload.get("local_model_id") or "").strip()
+        assert local_model_id
+        assert publish_payload.get("attached_source_snapshots")
+
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.row_factory = sqlite3.Row
+            entry_row = connection.execute(
+                """
+                SELECT model_name, model_description, creator_name, preview_image_url,
+                       source_origin, source_origin_url, tags_json
+                FROM model_catalog_entries
+                WHERE local_model_id = ?
+                """,
+                (local_model_id,),
+            ).fetchone()
+            field_rows = connection.execute(
+                """
+                SELECT field_key, field_value_json
+                FROM model_catalog_custom_fields
+                WHERE entity_type = 'catalog_model'
+                  AND entity_id = ?
+                  AND field_namespace = 'model_catalog'
+                  AND field_key IN (
+                    'source_capture_provider',
+                    'source_capture_record_id',
+                    'source_capture_image_urls',
+                    'source_capture_profiles',
+                    'source_description_raw',
+                    'source_prediction_summary',
+                    'source_download_url',
+                    'source_urls',
+                    'intake_source_entries'
+                  )
+                """,
+                (local_model_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        assert entry_row is not None
+        assert entry_row["model_name"] == "Big Brick Man"
+        assert entry_row["model_description"] == "Large display figurine."
+        assert entry_row["creator_name"] == "pippo_the_printer"
+        assert entry_row["preview_image_url"] == "https://makerworld.bblmw.com/example.jpg"
+        assert entry_row["source_origin"] == "makerworld"
+        assert entry_row["source_origin_url"] == "https://makerworld.com/en/models/1295917"
+        assert json.loads(str(entry_row["tags_json"] or "[]")) == ["Reviewed", "Useful"]
+
+        fields = {
+            str(row["field_key"]): json.loads(str(row["field_value_json"] or "null"))
+            for row in field_rows
+        }
+        assert fields["source_capture_provider"] == "makerworld"
+        assert fields["source_capture_record_id"] == record_id
+        assert fields["source_capture_image_urls"] == ["https://makerworld.bblmw.com/example.jpg"]
+        assert fields["source_capture_profiles"][0]["is_designer_profile"] is True
+        assert fields["source_description_raw"] == "Large display figurine."
+        assert fields["source_prediction_summary"][0]["prediction"] == {"printTimeMinutes": 92}
+        assert fields["source_download_url"] == "https://makerworld.com/en/models/1295917"
+        assert "https://makerworld.com/en/models/1295917" in fields["source_urls"]
+        assert any(
+            entry.get("source_type") == "working_files_modelmeta"
+            and entry.get("source_record_id") == record_id
+            for entry in fields["intake_source_entries"]
+        )
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_publish_to_local_uses_makerworld_source_defaults(tmp_path: Path, monkeypatch) -> None:
     client, db_path, _curated_root = _create_client(tmp_path, monkeypatch)
     try:
