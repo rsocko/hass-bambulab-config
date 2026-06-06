@@ -23,6 +23,8 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         helper_body = self.card_content[helper_start:helper_end]
         self.assertNotIn("record && record.thumbnail_url", helper_body)
         self.assertIn("makerworld-profile-head' + (previewUrl ? '' : ' no-preview')", self.card_content)
+        self.assertIn("This profile does not expose a distinct preview image.", self.card_content)
+        self.assertIn("makerworld-profile-thumb-placeholder", self.card_content)
 
     def test_designer_chip_uses_broader_identity_resolution(self):
         self.assertIn("_makerworldUserIdentity(", self.card_content)
@@ -36,6 +38,7 @@ class TestModelCatalogIntakeMakerWorldUi(unittest.TestCase):
         self.assertIn("_makerworldProfileMetricMarkup('prints', 'Prints'", self.card_content)
         self.assertIn('makerworld-metric-row', self.card_content)
         self.assertNotIn('Profile user #', self.card_content)
+        self.assertNotIn("<span class=\"chip\">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>'", self.card_content)
 
     def test_tag_draft_input_does_not_rerender_on_each_keystroke(self):
         self.assertIn("if (action === 'makerworld-tag-draft') {\n      this._makerworldTagDraft = String(target.value || '');\n      return;", self.card_content)

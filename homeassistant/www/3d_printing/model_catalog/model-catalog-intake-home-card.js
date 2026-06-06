@@ -2220,6 +2220,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         var plateCount = Number(entry.plate_count || plates.length || 0);
         var printCount = Number(details.printCount || 0);
         var title = String(entry.title || details.title || modelInfo.title || (entry.is_default ? 'Default profile' : 'Profile')).trim();
+        var badgeMarkup = [];
         var subtitleParts = [];
         if (profileOwnerName && !isDesignerProfile) {
           subtitleParts.push('By ' + profileOwnerName);
@@ -2227,21 +2228,34 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         subtitleParts = subtitleParts.concat(detailBits.filter(function (bit) {
           return bit !== (String(plateCount) + ' plate' + (plateCount === 1 ? '' : 's')) && bit !== (String(printCount) + ' prints');
         }));
+        if (entry.is_default) {
+          badgeMarkup.push('<span class="chip">Default</span>');
+        }
+        if (isDesignerProfile) {
+          badgeMarkup.push('<span class="chip ok makerworld-designer-badge">Original Designer</span>');
+        }
         var metricMarkup = [
           this._makerworldProfileMetricMarkup('time', 'Print time', predictionLabel),
           this._makerworldProfileMetricMarkup('plates', 'Plates', plateCount > 0 ? (String(plateCount) + ' plate' + (plateCount === 1 ? '' : 's')) : ''),
           this._makerworldProfileMetricMarkup('prints', 'Prints', printCount > 0 ? (String(printCount) + ' prints') : ''),
         ].filter(Boolean).join('');
+        var previewMarkup = previewUrl
+          ? '<div class="entry-thumb makerworld-profile-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(title) + '" loading="lazy" decoding="async"></div>'
+          : '<div class="entry-thumb makerworld-profile-thumb makerworld-profile-thumb-placeholder" aria-hidden="true"><span>MW</span></div>';
+        var previewNoteMarkup = previewUrl
+          ? ''
+          : '<div class="makerworld-profile-preview-note"><span class="makerworld-profile-preview-note-badge">Model gallery only</span><span class="makerworld-profile-preview-note-copy">This profile does not expose a distinct preview image.</span></div>';
         return ''
           + '<label class="summary-card makerworld-profile-card' + (checked ? ' selected' : '') + (previewUrl ? '' : ' no-preview') + '">'
           + '  <div class="makerworld-profile-head' + (previewUrl ? '' : ' no-preview') + '">'
-          + (previewUrl ? '<div class="entry-thumb makerworld-profile-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(title) + '" loading="lazy" decoding="async"></div>' : '')
+          + previewMarkup
           + '    <div class="makerworld-profile-copy">'
-          + '      <div class="makerworld-profile-topline"><div class="button-row makerworld-profile-badges"><span class="chip">' + escapeHtml(entry.is_default ? 'Default' : 'Profile') + '</span>' + (isDesignerProfile ? '<span class="chip ok makerworld-designer-badge">Original Designer</span>' : '') + '</div><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></div>'
+          + '      <div class="makerworld-profile-topline"><div class="button-row makerworld-profile-badges">' + badgeMarkup.join('') + '</div><span class="makerworld-profile-toggle"><input type="checkbox" data-action="makerworld-instance" data-instance-id="' + escapeHtml(String(instanceId)) + '"' + (checked ? ' checked' : '') + '></span></div>'
           + '      <div class="summary-label makerworld-profile-title">' + escapeHtml(title) + '</div>'
-          + (subtitleParts.length ? '<div class="muted">' + escapeHtml(subtitleParts.join(' | ')) + '</div>' : '')
+          + (subtitleParts.length ? '<div class="muted makerworld-profile-subtitle">' + escapeHtml(subtitleParts.join(' | ')) + '</div>' : '')
           + (metricMarkup ? '<div class="makerworld-metric-row">' + metricMarkup + '</div>' : '')
           + (colors.length ? '<div class="makerworld-color-row">' + colors.map(function (color) { return '<span class="makerworld-color-dot" style="background:' + escapeHtml(color) + '" title="' + escapeHtml(color) + '"></span>'; }).join('') + '</div>' : '')
+          + previewNoteMarkup
           + '    </div>'
           + '  </div>'
           + '</label>';
@@ -3914,23 +3928,31 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.makerworld-detail-panel summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:800;color:var(--primary-text-color);}'
       + '.makerworld-detail-panel summary::-webkit-details-marker{display:none;}'
       + '.makerworld-detail-body{display:grid;gap:12px;padding:0 14px 14px;}'
-      + '.makerworld-profile-card{cursor:pointer;align-content:start;gap:10px;padding:12px 14px;}'
-      + '.makerworld-profile-card.selected{border-color:rgba(56,189,248,0.65);box-shadow:0 0 0 1px rgba(56,189,248,0.35) inset;}'
-      + '.makerworld-profile-head{display:grid;gap:12px;grid-template-columns:72px minmax(0,1fr);align-items:start;}'
-      + '.makerworld-profile-head.no-preview{grid-template-columns:minmax(0,1fr);}'
-      + '.makerworld-profile-thumb{width:72px;height:72px;flex-basis:72px;border-radius:14px;}'
-      + '.makerworld-profile-copy{display:grid;gap:8px;min-width:0;}'
-      + '.makerworld-profile-topline{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}'
-      + '.makerworld-profile-badges{align-items:center;gap:6px;flex-wrap:wrap;}'
-      + '.makerworld-profile-title{font-size:17px;line-height:1.3;font-weight:800;}'
+      + '.makerworld-profile-card{cursor:pointer;align-content:start;gap:10px;padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(30,41,59,0.34),rgba(15,23,42,0.22));box-shadow:0 10px 26px rgba(2,6,23,0.16);}'
+      + '.makerworld-profile-card.selected{border-color:rgba(56,189,248,0.68);box-shadow:0 0 0 1px rgba(56,189,248,0.34) inset,0 14px 32px rgba(8,145,178,0.16);background:linear-gradient(180deg,rgba(8,145,178,0.20),rgba(15,23,42,0.26));}'
+      + '.makerworld-profile-head{display:grid;gap:14px;grid-template-columns:88px minmax(0,1fr);align-items:start;}'
+      + '.makerworld-profile-head.no-preview{grid-template-columns:88px minmax(0,1fr);}'
+      + '.makerworld-profile-thumb{width:88px;height:88px;flex-basis:88px;border-radius:18px;border-color:rgba(148,163,184,0.18);box-shadow:0 10px 24px rgba(2,6,23,0.16);}'
+      + '.makerworld-profile-thumb-placeholder{background:linear-gradient(160deg,rgba(51,65,85,0.88),rgba(15,23,42,0.96));color:rgba(226,232,240,0.9);font-size:28px;font-weight:900;letter-spacing:.08em;}'
+      + '.makerworld-profile-copy{display:grid;gap:10px;min-width:0;align-content:start;}'
+      + '.makerworld-profile-topline{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-height:24px;}'
+      + '.makerworld-profile-badges{align-items:center;gap:6px;flex-wrap:wrap;min-height:24px;}'
+      + '.makerworld-profile-badges .chip{background:rgba(148,163,184,0.12);border-color:rgba(148,163,184,0.22);}'
+      + '.makerworld-profile-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:24px;padding-top:2px;}'
+      + '.makerworld-profile-toggle input{width:17px;height:17px;accent-color:rgb(34,197,94);cursor:pointer;}'
+      + '.makerworld-profile-title{font-size:18px;line-height:1.24;font-weight:900;letter-spacing:-0.01em;}'
+      + '.makerworld-profile-subtitle{font-size:13px;line-height:1.45;color:var(--secondary-text-color);}'
       + '.makerworld-designer-badge{background:rgba(34,197,94,0.18);border-color:rgba(34,197,94,0.32);color:#4ade80;font-weight:800;}'
-      + '.makerworld-metric-row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;}'
-      + '.makerworld-metric{display:inline-flex;align-items:center;gap:6px;color:var(--primary-text-color);font-size:13px;font-weight:700;line-height:1.2;}'
-      + '.makerworld-metric-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--secondary-text-color);}'
+      + '.makerworld-metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:8px;align-items:stretch;}'
+      + '.makerworld-metric{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.26);color:var(--primary-text-color);font-size:13px;font-weight:700;line-height:1.2;min-height:38px;}'
+      + '.makerworld-metric-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--secondary-text-color);flex:0 0 18px;}'
       + '.makerworld-metric-icon svg{display:block;width:16px;height:16px;fill:currentColor;}'
       + '.makerworld-metric-value{white-space:nowrap;}'
       + '.makerworld-color-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}'
       + '.makerworld-color-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,0.22);box-shadow:0 0 0 1px rgba(15,23,42,0.45) inset;}'
+      + '.makerworld-profile-preview-note{display:grid;gap:4px;padding:8px 10px;border-radius:12px;border:1px dashed rgba(148,163,184,0.22);background:rgba(15,23,42,0.18);}'
+      + '.makerworld-profile-preview-note-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.makerworld-profile-preview-note-copy{font-size:12px;line-height:1.4;color:var(--secondary-text-color);}'
       + '.makerworld-profile-summary-thumb{width:36px;height:36px;flex-basis:36px;border-radius:10px;}'
       + '.makerworld-tag-editor{gap:8px;}'
       + '.makerworld-tag-adder{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}'
