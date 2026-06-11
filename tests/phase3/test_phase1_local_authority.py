@@ -316,6 +316,38 @@ class TestLocalModelCRUD:
         assert asset_count == 0
         assert membership_count == 0
 
+    def test_purge_requires_asset_root_to_avoid_orphaned_files(self, db_path):
+        """Purge refuses to remove DB rows when file cleanup cannot be resolved."""
+        create_local_model(
+            db_path=db_path,
+            local_model_id="purge-no-root",
+            model_name="No Root",
+        )
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="purge-no-root",
+            asset_id="model-file",
+            asset_filename="model.3mf",
+            asset_type="3mf",
+            storage_path="purge-no-root/model.3mf",
+        )
+        assert delete_local_model(db_path=db_path, local_model_id="purge-no-root") is True
+
+        with pytest.raises(ValueError, match="asset root is not configured"):
+            purge_local_model(db_path=db_path, local_model_id="purge-no-root", assets_root=None)
+
+        connection = sqlite3.connect(db_path)
+        try:
+            entry_count = connection.execute(
+                "SELECT COUNT(*) FROM model_catalog_entries WHERE local_model_id = ?",
+                ("purge-no-root",),
+            ).fetchone()[0]
+            asset_count = connection.execute("SELECT COUNT(*) FROM model_catalog_assets").fetchone()[0]
+        finally:
+            connection.close()
+        assert entry_count == 1
+        assert asset_count == 1
+
     def test_delete_hard_delete(self, db_path):
         """Hard-delete a model (permanent removal)."""
         create_local_model(

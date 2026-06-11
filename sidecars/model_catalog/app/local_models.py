@@ -407,6 +407,9 @@ def purge_local_model(
     assets_root: Path | None = None,
 ) -> dict[str, Any] | None:
     """Permanently remove a soft-deleted model and its local asset files."""
+    if assets_root is None:
+        raise ValueError("Model Catalog asset root is not configured; refusing to purge because files could be orphaned")
+
     connection = connect(db_path)
     try:
         model_row = connection.execute(
@@ -428,6 +431,13 @@ def purge_local_model(
             (model_id,),
         ).fetchall()
         storage_paths = [str(row["storage_path"] or "").strip() for row in asset_rows if str(row["storage_path"] or "").strip()]
+        unresolved_paths = [
+            storage_path
+            for storage_path in storage_paths
+            if _resolve_purge_storage_path(storage_path=storage_path, assets_root=assets_root) is None
+        ]
+        if unresolved_paths:
+            raise ValueError("Cannot safely resolve one or more model asset paths for purge")
 
         deleted_files = _delete_local_asset_files(storage_paths=storage_paths, assets_root=assets_root)
         _delete_local_model_folder(local_model_id=local_model_id, assets_root=assets_root)

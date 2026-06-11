@@ -174,6 +174,7 @@ model_catalog_entries:
 - Deleted models are kept indefinitely by default. There is no automatic emptying/retention purge unless a future retention policy is explicitly enabled.
 - The browser card exposes a Deleted view. Deleted models can be restored with `POST /api/local/models/{local_model_id}/restore`, which clears `deleted_at` and returns the model to active catalog views.
 - Deleted models can be permanently purged with `DELETE /api/local/models/{local_model_id}/purge`. Purge removes the DB model row, asset rows, collection memberships, and local files under the configured Model Catalog asset root.
+- Purge requires `MODEL_CATALOG_CURATED_ASSETS_ROOT` to be configured. If the sidecar cannot resolve model files through that root, purge is blocked before metadata rows are removed so files are not orphaned.
 - Multi-select delete and purge are gated behind two confirmations: a destructive-action confirmation and a typed prompt (`DELETE` for moving to Deleted, `PURGE` for permanent purge), matching the Print History bulk delete guard pattern.
 - Linked print archives are not deleted by model deletion.
 

@@ -5502,11 +5502,17 @@ def purge_local_model_endpoint(request: Request, local_model_id: str) -> dict[st
     """Permanently purge a soft-deleted local model and local asset files."""
     state: AppState = request.app.state.model_catalog
 
-    result = purge_local_model(
-        db_path=state.settings.db_path,
-        local_model_id=local_model_id,
-        assets_root=state.settings.model_catalog_assets_root,
-    )
+    try:
+        result = purge_local_model(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            assets_root=state.settings.model_catalog_assets_root,
+        )
+    except ValueError as error:
+        return JSONResponse(
+            status_code=409,
+            content={"success": False, "error": "purge_blocked", "message": str(error), "local_model_id": local_model_id}
+        )
     if result is None:
         return JSONResponse(
             status_code=404,
