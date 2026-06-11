@@ -86,8 +86,11 @@ from ..local_models import (
     create_local_model,
     read_local_model,
     list_local_models,
+    list_deleted_local_models,
     update_local_model,
     delete_local_model,
+    restore_local_model,
+    purge_local_model,
     create_model_asset,
     read_model_asset,
     list_model_assets,
@@ -523,7 +526,7 @@ def _search_projection_source_fingerprint(*, db_path: Any) -> str:
             """
             SELECT
                 (SELECT COUNT(*) FROM model_summary_cache) AS summary_count,
-                (SELECT COUNT(*) FROM model_catalog_entries WHERE archived_at IS NULL) AS local_count,
+                (SELECT COUNT(*) FROM model_catalog_entries WHERE archived_at IS NULL AND deleted_at IS NULL) AS local_count,
                 (SELECT COALESCE(MAX(updated_at), '') FROM model_catalog_entries) AS local_updated_at,
                 (SELECT COALESCE(MAX(updated_at), '')
                  FROM model_catalog_custom_fields
@@ -5233,6 +5236,39 @@ def list_local_models_endpoint(request: Request,
             content={"success": False, "error": str(error)}
         )
 
+@router.get("/api/local/deleted-models")
+def list_deleted_local_models_endpoint(request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    q: str | None = None,
+) -> dict[str, Any]:
+    """List soft-deleted local model entries for restore/purge workflows."""
+    state: AppState = request.app.state.model_catalog
+
+    try:
+        entries, total = list_deleted_local_models(
+            db_path=state.settings.db_path,
+            limit=limit,
+            offset=offset,
+            search_query=q,
+        )
+        summaries = [_local_entry_to_summary(entry, db_path=state.settings.db_path) for entry in entries]
+        return {
+            "success": True,
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "total": total,
+            },
+            "models": [asdict(s) for s in summaries],
+            "entries": [asdict(entry) for entry in entries],
+        }
+    except Exception as error:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": str(error)}
+        )
+
 @router.get("/api/local/models/{local_model_id}")
 def get_local_model_endpoint(request: Request, local_model_id: str) -> dict[str, Any]:
     """Fetch a single local model entry."""
@@ -5415,7 +5451,7 @@ def extract_3mf_metadata_endpoint(request: Request, local_model_id: str) -> dict
 
 @router.delete("/api/local/models/{local_model_id}")
 def delete_local_model_endpoint(request: Request, local_model_id: str, hard_delete: bool = False) -> dict[str, Any]:
-    """Delete a local model (soft-delete by default, or hard-delete if requested)."""
+    """Delete a local model (soft-delete by default)."""
     state: AppState = request.app.state.model_catalog
     
     deleted = delete_local_model(
@@ -5436,6 +5472,47 @@ def delete_local_model_endpoint(request: Request, local_model_id: str, hard_dele
         "deleted": True,
         "hard_delete": hard_delete,
     }
+
+@router.post("/api/local/models/{local_model_id}/restore")
+def restore_local_model_endpoint(request: Request, local_model_id: str) -> dict[str, Any]:
+    """Restore a soft-deleted local model."""
+    state: AppState = request.app.state.model_catalog
+
+    restored = restore_local_model(
+        db_path=state.settings.db_path,
+        local_model_id=local_model_id,
+    )
+    if restored is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "deleted_model_not_found", "local_model_id": local_model_id}
+        )
+
+    summary = _local_entry_to_summary(restored, db_path=state.settings.db_path)
+    return {
+        "success": True,
+        "local_model_id": local_model_id,
+        "restored": True,
+        "model": asdict(summary),
+        "entry": asdict(restored),
+    }
+
+@router.delete("/api/local/models/{local_model_id}/purge")
+def purge_local_model_endpoint(request: Request, local_model_id: str) -> dict[str, Any]:
+    """Permanently purge a soft-deleted local model and local asset files."""
+    state: AppState = request.app.state.model_catalog
+
+    result = purge_local_model(
+        db_path=state.settings.db_path,
+        local_model_id=local_model_id,
+        assets_root=state.settings.model_catalog_assets_root,
+    )
+    if result is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "deleted_model_not_found", "local_model_id": local_model_id}
+        )
+    return {"success": True, **result}
 
 @router.post("/api/local/models/{local_model_id}/assets")
 def create_model_asset_endpoint(request: Request, local_model_id: str, payload: dict[str, Any]) -> dict[str, Any]:

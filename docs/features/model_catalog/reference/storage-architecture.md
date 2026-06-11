@@ -170,9 +170,11 @@ model_catalog_entries:
 
 **Delete behavior**:
 - Catalog UI delete actions use the local-model API default soft delete (`DELETE /api/local/models/{local_model_id}?hard_delete=false`).
-- Soft delete sets `archived_at` and removes the model from the active catalog view; it does not remove stored model files or asset records from `/assets/Model Catalog/{model_id}/`.
-- Multi-select delete is gated behind two confirmations: a destructive-action confirmation and a required `DELETE` typed prompt, matching the Print History bulk delete guard pattern.
-- Hard delete is reserved for explicit backend/maintenance flows. The current browser action does not expose hard delete or a recycle-bin UI; restore should be implemented as a dedicated archived-model view/action before exposing user-facing bulk restore. Do not promise physical file removal for hard delete until the storage cleanup path deletes the backing asset files as well as database rows.
+- Soft delete sets `deleted_at` and removes the model from active catalog/search views. It does not set `archived_at`; archived remains the separate hide/retire state.
+- Deleted models are kept indefinitely by default. There is no automatic emptying/retention purge unless a future retention policy is explicitly enabled.
+- The browser card exposes a Deleted view. Deleted models can be restored with `POST /api/local/models/{local_model_id}/restore`, which clears `deleted_at` and returns the model to active catalog views.
+- Deleted models can be permanently purged with `DELETE /api/local/models/{local_model_id}/purge`. Purge removes the DB model row, asset rows, collection memberships, and local files under the configured Model Catalog asset root.
+- Multi-select delete and purge are gated behind two confirmations: a destructive-action confirmation and a typed prompt (`DELETE` for moving to Deleted, `PURGE` for permanent purge), matching the Print History bulk delete guard pattern.
 - Linked print archives are not deleted by model deletion.
 
 **Database Entry**:

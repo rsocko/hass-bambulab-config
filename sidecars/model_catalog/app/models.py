@@ -40,6 +40,7 @@ class LocalModelEntry:
     entity_type: str  # 'model', 'idea', or 'working_group'
     created_at: str
     updated_at: str
+    deleted_at: str | None = None
 
 
 @dataclass(frozen=True)

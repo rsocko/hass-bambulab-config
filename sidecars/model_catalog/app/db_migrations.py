@@ -190,7 +190,8 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         revision_hash TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        archived_at TEXT
+        archived_at TEXT,
+        deleted_at TEXT
     )
     """,
             """
@@ -1388,6 +1389,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             archived_at TEXT,
+            deleted_at TEXT,
             entity_type TEXT NOT NULL DEFAULT 'model'
         )
         """,
@@ -1396,12 +1398,12 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
             id, local_model_id, model_name, model_description, creator_name,
             created_by, keyword_names_json, tags_json, license_type,
             preview_image_url, source_origin, source_origin_url, revision_hash,
-            created_at, updated_at, archived_at, entity_type
+                created_at, updated_at, archived_at, deleted_at, entity_type
         )
         SELECT id, local_model_id, model_name, model_description, creator_name,
                created_by, keyword_names_json, tags_json, license_type,
                preview_image_url, source_origin, source_origin_url, revision_hash,
-               created_at, updated_at, archived_at, entity_type
+                    created_at, updated_at, archived_at, NULL, entity_type
         FROM model_catalog_entries
         """,
             """
@@ -1609,6 +1611,10 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         38,
         (),
     ),
+    (
+        39,
+        (),
+    ),
 )
 
 def current_schema_version(connection: sqlite3.Connection) -> int:
@@ -1801,6 +1807,14 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
             )
         if version == 38:
             ensure_column(connection, "model_catalog_project_tasks", "notes", "TEXT")
+        if version == 39:
+            ensure_column(connection, "model_catalog_entries", "deleted_at", "TEXT")
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_model_catalog_entries_deleted_at
+                ON model_catalog_entries(deleted_at)
+                """
+            )
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),

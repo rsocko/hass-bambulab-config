@@ -22,8 +22,11 @@ from sidecars.model_catalog.app.local_models import (
     create_local_model,
     read_local_model,
     list_local_models,
+    list_deleted_local_models,
     update_local_model,
     delete_local_model,
+    restore_local_model,
+    purge_local_model,
     create_model_asset,
     read_model_asset,
     list_model_assets,
@@ -206,7 +209,7 @@ class TestLocalModelCRUD:
         assert result is None
 
     def test_delete_soft_delete(self, db_path):
-        """Soft-delete a model (archival)."""
+        """Soft-delete a model into the deleted lifecycle."""
         create_local_model(
             db_path=db_path,
             local_model_id="soft-delete-test",
@@ -227,6 +230,91 @@ class TestLocalModelCRUD:
             local_model_id="soft-delete-test",
         )
         assert result is None
+
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            row = connection.execute(
+                "SELECT archived_at, deleted_at FROM model_catalog_entries WHERE local_model_id = ?",
+                ("soft-delete-test",),
+            ).fetchone()
+        finally:
+            connection.close()
+        assert row is not None
+        assert row["archived_at"] is None
+        assert row["deleted_at"]
+
+        deleted_entries, deleted_total = list_deleted_local_models(db_path=db_path)
+        assert deleted_total == 1
+        assert deleted_entries[0].local_model_id == "soft-delete-test"
+        assert deleted_entries[0].deleted_at == row["deleted_at"]
+
+    def test_restore_soft_deleted_model(self, db_path):
+        """Restore clears deleted_at and returns the model to active reads."""
+        create_local_model(
+            db_path=db_path,
+            local_model_id="restore-test",
+            model_name="Restore Me",
+        )
+        assert delete_local_model(db_path=db_path, local_model_id="restore-test") is True
+
+        restored = restore_local_model(db_path=db_path, local_model_id="restore-test")
+
+        assert restored is not None
+        assert restored.local_model_id == "restore-test"
+        assert restored.deleted_at is None
+        assert read_local_model(db_path=db_path, local_model_id="restore-test") is not None
+        _deleted_entries, deleted_total = list_deleted_local_models(db_path=db_path)
+        assert deleted_total == 0
+
+    def test_purge_soft_deleted_model_removes_rows_and_asset_file(self, db_path):
+        """Purge permanently deletes soft-deleted rows and local asset files."""
+        assets_root = db_path.parent / "assets" / "Model Catalog"
+        model_root = assets_root / "purge-test"
+        model_root.mkdir(parents=True)
+        model_file = model_root / "model.3mf"
+        model_file.write_text("3mf", encoding="utf-8")
+
+        create_local_model(
+            db_path=db_path,
+            local_model_id="purge-test",
+            model_name="Purge Me",
+            collection_names=["Trash Tests"],
+        )
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="purge-test",
+            asset_id="model-file",
+            asset_filename="model.3mf",
+            asset_type="3mf",
+            storage_path="purge-test/model.3mf",
+        )
+        assert delete_local_model(db_path=db_path, local_model_id="purge-test") is True
+
+        result = purge_local_model(db_path=db_path, local_model_id="purge-test", assets_root=assets_root)
+
+        assert result is not None
+        assert result["purged"] is True
+        assert result["asset_rows_deleted"] == 1
+        assert result["files_deleted"] == 1
+        assert not model_file.exists()
+
+        connection = sqlite3.connect(db_path)
+        try:
+            entry_count = connection.execute(
+                "SELECT COUNT(*) FROM model_catalog_entries WHERE local_model_id = ?",
+                ("purge-test",),
+            ).fetchone()[0]
+            asset_count = connection.execute("SELECT COUNT(*) FROM model_catalog_assets").fetchone()[0]
+            membership_count = connection.execute(
+                "SELECT COUNT(*) FROM model_catalog_collection_memberships WHERE model_ref = ?",
+                ("purge-test",),
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        assert entry_count == 0
+        assert asset_count == 0
+        assert membership_count == 0
 
     def test_delete_hard_delete(self, db_path):
         """Hard-delete a model (permanent removal)."""

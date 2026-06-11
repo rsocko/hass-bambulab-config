@@ -284,6 +284,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       recent_printed_only: false,
       has_other_files: false,
       show_archived: false,
+      show_deleted: false,
       project_id: null,
       project_member_state: "",
     };
@@ -868,6 +869,67 @@ class ModelCatalogBrowserCard extends HTMLElement {
       throw new Error(String(data.error || ("Failed to create idea (HTTP " + String(response.status) + ")")));
     }
     return data;
+  }
+
+  async _fetchDeletedModelsPage(requestPayload) {
+    var base = String(this._resolveModelSidecarUrl() || "").trim().replace(/\/$/, "");
+    if (!base) {
+      throw new Error("No sidecar URL configured");
+    }
+    var page = Math.max(1, Number(requestPayload && requestPayload.page || 1) || 1);
+    var perPage = Math.max(1, Number(requestPayload && requestPayload.per_page || this._pagination.per_page || 12) || 12);
+    var params = new URLSearchParams();
+    params.set("limit", String(perPage));
+    params.set("offset", String((page - 1) * perPage));
+    if (requestPayload && requestPayload.q) {
+      params.set("q", String(requestPayload.q));
+    }
+    var response = await fetch(base + "/api/local/deleted-models?" + params.toString(), {
+      method: "GET",
+      headers: Object.assign({ "Accept": "application/json" }, await this._authHeaders(false)),
+      credentials: "omit",
+    });
+    if (response.status === 401) {
+      response = await fetch(base + "/api/local/deleted-models?" + params.toString(), {
+        method: "GET",
+        headers: Object.assign({ "Accept": "application/json" }, await this._authHeaders(true)),
+        credentials: "omit",
+      });
+    }
+    if (!response.ok) {
+      throw new Error("Failed to load deleted models (" + response.status + ")");
+    }
+    var payload = await response.json();
+    var entriesById = {};
+    var entries = Array.isArray(payload && payload.entries) ? payload.entries : [];
+    for (var i = 0; i < entries.length; i++) {
+      var entryId = String(entries[i] && entries[i].local_model_id || "").trim();
+      if (entryId) {
+        entriesById[entryId] = entries[i];
+      }
+    }
+    var models = (Array.isArray(payload && payload.models) ? payload.models : []).map(function (model) {
+      var item = Object.assign({}, model || {});
+      var localModelId = String(item.public_id || item.local_model_id || "").trim();
+      var entry = entriesById[localModelId] || {};
+      item.local_model_id = localModelId;
+      item.authority = "local";
+      item.source_authority = "local";
+      item.deleted_at = entry.deleted_at || item.deleted_at || null;
+      item.linked_archive_count = Number(item.linked_archive_count || 0) || 0;
+      return item;
+    });
+    var total = Number(payload && payload.pagination && payload.pagination.total || models.length) || 0;
+    return {
+      results: models,
+      filters: { show_deleted: true, q: requestPayload && requestPayload.q || "" },
+      pagination: {
+        page: page,
+        per_page: perPage,
+        total: total,
+        total_pages: Math.max(1, Math.ceil(total / perPage)),
+      },
+    };
   }
 
   _openIdeaCreateDialog() {
@@ -1500,6 +1562,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     this._filters.has_other_files = !!(root.querySelector("#mc-has-other-files") && root.querySelector("#mc-has-other-files").checked);
     this._filters.show_archived = !!(root.querySelector("#mc-show-archived") && root.querySelector("#mc-show-archived").checked);
+    this._filters.show_deleted = !!(root.querySelector("#mc-show-deleted") && root.querySelector("#mc-show-deleted").checked);
     this._frequentsTuning.window_days = this._clampInteger(read("#mc-frequent-window"), this._frequentsTuning.window_days || 90, 7, 3650);
     this._frequentsTuning.min_prints = this._clampInteger(read("#mc-frequent-min-prints"), this._frequentsTuning.min_prints || 3, 1, 9999);
     this._frequentsTuning.backfill_weight = 0.5;
@@ -1904,6 +1967,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         frequent_backfill_weight: 0.5,
         has_other_files: !!this._filters.has_other_files,
         show_archived: !!this._filters.show_archived,
+        show_deleted: !!this._filters.show_deleted,
         show_ideas: !!(this._typeFilters && this._typeFilters.idea),
         entity_types: entityTypes,
         refresh: !!refresh,
@@ -1921,7 +1985,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
 
       var data;
-      if (this._browserScope === "collections") {
+      if (requestPayload.show_deleted) {
+        data = await this._fetchDeletedModelsPage(requestPayload);
+      } else if (this._browserScope === "collections") {
         data = await this._browseCollectionsFast({
           q: requestPayload.q,
           creator: requestPayload.creator,
@@ -3177,6 +3243,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "toggle-show-deleted-filter") {
+      this._filters.show_deleted = !this._filters.show_deleted;
+      if (this._filters.show_deleted) {
+        this._filters.show_archived = false;
+        this._browserScope = "models";
+      }
+      this._cancelScheduledApply();
+      this._clearModelSelection();
+      this._requestLoad(1, false);
+      this._render();
+      return;
+    }
+
     if (action === "toggle-show-media") {
       this._showMedia = !this._showMedia;
       this._render();
@@ -3320,6 +3399,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       await this._bulkDeleteSelectedModels();
+      return;
+    }
+
+    if (action === "bulk-restore-models") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkRestoreSelectedModels();
+      return;
+    }
+
+    if (action === "bulk-purge-models") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkPurgeSelectedModels();
       return;
     }
 
@@ -3484,6 +3577,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
         return;
       }
       await this._deleteModel(deleteModelRef, deleteModelName);
+      return;
+    }
+
+    if (action === "restore-model") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._restoreDeletedModel(target.getAttribute("data-local-model-id"), target.getAttribute("data-model-ref"));
+      return;
+    }
+
+    if (action === "purge-model") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._purgeDeletedModel(target.getAttribute("data-local-model-id"), target.getAttribute("data-model-ref"), target.getAttribute("data-model-name"));
       return;
     }
 
@@ -6149,7 +6256,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var confirmLines = [
       "Delete " + String(targetCount) + " selected local model" + (targetCount === 1 ? "" : "s") + " from the active Model Catalog?",
       "",
-      "This is a soft delete: model metadata is archived and stored model files/assets stay on disk.",
+      "This moves them to Deleted. They are kept indefinitely until you restore or purge them.",
+      "Stored model files/assets stay on disk unless you purge from Deleted.",
       "Linked print archives are not deleted.",
     ];
     if (linkedArchiveCount > 0) {
@@ -6208,7 +6316,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       try {
         await this._hass.callService("persistent_notification", "create", {
           title: failedRefs.length ? "Model Delete Partially Completed" : "Models Deleted",
-          message: failedRefs.length ? this._error : "Deleted " + String(deletedRefs.length) + " selected model" + (deletedRefs.length === 1 ? "" : "s") + " from the active catalog.",
+          message: failedRefs.length ? this._error : "Moved " + String(deletedRefs.length) + " selected model" + (deletedRefs.length === 1 ? "" : "s") + " to Deleted.",
           notification_id: failedRefs.length ? "model_catalog_bulk_delete_partial" : "model_catalog_bulk_delete_success",
         });
       } catch (_notifError) {
@@ -6219,6 +6327,106 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._error = error && error.message ? String(error.message) : "Failed to delete selected models";
       this._render();
     }
+  }
+
+  _selectedLocalModelTargets() {
+    var selectedRefs = this.getSelectedModelRefs();
+    var targets = [];
+    for (var i = 0; i < selectedRefs.length; i++) {
+      var modelRef = selectedRefs[i];
+      var model = this._modelByRef(modelRef);
+      var localModelId = this._localModelIdForModel(model) || String(modelRef || "").trim();
+      if (model && localModelId) {
+        targets.push({ model_ref: modelRef, local_model_id: localModelId, model_name: String(model.name || model.model_name || localModelId) });
+      }
+    }
+    return targets;
+  }
+
+  async _bulkRestoreSelectedModels() {
+    var targets = this._selectedLocalModelTargets();
+    if (!targets.length || this._loading) {
+      return;
+    }
+    if (!window.confirm("Restore " + String(targets.length) + " selected deleted model" + (targets.length === 1 ? "" : "s") + " to the active catalog?")) {
+      return;
+    }
+    var restoredRefs = [];
+    var failedRefs = [];
+    this._loading = true;
+    this._error = "";
+    this._render();
+    for (var i = 0; i < targets.length; i++) {
+      try {
+        await this._restoreLocalModelRequest(targets[i].local_model_id);
+        restoredRefs.push(targets[i].model_ref);
+      } catch (_error) {
+        failedRefs.push(targets[i].model_ref);
+      }
+    }
+    if (restoredRefs.length) {
+      this._removeDeletedModelsFromCurrentView(restoredRefs);
+      this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - restoredRefs.length);
+      this._pagination.total_pages = Math.max(1, Math.ceil(this._pagination.total / (this._pagination.per_page || 12)));
+    }
+    this._selectedModelRefs.clear();
+    for (var j = 0; j < failedRefs.length; j++) {
+      this._selectedModelRefs.add(failedRefs[j]);
+    }
+    this._multiSelectMode = failedRefs.length > 0;
+    this._notifySelectionChanged();
+    this._loading = false;
+    this._activeActionMenu = "";
+    if (failedRefs.length) {
+      this._error = "Restored " + String(restoredRefs.length) + " selected model" + (restoredRefs.length === 1 ? "" : "s") + "; " + String(failedRefs.length) + " failed.";
+    }
+    this._requestLoad(this._currentPage(), true);
+    this._render();
+  }
+
+  async _bulkPurgeSelectedModels() {
+    var targets = this._selectedLocalModelTargets();
+    if (!targets.length || this._loading) {
+      return;
+    }
+    var count = targets.length;
+    if (!window.confirm("Permanently purge " + String(count) + " selected deleted model" + (count === 1 ? "" : "s") + "?\n\nThis removes catalog records and deletes stored local model files/assets. This cannot be undone.\n\nContinue?")) {
+      return;
+    }
+    if (window.prompt("Type PURGE to permanently delete " + String(count) + " selected deleted model" + (count === 1 ? "." : "s."), "") !== "PURGE") {
+      return;
+    }
+    var purgedRefs = [];
+    var failedRefs = [];
+    this._loading = true;
+    this._error = "";
+    this._render();
+    for (var i = 0; i < targets.length; i++) {
+      try {
+        await this._purgeLocalModelRequest(targets[i].local_model_id);
+        purgedRefs.push(targets[i].model_ref);
+      } catch (_error) {
+        failedRefs.push(targets[i].model_ref);
+      }
+    }
+    if (purgedRefs.length) {
+      this._removeDeletedModelsFromCurrentView(purgedRefs);
+      this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - purgedRefs.length);
+      this._pagination.total_pages = Math.max(1, Math.ceil(this._pagination.total / (this._pagination.per_page || 12)));
+    }
+    this._selectedModelRefs.clear();
+    for (var j = 0; j < failedRefs.length; j++) {
+      this._selectedModelRefs.add(failedRefs[j]);
+    }
+    this._multiSelectMode = failedRefs.length > 0;
+    this._notifySelectionChanged();
+    this._loading = false;
+    this._activeActionMenu = "";
+    if (failedRefs.length) {
+      this._error = "Purged " + String(purgedRefs.length) + " selected model" + (purgedRefs.length === 1 ? "" : "s") + "; " + String(failedRefs.length) + " failed.";
+    }
+    this._requestLoad(this._currentPage(), true);
+    this._render();
   }
 
   _parseBulkTagList(rawValue) {
@@ -6417,8 +6625,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       "Delete " + modelName + " from the Model Catalog?",
       "",
       "This is a soft delete:",
-      "• Model metadata is archived and removed from the active catalog",
-      "• Stored model files and assets stay on disk",
+      "• The model moves to Deleted and is removed from the active catalog",
+      "• It is kept indefinitely until restored or purged",
+      "• Stored model files and assets stay on disk unless purged",
     ];
 
     if (linkedCount > 0) {
@@ -6467,7 +6676,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       try {
         await this._hass.callService("persistent_notification", "create", {
           title: "Model Deleted",
-          message: "Model successfully deleted from the catalog.",
+          message: "Model moved to Deleted.",
           notification_id: "model_catalog_delete_success",
         });
       } catch (_notifError) {
@@ -6526,6 +6735,121 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var result = await response.json();
     if (!result.success) {
       throw new Error(result.error || "Delete operation failed");
+    }
+    return result;
+  }
+
+  async _restoreDeletedModel(localModelId, modelRef) {
+    var resolvedLocalId = String(localModelId || "").trim();
+    var resolvedRef = String(modelRef || resolvedLocalId || "").trim();
+    if (!resolvedLocalId) {
+      this._error = "Could not identify deleted local model to restore.";
+      this._render();
+      return;
+    }
+    try {
+      this._loading = true;
+      this._error = "";
+      this._render();
+      await this._restoreLocalModelRequest(resolvedLocalId);
+      this._removeDeletedModelsFromCurrentView([resolvedRef]);
+      this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - 1);
+      this._pagination.total_pages = Math.max(1, Math.ceil(this._pagination.total / (this._pagination.per_page || 12)));
+      this._loading = false;
+      this._activeActionMenu = "";
+      this._requestLoad(this._currentPage(), true);
+      this._render();
+    } catch (error) {
+      this._loading = false;
+      this._error = error && error.message ? String(error.message) : "Failed to restore model";
+      this._render();
+    }
+  }
+
+  async _purgeDeletedModel(localModelId, modelRef, modelName) {
+    var resolvedLocalId = String(localModelId || "").trim();
+    var resolvedRef = String(modelRef || resolvedLocalId || "").trim();
+    var name = String(modelName || "this model").trim() || "this model";
+    if (!resolvedLocalId) {
+      this._error = "Could not identify deleted local model to purge.";
+      this._render();
+      return;
+    }
+    if (!window.confirm("Permanently purge " + name + "?\n\nThis removes the catalog record and deletes stored local model files/assets. This cannot be undone.\n\nContinue?")) {
+      return;
+    }
+    if (window.prompt("Type PURGE to permanently delete " + name + ".", "") !== "PURGE") {
+      return;
+    }
+    try {
+      this._loading = true;
+      this._error = "";
+      this._render();
+      await this._purgeLocalModelRequest(resolvedLocalId);
+      this._removeDeletedModelsFromCurrentView([resolvedRef]);
+      this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - 1);
+      this._pagination.total_pages = Math.max(1, Math.ceil(this._pagination.total / (this._pagination.per_page || 12)));
+      this._loading = false;
+      this._activeActionMenu = "";
+      this._requestLoad(this._currentPage(), true);
+      this._render();
+    } catch (error) {
+      this._loading = false;
+      this._error = error && error.message ? String(error.message) : "Failed to purge model";
+      this._render();
+    }
+  }
+
+  async _restoreLocalModelRequest(localModelId) {
+    var sidecarUrl = this._resolveModelSidecarUrl();
+    if (!sidecarUrl) {
+      throw new Error("Model Catalog sidecar URL not configured");
+    }
+    var response = await fetch(sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "/restore", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(false)),
+      credentials: "omit",
+    });
+    if (response.status === 401) {
+      response = await fetch(sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "/restore", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(true)),
+        credentials: "omit",
+      });
+    }
+    if (!response.ok) {
+      throw new Error("Restore failed: HTTP " + String(response.status));
+    }
+    var result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || "Restore operation failed");
+    }
+    return result;
+  }
+
+  async _purgeLocalModelRequest(localModelId) {
+    var sidecarUrl = this._resolveModelSidecarUrl();
+    if (!sidecarUrl) {
+      throw new Error("Model Catalog sidecar URL not configured");
+    }
+    var response = await fetch(sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "/purge", {
+      method: "DELETE",
+      headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(false)),
+      credentials: "omit",
+    });
+    if (response.status === 401) {
+      response = await fetch(sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "/purge", {
+        method: "DELETE",
+        headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(true)),
+        credentials: "omit",
+      });
+    }
+    if (!response.ok) {
+      throw new Error("Purge failed: HTTP " + String(response.status));
+    }
+    var result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || "Purge operation failed");
     }
     return result;
   }
@@ -6608,7 +6932,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _localModelIdForModel(model) {
     var item = model && typeof model === "object" ? model : {};
     var fields = item.custom_fields && typeof item.custom_fields === "object" ? item.custom_fields : {};
-    return String(item.local_model_id || fields.local_model_id || "").trim();
+    var authority = String(item.authority || item.source_authority || "").trim().toLowerCase();
+    return String(item.local_model_id || fields.local_model_id || (authority === "local" ? item.public_id : "") || "").trim();
   }
 
   _modelByRef(modelRef) {
@@ -7912,6 +8237,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (this._filters && this._filters.show_archived) {
       count += 1;
     }
+    if (this._filters && this._filters.show_deleted) {
+      count += 1;
+    }
     if (this._clampInteger(this._frequentsTuning.window_days, 90, 7, 3650) !== 90) {
       count += 1;
     }
@@ -7927,6 +8255,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var minPrints = this._clampInteger(this._frequentsTuning.min_prints, 3, 1, 9999);
     var archivedCount = Math.max(0, Number(this._visibilityCounts && this._visibilityCounts.archived || 0) || 0);
     var showArchivedLabel = 'Show archived' + (archivedCount > 0 ? (' \u00b7 ' + String(archivedCount)) : '');
+    var showDeletedLabel = 'Show deleted';
     return ''
       + '<details class="advanced-filter-menu">'
       + '  <summary class="toolbar-btn advanced-filter-trigger" aria-label="Advanced filters">'
@@ -7942,6 +8271,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="advanced-filter-toggle-row">'
       + '      <button class="filter-chip toggle-chip' + (this._filters.has_other_files ? ' active docs' : '') + '" type="button" data-action="toggle-other-files-filter" aria-pressed="' + (this._filters.has_other_files ? 'true' : 'false') + '">Has other files</button>'
       + '      <button class="filter-chip toggle-chip' + (this._filters.show_archived ? ' active archived' : '') + '" type="button" data-action="toggle-show-archived-filter" aria-pressed="' + (this._filters.show_archived ? 'true' : 'false') + '">' + this._escapeHtml(showArchivedLabel) + '</button>'
+      + '      <button class="filter-chip toggle-chip' + (this._filters.show_deleted ? ' active danger' : '') + '" type="button" data-action="toggle-show-deleted-filter" aria-pressed="' + (this._filters.show_deleted ? 'true' : 'false') + '">' + this._escapeHtml(showDeletedLabel) + '</button>'
       + '    </div>'
       + '    <div class="advanced-filter-section">'
       + '      <div class="advanced-filter-section-label">Frequents</div>'
@@ -7968,6 +8298,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '    <input id="mc-has-other-files" type="checkbox" hidden ' + (this._filters.has_other_files ? 'checked' : '') + '>'
       + '    <input id="mc-show-archived" type="checkbox" hidden ' + (this._filters.show_archived ? 'checked' : '') + '>'
+      + '    <input id="mc-show-deleted" type="checkbox" hidden ' + (this._filters.show_deleted ? 'checked' : '') + '>'
       + '    <div class="advanced-filter-footer">'
       + '      <button class="toolbar-btn ghost" type="button" data-action="clear-filters" ' + (this._loading ? 'disabled' : '') + '>Clear</button>'
       + '    </div>'
@@ -8415,6 +8746,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var sourceOptionsHtml = '<option value="" selected disabled>Set Source…</option>';
     for (var s = 0; s < sourceOptions.length; s++) {
       sourceOptionsHtml += '<option value="' + this._escapeHtml(sourceOptions[s].id) + '">' + this._escapeHtml(sourceOptions[s].label) + '</option>';
+    }
+    if (this._filters && this._filters.show_deleted) {
+      return ''
+        + '<div class="page-control-strip multi-select-active' + extraClass + '">'
+        + '  <span class="ms-count">' + this._escapeHtml(String(count) + ' of ' + String(visible) + ' selected') + '</span>'
+        + '  <button class="bulk-btn" type="button" data-action="toggle-select-all-models">' + this._escapeHtml(selectAllLabel) + '</button>'
+        + '  <button class="bulk-btn" type="button" data-action="bulk-restore-models"><ha-icon icon="mdi:restore"></ha-icon> Restore</button>'
+        + '  <button class="bulk-btn danger" type="button" data-action="bulk-purge-models"><ha-icon icon="mdi:delete-forever-outline"></ha-icon> Purge</button>'
+        + '  <div class="ms-spacer"></div>'
+        + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
+        + '</div>';
     }
     return ''
       + '<div class="page-control-strip multi-select-active' + extraClass + '">'
@@ -9120,8 +9462,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
 
     var isLocalModel = String(item.authority || "").trim() === "local";
-    var deleteButton = isLocalModel
+    var isDeletedView = !!(this._filters && this._filters.show_deleted);
+    var deleteButton = isLocalModel && !isDeletedView
       ? '  <button class="advanced-action danger" type="button" data-action="delete-model" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:trash-can-outline"></ha-icon><span>Delete model</span></button>'
+      : '';
+    var deletedLifecycleActions = isLocalModel && isDeletedView
+      ? '  <button class="advanced-action primary" type="button" data-action="restore-model" data-model-ref="' + this._escapeHtml(modelRef) + '" data-local-model-id="' + this._escapeHtml(localModelId) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:restore"></ha-icon><span>Restore model</span></button>'
+        + '  <button class="advanced-action danger" type="button" data-action="purge-model" data-model-ref="' + this._escapeHtml(modelRef) + '" data-local-model-id="' + this._escapeHtml(localModelId) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:delete-forever-outline"></ha-icon><span>Purge permanently</span></button>'
       : '';
     var promotionActions = '';
     var promotionTargets = this._promotionTargets(entityType);
@@ -9140,6 +9487,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
           + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
           + promotionActions
+          + deletedLifecycleActions
           + deleteButton
           + '</div>'
       + '</div>';

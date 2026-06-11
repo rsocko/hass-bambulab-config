@@ -89,8 +89,18 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('await this._bulkDeleteSelectedModels();', self.card_content)
         self.assertIn('window.confirm(confirmLines.join("\\n"))', self.card_content)
         self.assertIn('window.prompt("Type DELETE to remove "', self.card_content)
-        self.assertIn('"?hard_delete=false"', self.card_content)
-        self.assertIn('model metadata is archived and stored model files/assets stay on disk', self.card_content)
+        self.assertIn('This moves them to Deleted. They are kept indefinitely until you restore or purge them.', self.card_content)
+        self.assertIn('Stored model files/assets stay on disk unless you purge from Deleted.', self.card_content)
+
+    def test_deleted_model_lifecycle_has_restore_and_purge_ui(self):
+        self.assertIn('show_deleted: false', self.card_content)
+        self.assertIn('data-action="toggle-show-deleted-filter"', self.card_content)
+        self.assertIn('/api/local/deleted-models?', self.card_content)
+        self.assertIn('data-action="bulk-restore-models"', self.card_content)
+        self.assertIn('data-action="bulk-purge-models"', self.card_content)
+        self.assertIn('/restore', self.card_content)
+        self.assertIn('/purge', self.card_content)
+        self.assertIn('window.prompt("Type PURGE to permanently delete "', self.card_content)
 
 
 if __name__ == "__main__":

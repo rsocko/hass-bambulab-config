@@ -8722,13 +8722,12 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    // Build warning message about what will be deleted
     const warningLines = [
       `Delete ${modelName} from the Model Catalog?`,
       "",
-      "This will delete:",
-      "• Model metadata and database entries",
-      "• All stored model files and assets",
+      "This moves the model to Deleted and removes it from the active catalog.",
+      "It is kept indefinitely until restored or purged.",
+      "Stored model files and assets stay on disk unless purged from Deleted.",
     ];
 
     if (linkedCount > 0) {
@@ -8738,10 +8737,13 @@ class ModelDetailPopupCard extends HTMLElement {
       );
     }
 
-    warningLines.push("", "This action cannot be undone.");
+    warningLines.push("", "Continue?");
 
     const confirmMsg = warningLines.join("\n");
     if (!window.confirm(confirmMsg)) {
+      return;
+    }
+    if (window.prompt(`Type DELETE to move ${modelName} to Deleted.`, "") !== "DELETE") {
       return;
     }
 
@@ -8801,7 +8803,7 @@ class ModelDetailPopupCard extends HTMLElement {
       try {
         await this._hass.callService("persistent_notification", "create", {
           title: "Model Deleted",
-          message: "Model successfully deleted from the catalog.",
+          message: "Model moved to Deleted.",
           notification_id: "model_catalog_delete_success",
         });
       } catch (err) {

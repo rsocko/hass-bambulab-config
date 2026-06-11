@@ -10,6 +10,7 @@ Migration context: See Phase 1 Implementation Plan.
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -99,13 +100,13 @@ def read_local_model(
     db_path: Path,
     local_model_id: str,
 ) -> LocalModelEntry | None:
-    """Read a single local model entry (non-archived)."""
+    """Read a single local model entry (active by default)."""
     connection = connect(db_path)
     try:
         row = connection.execute(
             """
             SELECT * FROM model_catalog_entries 
-            WHERE local_model_id = ? AND archived_at IS NULL
+            WHERE local_model_id = ? AND archived_at IS NULL AND deleted_at IS NULL
             """,
             (local_model_id,),
         ).fetchone()
@@ -136,7 +137,7 @@ def list_local_models(
     """
     connection = connect(db_path)
     try:
-        where_clauses = ["archived_at IS NULL"]
+        where_clauses = ["archived_at IS NULL", "deleted_at IS NULL"]
         params: list[Any] = []
 
         if search_query and search_query.strip():
@@ -204,7 +205,7 @@ def update_local_model(
     try:
         # Check if model exists
         existing = connection.execute(
-            "SELECT id FROM model_catalog_entries WHERE local_model_id = ? AND archived_at IS NULL",
+            "SELECT id FROM model_catalog_entries WHERE local_model_id = ? AND archived_at IS NULL AND deleted_at IS NULL",
             (local_model_id,),
         ).fetchone()
 
@@ -285,12 +286,12 @@ def delete_local_model(
     local_model_id: str,
     hard_delete: bool = False,
 ) -> bool:
-    """Soft-delete (archive) or hard-delete a model.
+    """Soft-delete or hard-delete a model.
     
     Args:
         db_path: Path to SQLite database
         local_model_id: Model to delete
-        hard_delete: If True, permanently remove; if False, set archived_at timestamp
+        hard_delete: If True, permanently remove DB rows; if False, set deleted_at timestamp
     
     Returns:
         True if deleted, False if not found
@@ -317,10 +318,15 @@ def delete_local_model(
                 (local_model_id,),
             )
         else:
-            # Soft delete: set archived_at
+            # Soft delete: move to deleted/trash lifecycle without changing archive semantics.
+            now = utc_now_iso()
             cursor = connection.execute(
-                "UPDATE model_catalog_entries SET archived_at = ? WHERE local_model_id = ? AND archived_at IS NULL",
-                (utc_now_iso(), local_model_id),
+                """
+                UPDATE model_catalog_entries
+                SET deleted_at = ?, updated_at = ?
+                WHERE local_model_id = ? AND deleted_at IS NULL
+                """,
+                (now, now, local_model_id),
             )
             if cursor.rowcount == 0:
                 return False
@@ -329,6 +335,179 @@ def delete_local_model(
         return True
     finally:
         connection.close()
+
+
+def list_deleted_local_models(
+    *,
+    db_path: Path,
+    limit: int = 50,
+    offset: int = 0,
+    search_query: str | None = None,
+) -> tuple[list[LocalModelEntry], int]:
+    """List soft-deleted local models with pagination and optional search."""
+    connection = connect(db_path)
+    try:
+        where_clauses = ["deleted_at IS NOT NULL"]
+        params: list[Any] = []
+
+        if search_query and search_query.strip():
+            search_term = f"%{search_query.strip()}%"
+            where_clauses.append(
+                "(model_name LIKE ? OR model_description LIKE ? OR tags_json LIKE ?)"
+            )
+            params.extend([search_term, search_term, search_term])
+
+        where_sql = " AND ".join(where_clauses)
+        count_row = connection.execute(
+            f"SELECT COUNT(*) as cnt FROM model_catalog_entries WHERE {where_sql}",
+            params,
+        ).fetchone()
+        total = int(count_row["cnt"] if count_row else 0)
+        rows = connection.execute(
+            f"""
+            SELECT * FROM model_catalog_entries
+            WHERE {where_sql}
+            ORDER BY deleted_at DESC, updated_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            params + [limit, offset],
+        ).fetchall()
+        entries = [_row_to_local_model_entry(row) for row in rows]
+        entries = _hydrate_local_entries_collections(db_path=db_path, entries=entries)
+        return entries, total
+    finally:
+        connection.close()
+
+
+def restore_local_model(*, db_path: Path, local_model_id: str) -> LocalModelEntry | None:
+    """Restore a soft-deleted local model."""
+    connection = connect(db_path)
+    try:
+        now = utc_now_iso()
+        cursor = connection.execute(
+            """
+            UPDATE model_catalog_entries
+            SET deleted_at = NULL, updated_at = ?
+            WHERE local_model_id = ? AND deleted_at IS NOT NULL
+            """,
+            (now, local_model_id),
+        )
+        connection.commit()
+        if cursor.rowcount == 0:
+            return None
+    finally:
+        connection.close()
+    return read_local_model(db_path=db_path, local_model_id=local_model_id)
+
+
+def purge_local_model(
+    *,
+    db_path: Path,
+    local_model_id: str,
+    assets_root: Path | None = None,
+) -> dict[str, Any] | None:
+    """Permanently remove a soft-deleted model and its local asset files."""
+    connection = connect(db_path)
+    try:
+        model_row = connection.execute(
+            """
+            SELECT id FROM model_catalog_entries
+            WHERE local_model_id = ? AND deleted_at IS NOT NULL
+            """,
+            (local_model_id,),
+        ).fetchone()
+        if not model_row:
+            return None
+
+        model_id = int(model_row["id"])
+        asset_rows = connection.execute(
+            """
+            SELECT storage_path FROM model_catalog_assets
+            WHERE model_catalog_entry_id = ?
+            """,
+            (model_id,),
+        ).fetchall()
+        storage_paths = [str(row["storage_path"] or "").strip() for row in asset_rows if str(row["storage_path"] or "").strip()]
+
+        deleted_files = _delete_local_asset_files(storage_paths=storage_paths, assets_root=assets_root)
+        _delete_local_model_folder(local_model_id=local_model_id, assets_root=assets_root)
+
+        connection.execute(
+            "DELETE FROM model_catalog_assets WHERE model_catalog_entry_id = ?",
+            (model_id,),
+        )
+        connection.execute(
+            "DELETE FROM model_catalog_collection_memberships WHERE model_ref = ?",
+            (local_model_id,),
+        )
+        connection.execute(
+            "DELETE FROM model_catalog_entries WHERE local_model_id = ?",
+            (local_model_id,),
+        )
+        connection.commit()
+        return {
+            "local_model_id": local_model_id,
+            "purged": True,
+            "asset_rows_deleted": len(asset_rows),
+            "files_deleted": deleted_files,
+        }
+    finally:
+        connection.close()
+
+
+def _delete_local_asset_files(*, storage_paths: list[str], assets_root: Path | None) -> int:
+    deleted = 0
+    for storage_path in storage_paths:
+        resolved = _resolve_purge_storage_path(storage_path=storage_path, assets_root=assets_root)
+        if resolved is None or not resolved.exists():
+            continue
+        if resolved.is_dir():
+            continue
+        resolved.unlink()
+        deleted += 1
+        parent = resolved.parent
+        while assets_root is not None and _is_relative_to(parent, assets_root.resolve()):
+            if parent == assets_root.resolve():
+                break
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
+    return deleted
+
+
+def _delete_local_model_folder(*, local_model_id: str, assets_root: Path | None) -> None:
+    if assets_root is None:
+        return
+    root = assets_root.resolve()
+    candidate = (root / local_model_id).resolve()
+    if candidate == root or not _is_relative_to(candidate, root):
+        return
+    if candidate.exists() and candidate.is_dir():
+        shutil.rmtree(candidate)
+
+
+def _resolve_purge_storage_path(*, storage_path: str, assets_root: Path | None) -> Path | None:
+    if not storage_path.strip():
+        return None
+    raw_path = Path(storage_path)
+    if raw_path.is_absolute():
+        resolved = raw_path.resolve()
+        if assets_root is not None and not _is_relative_to(resolved, assets_root.resolve()):
+            return None
+        return resolved
+    if assets_root is None:
+        return None
+    return (assets_root.resolve() / raw_path).resolve()
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 def create_model_asset(
@@ -367,7 +546,7 @@ def create_model_asset(
     try:
         # Get model ID
         model_id_row = connection.execute(
-            "SELECT id FROM model_catalog_entries WHERE local_model_id = ? AND archived_at IS NULL",
+            "SELECT id FROM model_catalog_entries WHERE local_model_id = ? AND archived_at IS NULL AND deleted_at IS NULL",
             (local_model_id,),
         ).fetchone()
 
@@ -429,7 +608,7 @@ def read_model_asset(
             """
             SELECT a.* FROM model_catalog_assets a
             JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
-            WHERE e.local_model_id = ? AND a.asset_id = ? AND e.archived_at IS NULL
+            WHERE e.local_model_id = ? AND a.asset_id = ? AND e.archived_at IS NULL AND e.deleted_at IS NULL
             """,
             (local_model_id, asset_id),
         ).fetchone()
@@ -450,7 +629,7 @@ def list_model_assets(
     """List all assets for a model (optionally filtered by type)."""
     connection = connect(db_path)
     try:
-        where_clauses = ["e.local_model_id = ?", "e.archived_at IS NULL"]
+        where_clauses = ["e.local_model_id = ?", "e.archived_at IS NULL", "e.deleted_at IS NULL"]
         params: list[Any] = [local_model_id]
 
         if asset_type:
@@ -499,7 +678,7 @@ def update_model_asset(
             """
             SELECT a.id FROM model_catalog_assets a
             JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
-            WHERE e.local_model_id = ? AND a.asset_id = ? AND e.archived_at IS NULL
+            WHERE e.local_model_id = ? AND a.asset_id = ? AND e.archived_at IS NULL AND e.deleted_at IS NULL
             """,
             (local_model_id, asset_id),
         ).fetchone()
@@ -551,7 +730,7 @@ def update_model_asset(
             SET {', '.join(update_fields)}
             WHERE model_catalog_entry_id IN (
                 SELECT id FROM model_catalog_entries
-                WHERE local_model_id = ? AND archived_at IS NULL
+                WHERE local_model_id = ? AND archived_at IS NULL AND deleted_at IS NULL
             ) AND asset_id = ?
             """,
             params,
@@ -577,7 +756,7 @@ def delete_model_asset(
             DELETE FROM model_catalog_assets
             WHERE asset_id = ? AND model_catalog_entry_id IN (
                 SELECT id FROM model_catalog_entries 
-                WHERE local_model_id = ? AND archived_at IS NULL
+                WHERE local_model_id = ? AND archived_at IS NULL AND deleted_at IS NULL
             )
             """,
             (asset_id, local_model_id),
@@ -596,6 +775,11 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
     except Exception:
         entity_type_raw = "model"
     entity_type = str(entity_type_raw or "model")
+
+    try:
+        deleted_at = row["deleted_at"]
+    except Exception:
+        deleted_at = None
 
     def _safe_json_list(value: Any) -> tuple[str, ...]:
         if value is None:
@@ -634,6 +818,7 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         entity_type=entity_type,
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+        deleted_at=deleted_at,
     )
 
 
@@ -674,6 +859,7 @@ def _hydrate_local_entries_collections(*, db_path: Path, entries: list[LocalMode
                 entity_type=entry.entity_type,
                 created_at=entry.created_at,
                 updated_at=entry.updated_at,
+                deleted_at=entry.deleted_at,
             )
         )
     return hydrated_entries
