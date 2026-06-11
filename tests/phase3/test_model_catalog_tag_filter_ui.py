@@ -84,6 +84,14 @@ class TestModelCatalogTagFilterUi(unittest.TestCase):
         self.assertIn('Advanced</span>', self.card_content)
         self.assertIn('search-only-filter-row', self.card_content)
 
+    def test_multi_select_bulk_delete_is_soft_delete_with_two_stage_confirmation(self):
+        self.assertIn('data-action="bulk-delete-models"', self.card_content)
+        self.assertIn('await this._bulkDeleteSelectedModels();', self.card_content)
+        self.assertIn('window.confirm(confirmLines.join("\\n"))', self.card_content)
+        self.assertIn('window.prompt("Type DELETE to remove "', self.card_content)
+        self.assertIn('"?hard_delete=false"', self.card_content)
+        self.assertIn('model metadata is archived and stored model files/assets stay on disk', self.card_content)
+
 
 if __name__ == "__main__":
     unittest.main()

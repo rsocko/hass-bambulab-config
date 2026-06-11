@@ -3316,6 +3316,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "bulk-delete-models") {
+      event.preventDefault();
+      event.stopPropagation();
+      await this._bulkDeleteSelectedModels();
+      return;
+    }
+
     if (action === "bulk-edit-tags") {
       event.preventDefault();
       event.stopPropagation();
@@ -6111,6 +6118,109 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._render();
   }
 
+  async _bulkDeleteSelectedModels() {
+    var selectedRefs = this.getSelectedModelRefs();
+    if (!selectedRefs.length || this._loading) {
+      return;
+    }
+
+    var deleteTargets = [];
+    var skippedCount = 0;
+    var linkedArchiveCount = 0;
+    for (var i = 0; i < selectedRefs.length; i++) {
+      var modelRef = selectedRefs[i];
+      var model = this._modelByRef(modelRef);
+      var localModelId = this._localModelIdForModel(model);
+      if (!model || !localModelId) {
+        skippedCount++;
+        continue;
+      }
+      linkedArchiveCount += Math.max(0, Number(model.linked_archive_count || 0) || 0);
+      deleteTargets.push({ model_ref: modelRef, local_model_id: localModelId });
+    }
+
+    if (!deleteTargets.length) {
+      this._error = "No selected local catalog models can be deleted.";
+      this._render();
+      return;
+    }
+
+    var targetCount = deleteTargets.length;
+    var confirmLines = [
+      "Delete " + String(targetCount) + " selected local model" + (targetCount === 1 ? "" : "s") + " from the active Model Catalog?",
+      "",
+      "This is a soft delete: model metadata is archived and stored model files/assets stay on disk.",
+      "Linked print archives are not deleted.",
+    ];
+    if (linkedArchiveCount > 0) {
+      confirmLines.push("", "The selected models have " + String(linkedArchiveCount) + " linked print archive" + (linkedArchiveCount === 1 ? "" : "s") + ".");
+    }
+    if (skippedCount > 0) {
+      confirmLines.push("", String(skippedCount) + " selected item" + (skippedCount === 1 ? " is" : "s are") + " not local catalog models and will be skipped.");
+    }
+    confirmLines.push("", "Continue?");
+
+    if (!window.confirm(confirmLines.join("\n"))) {
+      return;
+    }
+    if (window.prompt("Type DELETE to remove " + String(targetCount) + " selected local model" + (targetCount === 1 ? "." : "s."), "") !== "DELETE") {
+      return;
+    }
+
+    var failedRefs = [];
+    var deletedRefs = [];
+    this._loading = true;
+    this._error = "";
+    this._render();
+
+    try {
+      for (var j = 0; j < deleteTargets.length; j++) {
+        try {
+          await this._deleteLocalModelRequest(deleteTargets[j].local_model_id);
+          deletedRefs.push(deleteTargets[j].model_ref);
+        } catch (_error) {
+          failedRefs.push(deleteTargets[j].model_ref);
+        }
+      }
+
+      if (deletedRefs.length) {
+        this._removeDeletedModelsFromCurrentView(deletedRefs);
+        this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - deletedRefs.length);
+        this._pagination.total_pages = Math.max(1, Math.ceil(this._pagination.total / (this._pagination.per_page || 12)));
+      }
+
+      this._selectedModelRefs.clear();
+      if (!failedRefs.length) {
+        this._multiSelectMode = false;
+      } else {
+        for (var k = 0; k < failedRefs.length; k++) {
+          this._selectedModelRefs.add(failedRefs[k]);
+        }
+        this._error = "Deleted " + String(deletedRefs.length) + " selected model" + (deletedRefs.length === 1 ? "" : "s") + "; " + String(failedRefs.length) + " failed.";
+      }
+      this._notifySelectionChanged();
+
+      this._loading = false;
+      this._activeActionMenu = "";
+      this._requestLoad(this._currentPage(), true);
+      this._render();
+
+      try {
+        await this._hass.callService("persistent_notification", "create", {
+          title: failedRefs.length ? "Model Delete Partially Completed" : "Models Deleted",
+          message: failedRefs.length ? this._error : "Deleted " + String(deletedRefs.length) + " selected model" + (deletedRefs.length === 1 ? "" : "s") + " from the active catalog.",
+          notification_id: failedRefs.length ? "model_catalog_bulk_delete_partial" : "model_catalog_bulk_delete_success",
+        });
+      } catch (_notifError) {
+        console.warn("Could not show bulk delete notification", _notifError);
+      }
+    } catch (error) {
+      this._loading = false;
+      this._error = error && error.message ? String(error.message) : "Failed to delete selected models";
+      this._render();
+    }
+  }
+
   _parseBulkTagList(rawValue) {
     var tokens = String(rawValue || "").split(",");
     var tags = [];
@@ -6291,41 +6401,34 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
-    // Find the model in results to get local_model_id and linked archive count
-    var model = null;
-    for (var i = 0; i < this._results.length; i++) {
-      if (this._modelRef(this._results[i]) === modelRef) {
-        model = this._results[i];
-        break;
-      }
-    }
+    var model = this._modelByRef(modelRef);
+    var localModelId = this._localModelIdForModel(model);
 
-    if (!model || !model.local_model_id) {
+    if (!model || !localModelId) {
       this._error = "Could not identify local model for deletion.";
       this._render();
       return;
     }
 
-    var localModelId = String(model.local_model_id).trim();
     var linkedCount = Number(model.linked_archive_count || 0);
 
     // Build warning message about what will be deleted
     var warningLines = [
       "Delete " + modelName + " from the Model Catalog?",
       "",
-      "This will delete:",
-      "• Model metadata and database entries",
-      "• All stored model files and assets",
+      "This is a soft delete:",
+      "• Model metadata is archived and removed from the active catalog",
+      "• Stored model files and assets stay on disk",
     ];
 
     if (linkedCount > 0) {
       warningLines.push(
         "",
-        "This model has " + String(linkedCount) + " linked print archive" + (linkedCount === 1 ? "" : "s") + ". The archives will NOT be deleted, but the model reference will be removed."
+        "This model has " + String(linkedCount) + " linked print archive" + (linkedCount === 1 ? "" : "s") + ". The archives will NOT be deleted."
       );
     }
 
-    warningLines.push("", "This action cannot be undone.");
+    warningLines.push("", "Continue?");
 
     var confirmMsg = warningLines.join("\n");
     if (!window.confirm(confirmMsg)) {
@@ -6346,52 +6449,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._error = "";
       this._render();
 
-      var sidecarUrl = this._resolveModelSidecarUrl();
-      if (!sidecarUrl) {
-        throw new Error("Model Catalog sidecar URL not configured");
-      }
-
-      var auth = this._hass && this._hass.auth ? this._hass.auth : null;
-      if (!auth) {
-        throw new Error("Not authenticated with Home Assistant");
-      }
-
-      var deleteUrl = sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "?hard_delete=false";
-      var response = await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: {
-          "Authorization": "Bearer " + auth.accessToken,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        var errorData = null;
-        try {
-          errorData = await response.json();
-        } catch (_) {
-          errorData = { error: "Unknown error", status: response.status };
-        }
-        var errorMsg = errorData && errorData.error ? String(errorData.error) : "HTTP " + String(response.status);
-        throw new Error("Delete failed: " + errorMsg);
-      }
-
-      var result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || "Delete operation failed");
-      }
+      await this._deleteLocalModelRequest(localModelId);
 
       // Remove the model from the results list immediately for snappy UI
-      var indexToRemove = -1;
-      for (var i = 0; i < this._results.length; i++) {
-        if (this._modelRef(this._results[i]) === modelRef) {
-          indexToRemove = i;
-          break;
-        }
-      }
-      if (indexToRemove >= 0) {
-        this._results.splice(indexToRemove, 1);
-      }
+      this._removeDeletedModelsFromCurrentView([modelRef]);
 
       // Update pagination total
       this._pagination.total = Math.max(0, Number(this._pagination.total || 0) - 1);
@@ -6428,6 +6489,64 @@ class ModelCatalogBrowserCard extends HTMLElement {
       } catch (_notifError) {
         console.warn("Could not show error notification", _notifError);
       }
+    }
+  }
+
+  async _deleteLocalModelRequest(localModelId) {
+    var sidecarUrl = this._resolveModelSidecarUrl();
+    if (!sidecarUrl) {
+      throw new Error("Model Catalog sidecar URL not configured");
+    }
+
+    var auth = this._hass && this._hass.auth ? this._hass.auth : null;
+    if (!auth) {
+      throw new Error("Not authenticated with Home Assistant");
+    }
+
+    var deleteUrl = sidecarUrl + "/api/local/models/" + encodeURIComponent(localModelId) + "?hard_delete=false";
+    var response = await fetch(deleteUrl, {
+      method: "DELETE",
+      headers: {
+        "Authorization": "Bearer " + auth.accessToken,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      var errorData = null;
+      try {
+        errorData = await response.json();
+      } catch (_) {
+        errorData = { error: "Unknown error", status: response.status };
+      }
+      var errorMsg = errorData && errorData.error ? String(errorData.error) : "HTTP " + String(response.status);
+      throw new Error("Delete failed: " + errorMsg);
+    }
+
+    var result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || "Delete operation failed");
+    }
+    return result;
+  }
+
+  _removeDeletedModelsFromCurrentView(modelRefs) {
+    var deletedLookup = {};
+    for (var i = 0; i < modelRefs.length; i++) {
+      var ref = String(modelRefs[i] || "").trim();
+      if (ref) {
+        deletedLookup[ref] = true;
+      }
+    }
+    this._results = (Array.isArray(this._results) ? this._results : []).filter(function (model) {
+      return !deletedLookup[this._modelRef(model)];
+    }.bind(this));
+
+    var detail = this._projectDetail && typeof this._projectDetail === "object" ? this._projectDetail : null;
+    if (detail && Array.isArray(detail.items)) {
+      detail.items = detail.items.filter(function (model) {
+        return !deletedLookup[this._modelRef(model)];
+      }.bind(this));
     }
   }
 
@@ -6500,6 +6619,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     for (var i = 0; i < this._results.length; i++) {
       if (this._modelRef(this._results[i]) === targetRef) {
         return this._results[i];
+      }
+    }
+    var detail = this._projectDetail && typeof this._projectDetail === "object" ? this._projectDetail : null;
+    var items = detail && Array.isArray(detail.items) ? detail.items : [];
+    for (var j = 0; j < items.length; j++) {
+      if (this._modelRef(items[j]) === targetRef) {
+        return items[j];
       }
     }
     return null;
@@ -8302,6 +8428,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <button class="bulk-btn" type="button" data-action="bulk-unpin-favorites">Unpin Favorites</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-archive"><ha-icon icon="mdi:archive-arrow-down-outline"></ha-icon> Archive</button>'
       + '  <button class="bulk-btn" type="button" data-action="bulk-unarchive"><ha-icon icon="mdi:archive-arrow-up-outline"></ha-icon> Unarchive</button>'
+      + '  <button class="bulk-btn danger" type="button" data-action="bulk-delete-models"><ha-icon icon="mdi:delete-outline"></ha-icon> Delete</button>'
       + '  <select class="bulk-source-select" title="Set source for selected models">' + sourceOptionsHtml + '</select>'
       + '  <div class="ms-spacer"></div>'
       + '  <button class="bulk-btn exit" type="button" data-action="exit-multi-select"><ha-icon icon="mdi:close"></ha-icon> Exit</button>'
@@ -10792,6 +10919,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.page-control-strip.multi-select-active .bulk-btn{min-height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--primary-text-color);font-size:12px;font-weight:600;cursor:pointer;transition:all 200ms ease;}'
       + '.page-control-strip.multi-select-active .bulk-btn:hover{background:var(--surface-3);border-color:var(--accent);}'
       + '.page-control-strip.multi-select-active .bulk-btn:active{transform:scale(0.98);}'
+      + '.page-control-strip.multi-select-active .bulk-btn.danger{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
+      + '.page-control-strip.multi-select-active .bulk-btn.danger:hover{background:rgba(239,68,68,0.1);}'
+      + '.page-control-strip.multi-select-active .bulk-btn.danger ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit{border-color:var(--error-color,#ef4444);color:var(--error-color,#ef4444);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit:hover{background:rgba(239,68,68,0.1);}'
       + '.page-control-strip.multi-select-active .bulk-btn.exit ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:2px;}'

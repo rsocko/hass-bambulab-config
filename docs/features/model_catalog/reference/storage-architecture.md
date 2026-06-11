@@ -168,6 +168,13 @@ model_catalog_entries:
 3. Can be referenced by multiple print archives
 4. Can be re-printed with version history
 
+**Delete behavior**:
+- Catalog UI delete actions use the local-model API default soft delete (`DELETE /api/local/models/{local_model_id}?hard_delete=false`).
+- Soft delete sets `archived_at` and removes the model from the active catalog view; it does not remove stored model files or asset records from `/assets/Model Catalog/{model_id}/`.
+- Multi-select delete is gated behind two confirmations: a destructive-action confirmation and a required `DELETE` typed prompt, matching the Print History bulk delete guard pattern.
+- Hard delete is reserved for explicit backend/maintenance flows. The current browser action does not expose hard delete or a recycle-bin UI; restore should be implemented as a dedicated archived-model view/action before exposing user-facing bulk restore. Do not promise physical file removal for hard delete until the storage cleanup path deletes the backing asset files as well as database rows.
+- Linked print archives are not deleted by model deletion.
+
 **Database Entry**:
 ```python
 model_catalog_entries:
