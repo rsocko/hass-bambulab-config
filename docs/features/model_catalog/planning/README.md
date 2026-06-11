@@ -13,4 +13,6 @@ Planning and design documents for the model_catalog feature.
 
 ## Related Planning Docs
 
+- [Printables External Service Intake Design](printables-external-service-intake.md) — Provider approach, MVP phases, API exploration gates, and full-import decision boundary for adding Printables.com URL intake.
+
 See the parent [Model Catalog README](../README.md) for the full documentation map.
