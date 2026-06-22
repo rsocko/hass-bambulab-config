@@ -2358,7 +2358,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var detectedMerged = detected && detected.merged ? detected.merged : null;
       var sourceCatalogModelId = String((detectedMerged && detectedMerged.source_catalog_model_id) || '').trim();
       var sourceCatalogTitle = String((detectedMerged && detectedMerged.display_title) || model.title || sourceCatalogModelId || '').trim();
-      nextPlans.push(Object.assign({
+      // Issue #1638: compute selected_summary from model title even when
+      // source_catalog_model_id is absent (browser upload has no .modelmeta.json).
+      var modelTitle = String(model.title || '').trim();
+      var autoSummary = sourceCatalogModelId ? {
+        id: sourceCatalogModelId,
+        primary: sourceCatalogTitle || sourceCatalogModelId,
+        secondary: sourceCatalogModelId,
+      } : (modelTitle ? {
+        id: '',
+        primary: modelTitle,
+        secondary: '',
+      } : null);
+      var merged = Object.assign({
         _group_key: groupKey,
         destination: 'curated',
         match_mode: sourceCatalogModelId ? 'republish_as_new_version' : 'new',
@@ -2367,14 +2379,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         lookup_results: [],
         lookup_loading: false,
         lookup_error: '',
-        selected_summary: sourceCatalogModelId ? {
-          id: sourceCatalogModelId,
-          primary: sourceCatalogTitle || sourceCatalogModelId,
-          secondary: sourceCatalogModelId,
-        } : null,
+        selected_summary: autoSummary,
       }, previous || {}, {
         _group_key: groupKey,
-      }));
+      });
+      // Issue #1638: always refresh selected_summary from the current model
+      // title when match_mode is 'new'. 'New' mode has no user lookup
+      // selection to preserve, so the summary should reflect the latest
+      // title from the Organize step (including user renames).
+      if (String(merged.match_mode || '').trim().toLowerCase() === 'new') {
+        merged.selected_summary = autoSummary;
+      }
+      nextPlans.push(merged);
     }
     this._groupDestinations = nextPlans;
     return nextPlans;
@@ -2456,6 +2472,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return 'Select an existing Catalog model to use as the parent revision.';
     }
     if (matchMode !== 'existing') {
+      // Issue #1638: show the model title when available so the user sees the
+      // intended name, matching the Server Intake experience.
+      if (selected && selected.primary) {
+        return destination === 'working'
+          ? String(selected.primary) + ' — new Working Files folder'
+          : String(selected.primary) + ' — new Catalog model';
+      }
       return destination === 'working'
         ? 'Create a new Working Files folder.'
         : 'Create a new Catalog model.';
