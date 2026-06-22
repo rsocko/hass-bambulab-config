@@ -9,7 +9,7 @@
   type: module
 - url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=257
+- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=258
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=234
   type: module
