@@ -2,7 +2,7 @@
 
 <!-- SCREENSHOT: id=led-visual-full-grid | format=png | version=1.0 | package=printer_led | added=2026-03-15 | captured=2026-03-15 -->
 
-![LED controls — full 7-light grid](../../screenshots/images/led-controls-compact.png)
+![LED controls — full 7-light grid](../../../../screenshots/images/led-controls-compact.png)
 
 <!-- SCREENSHOT: id=led-visual-wled-popup | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
 <!-- Capture: WLED advanced popup dialog showing effect/palette/speed/intensity controls and color picker -->

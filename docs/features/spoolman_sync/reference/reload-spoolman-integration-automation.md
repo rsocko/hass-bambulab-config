@@ -22,5 +22,5 @@ Each night at 11pm this will force a reload of the Spoolman integration. This se
 
 ## Flow of the Logic
 
-![Flow Chart describing the Reload Spoolman Integration automation](assets/bambu-printer-automations-spoolman-refresh.png)
+![Flow Chart describing the Reload Spoolman Integration automation](../assets/bambu-printer-automations-spoolman-refresh.png)
 

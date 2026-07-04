@@ -4,7 +4,7 @@ This document shows what your air quality dashboard will look like after configu
 
 <!-- SCREENSHOT: id=air-quality-visual-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
 
-![Air quality sensors — good state (all green)](../../screenshots/images/air-quality-sensors-good.png)
+![Air quality sensors — good state (all green)](../../../screenshots/images/air-quality-sensors-good.png)
 
 <!-- SCREENSHOT: id=air-quality-visual-moderate | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
 <!-- Capture: Sensor cards with yellow/moderate indicators (during PLA print) -->

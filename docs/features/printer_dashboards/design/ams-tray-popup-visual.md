@@ -7,7 +7,7 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 
 <!-- SCREENSHOT: id=ams-popup-full-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![AMS tray popup — full matched spool view](/docs/screenshots/images/ams-popup-full-matched.png)
+![AMS tray popup — full matched spool view](../../../screenshots/images/ams-popup-full-matched.png)
 
 <!-- SCREENSHOT: id=ams-popup-no-spool | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 

@@ -50,5 +50,5 @@ This Home Assistant automation triggers upon a successful completion of a print 
 
 ## Flow of the Logic
 
-![Flow Chart describing the Print Complete automation](assets/bambu-printer-automations-print-complete.png)
+![Flow Chart describing the Print Complete automation](../assets/bambu-printer-automations-print-complete.png)
 

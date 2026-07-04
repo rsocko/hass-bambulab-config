@@ -18,7 +18,7 @@ Each feature package contributes cards via its `dashboard_cards/` directory, whi
 
 <!-- SCREENSHOT: id=dashboard-full-desktop | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
-![Full dashboard — desktop overview](/docs/screenshots/images/dashboard-full-desktop.png)
+![Full dashboard — desktop overview](../../screenshots/images/dashboard-full-desktop.png)
 
 <!-- SCREENSHOT: id=dashboard-full-mobile | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
 
