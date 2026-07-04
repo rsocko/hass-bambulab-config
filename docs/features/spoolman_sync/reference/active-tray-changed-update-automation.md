@@ -57,5 +57,5 @@ The automation also suppresses persistent error notifications for indeterminate 
 
 ## Flow of the Logic
 
-![Flow Chart describing the Active Tray Changed automation](assets/bambu-printer-automations-tray-updated.png)
+![Flow Chart describing the Active Tray Changed automation](../assets/bambu-printer-automations-tray-updated.png)
 

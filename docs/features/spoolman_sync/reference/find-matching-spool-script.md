@@ -62,4 +62,4 @@ If unsuccessful (cannot find a match): the script will return a failure and erro
 
 ## Flowchart of Logic:
 
-![Flowchart showing the script logic](assets/bambu-printer-automations-find-spool.png)
+![Flowchart showing the script logic](../assets/bambu-printer-automations-find-spool.png)
