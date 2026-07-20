@@ -78,18 +78,11 @@ jobs:
       resolved_image: ${{ steps.version.outputs.resolved_image }}
       latest_tag: ${{ steps.version.outputs.latest_tag }}
     steps:
-      - name: Pre-clean workspace (self-hosted)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -d "$GITHUB_WORKSPACE" ]; then
-            find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-          fi
-
       - name: Checkout (for version-resolution script)
         uses: actions/checkout@v5
         with:
-          clean: false
+          clean: true
+          fetch-depth: 1
 
       - name: Resolve image tag
         id: version
@@ -101,17 +94,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/resolve_registry_version.py
-
-      - name: Show resolved image target
-        shell: bash
-        run: |
-          set -euo pipefail
-          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
           GHCR_REPOSITORY="${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}"
-          echo "Resolved image: $IMAGE"
-          echo "Resolved GHCR image: $GHCR_REPOSITORY:${{ steps.version.outputs.resolved_tag }}"
+          echo "Resolved image: ${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag || 'pending' }}"
+          echo "Resolved GHCR image: $GHCR_REPOSITORY:${{ steps.version.outputs.resolved_tag || 'pending' }}"
           echo "BambuStudio version: ${{ github.event.inputs.bambu_version }}"
-          echo "Latest semantic tag in registry: ${{ steps.version.outputs.latest_tag || 'none' }}"
 
       - name: Publish version summary
         shell: bash
@@ -164,46 +150,54 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Cache slicer-api source
+        id: cache-slicer
+        uses: actions/cache@v4
+        with:
+          path: _slicer-api-src
+          key: slicer-api-bambuddy-profile-resolver-${{ github.run_id }}
+          restore-keys: |
+            slicer-api-bambuddy-profile-resolver-
+
       - name: Clone maziggy fork (profile-resolver branch)
+        if: steps.cache-slicer.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf _slicer-api-src
           git clone --depth 1 --branch bambuddy/profile-resolver \
             https://github.com/maziggy/orca-slicer-api.git \
             _slicer-api-src
 
-      - name: Build image
+      - name: Update cached slicer-api source
+        if: steps.cache-slicer.outputs.cache-hit == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
-          GHCR_IMAGE="${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}:${{ steps.version.outputs.resolved_tag }}"
-          docker build \
-            -f _slicer-api-src/Dockerfile.bambu-studio \
-            -t "$IMAGE" \
-            --build-arg BAMBU_VERSION="${{ github.event.inputs.bambu_version }}" \
-            _slicer-api-src
-          if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
-            docker tag "$IMAGE" "${{ github.event.inputs.registry }}:latest"
-          fi
-          if [ "${{ github.event.inputs.push_ghcr_image }}" = 'true' ]; then
-            docker tag "$IMAGE" "$GHCR_IMAGE"
-            if [ "${{ github.event.inputs.push_ghcr_latest }}" = 'true' ]; then
-              docker tag "$IMAGE" "${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}:latest"
-            fi
-          fi
-          echo "Built $IMAGE"
+          cd _slicer-api-src
+          git fetch --depth 1 origin bambuddy/profile-resolver
+          git reset --hard FETCH_HEAD
 
-      - name: Push image
-        if: ${{ github.event.inputs.push_image == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
-          docker push "$IMAGE"
-          if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
-            docker push "${{ github.event.inputs.registry }}:latest"
-          fi
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        env:
+          GHCR_IMAGE: ${{ github.event.inputs.ghcr_repository || format('ghcr.io/{0}/bambu-studio-api', github.repository_owner) }}
+        with:
+          context: _slicer-api-src
+          file: _slicer-api-src/Dockerfile.bambu-studio
+          push: ${{ github.event.inputs.push_image == 'true' }}
+          tags: |
+            ${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}
+            ${{ github.event.inputs.push_latest == 'true' && format('{0}:latest', github.event.inputs.registry) || '' }}
+            ${{ github.event.inputs.push_ghcr_image == 'true' && format('{0}:{1}', env.GHCR_IMAGE, steps.version.outputs.resolved_tag) || '' }}
+            ${{ github.event.inputs.push_ghcr_image == 'true' && github.event.inputs.push_ghcr_latest == 'true' && format('{0}:latest', env.GHCR_IMAGE) || '' }}
+          build-args: |
+            BAMBU_VERSION=${{ github.event.inputs.bambu_version }}
+          cache-from: type=registry,ref=${{ github.event.inputs.registry }}:buildcache
+          cache-to: type=registry,ref=${{ github.event.inputs.registry }}:buildcache,mode=max
 
       - name: Push GHCR image
         if: ${{ github.event.inputs.push_ghcr_image == 'true' }}

@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - '**'
+    paths:
+      - 'homeassistant/**'
+      - 'sidecars/**'
+      - '.github/deploy/**'
 
 permissions:
   actions: write
@@ -20,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
       - name: Resolve auto-deploy configuration
         id: config
