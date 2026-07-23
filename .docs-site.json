@@ -1,0 +1,9 @@
+{
+  "label": "HA 3D Printing",
+  "description": "Home Assistant integration with Bambu Lab 3D printers and associated services, devices, and automation workflows.",
+  "emoji": "🖨️",
+  "order": 30,
+  "sidebarId": "hass3dprintingSidebar",
+  "navbar": true,
+  "homepage": true
+}
