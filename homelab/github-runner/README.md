@@ -19,6 +19,10 @@ This split lets image builds run in parallel with deploy jobs while keeping the 
 
 The two services intentionally use different runner names, labels, workdirs, and `/runner` data volumes. Do not point both services at the same runner data directory.
 
+Both lanes are persistent/reusable by default. The bind-mounted `runner-data` directories are passed to the image as `CONFIGURED_ACTIONS_RUNNER_FILES_DIR=/runner`, and `DISABLE_AUTOMATIC_DEREGISTRATION=true` prevents a normal container stop from deregistering the saved runner. These settings are a required pair for `myoung34/github-runner` reuse.
+
+`EPHEMERAL` and `BUILD_RUNNER_EPHEMERAL` must be unset or empty for persistent runners. The image treats **any** non-empty value, including the string `false`, as enabling `--ephemeral`. Set one to a non-empty value only when intentionally converting that lane to an ephemeral runner; do not combine ephemeral mode with an expectation that its registration will be reused.
+
 For `myoung34/github-runner`, do not set `DISABLE_AUTO_UPDATE` unless you intentionally want to pin the bundled runner version. In practice the presence of that variable can disable self-updates even when the value is `false`.
 
 ## Files
@@ -183,6 +187,36 @@ This is intended to catch likely UI-vs-YAML naming collisions early. Keep `fail_
 ## Dockhand deployment
 
 Deploy this folder as one stack in Dockhand (same as your other compose stacks). The service is self-contained and uses `.env` placeholders resolved by Dockhand variables.
+
+### Redeploy persistent runners
+
+1. Update the Dockhand stack from this repository's `homelab/github-runner/compose.yaml`.
+2. In the stack variables, delete `EPHEMERAL` and `BUILD_RUNNER_EPHEMERAL`, or set them to empty strings. Also delete any global `HA_GH_RUNNER_EPHEMERAL` and `HA_GH_BUILD_RUNNER_EPHEMERAL` values set to `false`.
+3. Preview the rendered Compose configuration without printing credentials:
+
+   ```bash
+   docker compose -f compose.yaml config \
+     | grep -E 'EPHEMERAL:|CONFIGURED_ACTIONS_RUNNER_FILES_DIR:|DISABLE_AUTOMATIC_DEREGISTRATION:'
+   ```
+
+   Each service must show an empty `EPHEMERAL`, `/runner` for `CONFIGURED_ACTIONS_RUNNER_FILES_DIR`, and `"true"` for `DISABLE_AUTOMATIC_DEREGISTRATION`.
+4. In Dockhand, pull the latest image and use **Redeploy** with container recreation enabled. From a shell, the equivalent is:
+
+   ```bash
+   docker compose -f compose.yaml pull
+   docker compose -f compose.yaml up -d --force-recreate
+   ```
+
+5. Confirm both services reused or stored their registrations:
+
+   ```bash
+   docker compose -f compose.yaml logs --since=10m github-runner github-runner-build \
+     | grep -E 'Runner reusage is enabled|already been configured|Storing data'
+   docker compose -f compose.yaml ps
+   ```
+
+6. Confirm both named runners are **Online** under repository **Settings -> Actions -> Runners**, then dispatch `Runner Smoke Test` for the `ha` lane and one image-build workflow for the `build` lane.
+7. Restart the stack once and repeat steps 5-6. The logs should report that each runner was already configured, and GitHub should show the same runner names online without replacement registrations.
 
 ## Traefik guidance
 

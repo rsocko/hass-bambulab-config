@@ -1,6 +1,6 @@
 # GitHub Self-Hosted Runner (Docker / Dockhand)
 
-This stack runs a persistent GitHub Actions self-hosted runner in Docker so you can execute deploy/validation workflows from your homelab network.
+This stack runs persistent GitHub Actions self-hosted runners in Docker so you can execute deploy, validation, and image-build workflows from your homelab network.
 
 ## Why this approach
 
@@ -12,6 +12,14 @@ This stack runs a persistent GitHub Actions self-hosted runner in Docker so you 
 
 - `compose.yaml` - runner service definition
 - `.env.example` - environment variables template
+
+## Persistence contract
+
+The `ha` and `build` services use separate `/runner` bind mounts. Each mount is wired to `CONFIGURED_ACTIONS_RUNNER_FILES_DIR=/runner`, and `DISABLE_AUTOMATIC_DEREGISTRATION=true` preserves the registration when its container stops. Never share one runner-data directory between the two services.
+
+Leave `EPHEMERAL` and `BUILD_RUNNER_EPHEMERAL` unset or empty. `myoung34/github-runner` treats any non-empty value, including `false`, as enabling `--ephemeral`. A non-empty value is appropriate only for an intentionally ephemeral lane.
+
+Do not set `DISABLE_AUTO_UPDATE` unless you intentionally want to pin the bundled runner version. The image treats the presence of that variable as disabling updates, even when its value appears falsey.
 
 ## Setup
 
@@ -78,7 +86,35 @@ The workflow `.github/workflows/deploy-homeassistant-template.yml` uses rsync al
 
 ## Dockhand deployment
 
-Deploy this folder as one stack in Dockhand (same as your other compose stacks). The service is self-contained and only needs the `.env` file.
+Deploy `homelab/github-runner` as one stack in Dockhand.
+
+For an existing stack:
+
+1. Update its Compose source, and remove or empty `EPHEMERAL`, `BUILD_RUNNER_EPHEMERAL`, `HA_GH_RUNNER_EPHEMERAL`, and `HA_GH_BUILD_RUNNER_EPHEMERAL`. In particular, do not leave any of them set to `false`.
+2. Safely check only the persistence-related rendered values:
+
+   ```bash
+   docker compose -f compose.yaml config \
+     | grep -E 'EPHEMERAL:|CONFIGURED_ACTIONS_RUNNER_FILES_DIR:|DISABLE_AUTOMATIC_DEREGISTRATION:'
+   ```
+
+   Both services must render an empty `EPHEMERAL`, `/runner` for `CONFIGURED_ACTIONS_RUNNER_FILES_DIR`, and `"true"` for `DISABLE_AUTOMATIC_DEREGISTRATION`.
+3. Use Dockhand's **Redeploy** action with image pull and container recreation enabled. The shell equivalent is:
+
+   ```bash
+   docker compose -f compose.yaml pull
+   docker compose -f compose.yaml up -d --force-recreate
+   ```
+
+4. Verify reuse and service health without displaying credentials:
+
+   ```bash
+   docker compose -f compose.yaml logs --since=10m github-runner github-runner-build \
+     | grep -E 'Runner reusage is enabled|already been configured|Storing data'
+   docker compose -f compose.yaml ps
+   ```
+
+5. Confirm the `ha` and `build` runners are **Online** in GitHub, run `Runner Smoke Test` plus one build workflow, restart the stack, and repeat the log/status checks. The same runner names should return online and logs should say they were already configured.
 
 ## Example workflow target
 
