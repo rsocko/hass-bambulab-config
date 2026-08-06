@@ -14,7 +14,9 @@ services:
       LABELS: ${LABELS:-self-hosted,linux,docker,ha,homelab,dockhand}
       RUNNER_WORKDIR: ${RUNNER_WORKDIR:-_work}
       RUNNER_GROUP: ${RUNNER_GROUP:-Default}
-      EPHEMERAL: ${EPHEMERAL:-false}
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /runner
+      DISABLE_AUTOMATIC_DEREGISTRATION: "true"
+      EPHEMERAL: ${EPHEMERAL:-}
       ACCESS_TOKEN: ${ACCESS_TOKEN}
     volumes:
       - ./runner-data:/runner
@@ -39,7 +41,9 @@ services:
       LABELS: ${BUILD_RUNNER_LABELS:-self-hosted,linux,docker,build,homelab,dockhand}
       RUNNER_WORKDIR: ${BUILD_RUNNER_WORKDIR:-_work_build}
       RUNNER_GROUP: ${BUILD_RUNNER_GROUP:-${RUNNER_GROUP:-Default}}
-      EPHEMERAL: ${BUILD_RUNNER_EPHEMERAL:-${EPHEMERAL:-false}}
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /runner
+      DISABLE_AUTOMATIC_DEREGISTRATION: "true"
+      EPHEMERAL: ${BUILD_RUNNER_EPHEMERAL:-${EPHEMERAL:-}}
       ACCESS_TOKEN: ${ACCESS_TOKEN}
     volumes:
       - ./runner-data-build:/runner
