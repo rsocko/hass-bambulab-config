@@ -151,27 +151,26 @@ sections:
         style: simple
         custom_power: switch.sonoff_10018b4baf
     - type: custom:advanced-camera-card
+      cameras_global:
+        image:
+          mode: camera
+          # Optional image shown until the selected camera snapshot is available.
+          # Place it under /config/www/ and uncomment the matching /local/ URL.
+          # url: /local/bambu-printer.jpg
       cameras:
         - camera_entity: camera.ntk_ryansoffice_3dprinter_camera
+          title: Printer
+          icon: mdi:printer-3d
           live_provider: auto
           capabilities:
             disable: []
           always_error_if_entity_unavailable: false
-          image:
-            mode: camera
-            # mode: url with a custom image replaces the default "flowers"
-            # screensaver shown while the live stream is loading.
-            # Place your image at /config/www/bambu-printer.jpg in HA.
-            #mode: url
-            #url: /local/bambu-printer.jpg
         - camera_entity: camera.3dprinter_front_camera_hd_stream
-          #image:
-            # mode: url with a custom image replaces the default "flowers"
-            # screensaver shown while the live stream is loading.
-            # Place your image at /config/www/bambu-printer.jpg in HA.
-            #mode: url
-            #url: /local/bambu-printer.jpg
+          title: Front
+          icon: mdi:camera-front
         - camera_entity: camera.3d_printer_top_tapo_c110_hd_stream
+          title: Top
+          icon: mdi:camera
       status_bar:
         items:
           engine:
@@ -200,13 +199,35 @@ sections:
             enabled: false
           expand:
             enabled: true
+            style:
+              background: rgba(0, 0, 0, 0.48)
+              border: 1px solid rgba(255, 255, 255, 0.24)
+              border-radius: 10px
+              color: var(--primary-text-color)
+          pip:
+            enabled: true
+            style:
+              background: rgba(0, 0, 0, 0.48)
+              border: 1px solid rgba(255, 255, 255, 0.24)
+              border-radius: 10px
+              color: var(--primary-text-color)
           display_mode:
             enabled: true
             alignment: opposing
+            style:
+              background: rgba(0, 0, 0, 0.48)
+              border: 1px solid rgba(255, 255, 255, 0.24)
+              border-radius: 10px
+              color: var(--primary-text-color)
           live:
             enabled: false
           cameras:
-            enabled: false
+            enabled: true
+            style:
+              background: rgba(0, 0, 0, 0.48)
+              border: 1px solid rgba(255, 255, 255, 0.24)
+              border-radius: 10px
+              color: var(--primary-text-color)
           substreams:
             enabled: false
           clips:
