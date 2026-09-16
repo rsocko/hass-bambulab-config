@@ -8,6 +8,9 @@ retry_deferred_tray_assignment:
   icon: mdi:refresh
   mode: single
   sequence:
+    - condition: template
+      value_template: >-
+        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
     - variables:
         first: >-
           {% set raw = states('input_text.deferred_tray_assignments_queue') %}

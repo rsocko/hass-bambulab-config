@@ -398,8 +398,8 @@ cards:
   variables:
     selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : null"
     spool_id_raw: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : null"
-    filament_id_raw: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.filament_id : null"
-    has_spool: "!!(states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] && states[states['sensor.selected_spool'].state].attributes.id)"
+    filament_id_raw: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes?.filament_id : null"
+    has_spool: "!!(states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]?.attributes?.id)"
   card:
     type: custom:button-card
     name: Replace / Refill Spool

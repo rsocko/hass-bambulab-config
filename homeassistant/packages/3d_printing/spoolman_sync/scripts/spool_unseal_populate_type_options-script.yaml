@@ -11,10 +11,13 @@ spool_unseal_populate_type_options:
     - variables:
         spool_types: >-
           {% set ns = namespace(vals=[]) %}
-          {% for s in states.sensor
-             if s.entity_id.startswith('sensor.spoolman_spool_')
-             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-            {% set v = state_attr(s.entity_id, 'extra_spool_type') | default('') | string | trim %}
+          {% set ids = integration_entities('spoolman')
+             | select('match', '^sensor\\.spoolman_spool_\\d+$')
+             | list %}
+          {% for s in expand(ids)
+             if s.state | lower not in ['unknown', 'unavailable', 'none', '']
+             and s.attributes.get('archived', false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set v = s.attributes.get('extra_spool_type', '') | string | trim %}
             {% if v and v not in ['', 'unknown', 'unavailable', 'None', 'none'] and v not in ns.vals %}
               {% set ns.vals = ns.vals + [v] %}
             {% endif %}
@@ -22,10 +25,13 @@ spool_unseal_populate_type_options:
           {{ ns.vals | sort }}
         clip_types: >-
           {% set ns = namespace(vals=[]) %}
-          {% for s in states.sensor
-             if s.entity_id.startswith('sensor.spoolman_spool_')
-             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-            {% set v = state_attr(s.entity_id, 'extra_clip_type') | default('') | string | trim %}
+          {% set ids = integration_entities('spoolman')
+             | select('match', '^sensor\\.spoolman_spool_\\d+$')
+             | list %}
+          {% for s in expand(ids)
+             if s.state | lower not in ['unknown', 'unavailable', 'none', '']
+             and s.attributes.get('archived', false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set v = s.attributes.get('extra_clip_type', '') | string | trim %}
             {% if v and v not in ['', 'unknown', 'unavailable', 'None', 'none'] and v not in ns.vals %}
               {% set ns.vals = ns.vals + [v] %}
             {% endif %}

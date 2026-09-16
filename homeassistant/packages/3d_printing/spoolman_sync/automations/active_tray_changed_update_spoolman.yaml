@@ -15,6 +15,9 @@
       - sensor.ntk_ryansoffice_3dprinter_current_stage
     to: printing
   conditions:
+  - condition: template
+    value_template: >-
+      {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
   - condition: and
     conditions:
       - condition: state

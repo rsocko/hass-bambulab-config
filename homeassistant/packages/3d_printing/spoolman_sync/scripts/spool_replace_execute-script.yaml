@@ -39,12 +39,18 @@ spool_replace_execute:
     # --- Validate ---
     - if:
         - condition: template
-          value_template: "{{ src_id <= 0 or tgt_id <= 0 }}"
+          value_template: >-
+            {{ src_id <= 0 or tgt_id <= 0
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+               or states(src_entity) | lower in ['unknown', 'unavailable', 'none', '']
+               or states(tgt_entity) | lower in ['unknown', 'unavailable', 'none', ''] }}
       then:
         - action: persistent_notification.create
           data:
             title: Spool Replace Error
-            message: Invalid source or target spool ID.
+            message: >-
+              Source/target spool data is unavailable. No Spoolman writes were
+              attempted; retry after the integration has recovered.
             notification_id: spool_replace_error
         - stop: Invalid spool IDs
 
@@ -65,7 +71,9 @@ spool_replace_execute:
     - variables:
         target_current_extra: >-
           {% set ns = namespace(d={}) %}
-          {% for key, val in states[tgt_entity].attributes.items() if key.startswith('extra_') %}
+          {% set target_state = states[tgt_entity] if states[tgt_entity] is defined else none %}
+          {% set target_attrs = target_state.attributes if target_state is not none else {} %}
+          {% for key, val in target_attrs.items() if key.startswith('extra_') %}
             {% set field_key = key[6:] %}
             {% if val is not none and val | string != '' %}
               {% if val is sameas true or val is sameas false %}

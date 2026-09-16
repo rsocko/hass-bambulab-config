@@ -10,6 +10,7 @@
     spool_entities: >-
       {{ expand(spool_ids)
          | rejectattr('entity_id', 'equalto', none)
+         | rejectattr('state', 'in', ['unknown', 'unavailable', 'none', ''])
          | list }}
     filament_ids: >-
       {{ integration_entities('spoolman')
@@ -18,6 +19,7 @@
     filament_entities: >-
       {{ expand(filament_ids)
          | rejectattr('entity_id', 'equalto', none)
+         | rejectattr('state', 'in', ['unknown', 'unavailable', 'none', ''])
          | list }}
   sensor:
     - name: Filament Catalog Metrics

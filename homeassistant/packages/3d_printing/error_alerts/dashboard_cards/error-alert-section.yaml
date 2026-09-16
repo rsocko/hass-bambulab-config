@@ -554,7 +554,7 @@ cards:
             srcEntityVar: "states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state]"
             filamentIdVar: >-
               ${states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state]
-                ? String(states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state].attributes.filament_id || '')
+                ? String(states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state].attributes?.filament_id || '')
                 : ''}
           card:
             type: custom:button-card

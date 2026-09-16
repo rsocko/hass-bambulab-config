@@ -72,6 +72,9 @@
       {% endif %}
   conditions:
     - condition: template
+      value_template: >-
+        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
+    - condition: template
       value_template: "{{ filament_id_text | regex_match('^\\d+$') }}"
     - condition: template
       value_template: "{{ selected_rule in allowed_rules }}"

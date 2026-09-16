@@ -31,10 +31,14 @@ manual_spoolman_recovery:
       tray_type: "{{ error_parts[6] }}"
       spool_id: "{{ spool_id | default(0) }}"
   
-  # Validate spool ID was provided
+  # Validate spool ID and current integration state.
   - if:
       - condition: template
-        value_template: "{{ spool_id == 0 or spool_id is none }}"
+        value_template: >-
+          {{ spool_id == 0 or spool_id is none
+             or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+             or states('sensor.spoolman_spool_' ~ spool_id) | lower
+                in ['unknown', 'unavailable', 'none', ''] }}
     then:
       - action: persistent_notification.create
         data:
@@ -58,10 +62,10 @@ manual_spoolman_recovery:
             - Type: {{ tray_type }}
 
 
-            Please manually find the matching spool in Spoolman and provide its ID
-            to this script using the "spool_id" parameter.
+            Provide a valid, currently available spool ID after Spoolman has
+            recovered. No usage write was attempted.
           notification_id: spoolman_manual_recovery_spool_id_required
-      - stop: Spool ID required
+      - stop: Spool ID or Spoolman unavailable
   
   # Attempt to update the spool
   - action: spoolman.use_spool_filament

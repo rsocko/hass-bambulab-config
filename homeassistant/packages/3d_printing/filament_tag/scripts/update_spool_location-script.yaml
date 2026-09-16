@@ -12,6 +12,9 @@ update_spool_location:
       description: new location for the spool
       example: AMS
   sequence:
+    - condition: template
+      value_template: >-
+        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
     - action: spoolman.patch_spool
       metadata: {}
       data:

@@ -511,6 +511,19 @@ reenrich_print_history_archive:
                       reason={{ archive_row_reason if archive_row_reason | length > 0 else 'none' }}.
                     level: warning
                     logger: homeassistant.components.bambulab.print_history
+            - if:
+                - condition: template
+                  value_template: >-
+                    {{ state_attr('sensor.spoolman_filament_totals', 'available') is not true }}
+              then:
+                - action: persistent_notification.create
+                  data:
+                    title: Print History Re-enrichment Deferred
+                    message: >-
+                      Spoolman is unavailable. Archive {{ resolved_archive_id }}
+                      was not modified; retry after Spoolman recovers.
+                    notification_id: print_history_reenrich_spoolman_unavailable
+                - stop: Spoolman unavailable
             - action: rest_command.spoolman_getspools
               data:
                 allow_archived: "true"
