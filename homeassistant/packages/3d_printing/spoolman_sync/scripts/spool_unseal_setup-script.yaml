@@ -45,12 +45,19 @@ spool_unseal_setup:
     # --- Validate ---
     - if:
         - condition: template
-          value_template: "{{ tgt_id <= 0 }}"
+          value_template: >-
+            {{ tgt_id <= 0
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+               or states(tgt_entity) | lower in ['unknown', 'unavailable', 'none', '']
+               or (has_source and states(src_entity) | lower
+                   in ['unknown', 'unavailable', 'none', '']) }}
       then:
         - action: persistent_notification.create
           data:
             title: Spool Unseal Error
-            message: No target spool selected for unsealing.
+            message: >-
+              Target/source spool data is unavailable. No Spoolman writes were
+              attempted; retry after the integration has recovered.
             notification_id: spool_unseal_error
         - stop: Invalid target spool ID
 
@@ -71,7 +78,9 @@ spool_unseal_setup:
     - variables:
         target_current_extra: >-
           {% set ns = namespace(d={}) %}
-          {% for key, val in states[tgt_entity].attributes.items() if key.startswith('extra_') %}
+          {% set target_state = states[tgt_entity] if states[tgt_entity] is defined else none %}
+          {% set target_attrs = target_state.attributes if target_state is not none else {} %}
+          {% for key, val in target_attrs.items() if key.startswith('extra_') %}
             {% set field_key = key[6:] %}
             {% if val is not none and val | string != '' %}
               {% if val is sameas true or val is sameas false %}

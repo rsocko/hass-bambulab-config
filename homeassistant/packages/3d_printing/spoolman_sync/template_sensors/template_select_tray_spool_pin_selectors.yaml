@@ -19,18 +19,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -81,18 +78,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -143,18 +137,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -205,18 +196,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -267,18 +255,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -329,18 +314,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -391,18 +373,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -453,18 +432,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -515,18 +491,15 @@
         {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
         {% set query = states(search_entity) | default('', true) | lower | trim %}
         {% set terms = query.split() if query | length > 0 else [] %}
-        {% set ids = integration_entities('spoolman')
-          | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
-        {% set spools = expand(ids)
-          | rejectattr('entity_id', 'equalto', none)
-          | sort(attribute='attributes.friendly_name')
+        {% set spools = state_attr('sensor.spoolman_filament_totals', 'spool_options')
+          | default([], true)
+          | sort(attribute='name')
           | list %}
         {% set ns = namespace(opts=['None | Clear manual pin']) %}
         {% for spool in spools %}
-          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
-          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set spool_id = spool.get('id', '') | string %}
+          {% set label = spool.get('name', spool.get('entity_id', 'Unknown')) | string %}
+          {% set location = spool.get('location', 'Unknown') | string %}
           {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
           {% set match = namespace(ok=true) %}
           {% for term in terms %}
@@ -556,5 +529,3 @@
           data:
             value: ''
         - action: browser_mod.close_popup
-
-

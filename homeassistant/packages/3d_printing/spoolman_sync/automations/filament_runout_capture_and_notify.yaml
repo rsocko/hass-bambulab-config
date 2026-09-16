@@ -93,10 +93,13 @@
             {%- endif -%}
             {# Search spool entities by UUID #}
             {%- if ns.uuid | length > 0 and not ns.uuid | regex_match('^0+$') -%}
-              {%- for s in states.sensor if s.entity_id.startswith('sensor.spoolman_spool_') -%}
-                {%- set spool_uuid = state_attr(s.entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | lower -%}
+              {%- set spool_ids = integration_entities('spoolman')
+                | select('match', '^sensor\\.spoolman_spool_\\d+$')
+                | list -%}
+              {%- for s in expand(spool_ids) if s.state | lower not in ['unknown', 'unavailable', 'none', ''] -%}
+                {%- set spool_uuid = s.attributes.get('extra_spool_uuid', '') | string | trim('"') | lower -%}
                 {%- if spool_uuid == ns.uuid -%}
-                  {%- set ns.spool_id = state_attr(s.entity_id, 'id') | default('') | string -%}
+                  {%- set ns.spool_id = s.attributes.get('id', '') | string -%}
                 {%- endif -%}
               {%- endfor -%}
             {%- endif -%}

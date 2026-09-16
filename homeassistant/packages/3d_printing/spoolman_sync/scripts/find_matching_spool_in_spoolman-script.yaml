@@ -5,6 +5,20 @@ find_matching_spool_in_spoolman:
       spool_found: false
       matching_spool: null
       match_tier: null
+  - if:
+      - condition: template
+        value_template: >-
+          {{ state_attr('sensor.spoolman_filament_totals', 'available') is not true }}
+    then:
+      - variables:
+          response_object:
+            spool: null
+            success: false
+            message: Spoolman is unavailable; matching was skipped.
+            match_strategy: unavailable
+            all_matches: null
+      - stop: Spoolman unavailable
+        response_variable: response_object
   - action: rest_command.spoolman_getspools
     metadata: {}
     data: {}

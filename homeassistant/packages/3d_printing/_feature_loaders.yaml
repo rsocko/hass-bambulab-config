@@ -3,6 +3,7 @@
 # Docs: docs/repo/QUICK_START.md
 
 core_loader: !include core/core_loader.yaml
+spoolman_inventory_cache_loader: !include core/spoolman_inventory_cache.yaml
 common_loader: !include common/common_loader.yaml
 filament_catalog_loader: !include filament_catalog/filament_catalog_loader.yaml
 air_quality_loader: !include air_quality/air_quality_loader.yaml

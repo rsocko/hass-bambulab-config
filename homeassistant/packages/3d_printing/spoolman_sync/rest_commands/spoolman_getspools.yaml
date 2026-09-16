@@ -3,5 +3,6 @@
 spoolman_getspools:
   url: "http://spoolman.socko.us/api/v1/spool?allow_archived={{ allow_archived | default('false') }}"
   method: GET
+  timeout: 10
   headers:
     accept: "application/json, text/html"

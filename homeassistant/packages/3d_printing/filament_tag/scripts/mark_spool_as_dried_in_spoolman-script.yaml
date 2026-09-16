@@ -1,6 +1,9 @@
 # Docs: docs/features/filament_tag/README.md
 mark_spool_as_dried_in_spoolman:
   sequence:
+    - condition: template
+      value_template: >-
+        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
     - action: spoolman.patch_spool
       metadata: {}
       data:

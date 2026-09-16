@@ -33,12 +33,14 @@ actions:
             | list -%}
         {%- set spool_entities = expand(spool_ids)
             | rejectattr('entity_id', 'equalto', none)
+            | rejectattr('state', 'in', ['unknown', 'unavailable', 'none', ''])
             | list -%}
         {%- set filament_ids = integration_entities('spoolman')
             | select('match', '^sensor\\.spoolman_filament_\\d+$')
             | list -%}
         {%- set filament_entities = expand(filament_ids)
             | rejectattr('entity_id', 'equalto', none)
+            | rejectattr('state', 'in', ['unknown', 'unavailable', 'none', ''])
             | list -%}
         {%- set filament_inventory_rules = namespace(data={}) -%}
         {%- for filament in filament_entities -%}

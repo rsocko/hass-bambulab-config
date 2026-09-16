@@ -18,6 +18,37 @@ Replaced By: none
 
 The Spoolman HA integration creates an extreme number of entities per spool (~31 each), duplicates the full spool data structure in every entity, generates PIL images synchronously during setup, and runs cleanup scans on every coordinator update. On a Raspberry Pi with a moderate-to-large spool collection, this creates significant memory pressure. Calling `homeassistant.reload_config_entry` triggers a full teardown and rebuild of all entities/images, which can OOM-kill the system.
 
+## 2026-09-16 Outage Ownership and Mitigation
+
+The September 16 production incident confirmed the boundary between the
+integration and this repository:
+
+- **Integration-owned:** 5,602 `sensor.spoolman_spool_*` entities were exposed
+  for the current inventory. During the Spoolman outage they all transitioned
+  unavailable and their flattened attributes, including `filament_id`, were
+  absent. The integration's entity fan-out, all-inventory refresh model, and
+  unavailable-state attribute loss cannot be reduced from this configuration
+  repository without changing or replacing the upstream integration.
+- **Repository-owned:** `sensor.spoolman_filament_totals` subscribed to
+  `states.sensor`, scanned every sensor on unrelated updates, and dereferenced
+  `spool.attributes.filament_id` before checking availability or attribute
+  presence. That produced thousands of template warnings and amplified an
+  external service outage into sustained Core CPU and log pressure.
+
+The repository mitigation moves the totals and tray-map projections to a
+trigger-based cache. Main spool changes are coalesced for three seconds, with a
+15-minute recovery refresh as a safety net. The cache checks
+`sensor.spoolman_health` before expanding integration entities, excludes
+unknown/unavailable entities before reading attributes, and uses mapping
+`get()` access for optional fields. Dashboard inventory fails to an explicit
+degraded state, and Spoolman writers stop before service calls while health or
+their target entity is unavailable.
+
+No repository generator creates the 5,602 entities. Do not attempt to solve the
+entity count by deleting registry entries or limiting IDs in dashboard YAML;
+that would be incomplete and would be recreated by the integration. The
+upstream recommendations below remain the correct long-term fix.
+
 ---
 
 ## Hotspot 1 — Entity Explosion (~31 entities per spool)

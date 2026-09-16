@@ -16,16 +16,20 @@ spool_replace_populate_candidates:
         fid: "{{ filament_id | string }}"
         candidates: >-
           {% set fid_local = filament_id | string %}
+          {% set spool_ids = integration_entities('spoolman')
+             | select('match', '^sensor\\.spoolman_spool_\\d+$')
+             | list %}
           {% set ns = namespace(results=[]) %}
-          {% for s in states.sensor
-             if s.entity_id.startswith('sensor.spoolman_spool_')
-             and state_attr(s.entity_id, 'filament_id') | default('') | string == fid_local
-             and state_attr(s.entity_id, 'extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On']
-             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-            {% set sid = state_attr(s.entity_id, 'id') | default('?') %}
-            {% set sname = s.name | default('Unknown') %}
-            {% set sloc = state_attr(s.entity_id, 'location') | default('N/A') %}
-            {% set swt = state_attr(s.entity_id, 'initial_weight') | default('?') %}
+          {% for s in expand(spool_ids)
+             if s.state | lower not in ['unknown', 'unavailable', 'none', '']
+             and s.attributes.get('filament_id') is not none
+             and s.attributes.get('filament_id') | string == fid_local
+             and s.attributes.get('extra_sealed', false) in [true, 'true', 'True', 1, '1', 'on', 'On']
+             and s.attributes.get('archived', false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set sid = s.attributes.get('id', '?') %}
+            {% set sname = s.name | default('Unknown', true) %}
+            {% set sloc = s.attributes.get('location', 'N/A') %}
+            {% set swt = s.attributes.get('initial_weight', '?') %}
             {% set ns.results = ns.results + [sname ~ ' (#' ~ sid ~ ') 📍 ' ~ sloc ~ ' — ' ~ swt ~ 'g'] %}
           {% endfor %}
           {{ ns.results }}

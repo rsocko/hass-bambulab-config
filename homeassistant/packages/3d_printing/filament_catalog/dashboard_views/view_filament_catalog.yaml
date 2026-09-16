@@ -42,6 +42,28 @@ cards:
       # ============================================================
       - !include ../../spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml
 
+      - type: conditional
+        conditions:
+          - entity: sensor.spoolman_health
+            state: unavailable
+        card:
+          type: custom:mushroom-template-card
+          primary: Spoolman is unavailable
+          secondary: Inventory is temporarily hidden. Printing remains available; Spoolman writes are paused until recovery.
+          icon: mdi:database-alert-outline
+          icon_color: orange
+
+      - type: conditional
+        conditions:
+          - entity: sensor.spoolman_health
+            state: unknown
+        card:
+          type: custom:mushroom-template-card
+          primary: Spoolman is starting
+          secondary: Inventory will appear after the integration finishes loading.
+          icon: mdi:database-clock-outline
+          icon_color: amber
+
       # ============================================================
       # Filters, Tabs & Sort (Phase 2 + Phase 4)
       # ============================================================
@@ -75,21 +97,7 @@ cards:
             template: >
               {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
               {% set cards = namespace(items=[]) %}
-              {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
-                {% for spool in states.sensor %}
-                  {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
-                    {% set archived_raw = spool.attributes.get('archived', false) %}
-                    {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-                    {% if not archived %}
-                      {% set cards.items = cards.items + [{
-                        'entity': spool.entity_id,
-                        'type': 'custom:button-card',
-                        'template': 'catalog_spool_card'
-                      }] %}
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-              {% else %}
+              {% if sensor_state not in ['unknown', 'unavailable', 'none', 'None', ''] %}
                 {% set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) %}
                 {% if gj is string %}
                   {% set groups = gj | from_json %}
@@ -150,21 +158,7 @@ cards:
             template: >
               {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
               {% set cards = namespace(items=[]) %}
-              {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
-                {% for spool in states.sensor %}
-                  {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
-                    {% set archived_raw = spool.attributes.get('archived', false) %}
-                    {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-                    {% if not archived %}
-                      {% set cards.items = cards.items + [{
-                        'entity': spool.entity_id,
-                        'type': 'custom:button-card',
-                        'template': 'catalog_spool_card_compact'
-                      }] %}
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-              {% else %}
+              {% if sensor_state not in ['unknown', 'unavailable', 'none', 'None', ''] %}
                 {% set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) %}
                 {% if gj is string %}
                   {% set groups = gj | from_json %}

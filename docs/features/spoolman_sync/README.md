@@ -34,12 +34,23 @@ The automation resolves matches via `script.resolve_matching_spool_from_tray_map
 
 [Automation Details](reference/active-tray-changed-update-automation.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
 
-### 3. Refresh Spoolman integration daily
-I noticed when first starting to use the Spoolman integration that it got out of sync and the Home Assistant entities were sometimes inaccurate (specifically the location was wrong and/or orphaned entities existed). 
+### 3. Outage-safe inventory refresh
 
-This script simply forced a reload of the integration on a nightly basis.
+Full integration reloads are intentionally not automated. With thousands of
+Spoolman entities, teardown and recreation can create severe Core memory and
+event-loop pressure. Inventory projections are refreshed through the debounced
+`spoolman_inventory_cache_refresh` event and a bounded 15-minute recovery
+refresh instead.
 
-[Automation Details](reference/reload-spoolman-integration-automation.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/)
+When `sensor.spoolman_health` is unknown or unavailable:
+
+- inventory projections return a degraded/empty result without expanding spool
+  entities;
+- automated and interactive Spoolman writers stop before service calls;
+- print-completion recovery data is retained for manual replay;
+- catalog dashboards display an outage state instead of scanning raw entities.
+
+[Incident and integration ownership analysis](reference/spoolman-integration-memory-analysis.md)
 
 ### 4. Persistent error logging and manual recovery
 When the spoolman sync automation fails (e.g., spool not found), the system stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
@@ -355,5 +366,4 @@ shared read models for UI belong in `core`.
 
 ## Version Information
 2025-05-23 - v1.0.0 - Initial public release
-
 

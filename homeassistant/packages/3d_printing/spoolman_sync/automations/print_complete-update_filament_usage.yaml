@@ -132,6 +132,22 @@
 
   - if:
       - condition: template
+        value_template: >-
+          {{ state_attr('sensor.spoolman_filament_totals', 'available') is not true }}
+        alias: Spoolman integration is unavailable
+    then:
+      - action: persistent_notification.create
+        data:
+          title: Spoolman Usage Update Deferred
+          message: >-
+            Spoolman was unavailable when "{{ task_name_current }}" completed.
+            No usage writes were attempted. The retained print-weight backup can
+            be applied with the manual recovery workflow after Spoolman recovers.
+          notification_id: spoolman_print_complete_deferred
+      - stop: Spoolman unavailable; preserve recovery data
+
+  - if:
+      - condition: template
         value_template: "{{ duplicate_recent_completion }}"
         alias: Ignore duplicate completion after prior successful processing
     then:

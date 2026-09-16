@@ -7,6 +7,30 @@ on:
   workflow_dispatch:
 
 jobs:
+  spoolman:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+
+      - name: Run Spoolman outage and matching regressions
+        run: >-
+          python -m pytest
+          tests/spoolman/test_outage_hardening.py
+          tests/spool_matching/test_option_a_matching.py
+
   sidecars:
     runs-on: ubuntu-latest
     timeout-minutes: 15

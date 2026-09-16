@@ -1,0 +1,38 @@
+# Debounced Spoolman projections. The integration updates many entities in a
+# burst; consumers should not rescan inventory for every state_changed event.
+automation:
+  - alias: "3D Printer - Refresh Spoolman Inventory Cache"
+    id: refresh_spoolman_inventory_cache
+    mode: restart
+    max_exceeded: silent
+    triggers:
+      - trigger: event
+        event_type: state_changed
+    conditions:
+      - condition: template
+        value_template: >-
+          {% set entity_id = trigger.event.data.entity_id | default('', true) | string %}
+          {{ entity_id == 'sensor.spoolman_health'
+             or entity_id | regex_match('^sensor\\.spoolman_spool_\\d+$')
+             or entity_id | regex_match('^sensor\\.p1s_01p00c460102350_ams_[12]_tray_[1-4]$')
+             or entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool'
+             or entity_id | regex_match('^input_text\\.(ams_[12]_tray_[1-4]|external_spool)_spool_override$')
+             or entity_id in [
+               'input_number.desiccant_threshold_yellow_days',
+               'input_number.desiccant_threshold_orange_days',
+               'input_number.desiccant_threshold_red_days'
+             ] }}
+    actions:
+      - delay:
+          seconds: 3
+      - event: spoolman_inventory_cache_refresh
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: spoolman_inventory_cache_refresh
+      - trigger: time_pattern
+        minutes: "/15"
+    sensor: !include_dir_merge_list trigger_template_sensors

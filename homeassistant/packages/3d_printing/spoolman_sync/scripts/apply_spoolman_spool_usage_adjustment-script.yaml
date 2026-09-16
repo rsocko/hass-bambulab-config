@@ -15,16 +15,20 @@ apply_spoolman_spool_usage_adjustment:
 
     - if:
         - condition: template
-          value_template: "{{ spool_id <= 0 }}"
+          value_template: >-
+            {{ spool_id <= 0
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+               or states('sensor.spoolman_spool_' ~ spool_id) | lower
+                  in ['unknown', 'unavailable', 'none', ''] }}
       then:
         - action: persistent_notification.create
           data:
             title: Spool Weight Editor
             message: >-
-              No valid spool ID was provided for adjustment.
-              Open a spool popup and launch the weight editor again.
+              The selected spool is not currently available. No Spoolman write
+              was attempted; retry after Spoolman has recovered.
             notification_id: spoolman_weight_editor_invalid_spool
-        - stop: Invalid spool ID for weight editor
+        - stop: Spoolman or selected spool unavailable
 
     - choose:
         - conditions:

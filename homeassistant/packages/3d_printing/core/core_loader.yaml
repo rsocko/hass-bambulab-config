@@ -10,5 +10,6 @@ recorder:
   exclude:
     entities:
       - sensor.spoolman_filament_totals
+      - sensor.spoolman_tray_map
 
 automation: !include_dir_merge_list automations
