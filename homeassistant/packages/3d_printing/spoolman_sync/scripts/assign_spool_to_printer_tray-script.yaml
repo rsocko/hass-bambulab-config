@@ -74,7 +74,9 @@ assign_spool_to_printer_tray:
       force_write: "{{ force_write | default(false) }}"
       allow_while_printing: "{{ allow_while_printing | default(false) }}"
       spool_entity_ok: >-
-        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true
+        {{ states('sensor.spoolman_health') | lower
+             not in ['unknown', 'unavailable', 'none', '']
+           and state_attr('sensor.spoolman_filament_totals', 'available') is true
            and (resolved_spool_entity_id | string) | length > 0
            and states(resolved_spool_entity_id) | lower not in ['unknown', 'unavailable', 'none', ''] }}
       tray_entity_ok: >-

@@ -34,6 +34,7 @@
         - input_number.desiccant_threshold_yellow_days
         - input_number.desiccant_threshold_orange_days
         - input_number.desiccant_threshold_red_days
+        - sensor.spoolman_health
         - sensor.filament_catalog_metrics
         - sensor.filament_shortage_status
     - trigger: time_pattern
@@ -68,13 +69,12 @@
         # ================================================================
         grouped_entity_ids_json: >-
           {%- set health = states('sensor.spoolman_health') | lower -%}
-          {%- set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') -%}
           {%- set spool_ids = integration_entities('spoolman')
             | select('match', '^sensor\\.spoolman_spool_\\d+$')
-            | list if (not health_registered or health not in ['unknown', 'unavailable', 'none', '']) else [] -%}
+            | list if health not in ['unknown', 'unavailable', 'none', ''] else [] -%}
           {%- set filament_ids = integration_entities('spoolman')
             | select('match', '^sensor\\.spoolman_filament_\\d+$')
-            | list if (not health_registered or health not in ['unknown', 'unavailable', 'none', '']) else [] -%}
+            | list if health not in ['unknown', 'unavailable', 'none', ''] else [] -%}
           {%- set spool_entities = expand(spool_ids)
             | rejectattr('state', 'in', ['unknown', 'unavailable', 'none', ''])
             | list -%}

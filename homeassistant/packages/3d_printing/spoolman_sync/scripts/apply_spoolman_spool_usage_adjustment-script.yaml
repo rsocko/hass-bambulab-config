@@ -17,6 +17,8 @@ apply_spoolman_spool_usage_adjustment:
         - condition: template
           value_template: >-
             {{ spool_id <= 0
+               or states('sensor.spoolman_health') | lower
+                  in ['unknown', 'unavailable', 'none', '']
                or state_attr('sensor.spoolman_filament_totals', 'available') is not true
                or states('sensor.spoolman_spool_' ~ spool_id) | lower
                   in ['unknown', 'unavailable', 'none', ''] }}
@@ -29,6 +31,7 @@ apply_spoolman_spool_usage_adjustment:
               was attempted; retry after Spoolman has recovered.
             notification_id: spoolman_weight_editor_invalid_spool
         - stop: Spoolman or selected spool unavailable
+          error: true
 
     - choose:
         - conditions:

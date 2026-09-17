@@ -36,6 +36,8 @@ manual_spoolman_recovery:
       - condition: template
         value_template: >-
           {{ spool_id == 0 or spool_id is none
+             or states('sensor.spoolman_health') | lower
+                in ['unknown', 'unavailable', 'none', '']
              or state_attr('sensor.spoolman_filament_totals', 'available') is not true
              or states('sensor.spoolman_spool_' ~ spool_id) | lower
                 in ['unknown', 'unavailable', 'none', ''] }}
@@ -66,6 +68,7 @@ manual_spoolman_recovery:
             recovered. No usage write was attempted.
           notification_id: spoolman_manual_recovery_spool_id_required
       - stop: Spool ID or Spoolman unavailable
+        error: true
   
   # Attempt to update the spool
   - action: spoolman.use_spool_filament

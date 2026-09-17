@@ -3,13 +3,11 @@
   unique_id: spoolman_tray_map
   state: >-
     {% set health = states('sensor.spoolman_health') | lower %}
-    {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-    {{ 'degraded' if health_registered and health in ['unknown', 'unavailable', 'none', ''] else 'ok' }}
+    {{ 'degraded' if health in ['unknown', 'unavailable', 'none', ''] else 'ok' }}
   attributes:
     available: >-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {{ not health_registered or health not in ['unknown', 'unavailable', 'none', ''] }}
+      {{ health not in ['unknown', 'unavailable', 'none', ''] }}
     tray_map: >
       {% set trays = {
         'ams_1_tray_1': 'sensor.p1s_01p00c460102350_ams_1_tray_1',
@@ -35,12 +33,10 @@
         'ams_2_tray_4': 'input_text.ams_2_tray_4_spool_override',
         'external_spool': 'input_text.external_spool_spool_override'
       } %}
-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
       {% set spool_entity_ids = integration_entities('spoolman')
         | select('match', '^sensor\\.spoolman_spool_\\d+$')
-        | list if (not health_registered or health not in ['unknown', 'unavailable', 'none', '']) else []
+        | list if health not in ['unknown', 'unavailable', 'none', ''] else []
       %}
       {% set ns_spools = namespace(items=[]) %}
       {% for spool in expand(spool_entity_ids) %}

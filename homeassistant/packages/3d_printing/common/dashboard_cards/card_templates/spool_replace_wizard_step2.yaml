@@ -224,14 +224,16 @@ spool_replace_wizard_step2:
                     ]]]
                   data:
                     sequence:
-                      - service: spoolman.patch_spool
+                      - service: script.guarded_spoolman_patch_spool
                         data:
-                          id: "[[[ return states['input_text.spool_replace_source_spool_id']?.state; ]]]"
-                          remaining_weight: 0
-                      - service: spoolman.patch_spool
+                          spool_id: "[[[ return states['input_text.spool_replace_source_spool_id']?.state; ]]]"
+                          patch:
+                            remaining_weight: 0
+                      - service: script.guarded_spoolman_patch_spool
                         data:
-                          id: "[[[ return states['input_text.spool_replace_source_spool_id']?.state; ]]]"
-                          archived: true
+                          spool_id: "[[[ return states['input_text.spool_replace_source_spool_id']?.state; ]]]"
+                          patch:
+                            archived: true
                       - service: system_log.write
                         data:
                           message: "[[[ return 'Spool Replace: Archived empty spool #' + states['input_text.spool_replace_source_spool_id']?.state + ' (no sealed candidates available)'; ]]]"
