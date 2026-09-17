@@ -10,7 +10,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -69,7 +69,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -128,7 +128,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -187,7 +187,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -246,7 +246,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -305,7 +305,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -364,7 +364,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -423,7 +423,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
@@ -482,7 +482,7 @@
           {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
           {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
           {% if states(entity_id) not in ['unknown', 'unavailable'] %}
-            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }} ({{ state_attr(entity_id, 'location') | default('Unknown', true) | string }})
+            {{ spool_id }} | {{ (state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string)[:96] }} ({{ (state_attr(entity_id, 'location') | default('Unknown', true) | string)[:48] }})
           {% else %}
             {{ spool_id }} | Unknown spool (not currently available)
           {% endif %}
