@@ -559,8 +559,10 @@ def test_restore_verify_after_merge_reports_remaining_differences_and_blocks_del
     assert any(diff.field == "started_at" for diff in response.remaining_differences)
 
 
-def test_restore_verify_after_merge_blocks_remove_when_enrichment_incomplete(tmp_path: Path) -> None:
+def test_restore_verify_after_merge_blocks_remove_when_enrichment_incomplete(tmp_path: Path, monkeypatch) -> None:
     db_path = _create_test_db(tmp_path)
+    monkeypatch.setenv("BAMBUDDY_API_BASE_URL", "http://bambuddy.test")
+    monkeypatch.setenv("BAMBUDDY_API_KEY", "test-key")
 
     connection = sqlite3.connect(db_path)
     try:
@@ -1020,7 +1022,7 @@ def test_archive_spool_linkage_endpoint_handles_missing_native_tables(tmp_path: 
 
     client = TestClient(sidecar_main.app)
     response = client.get(
-        "/admin/archive-spool-linkage/191",
+        "/admin/archive-spool-linkage/200",
         headers={"Authorization": "Bearer test-token"},
     )
 

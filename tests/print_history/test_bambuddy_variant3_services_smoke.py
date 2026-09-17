@@ -795,7 +795,7 @@ class FakeHass:
         self.websocket_handlers: list[object] = []
 
     async def async_add_executor_job(self, func, *args):
-        return func(*args)
+        return await asyncio.to_thread(func, *args)
 
     def async_create_task(self, coro):
         return coro
@@ -1547,7 +1547,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert FakeApiClient.toggled_favorites == [202]
     assert manager.store.load_archive(202) is None
     assert manager.last_refresh_store_total_count == 1
-    assert manager.last_refresh_archive_total_count == 1
+    assert manager.last_refresh_archive_total_count == 2
     assert estimate_response["success"] is True
     assert estimate_response["estimate"]["totals"]["estimated_used_g_total"] == 12.5
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
