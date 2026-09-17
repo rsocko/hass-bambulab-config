@@ -52,7 +52,7 @@ def test_selected_auto_deploy_packages_cover_cross_package_dashboard_views() -> 
     )
 
 
-def test_selected_auto_deploy_packages_include_spoolman_sync() -> None:
+def test_selected_auto_deploy_packages_include_spoolman_hardening_consumers() -> None:
     selected_packages_raw = _read_env_value("AUTO_DEPLOY_SELECTED_PACKAGES")
     assert selected_packages_raw is not None
 
@@ -62,9 +62,11 @@ def test_selected_auto_deploy_packages_include_spoolman_sync() -> None:
         if package.strip()
     }
 
-    assert "spoolman_sync" in selected_packages, (
-        "AUTO_DEPLOY_SELECTED_PACKAGES must include spoolman_sync so auto-deploy "
-        "pushes the spool matching scripts and helpers used by the 3D printing stack."
+    required_packages = {"core", "error_alerts", "filament_catalog", "filament_tag", "spoolman_sync"}
+
+    assert required_packages <= selected_packages, (
+        "AUTO_DEPLOY_SELECTED_PACKAGES must include every package that consumes the "
+        f"Spoolman outage cache; missing: {sorted(required_packages - selected_packages)}"
     )
 
 
