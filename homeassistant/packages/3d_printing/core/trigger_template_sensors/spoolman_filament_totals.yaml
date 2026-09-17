@@ -4,11 +4,21 @@
   state: >-
     {% set health = states('sensor.spoolman_health') | lower %}
     {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-    {{ 'degraded' if health_registered and health in ['unknown', 'unavailable', 'none', ''] else 'ok' }}
+    {% set source_count = integration_entities('spoolman')
+      | select('match', '^sensor\\.spoolman_spool_\\d+$')
+      | list
+      | count %}
+    {{ 'degraded' if health_registered and health in ['unknown', 'unavailable', 'none', '']
+       else 'truncated' if source_count > 1500
+       else 'ok' }}
   attributes:
     available: >-
       {% set health = states('sensor.spoolman_health') | lower %}
       {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
+      {% set source_count = integration_entities('spoolman')
+        | select('match', '^sensor\\.spoolman_spool_\\d+$')
+        | list
+        | count %}
       {{ not health_registered or health not in ['unknown', 'unavailable', 'none', ''] }}
     source_entity_count: >-
       {% set health = states('sensor.spoolman_health') | lower %}
@@ -21,21 +31,53 @@
           | list
           | count }}
       {% endif %}
+    projected_entity_count: >-
+      {% set health = states('sensor.spoolman_health') | lower %}
+      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
+      {% if health_registered and health in ['unknown', 'unavailable', 'none', ''] %}
+        0
+      {% else %}
+        {{ [
+          integration_entities('spoolman')
+            | select('match', '^sensor\\.spoolman_spool_\\d+$')
+            | list
+            | count,
+          1500
+        ] | min }}
+      {% endif %}
+    projection_limit: 1500
+    projection_truncated: >-
+      {% set health = states('sensor.spoolman_health') | lower %}
+      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
+      {{ false if health_registered and health in ['unknown', 'unavailable', 'none', '']
+         else integration_entities('spoolman')
+           | select('match', '^sensor\\.spoolman_spool_\\d+$')
+           | list
+           | count > 1500 }}
+    spool_options_limit: 750
+    spool_options_truncated: >-
+      {% set health = states('sensor.spoolman_health') | lower %}
+      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
+      {{ false if health_registered and health in ['unknown', 'unavailable', 'none', '']
+         else integration_entities('spoolman')
+           | select('match', '^sensor\\.spoolman_spool_\\d+$')
+           | list
+           | count > 750 }}
     spool_options: >-
       {% set ns = namespace(items=[]) %}
       {% set health = states('sensor.spoolman_health') | lower %}
       {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
       {% if not health_registered or health not in ['unknown', 'unavailable', 'none', ''] %}
-        {% set ids = integration_entities('spoolman')
+        {% set ids = (integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
+          | list
+          | sort)[:750] %}
         {% for spool in expand(ids) %}
           {% if spool.state | lower not in ['unknown', 'unavailable', 'none', ''] %}
             {% set ns.items = ns.items + [{
-              'entity_id': spool.entity_id,
               'id': spool.entity_id | replace('sensor.spoolman_spool_', ''),
-              'name': spool.attributes.get('friendly_name', spool.entity_id),
-              'location': spool.attributes.get('location', 'Unknown')
+              'name': (spool.attributes.get('friendly_name') | default(spool.entity_id, true) | string)[:96],
+              'location': (spool.attributes.get('location') | default('Unknown', true) | string)[:48]
             }] %}
           {% endif %}
         {% endfor %}
@@ -46,9 +88,10 @@
       {% set health = states('sensor.spoolman_health') | lower %}
       {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
       {% if not health_registered or health not in ['unknown', 'unavailable', 'none', ''] %}
-        {% set spool_entity_ids = integration_entities('spoolman')
+        {% set spool_entity_ids = (integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
-          | list %}
+          | list
+          | sort)[:1500] %}
         {% for spool in expand(spool_entity_ids) %}
           {% if spool.state | lower not in ['unknown', 'unavailable', 'none', ''] %}
             {% set fid_raw = spool.attributes.get('filament_id') %}
