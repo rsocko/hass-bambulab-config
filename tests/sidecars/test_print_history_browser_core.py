@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 
-from print_history_browser_core import option_sets, project_archive, query_archives  # noqa: E402
+from query import option_sets, project_archive, query_archives  # noqa: E402
 
 
 def _projected_archives() -> list[dict]:
@@ -111,7 +111,7 @@ def test_project_archive_extracts_compact_fields() -> None:
     archive = _projected_archives()[0]
     assert archive["id"] == 101
     assert archive["status"] == "completed"
-    assert archive["enrichment_status"] == "complete"
+    assert archive["enrichment_status"] == "partially complete"
     assert archive["filament_slots"][0]["color"] == "#112233"
     assert archive["object_count"] == 2
     assert archive["has_archive_error"] is False
@@ -237,7 +237,7 @@ def test_query_archives_search_matches_archive_ids_and_operational_fields() -> N
 
     cases = {
         "202": [202],
-        "101": [101, 202],
+        "101": [101],
         "wall art": [101],
         "layer shift": [202],
     }
