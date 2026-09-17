@@ -2,27 +2,32 @@
     - platform: state
       entity_id:
         - sensor.spoolman_filament_totals
+        - sensor.spoolman_health
   variables:
+    spoolman_available: >-
+      {{ states('sensor.spoolman_health') | lower
+           not in ['unknown', 'unavailable', 'none', '']
+         and state_attr('sensor.spoolman_filament_totals', 'available') is true }}
     spool_source_count: >-
-      {{ integration_entities('spoolman')
-         | select('match', '^sensor\\.spoolman_spool_\\d+$')
-         | list
-         | count }}
+      {{ (integration_entities('spoolman')
+           | select('match', '^sensor\\.spoolman_spool_\\d+$')
+           | list
+           | count) if spoolman_available else 0 }}
     spool_ids: >-
-      {{ (integration_entities('spoolman')
-         | select('match', '^sensor\\.spoolman_spool_\\d+$')
-         | list
-         | sort)[:500] }}
+      {{ ((integration_entities('spoolman')
+           | select('match', '^sensor\\.spoolman_spool_\\d+$')
+           | list
+           | sort)[:500]) if spoolman_available else [] }}
     filament_source_count: >-
-      {{ integration_entities('spoolman')
-         | select('match', '^sensor\\.spoolman_filament_\\d+$')
-         | list
-         | count }}
-    filament_ids: >-
       {{ (integration_entities('spoolman')
-         | select('match', '^sensor\\.spoolman_filament_\\d+$')
-         | list
-         | sort)[:500] }}
+           | select('match', '^sensor\\.spoolman_filament_\\d+$')
+           | list
+           | count) if spoolman_available else 0 }}
+    filament_ids: >-
+      {{ ((integration_entities('spoolman')
+           | select('match', '^sensor\\.spoolman_filament_\\d+$')
+           | list
+           | sort)[:500]) if spoolman_available else [] }}
   sensor:
     - name: Filament Catalog Metrics
       unique_id: filament_catalog_metrics

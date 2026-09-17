@@ -41,6 +41,8 @@ spool_replace_execute:
         - condition: template
           value_template: >-
             {{ src_id <= 0 or tgt_id <= 0
+               or states('sensor.spoolman_health') | lower
+                  in ['unknown', 'unavailable', 'none', '']
                or state_attr('sensor.spoolman_filament_totals', 'available') is not true
                or states(src_entity) | lower in ['unknown', 'unavailable', 'none', '']
                or states(tgt_entity) | lower in ['unknown', 'unavailable', 'none', ''] }}
@@ -53,6 +55,7 @@ spool_replace_execute:
               attempted; retry after the integration has recovered.
             notification_id: spool_replace_error
         - stop: Invalid spool IDs
+          error: true
 
     # --- Step 1: Reset source spool weight to 0 ---
     - action: spoolman.patch_spool

@@ -8,7 +8,9 @@ find_matching_spool_in_spoolman:
   - if:
       - condition: template
         value_template: >-
-          {{ state_attr('sensor.spoolman_filament_totals', 'available') is not true }}
+          {{ states('sensor.spoolman_health') | lower
+               in ['unknown', 'unavailable', 'none', '']
+             or state_attr('sensor.spoolman_filament_totals', 'available') is not true }}
     then:
       - variables:
           response_object:

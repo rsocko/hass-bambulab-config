@@ -16,6 +16,12 @@ TOTALS_TEMPLATE = (
     / "trigger_template_sensors"
     / "spoolman_filament_totals.yaml"
 )
+TRAY_MAP_TEMPLATE = (
+    PACKAGES
+    / "core"
+    / "trigger_template_sensors"
+    / "spoolman_tray_map.yaml"
+)
 METRICS_TEMPLATE = (
     PACKAGES
     / "filament_catalog"
@@ -41,6 +47,8 @@ class FakeState:
 
 def _template_source(attribute):
     sensors = yaml.safe_load(TOTALS_TEMPLATE.read_text(encoding="utf-8"))
+    if attribute == "state":
+        return sensors[0]["state"]
     return sensors[0]["attributes"][attribute]
 
 
@@ -78,7 +86,12 @@ def _render_projection(attribute, health, spool_states, health_registered=True):
         integration_entities=integration_entities,
         expand=expand,
     )
-    return ast.literal_eval(rendered.strip()), expand_calls
+    rendered = rendered.strip()
+    try:
+        value = ast.literal_eval(rendered)
+    except (SyntaxError, ValueError):
+        value = rendered
+    return value, expand_calls
 
 
 def _render_totals(health, spool_states, health_registered=True):
@@ -87,7 +100,12 @@ def _render_totals(health, spool_states, health_registered=True):
     )
 
 
-def _render_metric_variables(spool_count, filament_count):
+def _render_metric_variables(
+    spool_count,
+    filament_count,
+    health="ok",
+    cache_available=True,
+):
     config = yaml.safe_load(METRICS_TEMPLATE.read_text(encoding="utf-8"))[0]
     variables = config["variables"]
     entity_ids = [
@@ -106,6 +124,19 @@ def _render_metric_variables(spool_count, filament_count):
     for name, source in variables.items():
         rendered[name] = environment.from_string(source).render(
             integration_entities=lambda domain: entity_ids,
+            states=lambda entity_id: (
+                health
+                if entity_id == "sensor.spoolman_health"
+                else "unknown"
+            ),
+            state_attr=lambda entity_id, attribute: (
+                cache_available
+                if (
+                    entity_id == "sensor.spoolman_filament_totals"
+                    and attribute == "available"
+                )
+                else None
+            ),
             **rendered,
         )
     return variables, rendered
@@ -215,19 +246,110 @@ def test_totals_template_handles_empty_inventory_and_recovery():
     assert recovered_totals["22"]["weight"] == 75
 
 
-def test_totals_template_supports_integrations_without_health_entity():
-    totals, _ = _render_totals(
-        "unknown",
-        [
-            FakeState(
-                "sensor.spoolman_spool_9",
-                attributes={"filament_id": 30, "remaining_weight": 25},
-            )
-        ],
+def test_runtime_only_unavailable_health_degrades_and_clears_projections():
+    stale_spools = [
+        FakeState(
+            "sensor.spoolman_spool_9",
+            attributes={"filament_id": 30, "remaining_weight": 25},
+        )
+    ]
+
+    state, _ = _render_projection(
+        "state", "unavailable", stale_spools, health_registered=False
+    )
+    available, _ = _render_projection(
+        "available", "unavailable", stale_spools, health_registered=False
+    )
+    source_count, _ = _render_projection(
+        "source_entity_count",
+        "unavailable",
+        stale_spools,
+        health_registered=False,
+    )
+    projected_count, _ = _render_projection(
+        "projected_entity_count",
+        "unavailable",
+        stale_spools,
+        health_registered=False,
+    )
+    options, options_expand_calls = _render_projection(
+        "spool_options",
+        "unavailable",
+        stale_spools,
+        health_registered=False,
+    )
+    totals, totals_expand_calls = _render_totals(
+        "unavailable",
+        stale_spools,
         health_registered=False,
     )
 
-    assert totals["30"]["weight"] == 25
+    assert state == "degraded"
+    assert available is False
+    assert source_count == 0
+    assert projected_count == 0
+    assert options == []
+    assert totals == {}
+    assert options_expand_calls == []
+    assert totals_expand_calls == []
+
+
+def test_runtime_only_unavailable_health_suppresses_tray_inventory():
+    config = yaml.safe_load(TRAY_MAP_TEMPLATE.read_text(encoding="utf-8"))[0]
+    state_source = config["state"]
+    available_source = config["attributes"]["available"]
+    tray_map_source = config["attributes"]["tray_map"]
+    selection = re.search(
+        r"({% set health = states\('sensor\.spoolman_health'\).*?"
+        r"{% set spool_entity_ids = .*?%})",
+        tray_map_source,
+        re.DOTALL,
+    )
+    assert selection is not None
+
+    environment = NativeEnvironment(undefined=jinja2.StrictUndefined)
+    environment.tests["match"] = lambda value, pattern: (
+        re.match(pattern, value) is not None
+    )
+    context = {
+        "states": lambda entity_id: (
+            "unavailable"
+            if entity_id == "sensor.spoolman_health"
+            else "ok"
+        ),
+        "integration_entities": lambda domain: [
+            "sensor.spoolman_spool_182",
+            "sensor.spoolman_spool_215",
+        ],
+    }
+
+    assert environment.from_string(state_source).render(**context).strip() == "degraded"
+    assert (
+        environment.from_string(available_source).render(**context).strip()
+        == "False"
+    )
+    selected_ids = environment.from_string(
+        selection.group(1) + "{{ spool_entity_ids }}"
+    ).render(**context)
+    assert ast.literal_eval(selected_ids.strip()) == []
+
+
+def test_catalog_filter_reacts_immediately_to_runtime_health_changes():
+    config = yaml.safe_load(
+        (
+            PACKAGES
+            / "filament_catalog"
+            / "template_sensors"
+            / "template_sensor_filament_catalog_filter.yaml"
+        ).read_text(encoding="utf-8")
+    )[0]
+    state_trigger = next(
+        trigger
+        for trigger in config["triggers"]
+        if trigger.get("trigger") == "state"
+    )
+
+    assert "sensor.spoolman_health" in state_trigger["entity_id"]
 
 
 def test_spoolman_projection_payloads_stay_below_home_assistant_limit():
@@ -312,6 +434,24 @@ def test_metrics_trigger_variables_never_render_full_state_objects():
         len(str(value).encode()) < SAFE_RENDERED_SIZE
         for value in boundary_rendered.values()
     )
+
+
+def test_metrics_clear_stale_entities_on_runtime_only_health_outage():
+    variables, rendered = _render_metric_variables(
+        184,
+        184,
+        health="unavailable",
+        cache_available=True,
+    )
+    config = yaml.safe_load(METRICS_TEMPLATE.read_text(encoding="utf-8"))[0]
+    trigger_entities = config["trigger"][0]["entity_id"]
+
+    assert "sensor.spoolman_health" in trigger_entities
+    assert rendered["spoolman_available"] is False
+    assert rendered["spool_source_count"] == 0
+    assert rendered["spool_ids"] == []
+    assert rendered["filament_source_count"] == 0
+    assert rendered["filament_ids"] == []
 
 
 def test_metrics_large_list_outputs_are_bounded_and_report_truncation():
@@ -419,6 +559,7 @@ def test_pin_selector_state_uses_the_same_bounded_labels_as_options():
 def test_service_guards_preserve_explicit_unavailable_value():
     guarded_files = [
         PACKAGES / "filament_tag" / "scripts" / "update_spool_location-script.yaml",
+        PACKAGES / "spoolman_sync" / "automations" / "active_tray_changed_update_spoolman.yaml",
         PACKAGES / "spoolman_sync" / "automations" / "print_complete-update_filament_usage.yaml",
         PACKAGES / "spoolman_sync" / "scripts" / "spool_replace_execute-script.yaml",
         PACKAGES / "print_history" / "scripts" / "reenrich_print_history_archive.yaml",
@@ -434,3 +575,175 @@ def test_service_guards_preserve_explicit_unavailable_value():
         "state_attr('sensor.spoolman_filament_totals', 'available') is not true"
         in content
     )
+
+
+def _render_writer_guard(source, **variables):
+    def states(entity_id):
+        if entity_id == "sensor.spoolman_health":
+            return "unavailable"
+        return "ok"
+
+    rendered = NativeEnvironment(undefined=jinja2.StrictUndefined).from_string(
+        source
+    ).render(
+        states=states,
+        state_attr=lambda entity_id, attribute: (
+            True
+            if (
+                entity_id == "sensor.spoolman_filament_totals"
+                and attribute == "available"
+            )
+            else None
+        ),
+        **variables,
+    )
+    return rendered is True or str(rendered).strip().lower() == "true"
+
+
+def _spoolman_write_services(value):
+    services = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in {"action", "service"} and isinstance(child, str):
+                if child.startswith("spoolman.") or child.startswith(
+                    "rest_command.spoolman_patch_"
+                ):
+                    services.append(child)
+            services.extend(_spoolman_write_services(child))
+    elif isinstance(value, list):
+        for child in value:
+            services.extend(_spoolman_write_services(child))
+    return services
+
+
+def test_runtime_health_blocks_observed_writers_with_stale_healthy_cache():
+    active_tray = yaml.safe_load(
+        (
+            PACKAGES
+            / "spoolman_sync"
+            / "automations"
+            / "active_tray_changed_update_spoolman.yaml"
+        ).read_text(encoding="utf-8")
+    )[0]
+    update_last_used = yaml.safe_load(
+        (
+            PACKAGES
+            / "spoolman_sync"
+            / "scripts"
+            / "update_spool_last_and_first_used-script.yaml"
+        ).read_text(encoding="utf-8")
+    )["update_spool_last_and_first_used"]
+
+    automation_guard = active_tray["conditions"][0]["value_template"]
+    script_rejection = update_last_used["sequence"][0]
+    script_guard = script_rejection["if"][0]["value_template"]
+    assert _spoolman_write_services(active_tray["actions"])
+    assert _spoolman_write_services(update_last_used["sequence"])
+
+    automation_calls = (
+        _spoolman_write_services(active_tray["actions"])
+        if _render_writer_guard(automation_guard)
+        else []
+    )
+    script_calls = (
+        []
+        if _render_writer_guard(script_guard, spool={"id": 215})
+        else _spoolman_write_services(update_last_used["sequence"])
+    )
+
+    assert automation_calls == []
+    assert script_calls == []
+    assert script_rejection["then"][0]["error"] is True
+
+
+def test_guarded_dashboard_writers_block_stale_outage_actions():
+    writers = yaml.safe_load(
+        (
+            PACKAGES
+            / "spoolman_sync"
+            / "scripts"
+            / "guarded_spoolman_writes-script.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    spool_writer = writers["guarded_spoolman_patch_spool"]["sequence"]
+    filament_writer = writers[
+        "guarded_spoolman_patch_filament_extra"
+    ]["sequence"]
+
+    assert _spoolman_write_services(spool_writer) == [
+        "spoolman.patch_spool"
+    ]
+    assert _spoolman_write_services(filament_writer) == [
+        "rest_command.spoolman_patch_filament_extra"
+    ]
+    assert _render_writer_guard(
+        spool_writer[0]["if"][0]["value_template"],
+        spool_id=182,
+        patch={"archived": True},
+    )
+    assert _render_writer_guard(
+        filament_writer[0]["if"][0]["value_template"],
+        filament_id=30,
+        extra={"purchase_qty": "2"},
+    )
+    assert spool_writer[0]["then"][0]["error"] is True
+    assert filament_writer[0]["then"][0]["error"] is True
+    assert filament_writer[1]["response_variable"] == "patch_response"
+    assert filament_writer[2]["then"][0]["error"] is True
+
+
+def test_all_server_side_spoolman_writers_check_runtime_health_first():
+    roots = [
+        PACKAGES / "filament_tag" / "scripts",
+        PACKAGES / "spoolman_sync" / "automations",
+        PACKAGES / "spoolman_sync" / "scripts",
+    ]
+    write_pattern = re.compile(
+        r"(?:action|service):\s*"
+        r"(?:spoolman\.(?:patch_spool|use_spool_filament)"
+        r"|rest_command\.spoolman_patch_(?:spool|filament)_extra)"
+    )
+    unguarded = []
+
+    for root in roots:
+        for path in root.glob("*.yaml"):
+            content = path.read_text(encoding="utf-8")
+            first_write = write_pattern.search(content)
+            if first_write is None:
+                continue
+            health_check = content.find("states('sensor.spoolman_health')")
+            if health_check < 0 or health_check > first_write.start():
+                unguarded.append(path.relative_to(ROOT).as_posix())
+
+    assert unguarded == []
+
+
+def test_dashboards_use_guarded_spoolman_writer_scripts():
+    dashboard_root = PACKAGES / "common" / "dashboard_cards"
+    direct_write_pattern = re.compile(
+        r"(?:service|action):\s*['\"]?"
+        r"(?:spoolman\.(?:patch_spool|use_spool_filament)"
+        r"|rest_command\.spoolman_patch_(?:spool|filament)_extra)"
+    )
+    offenders = [
+        path.relative_to(ROOT).as_posix()
+        for path in dashboard_root.rglob("*.yaml")
+        if direct_write_pattern.search(path.read_text(encoding="utf-8"))
+    ]
+
+    assert offenders == []
+
+
+def test_health_authority_does_not_depend_on_entity_registry_membership():
+    active_yaml = [
+        path
+        for path in PACKAGES.rglob("*.yaml")
+        if "backups" not in path.parts
+    ]
+    offenders = [
+        path.relative_to(ROOT).as_posix()
+        for path in active_yaml
+        if "health_registered" in path.read_text(encoding="utf-8")
+    ]
+
+    assert offenders == []

@@ -47,6 +47,8 @@ spool_unseal_setup:
         - condition: template
           value_template: >-
             {{ tgt_id <= 0
+               or states('sensor.spoolman_health') | lower
+                  in ['unknown', 'unavailable', 'none', '']
                or state_attr('sensor.spoolman_filament_totals', 'available') is not true
                or states(tgt_entity) | lower in ['unknown', 'unavailable', 'none', '']
                or (has_source and states(src_entity) | lower
@@ -60,6 +62,7 @@ spool_unseal_setup:
               attempted; retry after the integration has recovered.
             notification_id: spool_unseal_error
         - stop: Invalid target spool ID
+          error: true
 
     # --- Step 1: Reset source spool weight to 0 (if linked) ---
     - if:

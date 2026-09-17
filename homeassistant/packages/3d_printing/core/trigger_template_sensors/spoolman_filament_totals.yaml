@@ -3,27 +3,20 @@
   unique_id: spoolman_filament_totals
   state: >-
     {% set health = states('sensor.spoolman_health') | lower %}
-    {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
     {% set source_count = integration_entities('spoolman')
       | select('match', '^sensor\\.spoolman_spool_\\d+$')
       | list
       | count %}
-    {{ 'degraded' if health_registered and health in ['unknown', 'unavailable', 'none', '']
+    {{ 'degraded' if health in ['unknown', 'unavailable', 'none', '']
        else 'truncated' if source_count > 1500
        else 'ok' }}
   attributes:
     available: >-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {% set source_count = integration_entities('spoolman')
-        | select('match', '^sensor\\.spoolman_spool_\\d+$')
-        | list
-        | count %}
-      {{ not health_registered or health not in ['unknown', 'unavailable', 'none', ''] }}
+      {{ health not in ['unknown', 'unavailable', 'none', ''] }}
     source_entity_count: >-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {% if health_registered and health in ['unknown', 'unavailable', 'none', ''] %}
+      {% if health in ['unknown', 'unavailable', 'none', ''] %}
         0
       {% else %}
         {{ integration_entities('spoolman')
@@ -33,8 +26,7 @@
       {% endif %}
     projected_entity_count: >-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {% if health_registered and health in ['unknown', 'unavailable', 'none', ''] %}
+      {% if health in ['unknown', 'unavailable', 'none', ''] %}
         0
       {% else %}
         {{ [
@@ -48,8 +40,7 @@
     projection_limit: 1500
     projection_truncated: >-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {{ false if health_registered and health in ['unknown', 'unavailable', 'none', '']
+      {{ false if health in ['unknown', 'unavailable', 'none', '']
          else integration_entities('spoolman')
            | select('match', '^sensor\\.spoolman_spool_\\d+$')
            | list
@@ -57,8 +48,7 @@
     spool_options_limit: 750
     spool_options_truncated: >-
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {{ false if health_registered and health in ['unknown', 'unavailable', 'none', '']
+      {{ false if health in ['unknown', 'unavailable', 'none', '']
          else integration_entities('spoolman')
            | select('match', '^sensor\\.spoolman_spool_\\d+$')
            | list
@@ -66,8 +56,7 @@
     spool_options: >-
       {% set ns = namespace(items=[]) %}
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {% if not health_registered or health not in ['unknown', 'unavailable', 'none', ''] %}
+      {% if health not in ['unknown', 'unavailable', 'none', ''] %}
         {% set ids = (integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list
@@ -86,8 +75,7 @@
     totals: >
       {% set ns = namespace(result={}) %}
       {% set health = states('sensor.spoolman_health') | lower %}
-      {% set health_registered = 'sensor.spoolman_health' in integration_entities('spoolman') %}
-      {% if not health_registered or health not in ['unknown', 'unavailable', 'none', ''] %}
+      {% if health not in ['unknown', 'unavailable', 'none', ''] %}
         {% set spool_entity_ids = (integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list

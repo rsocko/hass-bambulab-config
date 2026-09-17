@@ -1,9 +1,19 @@
 # Docs: docs/features/filament_tag/README.md
 mark_spool_as_dried_in_spoolman:
   sequence:
-    - condition: template
-      value_template: >-
-        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
+    - if:
+        - condition: template
+          value_template: >-
+            {% set id = spool_id | default(0) | int(0) %}
+            {{ id <= 0
+               or states('sensor.spoolman_health') | lower
+                  in ['unknown', 'unavailable', 'none', '']
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+               or states('sensor.spoolman_spool_' ~ id) | lower
+                  in ['unknown', 'unavailable', 'none', ''] }}
+      then:
+        - stop: Spoolman or target spool unavailable
+          error: true
     - action: spoolman.patch_spool
       metadata: {}
       data:

@@ -1,0 +1,68 @@
+# Docs: docs/features/spoolman_sync/README.md
+guarded_spoolman_patch_spool:
+  alias: Guarded Spoolman Patch Spool
+  description: >-
+    Applies a dashboard-requested spool patch only while the live Spoolman
+    health and target entity are available.
+  fields:
+    spool_id:
+      required: true
+    patch:
+      required: true
+  sequence:
+    - if:
+        - condition: template
+          value_template: >-
+            {% set id = spool_id | default(0) | int(0) %}
+            {{ id <= 0
+               or states('sensor.spoolman_health') | lower
+                  in ['unknown', 'unavailable', 'none', '']
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+               or states('sensor.spoolman_spool_' ~ id) | lower
+                  in ['unknown', 'unavailable', 'none', ''] }}
+      then:
+        - stop: Spoolman or target spool unavailable
+          error: true
+    - action: spoolman.patch_spool
+      data: >-
+        {{ (patch | default({}, true))
+           | combine({'id': spool_id | int(0)})
+           | tojson | from_json }}
+
+guarded_spoolman_patch_filament_extra:
+  alias: Guarded Spoolman Patch Filament Extra
+  description: >-
+    Applies a dashboard-requested filament extra patch only while the live
+    Spoolman health and target entity are available.
+  fields:
+    filament_id:
+      required: true
+    extra:
+      required: true
+  sequence:
+    - if:
+        - condition: template
+          value_template: >-
+            {% set id = filament_id | default(0) | int(0) %}
+            {{ id <= 0
+               or states('sensor.spoolman_health') | lower
+                  in ['unknown', 'unavailable', 'none', '']
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true
+               or states('sensor.spoolman_filament_' ~ id) | lower
+                  in ['unknown', 'unavailable', 'none', ''] }}
+      then:
+        - stop: Spoolman or target filament unavailable
+          error: true
+    - action: rest_command.spoolman_patch_filament_extra
+      data:
+        filament_id: "{{ filament_id | int(0) }}"
+        extra: "{{ extra }}"
+      response_variable: patch_response
+    - if:
+        - condition: template
+          value_template: >-
+            {% set status = patch_response.status | default(0) | int(0) %}
+            {{ status < 200 or status >= 300 }}
+      then:
+        - stop: Spoolman rejected the filament update
+          error: true

@@ -9,9 +9,15 @@ retry_all_deferred_tray_assignments:
   icon: mdi:refresh-auto
   mode: single
   sequence:
-    - condition: template
-      value_template: >-
-        {{ state_attr('sensor.spoolman_filament_totals', 'available') is true }}
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('sensor.spoolman_health') | lower
+                 in ['unknown', 'unavailable', 'none', '']
+               or state_attr('sensor.spoolman_filament_totals', 'available') is not true }}
+      then:
+        - stop: Spoolman unavailable
+          error: true
     - repeat:
         while:
           - condition: template

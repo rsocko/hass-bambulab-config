@@ -59,7 +59,7 @@ catalog_filament_popup:
             data: {
               sequence: [
                 {
-                  service: 'rest_command.spoolman_patch_filament_extra',
+                  service: 'script.guarded_spoolman_patch_filament_extra',
                   data: {
                     filament_id: filamentIdInt,
                     extra: nextFilamentExtra

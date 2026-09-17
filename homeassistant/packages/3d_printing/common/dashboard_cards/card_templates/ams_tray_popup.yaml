@@ -814,7 +814,7 @@ ams_tray_popup:
             data: {
               sequence: [
                 {
-                  service: 'rest_command.spoolman_patch_filament_extra',
+                  service: 'script.guarded_spoolman_patch_filament_extra',
                   data: {
                     filament_id: filamentIdInt,
                     extra: nextFilamentExtra
@@ -1338,10 +1338,10 @@ ams_tray_popup:
                                 data: {
                                   sequence: [
                                     {
-                                      service: 'spoolman.patch_spool',
+                                      service: 'script.guarded_spoolman_patch_spool',
                                       data: {
-                                        id: spoolIdInt,
-                                        extra: { spool_uuid: trayUUIDRaw }
+                                        spool_id: spoolIdInt,
+                                        patch: { extra: { spool_uuid: trayUUIDRaw } }
                                       }
                                     },
                                     {
@@ -1700,8 +1700,11 @@ ams_tray_popup:
                           show_background: true,
                           tap_action: {
                             action: 'call-service',
-                            service: 'spoolman.patch_spool',
-                            service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
+                            service: 'script.guarded_spoolman_patch_spool',
+                            service_data: {
+                              spool_id: spoolIdInt,
+                              patch: { extra: { desiccant_filled: nowISO } }
+                            }
                           }
                         }
                       ],
@@ -1817,4 +1820,3 @@ ams_tray_popup:
         }
       };
     ]]]
-
